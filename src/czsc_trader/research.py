@@ -17,6 +17,7 @@ import pandas as pd
 
 from .audit import audit_no_lookahead
 from .backtest import PeriodBacktestResult, run_period_backtests
+from .charting import DIVERGENCE_CONFIG, write_period_chart
 from .data import SYMBOL, load_market_data
 from .factors import generate_factor_frame
 from .walk_forward import CANDIDATES, apply_completed_q1_alpha_lock, run_walk_forward
@@ -68,6 +69,7 @@ def _render_report(
     unknown_values: dict[str, int],
     selections: pd.DataFrame,
     alpha_locks: pd.DataFrame,
+    chart_files: list[str],
 ) -> str:
     lines = [
         "# 588080 CZSC 多因子滚动策略研究结果",
@@ -112,6 +114,10 @@ def _render_report(
         [
             "",
             "每个周期均以100万元现金、零持仓独立启动；首日开盘只执行上一交易日已经形成的信号。Buy & Hold 同样在首日开盘独立买入并计入手续费。",
+            "",
+            "## 交互式日线图",
+            "",
+            *[f"- [{name.removeprefix('chart_').removesuffix('.html')}]({name})" for name in chart_files],
             "",
             "## 无前视审计",
             "",
@@ -190,6 +196,19 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     factor_output.index.name = "dt"
     windows = {name: result.metrics for name, result in period_results.items()}
     metrics_payload = {"windows": windows, "audit": audit}
+    chart_files: list[str] = []
+    for name, result in period_results.items():
+        file_name = f"chart_{name}.html"
+        write_period_chart(
+            data.daily,
+            factor_output,
+            result.orders,
+            pd.Timestamp(str(result.metrics["start"])),
+            pd.Timestamp(str(result.metrics["end"])),
+            f"588080 {name} · CZSC结构、因子信号与策略交易",
+            output_dir / file_name,
+        )
+        chart_files.append(file_name)
     candidate_json = json.dumps([asdict(rule) for rule in CANDIDATES], sort_keys=True, ensure_ascii=False)
     manifest = {
         "audit_status": audit["status"],
@@ -200,6 +219,12 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         "period_start_policy": "independent cash portfolio; prior-day signal may execute at first open",
         "alpha_lock_policy": "positive Q1 excess with at least 252 prior sessions locks long through year-end",
         "alpha_lock_events": int(len(alpha_lock.events)),
+        "charts": {
+            "files": chart_files,
+            "plotly": version("plotly"),
+            "divergence_signals": [str(config["name"]) for config in DIVERGENCE_CONFIG],
+            "data_policy": "warm-up allowed before period start; no bars after period end",
+        },
         "raw_sha256": data.hashes,
         "candidate_space_sha256": sha256(candidate_json.encode("utf-8")).hexdigest(),
         "versions": {
@@ -208,6 +233,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
             "vectorbt": version("vectorbt"),
             "pandas": version("pandas"),
             "numpy": version("numpy"),
+            "plotly": version("plotly"),
         },
     }
 
@@ -238,6 +264,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
             factor_result.unknown_values,
             walk.selections,
             alpha_lock.events,
+            chart_files,
         ),
     )
     _atomic_text(output_dir / "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))

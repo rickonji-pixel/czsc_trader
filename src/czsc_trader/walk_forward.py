@@ -47,11 +47,14 @@ class WalkForwardResult:
 
 
 @dataclass(frozen=True)
-class AlphaLockResult:
-    """Target positions after causal benchmark-alpha preservation."""
+class FixedSelectionResult:
+    """One fixed CZSC factor rule and its fully auditable decisions."""
 
     target_position: pd.Series
+    scores: pd.Series
     events: pd.DataFrame
+    candidates: pd.DataFrame
+    rule: Rule
 
 
 def positions_for_rule(factors: pd.DataFrame, rule: Rule) -> tuple[pd.Series, pd.Series]:
@@ -81,6 +84,164 @@ def positions_for_rule(factors: pd.DataFrame, rule: Rule) -> tuple[pd.Series, pd
         pd.Series(positions, index=factors.index, name="target_position", dtype=float),
         pd.Series(scores, index=factors.index, name="factor_score", dtype=float),
     )
+
+
+def build_factor_events(
+    target_position: pd.Series,
+    scores: pd.Series,
+    factors: pd.DataFrame,
+    rule: Rule,
+) -> pd.DataFrame:
+    """Describe every position transition using only its CZSC factor snapshot."""
+    target = target_position.astype(float)
+    previous = target.shift(1, fill_value=0.0)
+    rows: list[dict[str, object]] = []
+    for signal_date in target.index[target.ne(previous)]:
+        after = float(target.loc[signal_date])
+        event_type = "Entry" if after == 1.0 else "Exit"
+        score = float(scores.loc[signal_date])
+        rows.append(
+            {
+                "event_id": f"Factor:{pd.Timestamp(signal_date):%Y%m%d}:{event_type}",
+                "signal_date": pd.Timestamp(signal_date),
+                "event_type": event_type,
+                "structure": float(factors.loc[signal_date, "structure"]),
+                "trend": float(factors.loc[signal_date, "trend"]),
+                "volume_position": float(factors.loc[signal_date, "volume_position"]),
+                "factor_score": score,
+                "enter_threshold": float(rule.enter),
+                "exit_threshold": float(rule.exit),
+                "before_position": float(previous.loc[signal_date]),
+                "after_position": after,
+                "reason": (
+                    f"score {score:.6f} >= enter {rule.enter:.6f}"
+                    if event_type == "Entry"
+                    else f"score {score:.6f} <= exit {rule.exit:.6f}"
+                ),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _normalize_daily(daily: pd.DataFrame) -> pd.DataFrame:
+    prices = daily.copy()
+    if "dt" in prices.columns:
+        prices = prices.set_index("dt")
+    prices.index = pd.DatetimeIndex(pd.to_datetime(prices.index), name="dt")
+    return prices.sort_index()
+
+
+def _period_candidate_metrics(
+    prices: pd.DataFrame,
+    target: pd.Series,
+    requested_start: pd.Timestamp,
+    requested_end: pd.Timestamp,
+    fee_rate: float,
+) -> dict[str, float | int]:
+    index = prices.index[
+        (prices.index >= pd.Timestamp(requested_start))
+        & (prices.index <= pd.Timestamp(requested_end))
+    ]
+    if len(index) == 0:
+        raise ValueError("candidate period contains no prices")
+    prior = prices.index[prices.index < index[0]]
+    if len(prior) == 0:
+        raise ValueError("candidate period has no prior factor signal")
+    execution = target.loc[index].shift(1)
+    execution.iloc[0] = float(target.loc[prior[-1]])
+    cash = 1.0
+    shares = 0.0
+    previous_target = 0.0
+    values: list[float] = []
+    changes = 0
+    for dt in index:
+        desired = float(execution.loc[dt])
+        open_price = float(prices.loc[dt, "open"])
+        if desired != previous_target:
+            changes += 1
+            if desired == 1.0:
+                shares = cash / (open_price * (1.0 + fee_rate))
+                cash = 0.0
+            else:
+                cash = shares * open_price * (1.0 - fee_rate)
+                shares = 0.0
+            previous_target = desired
+        values.append(cash + shares * float(prices.loc[dt, "close"]))
+    curve = pd.Series(values, index=index)
+    strategy_return = float(curve.iloc[-1] - 1.0)
+    buyhold_return = float(
+        float(prices.loc[index[-1], "close"])
+        / (float(prices.loc[index[0], "open"]) * (1.0 + fee_rate))
+        - 1.0
+    )
+    return {
+        "strategy_return": strategy_return,
+        "buyhold_return": buyhold_return,
+        "excess_return": strategy_return - buyhold_return,
+        "drawdown": float((curve / curve.cummax() - 1.0).min()),
+        "changes": changes,
+        "days": len(index),
+    }
+
+
+def rank_candidate_results(candidates: pd.DataFrame) -> pd.DataFrame:
+    """Rank fixed rules by cross-period robustness before secondary metrics."""
+    return candidates.sort_values(
+        ["pass_count", "min_excess", "mean_excess", "turnover", "max_drawdown", "complexity", "rule_id"],
+        ascending=[False, False, False, True, False, True, True],
+        kind="stable",
+    ).reset_index(drop=True)
+
+
+def _rule_id(rule: Rule) -> str:
+    weights = "-".join(f"{value:.2f}" for value in rule.weights)
+    return f"w{weights}_en{rule.enter:.2f}_ex{rule.exit:.2f}_c{rule.confirm_days}_h{rule.min_hold_days}"
+
+
+def select_fixed_rule(
+    daily: pd.DataFrame,
+    factors: pd.DataFrame,
+    periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]],
+    fee_rate: float = 0.0005,
+) -> FixedSelectionResult:
+    """Select one fixed CZSC-only rule using the declared target-period objective."""
+    prices = _normalize_daily(daily)
+    aligned = factors.loc[:, FACTOR_COLUMNS].reindex(prices.index).fillna(0.0)
+    rows: list[dict[str, object]] = []
+    targets: dict[str, tuple[Rule, pd.Series, pd.Series]] = {}
+    for rule in CANDIDATES:
+        target, scores = positions_for_rule(aligned, rule)
+        rule_id = _rule_id(rule)
+        targets[rule_id] = (rule, target, scores)
+        metrics = {
+            name: _period_candidate_metrics(prices, target, start, end, fee_rate)
+            for name, (start, end) in periods.items()
+        }
+        excesses = [float(item["excess_return"]) for item in metrics.values()]
+        row: dict[str, object] = {
+            "rule_id": rule_id,
+            "weights": "|".join(f"{value:.2f}" for value in rule.weights),
+            "enter": rule.enter,
+            "exit": rule.exit,
+            "confirm_days": rule.confirm_days,
+            "min_hold_days": rule.min_hold_days,
+            "pass_count": sum(value > 0.0 for value in excesses),
+            "min_excess": min(excesses),
+            "mean_excess": float(np.mean(excesses)),
+            "turnover": sum(int(item["changes"]) for item in metrics.values())
+            / max(sum(int(item["days"]) for item in metrics.values()), 1),
+            "max_drawdown": min(float(item["drawdown"]) for item in metrics.values()),
+            "complexity": rule.confirm_days + rule.min_hold_days,
+        }
+        for name, item in metrics.items():
+            row[f"{name}_strategy_return"] = item["strategy_return"]
+            row[f"{name}_buyhold_return"] = item["buyhold_return"]
+            row[f"{name}_excess_return"] = item["excess_return"]
+        rows.append(row)
+    ranked = rank_candidate_results(pd.DataFrame(rows))
+    selected_rule, target, scores = targets[str(ranked.iloc[0]["rule_id"])]
+    events = build_factor_events(target, scores, aligned, selected_rule)
+    return FixedSelectionResult(target, scores, events, ranked, selected_rule)
 
 
 def _simulate_rule(
@@ -219,90 +380,3 @@ def run_walk_forward(
     return WalkForwardResult(target, scores, pd.DataFrame(selections))
 
 
-def apply_annual_alpha_lock(
-    daily: pd.DataFrame,
-    base_target: pd.Series,
-    base_equity: pd.Series,
-    *,
-    min_history: int = 252,
-) -> AlphaLockResult:
-    """Lock in positive Q1 benchmark alpha by tracking the asset through year-end.
-
-    The decision is stamped on the final completed Q1 session, so the changed
-    target can only execute at the following session's open.
-    """
-    prices = daily.copy()
-    if "dt" in prices.columns:
-        prices = prices.set_index("dt")
-    prices.index = pd.DatetimeIndex(pd.to_datetime(prices.index), name="dt")
-    prices = prices.sort_index()
-    target = base_target.reindex(prices.index).astype(float).copy()
-    equity = base_equity.reindex(prices.index).astype(float)
-    events: list[dict[str, object]] = []
-
-    for year in sorted(prices.index.year.unique()):
-        year_start = pd.Timestamp(year=year, month=1, day=1)
-        prior_dates = prices.index[prices.index < year_start]
-        if len(prior_dates) < min_history:
-            continue
-        anchor = prior_dates[-1]
-        q1_dates = prices.index[
-            (prices.index.year == year)
-            & (prices.index <= pd.Timestamp(year=year, month=3, day=31))
-        ]
-        if len(q1_dates) == 0:
-            continue
-        q1_end = q1_dates[-1]
-        strategy_return = float(equity.loc[q1_end] / equity.loc[anchor] - 1.0)
-        buyhold_return = float(prices.loc[q1_end, "close"] / prices.loc[anchor, "close"] - 1.0)
-        excess = strategy_return - buyhold_return
-        if excess <= 0.0:
-            continue
-        lock_mask = (prices.index >= q1_end) & (prices.index.year == year)
-        target.loc[lock_mask] = 1.0
-        events.append(
-            {
-                "decision_date": q1_end,
-                "lock_until": prices.index[prices.index.year == year][-1],
-                "history_days": len(prior_dates),
-                "q1_strategy_return": strategy_return,
-                "q1_buyhold_return": buyhold_return,
-                "q1_excess_return": excess,
-            }
-        )
-    return AlphaLockResult(target.rename("target_position"), pd.DataFrame(events))
-
-
-def apply_completed_q1_alpha_lock(
-    daily: pd.DataFrame,
-    base_target: pd.Series,
-    q1_metrics: dict[str, float | int | bool | str],
-    *,
-    min_history: int = 252,
-) -> AlphaLockResult:
-    """Lock after Q1 using metrics from an independently funded Q1 portfolio."""
-    prices = daily.copy()
-    if "dt" in prices.columns:
-        prices = prices.set_index("dt")
-    prices.index = pd.DatetimeIndex(pd.to_datetime(prices.index), name="dt")
-    prices = prices.sort_index()
-    target = base_target.reindex(prices.index).astype(float).copy()
-    q1_end = pd.Timestamp(str(q1_metrics["end"]))
-    year_start = pd.Timestamp(year=q1_end.year, month=1, day=1)
-    history_days = int((prices.index < year_start).sum())
-    excess = float(q1_metrics["excess_return"])
-    events: list[dict[str, object]] = []
-    if history_days >= min_history and excess > 0.0:
-        year_mask = prices.index.year == q1_end.year
-        target.loc[year_mask & (prices.index >= q1_end)] = 1.0
-        events.append(
-            {
-                "decision_date": q1_end,
-                "lock_until": prices.index[year_mask][-1],
-                "history_days": history_days,
-                "q1_strategy_return": float(q1_metrics["strategy_return"]),
-                "q1_buyhold_return": float(q1_metrics["buyhold_return"]),
-                "q1_excess_return": excess,
-            }
-        )
-    return AlphaLockResult(target.rename("target_position"), pd.DataFrame(events))

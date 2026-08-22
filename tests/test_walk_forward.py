@@ -1,8 +1,14 @@
 import numpy as np
 import pandas as pd
 
-import czsc_trader.walk_forward as walk_forward
-from czsc_trader.walk_forward import Rule, apply_annual_alpha_lock, positions_for_rule, run_walk_forward
+from czsc_trader.walk_forward import (
+    Rule,
+    build_factor_events,
+    positions_for_rule,
+    rank_candidate_results,
+    run_walk_forward,
+    select_fixed_rule,
+)
 
 
 def _sample_inputs(periods: int = 360) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -76,42 +82,49 @@ def test_future_prices_cannot_change_past_selections_or_positions() -> None:
     )
 
 
-def test_alpha_lock_changes_only_decisions_after_completed_q1() -> None:
-    """Catch alpha protection that rewrites Q1 or reads beyond its boundary."""
-    dates = pd.to_datetime(["2025-12-31", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-02"])
-    daily = pd.DataFrame({"dt": dates, "close": [100.0, 98.0, 95.0, 96.0, 97.0]})
-    base_target = pd.Series(0.0, index=dates)
-    base_equity = pd.Series([1_000_000.0, 1_040_000.0, 1_050_000.0, 1_030_000.0, 1_020_000.0], index=dates)
+def test_factor_events_are_the_only_position_transitions() -> None:
+    """Catch missing or fabricated event provenance for target changes."""
+    index = pd.bdate_range("2025-01-02", periods=6)
+    factors = pd.DataFrame(
+        {
+            "structure": [0.5, 0.5, -0.5, -0.5, 0.5, 0.5],
+            "trend": [0.5, 0.5, -0.5, -0.5, 0.5, 0.5],
+            "volume_position": [0.5, 0.5, -0.5, -0.5, 0.5, 0.5],
+        },
+        index=index,
+    )
+    rule = Rule((0.4, 0.4, 0.2), enter=0.2, exit=0.0, confirm_days=1, min_hold_days=1)
+    target, scores = positions_for_rule(factors, rule)
 
-    result = apply_annual_alpha_lock(daily, base_target, base_equity, min_history=1)
+    events = build_factor_events(target, scores, factors, rule)
 
-    assert result.target_position.loc[:"2026-03-30"].eq(0.0).all()
-    assert result.target_position.loc["2026-03-31":].eq(1.0).all()
-    assert result.events.iloc[0]["decision_date"] == pd.Timestamp("2026-03-31")
-    assert result.events.iloc[0]["q1_excess_return"] > 0.0
+    assert events["event_type"].tolist() == ["Entry", "Exit", "Entry"]
+    assert events["after_position"].tolist() == [1.0, 0.0, 1.0]
+    assert events["signal_date"].tolist() == [index[0], index[2], index[4]]
+    assert events["factor_score"].tolist() == [0.5, -0.5, 0.5]
 
 
-def test_q1_alpha_lock_uses_independently_funded_q1_metrics() -> None:
-    """Catch the lock trigger reusing a continuous pre-period equity curve."""
-    assert hasattr(walk_forward, "apply_completed_q1_alpha_lock")
-    dates = pd.to_datetime(["2025-12-31", "2026-03-31", "2026-04-01", "2026-04-02"])
-    daily = pd.DataFrame({"dt": dates, "close": [100.0, 95.0, 96.0, 97.0]})
-    base_target = pd.Series(0.0, index=dates)
-    independent_q1 = {
-        "end": "2026-03-31",
-        "strategy_return": 0.05,
-        "buyhold_return": -0.07,
-        "excess_return": 0.12,
-    }
-
-    result = walk_forward.apply_completed_q1_alpha_lock(
-        daily,
-        base_target,
-        independent_q1,
-        min_history=1,
+def test_candidate_ranking_prioritizes_worst_period_excess() -> None:
+    """Catch a high-average candidate hiding a failed target period."""
+    candidates = pd.DataFrame(
+        [
+            {"rule_id": "fragile", "pass_count": 2, "min_excess": -0.01, "mean_excess": 0.30, "turnover": 0.1, "max_drawdown": -0.1, "complexity": 2},
+            {"rule_id": "robust", "pass_count": 3, "min_excess": 0.01, "mean_excess": 0.02, "turnover": 0.2, "max_drawdown": -0.2, "complexity": 4},
+        ]
     )
 
-    assert result.target_position.loc["2026-03-31":].eq(1.0).all()
-    assert result.events.iloc[0]["q1_strategy_return"] == 0.05
-    assert result.events.iloc[0]["q1_buyhold_return"] == -0.07
-    assert result.events.iloc[0]["q1_excess_return"] == 0.12
+    ranked = rank_candidate_results(candidates)
+
+    assert ranked.iloc[0]["rule_id"] == "robust"
+
+
+def test_fixed_selection_target_is_exactly_its_factor_rule() -> None:
+    """Catch any post-selection performance overlay changing factor positions."""
+    daily, factors = _sample_inputs(180)
+    periods = {"sample": (daily["dt"].iloc[120], daily["dt"].iloc[-1])}
+
+    result = select_fixed_rule(daily, factors, periods)
+    expected_target, expected_scores = positions_for_rule(factors, result.rule)
+
+    pd.testing.assert_series_equal(result.target_position, expected_target, check_freq=False)
+    pd.testing.assert_series_equal(result.scores, expected_scores, check_freq=False)

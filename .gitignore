@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+
+# Raw market data is user-provided input and is not versioned here.
+data/raw/
+
+# Reproducible research artifacts.
+outputs/

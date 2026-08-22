@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+import czsc_trader.walk_forward as walk_forward
 from czsc_trader.walk_forward import Rule, apply_annual_alpha_lock, positions_for_rule, run_walk_forward
 
 
@@ -88,3 +89,29 @@ def test_alpha_lock_changes_only_decisions_after_completed_q1() -> None:
     assert result.target_position.loc["2026-03-31":].eq(1.0).all()
     assert result.events.iloc[0]["decision_date"] == pd.Timestamp("2026-03-31")
     assert result.events.iloc[0]["q1_excess_return"] > 0.0
+
+
+def test_q1_alpha_lock_uses_independently_funded_q1_metrics() -> None:
+    """Catch the lock trigger reusing a continuous pre-period equity curve."""
+    assert hasattr(walk_forward, "apply_completed_q1_alpha_lock")
+    dates = pd.to_datetime(["2025-12-31", "2026-03-31", "2026-04-01", "2026-04-02"])
+    daily = pd.DataFrame({"dt": dates, "close": [100.0, 95.0, 96.0, 97.0]})
+    base_target = pd.Series(0.0, index=dates)
+    independent_q1 = {
+        "end": "2026-03-31",
+        "strategy_return": 0.05,
+        "buyhold_return": -0.07,
+        "excess_return": 0.12,
+    }
+
+    result = walk_forward.apply_completed_q1_alpha_lock(
+        daily,
+        base_target,
+        independent_q1,
+        min_history=1,
+    )
+
+    assert result.target_position.loc["2026-03-31":].eq(1.0).all()
+    assert result.events.iloc[0]["q1_strategy_return"] == 0.05
+    assert result.events.iloc[0]["q1_buyhold_return"] == -0.07
+    assert result.events.iloc[0]["q1_excess_return"] == 0.12

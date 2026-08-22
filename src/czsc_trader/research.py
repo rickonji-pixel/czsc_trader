@@ -16,13 +16,18 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from .audit import audit_no_lookahead
-from .backtest import run_backtest
+from .backtest import PeriodBacktestResult, run_period_backtests
 from .data import SYMBOL, load_market_data
 from .factors import generate_factor_frame
-from .walk_forward import CANDIDATES, apply_annual_alpha_lock, run_walk_forward
+from .walk_forward import CANDIDATES, apply_completed_q1_alpha_lock, run_walk_forward
 
 
 FEE_RATE = 0.0005
+TARGET_PERIODS = {
+    "2026Q1": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-03-31")),
+    "2026H1": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-06-30")),
+    "2026_01_08": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-08-21")),
+}
 
 
 def create_output_dir(outputs_root: Path, symbol: str, run_date: date) -> Path:
@@ -58,8 +63,7 @@ def _json_default(value: object) -> object:
 
 
 def _render_report(
-    windows: dict[str, dict[str, float | bool | str]],
-    metrics: dict[str, float | int],
+    windows: dict[str, dict[str, float | int | bool | str]],
     audit: dict[str, int | str],
     unknown_values: dict[str, int],
     selections: pd.DataFrame,
@@ -87,13 +91,27 @@ def _render_report(
     lines.extend(
         [
             "",
-            "## 全区间指标",
+            "## 各周期独立指标",
             "",
-            f"- 净收益：{float(metrics['total_return']):.2%}",
-            f"- 最大回撤：{float(metrics['max_drawdown']):.2%}",
-            f"- 夏普比率：{float(metrics['sharpe']):.3f}",
-            f"- 订单数：{int(metrics['trade_count'])}",
-            f"- 持仓比例：{float(metrics['exposure']):.2%}",
+            "| 区间 | 起始日 | 最大回撤 | 夏普比率 | 订单数 | 持仓比例 |",
+            "| --- | --- | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for name, values in windows.items():
+        lines.append(
+            "| {name} | {start} | {drawdown:.2%} | {sharpe:.3f} | {trades} | {exposure:.2%} |".format(
+                name=name,
+                start=values["start"],
+                drawdown=float(values["max_drawdown"]),
+                sharpe=float(values["sharpe"]),
+                trades=int(values["trade_count"]),
+                exposure=float(values["exposure"]),
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "每个周期均以100万元现金、零持仓独立启动；首日开盘只执行上一交易日已经形成的信号。Buy & Hold 同样在首日开盘独立买入并计入手续费。",
             "",
             "## 无前视审计",
             "",
@@ -106,7 +124,7 @@ def _render_report(
             "",
             "因子全部来自 CZSC 1.0.1 的30分钟、日线和周线信号。月度参数只使用生效日前最多252个交易日，信号在下一交易日开盘执行。",
             f"共记录 {len(selections)} 个月度选择；未识别类别出现 {sum(unknown_values.values())} 次并按中性0分处理。",
-            f"基准锁定事件：{len(alpha_locks)} 次；只有在至少252日历史且已完成Q1取得正超额收益时才触发。",
+            f"基准锁定事件：{len(alpha_locks)} 次；只有在至少252日历史且独立Q1组合取得正超额收益时才触发。",
             "",
             "## 限制",
             "",
@@ -115,6 +133,29 @@ def _render_report(
         ]
     )
     return "\n".join(lines)
+
+
+def _period_equity_output(
+    result: PeriodBacktestResult,
+    daily: pd.DataFrame,
+    target_position: pd.Series,
+    base_target_position: pd.Series,
+    factor_score: pd.Series,
+) -> pd.DataFrame:
+    index = result.equity.index
+    prices = daily.set_index("dt")
+    execution_position = target_position.shift(1).loc[index]
+    return pd.DataFrame(
+        {
+            "dt": index,
+            "close": prices.loc[index, "close"].to_numpy(),
+            "target_position": target_position.loc[index].to_numpy(),
+            "execution_position": execution_position.to_numpy(),
+            "base_target_position": base_target_position.loc[index].to_numpy(),
+            "factor_score": factor_score.loc[index].to_numpy(),
+            "equity": result.equity.to_numpy(),
+        }
+    )
 
 
 def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
@@ -126,33 +167,37 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     data = load_market_data(raw_dir)
     factor_result = generate_factor_frame(data)
     walk = run_walk_forward(data.daily, factor_result.frame, fee_rate=FEE_RATE)
-    base_backtest = run_backtest(data.daily, walk.target_position, fee_rate=FEE_RATE)
-    alpha_lock = apply_annual_alpha_lock(data.daily, walk.target_position, base_backtest.equity)
-    backtest = run_backtest(data.daily, alpha_lock.target_position, fee_rate=FEE_RATE)
-    audit = audit_no_lookahead(backtest.orders, walk.selections, alpha_lock.target_position)
+    base_q1 = run_period_backtests(
+        data.daily,
+        walk.target_position,
+        {"2026Q1": TARGET_PERIODS["2026Q1"]},
+        fee_rate=FEE_RATE,
+    )["2026Q1"]
+    alpha_lock = apply_completed_q1_alpha_lock(data.daily, walk.target_position, base_q1.metrics)
+    period_results = run_period_backtests(
+        data.daily,
+        alpha_lock.target_position,
+        TARGET_PERIODS,
+        fee_rate=FEE_RATE,
+    )
+    combined_orders = pd.concat([result.orders for result in period_results.values()], ignore_index=True)
+    audit = audit_no_lookahead(combined_orders, walk.selections, alpha_lock.target_position)
 
     factor_output = factor_result.frame.copy()
     factor_output.insert(0, "factor_score", walk.scores)
     factor_output.insert(0, "base_target_position", walk.target_position)
     factor_output.insert(0, "target_position", alpha_lock.target_position)
     factor_output.index.name = "dt"
-    equity_output = pd.DataFrame(
-        {
-            "dt": backtest.equity.index,
-            "close": data.daily.set_index("dt").loc[backtest.equity.index, "close"].to_numpy(),
-            "target_position": alpha_lock.target_position.to_numpy(),
-            "base_target_position": walk.target_position.to_numpy(),
-            "factor_score": walk.scores.to_numpy(),
-            "equity": backtest.equity.to_numpy(),
-        }
-    )
-    metrics_payload = {"metrics": backtest.metrics, "windows": backtest.windows, "audit": audit}
+    windows = {name: result.metrics for name, result in period_results.items()}
+    metrics_payload = {"windows": windows, "audit": audit}
     candidate_json = json.dumps([asdict(rule) for rule in CANDIDATES], sort_keys=True, ensure_ascii=False)
     manifest = {
         "audit_status": audit["status"],
         "run_at_utc": datetime.now(timezone.utc).isoformat(),
         "data_cutoff": str(data.daily["dt"].max().date()),
         "fee_rate_per_side": FEE_RATE,
+        "period_initial_cash": 1_000_000.0,
+        "period_start_policy": "independent cash portfolio; prior-day signal may execute at first open",
         "alpha_lock_policy": "positive Q1 excess with at least 252 prior sessions locks long through year-end",
         "alpha_lock_events": int(len(alpha_lock.events)),
         "raw_sha256": data.hashes,
@@ -168,9 +213,19 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
 
     _atomic_csv(output_dir / "factors.csv", factor_output, index=True)
     _atomic_csv(output_dir / "monthly_parameters.csv", walk.selections)
-    _atomic_csv(output_dir / "orders.csv", backtest.orders)
     _atomic_csv(output_dir / "alpha_locks.csv", alpha_lock.events)
-    _atomic_csv(output_dir / "equity.csv", equity_output)
+    for name, result in period_results.items():
+        _atomic_csv(output_dir / f"orders_{name}.csv", result.orders)
+        _atomic_csv(
+            output_dir / f"equity_{name}.csv",
+            _period_equity_output(
+                result,
+                data.daily,
+                alpha_lock.target_position,
+                walk.target_position,
+                walk.scores,
+            ),
+        )
     _atomic_text(
         output_dir / "metrics.json",
         json.dumps(metrics_payload, ensure_ascii=False, indent=2, default=_json_default),
@@ -178,8 +233,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     _atomic_text(
         output_dir / "report.md",
         _render_report(
-            backtest.windows,
-            backtest.metrics,
+            windows,
             audit,
             factor_result.unknown_values,
             walk.selections,
@@ -189,8 +243,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     _atomic_text(output_dir / "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
     return {
         "audit": audit,
-        "metrics": backtest.metrics,
-        "windows": backtest.windows,
+        "windows": windows,
         "alpha_locks": json.loads(alpha_lock.events.to_json(orient="records", date_format="iso")),
         "output_dir": str(output_dir.resolve()),
     }

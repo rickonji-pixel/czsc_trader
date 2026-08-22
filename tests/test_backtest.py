@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 
+import czsc_trader.backtest as backtest
 from czsc_trader.backtest import run_backtest
 
 
@@ -52,3 +53,38 @@ def test_target_positions_must_be_long_or_cash(tiny_daily: pd.DataFrame) -> None
 
     with pytest.raises(ValueError, match="long/cash"):
         run_backtest(tiny_daily, target)
+
+
+def test_period_backtests_reset_cash_and_use_only_prior_signal_on_first_open() -> None:
+    """Catch target periods inheriting the continuous portfolio's old holdings."""
+    assert hasattr(backtest, "run_period_backtests")
+    dates = pd.to_datetime(["2025-12-31", "2026-01-02", "2026-01-05"])
+    daily = pd.DataFrame(
+        {
+            "dt": dates,
+            "open": [50.0, 100.0, 120.0],
+            "close": [50.0, 110.0, 120.0],
+        }
+    )
+    target = pd.Series([1.0, 0.0, 0.0], index=dates)
+    periods = {
+        "short": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-01-02")),
+        "long": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-01-05")),
+    }
+
+    results = backtest.run_period_backtests(
+        daily,
+        target,
+        periods,
+        fee_rate=0.0005,
+        init_cash=1_000_000.0,
+    )
+
+    expected_first_close_equity = 1_000_000.0 / (100.0 * 1.0005) * 110.0
+    for result in results.values():
+        assert result.equity.iloc[0] == pytest.approx(expected_first_close_equity)
+        assert result.orders.iloc[0]["signal_date"] == pd.Timestamp("2025-12-31")
+        assert result.orders.iloc[0]["execution_date"] == pd.Timestamp("2026-01-02")
+    assert results["short"].metrics["buyhold_return"] == pytest.approx(
+        expected_first_close_equity / 1_000_000.0 - 1.0
+    )

@@ -271,3 +271,38 @@ def apply_annual_alpha_lock(
             }
         )
     return AlphaLockResult(target.rename("target_position"), pd.DataFrame(events))
+
+
+def apply_completed_q1_alpha_lock(
+    daily: pd.DataFrame,
+    base_target: pd.Series,
+    q1_metrics: dict[str, float | int | bool | str],
+    *,
+    min_history: int = 252,
+) -> AlphaLockResult:
+    """Lock after Q1 using metrics from an independently funded Q1 portfolio."""
+    prices = daily.copy()
+    if "dt" in prices.columns:
+        prices = prices.set_index("dt")
+    prices.index = pd.DatetimeIndex(pd.to_datetime(prices.index), name="dt")
+    prices = prices.sort_index()
+    target = base_target.reindex(prices.index).astype(float).copy()
+    q1_end = pd.Timestamp(str(q1_metrics["end"]))
+    year_start = pd.Timestamp(year=q1_end.year, month=1, day=1)
+    history_days = int((prices.index < year_start).sum())
+    excess = float(q1_metrics["excess_return"])
+    events: list[dict[str, object]] = []
+    if history_days >= min_history and excess > 0.0:
+        year_mask = prices.index.year == q1_end.year
+        target.loc[year_mask & (prices.index >= q1_end)] = 1.0
+        events.append(
+            {
+                "decision_date": q1_end,
+                "lock_until": prices.index[year_mask][-1],
+                "history_days": history_days,
+                "q1_strategy_return": float(q1_metrics["strategy_return"]),
+                "q1_buyhold_return": float(q1_metrics["buyhold_return"]),
+                "q1_excess_return": excess,
+            }
+        )
+    return AlphaLockResult(target.rename("target_position"), pd.DataFrame(events))

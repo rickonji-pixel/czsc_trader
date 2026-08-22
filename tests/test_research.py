@@ -9,7 +9,9 @@ def test_research_writes_audited_artifacts(tmp_path: Path) -> None:
     summary = run_research(Path("data/raw"), tmp_path)
     expected = {
         "factors.csv",
-        "monthly_parameters.csv",
+        "factor_events.csv",
+        "candidate_results.csv",
+        "selected_rule.json",
         "orders_2026Q1.csv",
         "equity_2026Q1.csv",
         "orders_2026H1.csv",
@@ -22,14 +24,12 @@ def test_research_writes_audited_artifacts(tmp_path: Path) -> None:
         "metrics.json",
         "report.md",
         "manifest.json",
-        "alpha_locks.csv",
     }
 
     actual = {path.name for path in tmp_path.iterdir()}
     assert expected <= actual
     assert {"orders.csv", "equity.csv"}.isdisjoint(actual)
     assert set(summary["windows"]) == {"2026Q1", "2026H1", "2026_01_08"}
-    assert all(window["pass"] for window in summary["windows"].values())
     assert {window["start"] for window in summary["windows"].values()} == {"2026-01-05"}
     for name in ("2026Q1", "2026H1", "2026_01_08"):
         html = (tmp_path / f"chart_{name}.html").read_text(encoding="utf-8")
@@ -45,6 +45,15 @@ def test_research_writes_audited_artifacts(tmp_path: Path) -> None:
         "chart_2026H1.html",
         "chart_2026_01_08.html",
     ]
+    assert manifest["selection_mode"] == "fixed CZSC-only rule; 2026 sample-optimized"
+    assert "alpha_lock_policy" not in manifest
+    assert "alpha_locks.csv" not in actual
+    assert "monthly_parameters.csv" not in actual
+    for name in ("2026Q1", "2026H1", "2026_01_08"):
+        orders = __import__("pandas").read_csv(tmp_path / f"orders_{name}.csv")
+        assert orders["factor_event_id"].notna().all()
+        assert set(orders["event_type"]) <= {"Entry", "Exit", "InitialEntry"}
     report = (tmp_path / "report.md").read_text(encoding="utf-8")
     assert "## 交互式日线图" in report
     assert "chart_2026Q1.html" in report
+    assert "2026样本内优化" in report

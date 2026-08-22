@@ -23,7 +23,7 @@ def extract_factor_markers(
     end: pd.Timestamp,
 ) -> pd.DataFrame:
     """Return factor-position transitions inside an inclusive date range."""
-    position = factors["base_target_position"].astype(float)
+    position = factors["target_position"].astype(float)
     changed = position.ne(position.shift(1))
     selected = position.index[changed & position.index.to_series().between(start, end)]
     rows = [
@@ -247,6 +247,24 @@ def build_period_chart(
     if not actual_orders.empty:
         actual_orders["dt"] = pd.to_datetime(actual_orders["execution_date"])
         actual_orders = actual_orders.loc[actual_orders["dt"].between(start, end)]
+    initial_entries = (
+        actual_orders.loc[actual_orders["event_type"] == "InitialEntry"]
+        if not actual_orders.empty and "event_type" in actual_orders
+        else actual_orders.iloc[0:0]
+    )
+    figure.add_trace(
+        go.Scatter(
+            x=initial_entries.get("dt", []),
+            y=initial_entries.get("price", []),
+            mode="markers",
+            name="周期初始因子入场",
+            text=initial_entries.get("factor_event_id", []),
+            marker={"color": "#17becf", "symbol": "star", "size": 13, "line": {"width": 1, "color": "#222"}},
+            hovertemplate="%{x|%Y-%m-%d}<br>周期初始因子状态对齐<extra>周期初始因子入场</extra>",
+        ),
+        row=1,
+        col=1,
+    )
     for side, name, color, symbol in (
         ("Buy", "策略买入", "#d62728", "triangle-up"),
         ("Sell", "策略卖出", "#2ca02c", "triangle-down"),

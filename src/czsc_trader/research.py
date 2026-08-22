@@ -20,7 +20,7 @@ from .backtest import PeriodBacktestResult, run_period_backtests
 from .charting import DIVERGENCE_CONFIG, write_period_chart
 from .data import SYMBOL, load_market_data
 from .factors import generate_factor_frame
-from .walk_forward import CANDIDATES, apply_completed_q1_alpha_lock, run_walk_forward
+from .walk_forward import CANDIDATES, Rule, select_fixed_rule
 
 
 FEE_RATE = 0.0005
@@ -67,12 +67,12 @@ def _render_report(
     windows: dict[str, dict[str, float | int | bool | str]],
     audit: dict[str, int | str],
     unknown_values: dict[str, int],
-    selections: pd.DataFrame,
-    alpha_locks: pd.DataFrame,
+    selected_rule: Rule,
+    candidates: pd.DataFrame,
     chart_files: list[str],
 ) -> str:
     lines = [
-        "# 588080 CZSC 多因子滚动策略研究结果",
+        "# 588080 纯 CZSC 多因子固定策略研究结果",
         "",
         "## 目标区间",
         "",
@@ -123,14 +123,15 @@ def _render_report(
             "",
             f"- 状态：{audit['status']}",
             f"- 检查订单：{audit['orders_checked']}",
-            f"- 检查月度参数：{audit['selections_checked']}",
+            f"- 检查订单来源事件：{audit['events_checked']}",
             f"- 检查每日仓位：{audit['positions_checked']}",
             "",
             "## 因子与参数说明",
             "",
-            "因子全部来自 CZSC 1.0.1 的30分钟、日线和周线信号。月度参数只使用生效日前最多252个交易日，信号在下一交易日开盘执行。",
-            f"共记录 {len(selections)} 个月度选择；未识别类别出现 {sum(unknown_values.values())} 次并按中性0分处理。",
-            f"基准锁定事件：{len(alpha_locks)} 次；只有在至少252日历史且独立Q1组合取得正超额收益时才触发。",
+            "因子全部来自 CZSC 1.0.1 的30分钟、日线和周线信号，固定规则在全历史保持不变，信号在下一交易日开盘执行。",
+            "本结果允许查看2026年结果后选择固定候选，属于2026样本内优化，不是样本外验证。收益、基准、日期和组合净值均不能覆盖因子仓位。",
+            f"候选规则：{len(candidates)}；选定权重：{selected_rule.weights}；入场/离场阈值：{selected_rule.enter}/{selected_rule.exit}；确认/最短持仓：{selected_rule.confirm_days}/{selected_rule.min_hold_days}。",
+            f"未识别类别出现 {sum(unknown_values.values())} 次并按中性0分处理。",
             "",
             "## 限制",
             "",
@@ -145,7 +146,6 @@ def _period_equity_output(
     result: PeriodBacktestResult,
     daily: pd.DataFrame,
     target_position: pd.Series,
-    base_target_position: pd.Series,
     factor_score: pd.Series,
 ) -> pd.DataFrame:
     index = result.equity.index
@@ -157,7 +157,6 @@ def _period_equity_output(
             "close": prices.loc[index, "close"].to_numpy(),
             "target_position": target_position.loc[index].to_numpy(),
             "execution_position": execution_position.to_numpy(),
-            "base_target_position": base_target_position.loc[index].to_numpy(),
             "factor_score": factor_score.loc[index].to_numpy(),
             "equity": result.equity.to_numpy(),
         }
@@ -165,37 +164,40 @@ def _period_equity_output(
 
 
 def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
-    """Rebuild factors, walk-forward decisions, vectorbt results, and evidence."""
+    """Rebuild one fixed CZSC-only strategy, vectorbt results, and evidence."""
     raw_dir = Path(raw_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     data = load_market_data(raw_dir)
     factor_result = generate_factor_frame(data)
-    walk = run_walk_forward(data.daily, factor_result.frame, fee_rate=FEE_RATE)
-    base_q1 = run_period_backtests(
-        data.daily,
-        walk.target_position,
-        {"2026Q1": TARGET_PERIODS["2026Q1"]},
-        fee_rate=FEE_RATE,
-    )["2026Q1"]
-    alpha_lock = apply_completed_q1_alpha_lock(data.daily, walk.target_position, base_q1.metrics)
+    selection = select_fixed_rule(data.daily, factor_result.frame, TARGET_PERIODS, fee_rate=FEE_RATE)
+    factor_output = factor_result.frame.copy()
+    factor_output.insert(0, "factor_score", selection.scores)
+    factor_output.insert(0, "target_position", selection.target_position)
+    factor_output.insert(2, "enter_threshold", float(selection.rule.enter))
+    factor_output.insert(3, "exit_threshold", float(selection.rule.exit))
+    factor_output.index.name = "dt"
     period_results = run_period_backtests(
         data.daily,
-        alpha_lock.target_position,
+        selection.target_position,
         TARGET_PERIODS,
         fee_rate=FEE_RATE,
+        factor_events=selection.events,
+        factor_frame=factor_output,
     )
     combined_orders = pd.concat([result.orders for result in period_results.values()], ignore_index=True)
-    audit = audit_no_lookahead(combined_orders, walk.selections, alpha_lock.target_position)
+    event_pieces = [selection.events, *[result.factor_events for result in period_results.values()]]
+    factor_events = pd.concat([piece for piece in event_pieces if not piece.empty], ignore_index=True)
+    factor_events = factor_events.drop_duplicates(subset=["event_id"]).sort_values("signal_date").reset_index(drop=True)
+    audit = audit_no_lookahead(combined_orders, factor_events, selection.target_position, factor_output)
 
-    factor_output = factor_result.frame.copy()
-    factor_output.insert(0, "factor_score", walk.scores)
-    factor_output.insert(0, "base_target_position", walk.target_position)
-    factor_output.insert(0, "target_position", alpha_lock.target_position)
-    factor_output.index.name = "dt"
     windows = {name: result.metrics for name, result in period_results.items()}
-    metrics_payload = {"windows": windows, "audit": audit}
+    metrics_payload = {
+        "overall_pass": all(bool(values["pass"]) for values in windows.values()),
+        "windows": windows,
+        "audit": audit,
+    }
     chart_files: list[str] = []
     for name, result in period_results.items():
         file_name = f"chart_{name}.html"
@@ -210,6 +212,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         )
         chart_files.append(file_name)
     candidate_json = json.dumps([asdict(rule) for rule in CANDIDATES], sort_keys=True, ensure_ascii=False)
+    selected_rule_payload = asdict(selection.rule)
     manifest = {
         "audit_status": audit["status"],
         "run_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -217,8 +220,9 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         "fee_rate_per_side": FEE_RATE,
         "period_initial_cash": 1_000_000.0,
         "period_start_policy": "independent cash portfolio; prior-day signal may execute at first open",
-        "alpha_lock_policy": "positive Q1 excess with at least 252 prior sessions locks long through year-end",
-        "alpha_lock_events": int(len(alpha_lock.events)),
+        "selection_mode": "fixed CZSC-only rule; 2026 sample-optimized",
+        "position_policy": "target_position equals the selected CZSC factor state machine; no overlays",
+        "selected_rule": selected_rule_payload,
         "charts": {
             "files": chart_files,
             "plotly": version("plotly"),
@@ -238,8 +242,12 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     }
 
     _atomic_csv(output_dir / "factors.csv", factor_output, index=True)
-    _atomic_csv(output_dir / "monthly_parameters.csv", walk.selections)
-    _atomic_csv(output_dir / "alpha_locks.csv", alpha_lock.events)
+    _atomic_csv(output_dir / "factor_events.csv", factor_events)
+    _atomic_csv(output_dir / "candidate_results.csv", selection.candidates)
+    _atomic_text(
+        output_dir / "selected_rule.json",
+        json.dumps(selected_rule_payload, ensure_ascii=False, indent=2),
+    )
     for name, result in period_results.items():
         _atomic_csv(output_dir / f"orders_{name}.csv", result.orders)
         _atomic_csv(
@@ -247,9 +255,8 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
             _period_equity_output(
                 result,
                 data.daily,
-                alpha_lock.target_position,
-                walk.target_position,
-                walk.scores,
+                selection.target_position,
+                selection.scores,
             ),
         )
     _atomic_text(
@@ -262,8 +269,8 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
             windows,
             audit,
             factor_result.unknown_values,
-            walk.selections,
-            alpha_lock.events,
+            selection.rule,
+            selection.candidates,
             chart_files,
         ),
     )
@@ -271,7 +278,8 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     return {
         "audit": audit,
         "windows": windows,
-        "alpha_locks": json.loads(alpha_lock.events.to_json(orient="records", date_format="iso")),
+        "overall_pass": metrics_payload["overall_pass"],
+        "selected_rule": selected_rule_payload,
         "output_dir": str(output_dir.resolve()),
     }
 

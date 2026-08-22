@@ -1,0 +1,2 @@
+# Raw market data hashes are part of the reproducibility contract.
+data/raw/*.csv -text

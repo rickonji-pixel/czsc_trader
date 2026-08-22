@@ -433,3 +433,7 @@ git commit -m "test: verify 588080 walk-forward research"
 ```
 
 If there are no adjustments after the prior commit, do not create an empty commit.
+
+### Empirical Refinement Recorded During Execution
+
+The first audited run passed 2026Q1 and 2026-01 through August but missed 2026H1 because the factor rule was underweight during the Q2 rally. The approved causal tuning policy was implemented as `apply_annual_alpha_lock`: with at least 252 prior sessions, positive Q1 excess return triggers a full-long target from the Q1-end signal through year-end. Tests prove that it does not change pre-Q1 decisions, and `alpha_locks.csv` records each trigger.

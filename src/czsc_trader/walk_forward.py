@@ -46,6 +46,14 @@ class WalkForwardResult:
     selections: pd.DataFrame
 
 
+@dataclass(frozen=True)
+class AlphaLockResult:
+    """Target positions after causal benchmark-alpha preservation."""
+
+    target_position: pd.Series
+    events: pd.DataFrame
+
+
 def positions_for_rule(factors: pd.DataFrame, rule: Rule) -> tuple[pd.Series, pd.Series]:
     """Apply a rule as a deterministic state machine without using prices."""
     clean = factors.loc[:, FACTOR_COLUMNS].fillna(0.0).astype(float)
@@ -209,3 +217,57 @@ def run_walk_forward(
         previous_rule = selected
 
     return WalkForwardResult(target, scores, pd.DataFrame(selections))
+
+
+def apply_annual_alpha_lock(
+    daily: pd.DataFrame,
+    base_target: pd.Series,
+    base_equity: pd.Series,
+    *,
+    min_history: int = 252,
+) -> AlphaLockResult:
+    """Lock in positive Q1 benchmark alpha by tracking the asset through year-end.
+
+    The decision is stamped on the final completed Q1 session, so the changed
+    target can only execute at the following session's open.
+    """
+    prices = daily.copy()
+    if "dt" in prices.columns:
+        prices = prices.set_index("dt")
+    prices.index = pd.DatetimeIndex(pd.to_datetime(prices.index), name="dt")
+    prices = prices.sort_index()
+    target = base_target.reindex(prices.index).astype(float).copy()
+    equity = base_equity.reindex(prices.index).astype(float)
+    events: list[dict[str, object]] = []
+
+    for year in sorted(prices.index.year.unique()):
+        year_start = pd.Timestamp(year=year, month=1, day=1)
+        prior_dates = prices.index[prices.index < year_start]
+        if len(prior_dates) < min_history:
+            continue
+        anchor = prior_dates[-1]
+        q1_dates = prices.index[
+            (prices.index.year == year)
+            & (prices.index <= pd.Timestamp(year=year, month=3, day=31))
+        ]
+        if len(q1_dates) == 0:
+            continue
+        q1_end = q1_dates[-1]
+        strategy_return = float(equity.loc[q1_end] / equity.loc[anchor] - 1.0)
+        buyhold_return = float(prices.loc[q1_end, "close"] / prices.loc[anchor, "close"] - 1.0)
+        excess = strategy_return - buyhold_return
+        if excess <= 0.0:
+            continue
+        lock_mask = (prices.index >= q1_end) & (prices.index.year == year)
+        target.loc[lock_mask] = 1.0
+        events.append(
+            {
+                "decision_date": q1_end,
+                "lock_until": prices.index[prices.index.year == year][-1],
+                "history_days": len(prior_dates),
+                "q1_strategy_return": strategy_return,
+                "q1_buyhold_return": buyhold_return,
+                "q1_excess_return": excess,
+            }
+        )
+    return AlphaLockResult(target.rename("target_position"), pd.DataFrame(events))

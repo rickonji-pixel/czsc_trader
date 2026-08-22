@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from czsc_trader.walk_forward import Rule, positions_for_rule, run_walk_forward
+from czsc_trader.walk_forward import Rule, apply_annual_alpha_lock, positions_for_rule, run_walk_forward
 
 
 def _sample_inputs(periods: int = 360) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -73,3 +73,18 @@ def test_future_prices_cannot_change_past_selections_or_positions() -> None:
         first.target_position.loc[:cutoff],
         second.target_position.loc[:cutoff],
     )
+
+
+def test_alpha_lock_changes_only_decisions_after_completed_q1() -> None:
+    """Catch alpha protection that rewrites Q1 or reads beyond its boundary."""
+    dates = pd.to_datetime(["2025-12-31", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-02"])
+    daily = pd.DataFrame({"dt": dates, "close": [100.0, 98.0, 95.0, 96.0, 97.0]})
+    base_target = pd.Series(0.0, index=dates)
+    base_equity = pd.Series([1_000_000.0, 1_040_000.0, 1_050_000.0, 1_030_000.0, 1_020_000.0], index=dates)
+
+    result = apply_annual_alpha_lock(daily, base_target, base_equity, min_history=1)
+
+    assert result.target_position.loc[:"2026-03-30"].eq(0.0).all()
+    assert result.target_position.loc["2026-03-31":].eq(1.0).all()
+    assert result.events.iloc[0]["decision_date"] == pd.Timestamp("2026-03-31")
+    assert result.events.iloc[0]["q1_excess_return"] > 0.0

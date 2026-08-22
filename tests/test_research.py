@@ -15,10 +15,12 @@ def test_research_writes_audited_artifacts(tmp_path: Path) -> None:
         "metrics.json",
         "report.md",
         "manifest.json",
+        "alpha_locks.csv",
     }
 
     assert expected <= {path.name for path in tmp_path.iterdir()}
     assert set(summary["windows"]) == {"2026Q1", "2026H1", "2026_01_08"}
+    assert all(window["pass"] for window in summary["windows"].values())
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["audit_status"] == "PASS"
     assert manifest["versions"]["czsc"] == "1.0.1"

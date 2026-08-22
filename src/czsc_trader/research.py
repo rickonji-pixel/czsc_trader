@@ -16,7 +16,7 @@ from .audit import audit_no_lookahead
 from .backtest import run_backtest
 from .data import load_market_data
 from .factors import generate_factor_frame
-from .walk_forward import CANDIDATES, run_walk_forward
+from .walk_forward import CANDIDATES, apply_annual_alpha_lock, run_walk_forward
 
 
 FEE_RATE = 0.0005
@@ -46,6 +46,7 @@ def _render_report(
     audit: dict[str, int | str],
     unknown_values: dict[str, int],
     selections: pd.DataFrame,
+    alpha_locks: pd.DataFrame,
 ) -> str:
     lines = [
         "# 588080 CZSC 多因子滚动策略研究结果",
@@ -88,6 +89,7 @@ def _render_report(
             "",
             "因子全部来自 CZSC 1.0.1 的30分钟、日线和周线信号。月度参数只使用生效日前最多252个交易日，信号在下一交易日开盘执行。",
             f"共记录 {len(selections)} 个月度选择；未识别类别出现 {sum(unknown_values.values())} 次并按中性0分处理。",
+            f"基准锁定事件：{len(alpha_locks)} 次；只有在至少252日历史且已完成Q1取得正超额收益时才触发。",
             "",
             "## 限制",
             "",
@@ -107,18 +109,22 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     data = load_market_data(raw_dir)
     factor_result = generate_factor_frame(data)
     walk = run_walk_forward(data.daily, factor_result.frame, fee_rate=FEE_RATE)
-    backtest = run_backtest(data.daily, walk.target_position, fee_rate=FEE_RATE)
-    audit = audit_no_lookahead(backtest.orders, walk.selections, walk.target_position)
+    base_backtest = run_backtest(data.daily, walk.target_position, fee_rate=FEE_RATE)
+    alpha_lock = apply_annual_alpha_lock(data.daily, walk.target_position, base_backtest.equity)
+    backtest = run_backtest(data.daily, alpha_lock.target_position, fee_rate=FEE_RATE)
+    audit = audit_no_lookahead(backtest.orders, walk.selections, alpha_lock.target_position)
 
     factor_output = factor_result.frame.copy()
     factor_output.insert(0, "factor_score", walk.scores)
-    factor_output.insert(0, "target_position", walk.target_position)
+    factor_output.insert(0, "base_target_position", walk.target_position)
+    factor_output.insert(0, "target_position", alpha_lock.target_position)
     factor_output.index.name = "dt"
     equity_output = pd.DataFrame(
         {
             "dt": backtest.equity.index,
             "close": data.daily.set_index("dt").loc[backtest.equity.index, "close"].to_numpy(),
-            "target_position": walk.target_position.to_numpy(),
+            "target_position": alpha_lock.target_position.to_numpy(),
+            "base_target_position": walk.target_position.to_numpy(),
             "factor_score": walk.scores.to_numpy(),
             "equity": backtest.equity.to_numpy(),
         }
@@ -130,6 +136,8 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         "run_at_utc": datetime.now(timezone.utc).isoformat(),
         "data_cutoff": str(data.daily["dt"].max().date()),
         "fee_rate_per_side": FEE_RATE,
+        "alpha_lock_policy": "positive Q1 excess with at least 252 prior sessions locks long through year-end",
+        "alpha_lock_events": int(len(alpha_lock.events)),
         "raw_sha256": data.hashes,
         "candidate_space_sha256": sha256(candidate_json.encode("utf-8")).hexdigest(),
         "versions": {
@@ -144,6 +152,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     _atomic_csv(output_dir / "factors.csv", factor_output, index=True)
     _atomic_csv(output_dir / "monthly_parameters.csv", walk.selections)
     _atomic_csv(output_dir / "orders.csv", backtest.orders)
+    _atomic_csv(output_dir / "alpha_locks.csv", alpha_lock.events)
     _atomic_csv(output_dir / "equity.csv", equity_output)
     _atomic_text(
         output_dir / "metrics.json",
@@ -151,13 +160,20 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
     )
     _atomic_text(
         output_dir / "report.md",
-        _render_report(backtest.windows, backtest.metrics, audit, factor_result.unknown_values, walk.selections),
+        _render_report(
+            backtest.windows,
+            backtest.metrics,
+            audit,
+            factor_result.unknown_values,
+            walk.selections,
+            alpha_lock.events,
+        ),
     )
     _atomic_text(output_dir / "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
     return {
         "audit": audit,
         "metrics": backtest.metrics,
         "windows": backtest.windows,
+        "alpha_locks": json.loads(alpha_lock.events.to_json(orient="records", date_format="iso")),
         "output_dir": str(output_dir.resolve()),
     }
-

@@ -1,13 +1,24 @@
+from collections import Counter
 from pathlib import Path
 
 import pandas as pd
 
+import czsc_trader.factors as factors
 from czsc_trader.data import load_market_data
 from czsc_trader.factors import generate_factor_frame
 
 
 RAW_DIR = Path("data/raw")
 GROUPS = ["structure", "trend", "volume_position"]
+
+
+def test_divergence_signals_are_structure_inputs() -> None:
+    """Catch missing CZSC divergence inputs or reversed bullish/bearish mapping."""
+    names = {item["name"] for item in factors.DAILY_CONFIG}
+    assert {"cxt_five_bi_V230619", "cxt_seven_bi_V230620"} <= names
+    unknown = Counter()
+    assert factors._signal_score("底背驰_任意_任意_0", unknown) == 1.0
+    assert factors._signal_score("顶背驰_任意_任意_0", unknown) == -1.0
 
 
 def test_factors_are_daily_grouped_and_bounded() -> None:

@@ -18,6 +18,8 @@ INTRADAY_CONFIG = [
 ]
 DAILY_CONFIG = [
     {"name": "cxt_bi_status_V230101", "freq": "日线"},
+    {"name": "cxt_five_bi_V230619", "freq": "日线", "di": 1},
+    {"name": "cxt_seven_bi_V230620", "freq": "日线", "di": 1},
     *[
         {"name": "tas_ma_base_V221101", "freq": "日线", "di": 1, "timeperiod": period, "ma_type": "SMA"}
         for period in (5, 10, 20)
@@ -96,9 +98,9 @@ def _signal_score(value: object, unknown: Counter[str]) -> float:
         return 0.0
     text = str(value)
     primary = text.split("_", 1)[0]
-    if any(token in primary for token in ("向上", "多头", "三买", "支撑位", "强势")):
+    if any(token in primary for token in ("向上", "多头", "三买", "底背驰", "支撑位", "强势")):
         return 1.0
-    if any(token in primary for token in ("向下", "空头", "压力位", "弱势")):
+    if any(token in primary for token in ("向下", "空头", "顶背驰", "压力位", "弱势")):
         return -1.0
     volume_rank = re.search(r"高量N(\d+)", primary)
     if volume_rank:

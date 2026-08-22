@@ -2,6 +2,7 @@
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+.worktrees/
 *.py[cod]
 
 # Raw market data is user-provided input and is not versioned here.

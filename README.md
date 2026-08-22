@@ -8,7 +8,9 @@
 .\.venv\Scripts\python.exe scripts\run_research.py
 ```
 
-结果写入 `outputs/latest`，其中 `report.md` 汇总2026Q1、2026H1和2026年1–8月相对 Buy & Hold 的收益。
+结果写入 `outputs/<股票代码>_<MMDD>_RXX`。例如，588080 在 8 月 23 日首次运行写入
+`outputs/588080_0823_R01`；同日再次运行依次写入 `R02`、`R03`，不会覆盖已有结果。
+其中 `report.md` 汇总2026Q1、2026H1和2026年1–8月相对 Buy & Hold 的收益。
 
 ## 测试
 

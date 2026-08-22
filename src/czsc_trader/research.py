@@ -3,23 +3,40 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from hashlib import sha256
 from importlib.metadata import version
+from itertools import count
 import json
 from pathlib import Path
 import platform
+from typing import Callable
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from .audit import audit_no_lookahead
 from .backtest import run_backtest
-from .data import load_market_data
+from .data import SYMBOL, load_market_data
 from .factors import generate_factor_frame
 from .walk_forward import CANDIDATES, apply_annual_alpha_lock, run_walk_forward
 
 
 FEE_RATE = 0.0005
+
+
+def create_output_dir(outputs_root: Path, symbol: str, run_date: date) -> Path:
+    """Atomically create the next revision directory for a dated symbol run."""
+    symbol_code = symbol.split(".", maxsplit=1)[0]
+    outputs_root = Path(outputs_root)
+    outputs_root.mkdir(parents=True, exist_ok=True)
+    for revision in count(1):
+        output_dir = outputs_root / f"{symbol_code}_{run_date:%m%d}_R{revision:02d}"
+        try:
+            output_dir.mkdir(exist_ok=False)
+        except FileExistsError:
+            continue
+        return output_dir
 
 
 def _atomic_text(path: Path, text: str) -> None:
@@ -177,3 +194,17 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         "alpha_locks": json.loads(alpha_lock.events.to_json(orient="records", date_format="iso")),
         "output_dir": str(output_dir.resolve()),
     }
+
+
+def run_dated_research(
+    raw_dir: Path,
+    outputs_root: Path,
+    *,
+    run_date: date | None = None,
+    runner: Callable[[Path, Path], dict[str, object]] | None = None,
+) -> dict[str, object]:
+    """Run research in a new ``<symbol>_<MMDD>_RXX`` output directory."""
+    effective_date = run_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    output_dir = create_output_dir(outputs_root, SYMBOL, effective_date)
+    effective_runner = runner or run_research
+    return effective_runner(Path(raw_dir), output_dir)

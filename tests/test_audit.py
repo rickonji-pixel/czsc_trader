@@ -47,6 +47,15 @@ def test_audit_rejects_same_day_execution() -> None:
         audit_no_lookahead(orders, events, target, factors)
 
 
+def test_audit_rejects_execution_after_next_trading_day() -> None:
+    """Catch a signal being delayed beyond the mandated next session."""
+    orders, events, target, factors = _valid_inputs()
+    orders.loc[0, "execution_date"] = target.index[2]
+
+    with pytest.raises(AssertionError, match="next trading date"):
+        audit_no_lookahead(orders, events, target, factors)
+
+
 def test_audit_rejects_order_without_factor_event() -> None:
     """Catch any trade introduced outside the CZSC factor state machine."""
     orders, events, target, factors = _valid_inputs()

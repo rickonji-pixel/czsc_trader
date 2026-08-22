@@ -42,6 +42,12 @@ def audit_no_lookahead(
             raise AssertionError(f"order must reference exactly one factor event: {event_id}")
         event = matches.iloc[0]
         signal_date = pd.Timestamp(order["signal_date"])
+        signal_location = target.index.get_indexer([signal_date])[0]
+        if signal_location < 0 or signal_location + 1 >= len(target.index):
+            raise AssertionError("order signal date has no next trading date")
+        expected_execution = target.index[signal_location + 1]
+        if pd.Timestamp(order["execution_date"]) != expected_execution:
+            raise AssertionError("every order must execute on the next trading date")
         if pd.Timestamp(event["signal_date"]) != signal_date:
             raise AssertionError("order signal_date differs from factor event")
         event_type = str(order["event_type"])

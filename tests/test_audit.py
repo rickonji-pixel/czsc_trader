@@ -4,46 +4,63 @@ import pytest
 from czsc_trader.audit import audit_no_lookahead
 
 
-def _valid_inputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+def _valid_inputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.DataFrame]:
+    dates = pd.bdate_range("2025-01-02", periods=3)
     orders = pd.DataFrame(
         {
-            "signal_date": pd.to_datetime(["2025-01-02", "2025-01-06"]),
-            "execution_date": pd.to_datetime(["2025-01-03", "2025-01-07"]),
+            "period": ["sample"],
+            "signal_date": [dates[0]],
+            "execution_date": [dates[1]],
+            "side": ["Buy"],
+            "factor_event_id": ["Factor:20250102:Entry"],
+            "event_type": ["Entry"],
         }
     )
-    selections = pd.DataFrame(
+    events = pd.DataFrame(
         {
-            "as_of_date": pd.to_datetime(["2025-01-02", "2025-02-03"]),
-            "train_start": pd.to_datetime(["2024-01-02", "2024-02-01"]),
-            "train_end": pd.to_datetime(["2024-12-31", "2025-01-31"]),
-            "candidate_count": [126, 126],
+            "event_id": ["Factor:20250102:Entry"],
+            "signal_date": [dates[0]],
+            "event_type": ["Entry"],
+            "factor_score": [0.4],
+            "after_position": [1.0],
         }
     )
-    target = pd.Series([0.0, 1.0, 0.0], index=pd.bdate_range("2025-01-02", periods=3))
-    return orders, selections, target
+    target = pd.Series([1.0, 1.0, 0.0], index=dates, name="target_position")
+    factor_frame = pd.DataFrame({"factor_score": [0.4, 0.3, -0.4]}, index=dates)
+    return orders, events, target, factor_frame
 
 
-def test_audit_accepts_strictly_causal_records() -> None:
-    """Catch false audit failures on valid temporal records."""
-    orders, selections, target = _valid_inputs()
-    result = audit_no_lookahead(orders, selections, target)
+def test_audit_accepts_strictly_causal_factor_provenance() -> None:
+    """Catch false audit failures on a matched next-open factor order."""
+    orders, events, target, factors = _valid_inputs()
+    result = audit_no_lookahead(orders, events, target, factors)
     assert result["status"] == "PASS"
+    assert result["events_checked"] == 1
 
 
 def test_audit_rejects_same_day_execution() -> None:
     """Catch execution at the same timestamp that generated the signal."""
-    orders, selections, target = _valid_inputs()
+    orders, events, target, factors = _valid_inputs()
     orders.loc[0, "execution_date"] = orders.loc[0, "signal_date"]
 
     with pytest.raises(AssertionError, match="execution_date"):
-        audit_no_lookahead(orders, selections, target)
+        audit_no_lookahead(orders, events, target, factors)
 
 
-def test_audit_rejects_training_through_parameter_date() -> None:
-    """Catch monthly tuning that includes its own effective date."""
-    orders, selections, target = _valid_inputs()
-    selections.loc[0, "train_end"] = selections.loc[0, "as_of_date"]
+def test_audit_rejects_order_without_factor_event() -> None:
+    """Catch any trade introduced outside the CZSC factor state machine."""
+    orders, events, target, factors = _valid_inputs()
+    orders.loc[0, "factor_event_id"] = "Missing"
 
-    with pytest.raises(AssertionError, match="train_end"):
-        audit_no_lookahead(orders, selections, target)
+    with pytest.raises(AssertionError, match="factor event"):
+        audit_no_lookahead(orders, events, target, factors)
+
+
+def test_audit_rejects_direction_mismatch() -> None:
+    """Catch a buy order falsely attributed to an exit event."""
+    orders, events, target, factors = _valid_inputs()
+    orders.loc[0, "event_type"] = "Exit"
+
+    with pytest.raises(AssertionError, match="direction"):
+        audit_no_lookahead(orders, events, target, factors)
 

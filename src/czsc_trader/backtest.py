@@ -25,6 +25,7 @@ class PeriodBacktestResult:
     equity: pd.Series
     orders: pd.DataFrame
     metrics: dict[str, float | int | bool | str]
+    factor_events: pd.DataFrame
 
 
 def _normalize_prices(daily: pd.DataFrame) -> pd.DataFrame:
@@ -135,12 +136,90 @@ def run_backtest(
     return BacktestResult(portfolio, equity, orders, metrics)
 
 
+def _factor_snapshot(factor_frame: pd.DataFrame, signal_date: pd.Timestamp) -> dict[str, object]:
+    frame = factor_frame.copy()
+    frame.index = pd.DatetimeIndex(pd.to_datetime(frame.index), name="dt")
+    if signal_date not in frame.index:
+        raise AssertionError(f"factor snapshot missing for {signal_date.date()}")
+    columns = (
+        "structure",
+        "trend",
+        "volume_position",
+        "factor_score",
+        "enter_threshold",
+        "exit_threshold",
+    )
+    return {column: frame.loc[signal_date, column] for column in columns if column in frame.columns}
+
+
+def _attach_factor_provenance(
+    period: str,
+    orders: pd.DataFrame,
+    factor_events: pd.DataFrame,
+    factor_frame: pd.DataFrame,
+    period_start: pd.Timestamp,
+    initial_signal_date: pd.Timestamp,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    enriched = orders.copy()
+    if enriched.empty:
+        enriched.insert(0, "period", pd.Series(dtype="string"))
+        enriched["factor_event_id"] = pd.Series(dtype="string")
+        enriched["event_type"] = pd.Series(dtype="string")
+        return enriched, pd.DataFrame()
+    source = factor_events.copy()
+    if not source.empty:
+        source["signal_date"] = pd.to_datetime(source["signal_date"])
+    event_ids: list[str] = []
+    event_types: list[str] = []
+    used_events: list[dict[str, object]] = []
+    for _, order in enriched.iterrows():
+        signal_date = pd.Timestamp(order["signal_date"])
+        execution_date = pd.Timestamp(order["execution_date"])
+        side = str(order["side"])
+        is_initial = execution_date == period_start and signal_date == initial_signal_date and side == "Buy"
+        if is_initial:
+            event_id = f"InitialEntry:{period}:{signal_date:%Y%m%d}"
+            event_type = "InitialEntry"
+            event = {
+                "event_id": event_id,
+                "signal_date": signal_date,
+                "event_type": event_type,
+                **_factor_snapshot(factor_frame, signal_date),
+                "before_position": 0.0,
+                "after_position": 1.0,
+                "reason": "period starts in cash and aligns to prior active CZSC factor target",
+            }
+        else:
+            expected_type = "Entry" if side == "Buy" else "Exit"
+            matches = source.loc[
+                (source["signal_date"] == signal_date)
+                & (source["event_type"] == expected_type)
+            ] if not source.empty else source
+            if len(matches) != 1:
+                raise AssertionError(
+                    f"{period} {signal_date.date()} {side} has {len(matches)} matching factor events"
+                )
+            event = matches.iloc[0].to_dict()
+            event_id = str(event["event_id"])
+            event_type = expected_type
+        event_ids.append(event_id)
+        event_types.append(event_type)
+        used_events.append(event)
+    enriched.insert(0, "period", period)
+    enriched["factor_event_id"] = event_ids
+    enriched["event_type"] = event_types
+    return enriched, pd.DataFrame(used_events).drop_duplicates(subset=["event_id"]).reset_index(drop=True)
+
+
 def run_period_backtests(
     daily: pd.DataFrame,
     target_position: pd.Series,
     periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]],
     fee_rate: float = 0.0005,
     init_cash: float = 1_000_000.0,
+    *,
+    factor_events: pd.DataFrame | None = None,
+    factor_frame: pd.DataFrame | None = None,
 ) -> dict[str, PeriodBacktestResult]:
     """Run independently funded portfolios over requested date ranges."""
     prices = _normalize_prices(daily)
@@ -166,6 +245,19 @@ def run_period_backtests(
             initial_target=float(target.loc[signal_date]),
             initial_signal_date=signal_date,
         )
+        orders = period_backtest.orders
+        provenance_events = pd.DataFrame()
+        if factor_events is not None or factor_frame is not None:
+            if factor_events is None or factor_frame is None:
+                raise ValueError("factor_events and factor_frame must be provided together")
+            orders, provenance_events = _attach_factor_provenance(
+                name,
+                orders,
+                factor_events,
+                factor_frame,
+                start,
+                signal_date,
+            )
         buyhold_terminal = (
             init_cash
             / (float(prices.loc[start, "open"]) * (1.0 + fee_rate))
@@ -185,7 +277,8 @@ def run_period_backtests(
         results[name] = PeriodBacktestResult(
             period_backtest.portfolio,
             period_backtest.equity,
-            period_backtest.orders,
+            orders,
             metrics,
+            provenance_events,
         )
     return results

@@ -7,10 +7,11 @@ import pandas as pd
 
 def audit_no_lookahead(
     orders: pd.DataFrame,
-    selections: pd.DataFrame,
+    factor_events: pd.DataFrame,
     target_position: pd.Series,
+    factor_frame: pd.DataFrame,
 ) -> dict[str, int | str]:
-    """Raise on any observable violation of the causal research contract."""
+    """Reject trades that lack exact CZSC factor provenance or causal timing."""
     if not target_position.isin([0.0, 1.0]).all():
         raise AssertionError("target_position contains values outside long/cash {0, 1}")
     if not target_position.index.is_monotonic_increasing or target_position.index.has_duplicates:
@@ -21,24 +22,47 @@ def audit_no_lookahead(
         execution_dates = pd.to_datetime(orders["execution_date"])
         if signal_dates.isna().any() or not (signal_dates < execution_dates).all():
             raise AssertionError("every signal_date must be strictly before execution_date")
+        required = {"factor_event_id", "event_type", "side"}
+        if not required <= set(orders.columns) or orders["factor_event_id"].isna().any():
+            raise AssertionError("every order must reference a factor event")
 
-    selection_dates = pd.to_datetime(selections["as_of_date"])
-    if not selection_dates.is_monotonic_increasing or selection_dates.duplicated().any():
-        raise AssertionError("as_of_date must be unique and increasing")
-    if selection_dates.dt.to_period("M").duplicated().any():
-        raise AssertionError("there must be at most one parameter selection per month")
-    trained = selections.loc[selections["train_end"].notna()].copy()
-    if not trained.empty:
-        train_end = pd.to_datetime(trained["train_end"])
-        as_of = pd.to_datetime(trained["as_of_date"])
-        if not (train_end < as_of).all():
-            raise AssertionError("every train_end must be strictly before as_of_date")
-        if trained["candidate_count"].nunique() != 1:
-            raise AssertionError("candidate_count changed after walk-forward warm-up")
+    events = factor_events.copy()
+    if not events.empty:
+        events["signal_date"] = pd.to_datetime(events["signal_date"])
+    frame = factor_frame.copy()
+    frame.index = pd.DatetimeIndex(pd.to_datetime(frame.index), name="dt")
+    target = target_position.copy()
+    target.index = pd.DatetimeIndex(pd.to_datetime(target.index), name="dt")
+    previous = target.shift(1, fill_value=0.0)
+
+    for _, order in orders.iterrows():
+        event_id = str(order["factor_event_id"])
+        matches = events.loc[events["event_id"] == event_id] if not events.empty else events
+        if len(matches) != 1:
+            raise AssertionError(f"order must reference exactly one factor event: {event_id}")
+        event = matches.iloc[0]
+        signal_date = pd.Timestamp(order["signal_date"])
+        if pd.Timestamp(event["signal_date"]) != signal_date:
+            raise AssertionError("order signal_date differs from factor event")
+        event_type = str(order["event_type"])
+        expected_types = {"Buy": {"Entry", "InitialEntry"}, "Sell": {"Exit"}}
+        if event_type not in expected_types.get(str(order["side"]), set()) or event_type != str(event["event_type"]):
+            raise AssertionError("order direction does not match factor event direction")
+        if signal_date not in target.index or signal_date not in frame.index:
+            raise AssertionError("factor event date is missing from target or factor frame")
+        if event_type == "Entry" and not (previous.loc[signal_date] == 0.0 and target.loc[signal_date] == 1.0):
+            raise AssertionError("entry factor event does not match a target transition")
+        if event_type == "Exit" and not (previous.loc[signal_date] == 1.0 and target.loc[signal_date] == 0.0):
+            raise AssertionError("exit factor event does not match a target transition")
+        if event_type == "InitialEntry" and target.loc[signal_date] != 1.0:
+            raise AssertionError("initial entry does not match an active factor target")
+        if "factor_score" in event and "factor_score" in frame:
+            if abs(float(event["factor_score"]) - float(frame.loc[signal_date, "factor_score"])) > 1e-12:
+                raise AssertionError("factor event score differs from factor frame")
 
     return {
         "status": "PASS",
         "orders_checked": int(len(orders)),
-        "selections_checked": int(len(selections)),
+        "events_checked": int(orders["factor_event_id"].nunique()) if not orders.empty else 0,
         "positions_checked": int(len(target_position)),
     }

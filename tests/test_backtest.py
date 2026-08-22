@@ -67,6 +67,26 @@ def test_period_backtests_reset_cash_and_use_only_prior_signal_on_first_open() -
         }
     )
     target = pd.Series([1.0, 0.0, 0.0], index=dates)
+    factor_frame = pd.DataFrame(
+        {
+            "structure": [0.5, -0.5, -0.5],
+            "trend": [0.5, -0.5, -0.5],
+            "volume_position": [0.0, 0.0, 0.0],
+            "factor_score": [0.4, -0.4, -0.4],
+            "enter_threshold": [0.2, 0.2, 0.2],
+            "exit_threshold": [0.0, 0.0, 0.0],
+        },
+        index=dates,
+    )
+    factor_events = pd.DataFrame(
+        {
+            "event_id": ["Factor:20260102:Exit"],
+            "signal_date": [dates[1]],
+            "event_type": ["Exit"],
+            "factor_score": [-0.4],
+            "after_position": [0.0],
+        }
+    )
     periods = {
         "short": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-01-02")),
         "long": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-01-05")),
@@ -78,6 +98,8 @@ def test_period_backtests_reset_cash_and_use_only_prior_signal_on_first_open() -
         periods,
         fee_rate=0.0005,
         init_cash=1_000_000.0,
+        factor_events=factor_events,
+        factor_frame=factor_frame,
     )
 
     expected_first_close_equity = 1_000_000.0 / (100.0 * 1.0005) * 110.0
@@ -85,6 +107,45 @@ def test_period_backtests_reset_cash_and_use_only_prior_signal_on_first_open() -
         assert result.equity.iloc[0] == pytest.approx(expected_first_close_equity)
         assert result.orders.iloc[0]["signal_date"] == pd.Timestamp("2025-12-31")
         assert result.orders.iloc[0]["execution_date"] == pd.Timestamp("2026-01-02")
+        assert result.orders.iloc[0]["event_type"] == "InitialEntry"
+        assert result.orders.iloc[0]["factor_event_id"].startswith("InitialEntry:")
     assert results["short"].metrics["buyhold_return"] == pytest.approx(
         expected_first_close_equity / 1_000_000.0 - 1.0
     )
+
+
+def test_regular_orders_reference_matching_factor_transition() -> None:
+    """Catch a normal trade being exported without its CZSC factor event."""
+    dates = pd.to_datetime(["2025-12-31", "2026-01-02", "2026-01-05", "2026-01-06"])
+    daily = pd.DataFrame({"dt": dates, "open": [10.0, 10.0, 11.0, 10.0], "close": [10.0, 10.5, 10.0, 9.5]})
+    target = pd.Series([0.0, 1.0, 1.0, 0.0], index=dates)
+    factor_frame = pd.DataFrame(
+        {
+            "structure": [0.0, 0.5, 0.5, -0.5],
+            "trend": [0.0, 0.5, 0.5, -0.5],
+            "volume_position": [0.0, 0.0, 0.0, 0.0],
+            "factor_score": [0.0, 0.4, 0.4, -0.4],
+            "enter_threshold": [0.2] * 4,
+            "exit_threshold": [0.0] * 4,
+        },
+        index=dates,
+    )
+    factor_events = pd.DataFrame(
+        {
+            "event_id": ["Factor:20260102:Entry", "Factor:20260106:Exit"],
+            "signal_date": [dates[1], dates[3]],
+            "event_type": ["Entry", "Exit"],
+            "factor_score": [0.4, -0.4],
+        }
+    )
+
+    result = backtest.run_period_backtests(
+        daily,
+        target,
+        {"sample": (dates[1], dates[3])},
+        factor_events=factor_events,
+        factor_frame=factor_frame,
+    )["sample"]
+
+    assert result.orders.iloc[0]["factor_event_id"] == "Factor:20260102:Entry"
+    assert result.orders.iloc[0]["event_type"] == "Entry"

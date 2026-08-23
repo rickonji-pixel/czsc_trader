@@ -8,6 +8,8 @@ from itertools import product
 import numpy as np
 import pandas as pd
 
+from .objectives import RETURN_TARGETS
+
 
 FACTOR_COLUMNS = ("structure", "trend", "volume_position")
 MIN_TRAIN_DAYS = 120
@@ -252,10 +254,10 @@ def _period_candidate_metrics(
 
 
 def rank_candidate_results(candidates: pd.DataFrame) -> pd.DataFrame:
-    """Rank fixed rules by cross-period robustness before secondary metrics."""
+    """Rank fixed rules by absolute target attainment and target margins."""
     return candidates.sort_values(
-        ["pass_count", "min_excess", "mean_excess", "turnover", "max_drawdown", "complexity", "rule_id"],
-        ascending=[False, False, False, True, False, True, True],
+        ["pass_count", "min_target_margin", "mean_target_margin", "max_drawdown", "complexity", "rule_id"],
+        ascending=[False, False, False, False, True, True],
         kind="stable",
     ).reset_index(drop=True)
 
@@ -274,10 +276,14 @@ def select_fixed_rule(
     factors: pd.DataFrame,
     periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]],
     fee_rate: float = 0.0005,
+    return_targets: dict[str, float] | None = None,
 ) -> FixedSelectionResult:
     """Select one fixed CZSC-only rule using the declared target-period objective."""
     prices = _normalize_daily(daily)
     aligned = factors.loc[:, FACTOR_COLUMNS].reindex(prices.index).fillna(0.0)
+    effective_targets = RETURN_TARGETS if return_targets is None else return_targets
+    if set(periods) != set(effective_targets):
+        raise ValueError("period names must exactly match return target names")
     rows: list[dict[str, object]] = []
     targets: dict[str, tuple[Rule, pd.Series, pd.Series]] = {}
     for rule, target, scores in deduplicate_candidate_targets(CANDIDATES, aligned):
@@ -287,7 +293,10 @@ def select_fixed_rule(
             name: _period_candidate_metrics(prices, target, start, end, fee_rate)
             for name, (start, end) in periods.items()
         }
-        excesses = [float(item["excess_return"]) for item in metrics.values()]
+        target_margins = [
+            float(metrics[name]["strategy_return"]) - float(effective_targets[name])
+            for name in periods
+        ]
         row: dict[str, object] = {
             "rule_id": rule_id,
             "weights": "|".join(f"{value:.2f}" for value in rule.weights),
@@ -295,9 +304,9 @@ def select_fixed_rule(
             "exit": rule.exit,
             "confirm_days": rule.confirm_days,
             "min_hold_days": rule.min_hold_days,
-            "pass_count": sum(value > 0.0 for value in excesses),
-            "min_excess": min(excesses),
-            "mean_excess": float(np.mean(excesses)),
+            "pass_count": sum(value >= 0.0 for value in target_margins),
+            "min_target_margin": min(target_margins),
+            "mean_target_margin": float(np.mean(target_margins)),
             "turnover": sum(int(item["changes"]) for item in metrics.values())
             / max(sum(int(item["days"]) for item in metrics.values()), 1),
             "max_drawdown": min(float(item["drawdown"]) for item in metrics.values()),
@@ -307,6 +316,10 @@ def select_fixed_rule(
             row[f"{name}_strategy_return"] = item["strategy_return"]
             row[f"{name}_buyhold_return"] = item["buyhold_return"]
             row[f"{name}_excess_return"] = item["excess_return"]
+            row[f"{name}_target_return"] = float(effective_targets[name])
+            row[f"{name}_target_margin"] = (
+                float(item["strategy_return"]) - float(effective_targets[name])
+            )
         rows.append(row)
     ranked = rank_candidate_results(pd.DataFrame(rows))
     selected_rule, target, scores = targets[str(ranked.iloc[0]["rule_id"])]

@@ -175,12 +175,12 @@ def test_factor_events_are_the_only_position_transitions() -> None:
     assert events["factor_score"].tolist() == [0.5, -0.5, 0.5]
 
 
-def test_candidate_ranking_prioritizes_worst_period_excess() -> None:
-    """Catch a high-average candidate hiding a failed target period."""
+def test_candidate_ranking_prioritizes_worst_absolute_target_margin() -> None:
+    """Catch a high-average candidate hiding a failed absolute target."""
     candidates = pd.DataFrame(
         [
-            {"rule_id": "fragile", "pass_count": 2, "min_excess": -0.01, "mean_excess": 0.30, "turnover": 0.1, "max_drawdown": -0.1, "complexity": 2},
-            {"rule_id": "robust", "pass_count": 3, "min_excess": 0.01, "mean_excess": 0.02, "turnover": 0.2, "max_drawdown": -0.2, "complexity": 4},
+            {"rule_id": "fragile", "pass_count": 2, "min_target_margin": -0.01, "mean_target_margin": 0.30, "turnover": 0.1, "max_drawdown": -0.1, "complexity": 2},
+            {"rule_id": "robust", "pass_count": 3, "min_target_margin": 0.01, "mean_target_margin": 0.02, "turnover": 0.2, "max_drawdown": -0.2, "complexity": 4},
         ]
     )
 
@@ -189,12 +189,26 @@ def test_candidate_ranking_prioritizes_worst_period_excess() -> None:
     assert ranked.iloc[0]["rule_id"] == "robust"
 
 
+def test_turnover_cannot_change_absolute_target_ranking() -> None:
+    """Catch churn diagnostics leaking back into candidate selection."""
+    candidates = pd.DataFrame(
+        [
+            {"rule_id": "higher_turnover", "pass_count": 3, "min_target_margin": 0.02, "mean_target_margin": 0.03, "turnover": 0.9, "max_drawdown": -0.1, "complexity": 2},
+            {"rule_id": "lower_turnover", "pass_count": 3, "min_target_margin": 0.01, "mean_target_margin": 0.50, "turnover": 0.0, "max_drawdown": -0.1, "complexity": 2},
+        ]
+    )
+
+    ranked = rank_candidate_results(candidates)
+
+    assert ranked.iloc[0]["rule_id"] == "higher_turnover"
+
+
 def test_fixed_selection_target_is_exactly_its_factor_rule() -> None:
     """Catch any post-selection performance overlay changing factor positions."""
     daily, factors = _sample_inputs(180)
     periods = {"sample": (daily["dt"].iloc[120], daily["dt"].iloc[-1])}
 
-    result = select_fixed_rule(daily, factors, periods)
+    result = select_fixed_rule(daily, factors, periods, return_targets={"sample": 0.0})
     expected_target, expected_scores = positions_for_rule(factors, result.rule)
 
     pd.testing.assert_series_equal(result.target_position, expected_target, check_freq=False)

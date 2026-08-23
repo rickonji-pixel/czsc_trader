@@ -58,11 +58,11 @@
 
 ```text
 configs/rule_baselines/
-├── baseline_v001.json
+├── baseline_20260823.json
 └── registry.json
 ```
 
-`baseline_v001.json` 是 `outputs/588080_0823_R06/selected_rule.json` 的冻结副本，规则内容保持不变。注册表保存：
+`baseline_20260823.json` 是 `outputs/588080_0823_R06/selected_rule.json` 的冻结副本，规则内容保持不变。注册表保存：
 
 - `latest`：当前默认基线版本；
 - 各版本对应的文件名；
@@ -72,11 +72,11 @@ configs/rule_baselines/
 - 策略标识；
 - 所需数据频率。
 
-基线文件一旦登记便不可原地修改。新规则只能新增 `baseline_v002.json`、`baseline_v003.json` 等版本。更新 `latest` 不改变已有回测结果，因为每次回测都会复制实际规则并记录版本及哈希。
+基线文件一旦登记便不可原地修改。新规则只能按冻结日期新增 `baseline_YYYYMMDD.json`，同一天只允许一个正式基线。更新 `latest` 不改变已有回测结果，因为每次回测都会复制实际规则并记录版本及哈希。
 
 ### 基线解析
 
-回测未传 `--baseline` 时读取 `registry.json` 的 `latest`。传入 `--baseline baseline_v001` 时解析指定历史版本。解析器必须验证：
+回测未传 `--baseline` 时读取 `registry.json` 的 `latest`。传入 `--baseline baseline_20260823` 时解析指定历史版本。解析器必须验证：
 
 1. 注册表中存在该版本；
 2. 文件存在且是合法规则对象；
@@ -215,7 +215,7 @@ python scripts/run_backtest.py `
 python scripts/run_backtest.py `
   --symbol 510300.SH `
   --asset etf `
-  --baseline baseline_v001
+  --baseline baseline_20260823
 ```
 
 参数规则：
@@ -311,7 +311,7 @@ HTML 延续当前已确认的交互行为：主图和副图共享悬停位置与
 
 ## 验收标准
 
-1. `baseline_v001` 与 R06 规则内容一致，注册表哈希验证通过；
+1. `baseline_20260823` 与 R06 规则内容一致，注册表哈希验证通过；
 2. 股票和 ETF 都能通过同一数据准备入口生成扁平年度文件及 PASS 验证报告；
 3. 数据损坏、跨周期不一致或基线篡改均能在回测前被拒绝；
 4. `run_backtest.py` 可选择任意已准备的 A股股票或 ETF，并默认使用最新基线；

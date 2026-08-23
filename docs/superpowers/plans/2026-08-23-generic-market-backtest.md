@@ -17,7 +17,7 @@
 - 仅支持 `.SH`、`.SZ` 的 A股股票和 ETF；资产类型必须明确为 `stock` 或 `etf`。
 - 行情保持 `data/raw/<六位代码>_<30m|daily|weekly>_<年份>.csv` 扁平布局和 `utf-8-sig` 编码。
 - 回测不联网、不改写行情、不遍历候选规则、不更新规则基线。
-- `baseline_v001` 必须与 `outputs/588080_0823_R06/selected_rule.json` 内容一致且不可原地修改。
+- `baseline_20260823` 必须与 `outputs/588080_0823_R06/selected_rule.json` 内容一致且不可原地修改。
 - 默认基线由注册表 `latest` 指定；每次回测固化实际版本、规则和 SHA-256。
 - 缺省验收目标时状态为 `N/A`；只有传入目标配置时才判定 PASS/FAIL。
 - 输出目录固定为 `outputs/<六位代码>_<MMDD>_RXX`，使用 Asia/Shanghai 日期且不覆盖。
@@ -31,7 +31,7 @@
 
 **Files:**
 - Create: `src/czsc_trader/baselines.py`
-- Create: `configs/rule_baselines/baseline_v001.json`
+- Create: `configs/rule_baselines/baseline_20260823.json`
 - Create: `configs/rule_baselines/registry.json`
 - Create: `tests/test_baselines.py`
 
@@ -44,14 +44,14 @@
 
 ```python
 def test_resolve_latest_baseline_verifies_hash(tmp_path: Path) -> None:
-    root = write_registry_fixture(tmp_path, latest="baseline_v001")
+    root = write_registry_fixture(tmp_path, latest="baseline_20260822")
     resolved = resolve_baseline(root)
-    assert resolved.version == "baseline_v001"
+    assert resolved.version == "baseline_20260822"
     assert resolved.rule.weights == (0.3, 0.3, 0.4)
 
 def test_resolve_baseline_rejects_modified_rule(tmp_path: Path) -> None:
-    root = write_registry_fixture(tmp_path, latest="baseline_v001")
-    (root / "baseline_v001.json").write_text("{}", encoding="utf-8")
+    root = write_registry_fixture(tmp_path, latest="baseline_20260822")
+    (root / "baseline_20260822.json").write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="SHA-256"):
         resolve_baseline(root)
 ```
@@ -69,20 +69,20 @@ Implement canonical JSON reading, byte-level SHA-256 comparison, version lookup,
 - [ ] **Step 4: Add failing promotion tests**
 
 ```python
-def test_promote_adds_next_immutable_version_and_updates_latest(tmp_path: Path) -> None:
-    root = write_registry_fixture(tmp_path, latest="baseline_v001")
+def test_promote_adds_date_version_and_updates_latest(tmp_path: Path) -> None:
+    root = write_registry_fixture(tmp_path, latest="baseline_20260822")
     selected = tmp_path / "selected_rule.json"
     selected.write_text(json.dumps(VALID_RULE), encoding="utf-8")
     promoted = promote_baseline(root, selected, "outputs/example_R02", FIXED_NOW)
-    assert promoted.version == "baseline_v002"
-    assert json.loads((root / "registry.json").read_text(encoding="utf-8"))["latest"] == "baseline_v002"
+    assert promoted.version == "baseline_20260823"
+    assert json.loads((root / "registry.json").read_text(encoding="utf-8"))["latest"] == "baseline_20260823"
 ```
 
 - [ ] **Step 5: Implement explicit promotion with atomic registry replacement**
 
-Copy the exact rule payload into a newly numbered file, refuse any existing target filename, write the registry through a `.tmp` file, then resolve the new version again before returning it. Do not connect this function to research execution.
+Copy the exact rule payload into the date-named file, refuse a second baseline on the same date, write the registry through a `.tmp` file, then resolve the new version again before returning it. Do not connect this function to research execution.
 
-- [ ] **Step 6: Freeze R06 as baseline_v001 and verify byte-equivalent JSON content**
+- [ ] **Step 6: Freeze R06 as baseline_20260823 and verify byte-equivalent JSON content**
 
 Copy the rule object from `outputs/588080_0823_R06/selected_rule.json`, calculate its actual byte SHA-256 for `registry.json`, and record `source_output` as `outputs/588080_0823_R06`.
 
@@ -342,7 +342,7 @@ Document this sequence:
 ```powershell
 .\.venv\Scripts\python.exe scripts\prepare_market_data.py --symbol 600519.SH --asset stock --start 2024-01-01 --end 2026-08-21
 .\.venv\Scripts\python.exe scripts\run_backtest.py --symbol 600519.SH --asset stock
-.\.venv\Scripts\python.exe scripts\run_backtest.py --symbol 600519.SH --asset stock --baseline baseline_v001
+.\.venv\Scripts\python.exe scripts\run_backtest.py --symbol 600519.SH --asset stock --baseline baseline_20260823
 ```
 
 State clearly that `run_research.py` searches/selects rules, while `run_backtest.py` applies one frozen rule and never updates it.
@@ -370,7 +370,7 @@ Expected: all unmarked tests pass; `slow` and `network` are deselected.
 Run:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_backtest.py --symbol 588080.SH --asset etf --start 2026-01-01 --end 2026-08-21 --baseline baseline_v001
+.\.venv\Scripts\python.exe scripts\run_backtest.py --symbol 588080.SH --asset etf --start 2026-01-01 --end 2026-08-21 --baseline baseline_20260823
 ```
 
 Expected: a new `outputs/588080_0823_RXX` directory containing manifest, baseline rule, metrics, orders, equity, factors, events, audit, chart and report; no candidate results; audit status PASS; acceptance status N/A.

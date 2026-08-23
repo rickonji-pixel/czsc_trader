@@ -30,14 +30,14 @@ def _canonical_hash(payload: dict[str, object]) -> str:
 
 def _write_registry_fixture(root: Path) -> Path:
     root.mkdir(parents=True)
-    rule_path = root / "baseline_v001.json"
+    rule_path = root / "baseline_20260822.json"
     rule_path.write_text(json.dumps(VALID_RULE, indent=2), encoding="utf-8")
     digest = _canonical_hash(VALID_RULE)
     registry = {
         "schema_version": 1,
-        "latest": "baseline_v001",
+        "latest": "baseline_20260822",
         "baselines": {
-            "baseline_v001": {
+            "baseline_20260822": {
                 "file": rule_path.name,
                 "sha256": digest,
                 "source_output": "outputs/source_R01",
@@ -56,14 +56,14 @@ def test_resolve_latest_baseline_verifies_hash(tmp_path: Path) -> None:
 
     resolved = resolve_baseline(root)
 
-    assert resolved.version == "baseline_v001"
+    assert resolved.version == "baseline_20260822"
     assert resolved.rule.weights == (0.3, 0.3, 0.4)
     assert resolved.source_output == "outputs/source_R01"
 
 
 def test_resolve_baseline_rejects_modified_rule(tmp_path: Path) -> None:
     root = _write_registry_fixture(tmp_path / "baselines")
-    (root / "baseline_v001.json").write_text("{}", encoding="utf-8")
+    (root / "baseline_20260822.json").write_text("{}", encoding="utf-8")
 
     with pytest.raises(ValueError, match="SHA-256"):
         resolve_baseline(root)
@@ -71,18 +71,45 @@ def test_resolve_baseline_rejects_modified_rule(tmp_path: Path) -> None:
 
 def test_resolve_baseline_rejects_invalid_rule(tmp_path: Path) -> None:
     root = _write_registry_fixture(tmp_path / "baselines")
-    rule_path = root / "baseline_v001.json"
+    rule_path = root / "baseline_20260822.json"
     invalid = {**VALID_RULE, "weights": [0.3, 0.3]}
     rule_path.write_text(json.dumps(invalid), encoding="utf-8")
     registry = json.loads((root / "registry.json").read_text(encoding="utf-8"))
-    registry["baselines"]["baseline_v001"]["sha256"] = _canonical_hash(invalid)
+    registry["baselines"]["baseline_20260822"]["sha256"] = _canonical_hash(invalid)
     (root / "registry.json").write_text(json.dumps(registry), encoding="utf-8")
 
     with pytest.raises(ValueError, match="three weights"):
         resolve_baseline(root)
 
 
-def test_promote_adds_next_immutable_version_and_updates_latest(tmp_path: Path) -> None:
+def test_resolve_baseline_rejects_non_date_version(tmp_path: Path) -> None:
+    root = _write_registry_fixture(tmp_path / "baselines")
+    registry_path = root / "registry.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry["latest"] = "baseline_v001"
+    registry["baselines"]["baseline_v001"] = registry["baselines"].pop(
+        "baseline_20260822"
+    )
+    registry["baselines"]["baseline_v001"]["file"] = "baseline_v001.json"
+    (root / "baseline_20260822.json").rename(root / "baseline_v001.json")
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="baseline_YYYYMMDD"):
+        resolve_baseline(root)
+
+
+def test_resolve_baseline_rejects_filename_that_differs_from_version(tmp_path: Path) -> None:
+    root = _write_registry_fixture(tmp_path / "baselines")
+    registry_path = root / "registry.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry["baselines"]["baseline_20260822"]["file"] = "other.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must use file baseline_20260822.json"):
+        resolve_baseline(root)
+
+
+def test_promote_adds_date_version_and_updates_latest(tmp_path: Path) -> None:
     root = _write_registry_fixture(tmp_path / "baselines")
     selected = tmp_path / "selected_rule.json"
     selected.write_text(json.dumps(VALID_RULE), encoding="utf-8")
@@ -94,8 +121,19 @@ def test_promote_adds_next_immutable_version_and_updates_latest(tmp_path: Path) 
         datetime(2026, 8, 23, 8, 0, tzinfo=timezone.utc),
     )
 
-    assert promoted.version == "baseline_v002"
+    assert promoted.version == "baseline_20260823"
     registry = json.loads((root / "registry.json").read_text(encoding="utf-8"))
-    assert registry["latest"] == "baseline_v002"
-    assert (root / "baseline_v001.json").is_file()
-    assert (root / "baseline_v002.json").is_file()
+    assert registry["latest"] == "baseline_20260823"
+    assert (root / "baseline_20260822.json").is_file()
+    assert (root / "baseline_20260823.json").is_file()
+
+
+def test_promote_rejects_second_baseline_on_same_date(tmp_path: Path) -> None:
+    root = _write_registry_fixture(tmp_path / "baselines")
+    selected = tmp_path / "selected_rule.json"
+    selected.write_text(json.dumps(VALID_RULE), encoding="utf-8")
+    now = datetime(2026, 8, 23, 8, 0, tzinfo=timezone.utc)
+    promote_baseline(root, selected, "outputs/example_R02", now)
+
+    with pytest.raises(FileExistsError, match="baseline_20260823"):
+        promote_baseline(root, selected, "outputs/example_R03", now)

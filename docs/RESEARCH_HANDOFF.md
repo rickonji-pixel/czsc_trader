@@ -17,10 +17,10 @@ prepare_market_data.py → PASS行情清单 → 最新冻结规则基线 → run
 首个受 Git 跟踪的规则基线是：
 
 ```text
-configs/rule_baselines/baseline_v001.json
+configs/rule_baselines/baseline_20260823.json
 ```
 
-它与本机 `outputs/588080_0823_R06/selected_rule.json` 的规则内容一致。`configs/rule_baselines/registry.json` 的 `latest` 决定通用回测的默认规则；每次回测还会把实际版本、完整规则和哈希写入本次 manifest。基线不能原地修改，研究达到 PASS 也不会自动晋升。
+它与本机 `outputs/588080_0823_R06/selected_rule.json` 的规则内容一致。基线统一命名为 `baseline_YYYYMMDD.json`，同一天只允许一个正式基线。`configs/rule_baselines/registry.json` 的 `latest` 决定通用回测的默认规则；每次回测还会把实际版本、完整规则和哈希写入本次 manifest。基线不能原地修改，研究达到 PASS 也不会自动晋升。
 
 通用回测命令：
 
@@ -31,6 +31,20 @@ configs/rule_baselines/baseline_v001.json
 未提供 `--targets` 时验收状态为 `N/A`，不套用588080研究目标。固定回测输出仍采用 `outputs/<证券代码>_<MMDD>_RXX`，但不包含候选排行和 `selected_rule.json`。
 
 ## 1. 当前有效结论
+
+### 后复权影响评估与基线验收
+
+2026-08-23 将588080本地行情统一重建为 Tushare `fund_adj` 后复权数据，并仅针对 Tushare 在588080的7个已确认2024年异常交易日修正100倍的30分钟成交量。冻结规则未改变，仍登记为 `baseline_20260823`。
+
+后复权数据下的固定基线结果为：
+
+| 周期 | 基线收益 | Buy & Hold | 基线夏普 | Buy & Hold夏普 | 原收益目标 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 2026Q1 | 10.25% | -7.07% | 2.744 | -1.176 | 未达到10.50% |
+| 2026H1 | 80.42% | 64.39% | 4.877 | 3.551 | 未达到82.50% |
+| 2026M1-M8 | 60.73% | 22.37% | 2.622 | 1.119 | 达到60.00% |
+
+严格按原三项绝对收益阈值自动计算时，Q1和H1为FAIL；用户综合同周期收益率、超额收益和夏普率后，将本轮基线影响评估最终人工验收为 `PASS`。该结论是明确的人工验收覆盖，不改写底层指标或自动阈值结果。完整候选研究R13未同时达到三项目标，未晋升为基线。
 
 ### 绝对收益目标研究 R06
 
@@ -82,7 +96,7 @@ docs/baselines/588080_2026_expected.json
 D:\CodeBase\czsc_trader\outputs\588080_0823_R05
 ```
 
-`R05` 是上一轮“跑赢Buy & Hold”目标下的研究结果快照，`docs/baselines/588080_2026_expected.json` 仍保留该历史口径。R06已经用户确认，其选定规则现冻结为 `configs/rule_baselines/baseline_v001.json`，作为通用固定回测的默认规则。两套策略均使用全历史固定不变的纯 CZSC 因子规则，最终仓位不包含收益、Buy & Hold、季度日期或组合净值触发的覆盖。
+`R05` 是上一轮“跑赢Buy & Hold”目标下的研究结果快照，`docs/baselines/588080_2026_expected.json` 仍保留该历史口径。R06已经用户确认，其选定规则现冻结为 `configs/rule_baselines/baseline_20260823.json`，作为通用固定回测的默认规则。两套策略均使用全历史固定不变的纯 CZSC 因子规则，最终仓位不包含收益、Buy & Hold、季度日期或组合净值触发的覆盖。
 
 | 周期 | 策略收益 | Buy & Hold | 超额收益 | 最大回撤 | 订单数 | 结果 |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |

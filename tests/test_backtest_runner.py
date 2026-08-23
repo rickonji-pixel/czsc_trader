@@ -27,7 +27,7 @@ def _request(tmp_path: Path, **changes: object) -> BacktestRequest:
 def test_report_includes_sharpe_for_every_backtest_period() -> None:
     report = runner._report(
         "600519.SH",
-        "baseline_v001",
+        "baseline_20260823",
         {
             "acceptance_status": "N/A",
             "windows": {
@@ -81,7 +81,7 @@ def test_fixed_backtest_uses_latest_baseline_and_writes_nonresearch_artifacts(
     assert "candidate_results.csv" not in actual
     assert "selected_rule.json" not in actual
     manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["baseline"]["version"] == "baseline_v001"
+    assert manifest["baseline"]["version"] == "baseline_20260823"
     assert manifest["baseline"]["sha256"]
     assert manifest["data"]["hashes"]
     assert manifest["symbol"] == "588080.SH"
@@ -128,7 +128,7 @@ def test_target_config_is_mutually_exclusive_with_cli_dates(tmp_path: Path) -> N
 def test_explicit_unknown_baseline_fails_with_failure_record(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Unknown rule baseline"):
         run_fixed_backtest(
-            _request(tmp_path, baseline="baseline_v999"),
+            _request(tmp_path, baseline="baseline_20990101"),
             run_date=date(2026, 8, 23),
         )
 

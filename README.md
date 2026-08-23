@@ -60,16 +60,16 @@ CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周�
   --symbol 600519.SH --asset stock
 ```
 
-显式复现历史基线和指定区间：
+显式选择已冻结基线和指定区间：
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_backtest.py `
   --symbol 600519.SH --asset stock `
-  --baseline baseline_v001 `
+  --baseline baseline_20260823 `
   --start 2024-01-01 --end 2026-08-21
 ```
 
-`baseline_v001` 冻结自 `588080_0823_R06/selected_rule.json`。研究不会自动晋升基线；基线文件登记后不可原地修改。未传 `--targets` 时，通用回测只报告指标，验收状态为 `N/A`。结果仍写入 `outputs/<证券代码>_<MMDD>_RXX`，但固定回测不会生成 `candidate_results.csv` 或 `selected_rule.json`。
+`baseline_20260823` 冻结自 `588080_0823_R06/selected_rule.json`。基线统一命名为 `baseline_YYYYMMDD.json`，同一天只允许一个正式基线。研究不会自动晋升基线；基线文件登记后不可原地修改。未传 `--targets` 时，通用回测只报告指标，验收状态为 `N/A`。结果仍写入 `outputs/<证券代码>_<MMDD>_RXX`，但固定回测不会生成 `candidate_results.csv` 或 `selected_rule.json`。
 
 ## 测试
 

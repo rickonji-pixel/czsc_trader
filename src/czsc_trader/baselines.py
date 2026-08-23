@@ -12,7 +12,7 @@ import re
 from .walk_forward import Rule
 
 
-_VERSION_PATTERN = re.compile(r"baseline_v(\d{3})$")
+_VERSION_PATTERN = re.compile(r"baseline_(\d{8})$")
 _ENTRY_GATES = {"none", "structure", "trend", "structure_and_trend"}
 
 
@@ -23,6 +23,18 @@ class ResolvedBaseline:
     rule_payload: dict[str, object]
     sha256: str
     source_output: str
+
+
+def _validate_version(version: str) -> None:
+    match = _VERSION_PATTERN.fullmatch(version)
+    if match is None:
+        raise ValueError(f"Invalid rule baseline version {version!r}; expected baseline_YYYYMMDD")
+    try:
+        datetime.strptime(match.group(1), "%Y%m%d")
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid rule baseline version {version!r}; expected a real date in baseline_YYYYMMDD"
+        ) from exc
 
 
 def _load_json_object(path: Path) -> dict[str, object]:
@@ -92,6 +104,7 @@ def resolve_baseline(root: Path, version: str | None = None) -> ResolvedBaseline
     root = Path(root)
     registry = _load_json_object(root / "registry.json")
     selected_version = str(version or registry.get("latest", ""))
+    _validate_version(selected_version)
     baselines = registry.get("baselines")
     if not isinstance(baselines, dict) or selected_version not in baselines:
         raise ValueError(f"Unknown rule baseline: {selected_version}")
@@ -99,8 +112,9 @@ def resolve_baseline(root: Path, version: str | None = None) -> ResolvedBaseline
     if not isinstance(entry, dict):
         raise ValueError(f"Invalid registry entry for {selected_version}")
     filename = str(entry.get("file", ""))
-    if Path(filename).name != filename:
-        raise ValueError(f"Invalid baseline filename for {selected_version}")
+    expected_filename = f"{selected_version}.json"
+    if filename != expected_filename:
+        raise ValueError(f"{selected_version} must use file {expected_filename}")
     rule_path = root / filename
     if not rule_path.is_file():
         raise ValueError(f"Missing baseline file: {rule_path}")
@@ -133,14 +147,9 @@ def promote_baseline(
         raise ValueError("registry baselines must be an object")
     payload = _load_json_object(Path(selected_rule))
     _parse_rule(payload)
-    numbers = []
-    for name in baselines:
-        match = _VERSION_PATTERN.fullmatch(str(name))
-        if match:
-            numbers.append(int(match.group(1)))
-    version = f"baseline_v{max(numbers, default=0) + 1:03d}"
+    version = f"baseline_{now.strftime('%Y%m%d')}"
     rule_path = root / f"{version}.json"
-    if rule_path.exists():
+    if version in baselines or rule_path.exists():
         raise FileExistsError(f"Baseline already exists: {rule_path}")
     text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     rule_path.write_text(text, encoding="utf-8")

@@ -1,5 +1,35 @@
 # 588080 纯 CZSC 绝对收益目标策略：研究总结与会话交接
 
+## 0. 研究与通用回测边界
+
+仓库现已增加独立的 A股股票/ETF 固定规则回测链路：
+
+```text
+prepare_market_data.py → PASS行情清单 → 最新冻结规则基线 → run_backtest.py
+```
+
+必须区分：
+
+- `scripts/run_research.py`：仅用于588080候选研究、排序和选择，产生 `candidate_results.csv`、`selected_rule.json`；
+- `scripts/run_backtest.py`：只加载一个已冻结基线，对指定标的执行，不遍历候选、不更新基线；
+- `scripts/prepare_market_data.py`：通过 Tushare 获取 A股股票或 ETF 的30分钟、日线、周线数据，验证后发布扁平年度CSV、manifest和validation报告。
+
+首个受 Git 跟踪的规则基线是：
+
+```text
+configs/rule_baselines/baseline_v001.json
+```
+
+它与本机 `outputs/588080_0823_R06/selected_rule.json` 的规则内容一致。`configs/rule_baselines/registry.json` 的 `latest` 决定通用回测的默认规则；每次回测还会把实际版本、完整规则和哈希写入本次 manifest。基线不能原地修改，研究达到 PASS 也不会自动晋升。
+
+通用回测命令：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_backtest.py --symbol 588080.SH --asset etf
+```
+
+未提供 `--targets` 时验收状态为 `N/A`，不套用588080研究目标。固定回测输出仍采用 `outputs/<证券代码>_<MMDD>_RXX`，但不包含候选排行和 `selected_rule.json`。
+
 ## 1. 当前有效结论
 
 ### 绝对收益目标研究 R06
@@ -38,13 +68,13 @@ M1—M8共有14次仓位变化和7个完整回合，没有出现“入场后下�
 
 `outputs/` 被 `.gitignore` 忽略，只存在于执行回测的本机，不会随 Git 推送到远端。新会话可能运行在另一台机器上，因此不得把任何 `outputs/588080_0823_RXX` 路径当作接手前提。
 
-远端仓库中可携带、可核对的正式基线是：
+远端仓库中可携带、可核对的研究结果基线是：
 
 ```text
 docs/baselines/588080_2026_expected.json
 ```
 
-该文件包含最终规则、精确指标、审计计数、依赖版本、候选空间哈希、原始数据哈希和预期产物清单。新机器应从受版本控制的 `data/raw` 重跑研究，使用运行返回的实际 `output_dir`，再与该基线核对。输出修订号取决于本机已有目录；全新克隆通常从 `R01` 开始，不要求重现 `R05` 这个目录名。
+该文件包含研究结果的精确指标、审计计数、依赖版本、候选空间哈希、原始数据哈希和预期产物清单。通用固定回测默认规则则以 `configs/rule_baselines/registry.json` 为准。新机器重跑研究时使用返回的实际 `output_dir` 再与研究结果基线核对；输出修订号取决于本机已有目录。
 
 在原研究机器上，旧的便携基线参考运行位于：
 
@@ -52,7 +82,7 @@ docs/baselines/588080_2026_expected.json
 D:\CodeBase\czsc_trader\outputs\588080_0823_R05
 ```
 
-`R05` 是上一轮“跑赢Buy & Hold”目标下的便携基线，尚未被R06覆盖。R06经用户确认前，不更新 `docs/baselines/588080_2026_expected.json`。两套策略均使用全历史固定不变的纯 CZSC 因子规则，最终仓位不包含收益、Buy & Hold、季度日期或组合净值触发的覆盖。
+`R05` 是上一轮“跑赢Buy & Hold”目标下的研究结果快照，`docs/baselines/588080_2026_expected.json` 仍保留该历史口径。R06已经用户确认，其选定规则现冻结为 `configs/rule_baselines/baseline_v001.json`，作为通用固定回测的默认规则。两套策略均使用全历史固定不变的纯 CZSC 因子规则，最终仓位不包含收益、Buy & Hold、季度日期或组合净值触发的覆盖。
 
 | 周期 | 策略收益 | Buy & Hold | 超额收益 | 最大回撤 | 订单数 | 结果 |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -202,7 +232,12 @@ T+1收盘：按收盘价计算当日组合净值
 | `src/czsc_trader/audit.py` | 审计目标仓位、订单事件匹配及紧邻下一交易日执行 |
 | `src/czsc_trader/charting.py` | 生成三张离线Plotly日线交互图 |
 | `src/czsc_trader/research.py` | 编排完整研究、输出文件、报告、manifest和版本信息 |
-| `scripts/run_research.py` | 单一正式运行入口 |
+| `scripts/run_research.py` | 588080候选研究入口 |
+| `src/czsc_trader/baselines.py` | 校验、解析和显式晋升不可变规则基线 |
+| `src/czsc_trader/market_data_prep.py` | 获取后规范化、跨周期验证、哈希和安全发布行情 |
+| `src/czsc_trader/backtest_runner.py` | 编排任意标的固定基线回测和证据输出 |
+| `scripts/prepare_market_data.py` | A股股票/ETF行情准备入口 |
+| `scripts/run_backtest.py` | 任意已准备标的的固定规则回测入口 |
 | `tests/` | 数据、因子截断、状态机、候选选择、成交、审计、图表和研究集成测试 |
 
 `walk_forward.py` 中还保留未被正式管线调用的早期月度滚动函数，用于历史测试和对照。正式 `run_research` 只调用 `select_fixed_rule`，不得重新接入收益覆盖逻辑。
@@ -266,7 +301,7 @@ cd <仓库克隆目录>
 .\.venv\Scripts\python.exe -m pip check
 ```
 
-完整测试：
+默认快速测试：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
@@ -274,7 +309,14 @@ cd <仓库克隆目录>
 git diff --check
 ```
 
-当前分支基线是44项测试全部通过。
+测试数量会随通用数据和回测覆盖增加；以每次命令输出的通过、跳过和取消选择数量为准，不再硬编码历史44项计数。
+
+耗时的完整候选搜索和实时联网检查已分层：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m slow -q
+.\.venv\Scripts\python.exe -m pytest -m network -q
+```
 
 生成本机结果：
 
@@ -372,7 +414,7 @@ git switch -c research/<任务名称>
 3. 运行 `git status --short`，保护用户已有修改。
 4. 确认当前分支和 `master` 基线，不直接在 `master` 开发。
 5. 先阅读受Git跟踪的 `docs/baselines/588080_2026_expected.json`；如果本机没有历史输出，就运行研究并使用返回的实际 `output_dir`。
-6. 修改前先写失败测试；修改后运行44项以上完整测试。
+6. 修改前先写失败测试；修改后运行默认快速测试。只有修改候选研究逻辑时才额外运行 `-m slow`，实时数据权限检查使用 `-m network`。
 7. 重新回测时创建新的RXX目录，不覆盖本机已有结果；异机目录号不需要与R05一致。
 8. 检查每笔订单的 `factor_event_id`，尤其关注周期首日 `InitialEntry`。
 9. 确认没有重新引入收益、基准或日期触发的仓位覆盖。

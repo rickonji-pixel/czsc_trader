@@ -1,5 +1,7 @@
 # A股股票与 ETF 通用固定基线回测 Implementation Plan
 
+**Execution status:** Implementation completed on `codex/generic-market-backtest`; final verification evidence is recorded in the delivery response.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 建立经过验证的 A股股票/ETF 数据准备工具、不可变规则基线注册表，以及默认使用最新基线的任意标的固定规则回测入口。

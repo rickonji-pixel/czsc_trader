@@ -1,7 +1,7 @@
 # Financial dataflows
 
-This package provides text-report adapters for Tushare market data,
-indicators, fundamentals, and news.
+This package provides text-report adapters and machine-readable DataFrame APIs
+for Tushare market data, indicators, fundamentals, and news.
 
 ## Setup
 
@@ -29,6 +29,8 @@ symbols such as `588080.SH` to `tushare_stock`.
 ```python
 from dataflows.tushare_stock import get_stock as get_tushare_stock
 from dataflows.tushare_etf import get_etf as get_tushare_etf
+from dataflows.tushare_stock import fetch_stock_ohlcv
+from dataflows.tushare_etf import fetch_etf_ohlcv
 
 weekly = get_tushare_stock(
     "600519.SH", "2026-01-01", "2026-08-14", period="weekly"
@@ -42,7 +44,17 @@ weekly_tushare = get_tushare_etf(
 intraday_tushare = get_tushare_etf(
     "588080.SH", "2026-08-10", "2026-08-14", period="30m"
 )
+
+stock_frame, stock_metadata = fetch_stock_ohlcv(
+    "600519.SH", "2026-01-01", "2026-08-14", period="daily"
+)
+etf_frame, etf_metadata = fetch_etf_ohlcv(
+    "588080.SH", "2026-01-01", "2026-08-14", period="daily"
+)
 ```
+
+The `fetch_*_ohlcv` functions raise vendor and empty-data errors directly and
+are the stable machine interface used by `scripts/prepare_market_data.py`.
 
 The normalized columns are `Date`, `Open`, `High`, `Low`, `Close`, `Volume`,
 and `Amount`. A-share 30-minute bars are checked for duplicate timestamps,

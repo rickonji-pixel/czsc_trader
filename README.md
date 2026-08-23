@@ -1,12 +1,17 @@
-# 588080 纯 CZSC 绝对收益目标固定策略
+# CZSC 固定规则研究与通用基线回测
 
 跨机器研究基线、复现方式和新会话交接说明见 `docs/RESEARCH_HANDOFF.md`。`outputs/` 仅为本机生成目录，不随Git同步；异机复现应读取 `docs/baselines/588080_2026_expected.json` 并在本地重跑核对。
 
-本项目只读取 `data/raw` 中的 588080.SH K线，通过 CZSC 1.0.1 生成多周期因子，从预先声明的23,760个固定候选中选择一个规则，并由 vectorbt 1.1.0 在下一交易日开盘执行和验证。最终仓位只能由 CZSC 因子状态机产生；收益、基准、日期或组合净值不得覆盖仓位。候选选择允许使用已发生的2026年结果，因此报告明确标记为样本内优化，而非样本外验证。
+项目包含两条严格分离的流程：
+
+- `run_research.py` 只研究 `588080.SH`，遍历预声明的23,760个候选并选择规则；
+- `run_backtest.py` 对任意已准备的 A股股票或 ETF 应用一套冻结规则，不搜索或修改规则。
+
+两条流程都通过 CZSC 1.0.1 生成多周期因子，并由 vectorbt 1.1.0 在下一交易日开盘执行和验证。最终仓位只能由 CZSC 因子状态机产生；收益、基准、日期或组合净值不得覆盖仓位。
 
 当前绝对收益验收门槛为：2026Q1不低于10.5%、2026H1不低于82.5%、2026年1月至数据末日2026-08-21不低于60.0%。三项必须同时达到才是PASS；Buy & Hold、换手和交易反转诊断不参与PASS或候选排序。
 
-## 运行
+## 588080 规则研究
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_research.py
@@ -22,10 +27,61 @@
 CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周期初始因子对齐和 vectorbt 实际成交点；
 副图展示结构、趋势、量价位置与综合因子分数。五笔/七笔背驰同时进入结构因子。研究目录还输出 `trade_diagnostics.csv`，用于观察完整买卖回合、持仓天数和连续反转；诊断层不能改变仓位或选优结果。
 
+## 数据准备与通用回测
+
+先安装 Tushare 可选依赖并在被 Git 忽略的 `dataflows/.env` 配置 token：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r dataflows\requirements-dataflows.txt
+```
+
+准备 A股股票：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\prepare_market_data.py `
+  --symbol 600519.SH --asset stock `
+  --start 2024-01-01 --end 2026-08-21
+```
+
+准备 A股 ETF：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\prepare_market_data.py `
+  --symbol 510300.SH --asset etf `
+  --start 2024-01-01 --end 2026-08-21
+```
+
+数据只有在30分钟交易时段、每日8根K线、30分钟/日线和日线/周线对账全部通过后才会发布到 `data/raw`。回测只读取 PASS 清单并重新核对 SHA-256，不会隐式联网刷新数据。
+
+默认使用 `configs/rule_baselines/registry.json` 登记的最新基线：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_backtest.py `
+  --symbol 600519.SH --asset stock
+```
+
+显式复现历史基线和指定区间：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_backtest.py `
+  --symbol 600519.SH --asset stock `
+  --baseline baseline_v001 `
+  --start 2024-01-01 --end 2026-08-21
+```
+
+`baseline_v001` 冻结自 `588080_0823_R06/selected_rule.json`。研究不会自动晋升基线；基线文件登记后不可原地修改。未传 `--targets` 时，通用回测只报告指标，验收状态为 `N/A`。结果仍写入 `outputs/<证券代码>_<MMDD>_RXX`，但固定回测不会生成 `candidate_results.csv` 或 `selected_rule.json`。
+
 ## 测试
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-测试覆盖原始数据完整性、CZSC因子截断不变性、固定规则选择、订单因子溯源、vectorbt次日开盘成交、成本手算对账和最终审计产物。
+默认命令运行快速离线测试并排除 `slow` 和 `network`。需要显式运行完整候选研究或实时 Tushare 测试时使用：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m slow -q
+.\.venv\Scripts\python.exe -m pytest -m network -q
+```
+
+测试覆盖数据发布与哈希、CZSC因子截断不变性、固定规则选择、基线解析、订单因子溯源、vectorbt次日开盘成交、成本手算对账和最终审计产物。

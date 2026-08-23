@@ -19,6 +19,7 @@ from .audit import audit_no_lookahead
 from .backtest import PeriodBacktestResult, run_period_backtests
 from .charting import DIVERGENCE_CONFIG, write_period_chart
 from .data import SYMBOL, load_market_data
+from .diagnostics import build_trade_diagnostics
 from .factors import generate_factor_frame
 from .objectives import RETURN_TARGETS, TARGET_PERIODS, overall_pass
 from .walk_forward import CANDIDATES, Rule, select_fixed_rule
@@ -64,6 +65,7 @@ def _render_report(
     selected_rule: Rule,
     candidates: pd.DataFrame,
     chart_files: list[str],
+    trade_summary: dict[str, float | int] | None = None,
 ) -> str:
     lines = [
         "# 588080 纯 CZSC 多因子固定策略研究结果",
@@ -84,6 +86,19 @@ def _render_report(
                 margin=float(values["target_margin"]),
                 status="PASS" if values["pass"] else "FAIL",
             )
+        )
+    if trade_summary is not None:
+        lines.extend(
+            [
+                "",
+                "## 交易反转诊断（仅观察，不参与选优或PASS）",
+                "",
+                f"- M1—M8仓位变化：{int(trade_summary['position_changes'])} 次",
+                f"- 完整买卖回合：{int(trade_summary['completed_round_trips'])} 个",
+                f"- 下一信号日即离场：{int(trade_summary['one_signal_day_exits'])} 个",
+                f"- 7—8月入场/离场：{int(trade_summary['july_august_entries'])}/{int(trade_summary['july_august_exits'])} 次",
+                f"- 下一信号日离场回合合计净收益：{float(trade_summary['one_signal_day_net_return']):+.2%}",
+            ]
         )
     lines.extend(
         [
@@ -182,6 +197,27 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         factor_frame=factor_output,
     )
     combined_orders = pd.concat([result.orders for result in period_results.values()], ignore_index=True)
+    trade_diagnostics = build_trade_diagnostics(
+        combined_orders,
+        pd.DatetimeIndex(pd.to_datetime(data.daily["dt"])),
+    )
+    longest_orders = combined_orders.loc[combined_orders["period"] == "2026M1-M8"].copy()
+    longest_orders["signal_date"] = pd.to_datetime(longest_orders["signal_date"])
+    july_august_mask = longest_orders["signal_date"].between("2026-07-01", "2026-08-31")
+    longest_diagnostics = trade_diagnostics.loc[trade_diagnostics["period"] == "2026M1-M8"]
+    one_day = longest_diagnostics.loc[longest_diagnostics["one_signal_day_exit"].astype(bool)]
+    trade_summary: dict[str, float | int] = {
+        "position_changes": len(longest_orders),
+        "completed_round_trips": len(longest_diagnostics),
+        "one_signal_day_exits": int(longest_diagnostics["one_signal_day_exit"].sum()),
+        "july_august_entries": int(
+            ((longest_orders["side"] == "Buy") & july_august_mask).sum()
+        ),
+        "july_august_exits": int(
+            ((longest_orders["side"] == "Sell") & july_august_mask).sum()
+        ),
+        "one_signal_day_net_return": float(one_day["net_return"].sum()),
+    }
     event_pieces = [selection.events, *[result.factor_events for result in period_results.values()]]
     factor_events = pd.concat([piece for piece in event_pieces if not piece.empty], ignore_index=True)
     factor_events = factor_events.drop_duplicates(subset=["event_id"]).sort_values("signal_date").reset_index(drop=True)
@@ -192,6 +228,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         "overall_pass": overall_pass(windows),
         "windows": windows,
         "audit": audit,
+        "trade_diagnostics": trade_summary,
     }
     chart_files: list[str] = []
     for name, result in period_results.items():
@@ -230,6 +267,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
             "divergence_signals": [str(config["name"]) for config in DIVERGENCE_CONFIG],
             "data_policy": "warm-up allowed before period start; no bars after period end",
         },
+        "trade_diagnostics_file": "trade_diagnostics.csv",
         "raw_sha256": data.hashes,
         "candidate_space_sha256": sha256(candidate_json.encode("utf-8")).hexdigest(),
         "versions": {
@@ -244,6 +282,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
 
     _atomic_csv(output_dir / "factors.csv", factor_output, index=True)
     _atomic_csv(output_dir / "factor_events.csv", factor_events)
+    _atomic_csv(output_dir / "trade_diagnostics.csv", trade_diagnostics)
     _atomic_csv(output_dir / "candidate_results.csv", selection.candidates)
     _atomic_text(
         output_dir / "selected_rule.json",
@@ -273,6 +312,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
             selection.rule,
             selection.candidates,
             chart_files,
+            trade_summary,
         ),
     )
     _atomic_text(output_dir / "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))

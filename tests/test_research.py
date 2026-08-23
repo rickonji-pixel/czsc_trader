@@ -46,6 +46,7 @@ def test_research_writes_audited_artifacts(tmp_path: Path) -> None:
     expected = {
         "factors.csv",
         "factor_events.csv",
+        "trade_diagnostics.csv",
         "candidate_results.csv",
         "selected_rule.json",
         "orders_2026Q1.csv",

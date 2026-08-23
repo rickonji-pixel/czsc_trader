@@ -45,6 +45,13 @@ def _normalize_daily(daily: pd.DataFrame) -> pd.DataFrame:
     return frame.sort_index()
 
 
+def _missing_calendar_dates(trading_dates: pd.DatetimeIndex) -> list[str]:
+    """Return calendar dates absent from a non-empty daily trading index."""
+    normalized = pd.DatetimeIndex(trading_dates).normalize().unique().sort_values()
+    calendar = pd.date_range(normalized.min(), normalized.max(), freq="D")
+    return calendar.difference(normalized).strftime("%Y-%m-%d").tolist()
+
+
 def _to_raw_bars(frame: pd.DataFrame) -> list:
     source = frame.reset_index()
     columns = ["dt", "symbol", "open", "close", "high", "low", "vol", "amount"]
@@ -348,7 +355,14 @@ def build_period_chart(
         margin={"l": 60, "r": 30, "t": 100, "b": 50},
         xaxis_rangeslider_visible=False,
     )
-    figure.update_xaxes(rangebreaks=[{"bounds": ["sat", "mon"]}])
+    figure.update_xaxes(
+        rangebreaks=[
+            {
+                "values": _missing_calendar_dates(period.index),
+                "dvalue": 24 * 60 * 60 * 1000,
+            }
+        ]
+    )
     figure.update_yaxes(title_text="价格", row=1, col=1)
     figure.update_yaxes(title_text="CZSC因子", range=[-1.1, 1.1], row=2, col=1)
     return figure

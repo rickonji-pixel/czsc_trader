@@ -12,7 +12,7 @@ prepare_market_data.py → PASS行情清单 → 最新冻结规则基线 → run
 
 - `scripts/run_research.py`：仅用于588080候选研究、排序和选择，产生 `candidate_results.csv`、`selected_rule.json`；
 - `scripts/run_backtest.py`：只加载一个已冻结基线，对指定标的执行，不遍历候选、不更新基线；
-- `scripts/prepare_market_data.py`：通过 Tushare 获取 A股股票或 ETF 的30分钟、日线、周线数据，验证后发布扁平年度CSV、manifest和validation报告。
+- `scripts/prepare_market_data.py`：通过 Tushare 获取 A股股票或 ETF 数据，在获取阶段统一生成后复权30分钟、日线和周线，验证后发布扁平年度CSV、manifest和validation报告。股票使用 `adj_factor`，ETF使用 `fund_adj`；OHLC乘因子、成交量除以因子、成交额不变，周线由后复权日线聚合。
 
 首个受 Git 跟踪的规则基线是：
 

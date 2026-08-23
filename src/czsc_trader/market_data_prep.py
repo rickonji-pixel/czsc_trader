@@ -241,6 +241,31 @@ def prepare_market_data(
             raise ValueError(f"{period}: asset type does not match request")
         frames[period] = frame
         metadata[period] = item_metadata
+    adjusted_metadata = [
+        item for item in metadata.values() if item.get("adjustment") is not None
+    ]
+    if adjusted_metadata and len(adjusted_metadata) != len(metadata):
+        raise ValueError("all frequencies must use the same adjustment contract")
+    adjustment_records = {
+        (
+            item.get("adjustment"),
+            item.get("adjustment_factor_source"),
+            item.get("adjustment_factor_sha256"),
+        )
+        for item in adjusted_metadata
+    }
+    adjustment: dict[str, str] | None = None
+    if adjustment_records:
+        if len(adjustment_records) != 1:
+            raise ValueError("frequencies use inconsistent adjustment factors")
+        mode, factor_source, factor_sha256 = adjustment_records.pop()
+        if mode != "hfq" or not factor_source or not factor_sha256:
+            raise ValueError("market data must declare a complete hfq adjustment contract")
+        adjustment = {
+            "mode": mode,
+            "factor_source": factor_source,
+            "factor_sha256": factor_sha256,
+        }
     validation = validate_market_frames(frames["30m"], frames["daily"], frames["weekly"])
 
     data_dir = Path(data_dir)
@@ -258,7 +283,12 @@ def prepare_market_data(
                 yearly = output.loc[years == year].reset_index(drop=True)
                 filename = f"{code}_{period}_{int(year)}.csv"
                 path = staging / filename
-                yearly.to_csv(path, index=False, encoding="utf-8-sig")
+                yearly.to_csv(
+                    path,
+                    index=False,
+                    encoding="utf-8-sig",
+                    lineterminator="\n",
+                )
                 timestamps = pd.to_datetime(yearly[time_column])
                 file_records[filename] = {
                     "frequency": period,
@@ -270,7 +300,7 @@ def prepare_market_data(
                 }
         generated_at = datetime.now(timezone.utc).isoformat()
         manifest = {
-            "schema_version": 1,
+            "schema_version": 2 if adjustment is not None else 1,
             "symbol": normalized_symbol,
             "code": code,
             "asset_type": normalized_asset,
@@ -281,6 +311,8 @@ def prepare_market_data(
             "files": file_records,
             "fetch_metadata": metadata,
         }
+        if adjustment is not None:
+            manifest["adjustment"] = adjustment
         (staging / f"{code}_manifest.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )

@@ -25,7 +25,7 @@
 
 每个周期同时生成 `chart_<周期>.html` 离线交互式日线图。主图包含日K、截至周期末由
 CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周期初始因子对齐和 vectorbt 实际成交点；
-副图展示结构、趋势、量价位置与综合因子分数。五笔/七笔背驰同时进入结构因子。研究目录还输出 `trade_diagnostics.csv`，用于观察完整买卖回合、持仓天数和连续反转；诊断层不能改变仓位或选优结果。
+副图展示结构、趋势、量价位置与综合因子分数。日期轴按实际K线交易日动态折叠周末、法定节假日和停牌日，避免无数据区间产生空白。五笔/七笔背驰同时进入结构因子。研究目录还输出 `trade_diagnostics.csv`，用于观察完整买卖回合、持仓天数和连续反转；诊断层不能改变仓位或选优结果。
 
 ## 数据准备与通用回测
 
@@ -38,7 +38,7 @@ CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周�
 准备 A股股票：
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\prepare_market_data.py `
+.\.venv\Scripts\python.exe -m scripts.prepare_market_data `
   --symbol 600519.SH --asset stock `
   --start 2024-01-01 --end 2026-08-21
 ```
@@ -46,12 +46,12 @@ CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周�
 准备 A股 ETF：
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\prepare_market_data.py `
+.\.venv\Scripts\python.exe -m scripts.prepare_market_data `
   --symbol 510300.SH --asset etf `
   --start 2024-01-01 --end 2026-08-21
 ```
 
-数据只有在30分钟交易时段、每日8根K线、30分钟/日线和日线/周线对账全部通过后才会发布到 `data/raw`。回测只读取 PASS 清单并重新核对 SHA-256，不会隐式联网刷新数据。
+数据获取阶段统一对 A股股票和 ETF 使用后复权：股票读取 `adj_factor`，ETF读取 `fund_adj`；OHLC乘复权因子、成交量除以复权因子、成交额保持实际金额，周线由后复权日线聚合。数据只有在复权因子完整、30分钟交易时段、每日8根K线、30分钟/日线和日线/周线对账全部通过后才会发布到 `data/raw`。manifest 会记录 `hfq`、因子来源和因子 SHA-256；回测只读取 PASS 清单并重新核对行情文件 SHA-256，不会隐式联网刷新数据。
 
 默认使用 `configs/rule_baselines/registry.json` 登记的最新基线：
 

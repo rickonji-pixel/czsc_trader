@@ -3,8 +3,11 @@ from __future__ import annotations
 import pandas as pd
 
 from .bar_utils import (
+    adjustment_factor_sha256,
+    apply_hfq_adjustment,
     drop_incomplete_intraday_bar,
     infer_asset_type,
+    normalize_adjustment_factors,
     normalize_period,
     standardize_vendor_ohlcv,
     validate_a_share_30m_bars,
@@ -125,6 +128,17 @@ def _fetch_tushare_etf_ohlcv(
     return normalized, market, ts_code
 
 
+def _fetch_hfq_factors(
+    ts_code: str, start_date: str, end_date: str
+) -> pd.DataFrame:
+    dataframe = get_tushare_pro().fund_adj(
+        ts_code=ts_code,
+        start_date=start_date.replace("-", ""),
+        end_date=end_date.replace("-", ""),
+    )
+    return normalize_adjustment_factors(dataframe)
+
+
 def fetch_etf_ohlcv(
     symbol: str,
     start_date: str,
@@ -133,20 +147,28 @@ def fetch_etf_ohlcv(
 ) -> tuple[pd.DataFrame, dict[str, str]]:
     """Return normalized Tushare ETF bars and machine-readable metadata."""
     normalized_period = normalize_period(period)
+    fetch_period = "daily" if normalized_period == "weekly" else normalized_period
     dataframe, market, ts_code = _fetch_tushare_etf_ohlcv(
         symbol,
         start_date,
         end_date,
-        period=normalized_period,
+        period=fetch_period,
     )
     if dataframe.empty:
         raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
+    factors = _fetch_hfq_factors(ts_code, start_date, end_date)
+    dataframe = apply_hfq_adjustment(dataframe, factors)
+    if normalized_period == "weekly":
+        dataframe = _resample_weekly(dataframe)
     return dataframe.copy(), {
         "vendor": "tushare",
         "market": market,
         "vendor_symbol": ts_code,
         "period": normalized_period,
         "asset_type": "etf",
+        "adjustment": "hfq",
+        "adjustment_factor_source": "fund_adj",
+        "adjustment_factor_sha256": adjustment_factor_sha256(factors),
     }
 
 
@@ -157,20 +179,19 @@ def get_etf(
     period: str = "daily",
 ) -> str:
     try:
-        dataframe, market, ts_code = _fetch_tushare_etf_ohlcv(
-            symbol, start_date, end_date, period=period
-        )
+        dataframe, metadata = fetch_etf_ohlcv(symbol, start_date, end_date, period)
         return format_dataframe_report(
             f"Tushare ETF data for {symbol}",
             dataframe,
             {
                 "Vendor": "tushare",
-                "Market": market,
-                "Vendor symbol": ts_code,
+                "Market": metadata["market"],
+                "Vendor symbol": metadata["vendor_symbol"],
                 "Start date": start_date,
                 "End date": end_date,
                 "Period": normalize_period(period),
                 "Asset type": "fund",
+                "Adjustment": "hfq",
             },
             max_rows=10000,
         )

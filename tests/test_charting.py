@@ -119,6 +119,31 @@ def test_period_chart_links_hover_across_shared_date_axis() -> None:
     assert {trace.xaxis for trace in factor_traces} == {"x"}
 
 
+def test_period_chart_collapses_spring_festival_and_labour_day_gaps() -> None:
+    """Catch weekday market holidays consuming horizontal chart space."""
+    from czsc_trader.charting import build_period_chart
+
+    daily, factors, orders = _chart_inputs()
+    figure = build_period_chart(
+        daily,
+        factors,
+        orders,
+        pd.Timestamp("2026-01-05"),
+        pd.Timestamp("2026-08-21"),
+        "588080 2026M1-M8",
+    )
+
+    value_break = next(
+        item for item in figure.layout.xaxis.rangebreaks if item.values is not None
+    )
+    collapsed = {pd.Timestamp(value).normalize() for value in value_break.values}
+    assert pd.Timestamp("2026-02-16") in collapsed
+    assert pd.Timestamp("2026-02-23") in collapsed
+    assert pd.Timestamp("2026-05-01") in collapsed
+    assert pd.Timestamp("2026-05-05") in collapsed
+    assert pd.Timestamp("2026-01-05") not in collapsed
+
+
 def test_factor_entry_exit_colors_follow_trade_direction() -> None:
     """Catch factor entry/exit markers using colors opposite to buy/sell semantics."""
     from czsc_trader.charting import build_period_chart

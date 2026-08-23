@@ -56,13 +56,21 @@ etf_frame, etf_metadata = fetch_etf_ohlcv(
 The `fetch_*_ohlcv` functions raise vendor and empty-data errors directly and
 are the stable machine interface used by `scripts/prepare_market_data.py`.
 
+A-share stock and ETF bars are backward-adjusted (`hfq`) by default during
+fetching. Stock factors come from `adj_factor` and ETF factors from `fund_adj`.
+OHLC is multiplied by the trade-date factor, volume is divided by it, and
+actual turnover amount is unchanged. Weekly bars are aggregated only after
+daily adjustment. Returned metadata records the adjustment mode, factor
+source, and a stable SHA-256 of the complete requested factor series.
+
 The normalized columns are `Date`, `Open`, `High`, `Low`, `Close`, `Volume`,
 and `Amount`. A-share 30-minute bars are checked for duplicate timestamps,
 valid OHLCV relationships, and valid session close times. A future-labeled
 current bar is removed until its close time.
 
-The Tushare ETF adapter uses `fund_daily` for daily bars, aggregates those
-daily bars into weekly bars, and uses `etf_mins` for 30-minute bars. Tushare's
+The Tushare ETF adapter uses `fund_daily` for daily bars, applies `fund_adj`,
+aggregates adjusted daily bars into weekly bars, and uses `etf_mins` for
+30-minute bars. Tushare's
 09:30 opening-auction record is folded into the 10:00 bar.
 
 For a strict historical-data gate, reconcile a complete 30-minute frame with

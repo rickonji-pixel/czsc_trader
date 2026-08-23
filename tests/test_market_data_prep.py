@@ -150,6 +150,65 @@ def test_prepare_splits_years_and_writes_pass_manifest(tmp_path: Path) -> None:
     assert validation["status"] == "PASS"
 
 
+def test_prepare_records_verified_hfq_contract(tmp_path: Path) -> None:
+    """Catch adjusted files being published without an auditable manifest contract."""
+    factor_hash = "a" * 64
+
+    def hfq_fetcher(symbol, asset_type, start, end, period):
+        frame, metadata = _fake_fetcher(symbol, asset_type, start, end, period)
+        metadata.update(
+            {
+                "adjustment": "hfq",
+                "adjustment_factor_source": "adj_factor",
+                "adjustment_factor_sha256": factor_hash,
+            }
+        )
+        return frame, metadata
+
+    prepare_market_data(
+        "600519.SH",
+        "stock",
+        date(2026, 8, 20),
+        date(2026, 8, 21),
+        tmp_path,
+        fetcher=hfq_fetcher,
+    )
+
+    manifest = json.loads((tmp_path / "600519_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == 2
+    assert manifest["adjustment"] == {
+        "mode": "hfq",
+        "factor_source": "adj_factor",
+        "factor_sha256": factor_hash,
+    }
+    assert b"\r\n" not in (tmp_path / "600519_daily_2026.csv").read_bytes()
+
+
+def test_prepare_rejects_partial_frequency_adjustment_contract(tmp_path: Path) -> None:
+    """Catch one raw frequency being mixed into an otherwise adjusted generation."""
+    def partial_fetcher(symbol, asset_type, start, end, period):
+        frame, metadata = _fake_fetcher(symbol, asset_type, start, end, period)
+        if period == "daily":
+            metadata.update(
+                {
+                    "adjustment": "hfq",
+                    "adjustment_factor_source": "adj_factor",
+                    "adjustment_factor_sha256": "a" * 64,
+                }
+            )
+        return frame, metadata
+
+    with pytest.raises(ValueError, match="all frequencies"):
+        prepare_market_data(
+            "600519.SH",
+            "stock",
+            date(2026, 8, 20),
+            date(2026, 8, 21),
+            tmp_path,
+            fetcher=partial_fetcher,
+        )
+
+
 def test_prepared_data_at_price_tolerance_can_be_loaded(tmp_path: Path) -> None:
     intraday, daily, weekly = _valid_frames()
     intraday.loc[0, ["Open", "Low"]] = [1.031, 1.0]

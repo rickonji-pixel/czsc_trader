@@ -3,8 +3,11 @@ from __future__ import annotations
 import pandas as pd
 
 from .bar_utils import (
+    adjustment_factor_sha256,
+    apply_hfq_adjustment,
     drop_incomplete_intraday_bar,
     infer_asset_type,
+    normalize_adjustment_factors,
     normalize_period,
     standardize_vendor_ohlcv,
     validate_a_share_30m_bars,
@@ -173,6 +176,17 @@ def _fetch_tushare_ohlcv(
     return normalized, market, ts_code
 
 
+def _fetch_hfq_factors(
+    ts_code: str, start_date: str, end_date: str
+) -> pd.DataFrame:
+    dataframe = get_tushare_pro().adj_factor(
+        ts_code=ts_code,
+        start_date=start_date.replace("-", ""),
+        end_date=end_date.replace("-", ""),
+    )
+    return normalize_adjustment_factors(dataframe)
+
+
 def fetch_stock_ohlcv(
     symbol: str,
     start_date: str,
@@ -181,22 +195,40 @@ def fetch_stock_ohlcv(
 ) -> tuple[pd.DataFrame, dict[str, str]]:
     """Return normalized Tushare stock bars and machine-readable metadata."""
     normalized_period = normalize_period(period)
+    fetch_period = (
+        "daily"
+        if normalized_period == "weekly" and detect_market(symbol) == MARKET_A_SHARE
+        else normalized_period
+    )
     dataframe, market, ts_code = _fetch_tushare_ohlcv(
         symbol,
         start_date,
         end_date,
-        period=normalized_period,
+        period=fetch_period,
         asset_type="stock",
     )
     if dataframe.empty:
         raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
-    return dataframe.copy(), {
+    metadata = {
         "vendor": "tushare",
         "market": market,
         "vendor_symbol": ts_code,
         "period": normalized_period,
         "asset_type": "stock",
     }
+    if market == MARKET_A_SHARE:
+        factors = _fetch_hfq_factors(ts_code, start_date, end_date)
+        dataframe = apply_hfq_adjustment(dataframe, factors)
+        if normalized_period == "weekly":
+            dataframe = _resample_weekly(dataframe)
+        metadata.update(
+            {
+                "adjustment": "hfq",
+                "adjustment_factor_source": "adj_factor",
+                "adjustment_factor_sha256": adjustment_factor_sha256(factors),
+            }
+        )
+    return dataframe.copy(), metadata
 
 
 def get_stock(
@@ -207,20 +239,21 @@ def get_stock(
     asset_type: str = "auto",
 ) -> str:
     try:
-        dataframe, market, ts_code = _fetch_tushare_ohlcv(
-            symbol, start_date, end_date, period=period, asset_type=asset_type
-        )
+        if asset_type not in {"auto", "stock"}:
+            raise ValueError("get_stock only supports stock assets")
+        dataframe, metadata = fetch_stock_ohlcv(symbol, start_date, end_date, period)
         return format_dataframe_report(
             f"Tushare stock data for {symbol}",
             dataframe,
             {
                 "Vendor": "tushare",
-                "Market": market,
-                "Vendor symbol": ts_code,
+                "Market": metadata["market"],
+                "Vendor symbol": metadata["vendor_symbol"],
                 "Start date": start_date,
                 "End date": end_date,
                 "Period": normalize_period(period),
-                "Asset type": infer_asset_type(ts_code, asset_type),
+                "Asset type": "stock",
+                "Adjustment": metadata.get("adjustment", "none"),
             },
             max_rows=10000,
         )
@@ -233,9 +266,7 @@ def get_indicator(symbol: str, indicator: str, curr_date: str, look_back_days: i
         start_date = (
             pd.Timestamp(curr_date) - pd.Timedelta(days=max(look_back_days * 3, 365))
         ).strftime("%Y-%m-%d")
-        dataframe, _market, _ts_code = _fetch_tushare_ohlcv(
-            symbol, start_date, curr_date, period="daily"
-        )
+        dataframe, _metadata = fetch_stock_ohlcv(symbol, start_date, curr_date, "daily")
         return compute_indicator_report(dataframe, indicator, curr_date, look_back_days)
     except Exception as exc:
         return f"Error retrieving indicator `{indicator}` for {symbol} via tushare: {exc}"

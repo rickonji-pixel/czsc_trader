@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hashlib import sha256
 from typing import Any
 
 import pandas as pd
@@ -87,6 +88,68 @@ def standardize_vendor_ohlcv(dataframe: pd.DataFrame, *, intraday: bool = False)
     return renamed[["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]].sort_values(
         "Date"
     ).reset_index(drop=True)
+
+
+def normalize_adjustment_factors(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Normalize Tushare adjustment factors to one positive factor per trade date."""
+    if dataframe is None or dataframe.empty:
+        raise ValueError("Tushare returned no adjustment factors")
+    aliases = {
+        "trade_date": "Date",
+        "date": "Date",
+        "adj_factor": "AdjFactor",
+        "factor": "AdjFactor",
+    }
+    factors = dataframe.rename(
+        columns={column: aliases.get(str(column), str(column)) for column in dataframe.columns}
+    ).copy()
+    missing = sorted({"Date", "AdjFactor"}.difference(factors.columns))
+    if missing:
+        raise ValueError(f"Adjustment factors missing columns: {missing}")
+    factors = factors[["Date", "AdjFactor"]]
+    factors["Date"] = pd.to_datetime(factors["Date"], errors="coerce").dt.normalize()
+    factors["AdjFactor"] = pd.to_numeric(factors["AdjFactor"], errors="coerce")
+    if factors.isna().any().any() or (factors["AdjFactor"] <= 0).any():
+        raise ValueError("Adjustment factors contain invalid dates or non-positive values")
+    if factors["Date"].duplicated().any():
+        raise ValueError("Adjustment factors contain duplicate trade dates")
+    return factors.sort_values("Date").reset_index(drop=True)
+
+
+def adjustment_factor_sha256(dataframe: pd.DataFrame) -> str:
+    """Return a stable digest for the normalized factor series."""
+    factors = normalize_adjustment_factors(dataframe).copy()
+    factors["Date"] = factors["Date"].dt.strftime("%Y-%m-%d")
+    payload = factors.to_csv(index=False, lineterminator="\n", float_format="%.10g")
+    return sha256(payload.encode("utf-8")).hexdigest()
+
+
+def apply_hfq_adjustment(
+    dataframe: pd.DataFrame, factors: pd.DataFrame
+) -> pd.DataFrame:
+    """Apply backward adjustment to OHLC and inverse adjustment to volume."""
+    if dataframe is None or dataframe.empty:
+        return dataframe.copy()
+    normalized_factors = normalize_adjustment_factors(factors)
+    frame = dataframe.copy()
+    timestamps = pd.to_datetime(frame["Date"], errors="coerce")
+    if timestamps.isna().any():
+        raise ValueError("Cannot adjust bars with invalid timestamps")
+    frame["_trade_date"] = timestamps.dt.normalize()
+    frame = frame.merge(
+        normalized_factors.rename(columns={"Date": "_trade_date"}),
+        on="_trade_date",
+        how="left",
+        validate="many_to_one",
+    )
+    missing_dates = frame.loc[frame["AdjFactor"].isna(), "_trade_date"].drop_duplicates()
+    if not missing_dates.empty:
+        details = ", ".join(item.strftime("%Y-%m-%d") for item in missing_dates)
+        raise ValueError(f"Adjustment factors do not cover bar dates: {details}")
+    for column in ("Open", "High", "Low", "Close"):
+        frame[column] = frame[column] * frame["AdjFactor"]
+    frame["Volume"] = frame["Volume"] / frame["AdjFactor"]
+    return frame.drop(columns=["_trade_date", "AdjFactor"])[dataframe.columns]
 
 
 def drop_incomplete_intraday_bar(

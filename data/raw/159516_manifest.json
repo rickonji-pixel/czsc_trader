@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "symbol": "159516.SZ",
+  "code": "159516",
+  "asset_type": "etf",
+  "vendor": "tushare",
+  "requested_start": "2025-01-01",
+  "requested_end": "2026-08-23",
+  "generated_at_utc": "2026-08-23T08:11:32.845977+00:00",
+  "files": {
+    "159516_30m_2025.csv": {
+      "frequency": "30m",
+      "year": 2025,
+      "rows": 1944,
+      "first": "2025-01-02T10:00:00",
+      "last": "2025-12-31T15:00:00",
+      "sha256": "30f81a56e1d44c5aa51112bfd4198ad29f11010f813e73d762c00ecfa848cac8"
+    },
+    "159516_30m_2026.csv": {
+      "frequency": "30m",
+      "year": 2026,
+      "rows": 1232,
+      "first": "2026-01-05T10:00:00",
+      "last": "2026-08-21T15:00:00",
+      "sha256": "76fbe9c5f84e91345f66ae3fd12cff421539c8b5c5be1871d7296cdbf8825797"
+    },
+    "159516_daily_2025.csv": {
+      "frequency": "daily",
+      "year": 2025,
+      "rows": 243,
+      "first": "2025-01-02T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "9a69ecbaba7cba75ab7a46f136f75d6a8714784bce1615d43a76defba40b731e"
+    },
+    "159516_daily_2026.csv": {
+      "frequency": "daily",
+      "year": 2026,
+      "rows": 154,
+      "first": "2026-01-05T00:00:00",
+      "last": "2026-08-21T00:00:00",
+      "sha256": "481a2b50145c2017ca64df77a40b12a89b41718b9e8dd40a25b527921e8bfbb7"
+    },
+    "159516_weekly_2025.csv": {
+      "frequency": "weekly",
+      "year": 2025,
+      "rows": 53,
+      "first": "2025-01-03T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "bd2d69aabb1c5dbf1e288fd0c4b929aacc7d4dcf92dae98488d2bfb50408eb09"
+    },
+    "159516_weekly_2026.csv": {
+      "frequency": "weekly",
+      "year": 2026,
+      "rows": 32,
+      "first": "2026-01-09T00:00:00",
+      "last": "2026-08-21T00:00:00",
+      "sha256": "dcf494705432a8cdc9341d14dcc76a7234ad1d905dc9ce28697ced5631151072"
+    }
+  },
+  "fetch_metadata": {
+    "30m": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159516.SZ",
+      "period": "30m",
+      "asset_type": "etf"
+    },
+    "daily": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159516.SZ",
+      "period": "daily",
+      "asset_type": "etf"
+    },
+    "weekly": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159516.SZ",
+      "period": "weekly",
+      "asset_type": "etf"
+    }
+  }
+}

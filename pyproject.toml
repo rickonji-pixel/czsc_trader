@@ -23,5 +23,9 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers --tb=short"
+addopts = "--strict-markers --tb=short -m 'not slow and not network'"
+markers = [
+    "slow: expensive candidate-search or full-history tests",
+    "network: tests that require live external data access",
+]
 

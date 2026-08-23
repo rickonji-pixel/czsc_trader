@@ -2,13 +2,25 @@
 
 ## 1. 当前有效结论
 
-当前唯一应作为正式结果使用的目录是：
+### 跨机器可用性说明
+
+`outputs/` 被 `.gitignore` 忽略，只存在于执行回测的本机，不会随 Git 推送到远端。新会话可能运行在另一台机器上，因此不得把任何 `outputs/588080_0823_RXX` 路径当作接手前提。
+
+远端仓库中可携带、可核对的正式基线是：
+
+```text
+docs/baselines/588080_2026_expected.json
+```
+
+该文件包含最终规则、精确指标、审计计数、依赖版本、候选空间哈希、原始数据哈希和预期产物清单。新机器应从受版本控制的 `data/raw` 重跑研究，使用运行返回的实际 `output_dir`，再与该基线核对。输出修订号取决于本机已有目录；全新克隆通常从 `R01` 开始，不要求重现 `R05` 这个目录名。
+
+在原研究机器上，最终参考运行恰好位于：
 
 ```text
 D:\CodeBase\czsc_trader\outputs\588080_0823_R05
 ```
 
-R05 使用一个全历史固定不变的纯 CZSC 因子规则。最终仓位只能由 CZSC 因子状态机产生，不包含收益、Buy & Hold、季度日期或组合净值触发的仓位覆盖。
+`R05` 只是原机器的参考运行标签。其策略使用一个全历史固定不变的纯 CZSC 因子规则。最终仓位只能由 CZSC 因子状态机产生，不包含收益、Buy & Hold、季度日期或组合净值触发的仓位覆盖。
 
 | 周期 | 策略收益 | Buy & Hold | 超额收益 | 最大回撤 | 订单数 | 结果 |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -51,10 +63,11 @@ R05 审计状态为 `PASS`：检查 25 笔周期订单、16 个被订单引用�
 9. 允许查看 2026 结果后调整 CZSC 信号、权重、阈值、确认天数和最短持仓，但必须标注样本内优化。
 10. 开发只能在主仓库的本地功能分支进行，禁止使用 Git worktree。
 
-更完整的有效规范见：
+更完整且受Git跟踪的有效资料见：
 
 - `docs/superpowers/specs/2026-08-23-czsc-only-remediation-design.md`
 - `docs/superpowers/plans/2026-08-23-czsc-only-remediation.md`
+- `docs/baselines/588080_2026_expected.json`
 
 ## 3. 已废弃结果与违规原因
 
@@ -178,7 +191,9 @@ T+1收盘：按收盘价计算当日组合净值
 
 `walk_forward.py` 中还保留未被正式管线调用的早期月度滚动函数，用于历史测试和对照。正式 `run_research` 只调用 `select_fixed_rule`，不得重新接入收益覆盖逻辑。
 
-## 7. R05 输出文件说明
+## 7. 本地回测输出文件说明
+
+以下文件由每台机器本地生成，不受Git跟踪。表中的文件名适用于任意一次实际 `output_dir`，不依赖其修订号是否为R05。
 
 | 文件 | 含义 |
 | --- | --- |
@@ -197,17 +212,25 @@ T+1收盘：按收盘价计算当日组合净值
 
 ## 8. 环境、运行和验证
 
-仓库：
+原研究机器上的仓库路径：
 
 ```text
 D:\CodeBase\czsc_trader
 ```
 
-CZSC源码和示例：
+新机器不要求使用相同绝对路径。克隆后通过以下命令确认仓库根目录：
+
+```powershell
+git rev-parse --show-toplevel
+```
+
+原研究机器另有一份可选的 CZSC 源码和示例：
 
 ```text
 D:\CodeBase\czsc
 ```
+
+该目录不属于本仓库，也不是复现依赖。新机器直接从 `pyproject.toml` 安装 `czsc==1.0.1` 即可；只有需要研究CZSC内部实现时才另行获取对应版本源码。
 
 核心版本：
 
@@ -221,7 +244,7 @@ D:\CodeBase\czsc
 安装或更新本项目：
 
 ```powershell
-cd D:\CodeBase\czsc_trader
+cd <仓库克隆目录>
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe -m pip check
 ```
@@ -236,13 +259,37 @@ git diff --check
 
 当前基线是29项测试全部通过。
 
-生成新结果：
+生成本机结果：
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_research.py
 ```
 
 输出目录自动使用 `outputs/588080_0823_RXX` 的下一个未占用版本，不覆盖历史结果。
+
+脚本会在终端JSON中返回本次实际 `output_dir`。异机接手时应记录这个返回值，后续所有检查都使用该目录，不要硬编码R05。
+
+### 异机复现流程
+
+如果新会话不在原机器上：
+
+```powershell
+git clone git@github.com:tomxiao/czsc_trader.git
+cd czsc_trader
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe scripts\run_research.py
+```
+
+然后执行以下核对：
+
+1. 读取脚本返回的 `output_dir`，不要假设目录名；
+2. 将其中 `selected_rule.json` 与 `docs/baselines/588080_2026_expected.json` 的 `selected_rule` 比较；
+3. 将 `metrics.json` 的 `overall_pass`、`windows` 和 `audit` 与便携基线比较；
+4. 将 `manifest.json` 的 `raw_sha256`、`candidate_space_sha256` 和版本与便携基线比较；
+5. 确认便携基线 `required_artifacts` 中的每个文件都已生成；
+6. 浮点指标应按 `1e-12` 绝对容差核对，依赖版本不同造成差异时必须记录并重新验证，不能直接覆盖基线。
 
 ## 9. Git状态和开发流程
 
@@ -304,12 +351,12 @@ git switch -c research/<任务名称>
 新会话开始后依次执行：
 
 1. 阅读本文件和纯CZSC合规设计文档。
-2. 确认工作目录是 `D:\CodeBase\czsc_trader`，而不是任何worktree。
+2. 用 `git rev-parse --show-toplevel` 确认当前目录是本仓库的普通工作目录，而不是任何worktree；新机器路径不要求是 `D:\CodeBase\czsc_trader`。
 3. 运行 `git status --short`，保护用户已有修改。
 4. 确认当前分支和 `master` 基线，不直接在 `master` 开发。
-5. 阅读 R05 的 `report.md`、`manifest.json`、`selected_rule.json` 和 `factor_events.csv`。
+5. 先阅读受Git跟踪的 `docs/baselines/588080_2026_expected.json`；如果本机没有历史输出，就运行研究并使用返回的实际 `output_dir`。
 6. 修改前先写失败测试；修改后运行29项以上完整测试。
-7. 重新回测时创建新的RXX目录，不覆盖R05。
+7. 重新回测时创建新的RXX目录，不覆盖本机已有结果；异机目录号不需要与R05一致。
 8. 检查每笔订单的 `factor_event_id`，尤其关注周期首日 `InitialEntry`。
 9. 确认没有重新引入收益、基准或日期触发的仓位覆盖。
 10. 结果必须明确区分样本内优化和样本外验证。
@@ -317,15 +364,14 @@ git switch -c research/<任务名称>
 ## 13. 可直接复制给新会话的提示词
 
 ```text
-请接手 D:\CodeBase\czsc_trader 的 588080 纯CZSC多因子研究。
+请接手当前Git仓库中的588080纯CZSC多因子研究。不要假设仓库位于特定绝对路径；先运行 git rev-parse --show-toplevel 确认仓库根目录。
 
 开始前完整阅读：
 1. docs/RESEARCH_HANDOFF.md
 2. docs/superpowers/specs/2026-08-23-czsc-only-remediation-design.md
-3. outputs/588080_0823_R05/report.md
-4. outputs/588080_0823_R05/manifest.json
+3. docs/baselines/588080_2026_expected.json
 
-当前有效基线是 master 上的纯CZSC固定策略，正式结果为 R05。禁止使用R03结果，禁止重新引入Q1收益锁定或任何非CZSC仓位覆盖。每笔订单必须对应factor_event_id，并在信号后的紧邻下一交易日开盘执行。
+当前有效基线是 master 上的纯CZSC固定策略。outputs目录不受Git跟踪；如果当前机器没有历史输出，请运行 scripts/run_research.py，使用命令返回的实际output_dir，并与 docs/baselines/588080_2026_expected.json 核对，不要假设R05路径存在。禁止使用R03逻辑，禁止重新引入Q1收益锁定或任何非CZSC仓位覆盖。每笔订单必须对应factor_event_id，并在信号后的紧邻下一交易日开盘执行。
 
-只在 D:\CodeBase\czsc_trader 主仓库创建本地功能分支开发，禁止使用git worktree。保护所有已有未提交修改。完成后运行完整测试、正式回测和订单来源审计；无论PASS或FAIL都必须如实报告。R05属于2026样本内优化，不得声称是样本外验证。
+只在当前仓库的普通本地功能分支开发，禁止使用git worktree。保护所有已有未提交修改。完成后运行完整测试、正式回测和订单来源审计；无论PASS或FAIL都必须如实报告。便携基线属于2026样本内优化，不得声称是样本外验证。
 ```

@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "description": "Portable expected baseline for the fixed CZSC-only 588080 strategy. Output revision names are machine-local and are not part of this contract.",
+  "strategy_commit": "6cd1c617407c3d0dd2067883fe915343c67e284a",
+  "reference_local_run_label": "588080_0823_R05",
+  "data_cutoff": "2026-08-21",
+  "selection_mode": "fixed CZSC-only rule; 2026 sample-optimized",
+  "fee_rate_per_side": 0.0005,
+  "period_initial_cash": 1000000.0,
+  "selected_rule": {
+    "weights": [
+      0.4,
+      0.4,
+      0.2
+    ],
+    "enter": 0.2,
+    "exit": 0.1,
+    "confirm_days": 2,
+    "min_hold_days": 1
+  },
+  "overall_pass": true,
+  "windows": {
+    "2026Q1": {
+      "start": "2026-01-05",
+      "end": "2026-03-31",
+      "strategy_return": 0.10407767628527353,
+      "buyhold_return": -0.07065280673700769,
+      "excess_return": 0.17473048302228122,
+      "max_drawdown": -0.038060323692147846,
+      "sharpe": 3.133985214236389,
+      "trade_count": 4,
+      "exposure": 0.375,
+      "pass": true
+    },
+    "2026H1": {
+      "start": "2026-01-05",
+      "end": "2026-06-30",
+      "strategy_return": 0.8216469133689408,
+      "buyhold_return": 0.6438958523632541,
+      "excess_return": 0.17775106100568672,
+      "max_drawdown": -0.07742432851239645,
+      "sharpe": 5.3569045338657,
+      "trade_count": 7,
+      "exposure": 0.5431034482758621,
+      "pass": true
+    },
+    "2026_01_08": {
+      "start": "2026-01-05",
+      "end": "2026-08-21",
+      "strategy_return": 0.5689794262919148,
+      "buyhold_return": 0.22370074007858598,
+      "excess_return": 0.3452786862133288,
+      "max_drawdown": -0.1447849748858011,
+      "sharpe": 3.131667387012862,
+      "trade_count": 14,
+      "exposure": 0.4935064935064935,
+      "pass": true
+    }
+  },
+  "audit": {
+    "status": "PASS",
+    "orders_checked": 25,
+    "events_checked": 16,
+    "positions_checked": 639,
+    "factor_events_exported": 63
+  },
+  "candidate_count": 144,
+  "candidate_space_sha256": "2a5112ca1111f6548f1267bc18ebc3d126c2317a115993651519896f74ea7b45",
+  "raw_sha256": {
+    "588080_30m_2024.csv": "2BBC51702FEA5DC831222946F06A48C9FE77ADFF2762E7FF52A9D62C583165E8",
+    "588080_30m_2025.csv": "C763B8914B54BDBAAC1C93B992279046268E4BD1565826D507377F06FB62A9DF",
+    "588080_30m_2026.csv": "41F1B7DEA4B004CBC312BF8053FF0465CE385E89A5D27BEB70AF6D836D660899",
+    "588080_daily_2024.csv": "D955628CA72647AA7E14D6508DC16873AEB6B3BAACED0631F09CA122670D9943",
+    "588080_daily_2025.csv": "FF6EF0862A86A2E7D4FC361A2624172E4FF8AA6EDD1A5921692BF356FCCFCAA1",
+    "588080_daily_2026.csv": "A4A1AB63E92B5CCD6874DC44F01DCE86895A481BE4E8966A2FDCCDD929252059",
+    "588080_weekly_2024.csv": "9FD4EDFE0D2E7E88EB779F384CF8A4C482FEB731EB9CD460CB8312E7788AF0CC",
+    "588080_weekly_2025.csv": "81CBF198C22CEB99C42DBCCA503F2453CB96AC037280F5FBAE1BFB1A26B62A37",
+    "588080_weekly_2026.csv": "61A95E6A9A9658C8C7C049E488DAD044B77A69A7193F268D7AF0A9B89ABB267C"
+  },
+  "versions": {
+    "python": "3.12.10",
+    "czsc": "1.0.1",
+    "vectorbt": "1.1.0",
+    "pandas": "3.0.5",
+    "numpy": "2.5.2",
+    "plotly": "6.9.0"
+  },
+  "required_artifacts": [
+    "candidate_results.csv",
+    "factor_events.csv",
+    "factors.csv",
+    "manifest.json",
+    "metrics.json",
+    "report.md",
+    "selected_rule.json",
+    "orders_2026Q1.csv",
+    "orders_2026H1.csv",
+    "orders_2026_01_08.csv",
+    "equity_2026Q1.csv",
+    "equity_2026H1.csv",
+    "equity_2026_01_08.csv",
+    "chart_2026Q1.html",
+    "chart_2026H1.html",
+    "chart_2026_01_08.html"
+  ]
+}

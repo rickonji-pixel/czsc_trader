@@ -20,17 +20,11 @@ from .backtest import PeriodBacktestResult, run_period_backtests
 from .charting import DIVERGENCE_CONFIG, write_period_chart
 from .data import SYMBOL, load_market_data
 from .factors import generate_factor_frame
+from .objectives import TARGET_PERIODS
 from .walk_forward import CANDIDATES, Rule, select_fixed_rule
 
 
 FEE_RATE = 0.0005
-TARGET_PERIODS = {
-    "2026Q1": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-03-31")),
-    "2026H1": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-06-30")),
-    "2026_01_08": (pd.Timestamp("2026-01-01"), pd.Timestamp("2026-08-21")),
-}
-
-
 def create_output_dir(outputs_root: Path, symbol: str, run_date: date) -> Path:
     """Atomically create the next revision directory for a dated symbol run."""
     symbol_code = symbol.split(".", maxsplit=1)[0]

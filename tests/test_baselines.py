@@ -21,11 +21,18 @@ VALID_RULE = {
 }
 
 
+def _canonical_hash(payload: dict[str, object]) -> str:
+    canonical = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return sha256(canonical).hexdigest()
+
+
 def _write_registry_fixture(root: Path) -> Path:
     root.mkdir(parents=True)
     rule_path = root / "baseline_v001.json"
     rule_path.write_text(json.dumps(VALID_RULE, indent=2), encoding="utf-8")
-    digest = sha256(rule_path.read_bytes()).hexdigest()
+    digest = _canonical_hash(VALID_RULE)
     registry = {
         "schema_version": 1,
         "latest": "baseline_v001",
@@ -68,7 +75,7 @@ def test_resolve_baseline_rejects_invalid_rule(tmp_path: Path) -> None:
     invalid = {**VALID_RULE, "weights": [0.3, 0.3]}
     rule_path.write_text(json.dumps(invalid), encoding="utf-8")
     registry = json.loads((root / "registry.json").read_text(encoding="utf-8"))
-    registry["baselines"]["baseline_v001"]["sha256"] = sha256(rule_path.read_bytes()).hexdigest()
+    registry["baselines"]["baseline_v001"]["sha256"] = _canonical_hash(invalid)
     (root / "registry.json").write_text(json.dumps(registry), encoding="utf-8")
 
     with pytest.raises(ValueError, match="three weights"):

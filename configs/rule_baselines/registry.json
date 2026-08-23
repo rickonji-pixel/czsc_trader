@@ -4,7 +4,7 @@
   "baselines": {
     "baseline_v001": {
       "file": "baseline_v001.json",
-      "sha256": "279d4755446d56d4525f9056ea663c8be6b9ef469ee9aa2cb0e83b9012fe497f",
+      "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5",
       "source_output": "outputs/588080_0823_R06",
       "frozen_at_utc": "2026-08-23T00:00:00+00:00",
       "strategy": "czsc_fixed_rule",

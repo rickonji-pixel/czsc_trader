@@ -35,6 +35,16 @@ def _load_json_object(path: Path) -> dict[str, object]:
     return payload
 
 
+def _canonical_sha256(payload: dict[str, object]) -> str:
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return sha256(canonical).hexdigest()
+
+
 def _parse_rule(payload: dict[str, object]) -> Rule:
     required = {
         "weights",
@@ -94,11 +104,11 @@ def resolve_baseline(root: Path, version: str | None = None) -> ResolvedBaseline
     rule_path = root / filename
     if not rule_path.is_file():
         raise ValueError(f"Missing baseline file: {rule_path}")
-    digest = sha256(rule_path.read_bytes()).hexdigest()
+    payload = _load_json_object(rule_path)
+    digest = _canonical_sha256(payload)
     expected = str(entry.get("sha256", ""))
     if digest != expected:
         raise ValueError(f"{selected_version}: SHA-256 differs from registry")
-    payload = _load_json_object(rule_path)
     return ResolvedBaseline(
         version=selected_version,
         rule=_parse_rule(payload),
@@ -134,7 +144,7 @@ def promote_baseline(
         raise FileExistsError(f"Baseline already exists: {rule_path}")
     text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     rule_path.write_text(text, encoding="utf-8")
-    digest = sha256(rule_path.read_bytes()).hexdigest()
+    digest = _canonical_sha256(payload)
     baselines[version] = {
         "file": rule_path.name,
         "sha256": digest,

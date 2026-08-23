@@ -94,6 +94,87 @@ def test_period_chart_contains_required_layers_and_respects_period_end() -> None
     assert list(pd.to_datetime(buy.x)) == [pd.Timestamp("2026-01-05")]
 
 
+def test_period_chart_links_hover_across_shared_date_axis() -> None:
+    """Catch hover interactions being limited to only one chart panel."""
+    from czsc_trader.charting import build_period_chart
+
+    daily, factors, orders = _chart_inputs()
+    figure = build_period_chart(
+        daily,
+        factors,
+        orders,
+        pd.Timestamp("2026-01-05"),
+        pd.Timestamp("2026-03-31"),
+        "588080 2026Q1",
+    )
+
+    assert figure.layout.hovermode == "x unified"
+    assert figure.layout.hoversubplots == "axis"
+    factor_traces = [trace for trace in figure.data if trace.name in {
+        "structure",
+        "trend",
+        "volume_position",
+        "factor_score",
+    }]
+    assert {trace.xaxis for trace in factor_traces} == {"x"}
+
+
+def test_factor_entry_exit_colors_follow_trade_direction() -> None:
+    """Catch factor entry/exit markers using colors opposite to buy/sell semantics."""
+    from czsc_trader.charting import build_period_chart
+
+    daily, factors, orders = _chart_inputs()
+    figure = build_period_chart(
+        daily,
+        factors,
+        orders,
+        pd.Timestamp("2026-01-05"),
+        pd.Timestamp("2026-03-31"),
+        "588080 2026Q1",
+    )
+
+    factor_entry = next(trace for trace in figure.data if trace.name == "因子入场")
+    factor_exit = next(trace for trace in figure.data if trace.name == "因子离场")
+    assert factor_entry.marker.color == "#d62728"
+    assert factor_exit.marker.color == "#2ca02c"
+
+
+def test_price_annotations_use_separate_visual_lanes() -> None:
+    """Catch factor and strategy markers obscuring each other or the daily candle."""
+    from czsc_trader.charting import build_period_chart
+
+    daily, factors, orders = _chart_inputs()
+    indexed = daily.set_index("dt")
+    figure = build_period_chart(
+        daily,
+        factors,
+        orders,
+        pd.Timestamp("2026-01-05"),
+        pd.Timestamp("2026-03-31"),
+        "588080 2026Q1",
+    )
+
+    factor_entry = next(trace for trace in figure.data if trace.name == "因子入场")
+    factor_exit = next(trace for trace in figure.data if trace.name == "因子离场")
+    initial_entry = next(trace for trace in figure.data if trace.name == "周期初始因子入场")
+    strategy_buy = next(trace for trace in figure.data if trace.name == "策略买入")
+    strategy_sell = next(trace for trace in figure.data if trace.name == "策略卖出")
+
+    factor_entry_date = pd.Timestamp(factor_entry.x[0])
+    factor_exit_date = pd.Timestamp(factor_exit.x[0])
+    initial_date = pd.Timestamp(initial_entry.x[0])
+    sell_date = pd.Timestamp(strategy_sell.x[0])
+    assert float(factor_entry.y[0]) < float(indexed.loc[factor_entry_date, "low"])
+    assert float(factor_exit.y[0]) > float(indexed.loc[factor_exit_date, "high"])
+    assert float(strategy_buy.y[0]) < float(initial_entry.y[0]) < float(indexed.loc[initial_date, "low"])
+    assert float(strategy_sell.y[0]) > float(indexed.loc[sell_date, "high"])
+    factor_gap = float(indexed.loc[initial_date, "low"]) - float(initial_entry.y[0])
+    assert float(initial_entry.y[0]) - float(strategy_buy.y[0]) >= factor_gap * 1.4
+    assert float(strategy_sell.y[0]) - float(indexed.loc[sell_date, "high"]) >= factor_gap * 2.4
+    assert float(strategy_buy.customdata[0][3]) == 1.382
+    assert "%{customdata[3]:.3f}" in strategy_buy.hovertemplate
+
+
 def test_period_chart_writer_embeds_plotly_for_offline_use(tmp_path: Path) -> None:
     """Catch chart exports that depend on a network CDN or omit the full HTML document."""
     from czsc_trader.charting import write_period_chart

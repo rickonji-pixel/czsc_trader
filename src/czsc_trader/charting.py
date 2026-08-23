@@ -123,19 +123,27 @@ def _add_empty_or_marker(
     color: str,
     symbol: str,
     text_column: str | None = None,
+    price_offset: float = 0.0,
 ) -> None:
     selected = frame.loc[frame["side"] == side] if not frame.empty else frame
     dates = selected["dt"] if "dt" in selected else pd.Series(dtype="datetime64[ns]")
     text = selected[text_column].astype(str) if text_column and text_column in selected else None
+    reference_prices = _price_for_dates(prices, dates, price_column) if len(dates) else []
+    hovertemplate = (
+        "%{x|%Y-%m-%d}<br>%{text}<br>参考价 %{customdata:.3f}<extra>" + name + "</extra>"
+        if text is not None
+        else "%{x|%Y-%m-%d}<br>参考价 %{customdata:.3f}<extra>" + name + "</extra>"
+    )
     figure.add_trace(
         go.Scatter(
             x=dates,
-            y=_price_for_dates(prices, dates, price_column) if len(dates) else [],
+            y=[price + price_offset for price in reference_prices],
             mode="markers",
             name=name,
             text=text,
+            customdata=reference_prices,
             marker={"color": color, "symbol": symbol, "size": 11, "line": {"width": 1, "color": "#222"}},
-            hovertemplate=("%{x|%Y-%m-%d}<br>%{text}<extra>" + name + "</extra>") if text is not None else None,
+            hovertemplate=hovertemplate,
         ),
         row=1,
         col=1,
@@ -155,6 +163,8 @@ def build_period_chart(
     period = prices.loc[start:end]
     if period.empty:
         raise ValueError("No daily bars in chart period")
+    price_span = float(period["high"].max() - period["low"].min())
+    marker_gap = max(price_span * 0.025, float(period["close"].median()) * 0.0025)
     aligned_factors = factors.copy()
     aligned_factors.index = pd.DatetimeIndex(pd.to_datetime(aligned_factors.index), name="dt")
     aligned_factors = aligned_factors.sort_index()
@@ -229,8 +239,9 @@ def build_period_chart(
         side="FactorBuy",
         prices=prices,
         price_column="low",
-        color="#17becf",
+        color="#d62728",
         symbol="triangle-up",
+        price_offset=-marker_gap,
     )
     _add_empty_or_marker(
         figure,
@@ -239,8 +250,9 @@ def build_period_chart(
         side="FactorExit",
         prices=prices,
         price_column="high",
-        color="#ff7f0e",
+        color="#2ca02c",
         symbol="triangle-down",
+        price_offset=marker_gap,
     )
 
     actual_orders = orders.copy()
@@ -255,31 +267,47 @@ def build_period_chart(
     figure.add_trace(
         go.Scatter(
             x=initial_entries.get("dt", []),
-            y=initial_entries.get("price", []),
+            y=(
+                [price - marker_gap for price in _price_for_dates(prices, initial_entries["dt"], "low")]
+                if not initial_entries.empty
+                else []
+            ),
             mode="markers",
             name="周期初始因子入场",
             text=initial_entries.get("factor_event_id", []),
-            marker={"color": "#17becf", "symbol": "star", "size": 13, "line": {"width": 1, "color": "#222"}},
-            hovertemplate="%{x|%Y-%m-%d}<br>周期初始因子状态对齐<extra>周期初始因子入场</extra>",
+            customdata=initial_entries.get("price", []),
+            marker={"color": "#d62728", "symbol": "star", "size": 13, "line": {"width": 1, "color": "#222"}},
+            hovertemplate=(
+                "%{x|%Y-%m-%d}<br>周期初始因子状态对齐<br>成交参考价 %{customdata:.3f}"
+                "<extra>周期初始因子入场</extra>"
+            ),
         ),
         row=1,
         col=1,
     )
-    for side, name, color, symbol in (
-        ("Buy", "策略买入", "#d62728", "triangle-up"),
-        ("Sell", "策略卖出", "#2ca02c", "triangle-down"),
+    for side, name, color, symbol, price_column, price_offset in (
+        ("Buy", "策略买入", "#d62728", "triangle-up", "low", -2.5 * marker_gap),
+        ("Sell", "策略卖出", "#2ca02c", "triangle-down", "high", 2.5 * marker_gap),
     ):
         selected = actual_orders.loc[actual_orders["side"] == side] if not actual_orders.empty else actual_orders
         figure.add_trace(
             go.Scatter(
                 x=selected.get("dt", []),
-                y=selected.get("price", []),
+                y=(
+                    [price + price_offset for price in _price_for_dates(prices, selected["dt"], price_column)]
+                    if not selected.empty
+                    else []
+                ),
                 mode="markers",
                 name=name,
-                customdata=(selected[["signal_date", "size", "fees"]].to_numpy() if not selected.empty else []),
+                customdata=(
+                    selected[["signal_date", "size", "fees", "price"]].to_numpy()
+                    if not selected.empty
+                    else []
+                ),
                 marker={"color": color, "symbol": symbol, "size": 15, "line": {"width": 2, "color": "#111"}},
                 hovertemplate=(
-                    "%{x|%Y-%m-%d}<br>成交价 %{y:.3f}<br>信号日 %{customdata[0]}"
+                    "%{x|%Y-%m-%d}<br>成交价 %{customdata[3]:.3f}<br>信号日 %{customdata[0]}"
                     "<br>份额 %{customdata[1]:,.0f}<br>费用 %{customdata[2]:,.2f}<extra>" + name + "</extra>"
                 ),
             ),
@@ -307,6 +335,7 @@ def build_period_chart(
             row=2,
             col=1,
         )
+    figure.update_traces(xaxis="x", row=2, col=1)
 
     figure.add_hline(y=0.0, line_width=1, line_dash="dot", line_color="#777", row=2, col=1)
     figure.update_layout(
@@ -314,6 +343,7 @@ def build_period_chart(
         height=900,
         template="plotly_white",
         hovermode="x unified",
+        hoversubplots="axis",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "left", "x": 0},
         margin={"l": 60, "r": 30, "t": 100, "b": 50},
         xaxis_rangeslider_visible=False,

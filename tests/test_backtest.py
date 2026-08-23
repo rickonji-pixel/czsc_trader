@@ -177,3 +177,22 @@ def test_period_pass_uses_absolute_target_not_buyhold() -> None:
     assert result.metrics["target_return"] == 0.0
     assert result.metrics["target_margin"] == 0.0
     assert result.metrics["pass"] is True
+
+
+def test_period_without_return_target_reports_not_applicable() -> None:
+    dates = pd.to_datetime(["2025-12-31", "2026-01-02", "2026-01-05"])
+    daily = pd.DataFrame(
+        {"dt": dates, "open": [100.0, 101.0, 102.0], "close": [100.0, 102.0, 103.0]}
+    )
+    target = pd.Series([0.0, 0.0, 0.0], index=dates)
+
+    result = backtest.run_period_backtests(
+        daily,
+        target,
+        {"full": (dates[1], dates[-1])},
+    )["full"]
+
+    assert result.metrics["status"] == "N/A"
+    assert result.metrics["target_return"] is None
+    assert result.metrics["target_margin"] is None
+    assert result.metrics["pass"] is None

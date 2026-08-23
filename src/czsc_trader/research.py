@@ -195,6 +195,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         fee_rate=FEE_RATE,
         factor_events=selection.events,
         factor_frame=factor_output,
+        return_targets=RETURN_TARGETS,
     )
     combined_orders = pd.concat([result.orders for result in period_results.values()], ignore_index=True)
     trade_diagnostics = build_trade_diagnostics(

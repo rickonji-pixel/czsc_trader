@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import vectorbt as vbt
 
-from .objectives import RETURN_TARGETS, evaluate_return
+from .objectives import evaluate_return
 
 
 @dataclass(frozen=True)
@@ -227,8 +227,7 @@ def run_period_backtests(
     """Run independently funded portfolios over requested date ranges."""
     prices = _normalize_prices(daily)
     target = target_position.reindex(prices.index)
-    effective_targets = RETURN_TARGETS if return_targets is None else return_targets
-    if set(periods) != set(effective_targets):
+    if return_targets is not None and set(periods) != set(return_targets):
         raise ValueError("period names must exactly match return target names")
     results: dict[str, PeriodBacktestResult] = {}
     for name, (requested_start, requested_end) in periods.items():
@@ -271,7 +270,19 @@ def run_period_backtests(
         )
         strategy_return = float(period_backtest.equity.iloc[-1] / init_cash - 1.0)
         buyhold_return = float(buyhold_terminal / init_cash - 1.0)
-        objective = evaluate_return(name, strategy_return, effective_targets)
+        if return_targets is None:
+            objective: dict[str, float | bool | str | None] = {
+                "target_return": None,
+                "target_margin": None,
+                "pass": None,
+                "status": "N/A",
+            }
+        else:
+            evaluated = evaluate_return(name, strategy_return, return_targets)
+            objective = {
+                **evaluated,
+                "status": "PASS" if bool(evaluated["pass"]) else "FAIL",
+            }
         metrics: dict[str, float | int | bool | str] = {
             **period_backtest.metrics,
             "start": str(start.date()),

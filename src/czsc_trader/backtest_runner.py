@@ -125,8 +125,8 @@ def _report(
         "",
         "## 区间指标",
         "",
-        "| 区间 | 开始 | 结束 | 策略收益 | 最大回撤 | 交易次数 | 状态 |",
-        "| --- | --- | --- | ---: | ---: | ---: | --- |",
+        "| 区间 | 开始 | 结束 | 策略收益 | 最大回撤 | 夏普率 | 交易次数 | 状态 |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
     ]
     windows = metrics["windows"]
     assert isinstance(windows, dict)
@@ -135,7 +135,7 @@ def _report(
         lines.append(
             f"| {name} | {values['start']} | {values['end']} | "
             f"{float(values['strategy_return']):.2%} | {float(values['max_drawdown']):.2%} | "
-            f"{int(values['trade_count'])} | {values['status']} |"
+            f"{float(values['sharpe']):.3f} | {int(values['trade_count'])} | {values['status']} |"
         )
     lines.extend(["", "## 交互式图表", ""])
     lines.extend(f"- [{name}]({name})" for name in chart_files)

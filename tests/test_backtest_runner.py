@@ -24,6 +24,31 @@ def _request(tmp_path: Path, **changes: object) -> BacktestRequest:
     return BacktestRequest(**values)
 
 
+def test_report_includes_sharpe_for_every_backtest_period() -> None:
+    report = runner._report(
+        "600519.SH",
+        "baseline_v001",
+        {
+            "acceptance_status": "N/A",
+            "windows": {
+                "full": {
+                    "start": "2026-01-05",
+                    "end": "2026-08-21",
+                    "strategy_return": 0.25,
+                    "max_drawdown": -0.1,
+                    "sharpe": 2.74656,
+                    "trade_count": 8,
+                    "status": "N/A",
+                }
+            },
+        },
+        ["chart.html"],
+    )
+
+    assert "| 夏普率 |" in report
+    assert "| 2.747 |" in report
+
+
 def test_fixed_backtest_uses_latest_baseline_and_writes_nonresearch_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

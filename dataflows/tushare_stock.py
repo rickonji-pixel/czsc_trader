@@ -173,6 +173,32 @@ def _fetch_tushare_ohlcv(
     return normalized, market, ts_code
 
 
+def fetch_stock_ohlcv(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    period: str = "daily",
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    """Return normalized Tushare stock bars and machine-readable metadata."""
+    normalized_period = normalize_period(period)
+    dataframe, market, ts_code = _fetch_tushare_ohlcv(
+        symbol,
+        start_date,
+        end_date,
+        period=normalized_period,
+        asset_type="stock",
+    )
+    if dataframe.empty:
+        raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
+    return dataframe.copy(), {
+        "vendor": "tushare",
+        "market": market,
+        "vendor_symbol": ts_code,
+        "period": normalized_period,
+        "asset_type": "stock",
+    }
+
+
 def get_stock(
     symbol: str,
     start_date: str,

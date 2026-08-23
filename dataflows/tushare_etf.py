@@ -125,6 +125,31 @@ def _fetch_tushare_etf_ohlcv(
     return normalized, market, ts_code
 
 
+def fetch_etf_ohlcv(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    period: str = "daily",
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    """Return normalized Tushare ETF bars and machine-readable metadata."""
+    normalized_period = normalize_period(period)
+    dataframe, market, ts_code = _fetch_tushare_etf_ohlcv(
+        symbol,
+        start_date,
+        end_date,
+        period=normalized_period,
+    )
+    if dataframe.empty:
+        raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
+    return dataframe.copy(), {
+        "vendor": "tushare",
+        "market": market,
+        "vendor_symbol": ts_code,
+        "period": normalized_period,
+        "asset_type": "etf",
+    }
+
+
 def get_etf(
     symbol: str,
     start_date: str,

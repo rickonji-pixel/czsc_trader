@@ -17,6 +17,17 @@ from .market_resolver import MARKET_A_SHARE, detect_market, normalize_symbol_for
 from .tushare_common import get_tushare_pro
 
 
+_588080_TUSHARE_VOLUME_X100_DATES = {
+    "2024-04-03",
+    "2024-04-19",
+    "2024-04-26",
+    "2024-04-30",
+    "2024-05-24",
+    "2024-05-31",
+    "2024-06-14",
+}
+
+
 def _intraday_boundary(value: str, *, end: bool) -> str:
     if " " in value:
         return value
@@ -50,6 +61,20 @@ def _standardize_etf_ohlcv(
         normalized["Volume"] = normalized["Volume"] * 100
         normalized["Amount"] = normalized["Amount"] * 1000
     return normalized
+
+
+def _apply_known_intraday_volume_corrections(
+    dataframe: pd.DataFrame, ts_code: str
+) -> tuple[pd.DataFrame, list[str]]:
+    """Correct seven confirmed Tushare 588080 intraday volume unit errors."""
+    frame = dataframe.copy()
+    if ts_code != "588080.SH" or frame.empty:
+        return frame, []
+    trade_dates = pd.to_datetime(frame["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    mask = trade_dates.isin(_588080_TUSHARE_VOLUME_X100_DATES)
+    frame.loc[mask, "Volume"] = frame.loc[mask, "Volume"] / 100.0
+    corrected_dates = sorted(trade_dates.loc[mask].dropna().unique().tolist())
+    return frame, corrected_dates
 
 
 def _merge_opening_auction_into_first_30m_bar(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -119,12 +144,18 @@ def _fetch_tushare_etf_ohlcv(
         return pd.DataFrame(), market, ts_code
 
     normalized = _standardize_etf_ohlcv(dataframe, intraday=period == "30m")
+    corrected_dates: list[str] = []
     if period == "weekly":
         normalized = _resample_weekly(normalized)
     if period == "30m":
+        normalized, corrected_dates = _apply_known_intraday_volume_corrections(
+            normalized, ts_code
+        )
         normalized = _merge_opening_auction_into_first_30m_bar(normalized)
         normalized = drop_incomplete_intraday_bar(normalized)
         validate_a_share_30m_bars(normalized)
+    if corrected_dates:
+        normalized.attrs["hardcoded_volume_corrections"] = corrected_dates
     return normalized, market, ts_code
 
 
@@ -156,11 +187,12 @@ def fetch_etf_ohlcv(
     )
     if dataframe.empty:
         raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
+    correction_dates = dataframe.attrs.get("hardcoded_volume_corrections", [])
     factors = _fetch_hfq_factors(ts_code, start_date, end_date)
     dataframe = apply_hfq_adjustment(dataframe, factors)
     if normalized_period == "weekly":
         dataframe = _resample_weekly(dataframe)
-    return dataframe.copy(), {
+    metadata = {
         "vendor": "tushare",
         "market": market,
         "vendor_symbol": ts_code,
@@ -170,6 +202,9 @@ def fetch_etf_ohlcv(
         "adjustment_factor_source": "fund_adj",
         "adjustment_factor_sha256": adjustment_factor_sha256(factors),
     }
+    if correction_dates:
+        metadata["hardcoded_volume_corrections"] = ",".join(correction_dates)
+    return dataframe.copy(), metadata
 
 
 def get_etf(

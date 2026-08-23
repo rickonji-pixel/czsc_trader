@@ -54,10 +54,12 @@ def test_fetch_stock_ohlcv_returns_dataframe_and_metadata(monkeypatch: pytest.Mo
 
 
 def test_fetch_etf_ohlcv_returns_dataframe_and_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    raw = SAMPLE.copy()
+    raw.attrs["hardcoded_volume_corrections"] = ["2024-04-03"]
     monkeypatch.setattr(
         tushare_etf,
         "_fetch_tushare_etf_ohlcv",
-        lambda *args, **kwargs: (SAMPLE, "a_share", "510300.SH"),
+        lambda *args, **kwargs: (raw, "a_share", "510300.SH"),
     )
     monkeypatch.setattr(
         tushare_etf,
@@ -76,6 +78,7 @@ def test_fetch_etf_ohlcv_returns_dataframe_and_metadata(monkeypatch: pytest.Monk
     assert metadata["asset_type"] == "etf"
     assert metadata["period"] == "weekly"
     assert metadata["vendor_symbol"] == "510300.SH"
+    assert metadata["hardcoded_volume_corrections"] == "2024-04-03"
 
 
 def test_fetch_dataframe_api_propagates_vendor_errors(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -205,3 +208,34 @@ def test_etf_weekly_is_resampled_after_daily_hfq_adjustment(
 
     assert weekly["Open"].tolist() == [10.0, 10.2]
     assert weekly["Close"].tolist() == [10.0, 10.4]
+
+
+def test_588080_known_2024_intraday_volume_errors_are_corrected_only_in_scope() -> None:
+    """Catch Tushare's seven known 588080 volume rows leaking into published data."""
+    frame = pd.DataFrame(
+        {
+            "Date": [
+                "2024-04-03 10:00:00",
+                "2024-06-14 15:00:00",
+                "2024-06-17 10:00:00",
+            ],
+            "Open": [0.8, 0.8, 0.8],
+            "High": [0.81, 0.81, 0.81],
+            "Low": [0.79, 0.79, 0.79],
+            "Close": [0.8, 0.8, 0.8],
+            "Volume": [10_000.0, 20_000.0, 300.0],
+            "Amount": [80.0, 160.0, 240.0],
+        }
+    )
+
+    corrected, dates = tushare_etf._apply_known_intraday_volume_corrections(
+        frame, "588080.SH"
+    )
+    other_symbol, other_dates = tushare_etf._apply_known_intraday_volume_corrections(
+        frame, "159352.SZ"
+    )
+
+    assert corrected["Volume"].tolist() == [100.0, 200.0, 300.0]
+    assert dates == ["2024-04-03", "2024-06-14"]
+    pd.testing.assert_frame_equal(other_symbol, frame)
+    assert other_dates == []

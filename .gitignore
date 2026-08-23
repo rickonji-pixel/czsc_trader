@@ -8,3 +8,6 @@ __pycache__/
 
 # Reproducible research artifacts.
 outputs/
+
+# Local credentials for optional Tushare dataflows.
+dataflows/.env

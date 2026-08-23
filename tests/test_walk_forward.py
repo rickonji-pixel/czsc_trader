@@ -5,6 +5,7 @@ import pytest
 from czsc_trader.walk_forward import (
     CANDIDATES,
     Rule,
+    apply_fixed_rule,
     build_factor_events,
     deduplicate_candidate_targets,
     positions_for_rule,
@@ -174,6 +175,23 @@ def test_factor_events_are_the_only_position_transitions() -> None:
     assert events["after_position"].tolist() == [1.0, 0.0, 1.0]
     assert events["signal_date"].tolist() == [index[0], index[2], index[4]]
     assert events["factor_score"].tolist() == [0.5, -0.5, 0.5]
+
+
+def test_apply_fixed_rule_returns_positions_scores_and_events() -> None:
+    index = pd.bdate_range("2026-01-02", periods=4)
+    values = [0.5, 0.5, -0.5, -0.5]
+    factors = pd.DataFrame(
+        {column: values for column in ("structure", "trend", "volume_position")},
+        index=index,
+    )
+    rule = Rule((0.3, 0.3, 0.4), 0.15, 0.0, 1, 1)
+
+    result = apply_fixed_rule(factors, rule)
+
+    assert result.target_position.tolist() == [1.0, 1.0, 0.0, 0.0]
+    assert result.scores.tolist() == values
+    assert result.events["event_type"].tolist() == ["Entry", "Exit"]
+    assert result.events["signal_date"].tolist() == [index[0], index[2]]
 
 
 def test_candidate_ranking_prioritizes_worst_absolute_target_margin() -> None:

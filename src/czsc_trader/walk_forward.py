@@ -87,6 +87,15 @@ class FixedSelectionResult:
     rule: Rule
 
 
+@dataclass(frozen=True)
+class AppliedRule:
+    """Signals produced by applying one already-selected fixed rule."""
+
+    target_position: pd.Series
+    scores: pd.Series
+    events: pd.DataFrame
+
+
 def positions_for_rule(factors: pd.DataFrame, rule: Rule) -> tuple[pd.Series, pd.Series]:
     """Apply a rule as a deterministic state machine without using prices."""
     clean = factors.loc[:, FACTOR_COLUMNS].fillna(0.0).astype(float)
@@ -190,6 +199,14 @@ def build_factor_events(
             }
         )
     return pd.DataFrame(rows)
+
+
+def apply_fixed_rule(factors: pd.DataFrame, rule: Rule) -> AppliedRule:
+    """Apply one fixed rule without reading prices or candidate definitions."""
+    aligned = factors.loc[:, FACTOR_COLUMNS].fillna(0.0).astype(float)
+    target, scores = positions_for_rule(aligned, rule)
+    events = build_factor_events(target, scores, aligned, rule)
+    return AppliedRule(target, scores, events)
 
 
 def _normalize_daily(daily: pd.DataFrame) -> pd.DataFrame:
@@ -323,8 +340,14 @@ def select_fixed_rule(
         rows.append(row)
     ranked = rank_candidate_results(pd.DataFrame(rows))
     selected_rule, target, scores = targets[str(ranked.iloc[0]["rule_id"])]
-    events = build_factor_events(target, scores, aligned, selected_rule)
-    return FixedSelectionResult(target, scores, events, ranked, selected_rule)
+    applied = apply_fixed_rule(aligned, selected_rule)
+    return FixedSelectionResult(
+        applied.target_position,
+        applied.scores,
+        applied.events,
+        ranked,
+        selected_rule,
+    )
 
 
 def _simulate_rule(

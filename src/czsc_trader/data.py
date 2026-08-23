@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import re
 
+import numpy as np
 import pandas as pd
 
 
@@ -15,6 +16,10 @@ SYMBOL = "588080.SH"
 FREQUENCIES = ("30m", "daily", "weekly")
 NORMALIZED_COLUMNS = ("dt", "symbol", "open", "high", "low", "close", "vol", "amount")
 SESSION_TIMES = ("10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00")
+PRICE_TOLERANCE = 0.005
+VOLUME_RELATIVE_TOLERANCE = 1e-5
+AMOUNT_RELATIVE_TOLERANCE = 1e-5
+FLOAT_COMPARISON_EPSILON = 1e-12
 
 
 @dataclass(frozen=True)
@@ -118,11 +123,23 @@ def _validate_reconciliation(intraday: pd.DataFrame, daily: pd.DataFrame, weekly
     if not intraday_daily.index.equals(daily_indexed.index):
         raise ValueError("30m/daily: trade dates differ")
     price_columns = ["open", "high", "low", "close"]
-    if not intraday_daily[price_columns].equals(daily_indexed[price_columns]):
-        raise ValueError("30m/daily: OHLC values differ")
-    for column in ("vol", "amount"):
-        relative = (intraday_daily[column] - daily_indexed[column]).abs() / daily_indexed[column]
-        if relative.max() >= 1e-6:
+    if not np.allclose(
+        intraday_daily[price_columns],
+        daily_indexed[price_columns],
+        rtol=0.0,
+        atol=PRICE_TOLERANCE + FLOAT_COMPARISON_EPSILON,
+    ):
+        raise ValueError("30m/daily: OHLC values differ beyond tolerance")
+    for column, tolerance in (
+        ("vol", VOLUME_RELATIVE_TOLERANCE),
+        ("amount", AMOUNT_RELATIVE_TOLERANCE),
+    ):
+        denominator = np.maximum(daily_indexed[column].abs().to_numpy(dtype=float), 1.0)
+        relative = (
+            intraday_daily[column].to_numpy(dtype=float)
+            - daily_indexed[column].to_numpy(dtype=float)
+        ) / denominator
+        if np.abs(relative).max() > tolerance + FLOAT_COMPARISON_EPSILON:
             raise ValueError(f"30m/daily: {column} relative difference exceeds tolerance")
 
     daily_with_week = daily.assign(_week=daily["dt"].dt.to_period("W-SUN"))
@@ -136,9 +153,26 @@ def _validate_reconciliation(intraday: pd.DataFrame, daily: pd.DataFrame, weekly
         amount=("amount", "sum"),
     ).set_index("dt")
     weekly_indexed = weekly.set_index("dt")
-    columns = ["open", "high", "low", "close", "vol", "amount"]
-    if not aggregated_weekly[columns].equals(weekly_indexed[columns]):
-        raise ValueError("daily/weekly: aggregated values differ")
+    if not aggregated_weekly.index.equals(weekly_indexed.index):
+        raise ValueError("daily/weekly: week-ending trade dates differ")
+    if not np.allclose(
+        aggregated_weekly[price_columns],
+        weekly_indexed[price_columns],
+        rtol=0.0,
+        atol=PRICE_TOLERANCE + FLOAT_COMPARISON_EPSILON,
+    ):
+        raise ValueError("daily/weekly: OHLC values differ beyond tolerance")
+    for column, tolerance in (
+        ("vol", VOLUME_RELATIVE_TOLERANCE),
+        ("amount", AMOUNT_RELATIVE_TOLERANCE),
+    ):
+        denominator = np.maximum(weekly_indexed[column].abs().to_numpy(dtype=float), 1.0)
+        relative = (
+            aggregated_weekly[column].to_numpy(dtype=float)
+            - weekly_indexed[column].to_numpy(dtype=float)
+        ) / denominator
+        if np.abs(relative).max() > tolerance + FLOAT_COMPARISON_EPSILON:
+            raise ValueError(f"daily/weekly: {column} relative difference exceeds tolerance")
 
 
 def load_market_data(

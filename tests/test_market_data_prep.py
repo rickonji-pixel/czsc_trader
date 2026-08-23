@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from czsc_trader.data import load_market_data
 from czsc_trader.market_data_prep import prepare_market_data, validate_market_frames
 
 
@@ -93,6 +94,17 @@ def test_validate_market_frames_rejects_daily_mismatch() -> None:
         validate_market_frames(intraday, daily, weekly)
 
 
+def test_validate_market_frames_accepts_price_difference_at_exact_tolerance() -> None:
+    intraday, daily, weekly = _valid_frames()
+    intraday.loc[0, ["Open", "Low"]] = [1.031, 1.0]
+    daily.loc[0, ["Open", "Low"]] = [1.036, 1.0]
+    weekly.loc[0, ["Open", "Low"]] = [1.036, 1.0]
+
+    result = validate_market_frames(intraday, daily, weekly)
+
+    assert result["status"] == "PASS"
+
+
 def test_validate_market_frames_rejects_weekly_mismatch() -> None:
     intraday, daily, weekly = _valid_frames()
     weekly.loc[0, "Close"] += 0.02
@@ -136,6 +148,36 @@ def test_prepare_splits_years_and_writes_pass_manifest(tmp_path: Path) -> None:
     assert manifest["files"]["600519_30m_2026.csv"]["sha256"]
     validation = json.loads((tmp_path / "600519_validation.json").read_text(encoding="utf-8"))
     assert validation["status"] == "PASS"
+
+
+def test_prepared_data_at_price_tolerance_can_be_loaded(tmp_path: Path) -> None:
+    intraday, daily, weekly = _valid_frames()
+    intraday.loc[0, ["Open", "Low"]] = [1.031, 1.0]
+    daily.loc[0, ["Open", "Low"]] = [1.036, 1.0]
+    weekly.loc[0, ["Open", "Low"]] = [1.036, 1.0]
+    frames = {"30m": intraday, "daily": daily, "weekly": weekly}
+
+    def boundary_fetcher(symbol, asset_type, start, end, period):
+        return frames[period].copy(), {
+            "vendor": "tushare",
+            "market": "a_share",
+            "vendor_symbol": symbol,
+            "asset_type": asset_type,
+            "period": period,
+        }
+
+    prepare_market_data(
+        "600519.SH",
+        "stock",
+        date(2026, 8, 20),
+        date(2026, 8, 21),
+        tmp_path,
+        fetcher=boundary_fetcher,
+    )
+
+    loaded = load_market_data(tmp_path, "600519.SH", "stock")
+
+    assert len(loaded.daily) == 2
 
 
 def test_failed_validation_does_not_replace_existing_files(tmp_path: Path) -> None:

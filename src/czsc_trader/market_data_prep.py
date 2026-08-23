@@ -15,12 +15,16 @@ from typing import TypeAlias
 import numpy as np
 import pandas as pd
 
+from .data import (
+    AMOUNT_RELATIVE_TOLERANCE,
+    FLOAT_COMPARISON_EPSILON,
+    PRICE_TOLERANCE,
+    VOLUME_RELATIVE_TOLERANCE,
+)
+
 
 FREQUENCIES = ("30m", "daily", "weekly")
 SESSION_TIMES = ("10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00")
-PRICE_TOLERANCE = 0.005
-VOLUME_RELATIVE_TOLERANCE = 1e-5
-AMOUNT_RELATIVE_TOLERANCE = 1e-5
 VENDOR_COLUMNS = ("Date", "Open", "High", "Low", "Close", "Volume", "Amount")
 
 MarketFetcher: TypeAlias = Callable[
@@ -107,7 +111,10 @@ def validate_market_frames(
         raise ValueError("30m/daily reconciliation: trade dates differ")
     for column in ("Open", "High", "Low", "Close"):
         if not np.allclose(
-            intraday_daily[column], daily_indexed[column], rtol=0.0, atol=PRICE_TOLERANCE
+            intraday_daily[column],
+            daily_indexed[column],
+            rtol=0.0,
+            atol=PRICE_TOLERANCE + FLOAT_COMPARISON_EPSILON,
         ):
             raise ValueError(f"30m/daily reconciliation: {column} differs")
     if not _relative_match(
@@ -137,7 +144,12 @@ def validate_market_frames(
     if not daily_weekly.index.equals(weekly_indexed.index):
         raise ValueError("daily/weekly reconciliation: week-ending trade dates differ")
     for column in ("Open", "High", "Low", "Close"):
-        if not np.allclose(daily_weekly[column], weekly_indexed[column], rtol=0.0, atol=PRICE_TOLERANCE):
+        if not np.allclose(
+            daily_weekly[column],
+            weekly_indexed[column],
+            rtol=0.0,
+            atol=PRICE_TOLERANCE + FLOAT_COMPARISON_EPSILON,
+        ):
             raise ValueError(f"daily/weekly reconciliation: {column} differs")
     if not _relative_match(
         daily_weekly["Volume"], weekly_indexed["Volume"], VOLUME_RELATIVE_TOLERANCE

@@ -23,10 +23,12 @@ class Rule:
     exit: float
     confirm_days: int
     min_hold_days: int
+    exit_confirm_days: int = 1
+    entry_gate: str = "none"
 
 
 DEFAULT_RULE = Rule((0.4, 0.4, 0.2), enter=0.2, exit=0.0, confirm_days=1, min_hold_days=3)
-CANDIDATES = tuple(
+WALK_FORWARD_CANDIDATES = tuple(
     Rule(weights, enter, exit_, confirm, hold)
     for weights, enter, exit_, confirm, hold in product(
         ((0.5, 0.3, 0.2), (0.4, 0.4, 0.2), (0.4, 0.3, 0.3)),
@@ -34,6 +36,32 @@ CANDIDATES = tuple(
         (-0.20, 0.0, 0.10),
         (1, 2),
         (1, 3, 5),
+    )
+    if exit_ < enter
+)
+WEIGHT_CANDIDATES = (
+    (0.6, 0.3, 0.1),
+    (0.6, 0.2, 0.2),
+    (0.5, 0.4, 0.1),
+    (0.5, 0.3, 0.2),
+    (0.5, 0.2, 0.3),
+    (0.4, 0.5, 0.1),
+    (0.4, 0.4, 0.2),
+    (0.4, 0.3, 0.3),
+    (0.3, 0.5, 0.2),
+    (0.3, 0.4, 0.3),
+    (0.3, 0.3, 0.4),
+)
+CANDIDATES = tuple(
+    Rule(weights, enter, exit_, confirm, hold, exit_confirm, entry_gate)
+    for weights, enter, exit_, confirm, hold, exit_confirm, entry_gate in product(
+        WEIGHT_CANDIDATES,
+        (0.15, 0.20, 0.25, 0.30, 0.35),
+        (-0.20, -0.10, 0.0, 0.10),
+        (1, 2, 3),
+        (1, 3, 5),
+        (1, 2, 3),
+        ("none", "structure", "trend", "structure_and_trend"),
     )
     if exit_ < enter
 )
@@ -60,30 +88,69 @@ class FixedSelectionResult:
 def positions_for_rule(factors: pd.DataFrame, rule: Rule) -> tuple[pd.Series, pd.Series]:
     """Apply a rule as a deterministic state machine without using prices."""
     clean = factors.loc[:, FACTOR_COLUMNS].fillna(0.0).astype(float)
-    scores = clean.mul(np.asarray(rule.weights), axis=1).sum(axis=1)
+    values = clean.to_numpy(dtype=float)
+    scores_array = values @ np.asarray(rule.weights, dtype=float)
+    gate_masks = {
+        "none": np.ones(len(clean), dtype=bool),
+        "structure": values[:, 0] >= 0.0,
+        "trend": values[:, 1] >= 0.0,
+        "structure_and_trend": (values[:, 0] >= 0.0) & (values[:, 1] >= 0.0),
+    }
+    if rule.entry_gate not in gate_masks:
+        raise ValueError(f"unknown entry gate: {rule.entry_gate}")
+    gate_mask = gate_masks[rule.entry_gate]
     positions: list[float] = []
     position = 0.0
     confirmations = 0
+    exit_confirmations = 0
     holding_days = 0
-    for score in scores:
+    for score, gate_passes in zip(scores_array, gate_mask, strict=True):
         if position == 0.0:
-            confirmations = confirmations + 1 if score >= rule.enter else 0
+            confirmations = confirmations + 1 if score >= rule.enter and gate_passes else 0
             if confirmations >= rule.confirm_days:
                 position = 1.0
                 holding_days = 1
                 confirmations = 0
+                exit_confirmations = 0
         else:
-            if score <= rule.exit and holding_days >= rule.min_hold_days:
+            eligible_exit = holding_days >= rule.min_hold_days
+            exit_confirmations = (
+                exit_confirmations + 1
+                if eligible_exit and score <= rule.exit
+                else 0
+            )
+            if exit_confirmations >= rule.exit_confirm_days:
                 position = 0.0
                 holding_days = 0
                 confirmations = 0
+                exit_confirmations = 0
             else:
                 holding_days += 1
         positions.append(position)
     return (
         pd.Series(positions, index=factors.index, name="target_position", dtype=float),
-        pd.Series(scores, index=factors.index, name="factor_score", dtype=float),
+        pd.Series(scores_array, index=factors.index, name="factor_score", dtype=float),
     )
+
+
+def candidate_complexity(rule: Rule) -> int:
+    """Return a deterministic preference for fewer temporal and gate constraints."""
+    gate_cost = 0 if rule.entry_gate == "none" else 1
+    return rule.confirm_days + rule.exit_confirm_days + rule.min_hold_days + gate_cost
+
+
+def deduplicate_candidate_targets(
+    candidates: tuple[Rule, ...],
+    factors: pd.DataFrame,
+) -> list[tuple[Rule, pd.Series, pd.Series]]:
+    """Keep one least-complex rule for every distinct full-history target."""
+    ordered = sorted(candidates, key=lambda rule: (candidate_complexity(rule), _rule_id(rule)))
+    unique: dict[bytes, tuple[Rule, pd.Series, pd.Series]] = {}
+    for rule in ordered:
+        target, scores = positions_for_rule(factors, rule)
+        signature = target.to_numpy(dtype=np.uint8).tobytes()
+        unique.setdefault(signature, (rule, target, scores))
+    return list(unique.values())
 
 
 def build_factor_events(
@@ -195,7 +262,11 @@ def rank_candidate_results(candidates: pd.DataFrame) -> pd.DataFrame:
 
 def _rule_id(rule: Rule) -> str:
     weights = "-".join(f"{value:.2f}" for value in rule.weights)
-    return f"w{weights}_en{rule.enter:.2f}_ex{rule.exit:.2f}_c{rule.confirm_days}_h{rule.min_hold_days}"
+    return (
+        f"w{weights}_en{rule.enter:.2f}_ex{rule.exit:.2f}"
+        f"_ec{rule.confirm_days}_xc{rule.exit_confirm_days}"
+        f"_h{rule.min_hold_days}_g{rule.entry_gate}"
+    )
 
 
 def select_fixed_rule(
@@ -209,8 +280,7 @@ def select_fixed_rule(
     aligned = factors.loc[:, FACTOR_COLUMNS].reindex(prices.index).fillna(0.0)
     rows: list[dict[str, object]] = []
     targets: dict[str, tuple[Rule, pd.Series, pd.Series]] = {}
-    for rule in CANDIDATES:
-        target, scores = positions_for_rule(aligned, rule)
+    for rule, target, scores in deduplicate_candidate_targets(CANDIDATES, aligned):
         rule_id = _rule_id(rule)
         targets[rule_id] = (rule, target, scores)
         metrics = {
@@ -231,7 +301,7 @@ def select_fixed_rule(
             "turnover": sum(int(item["changes"]) for item in metrics.values())
             / max(sum(int(item["days"]) for item in metrics.values()), 1),
             "max_drawdown": min(float(item["drawdown"]) for item in metrics.values()),
-            "complexity": rule.confirm_days + rule.min_hold_days,
+            "complexity": candidate_complexity(rule),
         }
         for name, item in metrics.items():
             row[f"{name}_strategy_return"] = item["strategy_return"]
@@ -303,7 +373,7 @@ def _choose_rule(
 ) -> tuple[Rule, float]:
     buyhold_return, buyhold_drawdown = _buyhold_stats(daily, fee_rate)
     ranked: list[tuple[float, float, float, int, Rule]] = []
-    for order, rule in enumerate(CANDIDATES):
+    for order, rule in enumerate(WALK_FORWARD_CANDIDATES):
         net_return, drawdown, turnover = _simulate_rule(daily, factors, rule, fee_rate)
         objective = (
             net_return
@@ -327,7 +397,7 @@ def _selection_row(
         "train_start": train_index.min() if len(train_index) else pd.NaT,
         "train_end": train_index.max() if len(train_index) else pd.NaT,
         "objective": objective,
-        "candidate_count": len(CANDIDATES),
+        "candidate_count": len(WALK_FORWARD_CANDIDATES),
         "weights": "|".join(f"{weight:.1f}" for weight in rule.weights),
     }
     row.update({key: value for key, value in asdict(rule).items() if key != "weights"})

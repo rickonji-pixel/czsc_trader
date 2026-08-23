@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 
 from czsc_trader.walk_forward import (
+    CANDIDATES,
     Rule,
     build_factor_events,
+    deduplicate_candidate_targets,
     positions_for_rule,
     rank_candidate_results,
     run_walk_forward,
@@ -50,6 +52,75 @@ def test_rule_state_machine_confirms_entry_and_minimum_hold() -> None:
 
     assert scores.tolist() == [0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5]
     assert positions.tolist() == [0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+
+
+def test_entry_gate_blocks_positive_score_without_selected_factor_confirmation() -> None:
+    """Catch a gated rule entering solely because another factor offsets trend."""
+    index = pd.bdate_range("2025-01-02", periods=2)
+    factors = pd.DataFrame(
+        {
+            "structure": [1.0, 1.0],
+            "trend": [-0.5, 0.0],
+            "volume_position": [1.0, 1.0],
+        },
+        index=index,
+    )
+    rule = Rule(
+        (0.4, 0.4, 0.2),
+        enter=0.2,
+        exit=0.0,
+        confirm_days=1,
+        min_hold_days=1,
+        entry_gate="trend",
+    )
+
+    positions, scores = positions_for_rule(factors, rule)
+
+    np.testing.assert_allclose(scores.to_numpy(), [0.4, 0.6])
+    assert positions.tolist() == [0.0, 1.0]
+
+
+def test_exit_confirmation_resets_when_score_recovers() -> None:
+    """Catch non-consecutive weak days being accumulated into an exit."""
+    index = pd.bdate_range("2025-01-02", periods=5)
+    values = [0.5, -0.5, 0.5, -0.5, -0.5]
+    factors = pd.DataFrame(
+        {column: values for column in ("structure", "trend", "volume_position")},
+        index=index,
+    )
+    rule = Rule(
+        (0.4, 0.4, 0.2),
+        enter=0.2,
+        exit=0.0,
+        confirm_days=1,
+        min_hold_days=1,
+        exit_confirm_days=2,
+    )
+
+    positions, _ = positions_for_rule(factors, rule)
+
+    assert positions.tolist() == [1.0, 1.0, 1.0, 1.0, 0.0]
+
+
+def test_declared_candidate_grid_has_frozen_size() -> None:
+    """Catch an accidental omission or post-design expansion of the frozen grid."""
+    assert len(CANDIDATES) == 23_760
+
+
+def test_equivalent_targets_keep_the_least_complex_rule() -> None:
+    """Catch duplicate position histories inflating price-evaluated candidates."""
+    index = pd.bdate_range("2025-01-02", periods=4)
+    factors = pd.DataFrame(
+        {column: [0.5] * 4 for column in ("structure", "trend", "volume_position")},
+        index=index,
+    )
+    simple = Rule((0.4, 0.4, 0.2), 0.2, 0.0, 1, 1)
+    complex_rule = Rule((0.4, 0.4, 0.2), 0.2, 0.0, 1, 5)
+
+    unique = deduplicate_candidate_targets((complex_rule, simple), factors)
+
+    assert len(unique) == 1
+    assert unique[0][0] == simple
 
 
 def test_walk_forward_is_long_cash_and_strictly_prior_trained() -> None:

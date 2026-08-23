@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "symbol": "588080.SH",
+  "code": "588080",
+  "asset_type": "etf",
+  "vendor": "existing_verified_snapshot",
+  "requested_start": "2024-01-02",
+  "requested_end": "2026-08-21",
+  "files": {
+    "588080_30m_2024.csv": {
+      "frequency": "30m",
+      "year": 2024,
+      "sha256": "2bbc51702fea5dc831222946f06a48c9fe77adff2762e7ff52a9d62c583165e8"
+    },
+    "588080_30m_2025.csv": {
+      "frequency": "30m",
+      "year": 2025,
+      "sha256": "c763b8914b54bdbaac1c93b992279046268e4bd1565826d507377f06fb62a9df"
+    },
+    "588080_30m_2026.csv": {
+      "frequency": "30m",
+      "year": 2026,
+      "sha256": "41f1b7dea4b004cbc312bf8053ff0465ce385e89a5d27beb70af6d836d660899"
+    },
+    "588080_daily_2024.csv": {
+      "frequency": "daily",
+      "year": 2024,
+      "sha256": "d955628ca72647aa7e14d6508dc16873aeb6b3baaced0631f09ca122670d9943"
+    },
+    "588080_daily_2025.csv": {
+      "frequency": "daily",
+      "year": 2025,
+      "sha256": "ff6ef0862a86a2e7d4fc361a2624172e4ff8aa6edd1a5921692bf356fccfcaa1"
+    },
+    "588080_daily_2026.csv": {
+      "frequency": "daily",
+      "year": 2026,
+      "sha256": "a4a1ab63e92b5ccd6874dc44f01dce86895a481be4e8966a2fdccdd929252059"
+    },
+    "588080_weekly_2024.csv": {
+      "frequency": "weekly",
+      "year": 2024,
+      "sha256": "9fd4edfe0d2e7e88eb779f384cf8a4c482feb731eb9cd460cb8312e7788af0cc"
+    },
+    "588080_weekly_2025.csv": {
+      "frequency": "weekly",
+      "year": 2025,
+      "sha256": "81cbf198c22ceb99c42dbcca503f2453cb96ac037280f5fbae1bfb1a26b62a37"
+    },
+    "588080_weekly_2026.csv": {
+      "frequency": "weekly",
+      "year": 2026,
+      "sha256": "61a95e6a9a9658c8c7c049e488dad044b77a69a7193f268d7af0a9b89abb267c"
+    }
+  }
+}

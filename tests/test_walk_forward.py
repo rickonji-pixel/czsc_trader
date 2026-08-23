@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from czsc_trader.walk_forward import (
     CANDIDATES,
@@ -203,6 +204,7 @@ def test_turnover_cannot_change_absolute_target_ranking() -> None:
     assert ranked.iloc[0]["rule_id"] == "higher_turnover"
 
 
+@pytest.mark.slow
 def test_fixed_selection_target_is_exactly_its_factor_rule() -> None:
     """Catch any post-selection performance overlay changing factor positions."""
     daily, factors = _sample_inputs(180)

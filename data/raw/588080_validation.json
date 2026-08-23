@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "source": "existing project reconciliation",
+  "intraday": {
+    "bar_count": 5112,
+    "complete_day_count": 639
+  },
+  "reconciliation": {
+    "daily_matched_days": 639,
+    "weekly_matched_periods": 136
+  }
+}

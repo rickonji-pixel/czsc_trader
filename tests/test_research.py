@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from czsc_trader.research import _render_report, run_research
 from czsc_trader.walk_forward import Rule
@@ -40,6 +41,7 @@ def test_report_displays_absolute_targets_and_margins() -> None:
     assert "目标差额" in report
 
 
+@pytest.mark.slow
 def test_research_writes_audited_artifacts(tmp_path: Path) -> None:
     """Catch missing evidence files or incomplete target-window reporting."""
     summary = run_research(Path("data/raw"), tmp_path)

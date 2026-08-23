@@ -63,10 +63,11 @@ actual turnover amount is unchanged. Weekly bars are aggregated only after
 daily adjustment. Returned metadata records the adjustment mode, factor
 source, and a stable SHA-256 of the complete requested factor series.
 
-Tushare returns 100x intraday volume for `588080.SH` on seven confirmed 2024
-trade dates (`04-03`, `04-19`, `04-26`, `04-30`, `05-24`, `05-31`, `06-14`).
-Only this symbol/date allowlist is divided by 100, and the corrected dates are
-recorded in fetch metadata. No heuristic correction is applied elsewhere.
+Tushare returns 100x intraday volume for `515050.SH` and `588080.SH` on seven
+confirmed 2024 trade dates (`04-03`, `04-19`, `04-26`, `04-30`, `05-24`,
+`05-31`, `06-14`). Only these explicit symbol/date allowlists are divided by
+100, and the corrected dates are recorded in fetch metadata. No heuristic
+correction is applied elsewhere.
 
 The normalized columns are `Date`, `Open`, `High`, `Low`, `Close`, `Volume`,
 and `Amount`. A-share 30-minute bars are checked for duplicate timestamps,

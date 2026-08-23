@@ -239,3 +239,29 @@ def test_588080_known_2024_intraday_volume_errors_are_corrected_only_in_scope() 
     assert dates == ["2024-04-03", "2024-06-14"]
     pd.testing.assert_frame_equal(other_symbol, frame)
     assert other_dates == []
+
+
+def test_515050_known_2024_intraday_volume_errors_are_corrected_only_in_scope() -> None:
+    """Catch Tushare's seven confirmed 515050 volume dates leaking into published data."""
+    frame = pd.DataFrame(
+        {
+            "Date": [
+                "2024-04-03 10:00:00",
+                "2024-06-14 15:00:00",
+                "2024-06-17 10:00:00",
+            ],
+            "Open": [0.8, 0.8, 0.8],
+            "High": [0.81, 0.81, 0.81],
+            "Low": [0.79, 0.79, 0.79],
+            "Close": [0.8, 0.8, 0.8],
+            "Volume": [10_000.0, 20_000.0, 300.0],
+            "Amount": [80.0, 160.0, 240.0],
+        }
+    )
+
+    corrected, dates = tushare_etf._apply_known_intraday_volume_corrections(
+        frame, "515050.SH"
+    )
+
+    assert corrected["Volume"].tolist() == [100.0, 200.0, 300.0]
+    assert dates == ["2024-04-03", "2024-06-14"]

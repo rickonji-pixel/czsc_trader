@@ -17,14 +17,25 @@ from .market_resolver import MARKET_A_SHARE, detect_market, normalize_symbol_for
 from .tushare_common import get_tushare_pro
 
 
-_588080_TUSHARE_VOLUME_X100_DATES = {
-    "2024-04-03",
-    "2024-04-19",
-    "2024-04-26",
-    "2024-04-30",
-    "2024-05-24",
-    "2024-05-31",
-    "2024-06-14",
+_TUSHARE_ETF_VOLUME_X100_DATES = {
+    "515050.SH": {
+        "2024-04-03",
+        "2024-04-19",
+        "2024-04-26",
+        "2024-04-30",
+        "2024-05-24",
+        "2024-05-31",
+        "2024-06-14",
+    },
+    "588080.SH": {
+        "2024-04-03",
+        "2024-04-19",
+        "2024-04-26",
+        "2024-04-30",
+        "2024-05-24",
+        "2024-05-31",
+        "2024-06-14",
+    },
 }
 
 
@@ -66,12 +77,13 @@ def _standardize_etf_ohlcv(
 def _apply_known_intraday_volume_corrections(
     dataframe: pd.DataFrame, ts_code: str
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Correct seven confirmed Tushare 588080 intraday volume unit errors."""
+    """Correct explicitly confirmed Tushare ETF intraday volume unit errors."""
     frame = dataframe.copy()
-    if ts_code != "588080.SH" or frame.empty:
+    correction_dates = _TUSHARE_ETF_VOLUME_X100_DATES.get(ts_code)
+    if correction_dates is None or frame.empty:
         return frame, []
     trade_dates = pd.to_datetime(frame["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
-    mask = trade_dates.isin(_588080_TUSHARE_VOLUME_X100_DATES)
+    mask = trade_dates.isin(correction_dates)
     frame.loc[mask, "Volume"] = frame.loc[mask, "Volume"] / 100.0
     corrected_dates = sorted(trade_dates.loc[mask].dropna().unique().tolist())
     return frame, corrected_dates

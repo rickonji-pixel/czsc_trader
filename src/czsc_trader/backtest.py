@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import vectorbt as vbt
 
+from .objectives import RETURN_TARGETS, evaluate_return
+
 
 @dataclass(frozen=True)
 class BacktestResult:
@@ -220,10 +222,14 @@ def run_period_backtests(
     *,
     factor_events: pd.DataFrame | None = None,
     factor_frame: pd.DataFrame | None = None,
+    return_targets: dict[str, float] | None = None,
 ) -> dict[str, PeriodBacktestResult]:
     """Run independently funded portfolios over requested date ranges."""
     prices = _normalize_prices(daily)
     target = target_position.reindex(prices.index)
+    effective_targets = RETURN_TARGETS if return_targets is None else return_targets
+    if set(periods) != set(effective_targets):
+        raise ValueError("period names must exactly match return target names")
     results: dict[str, PeriodBacktestResult] = {}
     for name, (requested_start, requested_end) in periods.items():
         period_index = prices.index[
@@ -265,6 +271,7 @@ def run_period_backtests(
         )
         strategy_return = float(period_backtest.equity.iloc[-1] / init_cash - 1.0)
         buyhold_return = float(buyhold_terminal / init_cash - 1.0)
+        objective = evaluate_return(name, strategy_return, effective_targets)
         metrics: dict[str, float | int | bool | str] = {
             **period_backtest.metrics,
             "start": str(start.date()),
@@ -272,7 +279,7 @@ def run_period_backtests(
             "strategy_return": strategy_return,
             "buyhold_return": buyhold_return,
             "excess_return": strategy_return - buyhold_return,
-            "pass": strategy_return > buyhold_return,
+            **objective,
         }
         results[name] = PeriodBacktestResult(
             period_backtest.portfolio,

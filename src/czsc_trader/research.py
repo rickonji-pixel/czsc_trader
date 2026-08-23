@@ -20,7 +20,7 @@ from .backtest import PeriodBacktestResult, run_period_backtests
 from .charting import DIVERGENCE_CONFIG, write_period_chart
 from .data import SYMBOL, load_market_data
 from .factors import generate_factor_frame
-from .objectives import TARGET_PERIODS
+from .objectives import RETURN_TARGETS, TARGET_PERIODS, overall_pass
 from .walk_forward import CANDIDATES, Rule, select_fixed_rule
 
 
@@ -70,17 +70,18 @@ def _render_report(
         "",
         "## 目标区间",
         "",
-        "| 区间 | 截止日 | 策略收益 | Buy & Hold | 超额收益 | 结果 |",
-        "| --- | --- | ---: | ---: | ---: | --- |",
+        "| 区间 | 截止日 | 目标收益 | 策略收益 | 目标差额 | Buy & Hold | 结果 |",
+        "| --- | --- | ---: | ---: | ---: | ---: | --- |",
     ]
     for name, values in windows.items():
         lines.append(
-            "| {name} | {end} | {strategy:.2%} | {buyhold:.2%} | {excess:.2%} | {status} |".format(
+            "| {name} | {end} | {target:.2%} | {strategy:.2%} | {margin:+.2%} | {buyhold:.2%} | {status} |".format(
                 name=name,
                 end=values["end"],
+                target=float(values["target_return"]),
                 strategy=float(values["strategy_return"]),
                 buyhold=float(values["buyhold_return"]),
-                excess=float(values["excess_return"]),
+                margin=float(values["target_margin"]),
                 status="PASS" if values["pass"] else "FAIL",
             )
         )
@@ -124,7 +125,7 @@ def _render_report(
             "",
             "因子全部来自 CZSC 1.0.1 的30分钟、日线和周线信号，固定规则在全历史保持不变，信号在下一交易日开盘执行。",
             "本结果允许查看2026年结果后选择固定候选，属于2026样本内优化，不是样本外验证。收益、基准、日期和组合净值均不能覆盖因子仓位。",
-            f"候选规则：{len(candidates)}；选定权重：{selected_rule.weights}；入场/离场阈值：{selected_rule.enter}/{selected_rule.exit}；确认/最短持仓：{selected_rule.confirm_days}/{selected_rule.min_hold_days}。",
+            f"等价仓位去重后候选：{len(candidates)}；选定权重：{selected_rule.weights}；入场/离场阈值：{selected_rule.enter}/{selected_rule.exit}；入场/离场确认：{selected_rule.confirm_days}/{selected_rule.exit_confirm_days}；最短持仓：{selected_rule.min_hold_days}；入场门控：{selected_rule.entry_gate}。",
             f"未识别类别出现 {sum(unknown_values.values())} 次并按中性0分处理。",
             "",
             "## 限制",
@@ -188,7 +189,7 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
 
     windows = {name: result.metrics for name, result in period_results.items()}
     metrics_payload = {
-        "overall_pass": all(bool(values["pass"]) for values in windows.values()),
+        "overall_pass": overall_pass(windows),
         "windows": windows,
         "audit": audit,
     }
@@ -216,6 +217,12 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
         "period_start_policy": "independent cash portfolio; prior-day signal may execute at first open",
         "selection_mode": "fixed CZSC-only rule; 2026 sample-optimized",
         "position_policy": "target_position equals the selected CZSC factor state machine; no overlays",
+        "acceptance_policy": {
+            "type": "inclusive absolute net return targets; all windows required",
+            "return_targets": RETURN_TARGETS,
+            "buyhold_affects_pass": False,
+            "turnover_affects_selection": False,
+        },
         "selected_rule": selected_rule_payload,
         "charts": {
             "files": chart_files,

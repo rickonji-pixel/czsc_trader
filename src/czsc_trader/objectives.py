@@ -18,9 +18,13 @@ RETURN_TARGETS = {
 }
 
 
-def evaluate_return(name: str, strategy_return: float) -> dict[str, float | bool]:
+def evaluate_return(
+    name: str,
+    strategy_return: float,
+    targets: dict[str, float] | None = None,
+) -> dict[str, float | bool]:
     """Evaluate one strategy return against its inclusive absolute target."""
-    target = float(RETURN_TARGETS[name])
+    target = float((RETURN_TARGETS if targets is None else targets)[name])
     margin = float(strategy_return) - target
     return {
         "target_return": target,

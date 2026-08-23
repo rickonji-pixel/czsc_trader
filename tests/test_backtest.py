@@ -100,6 +100,7 @@ def test_period_backtests_reset_cash_and_use_only_prior_signal_on_first_open() -
         init_cash=1_000_000.0,
         factor_events=factor_events,
         factor_frame=factor_frame,
+        return_targets={"short": 0.0, "long": 0.0},
     )
 
     expected_first_close_equity = 1_000_000.0 / (100.0 * 1.0005) * 110.0
@@ -145,7 +146,34 @@ def test_regular_orders_reference_matching_factor_transition() -> None:
         {"sample": (dates[1], dates[3])},
         factor_events=factor_events,
         factor_frame=factor_frame,
+        return_targets={"sample": 0.0},
     )["sample"]
 
     assert result.orders.iloc[0]["factor_event_id"] == "Factor:20260102:Entry"
     assert result.orders.iloc[0]["event_type"] == "Entry"
+
+
+def test_period_pass_uses_absolute_target_not_buyhold() -> None:
+    """Catch final acceptance reverting to a strategy-versus-Buy-Hold comparison."""
+    dates = pd.to_datetime(["2025-12-31", "2026-01-02", "2026-01-05"])
+    daily = pd.DataFrame(
+        {
+            "dt": dates,
+            "open": [100.0, 100.0, 100.0],
+            "close": [100.0, 100.0, 200.0],
+        }
+    )
+    target = pd.Series([0.0, 0.0, 0.0], index=dates)
+
+    result = backtest.run_period_backtests(
+        daily,
+        target,
+        {"sample": (dates[1], dates[2])},
+        return_targets={"sample": 0.0},
+    )["sample"]
+
+    assert result.metrics["strategy_return"] == 0.0
+    assert float(result.metrics["buyhold_return"]) > 0.9
+    assert result.metrics["target_return"] == 0.0
+    assert result.metrics["target_margin"] == 0.0
+    assert result.metrics["pass"] is True

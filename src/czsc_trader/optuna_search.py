@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+import json
+from pathlib import Path
+from time import perf_counter
+from typing import Any
 
 import numpy as np
+import optuna
 import pandas as pd
 
 from .factor_discovery import validate_sparse_weights
@@ -19,6 +24,24 @@ class ProjectedStrategy:
     enter: float
     exit: float
     active_factor_count: int
+
+
+@dataclass(frozen=True)
+class TrialRequest:
+    """Pickle-safe work request created from an Optuna trial."""
+
+    number: int
+    payload: Any
+
+
+@dataclass(frozen=True)
+class TrialOutcome:
+    """Data-only worker result written to Optuna by the parent process."""
+
+    number: int
+    value: float | None
+    user_attrs: Mapping[str, Any]
+    error: str | None = None
 
 
 def _bounds(protocol: Mapping[str, object], key: str) -> tuple[float, float]:
@@ -196,6 +219,70 @@ def project_trial_parameters(
     )
 
 
+def suggest_trial_parameters(
+    trial: optuna.trial.BaseTrial,
+    factor_names: Sequence[str],
+    origin_weights: pd.Series,
+    protocol: Mapping[str, object],
+) -> ProjectedStrategy:
+    """Ask Optuna for one dense joint strategy and project it deterministically."""
+    count_bounds = protocol["active_factor_count"]
+    raw_low, raw_high = _bounds(protocol, "raw_weight_bounds")
+    enter_low, enter_high = _bounds(protocol, "enter_threshold_bounds")
+    gap_low, gap_high = _bounds(protocol, "exit_gap_bounds")
+    active_count = trial.suggest_int(
+        "active_factor_count", int(count_bounds["low"]), int(count_bounds["high"])
+    )
+    raw = pd.Series(
+        {
+            str(name): trial.suggest_float(
+                f"raw_weight::{name}", raw_low, raw_high
+            )
+            for name in factor_names
+        },
+        dtype=float,
+    )
+    enter = trial.suggest_float("enter_threshold", enter_low, enter_high)
+    gap = trial.suggest_float("exit_gap", gap_low, gap_high)
+    return project_trial_parameters(
+        factor_names,
+        raw,
+        active_count,
+        enter,
+        gap,
+        origin_weights,
+        protocol,
+    )
+
+
+def trial_params_for_strategy(
+    weights: pd.Series,
+    enter: float,
+    exit_: float,
+    protocol: Mapping[str, object],
+) -> dict[str, float | int]:
+    """Encode a valid frozen strategy so projection reproduces it as Trial 0."""
+    values = weights.astype(float)
+    active = values[values.ne(0.0)]
+    minimum = float(protocol["minimum_absolute_weight"])
+    if active.empty or active.abs().lt(minimum - 1e-15).any():
+        raise ValueError("frozen strategy contains invalid active weights")
+    if abs(float(active.abs().sum()) - 1.0) > 1e-12:
+        raise ValueError("frozen strategy weights must have L1 norm one")
+    gap = float(enter) - float(exit_)
+    params: dict[str, float | int] = {
+        "active_factor_count": len(active),
+        "enter_threshold": float(enter),
+        "exit_gap": gap,
+    }
+    for name, value in values.items():
+        raw = 0.0
+        if value != 0.0:
+            raw = float(np.sign(value) * (abs(value) - minimum))
+        params[f"raw_weight::{name}"] = raw
+    return params
+
+
 def rank_trial_results(rows: pd.DataFrame) -> pd.DataFrame:
     """Apply the preregistered robust return-only trial ordering."""
     required = [
@@ -221,3 +308,144 @@ def rank_trial_results(rows: pd.DataFrame) -> pd.DataFrame:
         ascending=[False, False, False, False, True, True],
         kind="stable",
     ).reset_index(drop=True)
+
+
+def enqueue_initial_trial(study: optuna.Study, params: Mapping[str, Any]) -> bool:
+    """Enqueue the fixed baseline exactly once, before any study trial exists."""
+    if study.trials:
+        return False
+    study.enqueue_trial(dict(params), skip_if_exists=True)
+    return True
+
+
+def recover_running_trials(study: optuna.Study) -> tuple[int, ...]:
+    """Mark trials abandoned by an interrupted parent process as failed."""
+    running = tuple(
+        trial.number
+        for trial in study.get_trials(deepcopy=False)
+        if trial.state == optuna.trial.TrialState.RUNNING
+    )
+    for number in running:
+        study.tell(number, state=optuna.trial.TrialState.FAIL)
+    return running
+
+
+def _completed_progress(study: optuna.Study) -> tuple[int, int]:
+    completed = sorted(
+        (
+            trial
+            for trial in study.get_trials(deepcopy=False)
+            if trial.state == optuna.trial.TrialState.COMPLETE
+        ),
+        key=lambda trial: trial.number,
+    )
+    best = -np.inf
+    since_improvement = 0
+    for trial in completed:
+        value = float(trial.value)
+        if value > best:
+            best = value
+            since_improvement = 0
+        else:
+            since_improvement += 1
+    return len(completed), since_improvement
+
+
+def run_study_batches(
+    study: optuna.Study,
+    request_factory: Callable[[optuna.Trial], TrialRequest],
+    batch_evaluator: Callable[[tuple[TrialRequest, ...]], Sequence[TrialOutcome]],
+    *,
+    maximum_completed_trials: int,
+    minimum_completed_trials: int,
+    no_improvement_trials: int,
+    maximum_wall_time_seconds: float,
+    batch_size: int,
+) -> dict[str, object]:
+    """Run synchronous batches while keeping every storage write in the parent."""
+    if not 0 < minimum_completed_trials <= maximum_completed_trials:
+        raise ValueError("completed trial limits are invalid")
+    if no_improvement_trials <= 0 or maximum_wall_time_seconds <= 0 or batch_size <= 0:
+        raise ValueError("study stopping limits must be positive")
+    started = perf_counter()
+    stop_reason = "maximum_completed_trials"
+    while True:
+        completed, since_improvement = _completed_progress(study)
+        elapsed = perf_counter() - started
+        if completed >= maximum_completed_trials:
+            stop_reason = "maximum_completed_trials"
+            break
+        if elapsed >= maximum_wall_time_seconds:
+            stop_reason = "maximum_wall_time_seconds"
+            break
+        if completed >= minimum_completed_trials and since_improvement >= no_improvement_trials:
+            stop_reason = "no_improvement_trials"
+            break
+
+        request_count = min(batch_size, maximum_completed_trials - completed)
+        trials: dict[int, optuna.Trial] = {}
+        requests: list[TrialRequest] = []
+        for _ in range(request_count):
+            trial = study.ask()
+            request = request_factory(trial)
+            if request.number != trial.number or request.number in trials:
+                raise RuntimeError("trial request numbers differ from Optuna trials")
+            trials[trial.number] = trial
+            requests.append(request)
+        outcomes = tuple(batch_evaluator(tuple(requests)))
+        expected = tuple(sorted(trials))
+        actual = tuple(sorted(outcome.number for outcome in outcomes))
+        if actual != expected or len({outcome.number for outcome in outcomes}) != len(outcomes):
+            raise RuntimeError("trial result numbers are missing, duplicated, or unknown")
+        by_number = {outcome.number: outcome for outcome in outcomes}
+        for number in expected:
+            outcome = by_number[number]
+            trial = trials[number]
+            for key, value in sorted(outcome.user_attrs.items()):
+                trial.set_user_attr(str(key), value)
+            if outcome.error is not None or outcome.value is None:
+                if outcome.error is not None:
+                    trial.set_user_attr("error", str(outcome.error))
+                study.tell(trial, state=optuna.trial.TrialState.FAIL)
+            else:
+                study.tell(trial, float(outcome.value))
+    completed, since_improvement = _completed_progress(study)
+    return {
+        "stop_reason": stop_reason,
+        "completed_trials": completed,
+        "trials_since_improvement": since_improvement,
+        "elapsed_seconds": perf_counter() - started,
+    }
+
+
+def _flat_value(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+def export_study_trials(study: optuna.Study, path: Path) -> pd.DataFrame:
+    """Export all runtime study evidence as a stable, Git-friendly table."""
+    rows: list[dict[str, Any]] = []
+    for trial in sorted(study.get_trials(deepcopy=False), key=lambda item: item.number):
+        row: dict[str, Any] = {
+            "number": trial.number,
+            "state": trial.state.name,
+            "value": trial.value,
+            "datetime_start": trial.datetime_start.isoformat() if trial.datetime_start else None,
+            "datetime_complete": (
+                trial.datetime_complete.isoformat() if trial.datetime_complete else None
+            ),
+            "duration_seconds": (
+                trial.duration.total_seconds() if trial.duration is not None else None
+            ),
+        }
+        row.update({f"param::{key}": _flat_value(value) for key, value in trial.params.items()})
+        row.update(
+            {f"attr::{key}": _flat_value(value) for key, value in trial.user_attrs.items()}
+        )
+        rows.append(row)
+    frame = pd.DataFrame(rows).sort_values("number").reset_index(drop=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(path, index=False, encoding="utf-8-sig")
+    return frame

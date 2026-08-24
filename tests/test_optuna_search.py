@@ -2,10 +2,19 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
+import optuna
 
 from czsc_trader.optuna_search import (
+    TrialOutcome,
+    TrialRequest,
+    enqueue_initial_trial,
+    export_study_trials,
     project_trial_parameters,
     rank_trial_results,
+    recover_running_trials,
+    run_study_batches,
+    suggest_trial_parameters,
+    trial_params_for_strategy,
     validate_optuna_protocol,
 )
 
@@ -140,3 +149,137 @@ def test_trial_ranking_prioritizes_worst_window_then_robust_tiebreaks() -> None:
     ranked = rank_trial_results(rows)
 
     assert ranked["trial_number"].tolist() == [1, 2, 3]
+
+
+def _study(seed: int = 7) -> optuna.Study:
+    return optuna.create_study(
+        direction="maximize",
+        sampler=optuna.samplers.TPESampler(seed=seed, n_startup_trials=2),
+    )
+
+
+def _request(trial: optuna.Trial) -> TrialRequest:
+    value = trial.suggest_float("x", -1.0, 1.0)
+    return TrialRequest(trial.number, {"x": value})
+
+
+def _evaluate(requests: tuple[TrialRequest, ...]) -> tuple[TrialOutcome, ...]:
+    return tuple(
+        TrialOutcome(
+            number=request.number,
+            value=-abs(float(request.payload["x"]) - 0.25),
+            user_attrs={"x_squared": float(request.payload["x"]) ** 2},
+        )
+        for request in requests
+    )
+
+
+def test_batch_tell_order_does_not_depend_on_worker_completion_order() -> None:
+    forward = _study()
+    reverse = _study()
+
+    run_study_batches(
+        forward,
+        _request,
+        _evaluate,
+        maximum_completed_trials=8,
+        minimum_completed_trials=8,
+        no_improvement_trials=8,
+        maximum_wall_time_seconds=60,
+        batch_size=4,
+    )
+    run_study_batches(
+        reverse,
+        _request,
+        lambda requests: tuple(reversed(_evaluate(requests))),
+        maximum_completed_trials=8,
+        minimum_completed_trials=8,
+        no_improvement_trials=8,
+        maximum_wall_time_seconds=60,
+        batch_size=4,
+    )
+
+    assert [trial.params for trial in forward.trials] == [trial.params for trial in reverse.trials]
+    assert [trial.value for trial in forward.trials] == [trial.value for trial in reverse.trials]
+    assert forward.best_params == reverse.best_params
+
+
+def test_missing_or_duplicate_batch_results_abort_the_study() -> None:
+    with pytest.raises(RuntimeError, match="trial result numbers"):
+        run_study_batches(
+            _study(),
+            _request,
+            lambda requests: (TrialOutcome(requests[0].number, 1.0, {}),) * 2,
+            maximum_completed_trials=2,
+            minimum_completed_trials=2,
+            no_improvement_trials=2,
+            maximum_wall_time_seconds=60,
+            batch_size=2,
+        )
+
+
+def test_running_trials_are_failed_before_resume() -> None:
+    study = _study()
+    trial = study.ask()
+    trial.suggest_float("x", -1.0, 1.0)
+
+    recovered = recover_running_trials(study)
+
+    assert recovered == (0,)
+    assert study.trials[0].state == optuna.trial.TrialState.FAIL
+
+
+def test_initial_trial_is_enqueued_only_for_an_empty_study() -> None:
+    study = _study()
+
+    assert enqueue_initial_trial(study, {"x": 0.25})
+    first = study.ask()
+    assert first.suggest_float("x", -1.0, 1.0) == pytest.approx(0.25)
+    study.tell(first, 0.0)
+    assert not enqueue_initial_trial(study, {"x": 0.75})
+
+
+def test_trial_export_contains_params_attributes_and_state(tmp_path) -> None:
+    study = _study()
+    run_study_batches(
+        study,
+        _request,
+        _evaluate,
+        maximum_completed_trials=2,
+        minimum_completed_trials=2,
+        no_improvement_trials=2,
+        maximum_wall_time_seconds=60,
+        batch_size=2,
+    )
+    path = tmp_path / "trials.csv"
+
+    exported = export_study_trials(study, path)
+
+    assert path.is_file()
+    assert exported["number"].tolist() == [0, 1]
+    assert exported["state"].tolist() == ["COMPLETE", "COMPLETE"]
+    assert "param::x" in exported
+    assert "attr::x_squared" in exported
+
+
+def test_frozen_strategy_round_trips_through_trial_parameters() -> None:
+    desired = project_trial_parameters(
+        NAMES,
+        pd.Series([0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1], index=NAMES),
+        6,
+        0.175,
+        0.15,
+        _origin(),
+        _protocol(),
+    )
+    params = trial_params_for_strategy(
+        desired.weights, desired.enter, desired.exit, _protocol()
+    )
+
+    replayed = suggest_trial_parameters(
+        optuna.trial.FixedTrial(params), NAMES, _origin(), _protocol()
+    )
+
+    pd.testing.assert_series_equal(replayed.weights, desired.weights, atol=1e-12, rtol=0.0)
+    assert replayed.enter == pytest.approx(desired.enter)
+    assert replayed.exit == pytest.approx(desired.exit)

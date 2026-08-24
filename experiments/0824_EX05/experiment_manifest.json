@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0824_EX05",
+  "date": "2026-08-24",
+  "status": "FAIL",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "research_baseline": {
+    "experiment": "0824_EX04",
+    "file": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "legacy_champion": {
+    "version": "baseline_20260823",
+    "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": true,
+  "frozen_challenger_sha256": "3e450b2153dfe21e2000425372d242153060437255722ef9e102d789e9137a21",
+  "files": {
+    "01_goal.md": {
+      "bytes": 1018,
+      "sha256": "627fc4bdbf3a63a2c144ccac59ddc919a7d4b68904a5f1902a83e9058732ee65"
+    },
+    "02_design.md": {
+      "bytes": 3186,
+      "sha256": "bada8c9936e1ef9fba32f1c49f7f9b145def6f40bd148764e99465784bbd528d"
+    },
+    "03_execution.md": {
+      "bytes": 916,
+      "sha256": "e0301ad1d1ee228865ea8c30799658df156bd1523c1982f0458e56789aecebbc"
+    },
+    "04_conclusion.md": {
+      "bytes": 2625,
+      "sha256": "0b7feb719029d4ee1e0d88e5baeaa86b47410617e4f3fc32d61c4a0c1c857097"
+    },
+    "artifacts/candidate_results.csv": {
+      "bytes": 43057,
+      "sha256": "12e448411dd5296057c77112f2eeb4e0637c683aaab773c65c059c0ae74d3560"
+    },
+    "artifacts/equivalence_proof.json": {
+      "bytes": 163,
+      "sha256": "38e01549e406e07f69d9fc833e4f17ad907f874841e2f1bd87338276e6903318"
+    },
+    "artifacts/factor_candidates.csv": {
+      "bytes": 11698,
+      "sha256": "a5a8286c0255bfea5a381d34b56e0ab0c48f9176ca2c97d16a471281eb1d485c"
+    },
+    "artifacts/factor_universe.json": {
+      "bytes": 18422,
+      "sha256": "f26e4f624f31c69e4cb924b5687bd63f2ff451f5df0228480a64032e53114aa0"
+    },
+    "artifacts/factor_weights.csv": {
+      "bytes": 5556,
+      "sha256": "4ab18c635fd3b29a15ab45f515e6480f1814ba50c9dd077c1ef356d595f4a449"
+    },
+    "artifacts/frozen_challenger.json": {
+      "bytes": 3087,
+      "sha256": "09e488d5ea8a61adabe44653dd25d364b020e270f268f42f559650c7e018b54a"
+    },
+    "artifacts/holdout_metrics.json": {
+      "bytes": 6043,
+      "sha256": "277aaafc036934a7ce2f128b983459288857d05e31212bdd5ebbf050f2bc73a4"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 2714,
+      "sha256": "188833ae7fe09a2114e7f44de30ae9aa1010b7603e401271d2c327eb17db2fcc"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1703,
+      "sha256": "8e9de11c0b03543b25c1fa653d5ad04b2c9adbf0e8fb3ae203b610c108dc9772"
+    },
+    "artifacts/selection_metrics.json": {
+      "bytes": 2198,
+      "sha256": "c7825fed5cd34fd3047967b7b78344d12cc94043924286ce9238cd80b59a7a74"
+    },
+    "implementation_plan.md": {
+      "bytes": 4937,
+      "sha256": "ff2eca86551df2542bc067c35de322185f0ef7b31bb9bcbc254f9bd5adab29ca"
+    }
+  }
+}

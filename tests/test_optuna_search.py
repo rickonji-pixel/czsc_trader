@@ -146,6 +146,24 @@ def test_volume_protection_uses_raw_factor_not_derived_state() -> None:
     assert strategy.weights[NAMES[2]] != 0.0
 
 
+def test_trend_protection_uses_raw_factor_not_derived_state() -> None:
+    derived = "state__raw__daily__tas_ma_base_V221101__di_1::多头"
+    names = (*NAMES, derived)
+    raw = pd.Series(
+        [0.001, 0.002, 0.8, 0.9, 0.7, 0.6, 0.5, 0.4, 1.0],
+        index=names,
+        dtype=float,
+    )
+    origin = _origin().reindex(names).fillna(0.0)
+
+    strategy = project_trial_parameters(
+        names, raw, 6, 0.18, 0.12, origin, _protocol()
+    )
+
+    raw_trend_mass = strategy.weights.loc[[NAMES[0], NAMES[1]]].abs().sum()
+    assert float(raw_trend_mass) >= 0.1
+
+
 def test_protocol_validation_rejects_search_boundary_changes() -> None:
     validate_optuna_protocol(_protocol())
     changed = _protocol(selection_metric="mean_return")

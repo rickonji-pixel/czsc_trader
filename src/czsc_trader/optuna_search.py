@@ -170,7 +170,9 @@ def project_trial_parameters(
         volume = _protected_name(volume_names, raw)
         _replace_weakest(selected, volume, protected, raw)
     trend_names = [
-        name for name in names if "tas_ma_" in name or "tas_macd_" in name
+        name
+        for name in names
+        if name.startswith("raw__") and ("tas_ma_" in name or "tas_macd_" in name)
     ]
     trend = _protected_name(trend_names, raw)
     _replace_weakest(selected, trend, protected, raw)

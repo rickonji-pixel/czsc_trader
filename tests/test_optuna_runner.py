@@ -7,6 +7,7 @@ import optuna
 import pandas as pd
 import pytest
 import czsc_trader.data as data_module
+import czsc_trader.optuna_runner as runner_module
 
 from czsc_trader.optuna_runner import (
     TrialEvaluationInputs,
@@ -60,6 +61,44 @@ def test_study_storage_modes_isolate_memory_from_sqlite(tmp_path: Path) -> None:
     assert (sqlite_runtime / "optuna.db").is_file()
     with pytest.raises(ValueError, match="unsupported storage mode"):
         _study_from_protocol(tmp_path / "bad-runtime", protocol, "bad", storage_mode="bad")
+
+
+def test_existing_cli_runs_ex08_with_formal_memory_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    experiment_dir = tmp_path / "0824_EX08"
+    artifacts = experiment_dir / "artifacts"
+    artifacts.mkdir(parents=True)
+    (artifacts / "protocol.json").write_text(
+        json.dumps({"experiment_id": "0824_EX08", "storage_mode": "memory"}),
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    def fake_run(raw_dir, baseline_root, selected_dir, **kwargs):
+        captured.update(kwargs)
+        return {"status": "FAIL", "experiment_dir": str(selected_dir)}
+
+    monkeypatch.setattr(runner_module, "run_optuna_experiment", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "optuna_runner",
+            "--experiment-dir",
+            str(experiment_dir),
+            "--storage-mode",
+            "memory",
+            "--require-full-trial-count",
+        ],
+    )
+
+    runner_module.cli()
+
+    assert captured["protocol_validator"] is runner_module.validate_ex08_protocol
+    assert captured["storage_mode"] == "memory"
+    assert captured["recover_runtime"] is False
+    assert captured["collect_batch_timings"] is True
+    assert captured["require_full_trial_count"] is True
 
 
 def test_trial_objective_is_worst_return_delta_and_ignores_sharpe() -> None:

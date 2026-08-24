@@ -16,7 +16,7 @@
 ## 实现边界
 
 - 参数化现有EX07编排，不复制回测、排名、冻结或留出算法。
-- 新增EX08专用协议验证和入口。
+- 在现有`czsc_trader.optuna_runner`中新增EX08专用协议验证，不新增实验入口。
 - `run_study_batches`允许墙钟与停滞条件为`null`，最大Trial数仍强制。
 - 研究文档从实验ID生成名称，不硬编码EX07。
 - 完成后`study_summary.json`记录4096、存储模式、执行提交、冻结哈希、阶段耗时和2026访问状态。
@@ -24,7 +24,11 @@
 ## 正式命令
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_ex08.py
+.\.venv\Scripts\python.exe -m czsc_trader.optuna_runner `
+  --experiment-dir experiments\0824_EX08 `
+  --storage-mode memory `
+  --require-full-trial-count `
+  --execution-commit <执行提交SHA>
 ```
 
 命令必须从干净、已提交的`codex/0824-ex08-inmemory-search`分支执行，实际返回目录是唯一有效运行目录。

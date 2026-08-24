@@ -113,13 +113,13 @@ Study使用Optuna `InMemoryStorage`。EX08不得创建、读取或恢复SQLite�
 
 ## 7. 软件结构
 
-新增EX08专用正式运行模块和脚本，保持三个边界：
+复用现有 `czsc_trader.optuna_runner` 正式入口，通过协议验证与CLI参数保持三个边界：
 
 1. **选择输入**：只读加载2020—2025、验证哈希并构造EX07同源候选；
 2. **纯内存搜索与冻结**：固定4096 Trial，导出全部Trial和排名，复核第一名并写入冻结文件；
 3. **独立留出**：只接受已落盘且有SHA-256的冻结文件，随后加载2026并生成验收、订单和审计。
 
-现有EX07正式入口继续显式使用SQLite，历史行为不变。工程性能基准入口继续只写 `outputs/benchmarks/`，不得充当EX08正式入口。
+同一入口运行EX07时继续默认使用SQLite，历史行为不变；运行EX08时必须显式指定纯内存和完整Trial计数。工程性能基准入口继续只写 `outputs/benchmarks/`，不得充当EX08正式入口。
 
 ## 8. 预注册与Git顺序
 
@@ -172,8 +172,8 @@ experiments/0824_EX08/artifacts/causal_audit.json
 实现采用TDD，至少证明：
 
 - EX08协议只接受纯内存、固定4096、无墙钟和无停滞停止；
-- EX08入口不会创建SQLite或读取EX07 runtime；
-- EX07正式入口仍显式使用SQLite；
+- EX08通过现有Optuna入口运行时不会创建SQLite或读取EX07 runtime；
+- 同一Optuna入口运行EX07时仍默认使用SQLite；
 - Trial 0精确复现EX04；
 - 搜索只打开不晚于2025-12-31的数据；
 - 未完成4096 Trial时不得冻结；

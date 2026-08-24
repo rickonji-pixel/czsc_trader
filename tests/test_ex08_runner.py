@@ -8,8 +8,11 @@ import pandas as pd
 import pytest
 
 import czsc_trader.data as data_module
-from czsc_trader.ex08_runner import run_ex08_experiment, validate_ex08_protocol
-from czsc_trader.optuna_runner import _write_research_docs, prepare_selection_inputs
+from czsc_trader.optuna_runner import (
+    _write_research_docs,
+    prepare_selection_inputs,
+    validate_ex08_protocol,
+)
 
 
 PROTOCOL_PATH = Path("experiments/0824_EX08/artifacts/protocol.json")
@@ -83,36 +86,6 @@ def test_ex08_protocol_rejects_changed_candidate_or_parallel_contract() -> None:
     changed_parallel["parallel"]["database_writer"] = "parent_only"
     with pytest.raises(ValueError, match="EX08 protocol"):
         validate_ex08_protocol(changed_parallel)
-
-
-def test_ex08_wrapper_selects_nonrecoverable_memory_execution(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import czsc_trader.ex08_runner as runner
-
-    captured: dict[str, object] = {}
-
-    def fake_run(raw_dir, baseline_root, experiment_dir, **kwargs):
-        captured.update(kwargs)
-        return {"status": "FAIL", "experiment_dir": str(experiment_dir)}
-
-    monkeypatch.setattr(runner, "run_optuna_experiment", fake_run)
-    result = run_ex08_experiment(
-        tmp_path / "raw",
-        tmp_path / "baselines",
-        tmp_path / "0824_EX08",
-        execution_commit="abc123",
-    )
-
-    assert result["status"] == "FAIL"
-    assert captured == {
-        "protocol_validator": validate_ex08_protocol,
-        "storage_mode": "memory",
-        "recover_runtime": False,
-        "collect_batch_timings": True,
-        "require_full_trial_count": True,
-        "execution_commit": "abc123",
-    }
 
 
 def test_research_documents_use_the_actual_experiment_id(tmp_path: Path) -> None:

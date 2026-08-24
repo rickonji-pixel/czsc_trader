@@ -60,9 +60,8 @@
 ### Task 3: Add EX08 protocol and selection validation
 
 **Files:**
-- Create: `src/czsc_trader/ex08_runner.py`
-- Create: `tests/test_ex08_runner.py`
 - Modify: `src/czsc_trader/optuna_runner.py`
+- Create: `tests/test_ex08_runner.py`
 
 **Interfaces:**
 - Produces `validate_ex08_protocol(protocol: Mapping[str, object]) -> None`.
@@ -78,19 +77,18 @@
 
 **Files:**
 - Modify: `src/czsc_trader/optuna_runner.py`
-- Modify: `src/czsc_trader/ex08_runner.py`
 - Modify: `tests/test_ex08_runner.py`
-- Create: `scripts/run_ex08.py`
+- Modify: `tests/test_optuna_runner.py`
 
 **Interfaces:**
 - Extends `run_optuna_experiment` with explicit validator, storage mode, timing collection, and recovery controls while keeping EX07 defaults unchanged.
-- Produces `run_ex08_experiment(raw_dir, baseline_root, experiment_dir) -> dict[str, object]`.
+- Extends the existing `python -m czsc_trader.optuna_runner` CLI with explicit storage, full-count, and execution-commit arguments.
 
 - [ ] Write failing orchestration tests showing EX08 requests memory storage, skips runtime recovery, collects 512 timing batches, refuses to freeze fewer than 4096 completed Trials, and never loads holdout before a frozen hash exists.
 - [ ] Parameterize the formal runner and export `batch_timings.csv` when timing collection is enabled.
 - [ ] Make research document labels derive from `experiment_id`, so EX08 docs never say EX07.
 - [ ] After holdout, rewrite `study_summary.json` with `holdout_accessed=true`, frozen SHA-256, storage mode, execution commit, and timing summary.
-- [ ] Add `scripts/run_ex08.py` with repository-relative defaults and no override that can point to EX07.
+- [ ] Route EX08 through the existing Optuna CLI by its preregistered experiment ID; do not add another script entrypoint.
 - [ ] Run focused EX07/EX08 tests and commit the formal runner.
 
 ### Task 5: Verify and commit the executable preregistration
@@ -112,7 +110,7 @@
 - Generate: `experiments/0824_EX08/experiment_manifest.json`
 - Generate: all protocol-required files under `experiments/0824_EX08/artifacts/`
 
-- [ ] Run `./.venv/Scripts/python.exe scripts/run_ex08.py` once from a clean committed tree.
+- [ ] Run `./.venv/Scripts/python.exe -m czsc_trader.optuna_runner --experiment-dir experiments/0824_EX08 --storage-mode memory --require-full-trial-count --execution-commit <SHA>` once from a clean committed tree.
 - [ ] Monitor without modifying protocol or parameters; if it fails before holdout, record the failed attempt and restart only from Trial 0 under the same commit.
 - [ ] Verify 4096 COMPLETE, zero failed Trials, 512 timing rows, Trial 0 objective 0, and exact candidate identity.
 - [ ] Verify the winner was re-evaluated uncached and `frozen_challenger.json` existed with SHA-256 before holdout loading.

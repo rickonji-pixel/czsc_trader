@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 import re
 
@@ -93,11 +94,17 @@ def _run_signals(frame: pd.DataFrame, freq: str, configs: list[dict], init_n: in
     return pd.concat(pieces, axis=1)
 
 
-def _signal_score(value: object, unknown: Counter[str]) -> float:
+def signal_primary(value: object) -> str | None:
+    """Return the primary CZSC category without assigning trading direction."""
     if value is None or pd.isna(value):
+        return None
+    return str(value).split("_", 1)[0]
+
+
+def _signal_score(value: object, unknown: Counter[str]) -> float:
+    primary = signal_primary(value)
+    if primary is None:
         return 0.0
-    text = str(value)
-    primary = text.split("_", 1)[0]
     if any(token in primary for token in ("向上", "多头", "三买", "底背驰", "支撑位", "强势")):
         return 1.0
     if any(token in primary for token in ("向下", "空头", "顶背驰", "压力位", "弱势")):
@@ -110,6 +117,42 @@ def _signal_score(value: object, unknown: Counter[str]) -> float:
         return 0.0
     unknown[primary] += 1
     return 0.0
+
+
+def map_signal_frame(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Apply the champion's frozen semantic mapping to raw CZSC signals."""
+    unknown: Counter[str] = Counter()
+    mapped = raw.map(lambda value: _signal_score(value, unknown)).astype(float)
+    return mapped, dict(sorted(unknown.items()))
+
+
+def signal_groups(columns: Iterable[str]) -> dict[str, tuple[str, ...]]:
+    """Return the frozen aggregate-factor membership for raw signal columns."""
+    names = tuple(str(column) for column in columns)
+    return {
+        "structure": tuple(column for column in names if "cxt_" in column),
+        "trend": tuple(
+            column
+            for column in names
+            if "tas_ma_" in column or "tas_macd_" in column
+        ),
+        "volume_position": tuple(
+            column
+            for column in names
+            if "vol_window_" in column or "pressure_support_" in column
+        ),
+    }
+
+
+def aggregate_signal_groups(
+    mapped: pd.DataFrame,
+    groups: Mapping[str, Sequence[str]],
+) -> pd.DataFrame:
+    """Aggregate mapped signals exactly as the frozen champion factor layer."""
+    aggregated = pd.DataFrame(index=mapped.index)
+    for name in ("structure", "trend", "volume_position"):
+        aggregated[name] = mapped.loc[:, list(groups[name])].mean(axis=1).fillna(0.0).clip(-1.0, 1.0)
+    return aggregated
 
 
 def _backward_align(source: pd.DataFrame, target_index: pd.DatetimeIndex) -> pd.DataFrame:
@@ -140,29 +183,10 @@ def generate_factor_frame(data: MarketData) -> FactorResult:
     )
     raw.index = target_index
 
-    unknown: Counter[str] = Counter()
-    scored = raw.map(lambda value: _signal_score(value, unknown))
-    structure_columns = [
-        column
-        for column in scored
-        if "cxt_" in column
-    ]
-    trend_columns = [
-        column
-        for column in scored
-        if "tas_ma_" in column or "tas_macd_" in column
-    ]
-    volume_columns = [
-        column
-        for column in scored
-        if "vol_window_" in column or "pressure_support_" in column
-    ]
-    groups = pd.DataFrame(index=target_index)
-    groups["structure"] = scored[structure_columns].mean(axis=1).fillna(0.0).clip(-1.0, 1.0)
-    groups["trend"] = scored[trend_columns].mean(axis=1).fillna(0.0).clip(-1.0, 1.0)
-    groups["volume_position"] = scored[volume_columns].mean(axis=1).fillna(0.0).clip(-1.0, 1.0)
+    scored, unknown = map_signal_frame(raw)
+    groups = aggregate_signal_groups(scored, signal_groups(scored.columns))
     groups["factor_coverage"] = raw.notna().mean(axis=1)
 
     frame = pd.concat([groups, raw], axis=1)
     frame.index = target_index
-    return FactorResult(frame=frame, unknown_values=dict(sorted(unknown.items())))
+    return FactorResult(frame=frame, unknown_values=unknown)

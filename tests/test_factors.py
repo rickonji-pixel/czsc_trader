@@ -5,7 +5,13 @@ import pandas as pd
 
 import czsc_trader.factors as factors
 from czsc_trader.data import load_market_data
-from czsc_trader.factors import generate_factor_frame
+from czsc_trader.factors import (
+    aggregate_signal_groups,
+    generate_factor_frame,
+    map_signal_frame,
+    signal_groups,
+    signal_primary,
+)
 
 
 RAW_DIR = Path("data/raw")
@@ -32,6 +38,23 @@ def test_factors_are_daily_grouped_and_bounded() -> None:
     assert set(GROUPS).issubset(result.frame.columns)
     assert result.frame[GROUPS].abs().le(1).all().all()
     assert len([column for column in result.frame if column.startswith("raw__")]) >= 8
+
+
+def test_public_signal_internals_rebuild_exact_group_scores() -> None:
+    """Catch attribution helpers that diverge from live factor generation."""
+    data = load_market_data(RAW_DIR, cutoff="2021-03-26")
+    result = generate_factor_frame(data)
+    raw = result.frame.filter(like="raw__")
+
+    mapped, unknown = map_signal_frame(raw)
+    groups = signal_groups(mapped.columns)
+    rebuilt = aggregate_signal_groups(mapped, groups)
+
+    pd.testing.assert_frame_equal(rebuilt[GROUPS], result.frame[GROUPS])
+    assert signal_primary("多头_任意_任意_0") == "多头"
+    assert signal_primary(None) is None
+    assert unknown == result.unknown_values
+    assert set(groups) == set(GROUPS)
 
 
 def test_future_truncation_does_not_change_past_factors() -> None:

@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0824_EX06",
+  "date": "2026-08-24",
+  "status": "FAIL",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "research_baseline": {
+    "experiment": "0824_EX04",
+    "file": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "ex05_reference": {
+    "experiment": "0824_EX05",
+    "file": "experiments/0824_EX05/artifacts/frozen_challenger.json",
+    "sha256": "3e450b2153dfe21e2000425372d242153060437255722ef9e102d789e9137a21"
+  },
+  "legacy_champion": {
+    "version": "baseline_20260823",
+    "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": true,
+  "frozen_challenger_sha256": "868e989439e4442b4637f7976f438705e61b1d023f688ab7ce9d2ee1d0ac7b89",
+  "files": {
+    "01_goal.md": {
+      "bytes": 1584,
+      "sha256": "fc669ce7b4968dddf4fbc8cd3c2c2132362a4757e5d3edb5d466014ab4d12213"
+    },
+    "02_design.md": {
+      "bytes": 6285,
+      "sha256": "e394c33cf76d53ad53e35b2ba45e6fc1389222a4227074dc449e9ae5b01c0d86"
+    },
+    "03_execution.md": {
+      "bytes": 1307,
+      "sha256": "b15ab89eece7edabb461baf908afb1b8d03832f723e9474a0b51cbad2edcc014"
+    },
+    "04_conclusion.md": {
+      "bytes": 2008,
+      "sha256": "9e107e9e9f381ae5178cdb4cd6848d3826a0f15e35e6bd652bec5d7aecf19476"
+    },
+    "artifacts/candidate_results.csv": {
+      "bytes": 43178,
+      "sha256": "a69e9f1bf6b4919e7689e7dea37d3bcf425ae96096a8d96c9c8b32fa2e160f4f"
+    },
+    "artifacts/equivalence_proof.json": {
+      "bytes": 163,
+      "sha256": "44c5110f4830df8611e2cb3c32fe8f40391dc75304bde9200d51629d891fd2c8"
+    },
+    "artifacts/event_signal_support.json": {
+      "bytes": 1526,
+      "sha256": "79bed9572bd68b208a3b4c22b8e5649724100f943d012373cf558050e332b93b"
+    },
+    "artifacts/factor_candidates.csv": {
+      "bytes": 21087,
+      "sha256": "3c7bb41ede756dce100aea1d6adc50c5857c17aadd3b0de53ae195e7e8e20bc1"
+    },
+    "artifacts/factor_universe.json": {
+      "bytes": 38468,
+      "sha256": "022da8b3fb862f6c54654b90d145891d27a6c9c12f5aef32b33d98964cc5d869"
+    },
+    "artifacts/factor_weights.csv": {
+      "bytes": 6490,
+      "sha256": "253bec465f720f1b278dc02fd05d25f3d0eb3060d6274c3dc094ccf5b80200ff"
+    },
+    "artifacts/frozen_challenger.json": {
+      "bytes": 3099,
+      "sha256": "c5441775c53cc7acac2bf3720a9b1d7186a8ecd90bc8fd8b83fca09a4c1bf7b4"
+    },
+    "artifacts/holdout_metrics.json": {
+      "bytes": 6693,
+      "sha256": "da30eca0a4b7f8d9f379c6d626c4645c6fbd40cd1d14e8437f8e6cc83db7371b"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 2714,
+      "sha256": "188833ae7fe09a2114e7f44de30ae9aa1010b7603e401271d2c327eb17db2fcc"
+    },
+    "artifacts/parallel_benchmark.json": {
+      "bytes": 304,
+      "sha256": "b679e80b698859ee4c3fa82fd8c56b27d9eed6b97457b21177c0386d7beccd01"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2436,
+      "sha256": "095c50e498af5a4947baccb5d9c027ce5db2c29bbea2aa1dea1e7485e7cea285"
+    },
+    "artifacts/selection_metrics.json": {
+      "bytes": 2839,
+      "sha256": "ae22b58ef44f252474dd09b8e782b6f8e89c46b8d5d508661d087a63b505eca7"
+    },
+    "implementation_plan.md": {
+      "bytes": 13908,
+      "sha256": "9d62a8862fb29c49399d74d76c3ed8f4f4b5e024c39781c524fb64ef8b57d434"
+    }
+  }
+}

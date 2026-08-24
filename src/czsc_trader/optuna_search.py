@@ -163,7 +163,9 @@ def project_trial_parameters(
     ordered = sorted(names, key=lambda name: (-abs(float(raw.loc[name])), name))
     selected = ordered[: int(active_factor_count)]
     protected: set[str] = set()
-    volume_names = [name for name in names if "vol_window_V230731" in name]
+    volume_names = [
+        name for name in names if name.startswith("raw__daily__vol_window_V230731")
+    ]
     if bool(protocol["protect_volume_window"]):
         volume = _protected_name(volume_names, raw)
         _replace_weakest(selected, volume, protected, raw)

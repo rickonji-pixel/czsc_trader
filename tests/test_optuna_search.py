@@ -239,6 +239,51 @@ def test_batch_tell_order_does_not_depend_on_worker_completion_order() -> None:
     assert forward.best_params == reverse.best_params
 
 
+def test_batch_timings_report_each_phase_without_changing_default_result() -> None:
+    timed = run_study_batches(
+        _study(),
+        _request,
+        _evaluate,
+        maximum_completed_trials=8,
+        minimum_completed_trials=8,
+        no_improvement_trials=8,
+        maximum_wall_time_seconds=60,
+        batch_size=4,
+        collect_batch_timings=True,
+    )
+    untimed = run_study_batches(
+        _study(),
+        _request,
+        _evaluate,
+        maximum_completed_trials=4,
+        minimum_completed_trials=4,
+        no_improvement_trials=4,
+        maximum_wall_time_seconds=60,
+        batch_size=4,
+    )
+
+    assert "batch_timings" not in untimed
+    assert len(timed["batch_timings"]) == 2
+    assert set(timed["batch_timings"][0]) == {
+        "batch_number",
+        "first_trial_number",
+        "trial_count",
+        "ask_and_project_seconds",
+        "parallel_evaluate_seconds",
+        "tell_and_attrs_seconds",
+        "batch_total_seconds",
+    }
+    assert [row["batch_number"] for row in timed["batch_timings"]] == [0, 1]
+    assert [row["first_trial_number"] for row in timed["batch_timings"]] == [0, 4]
+    assert all(row["trial_count"] == 4 for row in timed["batch_timings"])
+    assert all(
+        value >= 0.0
+        for row in timed["batch_timings"]
+        for key, value in row.items()
+        if key.endswith("_seconds")
+    )
+
+
 def test_missing_or_duplicate_batch_results_abort_the_study() -> None:
     with pytest.raises(RuntimeError, match="trial result numbers"):
         run_study_batches(

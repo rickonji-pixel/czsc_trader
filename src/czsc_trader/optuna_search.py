@@ -365,6 +365,7 @@ def run_study_batches(
     no_improvement_trials: int,
     maximum_wall_time_seconds: float,
     batch_size: int,
+    collect_batch_timings: bool = False,
 ) -> dict[str, object]:
     """Run synchronous batches while keeping every storage write in the parent."""
     if not 0 < minimum_completed_trials <= maximum_completed_trials:
@@ -373,6 +374,7 @@ def run_study_batches(
         raise ValueError("study stopping limits must be positive")
     started = perf_counter()
     stop_reason = "maximum_completed_trials"
+    batch_timings: list[dict[str, float | int]] = []
     while True:
         completed, since_improvement = _completed_progress(study)
         elapsed = perf_counter() - started
@@ -387,6 +389,8 @@ def run_study_batches(
             break
 
         request_count = min(batch_size, maximum_completed_trials - completed)
+        batch_started = perf_counter()
+        ask_started = batch_started
         trials: dict[int, optuna.Trial] = {}
         requests: list[TrialRequest] = []
         for _ in range(request_count):
@@ -396,7 +400,9 @@ def run_study_batches(
                 raise RuntimeError("trial request numbers differ from Optuna trials")
             trials[trial.number] = trial
             requests.append(request)
+        ask_finished = perf_counter()
         outcomes = tuple(batch_evaluator(tuple(requests)))
+        evaluate_finished = perf_counter()
         expected = tuple(sorted(trials))
         actual = tuple(sorted(outcome.number for outcome in outcomes))
         if actual != expected or len({outcome.number for outcome in outcomes}) != len(outcomes):
@@ -413,13 +419,29 @@ def run_study_batches(
                 study.tell(trial, state=optuna.trial.TrialState.FAIL)
             else:
                 study.tell(trial, float(outcome.value))
+        tell_finished = perf_counter()
+        if collect_batch_timings:
+            batch_timings.append(
+                {
+                    "batch_number": len(batch_timings),
+                    "first_trial_number": expected[0],
+                    "trial_count": len(expected),
+                    "ask_and_project_seconds": ask_finished - ask_started,
+                    "parallel_evaluate_seconds": evaluate_finished - ask_finished,
+                    "tell_and_attrs_seconds": tell_finished - evaluate_finished,
+                    "batch_total_seconds": tell_finished - batch_started,
+                }
+            )
     completed, since_improvement = _completed_progress(study)
-    return {
+    result: dict[str, object] = {
         "stop_reason": stop_reason,
         "completed_trials": completed,
         "trials_since_improvement": since_improvement,
         "elapsed_seconds": perf_counter() - started,
     }
+    if collect_batch_timings:
+        result["batch_timings"] = batch_timings
+    return result
 
 
 def _flat_value(value: Any) -> Any:

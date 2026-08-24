@@ -29,16 +29,16 @@
       "sha256": "d7976fdfd25c2c8d1d0ee26426576ede1eea0e032d397bc01114a2107f0ab8cc"
     },
     "artifacts/candidate_results.csv": {
-      "bytes": 7910,
-      "sha256": "9eeb805f0ee7654528b2dc3648908d74c6e93fb3f29c7c3f0b986496626b6f84"
+      "bytes": 7889,
+      "sha256": "8c53c89d6ba9b3413cca7d7d21ea3d1a4738243721aebe5d81b94e774c75a53a"
     },
     "artifacts/champion_metrics.json": {
-      "bytes": 1450,
-      "sha256": "bc9e8a1431e60b7faefcd2d04adbd8322df6e6b749adc088a30bf81fbbd58ba9"
+      "bytes": 1400,
+      "sha256": "b0092dad17b7b25194fbee5b89a3c3a624394cf3844386b28dc29a3923c9f7a7"
     },
     "artifacts/metrics.json": {
-      "bytes": 2211,
-      "sha256": "78a07f987983ddd6feb8e06185c982a67c290a862a1ca7e2f773b1df366777d4"
+      "bytes": 2170,
+      "sha256": "2c29cd1b5099caa07f1ce4ab6b0351577950a1f74c0348474d24f830490864f1"
     },
     "artifacts/protocol.json": {
       "bytes": 745,

@@ -16,6 +16,7 @@ REQUIRED_DOCUMENTS = (
     "04_conclusion.md",
 )
 MANIFEST_NAME = "experiment_manifest.json"
+TEXT_SUFFIXES = {".csv", ".html", ".json", ".md", ".txt"}
 
 
 def create_experiment_dir(root: Path, run_date: date) -> Path:
@@ -39,6 +40,8 @@ def create_experiment_dir(root: Path, run_date: date) -> Path:
 
 def _file_record(path: Path) -> dict[str, object]:
     content = path.read_bytes()
+    if path.suffix.lower() in TEXT_SUFFIXES:
+        content = content.replace(b"\r\n", b"\n")
     return {"bytes": len(content), "sha256": sha256(content).hexdigest()}
 
 

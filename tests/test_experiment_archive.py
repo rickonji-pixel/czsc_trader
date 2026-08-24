@@ -108,6 +108,18 @@ def test_validator_rejects_tampered_file(tmp_path: Path) -> None:
         validate_experiment_archive(archive)
 
 
+def test_validator_treats_lf_and_crlf_as_same_text_archive(tmp_path: Path) -> None:
+    """Catch Windows checkout conversion invalidating a portable text archive."""
+    archive = _complete_archive(tmp_path)
+    path = archive / "01_goal.md"
+    path.write_bytes(b"# Goal\n\nPortable text\n")
+    build_experiment_manifest(archive, _metadata())
+
+    path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+
+    validate_experiment_archive(archive)
+
+
 def test_validator_rejects_unmanifested_file(tmp_path: Path) -> None:
     archive = _complete_archive(tmp_path)
     build_experiment_manifest(archive, _metadata())

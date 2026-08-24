@@ -125,6 +125,22 @@ def classify_annual_effect(
     return "inconclusive"
 
 
+def count_material_interaction_years(
+    rows: pd.DataFrame,
+    return_epsilon: float,
+    sharpe_epsilon: float,
+) -> int:
+    """Count years with at least one material return-and-Sharpe interaction."""
+    required = {"window", "return_interaction", "sharpe_interaction"}
+    if not required <= set(rows.columns):
+        raise ValueError(f"interaction rows missing columns: {sorted(required - set(rows.columns))}")
+    material = (
+        rows["return_interaction"].astype(float).abs().gt(return_epsilon)
+        & rows["sharpe_interaction"].astype(float).abs().gt(sharpe_epsilon)
+    )
+    return int(material.groupby(rows["window"].astype(str)).any().sum())
+
+
 def dominant_difference_share(
     champion_target: pd.Series,
     counterfactual_target: pd.Series,

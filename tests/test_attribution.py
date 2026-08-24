@@ -6,6 +6,7 @@ import pytest
 from czsc_trader.attribution import (
     all_coalitions,
     classify_annual_effect,
+    count_material_interaction_years,
     dominant_difference_share,
     drop_signal_and_reaggregate,
     rule_with_weight_delta,
@@ -52,6 +53,19 @@ def test_pairwise_interaction_is_one_for_pure_ab_synergy() -> None:
     assert interactions[("a", "b")] == pytest.approx(1.0)
     assert interactions[("a", "c")] == pytest.approx(0.0)
     assert interactions[("b", "c")] == pytest.approx(0.0)
+
+
+def test_interaction_stability_counts_each_year_only_once() -> None:
+    """Catch two material partners in one year being miscounted as two years."""
+    rows = pd.DataFrame(
+        {
+            "window": ["2021", "2021", "2022", "2022"],
+            "return_interaction": [0.01, 0.02, 0.01, 0.00],
+            "sharpe_interaction": [0.10, 0.20, 0.10, 0.00],
+        }
+    )
+
+    assert count_material_interaction_years(rows, 0.001, 0.02) == 2
 
 
 @pytest.mark.parametrize(

@@ -22,7 +22,7 @@ class ResolvedBaseline:
     rule: Rule
     rule_payload: dict[str, object]
     sha256: str
-    source_output: str
+    verification_snapshot: str
 
 
 def _validate_version(version: str) -> None:
@@ -128,14 +128,14 @@ def resolve_baseline(root: Path, version: str | None = None) -> ResolvedBaseline
         rule=_parse_rule(payload),
         rule_payload=payload,
         sha256=digest,
-        source_output=str(entry.get("source_output", "")),
+        verification_snapshot=str(entry.get("verification_snapshot", "")),
     )
 
 
 def promote_baseline(
     root: Path,
     selected_rule: Path,
-    source_output: str,
+    verification_snapshot: str,
     now: datetime,
 ) -> ResolvedBaseline:
     """Explicitly freeze a selected rule as the next baseline version."""
@@ -157,7 +157,7 @@ def promote_baseline(
     baselines[version] = {
         "file": rule_path.name,
         "sha256": digest,
-        "source_output": source_output,
+        "verification_snapshot": verification_snapshot,
         "frozen_at_utc": now.isoformat(),
         "strategy": "czsc_fixed_rule",
         "required_frequencies": ["30m", "daily", "weekly"],

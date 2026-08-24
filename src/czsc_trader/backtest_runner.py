@@ -252,7 +252,7 @@ def run_fixed_backtest(
             "baseline": {
                 "version": baseline.version,
                 "sha256": baseline.sha256,
-                "source_output": baseline.source_output,
+                "verification_snapshot": baseline.verification_snapshot,
                 "rule": baseline.rule_payload,
             },
             "data": {

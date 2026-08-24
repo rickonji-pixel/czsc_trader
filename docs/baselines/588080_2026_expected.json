@@ -1,106 +1,126 @@
 {
-  "schema_version": 1,
-  "description": "Portable expected baseline for the fixed CZSC-only 588080 strategy. Output revision names are machine-local and are not part of this contract.",
-  "strategy_commit": "6cd1c617407c3d0dd2067883fe915343c67e284a",
-  "reference_local_run_label": "588080_0823_R05",
+  "schema_version": 2,
+  "description": "Portable verification snapshot for the frozen 588080 fixed baseline. Local output directories and revision numbers are not part of this contract.",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
   "data_cutoff": "2026-08-21",
-  "selection_mode": "fixed CZSC-only rule; 2026 sample-optimized",
+  "selection_mode": "fixed immutable baseline; no candidate search",
   "fee_rate_per_side": 0.0005,
   "period_initial_cash": 1000000.0,
-  "selected_rule": {
-    "weights": [
-      0.4,
-      0.4,
-      0.2
-    ],
-    "enter": 0.2,
-    "exit": 0.1,
-    "confirm_days": 2,
-    "min_hold_days": 1
+  "targets_config": "configs/backtest_targets/588080_2026.json",
+  "baseline": {
+    "version": "baseline_20260823",
+    "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5",
+    "rule": {
+      "weights": [
+        0.3,
+        0.3,
+        0.4
+      ],
+      "enter": 0.15,
+      "exit": 0.0,
+      "confirm_days": 1,
+      "min_hold_days": 3,
+      "exit_confirm_days": 1,
+      "entry_gate": "none"
+    }
   },
-  "overall_pass": true,
+  "acceptance_status": "FAIL",
   "windows": {
     "2026Q1": {
+      "total_return": 0.10245583659116575,
+      "max_drawdown": -0.03997908634435787,
+      "sharpe": 2.743713512113919,
+      "trade_count": 8,
+      "exposure": 0.5535714285714286,
       "start": "2026-01-05",
       "end": "2026-03-31",
-      "strategy_return": 0.10407767628527353,
-      "buyhold_return": -0.07065280673700769,
-      "excess_return": 0.17473048302228122,
-      "max_drawdown": -0.038060323692147846,
-      "sharpe": 3.133985214236389,
-      "trade_count": 4,
-      "exposure": 0.375,
-      "pass": true
+      "strategy_return": 0.10245583659116564,
+      "buyhold_return": -0.0706528067370078,
+      "excess_return": 0.17310864332817344,
+      "target_return": 0.105,
+      "target_margin": -0.0025441634088343573,
+      "pass": false,
+      "status": "FAIL"
     },
     "2026H1": {
+      "total_return": 0.8042461349697317,
+      "max_drawdown": -0.120867768595041,
+      "sharpe": 4.876532817211827,
+      "trade_count": 11,
+      "exposure": 0.6896551724137931,
       "start": "2026-01-05",
       "end": "2026-06-30",
-      "strategy_return": 0.8216469133689408,
+      "strategy_return": 0.8042461349697319,
       "buyhold_return": 0.6438958523632541,
-      "excess_return": 0.17775106100568672,
-      "max_drawdown": -0.07742432851239645,
-      "sharpe": 5.3569045338657,
-      "trade_count": 7,
-      "exposure": 0.5431034482758621,
-      "pass": true
+      "excess_return": 0.16035028260647777,
+      "target_return": 0.825,
+      "target_margin": -0.020753865030268104,
+      "pass": false,
+      "status": "FAIL"
     },
-    "2026_01_08": {
+    "2026M1-M8": {
+      "total_return": 0.6072777126294503,
+      "max_drawdown": -0.16356688526978647,
+      "sharpe": 2.6216054214424616,
+      "trade_count": 16,
+      "exposure": 0.6818181818181818,
       "start": "2026-01-05",
       "end": "2026-08-21",
-      "strategy_return": 0.5689794262919148,
+      "strategy_return": 0.6072777126294502,
       "buyhold_return": 0.22370074007858598,
-      "excess_return": 0.3452786862133288,
-      "max_drawdown": -0.1447849748858011,
-      "sharpe": 3.131667387012862,
-      "trade_count": 14,
-      "exposure": 0.4935064935064935,
-      "pass": true
+      "excess_return": 0.3835769725508642,
+      "target_return": 0.6,
+      "target_margin": 0.007277712629450206,
+      "pass": true,
+      "status": "PASS"
     }
   },
   "audit": {
     "status": "PASS",
-    "orders_checked": 25,
-    "events_checked": 16,
-    "positions_checked": 639,
-    "factor_events_exported": 63
+    "orders_checked": 35,
+    "events_checked": 18,
+    "positions_checked": 639
   },
-  "candidate_count": 144,
-  "candidate_space_sha256": "2a5112ca1111f6548f1267bc18ebc3d126c2317a115993651519896f74ea7b45",
-  "raw_sha256": {
-    "588080_30m_2024.csv": "2BBC51702FEA5DC831222946F06A48C9FE77ADFF2762E7FF52A9D62C583165E8",
-    "588080_30m_2025.csv": "C763B8914B54BDBAAC1C93B992279046268E4BD1565826D507377F06FB62A9DF",
-    "588080_30m_2026.csv": "41F1B7DEA4B004CBC312BF8053FF0465CE385E89A5D27BEB70AF6D836D660899",
-    "588080_daily_2024.csv": "D955628CA72647AA7E14D6508DC16873AEB6B3BAACED0631F09CA122670D9943",
-    "588080_daily_2025.csv": "FF6EF0862A86A2E7D4FC361A2624172E4FF8AA6EDD1A5921692BF356FCCFCAA1",
-    "588080_daily_2026.csv": "A4A1AB63E92B5CCD6874DC44F01DCE86895A481BE4E8966A2FDCCDD929252059",
-    "588080_weekly_2024.csv": "9FD4EDFE0D2E7E88EB779F384CF8A4C482FEB731EB9CD460CB8312E7788AF0CC",
-    "588080_weekly_2025.csv": "81CBF198C22CEB99C42DBCCA503F2453CB96AC037280F5FBAE1BFB1A26B62A37",
-    "588080_weekly_2026.csv": "61A95E6A9A9658C8C7C049E488DAD044B77A69A7193F268D7AF0A9B89ABB267C"
+  "data": {
+    "manifest": "data/raw/588080_manifest.json",
+    "adjustment": "hfq",
+    "factor_source": "fund_adj",
+    "hashes": {
+      "588080_30m_2024.csv": "35401ed5588db7bc2128d893106336774e540c30a2d0f9083d0ae84a2cc68e89",
+      "588080_30m_2025.csv": "714784236ca004e0b3c94f48b105ecdecb5f7915dec8776b37ee42f383974b5c",
+      "588080_30m_2026.csv": "845faddd896306ed09dda8b430384792d91dc3c07110a8b856d367880fa5ca41",
+      "588080_daily_2024.csv": "51e90a0fb986522c42ce7b5bc1128efd74492beae2fa36af98a1b78ac2ed42c6",
+      "588080_daily_2025.csv": "832649fb5a38919bf53fc0a3d4be2b5bf6b0f58e79893d1fee33374511a78148",
+      "588080_daily_2026.csv": "64912fa9cd5300c749d94dc81eb272eb19fabac6371eb355c2313fcd382adf47",
+      "588080_weekly_2024.csv": "2cdcef0d37b056cd77158121cd2cbae00fe9f5e4d9f6967cccef4949286f9d8d",
+      "588080_weekly_2025.csv": "cec128c49d8c1c0cad197efac4b295e8940d0dbfd1e3139abad02fce437bfa6b",
+      "588080_weekly_2026.csv": "18d90971597535be2071039f3cc8f01279740e2a99c2b339a981b7fbb68488a3"
+    }
   },
   "versions": {
     "python": "3.12.10",
+    "pandas": "3.0.5",
     "czsc": "1.0.1",
     "vectorbt": "1.1.0",
-    "pandas": "3.0.5",
-    "numpy": "2.5.2",
     "plotly": "6.9.0"
   },
   "required_artifacts": [
-    "candidate_results.csv",
+    "audit.json",
+    "baseline_rule.json",
+    "chart_2026Q1.html",
+    "chart_2026H1.html",
+    "chart_2026M1-M8.html",
+    "equity_2026Q1.csv",
+    "equity_2026H1.csv",
+    "equity_2026M1-M8.csv",
     "factor_events.csv",
     "factors.csv",
     "manifest.json",
     "metrics.json",
-    "report.md",
-    "selected_rule.json",
     "orders_2026Q1.csv",
     "orders_2026H1.csv",
-    "orders_2026_01_08.csv",
-    "equity_2026Q1.csv",
-    "equity_2026H1.csv",
-    "equity_2026_01_08.csv",
-    "chart_2026Q1.html",
-    "chart_2026H1.html",
-    "chart_2026_01_08.html"
+    "orders_2026M1-M8.csv",
+    "report.md"
   ]
 }

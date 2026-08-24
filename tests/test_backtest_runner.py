@@ -83,6 +83,9 @@ def test_fixed_backtest_uses_latest_baseline_and_writes_nonresearch_artifacts(
     manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["baseline"]["version"] == "baseline_20260823"
     assert manifest["baseline"]["sha256"]
+    assert manifest["baseline"]["verification_snapshot"] == (
+        "docs/baselines/588080_2026_expected.json"
+    )
     assert manifest["data"]["hashes"]
     assert manifest["symbol"] == "588080.SH"
     audit = json.loads((output / "audit.json").read_text(encoding="utf-8"))

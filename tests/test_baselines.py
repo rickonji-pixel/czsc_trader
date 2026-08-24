@@ -40,7 +40,7 @@ def _write_registry_fixture(root: Path) -> Path:
             "baseline_20260822": {
                 "file": rule_path.name,
                 "sha256": digest,
-                "source_output": "outputs/source_R01",
+                "verification_snapshot": "docs/baselines/example_expected.json",
                 "frozen_at_utc": "2026-08-23T00:00:00+00:00",
                 "strategy": "czsc_fixed_rule",
                 "required_frequencies": ["30m", "daily", "weekly"],
@@ -58,7 +58,7 @@ def test_resolve_latest_baseline_verifies_hash(tmp_path: Path) -> None:
 
     assert resolved.version == "baseline_20260822"
     assert resolved.rule.weights == (0.3, 0.3, 0.4)
-    assert resolved.source_output == "outputs/source_R01"
+    assert resolved.verification_snapshot == "docs/baselines/example_expected.json"
 
 
 def test_resolve_baseline_rejects_modified_rule(tmp_path: Path) -> None:
@@ -117,7 +117,7 @@ def test_promote_adds_date_version_and_updates_latest(tmp_path: Path) -> None:
     promoted = promote_baseline(
         root,
         selected,
-        "outputs/example_R02",
+        "docs/baselines/example_expected.json",
         datetime(2026, 8, 23, 8, 0, tzinfo=timezone.utc),
     )
 
@@ -133,7 +133,7 @@ def test_promote_rejects_second_baseline_on_same_date(tmp_path: Path) -> None:
     selected = tmp_path / "selected_rule.json"
     selected.write_text(json.dumps(VALID_RULE), encoding="utf-8")
     now = datetime(2026, 8, 23, 8, 0, tzinfo=timezone.utc)
-    promote_baseline(root, selected, "outputs/example_R02", now)
+    promote_baseline(root, selected, "docs/baselines/example_expected.json", now)
 
     with pytest.raises(FileExistsError, match="baseline_20260823"):
-        promote_baseline(root, selected, "outputs/example_R03", now)
+        promote_baseline(root, selected, "docs/baselines/example_expected.json", now)

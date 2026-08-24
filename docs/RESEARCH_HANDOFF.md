@@ -64,6 +64,7 @@ configs/rule_baselines/baseline_20260823.json
 - `docs/superpowers/specs/2026-08-23-czsc-only-remediation-design.md`
 - `docs/superpowers/plans/2026-08-23-czsc-only-remediation.md`
 - `docs/baselines/588080_2026_expected.json`
+- `configs/backtest_targets/588080_2026.json`
 
 ## 2. 最终策略如何计算
 
@@ -240,7 +241,7 @@ git diff --check
 .\.venv\Scripts\python.exe -m pytest -m network -q
 ```
 
-生成本机结果：
+执行候选研究（仅在任务明确要求重新研究时）：
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_research.py
@@ -249,6 +250,15 @@ git diff --check
 输出目录自动使用 `outputs/<证券代码>_<MMDD>_RXX` 的下一个未占用版本，不覆盖当前设备已有目录。
 
 脚本会在终端JSON中返回本次实际 `output_dir`。仅本次运行需要使用该目录时才记录返回值，不得硬编码任何历史R编号。
+
+复现当前588080冻结基线（不执行候选搜索、不修改基线）：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_backtest.py `
+  --symbol 588080.SH --asset etf `
+  --baseline baseline_20260823 `
+  --targets configs\backtest_targets\588080_2026.json
+```
 
 ### 新设备复现流程
 
@@ -260,15 +270,18 @@ cd czsc_trader
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe scripts\run_research.py
+.\.venv\Scripts\python.exe scripts\run_backtest.py `
+  --symbol 588080.SH --asset etf `
+  --baseline baseline_20260823 `
+  --targets configs\backtest_targets\588080_2026.json
 ```
 
 然后执行以下核对：
 
 1. 读取脚本返回的 `output_dir`，不要假设目录名；
-2. 将其中 `selected_rule.json` 与 `docs/baselines/588080_2026_expected.json` 的 `selected_rule` 比较；
-3. 将 `metrics.json` 的 `overall_pass`、`windows` 和 `audit` 与便携基线比较；
-4. 将 `manifest.json` 的 `raw_sha256`、`candidate_space_sha256` 和版本与便携基线比较；
+2. 将其中 `baseline_rule.json` 与便携快照的 `baseline.rule` 比较，并核对注册表中的版本和规范化哈希；
+3. 将 `metrics.json` 的 `acceptance_status`、`windows` 和 `audit` 与便携快照比较；
+4. 将 `manifest.json` 的行情哈希、数据截止日、周期和依赖版本与便携快照比较；
 5. 确认便携基线 `required_artifacts` 中的每个文件都已生成；
 6. 浮点指标应按 `1e-12` 绝对容差核对，依赖版本不同造成差异时必须记录并重新验证，不能直接覆盖基线。
 

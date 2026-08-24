@@ -1,6 +1,6 @@
 # CZSC 固定规则研究与通用基线回测
 
-跨机器研究基线、复现方式和新会话交接说明见 `docs/RESEARCH_HANDOFF.md`。`outputs/` 仅为本机生成目录，不随Git同步；异机复现应读取 `docs/baselines/588080_2026_expected.json` 并在本地重跑核对。
+跨设备基线、复现方式和新会话交接说明见 `docs/RESEARCH_HANDOFF.md`。`outputs/` 仅为本机生成目录，不随Git同步；复现时应使用受Git跟踪的目标配置运行冻结基线，再与 `docs/baselines/588080_2026_expected.json` 核对。
 
 项目包含两条严格分离的流程：
 
@@ -17,8 +17,8 @@
 .\.venv\Scripts\python.exe scripts\run_research.py
 ```
 
-结果写入 `outputs/<股票代码>_<MMDD>_RXX`。例如，588080 在 8 月 23 日首次运行写入
-`outputs/588080_0823_R01`；同日再次运行依次写入 `R02`、`R03`，不会覆盖已有结果。
+结果写入 `outputs/<股票代码>_<MMDD>_RXX`，其中 `RXX` 自动使用当前设备上下一个未占用编号，
+不会覆盖已有结果，也不要求不同设备使用相同编号。
 其中 `report.md` 汇总2026Q1、2026H1和2026年1–8月的目标收益、策略收益和目标差额。三个周期分别
 以100万元现金、零持仓建立独立 vectorbt 组合；首日开盘只执行上一交易日已形成的信号，
 并分别输出 `orders_<周期>.csv` 与 `equity_<周期>.csv`。
@@ -69,7 +69,18 @@ CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周�
   --start 2024-01-01 --end 2026-08-21
 ```
 
-`baseline_20260823` 冻结自 `588080_0823_R06/selected_rule.json`。基线统一命名为 `baseline_YYYYMMDD.json`，同一天只允许一个正式基线。研究不会自动晋升基线；基线文件登记后不可原地修改。未传 `--targets` 时，通用回测只报告指标，验收状态为 `N/A`。结果仍写入 `outputs/<证券代码>_<MMDD>_RXX`，但固定回测不会生成 `candidate_results.csv` 或 `selected_rule.json`。
+`baseline_20260823` 的完整规则和规范化哈希均受Git跟踪，便携验证快照为 `docs/baselines/588080_2026_expected.json`。基线统一命名为 `baseline_YYYYMMDD.json`，同一天只允许一个正式基线。研究不会自动晋升基线；基线文件登记后不可原地修改。未传 `--targets` 时，通用回测只报告指标，验收状态为 `N/A`。结果仍写入 `outputs/<证券代码>_<MMDD>_RXX`，但固定回测不会生成 `candidate_results.csv` 或 `selected_rule.json`。
+
+复现588080当前冻结基线的三个验收周期：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_backtest.py `
+  --symbol 588080.SH --asset etf `
+  --baseline baseline_20260823 `
+  --targets configs\backtest_targets\588080_2026.json
+```
+
+只使用命令本次返回的 `output_dir`，并将其中的基线版本、规则哈希、行情哈希、区间指标、审计和必需产物与便携验证快照核对；不得查找或硬编码历史R编号。
 
 ## 测试
 

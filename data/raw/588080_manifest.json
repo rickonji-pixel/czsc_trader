@@ -4,10 +4,42 @@
   "code": "588080",
   "asset_type": "etf",
   "vendor": "tushare",
-  "requested_start": "2024-01-02",
+  "requested_start": "2020-01-01",
   "requested_end": "2026-08-21",
-  "generated_at_utc": "2026-08-23T09:26:07.439630+00:00",
+  "generated_at_utc": "2026-08-24T02:51:44.197745+00:00",
   "files": {
+    "588080_30m_2020.csv": {
+      "frequency": "30m",
+      "year": 2020,
+      "rows": 272,
+      "first": "2020-11-16T10:00:00",
+      "last": "2020-12-31T15:00:00",
+      "sha256": "6e78055bf4715d52f7b33a4ebf5c5a8ca8fa0ad3198c0e8cb0b5b64d33f61c73"
+    },
+    "588080_30m_2021.csv": {
+      "frequency": "30m",
+      "year": 2021,
+      "rows": 1944,
+      "first": "2021-01-04T10:00:00",
+      "last": "2021-12-31T15:00:00",
+      "sha256": "4ea596d8000de0882e43c0098a57e8100b10f81350680344c5fb4444965e671c"
+    },
+    "588080_30m_2022.csv": {
+      "frequency": "30m",
+      "year": 2022,
+      "rows": 1936,
+      "first": "2022-01-04T10:00:00",
+      "last": "2022-12-30T15:00:00",
+      "sha256": "0af4f05731197d1da901a4c4fcd95c09e32cb70e4f15530a606868b9fbaa256c"
+    },
+    "588080_30m_2023.csv": {
+      "frequency": "30m",
+      "year": 2023,
+      "rows": 1936,
+      "first": "2023-01-03T10:00:00",
+      "last": "2023-12-29T15:00:00",
+      "sha256": "074cfab7a5da31c015be4e4ef99119c99c15a151e069ed044ac00ee0fd2f98d3"
+    },
     "588080_30m_2024.csv": {
       "frequency": "30m",
       "year": 2024,
@@ -32,6 +64,38 @@
       "last": "2026-08-21T15:00:00",
       "sha256": "845faddd896306ed09dda8b430384792d91dc3c07110a8b856d367880fa5ca41"
     },
+    "588080_daily_2020.csv": {
+      "frequency": "daily",
+      "year": 2020,
+      "rows": 34,
+      "first": "2020-11-16T00:00:00",
+      "last": "2020-12-31T00:00:00",
+      "sha256": "7de117f2cdbe656921e6e3fcd51dab366170c637d2122bbc71cc63e83e62a0f4"
+    },
+    "588080_daily_2021.csv": {
+      "frequency": "daily",
+      "year": 2021,
+      "rows": 243,
+      "first": "2021-01-04T00:00:00",
+      "last": "2021-12-31T00:00:00",
+      "sha256": "24f2ace23811ca32e935236c605230eb00f8e74eacf5e88e8b670c3bccd006a4"
+    },
+    "588080_daily_2022.csv": {
+      "frequency": "daily",
+      "year": 2022,
+      "rows": 242,
+      "first": "2022-01-04T00:00:00",
+      "last": "2022-12-30T00:00:00",
+      "sha256": "7c7b8c91eff9c9fa546359f4b5b87b6c14b74243a1e327761a309621d8bea18a"
+    },
+    "588080_daily_2023.csv": {
+      "frequency": "daily",
+      "year": 2023,
+      "rows": 242,
+      "first": "2023-01-03T00:00:00",
+      "last": "2023-12-29T00:00:00",
+      "sha256": "ae964cfb3ec985c54daf112672b7044efe36773e05d8fc77d50b81b6def88bde"
+    },
     "588080_daily_2024.csv": {
       "frequency": "daily",
       "year": 2024,
@@ -55,6 +119,38 @@
       "first": "2026-01-05T00:00:00",
       "last": "2026-08-21T00:00:00",
       "sha256": "64912fa9cd5300c749d94dc81eb272eb19fabac6371eb355c2313fcd382adf47"
+    },
+    "588080_weekly_2020.csv": {
+      "frequency": "weekly",
+      "year": 2020,
+      "rows": 7,
+      "first": "2020-11-20T00:00:00",
+      "last": "2020-12-31T00:00:00",
+      "sha256": "d294f9a0f414ed34a1562bf25f99769add1d0ef90ece76edaa32fb576b00ca03"
+    },
+    "588080_weekly_2021.csv": {
+      "frequency": "weekly",
+      "year": 2021,
+      "rows": 52,
+      "first": "2021-01-08T00:00:00",
+      "last": "2021-12-31T00:00:00",
+      "sha256": "e89fc2024fa9f72fe52280dcc70e723a3089f6f78e9fdf87496d78f9e2128a22"
+    },
+    "588080_weekly_2022.csv": {
+      "frequency": "weekly",
+      "year": 2022,
+      "rows": 50,
+      "first": "2022-01-07T00:00:00",
+      "last": "2022-12-30T00:00:00",
+      "sha256": "d6d4dc2d680d9e95f7b10c0451edd5668981be0261f2ec9f6e5026e8e1440dbe"
+    },
+    "588080_weekly_2023.csv": {
+      "frequency": "weekly",
+      "year": 2023,
+      "rows": 50,
+      "first": "2023-01-06T00:00:00",
+      "last": "2023-12-29T00:00:00",
+      "sha256": "9083423822c1a801ae069acc821780d4c48bbc89e9d80a072311fe1fc11b2c18"
     },
     "588080_weekly_2024.csv": {
       "frequency": "weekly",
@@ -90,7 +186,7 @@
       "asset_type": "etf",
       "adjustment": "hfq",
       "adjustment_factor_source": "fund_adj",
-      "adjustment_factor_sha256": "d656d313476403d2a762bd19d636aa32cbf10f646f2504d83dc37d4d08cde47b",
+      "adjustment_factor_sha256": "f09841f79ef47adbd1cebe220e857828cf930422aa76e7b1902a0284ce3ec33f",
       "hardcoded_volume_corrections": "2024-04-03,2024-04-19,2024-04-26,2024-04-30,2024-05-24,2024-05-31,2024-06-14"
     },
     "daily": {
@@ -101,7 +197,7 @@
       "asset_type": "etf",
       "adjustment": "hfq",
       "adjustment_factor_source": "fund_adj",
-      "adjustment_factor_sha256": "d656d313476403d2a762bd19d636aa32cbf10f646f2504d83dc37d4d08cde47b"
+      "adjustment_factor_sha256": "f09841f79ef47adbd1cebe220e857828cf930422aa76e7b1902a0284ce3ec33f"
     },
     "weekly": {
       "vendor": "tushare",
@@ -111,12 +207,12 @@
       "asset_type": "etf",
       "adjustment": "hfq",
       "adjustment_factor_source": "fund_adj",
-      "adjustment_factor_sha256": "d656d313476403d2a762bd19d636aa32cbf10f646f2504d83dc37d4d08cde47b"
+      "adjustment_factor_sha256": "f09841f79ef47adbd1cebe220e857828cf930422aa76e7b1902a0284ce3ec33f"
     }
   },
   "adjustment": {
     "mode": "hfq",
     "factor_source": "fund_adj",
-    "factor_sha256": "d656d313476403d2a762bd19d636aa32cbf10f646f2504d83dc37d4d08cde47b"
+    "factor_sha256": "f09841f79ef47adbd1cebe220e857828cf930422aa76e7b1902a0284ce3ec33f"
   }
 }

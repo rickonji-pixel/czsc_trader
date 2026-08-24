@@ -45,6 +45,20 @@ def _intraday_boundary(value: str, *, end: bool) -> str:
     return f"{value} {'23:59:59' if end else '00:00:00'}"
 
 
+def _calendar_year_segments(start_date: str, end_date: str) -> list[tuple[str, str]]:
+    """Split long minute requests to stay below Tushare's silent row cap."""
+    start = pd.Timestamp(start_date).normalize()
+    end = pd.Timestamp(end_date).normalize()
+    segments: list[tuple[str, str]] = []
+    for year in range(start.year, end.year + 1):
+        segment_start = max(start, pd.Timestamp(year=year, month=1, day=1))
+        segment_end = min(end, pd.Timestamp(year=year, month=12, day=31))
+        segments.append(
+            (segment_start.date().isoformat(), segment_end.date().isoformat())
+        )
+    return segments
+
+
 def _resample_weekly(dataframe: pd.DataFrame) -> pd.DataFrame:
     if dataframe.empty:
         return dataframe
@@ -139,12 +153,21 @@ def _fetch_tushare_etf_ohlcv(
 
     pro = get_tushare_pro()
     if period == "30m":
-        dataframe = pro.etf_mins(
-            ts_code=ts_code,
-            start_date=_intraday_boundary(start_date, end=False),
-            end_date=_intraday_boundary(end_date, end=True),
-            freq="30min",
-        )
+        pieces = [
+            pro.etf_mins(
+                ts_code=ts_code,
+                start_date=_intraday_boundary(segment_start, end=False),
+                end_date=_intraday_boundary(segment_end, end=True),
+                freq="30min",
+            )
+            for segment_start, segment_end in _calendar_year_segments(
+                start_date, end_date
+            )
+        ]
+        dataframe = pd.concat(
+            [piece for piece in pieces if piece is not None and not piece.empty],
+            ignore_index=True,
+        ) if any(piece is not None and not piece.empty for piece in pieces) else pd.DataFrame()
     else:
         dataframe = pro.fund_daily(
             ts_code=ts_code,

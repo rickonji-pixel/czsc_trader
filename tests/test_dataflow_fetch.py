@@ -102,6 +102,30 @@ def test_fetch_dataframe_api_rejects_empty_data(monkeypatch: pytest.MonkeyPatch)
         tushare_etf.fetch_etf_ohlcv("510300.SH", "2026-08-01", "2026-08-21", "daily")
 
 
+def test_etf_intraday_fetch_splits_long_requests_by_calendar_year(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Catch Tushare's row cap silently truncating early ETF minute history."""
+    calls: list[tuple[str, str]] = []
+
+    class FakePro:
+        def etf_mins(self, **kwargs):
+            calls.append((kwargs["start_date"], kwargs["end_date"]))
+            return pd.DataFrame()
+
+    monkeypatch.setattr(tushare_etf, "get_tushare_pro", lambda: FakePro())
+
+    tushare_etf._fetch_tushare_etf_ohlcv(
+        "588080.SH", "2020-11-16", "2022-08-21", period="30m"
+    )
+
+    assert calls == [
+        ("2020-11-16 00:00:00", "2020-12-31 23:59:59"),
+        ("2021-01-01 00:00:00", "2021-12-31 23:59:59"),
+        ("2022-01-01 00:00:00", "2022-08-21 23:59:59"),
+    ]
+
+
 def test_hfq_adjustment_multiplies_prices_divides_volume_and_keeps_amount() -> None:
     """Catch a wrong price/volume direction or mutation of actual turnover."""
     bars = pd.DataFrame(

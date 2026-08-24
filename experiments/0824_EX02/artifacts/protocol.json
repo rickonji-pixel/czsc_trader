@@ -72,7 +72,8 @@
     "redundant",
     "interaction",
     "insufficient_sample",
-    "unmodeled_state"
+    "unmodeled_state",
+    "inconclusive"
   ],
   "promotion": {
     "select_challenger": false,

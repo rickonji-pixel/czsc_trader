@@ -81,3 +81,19 @@ def test_weight_validation_rejects_dropped_or_unexpected_factors() -> None:
     weights.iloc[0] = 0.0
     with np.testing.assert_raises_regex(ValueError, "nonzero"):
         validate_fixed_factor_weights(weights, expected, 0.005)
+
+
+def test_linear_score_preserves_champion_groupwise_float_order_at_threshold() -> None:
+    columns = _raw_columns()
+    groups = signal_groups(columns)
+    factors = pd.DataFrame(
+        [[0, 0, 0, 0, 0, 0, 1, 1, 1, -1, 0, 0]],
+        columns=columns,
+        index=[pd.Timestamp("2021-01-06")],
+        dtype=float,
+    )
+    weights = flatten_champion_weights(columns, groups, (0.3, 0.3, 0.4))
+
+    score = score_four_layer(factors, weights)
+
+    assert score.iloc[0] == 0.15

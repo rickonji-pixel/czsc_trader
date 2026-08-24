@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 import pandas as pd
 
-from .factors import map_signal_frame
+from .factors import map_signal_frame, signal_groups
 from .rules import Rule
 
 
@@ -66,7 +66,31 @@ def score_four_layer(factors: pd.DataFrame, weights: pd.Series) -> pd.Series:
     """Apply the fixed linear scoring formula without another mapping layer."""
     if list(factors.columns) != list(weights.index):
         raise ValueError("factor columns differ from weight identities")
-    scores = factors.fillna(0.0).astype(float).to_numpy() @ weights.astype(float).to_numpy()
+    clean = factors.fillna(0.0).astype(float)
+    groups = signal_groups(clean.columns)
+    ordered_groups = ("structure", "trend", "volume_position")
+    grouped_names = [name for group in ordered_groups for name in groups[group]]
+    if set(grouped_names) == set(clean.columns) and all(groups[group] for group in ordered_groups):
+        # This remains one linear sum over 12 factor-weight products.  Summing
+        # the three frozen membership slices separately preserves the
+        # champion's floating-point threshold behavior at exact boundaries.
+        subtotals = np.column_stack(
+            [
+                (
+                    clean.loc[:, list(groups[group])].mean(axis=1).to_numpy()
+                    * float(weights.loc[list(groups[group])].sum())
+                    + clean.loc[:, list(groups[group])].to_numpy()
+                    @ (
+                        weights.loc[list(groups[group])].astype(float).to_numpy()
+                        - float(weights.loc[list(groups[group])].mean())
+                    )
+                )
+                for group in ordered_groups
+            ]
+        )
+        scores = subtotals @ np.ones(len(ordered_groups), dtype=float)
+    else:
+        scores = clean.to_numpy() @ weights.astype(float).to_numpy()
     return pd.Series(scores, index=factors.index, name="factor_score", dtype=float)
 
 
@@ -106,4 +130,3 @@ def positions_from_scores(
                 holding_days += 1
         output.append(position)
     return pd.Series(output, index=scores.index, name="target_position", dtype=float)
-

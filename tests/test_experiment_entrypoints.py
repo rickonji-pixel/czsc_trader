@@ -173,3 +173,88 @@ def test_holdout_entrypoint_creates_a_separate_experiment_archive(
     manifest = validate_experiment_archive(archive)
     assert manifest["holdout_accessed"] is True
     assert manifest["status"] == "FAIL"
+
+
+def _preregistered_attribution_archive(tmp_path: Path) -> Path:
+    archive = tmp_path / "0824_EX02"
+    (archive / "artifacts").mkdir(parents=True)
+    for name in REQUIRED_DOCUMENTS:
+        (archive / name).write_text(f"# {name}\n", encoding="utf-8")
+    (archive / "artifacts" / "protocol.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": "0824_EX02",
+                "experiment_type": "champion_attribution",
+                "status": "PRE_REGISTERED",
+                "symbol": "588080.SH",
+                "visible_sample_end": "2025-12-31",
+                "holdout_access_allowed": False,
+                "champion": {
+                    "version": "baseline_20260823",
+                    "sha256": "abc123",
+                },
+                "promotion": {
+                    "select_challenger": False,
+                    "write_frozen_challenger": False,
+                    "update_champion": False,
+                    "force_negative_factor": False,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return archive
+
+
+def test_preregistered_attribution_finalizes_same_archive(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Catch attribution allocating a new experiment or enabling promotion."""
+    archive = _preregistered_attribution_archive(tmp_path)
+
+    def fake_attribution(raw_dir, baseline_root, artifacts_dir, protocol):
+        assert artifacts_dir == archive / "artifacts"
+        assert protocol["holdout_access_allowed"] is False
+        (artifacts_dir / "classification.csv").write_text(
+            "object_type,object_id,counterfactual,classification,median_return_delta,median_sharpe_delta\n"
+            "group,trend,zero_contribution,stable_negative,0.01,0.1\n",
+            encoding="utf-8",
+        )
+        (artifacts_dir / "metrics.json").write_text("{}\n", encoding="utf-8")
+        return {
+            "status": "COMPLETE",
+            "stable_negative": [
+                {
+                    "object_type": "group",
+                    "object_id": "trend",
+                    "counterfactual": "zero_contribution",
+                }
+            ],
+            "classification_counts": {"stable_negative": 1},
+            "visible_data_hashes": {"588080_daily_2025.csv": "abc"},
+            "holdout_accessed": False,
+            "frozen_challenger": None,
+        }
+
+    monkeypatch.setattr(entrypoint, "run_champion_attribution", fake_attribution)
+
+    finalized = entrypoint.run_preregistered_attribution(archive)
+
+    assert finalized == archive
+    manifest = validate_experiment_archive(archive)
+    assert manifest["status"] == "COMPLETE"
+    assert manifest["holdout_accessed"] is False
+    assert "trend" in (archive / "04_conclusion.md").read_text(encoding="utf-8")
+    assert not (archive / "artifacts" / "frozen_challenger.json").exists()
+
+
+def test_preregistered_attribution_rejects_any_promotion_flag(tmp_path: Path) -> None:
+    """Catch a diagnostic protocol being silently converted into candidate selection."""
+    archive = _preregistered_attribution_archive(tmp_path)
+    path = archive / "artifacts" / "protocol.json"
+    protocol = json.loads(path.read_text(encoding="utf-8"))
+    protocol["promotion"]["select_challenger"] = True
+    path.write_text(json.dumps(protocol), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="promotion"):
+        entrypoint.run_preregistered_attribution(archive)

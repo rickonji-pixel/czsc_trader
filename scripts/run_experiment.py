@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import argparse
 from datetime import date, datetime
+from importlib.metadata import PackageNotFoundError, version
 import json
 from pathlib import Path
+import platform
 import shutil
+import subprocess
 from zoneinfo import ZoneInfo
 
+import pandas as pd
+
+from czsc_trader.attribution_runner import run_champion_attribution
 from czsc_trader.baselines import resolve_baseline
 from czsc_trader.experiment_archive import (
     build_experiment_manifest,
@@ -18,6 +25,225 @@ from czsc_trader.experiments import run_pre2026_experiment
 
 
 DEFAULT_PROTOCOL = Path("experiments/0824_EX01/artifacts/protocol.json")
+
+
+def _installed_version(package: str) -> str:
+    try:
+        return version(package)
+    except PackageNotFoundError:
+        return "not-installed"
+
+
+def _git_head() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True, encoding="utf-8"
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unavailable"
+
+
+def _validate_attribution_protocol(protocol: dict[str, object]) -> None:
+    if protocol.get("experiment_type") != "champion_attribution":
+        raise ValueError("experiment directory is not a champion attribution protocol")
+    if protocol.get("status") != "PRE_REGISTERED":
+        raise ValueError("attribution protocol must retain PRE_REGISTERED status")
+    if protocol.get("visible_sample_end") != "2025-12-31":
+        raise ValueError("attribution protocol must stop at 2025-12-31")
+    if protocol.get("holdout_access_allowed") is not False:
+        raise ValueError("attribution protocol must forbid holdout access")
+    promotion = protocol.get("promotion")
+    if not isinstance(promotion, dict) or any(bool(value) for value in promotion.values()):
+        raise ValueError("attribution protocol must disable every promotion action")
+
+
+def _classification_markdown(artifacts_dir: Path) -> str:
+    path = artifacts_dir / "classification.csv"
+    if not path.is_file():
+        return "机器分类文件缺失，不能形成归因结论。"
+    frame = pd.read_csv(path)
+    if frame.empty:
+        return "没有可分类的归因对象。"
+    lines: list[str] = []
+    ordered = (
+        "stable_negative",
+        "stable_positive",
+        "return_positive_risk_negative",
+        "risk_positive_return_negative",
+        "regime_dependent",
+        "interaction",
+        "redundant",
+        "inconclusive",
+        "insufficient_sample",
+        "unmodeled_state",
+    )
+    labels = {
+        "stable_negative": "稳定负向",
+        "stable_positive": "稳定正向",
+        "return_positive_risk_negative": "收益正向、风险负向",
+        "risk_positive_return_negative": "风险正向、收益负向",
+        "regime_dependent": "状态依赖",
+        "interaction": "交互型",
+        "redundant": "冗余",
+        "inconclusive": "证据不足",
+        "insufficient_sample": "样本不足",
+        "unmodeled_state": "未建模状态",
+    }
+    for classification in ordered:
+        subset = frame.loc[frame["classification"] == classification]
+        if subset.empty:
+            continue
+        lines.append(f"### {labels[classification]}（{len(subset)}项）")
+        lines.append("")
+        if classification in {"stable_negative", "stable_positive", "regime_dependent", "interaction"}:
+            lines.append("| 类型 | 对象 | 反事实 | 收益中位增量 | 夏普中位增量 |")
+            lines.append("|---|---|---|---:|---:|")
+            for _, row in subset.iterrows():
+                lines.append(
+                    f"| {row['object_type']} | `{row['object_id']}` | "
+                    f"`{row['counterfactual']}` | {float(row['median_return_delta']):+.4%} | "
+                    f"{float(row['median_sharpe_delta']):+.4f} |"
+                )
+        else:
+            lines.append("、".join(f"`{value}`" for value in subset["object_id"].astype(str)))
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def _sensitivity_markdown(artifacts_dir: Path) -> str:
+    lines: list[str] = []
+    for filename, label in (
+        ("weight_sensitivity.csv", "权重"),
+        ("threshold_sensitivity.csv", "阈值"),
+        ("state_machine_sensitivity.csv", "状态机"),
+    ):
+        path = artifacts_dir / filename
+        if not path.is_file():
+            continue
+        frame = pd.read_csv(path)
+        if frame.empty or "local_classification" not in frame:
+            continue
+        candidates = frame.loc[
+            frame["local_classification"] == "stable_local_improvement",
+            ["object_id", "counterfactual"],
+        ].drop_duplicates()
+        if candidates.empty:
+            lines.append(f"- {label}：未发现稳定局部改善方向。")
+        else:
+            values = "、".join(
+                f"`{row.object_id} / {row.counterfactual}`"
+                for row in candidates.itertuples(index=False)
+            )
+            lines.append(f"- {label}：{values}。")
+    return "\n".join(lines) if lines else "- 没有可用的局部敏感性结果。"
+
+
+def run_preregistered_attribution(experiment_dir: Path) -> Path:
+    """Finalize one existing PRE_REGISTERED attribution archive in place."""
+    experiment_dir = Path(experiment_dir).resolve()
+    protocol_path = experiment_dir / "artifacts" / "protocol.json"
+    if not protocol_path.is_file():
+        raise FileNotFoundError(f"missing preregistered protocol: {protocol_path}")
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    _validate_attribution_protocol(protocol)
+    artifacts_dir = protocol_path.parent
+    champion = protocol.get("champion")
+    if not isinstance(champion, dict):
+        raise ValueError("attribution protocol is missing champion identity")
+    try:
+        summary = run_champion_attribution(
+            Path("data/raw"), Path("configs/rule_baselines"), artifacts_dir, protocol
+        )
+        if summary.get("status") != "COMPLETE":
+            raise ValueError("attribution runner did not complete")
+        if summary.get("holdout_accessed") is not False:
+            raise ValueError("attribution runner reported holdout access")
+        if summary.get("frozen_challenger") is not None:
+            raise ValueError("diagnostic attribution produced a frozen challenger")
+        hashes = summary.get("visible_data_hashes", {})
+        if not isinstance(hashes, dict) or any("2026" in str(name) for name in hashes):
+            raise ValueError("attribution result contains a 2026 data hash")
+
+        executed_at = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "## 正式执行\n\n"
+            f"- 状态：`{summary['status']}`\n"
+            f"- 执行时间：{executed_at}\n"
+            f"- 代码提交：`{_git_head()}`\n"
+            f"- Python：{platform.python_version()}\n"
+            f"- CZSC：{_installed_version('czsc')}\n"
+            f"- vectorbt：{_installed_version('vectorbt')}\n"
+            f"- pandas：{_installed_version('pandas')}\n"
+            f"- NumPy：{_installed_version('numpy')}\n"
+            f"- Plotly：{_installed_version('plotly')}\n"
+            f"- 可见行情文件数：{len(hashes)}\n"
+            f"- 实际回测目标仓位数：{summary.get('evaluated_target_count', '见metrics.json')}\n"
+            "- 2026样本外数据访问：否\n"
+            "- 冻结挑战者：未生成\n"
+            "- 机器证据：`artifacts/`\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            "# 研究结论\n\n"
+            "## 判定边界\n\n"
+            "本轮是诊断实验，不判定策略PASS/FAIL，不更新冠军，也不产生挑战者。"
+            "以下结论只描述当前冠军在2021—2025可见样本中的反事实归因。\n\n"
+            "## 因素分类\n\n"
+            f"{_classification_markdown(artifacts_dir)}\n\n"
+            "## 局部敏感性\n\n"
+            f"{_sensitivity_markdown(artifacts_dir)}\n\n"
+            "## 后续边界\n\n"
+            "只有归类为稳定负向的对象可以进入下一轮优化候选清单；"
+            "证据不足、状态依赖或单一区间主导的对象不得直接优化。"
+            "2026保持不可见，冠军继续为 `baseline_20260823`。\n",
+            encoding="utf-8",
+        )
+        status = "COMPLETE"
+    except Exception as exc:
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "- 状态：`ERROR`\n"
+            f"- 异常：{type(exc).__name__}: {exc}\n"
+            "- 2026样本外数据访问：否\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            "# 研究结论\n\n正式执行失败，没有归因结论，不得优化冠军或访问2026。\n",
+            encoding="utf-8",
+        )
+        status = "ERROR"
+        build_experiment_manifest(
+            experiment_dir,
+            {
+                "experiment_id": experiment_dir.name,
+                "date": "2026-08-24",
+                "status": status,
+                "symbol": protocol.get("symbol", "588080.SH"),
+                "asset_type": "etf",
+                "champion": champion,
+                "visible_sample_end": "2025-12-31",
+                "holdout_accessed": False,
+            },
+        )
+        validate_experiment_archive(experiment_dir)
+        raise
+
+    build_experiment_manifest(
+        experiment_dir,
+        {
+            "experiment_id": experiment_dir.name,
+            "date": "2026-08-24",
+            "status": status,
+            "symbol": protocol.get("symbol", "588080.SH"),
+            "asset_type": "etf",
+            "champion": champion,
+            "visible_sample_end": "2025-12-31",
+            "holdout_accessed": False,
+        },
+    )
+    validate_experiment_archive(experiment_dir)
+    return experiment_dir
 
 
 def main(
@@ -132,5 +358,17 @@ def main(
     return experiment_dir
 
 
+def cli() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--experiment-dir", type=Path)
+    parser.add_argument("--protocol", type=Path, default=DEFAULT_PROTOCOL)
+    args = parser.parse_args()
+    if args.experiment_dir is not None:
+        completed = run_preregistered_attribution(args.experiment_dir)
+        print(completed)
+    else:
+        main(protocol_path=args.protocol)
+
+
 if __name__ == "__main__":
-    main()
+    cli()

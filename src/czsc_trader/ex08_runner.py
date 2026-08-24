@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
+
+from .optuna_runner import run_optuna_experiment
 
 
 VALIDATION_WINDOWS = (
@@ -92,3 +95,24 @@ def validate_ex08_protocol(protocol: Mapping[str, object]) -> None:
         or actual_projection != expected_projection
     ):
         raise ValueError("EX08 protocol differs from preregistration")
+
+
+def run_ex08_experiment(
+    raw_dir: Path,
+    baseline_root: Path,
+    experiment_dir: Path,
+    *,
+    execution_commit: str,
+) -> dict[str, object]:
+    """Run the preregistered nonrecoverable EX08 study and one holdout."""
+    return run_optuna_experiment(
+        raw_dir,
+        baseline_root,
+        experiment_dir,
+        protocol_validator=validate_ex08_protocol,
+        storage_mode="memory",
+        recover_runtime=False,
+        collect_batch_timings=True,
+        require_full_trial_count=True,
+        execution_commit=execution_commit,
+    )

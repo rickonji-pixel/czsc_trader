@@ -604,6 +604,8 @@ def _write_research_docs(
     frozen: Mapping[str, object],
     holdout: Mapping[str, object],
 ) -> None:
+    experiment_id = str(frozen["experiment"])
+    experiment_label = experiment_id.split("_")[-1]
     (experiment_dir / "03_execution.md").write_text(
         "# 执行过程\n\n"
         f"- 状态：正式执行完成（`{holdout['status']}`）\n"
@@ -623,9 +625,9 @@ def _write_research_docs(
     lines = [
         "# 研究结论",
         "",
-        f"EX07 Optuna联合搜索结果为 **{holdout['status']}**。",
+        f"{experiment_label} Optuna联合搜索结果为 **{holdout['status']}**。",
         "",
-        "| 窗口 | EX04收益 | EX07收益 | 收益增量 | EX04夏普 | EX07夏普 | 判定 |",
+        f"| 窗口 | EX04收益 | {experiment_label}收益 | 收益增量 | EX04夏普 | {experiment_label}夏普 | 判定 |",
         "|---|---:|---:|---:|---:|---:|---|",
     ]
     for name in TARGET_PERIODS:
@@ -661,8 +663,14 @@ def run_optuna_experiment(
     *,
     fee_rate: float = 0.0005,
     init_cash: float = 1_000_000.0,
+    protocol_validator: Callable[[Mapping[str, object]], None] = validate_ex07_protocol,
+    storage_mode: str = "sqlite",
+    recover_runtime: bool = True,
+    collect_batch_timings: bool = False,
+    require_full_trial_count: bool = False,
+    execution_commit: str | None = None,
 ) -> dict[str, object]:
-    """Run or resume EX07, freeze the winner, then unlock the 2026 holdout."""
+    """Run a validated Optuna study, freeze its winner, then unlock holdout."""
     experiment_dir = Path(experiment_dir).resolve()
     artifacts = experiment_dir / "artifacts"
     protocol_path = artifacts / "protocol.json"
@@ -673,6 +681,7 @@ def run_optuna_experiment(
         experiment_dir,
         fee_rate=fee_rate,
         init_cash=init_cash,
+        protocol_validator=protocol_validator,
     )
     _write_json(artifacts / "candidate_identity.json", context.identity)
     _candidate_rows(context.candidate).to_csv(
@@ -688,9 +697,9 @@ def run_optuna_experiment(
         experiment_dir / "runtime",
         context.protocol,
         protocol_digest,
-        storage_mode="sqlite",
+        storage_mode=storage_mode,
     )
-    recovered = recover_running_trials(study)
+    recovered = recover_running_trials(study) if recover_runtime else ()
     initial_params = trial_params_for_strategy(
         context.origin_weights,
         float(context.ex04["spec"]["enter"]),
@@ -712,6 +721,8 @@ def run_optuna_experiment(
     config = context.protocol["optuna"]
     parallel = context.protocol["parallel"]
     started_at = datetime.now(timezone.utc).isoformat()
+    no_improvement = config["no_improvement_trials"]
+    wall_time = config["maximum_wall_time_seconds"]
     search = run_study_batches(
         study,
         request_factory,
@@ -720,10 +731,37 @@ def run_optuna_experiment(
         ),
         maximum_completed_trials=int(config["maximum_completed_trials"]),
         minimum_completed_trials=int(config["minimum_completed_trials"]),
-        no_improvement_trials=int(config["no_improvement_trials"]),
-        maximum_wall_time_seconds=float(config["maximum_wall_time_seconds"]),
+        no_improvement_trials=(
+            int(no_improvement) if no_improvement is not None else None
+        ),
+        maximum_wall_time_seconds=float(wall_time) if wall_time is not None else None,
         batch_size=int(config["batch_size"]),
+        collect_batch_timings=collect_batch_timings,
     )
+    if require_full_trial_count and int(search["completed_trials"]) != int(
+        config["maximum_completed_trials"]
+    ):
+        raise AssertionError("formal search did not complete every preregistered Trial")
+    batch_timings = search.pop("batch_timings", None)
+    timing_summary: dict[str, object] | None = None
+    if batch_timings is not None:
+        timing_frame = pd.DataFrame(batch_timings)
+        timing_frame.to_csv(
+            artifacts / "batch_timings.csv", index=False, encoding="utf-8-sig"
+        )
+        timing_summary = {
+            "batch_count": len(timing_frame),
+            "ask_and_project_seconds": float(
+                timing_frame["ask_and_project_seconds"].sum()
+            ),
+            "parallel_evaluate_seconds": float(
+                timing_frame["parallel_evaluate_seconds"].sum()
+            ),
+            "tell_and_attrs_seconds": float(
+                timing_frame["tell_and_attrs_seconds"].sum()
+            ),
+            "batch_total_seconds": float(timing_frame["batch_total_seconds"].sum()),
+        }
     export_study_trials(study, artifacts / "trials.csv")
     ranked = _completed_trial_rows(study)
     ranked.to_csv(artifacts / "trial_ranking.csv", index=False, encoding="utf-8-sig")
@@ -746,6 +784,9 @@ def run_optuna_experiment(
         "visible_data_hashes": context.data.hashes,
         "holdout_accessed": False,
         "optuna_version": optuna.__version__,
+        "storage_mode": storage_mode,
+        "execution_commit": execution_commit,
+        "timing_summary": timing_summary,
     }
     _write_json(artifacts / "study_summary.json", summary)
     holdout = _run_holdout(
@@ -757,6 +798,11 @@ def run_optuna_experiment(
         fee_rate=fee_rate,
         init_cash=init_cash,
     )
+    summary["holdout_accessed"] = True
+    summary["holdout_status"] = holdout["status"]
+    summary["frozen_challenger_sha256"] = frozen_digest
+    summary["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
+    _write_json(artifacts / "study_summary.json", summary)
     _write_research_docs(experiment_dir, summary, frozen, holdout)
     build_experiment_manifest(
         experiment_dir,

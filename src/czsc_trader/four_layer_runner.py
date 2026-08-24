@@ -158,10 +158,23 @@ class _PeriodEvaluator:
         self.fee_rate = fee_rate
         self.init_cash = init_cash
         self.cache: dict[str, dict[str, dict[str, object]]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    @property
+    def cache_stats(self) -> dict[str, int]:
+        return {
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "entries": len(self.cache),
+        }
 
     def evaluate(self, target: pd.Series) -> dict[str, dict[str, object]]:
         digest = _target_digest(target)
-        if digest not in self.cache:
+        if digest in self.cache:
+            self._cache_hits += 1
+        else:
+            self._cache_misses += 1
             self.cache[digest] = _metrics(
                 run_period_backtests(
                     self.daily,

@@ -103,47 +103,40 @@ git add src/czsc_trader/factor_discovery.py tests/test_factor_discovery.py
 git commit -m "research: admit sparse CZSC event factors"
 ```
 
-### Task 2: Exact target-position cache
+### Task 2: Existing target-position cache diagnostics
 
 **Files:**
-- Modify: `src/czsc_trader/factor_discovery_runner.py:91-169`
-- Modify: `tests/test_factor_discovery_runner.py`
+- Modify: `src/czsc_trader/four_layer_runner.py:148-174`
+- Modify: `tests/test_four_layer_runner.py`
 
 **Interfaces:**
-- Produces: `_position_fingerprint(target: pd.Series) -> str`
-- Extends: `_PeriodEvaluator.evaluate(target)` with a process-local cache.
+- Reuses: existing `_target_digest(target: pd.Series) -> str` and process-local cache.
+- Extends: `_PeriodEvaluator.evaluate(target)` with hit and miss counters.
 - Produces: `_PeriodEvaluator.cache_stats -> dict[str, int]`.
 
 - [ ] **Step 1: Write a failing cache test**
 
-Monkeypatch `run_period_backtests`, call `_PeriodEvaluator.evaluate` twice with copied but identical positions, and assert the backtest runs once and stats equal `{"hits": 1, "misses": 1, "entries": 1}`.
+Monkeypatch `run_period_backtests`, call the existing `_PeriodEvaluator.evaluate` twice with copied but identical positions, and assert the backtest runs once and stats equal `{"hits": 1, "misses": 1, "entries": 1}`.
 
 - [ ] **Step 2: Run the cache test and verify failure**
 
-Run: `.venv\Scripts\python.exe -m pytest tests/test_factor_discovery_runner.py -k position_cache -v`
+Run: `.venv\Scripts\python.exe -m pytest tests/test_four_layer_runner.py -k cache_stats -v`
 
-Expected: FAIL because the evaluator has no cache.
+Expected: FAIL because the existing cache does not expose statistics.
 
-- [ ] **Step 3: Implement the stable fingerprint and cache**
+- [ ] **Step 3: Add statistics to the existing cache**
 
-```python
-def _position_fingerprint(target: pd.Series) -> str:
-    values = target.astype(np.int8)
-    payload = values.index.asi8.tobytes() + values.to_numpy().tobytes()
-    return sha256(payload).hexdigest()
-```
-
-Store metrics by fingerprint, increment hit/miss counters, and expose a copied stats dictionary. Do not share caches across processes or experiments.
+Initialize `_cache_hits` and `_cache_misses` beside the existing `cache` dictionary. Increment the appropriate counter around the existing digest lookup and expose a copied stats dictionary. Do not change `_target_digest`, cache keys, metric values, or cache lifetime.
 
 - [ ] **Step 4: Verify and commit**
 
-Run: `.venv\Scripts\python.exe -m pytest tests/test_factor_discovery_runner.py -v`
+Run: `.venv\Scripts\python.exe -m pytest tests/test_four_layer_runner.py tests/test_factor_discovery_runner.py -v`
 
 Expected: all runner tests PASS.
 
 ```powershell
-git add src/czsc_trader/factor_discovery_runner.py tests/test_factor_discovery_runner.py
-git commit -m "perf: cache identical factor position backtests"
+git add src/czsc_trader/four_layer_runner.py tests/test_four_layer_runner.py experiments/0824_EX06/02_design.md experiments/0824_EX06/implementation_plan.md
+git commit -m "research: record factor evaluator cache diagnostics"
 ```
 
 ### Task 3: Deterministic Joblib outer parallelism

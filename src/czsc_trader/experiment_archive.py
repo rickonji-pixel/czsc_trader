@@ -45,6 +45,15 @@ def _file_record(path: Path) -> dict[str, object]:
     return {"bytes": len(content), "sha256": sha256(content).hexdigest()}
 
 
+def _is_managed_file(experiment_dir: Path, path: Path) -> bool:
+    relative = path.relative_to(experiment_dir)
+    return (
+        path.is_file()
+        and path.name != MANIFEST_NAME
+        and (not relative.parts or relative.parts[0] != "runtime")
+    )
+
+
 def build_experiment_manifest(
     experiment_dir: Path,
     metadata: dict[str, object],
@@ -54,7 +63,7 @@ def build_experiment_manifest(
     files = {
         path.relative_to(experiment_dir).as_posix(): _file_record(path)
         for path in sorted(experiment_dir.rglob("*"))
-        if path.is_file() and path.name != MANIFEST_NAME
+        if _is_managed_file(experiment_dir, path)
     }
     manifest = {"schema_version": 1, **metadata, "files": files}
     serialized = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
@@ -80,7 +89,7 @@ def validate_experiment_archive(experiment_dir: Path) -> dict[str, object]:
     actual_names = {
         path.relative_to(experiment_dir).as_posix()
         for path in experiment_dir.rglob("*")
-        if path.is_file() and path.name != MANIFEST_NAME
+        if _is_managed_file(experiment_dir, path)
     }
     undeclared = sorted(actual_names - set(files))
     if undeclared:

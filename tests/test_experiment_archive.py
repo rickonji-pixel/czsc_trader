@@ -129,6 +129,18 @@ def test_validator_rejects_unmanifested_file(tmp_path: Path) -> None:
         validate_experiment_archive(archive)
 
 
+def test_runtime_directory_is_excluded_from_portable_archive(tmp_path: Path) -> None:
+    archive = _complete_archive(tmp_path)
+    runtime = archive / "runtime"
+    runtime.mkdir()
+    (runtime / "optuna.db").write_bytes(b"mutable sqlite state")
+
+    manifest = build_experiment_manifest(archive, _metadata())
+
+    assert all(not name.startswith("runtime/") for name in manifest["files"])
+    validate_experiment_archive(archive)
+
+
 def test_validator_rejects_local_output_provenance(tmp_path: Path) -> None:
     archive = _complete_archive(tmp_path)
     build_experiment_manifest(archive, _metadata())

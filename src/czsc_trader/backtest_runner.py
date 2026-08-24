@@ -17,8 +17,8 @@ from .baselines import resolve_baseline
 from .charting import write_period_chart
 from .data import load_market_data
 from .factors import generate_factor_frame
-from .research import create_output_dir
-from .walk_forward import apply_fixed_rule
+from .output_paths import create_output_dir
+from .rules import apply_fixed_rule
 
 
 @dataclass(frozen=True)

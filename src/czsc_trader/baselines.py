@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import re
 
-from .walk_forward import Rule
+from .rules import Rule
 
 
 _VERSION_PATTERN = re.compile(r"baseline_(\d{8})$")

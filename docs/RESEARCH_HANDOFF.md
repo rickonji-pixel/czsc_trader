@@ -12,11 +12,12 @@
 prepare_market_data.py → PASS行情清单 → 最新冻结规则基线 → run_backtest.py
 ```
 
-必须区分：
+只保留以下四个功能入口：
 
-- `scripts/run_research.py`：仅用于588080候选研究、排序和选择，研究资料写入受Git跟踪的 `experiments/MMDD_EXX/`；
-- `scripts/run_backtest.py`：只加载一个已冻结基线，对指定标的执行，不遍历候选、不更新基线；
-- `scripts/prepare_market_data.py`：通过 Tushare 获取 A股股票或 ETF 数据，在获取阶段统一生成后复权30分钟、日线和周线，验证后发布扁平年度CSV、manifest和validation报告。股票使用 `adj_factor`，ETF使用 `fund_adj`；OHLC乘因子、成交量除以因子、成交额不变，周线由后复权日线聚合。
+- `scripts/prepare_market_data.py`：获取、后复权并验证 A股股票或ETF行情；
+- `scripts/run_backtest.py`：只加载冻结基线执行固定规则回测；
+- `scripts/run_experiment.py`：执行预注册研究并生成 `experiments/MMDD_EXX/`；
+- `scripts/run_holdout.py`：只对已冻结挑战者执行不可见样本外检验。
 
 首个受 Git 跟踪的规则基线是：
 
@@ -121,21 +122,6 @@ factor_score = structure       × 0.30
 
 空仓时，综合分数不低于0.15转为满仓；持仓至少3天后，综合分数不高于0.00转为空仓。当日目标变化在下一交易日开盘执行。
 
-### 2.4 候选选择顺序
-
-23,760个预声明候选先按目标仓位去重，再按以下顺序排序：
-
-1. 三个绝对收益目标通过数量；
-2. 三个周期中的最小目标差额；
-3. 平均目标差额；
-4. 更小最大回撤；
-5. 更简单的规则；
-6. 稳定规则ID。
-
-换手和连续反转诊断不参与排序。
-
-完整排行榜保存在 `candidate_results.csv`，最终规则保存在 `selected_rule.json`。
-
 ## 3. 无前视与订单溯源
 
 ### 信号和成交顺序
@@ -162,20 +148,21 @@ T+1收盘：按收盘价计算当日组合净值
 | --- | --- |
 | `src/czsc_trader/data.py` | 只读加载原始CSV、校验字段/时间/OHLC、跨周期对账和SHA-256 |
 | `src/czsc_trader/factors.py` | 调用CZSC、日末对齐原始信号、映射分数并生成三个组因子 |
-| `src/czsc_trader/walk_forward.py` | 定义固定候选、因子状态机、候选排序和因子事件；文件名保留历史名称 |
+| `src/czsc_trader/rules.py` | 定义固定规则、因子状态机和因子事件 |
 | `src/czsc_trader/backtest.py` | vectorbt次日开盘回测、独立账本、周期独立启动和订单来源绑定 |
 | `src/czsc_trader/audit.py` | 审计目标仓位、订单事件匹配及紧邻下一交易日执行 |
 | `src/czsc_trader/charting.py` | 生成三张离线Plotly日线交互图 |
-| `src/czsc_trader/research.py` | 编排完整研究、输出文件、报告、manifest和版本信息 |
-| `scripts/run_research.py` | 588080候选研究入口 |
 | `src/czsc_trader/baselines.py` | 校验、解析和显式晋升不可变规则基线 |
 | `src/czsc_trader/market_data_prep.py` | 获取后规范化、跨周期验证、哈希和安全发布行情 |
 | `src/czsc_trader/backtest_runner.py` | 编排任意标的固定基线回测和证据输出 |
+| `src/czsc_trader/experiments.py` | 编排预注册实验和独立留出集检验 |
+| `src/czsc_trader/experiment_archive.py` | 分配实验编号、生成和验证档案哈希 |
+| `src/czsc_trader/output_paths.py` | 分配普通回测R编号目录 |
 | `scripts/prepare_market_data.py` | A股股票/ETF行情准备入口 |
 | `scripts/run_backtest.py` | 任意已准备标的的固定规则回测入口 |
-| `tests/` | 数据、因子截断、状态机、候选选择、成交、审计、图表和研究集成测试 |
-
-`walk_forward.py` 中还保留未被正式管线调用的早期月度滚动函数，用于历史测试和对照。正式 `run_research` 只调用 `select_fixed_rule`，不得重新接入收益覆盖逻辑。
+| `scripts/run_experiment.py` | 预注册样本内研究入口 |
+| `scripts/run_holdout.py` | 冻结挑战者样本外入口 |
+| `tests/` | 数据、固定规则、成交、审计、图表、实验和档案测试 |
 
 ## 5. 单次运行产物说明
 
@@ -186,9 +173,6 @@ T+1收盘：按收盘价计算当日组合净值
 | `report.md` | 三周期结果、独立指标、审计摘要、规则和局限 |
 | `metrics.json` | 机器可读的三周期指标、整体PASS和审计数据 |
 | `manifest.json` | 数据截止日、原始数据哈希、固定规则、依赖版本和图表清单 |
-| `selected_rule.json` | 最终固定规则参数 |
-| `candidate_results.csv` | 目标仓位去重后候选的完整排序、目标及三周期表现 |
-| `trade_diagnostics.csv` | 已完成买卖回合、持仓天数、费用和连续反转诊断 |
 | `factors.csv` | 每日目标仓位、综合分数、阈值、三个组因子和全部原始CZSC信号 |
 | `factor_events.csv` | 全历史入场、离场及周期初始对齐事件 |
 | `orders_<周期>.csv` | vectorbt实际订单，含信号日、成交日、价格、费用和事件ID |
@@ -224,7 +208,7 @@ cd <仓库克隆目录>
 .\.venv\Scripts\python.exe -m pip check
 ```
 
-默认快速测试：
+唯一测试命令：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
@@ -232,20 +216,7 @@ cd <仓库克隆目录>
 git diff --check
 ```
 
-测试数量会随通用数据和回测覆盖增加；以每次命令输出的通过、跳过和取消选择数量为准，不再硬编码历史44项计数。
-
-耗时的完整候选搜索和实时联网检查已分层：
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -m slow -q
-.\.venv\Scripts\python.exe -m pytest -m network -q
-```
-
-执行候选研究（仅在任务明确要求重新研究时）：
-
-```powershell
-.\.venv\Scripts\python.exe scripts\run_research.py
-```
+测试不执行实时联网请求或完整历史研究。正式研究必须通过 `scripts/run_experiment.py` 运行并形成受Git跟踪的实验档案。
 
 实验目录自动使用 `experiments/<MMDD>_EXX` 的下一个同日编号，不覆盖、不回填，日期变化后从EX01重新开始。脚本会返回实际 `experiment_dir`；完成后必须提交该目录。
 
@@ -332,7 +303,7 @@ git status --short
 2. 增加整数份额、可配置滑点和成交额容量约束，并保留与当前研究口径的对照结果。
 3. 对84次未知CZSC类别生成分类清单，确认语义后决定是否增加显式映射。
 4. 在不查看目标结果的前提下扩展到其他ETF，检验规则迁移能力。
-5. 如需重构，将 `walk_forward.py` 更名或拆分为固定规则选择模块；重构前必须建立当前规则、订单和指标的可复现回归基准。
+5. 每轮只预注册一个可证伪假设，失败结果与完整候选同样纳入Git档案。
 
 不得把“继续提高既有样本内收益”作为首要后续目标。
 
@@ -345,7 +316,7 @@ git status --short
 3. 运行 `git status --short`，保护用户已有修改。
 4. 确认当前分支和 `master` 基线；轻量级修改可在 `master` 完成，重量级开发和研究使用本地分支。
 5. 先阅读受Git跟踪的基线注册表、规则文件、行情manifest和validation；不要寻找或依赖历史 `outputs/`。
-6. 修改前先写失败测试；修改后运行默认快速测试。只有修改候选研究逻辑时才额外运行 `-m slow`，实时数据权限检查使用 `-m network`。
+6. 修改前先写失败测试；修改后运行唯一的默认测试命令。
 7. 只有任务需要时才重新运行研究或回测，并使用命令本次返回的 `output_dir`；不得预设R编号。
 8. 检查每笔订单的 `factor_event_id`，尤其关注周期首日 `InitialEntry`。
 9. 确认没有重新引入收益、基准或日期触发的仓位覆盖。

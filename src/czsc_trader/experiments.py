@@ -15,7 +15,7 @@ from .baselines import resolve_baseline
 from .data import load_market_data
 from .factors import generate_factor_frame
 from .objectives import TARGET_PERIODS
-from .walk_forward import FACTOR_COLUMNS, Rule, build_factor_events
+from .rules import FACTOR_COLUMNS, Rule, build_factor_events
 
 
 RESEARCH_CUTOFF = pd.Timestamp("2025-12-31")

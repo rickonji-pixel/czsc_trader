@@ -10,7 +10,7 @@ from czsc_trader.experiments import (
     rank_challengers,
     window_passes,
 )
-from czsc_trader.walk_forward import Rule
+from czsc_trader.rules import Rule
 
 
 CHAMPION = Rule((0.3, 0.3, 0.4), 0.15, 0.0, 1, 1)

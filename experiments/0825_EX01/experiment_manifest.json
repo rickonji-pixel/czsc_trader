@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0825_EX01",
+  "date": "2026-08-25",
+  "status": "FAIL",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "research_baseline": {
+    "experiment": "0824_EX04",
+    "file": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "source_experiment": "0824_EX08",
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": true,
+  "frozen_candidates_sha256": "431e251547fec1172e0b3a7415cfd2c2bb7ed0e62a8ea2c359862df0d56fb1ef",
+  "files": {
+    "01_goal.md": {
+      "bytes": 854,
+      "sha256": "f4e52a3860e1ecf4f7c1bc53cd902b99a6a8edf8d8bd9a9cbae463854ccdd4d7"
+    },
+    "02_design.md": {
+      "bytes": 1335,
+      "sha256": "1b23e5f77e870ec47cd04e61f61890d4ec65ea877d481f8dbd77f6be68df8770"
+    },
+    "03_execution.md": {
+      "bytes": 495,
+      "sha256": "ab8eca982503b1960a0533dc3d2f95cc08836c8d33e8d0bfaf7d550983858bd9"
+    },
+    "04_conclusion.md": {
+      "bytes": 1927,
+      "sha256": "795a4e64ff3f383d075daf5b976da2309d673138463b949156427a4e4a1e8312"
+    },
+    "artifacts/causal_audits.json": {
+      "bytes": 966,
+      "sha256": "de6d7747cd19c6ecac7283933fdb83d3da1040616bf0bd32ed5b69b68e8f5d94"
+    },
+    "artifacts/frozen_candidates.json": {
+      "bytes": 17954,
+      "sha256": "191ad4c178d2a346a7af393ea9e56268c824de6877329508b132337a6cb71130"
+    },
+    "artifacts/holdout_metrics.json": {
+      "bytes": 28581,
+      "sha256": "297c17e85af85d74d25196eb7ee6382b83e82977981bb9a067def83a7cb7dd25"
+    },
+    "artifacts/holdout_ranking.csv": {
+      "bytes": 659,
+      "sha256": "fa9c750c5e72f8fd11a974fd13f105200b3381e7313c516ca8bc90a791831026"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 24905,
+      "sha256": "b1f541a2c92547fb706666306565570bfd718707636b8a446b798dde37183064"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1766,
+      "sha256": "d513bc4a89c03716627541e1bf557caf863af23ca98bca727986eed33286fce1"
+    },
+    "artifacts/selection_rule_top3.csv": {
+      "bytes": 845,
+      "sha256": "48ce2819b5d769a8be1c1eb4b14782f515fb67be2fa1bdad001ae855e121774e"
+    },
+    "artifacts/study_summary.json": {
+      "bytes": 444,
+      "sha256": "ad318b44395724487b9f6700f908ff7fa8e6f5269844b4f229d91bfbaf9d4552"
+    },
+    "implementation_plan.md": {
+      "bytes": 815,
+      "sha256": "06497b8c79284f8532b8f68c2a0f068233eef60d824e91fb623a8969e86423d4"
+    }
+  }
+}

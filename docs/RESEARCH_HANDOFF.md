@@ -4,7 +4,7 @@
 >
 > 不得假定新会话与上一会话位于同一台设备、同一绝对路径，或保留任何未提交文件。不得依赖历史 `outputs/`、本地SQLite数据库、虚拟环境和终端输出。研究事实只以Git跟踪的源码、配置、`data/raw/*_manifest.json`、`data/raw/*_validation.json` 和 `experiments/MMDD_EXX/` 为准。`outputs/`只用于普通回测输出，不是研究档案；需要结果时必须在当前设备重新运行，并使用命令实际返回的目录。
 
-本文档记录截至 **2026-08-25 / EX08** 的可接力状态。新会话应先验证仓库当前状态，不能把本文中的分支或提交描述当成未经核验的实时事实。
+本文档记录截至 **2026-08-25 / 0825_EX01** 的可接力状态。新会话应先验证仓库当前状态，不能把本文中的分支或提交描述当成未经核验的实时事实。
 
 ## 1. 当前目标与两个基线
 
@@ -90,7 +90,7 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 
 候选身份以 `experiments/0824_EX06/artifacts/factor_candidates.csv` 及其协议哈希为准。
 
-## 4. EX01—EX08研究进度
+## 4. 0824_EX01—0825_EX01研究进度
 
 每轮实验的完整事实均位于 `experiments/<实验编号>/`：
 
@@ -111,6 +111,7 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 | EX06 | 因子缺陷修复 | 事件感知候选、91因子、Joblib并行搜索 | FAIL；候选空间更合理，但搜索结果未超过EX05 |
 | EX07 | 搜索算法实验 | 固定EX06的91候选，用Optuna联合搜索子集、权重和阈值 | FAIL；608个Trial中没有新Trial超过EX04 |
 | EX08 | 搜索深度/执行效率实验 | EX07同一搜索空间与TPE配置，改为纯内存并固定完成4096个Trial | FAIL；最佳仍为Trial 0（EX04），没有新方案超过EX04 |
+| 0825_EX01 | EX08输出补测 | 三套规则各取Top 3，共8个唯一Trial，冻结后批量执行一次2026验收 | FAIL；8项全部未能在三个窗口严格超过EX04，审计全部PASS |
 
 ### 4.1 EX07最终证据
 
@@ -164,6 +165,33 @@ experiments/0824_EX08/artifacts/causal_audit.json
 
 EX04/EX06协议输入与EX08冻结文件的研究身份哈希使用固定CRLF检出字节；`.gitattributes`已显式固定这些文件的`eol=crlf`。实验清单仍按LF归一化文本计算可移植文件记录，两种哈希用途不同，不得相互替代。
 
+### 4.3 0825_EX01最终证据
+
+本实验没有重跑Optuna，只对EX08已提交的4096个Trial按三套规则重排：
+
+- 稳健优先Top 3：3123、2806、629；
+- 胜出数优先Top 3：2385、2806、2478；
+- 平均收益优先Top 3：3384、1192、2214；
+- Trial 2806重复入选，共冻结8个唯一候选；冻结前未访问2026；
+- 正式补测只加载一次2026行情与因子矩阵，8个候选全部执行Q1、H1、M1-M8三个窗口；
+- 8个候选全部FAIL，因果审计全部PASS；没有候选在三个窗口都严格超过EX04；
+- 2026报告排名第一为Trial 629：Q1收益13.9236%，超过EX04 7.3075个百分点；H1和M1-M8分别落后15.2333和23.4752个百分点；
+- Trial 3123：Q1胜出0.8173个百分点，H1落后0.8959个百分点，M1-M8落后38.0287个百分点；
+- 平均收益优先三项在2026均为0/3窗口胜出，表明样本内平均收益优势外推失败；
+- EX04继续作为研究基线，`baseline_20260823`继续作为通用回测正式基线。
+
+权威文件：
+
+```text
+experiments/0825_EX01/03_execution.md
+experiments/0825_EX01/04_conclusion.md
+experiments/0825_EX01/artifacts/selection_rule_top3.csv
+experiments/0825_EX01/artifacts/frozen_candidates.json
+experiments/0825_EX01/artifacts/holdout_metrics.json
+experiments/0825_EX01/artifacts/holdout_ranking.csv
+experiments/0825_EX01/artifacts/causal_audits.json
+```
+
 ## 5. 代码结构与入口
 
 ### 5.1 稳定用户入口
@@ -186,9 +214,10 @@ EX04/EX06协议输入与EX08冻结文件的研究身份哈希使用固定CRLF检
 | `return_only_runner.py` | EX04收益率单目标搜索 |
 | `factor_discovery.py` / `factor_discovery_runner.py` | EX05—EX06因子生成、事件支持和并行搜索 |
 | `optuna_search.py` / `optuna_runner.py` | EX07—EX08参数投影、ask/evaluate/tell、SQLite/纯内存存储和TPE搜索 |
+| `top3_holdout_runner.py` | 0825_EX01复用EX08 Trial输出进行三规则Top 3冻结与批量2026验收 |
 | `experiment_archive.py` | 实验目录、清单生成和哈希验证 |
 
-EX03—EX08的运行器默认绑定各自实验目录。已有实验是冻结档案，不应为“复现”而直接覆盖运行。若要开展新实验，先创建新的 `MMDD_EXX` 目录并预注册协议，再显式传入 `--experiment-dir`。
+EX03—0825_EX01的运行器默认绑定各自实验目录。已有实验是冻结档案，不应为“复现”而直接覆盖运行。若要开展新实验，先创建新的 `MMDD_EXX` 目录并预注册协议，再显式传入 `--experiment-dir`。
 
 ## 6. 数据状态
 
@@ -294,15 +323,15 @@ EX07—EX08使用现有模块入口，不使用`scripts/run_experiment.py`或另
 
 ## 9. 下一轮研究建议
 
-EX08进一步证明：消除SQLite瓶颈并把同一TPE搜索扩展到4096个Trial后，仍没有突破EX04。下一轮不得继续以“增加同一搜索的Trial数量”为唯一假设。
+EX08证明增加同一搜索的Trial数量没有突破EX04；0825_EX01进一步证明，改用稳健、胜出数或平均收益三套规则挑选Top 3，仍没有候选在2026三个窗口全部超过EX04。下一轮不得继续只改变同一Trial集合的排序规则。
 
 建议先讨论并预注册一个新的EX08假设，优先方向为：
 
-1. 对比EX07 Trial 468与EX08 Trial 3123的失败窗口，定位是特定因子、因子交互、阈值还是maximin目标导致；
+1. 重点诊断为何多项候选只在2026Q1胜出、却在H1与M1-M8明显落后，尤其是持仓状态在Q2—M8的失效机制；
 2. 保留四层架构和严格因果执行，允许根据2020—2025证据调整因子定义或候选构造；
 3. 不用2026选择因子、搜索范围或停止点；
 4. 仍以EX04作为公平研究基线；
-5. 明确新实验是否继续使用maximin收益目标；EX08 Trial 3123已在8个窗口胜出6个，但被最差窗口-0.2356%否决。
+5. 不再把重排EX08既有Trial作为独立研究假设；若继续研究，应改变因子定义、状态表达或策略架构。
 
 这只是下一轮讨论起点，不是已批准协议。新会话不得直接启动EX08或访问2026调参，必须先与用户确认目标和实验设计。
 
@@ -312,7 +341,7 @@ EX08进一步证明：消除SQLite瓶颈并把同一TPE搜索扩展到4096个Tri
 2. 确认仓库根目录、分支、远端和工作区状态。
 3. 从 `registry.json` 区分通用回测基线与EX04研究基线。
 4. 验证588080行情manifest和validation。
-5. 验证EX01—EX08实验清单，不依赖历史outputs。
+5. 验证0824_EX01—0825_EX01实验清单，不依赖历史outputs。
 6. 阅读EX04、EX06、EX07的目标、设计和结论。
 7. 修改前定位对应测试；修改后运行最小相关测试并明确测试范围。
 8. 研究任务先预注册；普通回测只加载冻结规则。
@@ -336,8 +365,9 @@ EX08进一步证明：消除SQLite瓶颈并把同一TPE搜索扩展到4096个Tri
 4. experiments/0824_EX06/{01_goal.md,02_design.md,04_conclusion.md}
 5. experiments/0824_EX07/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md}
 6. experiments/0824_EX08/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md}
+7. experiments/0825_EX01/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md}
 
-重要边界：baseline_20260823是通用回测正式基线；EX04冻结策略只是EX05以后使用的研究基线。EX07已完成608个SQLite Optuna Trial，EX08已完成4096个纯内存Optuna Trial；两轮都没有新方案超过EX04，结论均为FAIL。研究事实只认Git跟踪的experiments档案；outputs只用于当前设备新运行的普通回测。2026约束按单次实验执行：策略冻结前不可访问，冻结后一次验收，不得把验收结果反馈给同轮参数。
+重要边界：baseline_20260823是通用回测正式基线；EX04冻结策略只是EX05以后使用的研究基线。EX07完成608个SQLite Optuna Trial，EX08完成4096个纯内存Optuna Trial；0825_EX01复用EX08输出按三套规则冻结8个唯一候选并统一补测2026。三轮都没有新方案在三个2026窗口全部超过EX04，结论均为FAIL。研究事实只认Git跟踪的experiments档案；outputs只用于当前设备新运行的普通回测。2026约束按单次实验执行：策略冻结前不可访问，冻结后一次验收，不得把验收结果反馈给同轮参数。
 
 默认在master做轻量开发；重量级研究先询问是否新建分支；禁止使用git worktree。保护所有已有修改。只在任务需要时运行回测或研究，并使用命令实际返回的目录。研究结果无论PASS还是FAIL都必须如实归档。实盘账户没有明确成交回报时一律按未成交处理。
 ```

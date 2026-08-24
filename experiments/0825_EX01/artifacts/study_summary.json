@@ -1,0 +1,12 @@
+{
+  "status": "FAIL",
+  "started_at_utc": "2026-08-24T17:12:05.907969+00:00",
+  "finished_at_utc": "2026-08-24T17:12:18.788016+00:00",
+  "execution_commit": "6759ace9e4d1cf0619686d7ddd5b34bfa45c4967",
+  "source_experiment": "0824_EX08",
+  "rule_count": 3,
+  "frozen_unique_trial_count": 8,
+  "frozen_candidates_sha256": "431e251547fec1172e0b3a7415cfd2c2bb7ed0e62a8ea2c359862df0d56fb1ef",
+  "holdout_accessed": true,
+  "holdout_load_count": 1
+}

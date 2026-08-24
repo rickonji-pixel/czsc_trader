@@ -1,228 +1,233 @@
-# 588080 纯 CZSC 绝对收益目标策略：研究规则与会话交接
+# 588080 CZSC策略研究：跨机新会话交接
 
-> **设备与输出约束（最高优先级）**
+> **最高优先级约束：始终按跨设备接力处理。**
 >
-> 不得假定新会话与当前会话运行在同一台设备或仓库位于相同绝对路径。正式研究必须读取受Git跟踪的 `experiments/MMDD_EXX/`，不得依赖本机历史 `outputs/`；`outputs/` 只保存普通回测产物，不受Git跟踪。需要新回测时，在当前设备重新运行并仅使用本次返回的 `output_dir`；需要复核历史研究时，验证实验清单哈希后读取四份研究文档和 `artifacts/`。
+> 不得假定新会话与上一会话位于同一台设备、同一绝对路径，或保留任何未提交文件。不得依赖历史 `outputs/`、本地SQLite数据库、虚拟环境和终端输出。研究事实只以Git跟踪的源码、配置、`data/raw/*_manifest.json`、`data/raw/*_validation.json` 和 `experiments/MMDD_EXX/` 为准。`outputs/`只用于普通回测输出，不是研究档案；需要结果时必须在当前设备重新运行，并使用命令实际返回的目录。
 
-## 0. 研究与通用回测边界
+本文档记录截至 **2026-08-24 / EX07** 的可接力状态。新会话应先验证仓库当前状态，不能把本文中的分支或提交描述当成未经核验的实时事实。
 
-仓库现已增加独立的 A股股票/ETF 固定规则回测链路：
+## 1. 当前目标与两个基线
 
-```text
-prepare_market_data.py → PASS行情清单 → 最新冻结规则基线 → run_backtest.py
-```
+### 1.1 长期研究目标
 
-只保留以下四个功能入口：
+- 标的固定为 `588080.SH`；
+- 历史数据覆盖上市日至2026-08-24；
+- 每轮策略选择只使用不晚于2025-12-31的数据；
+- 冻结策略后才允许读取2026，并在Q1、H1、M1-M8三个窗口验收；
+- 当前挑战目标是三个窗口的收益率都严格高于研究基线；夏普率同时报告，但EX04之后的收益率单目标实验不以夏普判定PASS；
+- 三个窗口必须全部成立，才算整体PASS。
 
-- `scripts/prepare_market_data.py`：获取、后复权并验证 A股股票或ETF行情；
-- `scripts/run_backtest.py`：只加载冻结基线执行固定规则回测；
-- `scripts/run_experiment.py`：执行预注册研究并生成 `experiments/MMDD_EXX/`；
-- `scripts/run_holdout.py`：只对已冻结挑战者执行不可见样本外检验。
+2026不是项目永久不可见的数据。约束粒度是**单次实验**：同一实验内不得依赖2026改进策略；冻结后只做一次2026验收，验收结果不得反馈给本轮参数。启动下一轮实验时，可以知道此前实验结论，但必须重新预注册假设，并且只用2020—2025完成新策略选择。
 
-首个受 Git 跟踪的规则基线是：
+### 1.2 通用回测基线
+
+通用回测默认加载：
 
 ```text
 configs/rule_baselines/baseline_20260823.json
 ```
 
-基线统一命名为 `baseline_YYYYMMDD.json`，同一天只允许一个正式基线。`configs/rule_baselines/registry.json` 的 `latest` 决定通用回测的默认规则；每次回测还会把实际版本、完整规则和哈希写入本次 manifest。基线不能原地修改，研究达到 PASS 也不会自动晋升。
+实际默认版本由 `configs/rule_baselines/registry.json` 的 `latest` 决定。该文件是对任意A股股票/ETF执行固定规则回测时的正式基线，命名规则为 `baseline_YYYYMMDD.json`，不得原地修改。
 
-通用回测命令：
+### 1.3 当前研究基线
 
-```powershell
-.\.venv\Scripts\python.exe scripts\run_backtest.py --symbol 588080.SH --asset etf
-```
-
-未提供 `--targets` 时验收状态为 `N/A`，不套用588080研究目标。固定回测输出仍采用 `outputs/<证券代码>_<MMDD>_RXX`，但不包含候选排行和 `selected_rule.json`。
-
-## 1. 必须遵守的研究目标和硬约束
-
-### 研究目标
-
-以 `588080.SH` 为唯一标的，分别验证：
-
-- 2026Q1；
-- 2026H1；
-- 2026年1月到数据末日 2026-08-21。
-
-绝对收益目标为：2026Q1不低于10.5%，2026H1不低于82.5%，2026M1-M8不低于60.0%。三项同时达到才是整体PASS。Buy & Hold继续报告，但不影响PASS或选优。若约束内无法达到目标，必须如实报告FAIL，禁止通过例外规则强行达标。
-
-### 硬约束
-
-1. 只能读取 `data/raw` 中的 30 分钟、日线和周线历史 K 线。
-2. 所有仓位决策必须直接来自 CZSC 1.0.1 输出的结构或信号。
-3. 因子日 `T` 只能读取不晚于 `T` 收盘的已完成数据，最早在下一交易日开盘成交。
-4. 交易最小粒度为日，只做多或空仓，目标仓位只能是 `0` 或 `1`。
-5. 三个周期分别以 1,000,000 元现金、零持仓启动；首日可以执行上一交易日已经形成且仍有效的 CZSC 因子状态。
-6. 正式回测必须由 vectorbt 1.1.0 完成，并用独立现金/持仓账本复算。
-7. 每笔订单必须有 `factor_event_id`，能够追溯到具体因子快照和仓位变化。
-8. 禁止收益锁定、基准表现触发、季度强制持仓、特殊日期交易或任何非因子仓位覆盖。
-9. 允许查看 2026 结果后调整 CZSC 信号、权重、阈值、入场/离场确认天数、最短持仓和入场门控，但必须标注样本内优化。
-10. 轻量级修改和bugfix默认在 `master` 完成；重量级开发和研究使用本地Git分支。禁止使用 Git worktree。
-
-更完整且受Git跟踪的有效资料见：
-
-- `docs/superpowers/specs/2026-08-23-czsc-only-remediation-design.md`
-- `docs/superpowers/plans/2026-08-23-czsc-only-remediation.md`
-- `docs/baselines/588080_2026_expected.json`
-- `configs/backtest_targets/588080_2026.json`
-
-## 2. 最终策略如何计算
-
-### 2.1 CZSC 原始信号
-
-结构因子输入：
-
-- 30分钟 `cxt_bi_status_V230101`；
-- 30分钟 `cxt_third_buy_V230228`；
-- 日线 `cxt_bi_status_V230101`；
-- 周线 `cxt_bi_status_V230101`；
-- 日线 `cxt_five_bi_V230619`；
-- 日线 `cxt_seven_bi_V230620`。
-
-趋势因子输入：
-
-- 日线5、10、20日 `tas_ma_base_V221101`；
-- 日线 `tas_macd_base_V221028`。
-
-量价位置因子输入：
-
-- 日线 `vol_window_V230731`；
-- 日线 `pressure_support_V240406`。
-
-### 2.2 信号映射
-
-原始 CZSC 类别先映射为 `-1/0/+1`：
-
-- 向上、多头、三买、底背驰、支撑位：`+1`；
-- 向下、空头、顶背驰、压力位：`-1`；
-- 其他、中性、未识别类别：`0`；
-- 成交量排名 N7—N10：`+1`，N1—N3：`-1`，N4—N6：`0`。
-
-每组内部等权平均，得到 `structure`、`trend` 和 `volume_position`，范围限制在 `[-1, 1]`。
-
-### 2.3 最终固定规则
+EX05—EX07使用以下策略作为公平研究基线：
 
 ```text
-factor_score = structure       × 0.30
-             + trend           × 0.30
-             + volume_position × 0.40
+experiments/0824_EX04/artifacts/frozen_challenger.json
 ```
 
-状态机参数：
+EX04是12因子四层架构的局部最优起点，但它没有在2026三个窗口全部超过历史冠军，因此**没有晋升为通用回测基线**。不得混淆：
 
-| 参数 | 值 |
-| --- | ---: |
-| 入场阈值 | 0.15 |
-| 离场阈值 | 0.00 |
-| 入场连续确认 | 1天 |
-| 离场连续确认 | 1天 |
-| 最短持仓 | 3天 |
-| 入场门控 | 无 |
+| 名称 | 用途 | 当前身份 |
+|---|---|---|
+| `baseline_20260823` | 任意标的固定规则回测、历史冠军比较 | 注册表正式基线 |
+| EX04冻结策略 | EX05以后研究挑战的比较对象 | 研究基线，不是注册表基线 |
 
-空仓时，综合分数不低于0.15转为满仓；持仓至少3天后，综合分数不高于0.00转为空仓。当日目标变化在下一交易日开盘执行。
+## 2. 不可违反的回测边界
 
-## 3. 无前视与订单溯源
+1. 行情只能来自 `data/raw` 中已准备并通过验证的30分钟、日线和周线CSV。
+2. A股股票和ETF数据统一使用Tushare后复权价格，复权方式为 `hfq`，因子来源为 `fund_adj`。
+3. 588080的30分钟数据仅对2024年七个已确认的Tushare异常交易日做硬编码成交量修正；日期记录在 `data/raw/588080_manifest.json`。
+4. 因子日 `T` 只能读取不晚于 `T` 收盘的已完成数据，目标仓位最早在下一交易日开盘成交。
+5. 日频只做多或空仓，目标仓位只能是0或1；持仓率不是仓位比例，而是回测窗口中处于满仓状态的交易日占比。
+6. 独立回测窗口从现金和零持仓开始，但首日可执行上一交易日已形成且仍有效的目标仓位，此类订单标记为 `InitialEntry`。
+7. 每笔订单必须包含 `factor_event_id`，并通过目标仓位、事件方向和紧邻下一交易日执行审计。
+8. 禁止收益锁定、基准表现触发、季度强制持仓、特殊日期交易或其他非CZSC仓位覆盖。
+9. 普通回测与研究必须分开：回测只执行冻结规则；研究才允许生成候选、排名和冻结挑战者。
 
-### 信号和成交顺序
+## 3. 当前四层策略架构
+
+当前研究策略统一表示为：
 
 ```text
-T日收盘：生成CZSC信号、三个组因子、综合分数和目标仓位
-T+1交易日开盘：vectorbt按目标仓位成交
-T+1收盘：按收盘价计算当日组合净值
+CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离场阈值
 ```
 
-审计不仅要求 `signal_date < execution_date`，还要求执行日必须是信号日之后紧邻的下一条交易日期。
+原来的“映射层”没有作为独立可优化层存在。类别到 `-1/0/+1` 或状态指示值的转换属于因子定义，避免同一语义在“因子”和“映射”两处重复表达。
 
-### 因子事件类型
+### 3.1 EX04研究基线
 
-- `Entry`：目标仓位从0变为1；
-- `Exit`：目标仓位从1变为0；
-- `InitialEntry`：独立周期从现金启动，但上一交易日的有效因子目标已经为1，因此在周期首日开盘对齐。
+- 非零因子：12项；
+- 因子来自30分钟、日线、周线；
+- 权重L1范数为1；
+- 入场阈值：0.175；
+- 离场阈值：0.025；
+- 当日因子分数产生目标仓位，下一交易日开盘执行。
 
-普通订单必须对应同日同方向的 `Entry` 或 `Exit`；周期首日买入对应 `InitialEntry`。审计还检查订单方向、事件日期、目标仓位变化和事件综合分数。
+完整因子名称、权重和阈值必须从 `experiments/0824_EX04/artifacts/frozen_challenger.json` 读取，不要从本文手工重建。
 
-## 4. 代码结构
+### 3.2 EX06/EX07候选空间
 
-| 文件 | 职责 |
-| --- | --- |
-| `src/czsc_trader/data.py` | 只读加载原始CSV、校验字段/时间/OHLC、跨周期对账和SHA-256 |
-| `src/czsc_trader/factors.py` | 调用CZSC、日末对齐原始信号、映射分数并生成三个组因子 |
-| `src/czsc_trader/rules.py` | 定义固定规则、因子状态机和因子事件 |
-| `src/czsc_trader/backtest.py` | vectorbt次日开盘回测、独立账本、周期独立启动和订单来源绑定 |
-| `src/czsc_trader/audit.py` | 审计目标仓位、订单事件匹配及紧邻下一交易日执行 |
-| `src/czsc_trader/charting.py` | 生成三张离线Plotly日线交互图 |
-| `src/czsc_trader/baselines.py` | 校验、解析和显式晋升不可变规则基线 |
-| `src/czsc_trader/market_data_prep.py` | 获取后规范化、跨周期验证、哈希和安全发布行情 |
-| `src/czsc_trader/backtest_runner.py` | 编排任意标的固定基线回测和证据输出 |
-| `src/czsc_trader/experiments.py` | 编排预注册实验和独立留出集检验 |
-| `src/czsc_trader/experiment_archive.py` | 分配实验编号、生成和验证档案哈希 |
-| `src/czsc_trader/output_paths.py` | 分配普通回测R编号目录 |
-| `scripts/prepare_market_data.py` | A股股票/ETF行情准备入口 |
-| `scripts/run_backtest.py` | 任意已准备标的的固定规则回测入口 |
-| `scripts/run_experiment.py` | 预注册样本内研究入口 |
-| `scripts/run_holdout.py` | 冻结挑战者样本外入口 |
-| `tests/` | 数据、固定规则、成交、审计、图表、实验和档案测试 |
+- 候选总数：91项；
+- 包括连续/类别因子以及低频事件状态；
+- 事件型因子不再因低覆盖率或低激活天数被误删；
+- 日线原始成交量因子强制保留；
+- 至少保留一个EX04原始趋势因子；
+- 非零因子数量限制为6—18；
+- 每项非零绝对权重不低于0.0125；
+- 原始趋势权重合计不低于0.10。
 
-## 5. 单次运行产物说明
+候选身份以 `experiments/0824_EX06/artifacts/factor_candidates.csv` 及其协议哈希为准。
 
-以下文件只会在当前设备实际运行相应命令后生成，不受Git跟踪。新会话不得预设它们已经存在；表中的文件名仅用于说明一次新运行返回的 `output_dir` 可能包含什么。
+## 4. EX01—EX07研究进度
 
-| 文件 | 含义 |
-| --- | --- |
-| `report.md` | 三周期结果、独立指标、审计摘要、规则和局限 |
-| `metrics.json` | 机器可读的三周期指标、整体PASS和审计数据 |
-| `manifest.json` | 数据截止日、原始数据哈希、固定规则、依赖版本和图表清单 |
-| `factors.csv` | 每日目标仓位、综合分数、阈值、三个组因子和全部原始CZSC信号 |
-| `factor_events.csv` | 全历史入场、离场及周期初始对齐事件 |
-| `orders_<周期>.csv` | vectorbt实际订单，含信号日、成交日、价格、费用和事件ID |
-| `equity_<周期>.csv` | 每日收盘、目标/执行仓位、综合分数和组合净值 |
-| `chart_<周期>.html` | 独立离线交互图，含日K、CZSC笔、背驰、因子事件和成交点 |
+每轮实验的完整事实均位于 `experiments/<实验编号>/`：
 
-图表不绘制线段。五笔/七笔背驰在目标周期没有满足条件时不会显示标记，但相应检测层仍存在。
+- `01_goal.md`：目标与PASS边界；
+- `02_design.md`：预注册设计；
+- `03_execution.md`：实际执行过程；
+- `04_conclusion.md`：结论；
+- `experiment_manifest.json`：受跟踪文件哈希和实验元数据；
+- `artifacts/`：协议、候选、指标、订单、审计和冻结策略。
 
-## 6. 环境、运行和验证
+| 实验 | 性质 | 关键变化 | 结论 |
+|---|---|---|---|
+| EX01 | 冠军挑战 | 再入场冷却期与门控 | FAIL；没有冻结挑战者，未访问2026 |
+| EX02 | 诊断归因 | 因子、状态、映射、权重、阈值和状态机反事实 | COMPLETE；不判PASS，不产生挑战者 |
+| EX03 | 架构实验 | 固定冠军12因子，改为四层架构并优化权重/阈值 | FAIL；风险调整表现改善，但2026收益未胜出 |
+| EX04 | 收益单目标 | 固定12因子，优化权重和阈值 | FAIL于历史冠军；其冻结策略被指定为后续研究基线 |
+| EX05 | 因子扩展 | 状态展开，18个非零因子 | FAIL；只在2026H1收益超过EX04 |
+| EX06 | 因子缺陷修复 | 事件感知候选、91因子、Joblib并行搜索 | FAIL；候选空间更合理，但搜索结果未超过EX05 |
+| EX07 | 搜索算法实验 | 固定EX06的91候选，用Optuna联合搜索子集、权重和阈值 | FAIL；608个Trial中没有新Trial超过EX04 |
 
-不得依赖任何设备上的历史绝对路径。进入仓库后先通过以下命令确认实际根目录：
+### 4.1 EX07最终证据
 
-```powershell
-git rev-parse --show-toplevel
+EX07运行2小时后由墙钟上限停止：
+
+- Optuna 4.9.0，固定TPE随机种子；
+- 完成608个Trial，失败0个；
+- Trial 0注入EX04以验证等价性；
+- 总榜第一仍为Trial 0，目标值为0；
+- 最佳新方案Trial 468在八个半年度窗口中胜出5个，平均收益增量为正，但最差窗口收益增量为 -3.2309%，未满足maximin目标；
+- 冻结后才读取2026；由于冻结冠军就是EX04，三个2026窗口均与EX04相同，严格胜出条件全部FAIL；
+- 因果审计PASS。
+
+权威文件：
+
+```text
+experiments/0824_EX07/03_execution.md
+experiments/0824_EX07/04_conclusion.md
+experiments/0824_EX07/artifacts/study_summary.json
+experiments/0824_EX07/artifacts/trial_ranking.csv
+experiments/0824_EX07/artifacts/holdout_metrics.json
+experiments/0824_EX07/artifacts/causal_audit.json
 ```
 
-本仓库不依赖任何设备上的外部CZSC源码目录。直接从 `pyproject.toml` 安装 `czsc==1.0.1`；只有需要研究CZSC内部实现时才另行获取对应版本源码。
+`experiments/0824_EX07/runtime/optuna.db`及SQLite的WAL/SHM/JOURNAL文件只用于运行恢复，已被Git忽略。它们不是研究证据，也不应跨机复制或提交。
 
-核心版本：
+## 5. 代码结构与入口
 
-- Python 3.12；
-- CZSC 1.0.1；
-- vectorbt 1.1.0；
-- pandas 3.0.5；
-- numpy 2.5.2；
-- Plotly 6.9.0。
+### 5.1 稳定用户入口
 
-安装或更新本项目：
+| 入口 | 职责 |
+|---|---|
+| `scripts/prepare_market_data.py` | 从dataflows/Tushare获取、后复权、验证并发布A股股票或ETF行情 |
+| `scripts/run_backtest.py` | 对任意已准备证券执行冻结基线回测 |
+| `scripts/run_experiment.py` | 运行早期预注册冠军挑战或EX02归因协议 |
+| `scripts/run_holdout.py` | 对受跟踪且已冻结的挑战者执行独立2026检验 |
+
+普通回测输出目录固定为 `outputs/<证券代码>_<MMDD>_RXX`。未提供收益目标时只输出指标，验收状态为 `N/A`。
+
+### 5.2 研究实现模块
+
+| 模块 | 职责 |
+|---|---|
+| `attribution.py` / `attribution_runner.py` | EX02冠军归因 |
+| `four_layer.py` / `four_layer_runner.py` | EX03四层等价架构与权重阈值搜索 |
+| `return_only_runner.py` | EX04收益率单目标搜索 |
+| `factor_discovery.py` / `factor_discovery_runner.py` | EX05—EX06因子生成、事件支持和并行搜索 |
+| `optuna_search.py` / `optuna_runner.py` | EX07参数投影、ask/evaluate/tell、SQLite恢复和TPE搜索 |
+| `experiment_archive.py` | 实验目录、清单生成和哈希验证 |
+
+EX03—EX07的运行器默认绑定各自实验目录。已有实验是冻结档案，不应为“复现”而直接覆盖运行。若要开展新实验，先创建新的 `MMDD_EXX` 目录并预注册协议，再显式传入 `--experiment-dir`。
+
+## 6. 数据状态
+
+588080受跟踪行情覆盖：
+
+- 起点：2020-11-16（上市日）；
+- 当前数据末日：2026-08-24；
+- 频率：30分钟、日线、周线；
+- 复权：后复权 `hfq`；
+- 当前验证：`data/raw/588080_validation.json` 为PASS。
+
+新设备必须读取以下文件确认实时状态，不要仅相信本文日期：
+
+```text
+data/raw/588080_manifest.json
+data/raw/588080_validation.json
+```
+
+仓库还保存159352、159516、515050的已准备数据，可用于普通基线回测；588080仍是当前策略研究唯一锚定标的。
+
+## 7. 新设备恢复步骤
+
+### 7.1 克隆与环境
 
 ```powershell
-cd <仓库克隆目录>
+git clone https://github.com/tomxiao/czsc_trader.git
+cd czsc_trader
+git switch master
+git pull --ff-only origin master
+py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe -m pip check
 ```
 
-唯一测试命令：
+关键依赖以 `pyproject.toml` 为准，当前包括：
+
+- Python >= 3.12；
+- CZSC 1.0.1；
+- vectorbt 1.1.0；
+- Plotly 6.9.0；
+- Joblib 1.5.3；
+- Optuna 4.9.0。
+
+SQLite由Python标准库提供，不需要单独安装。
+
+### 7.2 接手前核验
 
 ```powershell
+git rev-parse --show-toplevel
+git status --short --branch
+git log -5 --oneline --decorate
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m compileall -q src tests scripts
 git diff --check
 ```
 
-测试不执行实时联网请求或完整历史研究。正式研究必须通过 `scripts/run_experiment.py` 运行并形成受Git跟踪的实验档案。
+完整测试耗时较长。日常开发按变更范围运行最小测试；合并研究框架或高风险改动时再扩大验证。不得把“未运行完整测试”等价表述为“完整测试通过”。
 
-实验目录自动使用 `experiments/<MMDD>_EXX` 的下一个同日编号，不覆盖、不回填，日期变化后从EX01重新开始。脚本会返回实际 `experiment_dir`；完成后必须提交该目录。
+### 7.3 验证实验档案
 
-每轮实验固定保存 `01_goal.md`、`02_design.md`、`03_execution.md`、`04_conclusion.md`、`experiment_manifest.json` 和 `artifacts/`。完整候选、协议和机器指标必须保留，失败研究不得只报告最佳候选。
+```powershell
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [validate_experiment_archive(p) for p in sorted(Path('experiments').iterdir()) if p.is_dir()]; print('experiment archives: PASS')"
+```
 
-复现当前588080冻结基线（不执行候选搜索、不修改基线）：
+该命令只验证Git档案完整性，不重新执行耗时研究。
+
+### 7.4 普通回测示例
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_backtest.py `
@@ -231,108 +236,65 @@ git diff --check
   --targets configs\backtest_targets\588080_2026.json
 ```
 
-### 新设备复现流程
+必须读取命令本次返回的 `output_dir`。不得假设新设备存在历史 `588080_0823_RXX` 目录。
 
-新会话应始终按“新设备”处理：
+## 8. Git与研究工作流
 
-```powershell
-git clone git@github.com:tomxiao/czsc_trader.git
-cd czsc_trader
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[test]"
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe scripts\run_backtest.py `
-  --symbol 588080.SH --asset etf `
-  --baseline baseline_20260823 `
-  --targets configs\backtest_targets\588080_2026.json
-```
+1. 默认在 `master` 做轻量修改和bugfix。
+2. 重量级开发或正式研究先询问用户是否新建分支；禁止使用Git worktree。
+3. 开工前检查并保护用户已有修改。
+4. 实验目录按 `MMDD_EXX` 命名；日期变化后编号从EX01重新开始，同一天单调递增。
+5. 每轮只研究一个可证伪假设，先冻结目标、数据边界、候选空间、排序和停止条件。
+6. 2026解封后不得在同轮实验内二次调参。
+7. PASS、FAIL、ERROR和诊断实验均须保留完整档案并纳入Git。
+8. `outputs/`和运行态SQLite不得纳入研究提交。
+9. 合并和推送后比较本地 `master` 与 `origin/master` SHA。
 
-然后执行以下核对：
+## 9. 下一轮研究建议
 
-1. 读取脚本返回的 `output_dir`，不要假设目录名；
-2. 将其中 `baseline_rule.json` 与便携快照的 `baseline.rule` 比较，并核对注册表中的版本和规范化哈希；
-3. 将 `metrics.json` 的 `acceptance_status`、`windows` 和 `audit` 与便携快照比较；
-4. 将 `manifest.json` 的行情哈希、数据截止日、周期和依赖版本与便携快照比较；
-5. 确认便携基线 `required_artifacts` 中的每个文件都已生成；
-6. 浮点指标应按 `1e-12` 绝对容差核对，依赖版本不同造成差异时必须记录并重新验证，不能直接覆盖基线。
+EX07证明：仅把贪心搜索替换为Optuna，并在固定91因子候选空间内联合搜索，没有突破EX04。下一轮不宜无条件增加Trial数量并重复同一目标。
 
-## 7. Git状态和开发流程
+建议先讨论并预注册一个新的EX08假设，优先方向为：
 
-开始工作前：
+1. 诊断Trial 468在哪三个半年度窗口失效，定位是特定因子、因子交互还是阈值导致的最差窗口；
+2. 保留四层架构和严格因果执行，允许根据2020—2025证据调整因子定义或候选构造；
+3. 不用2026选择因子、搜索范围或停止点；
+4. 仍以EX04作为公平研究基线；
+5. 明确新实验是否继续使用maximin收益目标，避免搜索器被单个异常窗口完全支配。
 
-```powershell
-git switch master
-git status --short
-```
+这只是下一轮讨论起点，不是已批准协议。新会话不得直接启动EX08或访问2026调参，必须先与用户确认目标和实验设计。
 
-轻量级修改和bugfix默认直接使用 `master`。重量级开发或研究才创建本地分支，例如 `git switch -c research/<任务名称>`。禁止运行 `git worktree add`，也不要未经确认清理任何已有工作目录。
+## 10. 新会话接手清单
 
-交付、提交和推送以效率优先，默认运行与变更直接相关的最小测试；高风险或研究逻辑变更再扩大验证范围。推送后比较本地与远端SHA。
+1. 完整阅读本文。
+2. 确认仓库根目录、分支、远端和工作区状态。
+3. 从 `registry.json` 区分通用回测基线与EX04研究基线。
+4. 验证588080行情manifest和validation。
+5. 验证EX01—EX07实验清单，不依赖历史outputs。
+6. 阅读EX04、EX06、EX07的目标、设计和结论。
+7. 修改前定位对应测试；修改后运行最小相关测试并明确测试范围。
+8. 研究任务先预注册；普通回测只加载冻结规则。
+9. 实盘账户状态与回测状态完全分离；没有明确成交回报时一律按未成交处理。
+10. 所有结果明确标注样本选择期、冻结点、2026访问时点和PASS定义。
 
-## 8. 已知局限与风险
-
-1. 基线规则主要来自单一ETF和有限历史，无法证明跨标的、跨市场或跨周期稳健性。
-2. 规则由2026目标周期结果选择，存在样本内过拟合风险。
-3. 候选空间较大，目标仓位去重和样本内选优仍不能消除过拟合风险。
-4. 未识别CZSC类别共84次，统一按中性0分处理；增加映射前必须逐类验证含义。
-5. 回测允许按资金比例持有小数份额，适合研究比较，不等同于真实交易中的整数份额约束。
-6. 单边成本固定为0.05%，没有单独建立随流动性变化的滑点模型。
-7. 任何本地研究或回测都不是投资建议或未来收益承诺。
-
-## 9. 建议的后续工作
-
-### 2020—2025冠军—挑战者研究协议
-
-本轮已完成档案：`experiments/0824_EX01/`。结论为FAIL，冠军保持 `baseline_20260823`，未生成冻结挑战者，未访问2026留出集。
-
-下一轮研究仍只锚定588080，冠军固定为 `baseline_20260823`。研究代码在打开年度CSV前排除2026文件，只允许使用上市日至2025-12-31的数据。第一项实验只改变离场后的再入场冷却期与门控，共20个预声明组合；其他冠军参数保持不变。
-
-内部验证窗口为2023、2024和2025三个完整年度。单窗口PASS严格定义为挑战者收益率高于冠军且挑战者夏普率高于冠军；三个窗口全部PASS才冻结挑战者。最大回撤、成本、换手、持仓比例和交易次数只报告，不影响PASS或候选排序。
-
-研究入口：
-
-```powershell
-.\.venv\Scripts\python.exe scripts\run_experiment.py
-```
-
-只有受Git跟踪并已提交的冻结挑战者才允许通过 `scripts/run_holdout.py` 读取2026。2026Q1、2026H1和2026M1-M8也必须全部同时满足收益率与夏普率严格高于冠军。测试程序不重新搜索参数，也不自动晋升基线。
-
-优先级从高到低：
-
-1. 获取2026-08-21之后的新数据，冻结当前规则后进行真正样本外验证；新数据进入前不得再调整规则。
-2. 增加整数份额、可配置滑点和成交额容量约束，并保留与当前研究口径的对照结果。
-3. 对84次未知CZSC类别生成分类清单，确认语义后决定是否增加显式映射。
-4. 在不查看目标结果的前提下扩展到其他ETF，检验规则迁移能力。
-5. 每轮只预注册一个可证伪假设，失败结果与完整候选同样纳入Git档案。
-
-不得把“继续提高既有样本内收益”作为首要后续目标。
-
-## 10. 新会话接手检查清单
-
-新会话开始后依次执行：
-
-1. 阅读本文件和纯CZSC合规设计文档。
-2. 用 `git rev-parse --show-toplevel` 确认当前仓库根目录，不假定任何绝对路径。
-3. 运行 `git status --short`，保护用户已有修改。
-4. 确认当前分支和 `master` 基线；轻量级修改可在 `master` 完成，重量级开发和研究使用本地分支。
-5. 先阅读受Git跟踪的基线注册表、规则文件、行情manifest和validation；不要寻找或依赖历史 `outputs/`。
-6. 修改前先写失败测试；修改后运行唯一的默认测试命令。
-7. 只有任务需要时才重新运行研究或回测，并使用命令本次返回的 `output_dir`；不得预设R编号。
-8. 检查每笔订单的 `factor_event_id`，尤其关注周期首日 `InitialEntry`。
-9. 确认没有重新引入收益、基准或日期触发的仓位覆盖。
-10. 结果必须明确区分样本内优化和样本外验证。
-
-## 11. 可直接复制给新会话的提示词
+## 11. 可复制给新会话的提示词
 
 ```text
-请接手当前Git仓库中的588080纯CZSC多因子研究。不要假设仓库位于特定绝对路径；先运行 git rev-parse --show-toplevel 确认仓库根目录。
+请接手当前Git仓库中的588080 CZSC策略研究。请始终按跨设备新会话处理，不要假设任何绝对路径、历史outputs、虚拟环境、SQLite运行库或未提交文件存在。
 
-开始前完整阅读：
+先执行只读检查：
+1. git rev-parse --show-toplevel
+2. git status --short --branch
+3. git log -5 --oneline --decorate
+
+然后完整阅读：
 1. docs/RESEARCH_HANDOFF.md
-2. docs/superpowers/specs/2026-08-23-czsc-only-remediation-design.md
-3. configs/rule_baselines/registry.json 与其中登记的规则文件
+2. configs/rule_baselines/registry.json
+3. experiments/0824_EX04/{01_goal.md,02_design.md,04_conclusion.md}
+4. experiments/0824_EX06/{01_goal.md,02_design.md,04_conclusion.md}
+5. experiments/0824_EX07/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md}
 
-当前有效基线是注册表登记的纯CZSC固定策略。不得假定任何历史outputs、R编号或本机产物存在；只有当前任务需要结果时才重新运行相应命令，并使用该次命令返回的actual output_dir。禁止重新引入收益锁定或任何非CZSC仓位覆盖。每笔订单必须对应factor_event_id，并在信号后的紧邻下一交易日开盘执行。
+重要边界：baseline_20260823是通用回测正式基线；EX04冻结策略只是EX05以后使用的研究基线。EX07已完成608个Optuna Trial但没有新方案超过EX04，结论FAIL。研究事实只认Git跟踪的experiments档案；outputs只用于当前设备新运行的普通回测。2026约束按单次实验执行：策略冻结前不可访问，冻结后一次验收，不得把验收结果反馈给同轮参数。
 
-禁止使用git worktree，保护所有已有未提交修改。轻量级修改和bugfix默认使用master，重量级开发和研究使用本地分支。完成后默认运行与改动直接相关的最小测试；研究结果无论PASS或FAIL都必须如实报告，样本内优化不得声称是样本外验证。
+默认在master做轻量开发；重量级研究先询问是否新建分支；禁止使用git worktree。保护所有已有修改。只在任务需要时运行回测或研究，并使用命令实际返回的目录。研究结果无论PASS还是FAIL都必须如实归档。实盘账户没有明确成交回报时一律按未成交处理。
 ```

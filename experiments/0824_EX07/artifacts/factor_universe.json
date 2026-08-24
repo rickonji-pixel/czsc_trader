@@ -1,0 +1,1097 @@
+{
+  "mode": "discovery",
+  "base_factor_count": 12,
+  "raw_signal_count": 25,
+  "state_factor_count": 75,
+  "interaction_count": 4,
+  "factor_count": 91,
+  "deduplicated_state_count": 0,
+  "states": [
+    {
+      "factor": "state__raw__30m__cxt_bi_status_V230101::向上",
+      "raw_signal": "raw__30m__cxt_bi_status_V230101",
+      "primary": "向上",
+      "factor_kind": "state",
+      "coverage": 0.9502407704654896,
+      "active_days": 505,
+      "active_ratio": 0.40529695024077045,
+      "status": "candidate",
+      "canonical_factor": "state__raw__30m__cxt_bi_status_V230101::向上"
+    },
+    {
+      "factor": "state__raw__30m__cxt_bi_status_V230101::向下",
+      "raw_signal": "raw__30m__cxt_bi_status_V230101",
+      "primary": "向下",
+      "factor_kind": "state",
+      "coverage": 0.9502407704654896,
+      "active_days": 679,
+      "active_ratio": 0.5449438202247191,
+      "status": "candidate",
+      "canonical_factor": "state__raw__30m__cxt_bi_status_V230101::向下"
+    },
+    {
+      "factor": "state__raw__30m__cxt_third_buy_V230228__di_1::三买",
+      "raw_signal": "raw__30m__cxt_third_buy_V230228__di_1",
+      "primary": "三买",
+      "factor_kind": "event",
+      "coverage": 0.9502407704654896,
+      "active_days": 100,
+      "active_ratio": 0.08025682182985554,
+      "status": "candidate",
+      "canonical_factor": "state__raw__30m__cxt_third_buy_V230228__di_1::三买",
+      "independent_events": 68,
+      "years": [
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "half_year_windows": [
+        "2021H1",
+        "2021H2",
+        "2022H1",
+        "2022H2",
+        "2023H1",
+        "2023H2",
+        "2024H1",
+        "2024H2",
+        "2025H1",
+        "2025H2"
+      ]
+    },
+    {
+      "factor": "state__raw__30m__cxt_third_buy_V230228__di_1::其他",
+      "raw_signal": "raw__30m__cxt_third_buy_V230228__di_1",
+      "primary": "其他",
+      "factor_kind": "state",
+      "coverage": 0.9502407704654896,
+      "active_days": 1084,
+      "active_ratio": 0.869983948635634,
+      "status": "candidate",
+      "canonical_factor": "state__raw__30m__cxt_third_buy_V230228__di_1::其他"
+    },
+    {
+      "factor": "state__raw__daily__bar_accelerate_V221110__di_1::上涨",
+      "raw_signal": "raw__daily__bar_accelerate_V221110__di_1",
+      "primary": "上涨",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 32,
+      "active_ratio": 0.025682182985553772,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__bar_accelerate_V221110__di_1::上涨"
+    },
+    {
+      "factor": "state__raw__daily__bar_trend_V240209__di_1::其他",
+      "raw_signal": "raw__daily__bar_trend_V240209__di_1",
+      "primary": "其他",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 917,
+      "active_ratio": 0.7359550561797753,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__bar_trend_V240209__di_1::其他"
+    },
+    {
+      "factor": "state__raw__daily__bar_trend_V240209__di_1::多头",
+      "raw_signal": "raw__daily__bar_trend_V240209__di_1",
+      "primary": "多头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 119,
+      "active_ratio": 0.09550561797752809,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__bar_trend_V240209__di_1::多头"
+    },
+    {
+      "factor": "state__raw__daily__bar_trend_V240209__di_1::空头",
+      "raw_signal": "raw__daily__bar_trend_V240209__di_1",
+      "primary": "空头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 180,
+      "active_ratio": 0.14446227929373998,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__bar_trend_V240209__di_1::空头"
+    },
+    {
+      "factor": "state__raw__daily__bar_zdf_V221203__di_1::满足",
+      "raw_signal": "raw__daily__bar_zdf_V221203__di_1",
+      "primary": "满足",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 40,
+      "active_ratio": 0.03210272873194221,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__bar_zdf_V221203__di_1::满足"
+    },
+    {
+      "factor": "state__raw__daily__cxt_bi_base_V230228__di_1::向上",
+      "raw_signal": "raw__daily__cxt_bi_base_V230228__di_1",
+      "primary": "向上",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 597,
+      "active_ratio": 0.47913322632423755,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_bi_base_V230228__di_1::向上"
+    },
+    {
+      "factor": "state__raw__daily__cxt_bi_base_V230228__di_1::向下",
+      "raw_signal": "raw__daily__cxt_bi_base_V230228__di_1",
+      "primary": "向下",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 604,
+      "active_ratio": 0.48475120385232745,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_bi_base_V230228__di_1::向下"
+    },
+    {
+      "factor": "state__raw__daily__cxt_bi_end_V230222__di_1::其他",
+      "raw_signal": "raw__daily__cxt_bi_end_V230222__di_1",
+      "primary": "其他",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 719,
+      "active_ratio": 0.5770465489566613,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_bi_end_V230222__di_1::其他"
+    },
+    {
+      "factor": "state__raw__daily__cxt_bi_end_V230222__di_1::新低",
+      "raw_signal": "raw__daily__cxt_bi_end_V230222__di_1",
+      "primary": "新低",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 252,
+      "active_ratio": 0.20224719101123595,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_bi_end_V230222__di_1::新低"
+    },
+    {
+      "factor": "state__raw__daily__cxt_bi_end_V230222__di_1::新高",
+      "raw_signal": "raw__daily__cxt_bi_end_V230222__di_1",
+      "primary": "新高",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 245,
+      "active_ratio": 0.19662921348314608,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_bi_end_V230222__di_1::新高"
+    },
+    {
+      "factor": "state__raw__daily__cxt_bi_status_V230101::向上",
+      "raw_signal": "raw__daily__cxt_bi_status_V230101",
+      "primary": "向上",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 542,
+      "active_ratio": 0.434991974317817,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_bi_status_V230101::向上"
+    },
+    {
+      "factor": "state__raw__daily__cxt_bi_status_V230101::向下",
+      "raw_signal": "raw__daily__cxt_bi_status_V230101",
+      "primary": "向下",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 659,
+      "active_ratio": 0.528892455858748,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_bi_status_V230101::向下"
+    },
+    {
+      "factor": "state__raw__daily__cxt_first_buy_V221126__di_1::一买",
+      "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+      "primary": "一买",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 81,
+      "active_ratio": 0.06500802568218299,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_first_buy_V221126__di_1::一买",
+      "independent_events": 17,
+      "years": [
+        2022,
+        2023,
+        2025
+      ],
+      "half_year_windows": [
+        "2022H1",
+        "2023H1",
+        "2023H2",
+        "2025H1"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_first_sell_V221126__di_1::一卖",
+      "raw_signal": "raw__daily__cxt_first_sell_V221126__di_1",
+      "primary": "一卖",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 56,
+      "active_ratio": 0.0449438202247191,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_first_sell_V221126__di_1::一卖",
+      "independent_events": 11,
+      "years": [
+        2021,
+        2023,
+        2025
+      ],
+      "half_year_windows": [
+        "2021H2",
+        "2023H1",
+        "2025H1",
+        "2025H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::aAb式底背驰",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "aAb式底背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 64,
+      "active_ratio": 0.051364365971107544,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::aAb式底背驰",
+      "independent_events": 13,
+      "years": [
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "half_year_windows": [
+        "2022H1",
+        "2023H1",
+        "2023H2",
+        "2024H2",
+        "2025H1",
+        "2025H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::aAb式顶背驰",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "aAb式顶背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 24,
+      "active_ratio": 0.019261637239165328,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::aAb式顶背驰",
+      "independent_events": 6,
+      "years": [
+        2021,
+        2022,
+        2023,
+        2025
+      ],
+      "half_year_windows": [
+        "2021H2",
+        "2022H1",
+        "2023H1",
+        "2025H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::上颈线突破",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "上颈线突破",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 72,
+      "active_ratio": 0.05778491171749599,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::上颈线突破"
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::下颈线突破",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "下颈线突破",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 92,
+      "active_ratio": 0.0738362760834671,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::下颈线突破"
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::其他",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "其他",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 856,
+      "active_ratio": 0.6869983948635634,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::其他"
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::类三买",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "类三买",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 27,
+      "active_ratio": 0.021669341894060994,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::类三买",
+      "independent_events": 6,
+      "years": [
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "half_year_windows": [
+        "2021H2",
+        "2022H2",
+        "2023H1",
+        "2024H2",
+        "2025H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::类三卖",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "类三卖",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 51,
+      "active_ratio": 0.040930979133226325,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::类三卖",
+      "independent_events": 15,
+      "years": [
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "half_year_windows": [
+        "2021H1",
+        "2021H2",
+        "2022H1",
+        "2022H2",
+        "2023H2",
+        "2024H1"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::类趋势底背驰",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "类趋势底背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 17,
+      "active_ratio": 0.013643659711075442,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::类趋势底背驰",
+      "independent_events": 4,
+      "years": [
+        2022,
+        2023
+      ],
+      "half_year_windows": [
+        "2022H1",
+        "2023H1",
+        "2023H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_five_bi_V230619__di_1::类趋势顶背驰",
+      "raw_signal": "raw__daily__cxt_five_bi_V230619__di_1",
+      "primary": "类趋势顶背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 13,
+      "active_ratio": 0.01043338683788122,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_five_bi_V230619__di_1::类趋势顶背驰",
+      "independent_events": 5,
+      "years": [
+        2021,
+        2025
+      ],
+      "half_year_windows": [
+        "2021H2",
+        "2025H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_fx_power_V221107__di_1::中底",
+      "raw_signal": "raw__daily__cxt_fx_power_V221107__di_1",
+      "primary": "中底",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 189,
+      "active_ratio": 0.15168539325842698,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_fx_power_V221107__di_1::中底"
+    },
+    {
+      "factor": "state__raw__daily__cxt_fx_power_V221107__di_1::中顶",
+      "raw_signal": "raw__daily__cxt_fx_power_V221107__di_1",
+      "primary": "中顶",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 272,
+      "active_ratio": 0.21829855537720708,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_fx_power_V221107__di_1::中顶"
+    },
+    {
+      "factor": "state__raw__daily__cxt_fx_power_V221107__di_1::弱底",
+      "raw_signal": "raw__daily__cxt_fx_power_V221107__di_1",
+      "primary": "弱底",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 157,
+      "active_ratio": 0.1260032102728732,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_fx_power_V221107__di_1::弱底"
+    },
+    {
+      "factor": "state__raw__daily__cxt_fx_power_V221107__di_1::弱顶",
+      "raw_signal": "raw__daily__cxt_fx_power_V221107__di_1",
+      "primary": "弱顶",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 194,
+      "active_ratio": 0.15569823434991975,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_fx_power_V221107__di_1::弱顶"
+    },
+    {
+      "factor": "state__raw__daily__cxt_fx_power_V221107__di_1::强底",
+      "raw_signal": "raw__daily__cxt_fx_power_V221107__di_1",
+      "primary": "强底",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 224,
+      "active_ratio": 0.1797752808988764,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_fx_power_V221107__di_1::强底"
+    },
+    {
+      "factor": "state__raw__daily__cxt_fx_power_V221107__di_1::强顶",
+      "raw_signal": "raw__daily__cxt_fx_power_V221107__di_1",
+      "primary": "强顶",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 180,
+      "active_ratio": 0.14446227929373998,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_fx_power_V221107__di_1::强顶"
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::aAbcd式底背驰",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "aAbcd式底背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 14,
+      "active_ratio": 0.011235955056179775,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::aAbcd式底背驰",
+      "independent_events": 3,
+      "years": [
+        2022,
+        2023
+      ],
+      "half_year_windows": [
+        "2022H1",
+        "2023H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::aAbcd式顶背驰",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "aAbcd式顶背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 5,
+      "active_ratio": 0.0040128410914927765,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::aAbcd式顶背驰",
+      "independent_events": 1,
+      "years": [
+        2021
+      ],
+      "half_year_windows": [
+        "2021H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::aAb式底背驰",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "aAb式底背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 22,
+      "active_ratio": 0.01765650080256822,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::aAb式底背驰",
+      "independent_events": 8,
+      "years": [
+        2023,
+        2024
+      ],
+      "half_year_windows": [
+        "2023H2",
+        "2024H1",
+        "2024H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::aAb式顶背驰",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "aAb式顶背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 3,
+      "active_ratio": 0.002407704654895666,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::aAb式顶背驰",
+      "independent_events": 1,
+      "years": [
+        2023
+      ],
+      "half_year_windows": [
+        "2023H1"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::abcAd式底背驰",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "abcAd式底背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 26,
+      "active_ratio": 0.02086677367576244,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::abcAd式底背驰",
+      "independent_events": 5,
+      "years": [
+        2022,
+        2023
+      ],
+      "half_year_windows": [
+        "2022H1",
+        "2023H1",
+        "2023H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::abcAd式顶背驰",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "abcAd式顶背驰",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 11,
+      "active_ratio": 0.00882825040128411,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::abcAd式顶背驰",
+      "independent_events": 2,
+      "years": [
+        2021
+      ],
+      "half_year_windows": [
+        "2021H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::其他",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "其他",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 1038,
+      "active_ratio": 0.8330658105939005,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::其他"
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::向下中枢完成",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "向下中枢完成",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 38,
+      "active_ratio": 0.030497592295345103,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::向下中枢完成"
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::类三买",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "类三买",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 12,
+      "active_ratio": 0.009630818619582664,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::类三买",
+      "independent_events": 5,
+      "years": [
+        2021,
+        2023,
+        2025
+      ],
+      "half_year_windows": [
+        "2021H2",
+        "2023H1",
+        "2025H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::类三卖",
+      "raw_signal": "raw__daily__cxt_seven_bi_V230620__di_1",
+      "primary": "类三卖",
+      "factor_kind": "event",
+      "coverage": 0.9759229534510433,
+      "active_days": 20,
+      "active_ratio": 0.016051364365971106,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__cxt_seven_bi_V230620__di_1::类三卖",
+      "independent_events": 5,
+      "years": [
+        2021,
+        2022,
+        2023
+      ],
+      "half_year_windows": [
+        "2021H2",
+        "2022H1",
+        "2023H2"
+      ]
+    },
+    {
+      "factor": "state__raw__daily__pressure_support_V240406__di_1__w_20::其他",
+      "raw_signal": "raw__daily__pressure_support_V240406__di_1__w_20",
+      "primary": "其他",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 1002,
+      "active_ratio": 0.8041733547351525,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__pressure_support_V240406__di_1__w_20::其他"
+    },
+    {
+      "factor": "state__raw__daily__pressure_support_V240406__di_1__w_20::压力位",
+      "raw_signal": "raw__daily__pressure_support_V240406__di_1__w_20",
+      "primary": "压力位",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 97,
+      "active_ratio": 0.07784911717495988,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__pressure_support_V240406__di_1__w_20::压力位"
+    },
+    {
+      "factor": "state__raw__daily__pressure_support_V240406__di_1__w_20::支撑位",
+      "raw_signal": "raw__daily__pressure_support_V240406__di_1__w_20",
+      "primary": "支撑位",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 117,
+      "active_ratio": 0.09390048154093097,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__pressure_support_V240406__di_1__w_20::支撑位"
+    },
+    {
+      "factor": "state__raw__daily__tas_atr_break_V230424__di_1::看多",
+      "raw_signal": "raw__daily__tas_atr_break_V230424__di_1",
+      "primary": "看多",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 40,
+      "active_ratio": 0.03210272873194221,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_atr_break_V230424__di_1::看多"
+    },
+    {
+      "factor": "state__raw__daily__tas_atr_break_V230424__di_1::看空",
+      "raw_signal": "raw__daily__tas_atr_break_V230424__di_1",
+      "primary": "看空",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 42,
+      "active_ratio": 0.033707865168539325,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_atr_break_V230424__di_1::看空"
+    },
+    {
+      "factor": "state__raw__daily__tas_boll_power_V221112__di_1::多头",
+      "raw_signal": "raw__daily__tas_boll_power_V221112__di_1",
+      "primary": "多头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 553,
+      "active_ratio": 0.4438202247191011,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_boll_power_V221112__di_1::多头"
+    },
+    {
+      "factor": "state__raw__daily__tas_boll_power_V221112__di_1::空头",
+      "raw_signal": "raw__daily__tas_boll_power_V221112__di_1",
+      "primary": "空头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 656,
+      "active_ratio": 0.5264847512038523,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_boll_power_V221112__di_1::空头"
+    },
+    {
+      "factor": "state__raw__daily__tas_kdj_base_V221101__di_1::多头",
+      "raw_signal": "raw__daily__tas_kdj_base_V221101__di_1",
+      "primary": "多头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 619,
+      "active_ratio": 0.4967897271268058,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_kdj_base_V221101__di_1::多头"
+    },
+    {
+      "factor": "state__raw__daily__tas_kdj_base_V221101__di_1::空头",
+      "raw_signal": "raw__daily__tas_kdj_base_V221101__di_1",
+      "primary": "空头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 597,
+      "active_ratio": 0.47913322632423755,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_kdj_base_V221101__di_1::空头"
+    },
+    {
+      "factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10::多头",
+      "raw_signal": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10",
+      "primary": "多头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 569,
+      "active_ratio": 0.456661316211878,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10::多头"
+    },
+    {
+      "factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10::空头",
+      "raw_signal": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10",
+      "primary": "空头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 647,
+      "active_ratio": 0.5192616372391653,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10::空头"
+    },
+    {
+      "factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20::多头",
+      "raw_signal": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20",
+      "primary": "多头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 553,
+      "active_ratio": 0.4438202247191011,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20::多头"
+    },
+    {
+      "factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20::空头",
+      "raw_signal": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20",
+      "primary": "空头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 663,
+      "active_ratio": 0.5321027287319422,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20::空头"
+    },
+    {
+      "factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5::多头",
+      "raw_signal": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5",
+      "primary": "多头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 593,
+      "active_ratio": 0.47592295345104335,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5::多头"
+    },
+    {
+      "factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5::空头",
+      "raw_signal": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5",
+      "primary": "空头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 623,
+      "active_ratio": 0.5,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5::空头"
+    },
+    {
+      "factor": "state__raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26::多头",
+      "raw_signal": "raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26",
+      "primary": "多头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 559,
+      "active_ratio": 0.44863563402889245,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26::多头"
+    },
+    {
+      "factor": "state__raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26::空头",
+      "raw_signal": "raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26",
+      "primary": "空头",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 657,
+      "active_ratio": 0.5272873194221509,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26::空头"
+    },
+    {
+      "factor": "state__raw__daily__tas_macd_power_V221108__di_1::弱势",
+      "raw_signal": "raw__daily__tas_macd_power_V221108__di_1",
+      "primary": "弱势",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 252,
+      "active_ratio": 0.20224719101123595,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_macd_power_V221108__di_1::弱势"
+    },
+    {
+      "factor": "state__raw__daily__tas_macd_power_V221108__di_1::强势",
+      "raw_signal": "raw__daily__tas_macd_power_V221108__di_1",
+      "primary": "强势",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 322,
+      "active_ratio": 0.25842696629213485,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_macd_power_V221108__di_1::强势"
+    },
+    {
+      "factor": "state__raw__daily__tas_macd_power_V221108__di_1::超弱",
+      "raw_signal": "raw__daily__tas_macd_power_V221108__di_1",
+      "primary": "超弱",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 385,
+      "active_ratio": 0.3089887640449438,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_macd_power_V221108__di_1::超弱"
+    },
+    {
+      "factor": "state__raw__daily__tas_macd_power_V221108__di_1::超强",
+      "raw_signal": "raw__daily__tas_macd_power_V221108__di_1",
+      "primary": "超强",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 237,
+      "active_ratio": 0.19020866773675763,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__tas_macd_power_V221108__di_1::超强"
+    },
+    {
+      "factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N10",
+      "raw_signal": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+      "primary": "高量N10",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 480,
+      "active_ratio": 0.3852327447833066,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N10"
+    },
+    {
+      "factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N3",
+      "raw_signal": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+      "primary": "高量N3",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 30,
+      "active_ratio": 0.024077046548956663,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N3"
+    },
+    {
+      "factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N4",
+      "raw_signal": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+      "primary": "高量N4",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 55,
+      "active_ratio": 0.044141252006420544,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N4"
+    },
+    {
+      "factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N5",
+      "raw_signal": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+      "primary": "高量N5",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 58,
+      "active_ratio": 0.04654895666131621,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N5"
+    },
+    {
+      "factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N6",
+      "raw_signal": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+      "primary": "高量N6",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 84,
+      "active_ratio": 0.06741573033707865,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N6"
+    },
+    {
+      "factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N7",
+      "raw_signal": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+      "primary": "高量N7",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 129,
+      "active_ratio": 0.10353130016051364,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N7"
+    },
+    {
+      "factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N8",
+      "raw_signal": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+      "primary": "高量N8",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 143,
+      "active_ratio": 0.11476725521669343,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N8"
+    },
+    {
+      "factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N9",
+      "raw_signal": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+      "primary": "高量N9",
+      "factor_kind": "state",
+      "coverage": 0.9759229534510433,
+      "active_days": 215,
+      "active_ratio": 0.1725521669341894,
+      "status": "candidate",
+      "canonical_factor": "state__raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5::高量N9"
+    },
+    {
+      "factor": "state__raw__weekly__cxt_bi_status_V230101::其他",
+      "raw_signal": "raw__weekly__cxt_bi_status_V230101",
+      "primary": "其他",
+      "factor_kind": "state",
+      "coverage": 0.9574638844301766,
+      "active_days": 110,
+      "active_ratio": 0.08828250401284109,
+      "status": "candidate",
+      "canonical_factor": "state__raw__weekly__cxt_bi_status_V230101::其他"
+    },
+    {
+      "factor": "state__raw__weekly__cxt_bi_status_V230101::向上",
+      "raw_signal": "raw__weekly__cxt_bi_status_V230101",
+      "primary": "向上",
+      "factor_kind": "state",
+      "coverage": 0.9574638844301766,
+      "active_days": 526,
+      "active_ratio": 0.42215088282504015,
+      "status": "candidate",
+      "canonical_factor": "state__raw__weekly__cxt_bi_status_V230101::向上"
+    },
+    {
+      "factor": "state__raw__weekly__cxt_bi_status_V230101::向下",
+      "raw_signal": "raw__weekly__cxt_bi_status_V230101",
+      "primary": "向下",
+      "factor_kind": "state",
+      "coverage": 0.9574638844301766,
+      "active_days": 557,
+      "active_ratio": 0.44703049759229535,
+      "status": "candidate",
+      "canonical_factor": "state__raw__weekly__cxt_bi_status_V230101::向下"
+    }
+  ],
+  "signal_support": {
+    "cxt_first_buy_V221126": {
+      "status": "observed",
+      "available": true,
+      "generated": true,
+      "observed": true,
+      "raw_signals": [
+        "raw__daily__cxt_first_buy_V221126__di_1"
+      ]
+    },
+    "cxt_first_sell_V221126": {
+      "status": "observed",
+      "available": true,
+      "generated": true,
+      "observed": true,
+      "raw_signals": [
+        "raw__daily__cxt_first_sell_V221126__di_1"
+      ]
+    },
+    "cxt_second_buy_V230320": {
+      "status": "unavailable_in_czsc_1_0_1",
+      "available": false,
+      "generated": false,
+      "observed": false,
+      "raw_signals": []
+    },
+    "cxt_second_sell_V230320": {
+      "status": "unavailable_in_czsc_1_0_1",
+      "available": false,
+      "generated": false,
+      "observed": false,
+      "raw_signals": []
+    },
+    "cxt_third_buy_V230228": {
+      "status": "observed",
+      "available": true,
+      "generated": true,
+      "observed": true,
+      "raw_signals": [
+        "raw__30m__cxt_third_buy_V230228__di_1"
+      ]
+    },
+    "cxt_third_sell_V230228": {
+      "status": "unavailable_in_czsc_1_0_1",
+      "available": false,
+      "generated": false,
+      "observed": false,
+      "raw_signals": []
+    },
+    "cxt_five_bi_V230619": {
+      "status": "observed",
+      "available": true,
+      "generated": true,
+      "observed": true,
+      "raw_signals": [
+        "raw__daily__cxt_five_bi_V230619__di_1"
+      ]
+    },
+    "cxt_seven_bi_V230620": {
+      "status": "observed",
+      "available": true,
+      "generated": true,
+      "observed": true,
+      "raw_signals": [
+        "raw__daily__cxt_seven_bi_V230620__di_1"
+      ]
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "cxt_first_buy_V221126": {
+    "status": "observed",
+    "available": true,
+    "generated": true,
+    "observed": true,
+    "raw_signals": [
+      "raw__daily__cxt_first_buy_V221126__di_1"
+    ]
+  },
+  "cxt_first_sell_V221126": {
+    "status": "observed",
+    "available": true,
+    "generated": true,
+    "observed": true,
+    "raw_signals": [
+      "raw__daily__cxt_first_sell_V221126__di_1"
+    ]
+  },
+  "cxt_second_buy_V230320": {
+    "status": "unavailable_in_czsc_1_0_1",
+    "available": false,
+    "generated": false,
+    "observed": false,
+    "raw_signals": []
+  },
+  "cxt_second_sell_V230320": {
+    "status": "unavailable_in_czsc_1_0_1",
+    "available": false,
+    "generated": false,
+    "observed": false,
+    "raw_signals": []
+  },
+  "cxt_third_buy_V230228": {
+    "status": "observed",
+    "available": true,
+    "generated": true,
+    "observed": true,
+    "raw_signals": [
+      "raw__30m__cxt_third_buy_V230228__di_1"
+    ]
+  },
+  "cxt_third_sell_V230228": {
+    "status": "unavailable_in_czsc_1_0_1",
+    "available": false,
+    "generated": false,
+    "observed": false,
+    "raw_signals": []
+  },
+  "cxt_five_bi_V230619": {
+    "status": "observed",
+    "available": true,
+    "generated": true,
+    "observed": true,
+    "raw_signals": [
+      "raw__daily__cxt_five_bi_V230619__di_1"
+    ]
+  },
+  "cxt_seven_bi_V230620": {
+    "status": "observed",
+    "available": true,
+    "generated": true,
+    "observed": true,
+    "raw_signals": [
+      "raw__daily__cxt_seven_bi_V230620__di_1"
+    ]
+  }
+}

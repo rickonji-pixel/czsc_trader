@@ -1,2 +1,10 @@
 # Raw market data hashes are part of the reproducibility contract.
 data/raw/*.csv -text
+
+# Formal protocol identity hashes use these checkout bytes on every device.
+experiments/0824_EX04/artifacts/frozen_challenger.json text eol=crlf
+experiments/0824_EX06/artifacts/protocol.json text eol=crlf
+experiments/0824_EX06/artifacts/factor_candidates.csv text eol=crlf
+experiments/0824_EX06/artifacts/factor_universe.json text eol=crlf
+experiments/0824_EX06/artifacts/frozen_challenger.json text eol=crlf
+experiments/0824_EX08/artifacts/frozen_challenger.json text eol=crlf

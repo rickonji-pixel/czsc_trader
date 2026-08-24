@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 import pandas as pd
 import pytest
 
+from czsc_trader.factor_discovery import CandidateFactors
 from czsc_trader.factor_discovery_runner import (
     RollingFitTask,
     RollingFitInputs,
@@ -10,6 +13,7 @@ from czsc_trader.factor_discovery_runner import (
     _fit_rolling_weights,
     _rolling_fit_tasks,
     _run_rolling_fit_task,
+    _write_event_signal_support,
     build_comparison_window,
     build_factor_specs,
     factor_holdout_pass,
@@ -21,7 +25,7 @@ from czsc_trader.return_only_runner import half_year_periods
 
 def _protocol() -> dict[str, object]:
     return {
-        "experiment_type": "state_expanded_factor_discovery",
+        "experiment_type": "event_aware_parallel_factor_discovery",
         "status": "PRE_REGISTERED",
         "selection_sample_end": "2025-12-31",
         "validation_windows": [
@@ -36,7 +40,18 @@ def _protocol() -> dict[str, object]:
         "algorithm_config_count": 64,
         "selection_metric": "strategy_return_only",
         "holdout_access_before_freeze": False,
-        "new_daily_signals": [f"signal_{index}" for index in range(12)],
+        "new_daily_signals": [f"signal_{index}" for index in range(12)] + ["cxt_first_sell_V221126"],
+        "event_signal_requirements": [
+            "cxt_first_buy_V221126",
+            "cxt_first_sell_V221126",
+            "cxt_second_buy_V230320",
+            "cxt_second_sell_V230320",
+            "cxt_third_buy_V230228",
+            "cxt_third_sell_V230228",
+            "cxt_five_bi_V230619",
+            "cxt_seven_bi_V230620",
+        ],
+        "event_min_independent_occurrences": 1,
         "state_min_coverage": 0.8,
         "state_min_active_days": 30,
         "state_max_active_ratio": 0.9,
@@ -45,6 +60,11 @@ def _protocol() -> dict[str, object]:
         "minimum_absolute_weight": 0.0125,
         "minimum_trend_weight": 0.1,
         "protect_volume_window": True,
+        "parallel_backend": "loky",
+        "parallel_n_jobs_choices": [1, 2, 4, 8],
+        "inner_max_num_threads": 1,
+        "position_cache": "existing_target_digest",
+        "staged_search": False,
     }
 
 
@@ -60,6 +80,24 @@ def test_protocol_and_grid_freeze_exact_sixty_four_configs() -> None:
 
     protocol["selection_metric"] = "sharpe"
     with pytest.raises(ValueError, match="return only"):
+        validate_factor_protocol(protocol)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("event_min_independent_occurrences", 2, "event minimum"),
+        ("parallel_backend", "threading", "loky"),
+        ("parallel_n_jobs_choices", [1, 2], "job choices"),
+        ("inner_max_num_threads", 2, "inner threads"),
+        ("staged_search", True, "staged search"),
+    ],
+)
+def test_protocol_rejects_changed_event_or_parallel_boundaries(field, value, message) -> None:
+    protocol = deepcopy(_protocol())
+    protocol[field] = value
+
+    with pytest.raises(ValueError, match=message):
         validate_factor_protocol(protocol)
 
 
@@ -198,15 +236,29 @@ def test_holdout_pass_uses_only_ex04_return() -> None:
     assert not factor_holdout_pass(windows)
 
 
-def test_comparison_window_reports_three_baselines_and_challenger() -> None:
+def test_event_signal_support_is_written_from_candidate_metadata(tmp_path) -> None:
+    candidate = CandidateFactors(
+        pd.DataFrame(),
+        pd.Series(dtype=float),
+        {"signal_support": {"cxt_first_buy_V221126": {"status": "observed"}}},
+    )
+
+    _write_event_signal_support(tmp_path, candidate)
+
+    payload = __import__("json").loads((tmp_path / "event_signal_support.json").read_text(encoding="utf-8"))
+    assert payload["cxt_first_buy_V221126"]["status"] == "observed"
+
+
+def test_comparison_window_reports_four_baselines_and_challenger() -> None:
     ex04 = {"strategy_return": 0.20, "sharpe": 2.0, "exposure": 0.5, "max_drawdown": -0.1, "trade_count": 4}
+    ex05 = {"strategy_return": 0.19, "sharpe": 1.9, "exposure": 0.45, "max_drawdown": -0.09, "trade_count": 5}
     legacy = {"strategy_return": 0.25, "sharpe": 2.5, "exposure": 0.6, "max_drawdown": -0.2, "trade_count": 6}
     buyhold = {"strategy_return": 0.10, "sharpe": 1.0, "exposure": 1.0, "max_drawdown": -0.3, "trade_count": 1}
     challenger = {"strategy_return": 0.21, "sharpe": -9.0, "exposure": 0.4, "max_drawdown": -0.05, "trade_count": 3}
 
-    row = build_comparison_window(ex04, legacy, buyhold, challenger)
+    row = build_comparison_window(ex04, ex05, legacy, buyhold, challenger)
 
-    assert set(row) >= {"ex04", "legacy_champion", "buyhold", "challenger"}
+    assert set(row) >= {"ex04", "ex05", "legacy_champion", "buyhold", "challenger"}
     assert row["return_delta_vs_ex04"] == pytest.approx(0.01)
     assert row["pass"] is True
     assert row["challenger"]["sharpe"] == -9.0

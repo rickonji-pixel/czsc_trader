@@ -234,8 +234,8 @@ def training_windows_before(
 
 
 def validate_factor_protocol(protocol: Mapping[str, object]) -> None:
-    if protocol.get("experiment_type") != "state_expanded_factor_discovery":
-        raise ValueError("not an EX05 factor-discovery protocol")
+    if protocol.get("experiment_type") != "event_aware_parallel_factor_discovery":
+        raise ValueError("not an EX06 factor-discovery protocol")
     if protocol.get("status") != "PRE_REGISTERED":
         raise ValueError("protocol must remain PRE_REGISTERED")
     if protocol.get("selection_sample_end") != "2025-12-31":
@@ -245,11 +245,44 @@ def validate_factor_protocol(protocol: Mapping[str, object]) -> None:
     if tuple(protocol.get("holdout_windows", [])) != tuple(TARGET_PERIODS):
         raise ValueError("holdout windows differ from objectives")
     if protocol.get("selection_metric") != "strategy_return_only":
-        raise ValueError("EX05 selection must use return only")
+        raise ValueError("EX06 selection must use return only")
     if protocol.get("holdout_access_before_freeze") is not False:
         raise ValueError("holdout access must be forbidden before freeze")
-    if len(protocol.get("new_daily_signals", [])) != 12:
-        raise ValueError("EX05 must preregister exactly 12 new daily signals")
+    new_daily_signals = tuple(map(str, protocol.get("new_daily_signals", [])))
+    if len(new_daily_signals) != 13 or "cxt_first_sell_V221126" not in new_daily_signals:
+        raise ValueError("EX06 must add first sell to the 12 EX05 daily signals")
+    expected_events = (
+        "cxt_first_buy_V221126",
+        "cxt_first_sell_V221126",
+        "cxt_second_buy_V230320",
+        "cxt_second_sell_V230320",
+        "cxt_third_buy_V230228",
+        "cxt_third_sell_V230228",
+        "cxt_five_bi_V230619",
+        "cxt_seven_bi_V230620",
+    )
+    if tuple(map(str, protocol.get("event_signal_requirements", []))) != expected_events:
+        raise ValueError("EX06 event signal requirements differ from preregistration")
+    if int(protocol.get("event_min_independent_occurrences", -1)) != 1:
+        raise ValueError("EX06 event minimum must be one independent occurrence")
+    if protocol.get("parallel_backend") != "loky":
+        raise ValueError("EX06 parallel backend must be loky")
+    if tuple(protocol.get("parallel_n_jobs_choices", [])) != (1, 2, 4, 8):
+        raise ValueError("EX06 parallel job choices must be 1, 2, 4, 8")
+    if int(protocol.get("inner_max_num_threads", -1)) != 1:
+        raise ValueError("EX06 inner threads must equal one")
+    if protocol.get("position_cache") != "existing_target_digest":
+        raise ValueError("EX06 must reuse the existing target digest cache")
+    if protocol.get("staged_search") is not False:
+        raise ValueError("EX06 staged search must remain disabled")
+    if tuple(protocol.get("weight_steps", [])) != (0.025, 0.05):
+        raise ValueError("EX06 weight steps differ from EX05")
+    if tuple(protocol.get("coordinate_rounds", [])) != (1, 2):
+        raise ValueError("EX06 coordinate rounds differ from EX05")
+    if tuple(protocol.get("enter_thresholds", [])) != (0.125, 0.15, 0.175, 0.2):
+        raise ValueError("EX06 enter thresholds differ from EX05")
+    if tuple(protocol.get("exit_thresholds", [])) != (-0.025, 0.0, 0.025, 0.05):
+        raise ValueError("EX06 exit thresholds differ from EX05")
     if int(protocol.get("interaction_count", -1)) != 4:
         raise ValueError("EX05 must contain four interactions")
     specs = build_factor_specs(protocol)
@@ -271,6 +304,7 @@ def _metric_view(metrics: Mapping[str, object]) -> dict[str, object]:
 
 def build_comparison_window(
     ex04: Mapping[str, object],
+    ex05: Mapping[str, object],
     legacy: Mapping[str, object],
     buyhold: Mapping[str, object],
     challenger: Mapping[str, object],
@@ -279,6 +313,7 @@ def build_comparison_window(
     challenger_return = float(challenger["strategy_return"])
     return {
         "ex04": _metric_view(ex04),
+        "ex05": _metric_view(ex05),
         "legacy_champion": _metric_view(legacy),
         "buyhold": _metric_view(buyhold),
         "challenger": _metric_view(challenger),
@@ -292,6 +327,13 @@ def build_comparison_window(
     }
 
 
+def _write_event_signal_support(artifacts: Path, candidate: CandidateFactors) -> None:
+    support = candidate.metadata.get("signal_support")
+    if not isinstance(support, dict) or not support:
+        raise ValueError("EX06 candidate metadata is missing event signal support")
+    _write_json(Path(artifacts) / "event_signal_support.json", support)
+
+
 def _load_ex04(path: Path, protocol: Mapping[str, object]) -> dict[str, object]:
     path = Path(path)
     expected = str(protocol["research_baseline"]["sha256"])
@@ -301,6 +343,18 @@ def _load_ex04(path: Path, protocol: Mapping[str, object]) -> dict[str, object]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("experiment") != "0824_EX04" or payload.get("selection_metric") != "strategy_return_only":
         raise ValueError("research baseline is not the frozen EX04 challenger")
+    return payload
+
+
+def _load_ex05(path: Path, protocol: Mapping[str, object]) -> dict[str, object]:
+    path = Path(path)
+    expected = str(protocol["ex05_reference"]["sha256"])
+    actual = sha256(path.read_bytes()).hexdigest()
+    if actual != expected:
+        raise ValueError("EX05 frozen challenger hash differs from preregistration")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("experiment") != "0824_EX05" or payload.get("selection_metric") != "strategy_return_only":
+        raise ValueError("comparison reference is not the frozen EX05 challenger")
     return payload
 
 
@@ -566,6 +620,7 @@ def _holdout(
     raw_dir: Path,
     baseline: Any,
     ex04: Mapping[str, object],
+    ex05: Mapping[str, object],
     frozen: Mapping[str, object],
     frozen_digest: str,
     protocol: Mapping[str, object],
@@ -576,19 +631,29 @@ def _holdout(
     cutoff = max(end for _, end in TARGET_PERIODS.values())
     data = load_market_data(raw_dir, "588080.SH", "etf", cutoff=cutoff)
     ex04_weights = pd.Series(ex04["weights"], dtype=float)
+    ex05_weights = pd.Series(ex05["weights"], dtype=float)
     active_weights = pd.Series(frozen["weights"], dtype=float)
+    replay_names = list(dict.fromkeys([*active_weights.index, *ex05_weights.index]))
     candidate = generate_candidate_factors(
         data,
         protocol,
         ex04_weights,
-        frozen_names=list(active_weights.index),
+        frozen_names=replay_names,
     )
-    validate_sparse_weights(active_weights, candidate.factors.columns, protocol)
+    validate_sparse_weights(active_weights, active_weights.index, protocol)
     challenger_target, challenger_scores = _target(
-        candidate.factors,
+        candidate.factors.loc[:, list(active_weights.index)],
         active_weights,
         float(frozen["enter"]),
         float(frozen["exit"]),
+        baseline.rule,
+    )
+    validate_sparse_weights(ex05_weights, ex05_weights.index, protocol)
+    ex05_target, _ = _target(
+        candidate.factors.loc[:, list(ex05_weights.index)],
+        ex05_weights,
+        float(ex05["enter"]),
+        float(ex05["exit"]),
         baseline.rule,
     )
 
@@ -606,6 +671,9 @@ def _holdout(
 
     ex04_results = run_period_backtests(
         data.daily, ex04_target, TARGET_PERIODS, fee_rate=fee_rate, init_cash=init_cash
+    )
+    ex05_results = run_period_backtests(
+        data.daily, ex05_target, TARGET_PERIODS, fee_rate=fee_rate, init_cash=init_cash
     )
     legacy_results = run_period_backtests(
         data.daily, legacy_target, TARGET_PERIODS, fee_rate=fee_rate, init_cash=init_cash
@@ -637,12 +705,14 @@ def _holdout(
         factor_frame=audit_frame,
     )
     ex04_metrics = _metrics(ex04_results)
+    ex05_metrics = _metrics(ex05_results)
     legacy_metrics = _metrics(legacy_results)
     buyhold_metrics = _metrics(buyhold_results)
     challenger_metrics = _metrics(challenger_results)
     windows = {
         name: build_comparison_window(
             ex04_metrics[name],
+            ex05_metrics[name],
             legacy_metrics[name],
             buyhold_metrics[name],
             challenger_metrics[name],
@@ -694,9 +764,9 @@ def _write_docs(
     lines = [
         "# 研究结论",
         "",
-        f"EX05状态展开因子挑战结果为 **{holdout['status']}**。",
+        f"EX06事件感知并行搜索结果为 **{holdout['status']}**。",
         "",
-        "| 窗口 | EX04收益 | EX05收益 | 收益增量 | EX04夏普 | EX05夏普 | 判定 |",
+        "| 窗口 | EX04收益 | EX06收益 | 收益增量 | EX04夏普 | EX06夏普 | 判定 |",
         "|---|---:|---:|---:|---:|---:|---|",
     ]
     for name in TARGET_PERIODS:
@@ -715,7 +785,7 @@ def _write_docs(
             f"- 非零因子：{len(frozen['factor_names'])}项。",
             f"- 入场阈值：{float(frozen['enter']):.3f}；离场阈值：{float(frozen['exit']):.3f}。",
             "- 夏普率只报告，未参与选优或PASS。",
-            "- 旧冠军与Buy & Hold完整指标见`artifacts/holdout_metrics.json`。",
+            "- EX05、旧冠军与Buy & Hold完整指标见`artifacts/holdout_metrics.json`。",
             "- 2026结果未触发二次调参。",
         ]
     )
@@ -728,6 +798,7 @@ def run_factor_discovery_experiment(
     ex04_path: Path,
     experiment_dir: Path,
     *,
+    ex05_path: Path | None = None,
     fee_rate: float = 0.0005,
     init_cash: float = 1_000_000.0,
 ) -> dict[str, object]:
@@ -736,6 +807,9 @@ def run_factor_discovery_experiment(
     protocol = json.loads((artifacts / "protocol.json").read_text(encoding="utf-8"))
     validate_factor_protocol(protocol)
     ex04 = _load_ex04(ex04_path, protocol)
+    if ex05_path is None:
+        ex05_path = Path(str(protocol["ex05_reference"]["file"]))
+    ex05 = _load_ex05(ex05_path, protocol)
     baseline = resolve_baseline(Path(baseline_root), str(protocol["legacy_champion"]["version"]))
     if baseline.sha256 != str(protocol["legacy_champion"]["sha256"]):
         raise ValueError("legacy champion hash differs from preregistration")
@@ -743,6 +817,7 @@ def run_factor_discovery_experiment(
     selection_data = load_market_data(raw_dir, "588080.SH", "etf", cutoff=SELECTION_CUTOFF)
     ex04_weights = pd.Series(ex04["weights"], dtype=float)
     candidate = generate_candidate_factors(selection_data, protocol, ex04_weights)
+    _write_event_signal_support(artifacts, candidate)
     best, weights, selection = _selection(
         selection_data,
         candidate,
@@ -760,7 +835,7 @@ def run_factor_discovery_experiment(
         "experiment": experiment_dir.name,
         "sample_end": "2025-12-31",
         "research_baseline": protocol["research_baseline"],
-        "factor_policy": "state_expansion_with_sparse_add_drop_replace",
+        "factor_policy": "event_aware_state_expansion_with_sparse_add_drop_replace",
         "factor_names": list(active_weights.index),
         "weights": active_weights.to_dict(),
         "enter": best.enter,
@@ -776,6 +851,7 @@ def run_factor_discovery_experiment(
         raw_dir,
         baseline,
         ex04,
+        ex05,
         frozen,
         frozen_digest,
         protocol,
@@ -814,17 +890,23 @@ def cli() -> None:
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
     parser.add_argument("--baseline-root", type=Path, default=Path("configs/rule_baselines"))
     parser.add_argument(
+        "--ex05-path",
+        type=Path,
+        default=Path("experiments/0824_EX05/artifacts/frozen_challenger.json"),
+    )
+    parser.add_argument(
         "--ex04-path",
         type=Path,
         default=Path("experiments/0824_EX04/artifacts/frozen_challenger.json"),
     )
-    parser.add_argument("--experiment-dir", type=Path, default=Path("experiments/0824_EX05"))
+    parser.add_argument("--experiment-dir", type=Path, default=Path("experiments/0824_EX06"))
     args = parser.parse_args()
     result = run_factor_discovery_experiment(
         args.raw_dir,
         args.baseline_root,
         args.ex04_path,
         args.experiment_dir,
+        ex05_path=args.ex05_path,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
 

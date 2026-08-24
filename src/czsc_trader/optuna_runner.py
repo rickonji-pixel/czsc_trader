@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -252,12 +252,13 @@ def prepare_selection_inputs(
     *,
     fee_rate: float = 0.0005,
     init_cash: float = 1_000_000.0,
+    protocol_validator: Callable[[Mapping[str, object]], None] = validate_ex07_protocol,
 ) -> SelectionContext:
     """Load and validate only the information allowed before EX07 freezes."""
     experiment_dir = Path(experiment_dir).resolve()
     repo_root = experiment_dir.parents[1]
     protocol = _read_json(experiment_dir / "artifacts" / "protocol.json")
-    validate_ex07_protocol(protocol)
+    protocol_validator(protocol)
     source = protocol["candidate_source"]
     baseline_spec = protocol["research_baseline"]
 

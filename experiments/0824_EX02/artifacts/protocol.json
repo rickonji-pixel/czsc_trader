@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0824_EX02",
+  "experiment_type": "champion_attribution",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260823",
+    "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_year": 2026,
+  "holdout_access_allowed": false,
+  "warmup_year": 2020,
+  "primary_windows": ["2021", "2022", "2023", "2024", "2025"],
+  "diagnostic_windows": [
+    "2021H1", "2021H2", "2022H1", "2022H2", "2023H1",
+    "2023H2", "2024H1", "2024H2", "2025H1", "2025H2"
+  ],
+  "primary_metrics": ["strategy_return", "sharpe"],
+  "observational_metrics": [
+    "max_drawdown", "turnover", "exposure", "trade_count", "mfe", "mae"
+  ],
+  "materiality": {
+    "return_delta": 0.001,
+    "sharpe_delta": 0.02,
+    "stable_year_count": 4,
+    "total_primary_years": 5,
+    "dominant_position_difference_share": 0.5
+  },
+  "state_sample_requirement": {
+    "minimum_total_days": 20,
+    "minimum_days_per_year": 5,
+    "minimum_years": 3
+  },
+  "group_attribution": {
+    "factors": ["structure", "trend", "volume_position"],
+    "method": "all_coalitions_exact_shapley_values_and_pairwise_interaction_indices",
+    "coalition_count": 8,
+    "absent_factor_treatment": "zero_contribution_keep_original_weight",
+    "empty_coalition_return": 0.0,
+    "empty_coalition_sharpe": 0.0
+  },
+  "signal_counterfactuals": [
+    "zero_mapped_contribution_keep_group_denominator",
+    "drop_signal_and_recompute_group_mean"
+  ],
+  "state_counterfactual": "zero_mapped_contribution_on_matching_state",
+  "weight_sensitivity": {
+    "step": 0.05,
+    "compensation_per_other_factor": 0.025,
+    "sum_remains_one": true
+  },
+  "threshold_sensitivity": {
+    "entry": [0.1, 0.15, 0.2],
+    "exit": [-0.05, 0.0, 0.05],
+    "combine_families": false
+  },
+  "state_machine_sensitivity": {
+    "entry_confirm_days": [1, 2],
+    "min_hold_days": [2, 3, 4],
+    "exit_confirm_days": [1, 2],
+    "combine_families": false
+  },
+  "classifications": [
+    "stable_positive",
+    "stable_negative",
+    "return_positive_risk_negative",
+    "risk_positive_return_negative",
+    "regime_dependent",
+    "redundant",
+    "interaction",
+    "insufficient_sample",
+    "unmodeled_state"
+  ],
+  "promotion": {
+    "select_challenger": false,
+    "write_frozen_challenger": false,
+    "update_champion": false,
+    "force_negative_factor": false
+  }
+}

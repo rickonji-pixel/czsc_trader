@@ -5,7 +5,10 @@ import pandas as pd
 import pytest
 
 from czsc_trader.factor_discovery import (
+    build_signal_support,
     build_candidate_factors,
+    independent_event_count,
+    is_event_primary,
     predeclared_interactions,
     rank_factor_results,
     sparse_coordinate_optimize,
@@ -25,6 +28,94 @@ def _protocol(**overrides: object) -> dict[str, object]:
     }
     payload.update(overrides)
     return payload
+
+
+def test_event_primary_and_independent_occurrences() -> None:
+    indicator = pd.Series([0, 1, 1, 0, 1, 0, 0, 1], dtype=float)
+
+    assert is_event_primary("一买")
+    assert is_event_primary("类三卖")
+    assert is_event_primary("aAb式底背驰")
+    assert is_event_primary("类趋势顶背驰")
+    assert not is_event_primary("向上")
+    assert not is_event_primary("其他")
+    assert independent_event_count(indicator) == 3
+
+
+def test_sparse_event_is_retained_but_sparse_state_is_filtered() -> None:
+    index = pd.date_range("2021-01-01", periods=40, freq="D")
+    raw = pd.DataFrame(
+        {
+            "raw__daily__event": ["其他_x"] * 39 + ["一买_x"],
+            "raw__daily__state": ["其他_x"] * 39 + ["向上_x"],
+        },
+        index=index,
+    )
+    base = pd.DataFrame({"base": np.ones(40)}, index=index)
+
+    result = build_candidate_factors(
+        raw,
+        base,
+        pd.Series({"base": 1.0}),
+        _protocol(state_min_active_days=30, state_max_active_ratio=0.9),
+    )
+
+    assert "state__raw__daily__event::一买" in result.factors
+    assert "state__raw__daily__state::向上" not in result.factors
+    event = next(row for row in result.metadata["states"] if row["primary"] == "一买")
+    assert event["factor_kind"] == "event"
+    assert event["independent_events"] == 1
+
+
+def test_duplicate_events_keep_canonical_factor_and_alias_metadata() -> None:
+    index = pd.date_range("2021-01-01", periods=4, freq="D")
+    raw = pd.DataFrame(
+        {
+            "raw__daily__a": ["其他_x", "一买_x", "其他_x", "其他_x"],
+            "raw__daily__b": ["其他_x", "三买_x", "其他_x", "其他_x"],
+        },
+        index=index,
+    )
+    base = pd.DataFrame({"base": np.ones(4)}, index=index)
+
+    result = build_candidate_factors(
+        raw,
+        base,
+        pd.Series({"base": 1.0}),
+        _protocol(state_min_active_days=1, state_max_active_ratio=1.0),
+    )
+
+    events = [row for row in result.metadata["states"] if row["factor_kind"] == "event"]
+    assert [row["status"] for row in events] == ["candidate", "aliased_duplicate"]
+    assert events[1]["canonical_factor"] == events[0]["factor"]
+    assert events[0]["factor"] in result.factors
+    assert events[1]["factor"] not in result.factors
+
+
+def test_signal_support_distinguishes_unavailable_generated_and_observed() -> None:
+    support = build_signal_support(
+        available_names={"cxt_first_buy_V221126", "cxt_first_sell_V221126"},
+        requirements=[
+            "cxt_first_buy_V221126",
+            "cxt_first_sell_V221126",
+            "cxt_second_buy_V230320",
+        ],
+        raw_names=[
+            "raw__daily__cxt_first_buy_V221126__di_1",
+            "raw__daily__cxt_first_sell_V221126__di_1",
+        ],
+        state_records=[
+            {
+                "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+                "factor_kind": "event",
+                "status": "candidate",
+            }
+        ],
+    )
+
+    assert support["cxt_first_buy_V221126"]["status"] == "observed"
+    assert support["cxt_first_sell_V221126"]["status"] == "generated"
+    assert support["cxt_second_buy_V230320"]["status"] == "unavailable_in_czsc_1_0_1"
 
 
 def test_state_expansion_filters_and_deduplicates_deterministically() -> None:

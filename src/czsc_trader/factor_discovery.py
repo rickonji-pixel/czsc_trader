@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+import czsc
 import numpy as np
 import pandas as pd
 
@@ -15,6 +16,75 @@ from .factors import (
     signal_primary,
 )
 from .four_layer import normalized_signal_factors
+
+
+EVENT_PRIMARY_TOKENS = ("买", "卖", "底背驰", "顶背驰")
+
+
+def is_event_primary(primary: str) -> bool:
+    """Return whether a CZSC primary value represents a discrete structure event."""
+    return primary not in {"其他", "任意", "中性"} and any(
+        token in primary for token in EVENT_PRIMARY_TOKENS
+    )
+
+
+def independent_event_count(indicator: pd.Series) -> int:
+    """Count inactive-to-active transitions, collapsing consecutive event days."""
+    active = indicator.fillna(0.0).astype(bool)
+    return int((active & ~active.shift(fill_value=False)).sum())
+
+
+def _raw_name_contains_signal(raw_name: str, signal_name: str) -> bool:
+    marker = f"__{signal_name}"
+    start = raw_name.find(marker)
+    if start < 0:
+        return False
+    end = start + len(marker)
+    return end == len(raw_name) or raw_name.startswith("__", end)
+
+
+def build_signal_support(
+    available_names: set[str],
+    requirements: Sequence[str],
+    raw_names: Sequence[str],
+    state_records: Sequence[Mapping[str, object]],
+) -> dict[str, dict[str, object]]:
+    """Classify required CZSC event signals without hiding support gaps."""
+    support: dict[str, dict[str, object]] = {}
+    for signal_name in requirements:
+        matching_raw = [
+            str(raw_name)
+            for raw_name in raw_names
+            if _raw_name_contains_signal(str(raw_name), str(signal_name))
+        ]
+        matching_states = [
+            row
+            for row in state_records
+            if any(str(row.get("raw_signal")) == raw_name for raw_name in matching_raw)
+            and row.get("factor_kind") == "event"
+        ]
+        available = signal_name in available_names
+        generated = bool(matching_raw)
+        canonical_observed = any(row.get("status") == "candidate" for row in matching_states)
+        aliased = bool(matching_states) and not canonical_observed
+        if not available:
+            status = "unavailable_in_czsc_1_0_1"
+        elif aliased:
+            status = "aliased_duplicate"
+        elif canonical_observed:
+            status = "observed"
+        elif generated:
+            status = "generated"
+        else:
+            status = "available"
+        support[str(signal_name)] = {
+            "status": status,
+            "available": available,
+            "generated": generated,
+            "observed": bool(matching_states),
+            "raw_signals": matching_raw,
+        }
+    return support
 
 
 @dataclass(frozen=True)
@@ -107,38 +177,85 @@ def build_candidate_factors(
     minimum_days = int(protocol["state_min_active_days"])
     maximum_ratio = float(protocol["state_max_active_ratio"])
     state_columns: list[pd.Series] = []
-    seen_values: set[bytes] = set()
+    canonical_by_fingerprint: dict[bytes, str] = {}
     dropped_duplicates = 0
     state_records: list[dict[str, object]] = []
     for raw_name in sorted(map(str, raw.columns)):
         coverage = float(raw[raw_name].notna().mean())
-        if coverage < minimum_coverage:
-            continue
         primary_values = raw[raw_name].map(signal_primary)
         counts = primary_values.value_counts()
         for primary in sorted(map(str, counts.index)):
             active_days = int(counts.loc[primary])
             active_ratio = active_days / len(primary_values)
-            if active_days < minimum_days or active_ratio > maximum_ratio:
-                continue
             name = _state_name(raw_name, primary)
             indicator = primary_values.eq(primary).astype(float).rename(name)
-            fingerprint = indicator.to_numpy(dtype=np.uint8).tobytes()
-            if fingerprint in seen_values:
-                dropped_duplicates += 1
+            factor_kind = "event" if is_event_primary(primary) else "state"
+            event_count = independent_event_count(indicator) if factor_kind == "event" else 0
+            if factor_kind == "event":
+                if event_count < int(protocol.get("event_min_independent_occurrences", 1)):
+                    continue
+            elif (
+                coverage < minimum_coverage
+                or active_days < minimum_days
+                or active_ratio > maximum_ratio
+            ):
                 continue
-            seen_values.add(fingerprint)
+            fingerprint = indicator.to_numpy(dtype=np.uint8).tobytes()
+            canonical = canonical_by_fingerprint.get(fingerprint)
+            if canonical is not None:
+                dropped_duplicates += 1
+                if factor_kind == "event":
+                    active_index = pd.DatetimeIndex(indicator.index[indicator.astype(bool)])
+                    state_records.append(
+                        {
+                            "factor": name,
+                            "raw_signal": raw_name,
+                            "primary": primary,
+                            "factor_kind": factor_kind,
+                            "coverage": coverage,
+                            "active_days": active_days,
+                            "active_ratio": active_ratio,
+                            "independent_events": event_count,
+                            "years": sorted({int(value) for value in active_index.year}),
+                            "half_year_windows": sorted(
+                                {
+                                    f"{dt.year}H{1 if dt.month <= 6 else 2}"
+                                    for dt in active_index
+                                }
+                            ),
+                            "status": "aliased_duplicate",
+                            "canonical_factor": canonical,
+                        }
+                    )
+                continue
+            canonical_by_fingerprint[fingerprint] = name
             state_columns.append(indicator)
-            state_records.append(
-                {
-                    "factor": name,
-                    "raw_signal": raw_name,
-                    "primary": primary,
-                    "coverage": coverage,
-                    "active_days": active_days,
-                    "active_ratio": active_ratio,
-                }
-            )
+            record: dict[str, object] = {
+                "factor": name,
+                "raw_signal": raw_name,
+                "primary": primary,
+                "factor_kind": factor_kind,
+                "coverage": coverage,
+                "active_days": active_days,
+                "active_ratio": active_ratio,
+                "status": "candidate",
+                "canonical_factor": name,
+            }
+            if factor_kind == "event":
+                active_index = pd.DatetimeIndex(indicator.index[indicator.astype(bool)])
+                record.update(
+                    {
+                        "independent_events": event_count,
+                        "years": sorted({int(value) for value in active_index.year}),
+                        "half_year_windows": sorted(
+                            {
+                                f"{dt.year}H{1 if dt.month <= 6 else 2}"
+                                for dt in active_index
+                            }
+                        ),
+                    }
+                )
+            state_records.append(record)
     additions = [*state_columns, *[interactions[column] for column in interactions.columns]]
     factors = pd.concat([base.astype(float), *additions], axis=1)
     origin = base_weights.reindex(factors.columns).fillna(0.0).astype(float)
@@ -177,13 +294,24 @@ def generate_candidate_factors(
     new_raw.index = new_raw.index.normalize()
     new_raw = new_raw.reindex(base.index)
     raw = pd.concat([existing_raw.reindex(base.index), new_raw], axis=1)
-    return build_candidate_factors(
+    candidate = build_candidate_factors(
         raw,
         base,
         base_weights,
         protocol,
         frozen_names=frozen_names,
     )
+    requirements = [str(name) for name in protocol.get("event_signal_requirements", [])]
+    if not requirements:
+        return candidate
+    metadata = dict(candidate.metadata)
+    metadata["signal_support"] = build_signal_support(
+        set(map(str, czsc._native.list_signal_names())),
+        requirements,
+        list(map(str, raw.columns)),
+        list(metadata.get("states", [])),
+    )
+    return CandidateFactors(candidate.factors, candidate.origin_weights, metadata)
 
 
 def validate_sparse_weights(

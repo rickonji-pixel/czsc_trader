@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment": "0824_EX03",
+  "sample_end": "2025-12-31",
+  "champion": {
+    "version": "baseline_20260823",
+    "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5"
+  },
+  "factor_policy": "exact_champion_signals_no_add_drop_or_reselection",
+  "factor_names": [
+    "raw__30m__cxt_bi_status_V230101",
+    "raw__30m__cxt_third_buy_V230228__di_1",
+    "raw__daily__cxt_bi_status_V230101",
+    "raw__daily__cxt_five_bi_V230619__di_1",
+    "raw__daily__cxt_seven_bi_V230620__di_1",
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5",
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10",
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20",
+    "raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26",
+    "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+    "raw__daily__pressure_support_V240406__di_1__w_20",
+    "raw__weekly__cxt_bi_status_V230101"
+  ],
+  "optimizer": {
+    "step": 0.025,
+    "rounds": 1,
+    "allow_sign_flip": false,
+    "enter": 0.15,
+    "exit": 0.05
+  },
+  "optimizer_id": "step0.025_r1_keep_en+0.15_ex+0.05",
+  "weights": {
+    "raw__30m__cxt_bi_status_V230101": 0.07326228094041409,
+    "raw__30m__cxt_third_buy_V230228__di_1": 0.0738727999482509,
+    "raw__daily__cxt_bi_status_V230101": 0.04884152062694273,
+    "raw__daily__cxt_five_bi_V230619__di_1": 0.04884152062694273,
+    "raw__daily__cxt_seven_bi_V230620__di_1": 0.07449858193128359,
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5": 0.07326228094041409,
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10": 0.07326228094041409,
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20": 0.07326228094041409,
+    "raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26": 0.07326228094041409,
+    "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5": 0.16906759467082158,
+    "raw__daily__pressure_support_V240406__di_1__w_20": 0.16972505686674533,
+    "raw__weekly__cxt_bi_status_V230101": 0.04884152062694273
+  },
+  "state_machine": {
+    "confirm_days": 1,
+    "min_hold_days": 3,
+    "exit_confirm_days": 1,
+    "entry_gate": "none"
+  }
+}

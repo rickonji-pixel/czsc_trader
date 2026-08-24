@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0824_EX03",
+  "date": "2026-08-24",
+  "status": "FAIL",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260823",
+    "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": true,
+  "frozen_challenger_sha256": "26b1eee2bf3f188b824e21d9b7fcbb5e040c6b4802ff0d1decc5f9a3b57afe8a",
+  "files": {
+    "01_goal.md": {
+      "bytes": 572,
+      "sha256": "eba400a516ca5bd780151c7566a593d3fa16b6dd96667af9a362d3d34ece9cfe"
+    },
+    "02_design.md": {
+      "bytes": 2525,
+      "sha256": "7f7eaebf884b8c5320be934684fbc4f4fa3460ec11687ec9997f518bcb29f73a"
+    },
+    "03_execution.md": {
+      "bytes": 467,
+      "sha256": "b4fc134e733efa94abff6600c52120c6deaff5be9e1045b72b461c381d13cd43"
+    },
+    "04_conclusion.md": {
+      "bytes": 2187,
+      "sha256": "06d175301a16b7a824bf76a3912de5ef765563736d354645c5ff8a2f59b6f01c"
+    },
+    "artifacts/candidate_results.csv": {
+      "bytes": 30726,
+      "sha256": "c0c0e997c5088b02da45dbda8f4c200623a6685fdd81591ca40e20ba929aa038"
+    },
+    "artifacts/equivalence_proof.json": {
+      "bytes": 917,
+      "sha256": "be87b5f887b8df52272e232a2068d9605ba03ebd0bac1bb617831c8c22b62995"
+    },
+    "artifacts/factor_weights.csv": {
+      "bytes": 858,
+      "sha256": "b81ef32f74096730001f200eadd3d151794355c33fb94b176a247fc490961f1a"
+    },
+    "artifacts/frozen_challenger.json": {
+      "bytes": 2266,
+      "sha256": "e079b44dffaa77706968418fd17dcfc79215d064e421b0185a433cbf69d21b19"
+    },
+    "artifacts/holdout_metrics.json": {
+      "bytes": 6001,
+      "sha256": "28a0f7a14aa4380d8d887522dbe33443da4e8443b611ef33d6115fe4a6c42730"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 2705,
+      "sha256": "6ae586fa23e9e7ead1318f93651e39431a1fe30498d79db8277b41a64a1b5b43"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 919,
+      "sha256": "b05b08ef53809b288c1cf96af9d7215c3cbda2c7a68c1313b7fc8e463c9ff99d"
+    },
+    "artifacts/selection_metrics.json": {
+      "bytes": 2085,
+      "sha256": "42739fd75d08979d9486a8ce5cc640b9371962adfa97cb571176ccca5ca29cdd"
+    },
+    "implementation_plan.md": {
+      "bytes": 3290,
+      "sha256": "40c5d9e39a44e4695cc2f682aae7a7f620d769249e0411c16c098a6a17dcbf7f"
+    }
+  }
+}

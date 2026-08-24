@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pandas as pd
 
 from czsc_trader.four_layer_runner import (
+    _PeriodEvaluator,
     all_holdout_windows_pass,
     build_optimizer_specs,
     coordinate_optimize,
@@ -19,6 +22,35 @@ def _protocol() -> dict[str, object]:
         "enter_thresholds": [0.1, 0.15, 0.2],
         "exit_thresholds": [-0.05, 0.0, 0.05],
     }
+
+
+def test_period_evaluator_reports_cache_stats(monkeypatch) -> None:
+    index = pd.date_range("2021-01-01", periods=4, freq="D")
+    daily = pd.DataFrame(
+        {"dt": index, "open": [1.0] * 4, "close": [1.0] * 4},
+        index=index,
+    )
+    target = pd.Series([0.0, 1.0, 1.0, 0.0], index=index)
+    calls = 0
+
+    def fake_run(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return {"2021H1": SimpleNamespace(metrics={"strategy_return": 0.0})}
+
+    monkeypatch.setattr("czsc_trader.four_layer_runner.run_period_backtests", fake_run)
+    evaluator = _PeriodEvaluator(
+        daily,
+        {"2021H1": (index[0], index[-1])},
+        0.0005,
+        1_000_000,
+    )
+
+    evaluator.evaluate(target)
+    evaluator.evaluate(target.copy())
+
+    assert calls == 1
+    assert evaluator.cache_stats == {"hits": 1, "misses": 1, "entries": 1}
 
 
 def test_optimizer_grid_has_seventy_two_fixed_factor_configs() -> None:

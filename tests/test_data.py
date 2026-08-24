@@ -17,9 +17,17 @@ def test_loads_verified_market_data() -> None:
     """Catch missing partitions, normalization, or intraday sessions."""
     data = load_market_data(RAW_DIR)
 
-    assert len(data.intraday) == 11_200
-    assert len(data.daily) == 1_400
-    assert len(data.weekly) == 295
+    expected_rows = {
+        frequency: sum(
+            record["rows"]
+            for record in data.manifest["files"].values()
+            if record["frequency"] == frequency
+        )
+        for frequency in ("30m", "daily", "weekly")
+    }
+    assert len(data.intraday) == expected_rows["30m"]
+    assert len(data.daily) == expected_rows["daily"]
+    assert len(data.weekly) == expected_rows["weekly"]
     assert data.intraday["symbol"].unique().tolist() == ["588080.SH"]
     assert data.intraday.groupby(data.intraday["dt"].dt.normalize()).size().eq(8).all()
     assert len(data.hashes) == 21

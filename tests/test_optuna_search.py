@@ -284,6 +284,22 @@ def test_batch_timings_report_each_phase_without_changing_default_result() -> No
     )
 
 
+def test_exact_count_search_allows_optional_early_stops_to_be_disabled() -> None:
+    result = run_study_batches(
+        _study(),
+        _request,
+        _evaluate,
+        maximum_completed_trials=16,
+        minimum_completed_trials=16,
+        no_improvement_trials=None,
+        maximum_wall_time_seconds=None,
+        batch_size=4,
+    )
+
+    assert result["stop_reason"] == "maximum_completed_trials"
+    assert result["completed_trials"] == 16
+
+
 def test_missing_or_duplicate_batch_results_abort_the_study() -> None:
     with pytest.raises(RuntimeError, match="trial result numbers"):
         run_study_batches(

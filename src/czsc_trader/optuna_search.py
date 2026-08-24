@@ -362,15 +362,19 @@ def run_study_batches(
     *,
     maximum_completed_trials: int,
     minimum_completed_trials: int,
-    no_improvement_trials: int,
-    maximum_wall_time_seconds: float,
+    no_improvement_trials: int | None,
+    maximum_wall_time_seconds: float | None,
     batch_size: int,
     collect_batch_timings: bool = False,
 ) -> dict[str, object]:
     """Run synchronous batches while keeping every storage write in the parent."""
     if not 0 < minimum_completed_trials <= maximum_completed_trials:
         raise ValueError("completed trial limits are invalid")
-    if no_improvement_trials <= 0 or maximum_wall_time_seconds <= 0 or batch_size <= 0:
+    if (
+        (no_improvement_trials is not None and no_improvement_trials <= 0)
+        or (maximum_wall_time_seconds is not None and maximum_wall_time_seconds <= 0)
+        or batch_size <= 0
+    ):
         raise ValueError("study stopping limits must be positive")
     started = perf_counter()
     stop_reason = "maximum_completed_trials"
@@ -381,10 +385,17 @@ def run_study_batches(
         if completed >= maximum_completed_trials:
             stop_reason = "maximum_completed_trials"
             break
-        if elapsed >= maximum_wall_time_seconds:
+        if (
+            maximum_wall_time_seconds is not None
+            and elapsed >= maximum_wall_time_seconds
+        ):
             stop_reason = "maximum_wall_time_seconds"
             break
-        if completed >= minimum_completed_trials and since_improvement >= no_improvement_trials:
+        if (
+            no_improvement_trials is not None
+            and completed >= minimum_completed_trials
+            and since_improvement >= no_improvement_trials
+        ):
             stop_reason = "no_improvement_trials"
             break
 

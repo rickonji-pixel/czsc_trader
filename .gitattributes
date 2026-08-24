@@ -8,3 +8,4 @@ experiments/0824_EX06/artifacts/factor_candidates.csv text eol=crlf
 experiments/0824_EX06/artifacts/factor_universe.json text eol=crlf
 experiments/0824_EX06/artifacts/frozen_challenger.json text eol=crlf
 experiments/0824_EX08/artifacts/frozen_challenger.json text eol=crlf
+experiments/0825_EX01/artifacts/frozen_candidates.json text eol=crlf

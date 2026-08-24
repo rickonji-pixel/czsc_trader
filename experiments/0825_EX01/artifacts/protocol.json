@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0825_EX01",
+  "experiment_type": "ex08_top3_holdout_tournament",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "selection_sample_end": "2025-12-31",
+  "source": {
+    "experiment": "0824_EX08",
+    "execution_commit": "e5341a2a684fdd779c6d58a55094e8abd83a2ede",
+    "archive_commit": "31212ff10e3183000e301dd93b417f209037861f",
+    "trials_manifest_sha256": "13e852f38960bf86cec5e0b8124ae147584a7e6ab02ab7fc1922d310c6a426b4",
+    "ranking_manifest_sha256": "159bfbafa9125c3837eba6d11f769a849afb279fd1ab16acc3193fa0ad61c775"
+  },
+  "research_baseline": {
+    "experiment": "0824_EX04",
+    "file": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "exclude_control_trials": [0],
+  "rules": {
+    "robustness_first": {
+      "sort": ["min_return_delta", "win_count", "median_return_delta", "mean_return_delta"],
+      "top_trials": [3123, 2806, 629]
+    },
+    "win_count_first": {
+      "sort": ["win_count", "mean_return_delta", "median_return_delta", "min_return_delta"],
+      "top_trials": [2385, 2806, 2478]
+    },
+    "mean_return_first": {
+      "sort": ["mean_return_delta", "median_return_delta", "min_return_delta"],
+      "top_trials": [3384, 1192, 2214]
+    }
+  },
+  "frozen_unique_trials": [629, 1192, 2214, 2385, 2478, 2806, 3123, 3384],
+  "holdout_windows": ["2026Q1", "2026H1", "2026M1-M8"],
+  "candidate_pass_rule": "strictly higher return than EX04 in every holdout window and causal audit PASS",
+  "experiment_pass_rule": "at least one frozen candidate PASS",
+  "sharpe_in_pass": false,
+  "holdout_access_before_freeze": false,
+  "search_or_parameter_updates": false,
+  "holdout_load_count": 1
+}

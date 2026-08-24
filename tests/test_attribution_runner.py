@@ -115,6 +115,6 @@ def test_frame_runner_writes_complete_diagnostic_without_promoting(tmp_path: Pat
     assert metrics["frozen_challenger"] is None
     assert set(metrics["visible_data_hashes"]) == {"588080_daily_2025.csv"}
     assert not (artifacts / "frozen_challenger.json").exists()
-    assert "plotly.js v" in (artifacts / "attribution_heatmap.html").read_text(
-        encoding="utf-8"
-    ).lower()
+    html = (artifacts / "attribution_heatmap.html").read_text(encoding="utf-8")
+    assert "plotly.js v" in html.lower()
+    assert all(line == line.rstrip() for line in html.splitlines())

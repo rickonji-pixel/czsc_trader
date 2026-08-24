@@ -29,8 +29,8 @@
       "sha256": "9747a04b170581d079a8108959a6959a5a9f82da49172e9ad1297fb82826540d"
     },
     "artifacts/attribution_heatmap.html": {
-      "bytes": 4871767,
-      "sha256": "da5c10f9c9c2d7eb9dea3f4b78dd2a891564710743331d8ff145b132d8c97ac7"
+      "bytes": 4871620,
+      "sha256": "f7c41a4f5579fb56df50cc3bd6b14cdb0a188b86f668532ca32baf09f816e0a5"
     },
     "artifacts/classification.csv": {
       "bytes": 10862,

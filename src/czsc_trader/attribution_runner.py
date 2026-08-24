@@ -292,7 +292,9 @@ def _heatmap(classifications: pd.DataFrame, output_path: Path) -> None:
         )
     )
     figure.update_layout(title="588080 Champion Attribution", template="plotly_white")
-    figure.write_html(output_path, include_plotlyjs=True, full_html=True)
+    html = figure.to_html(include_plotlyjs=True, full_html=True)
+    normalized = "\n".join(line.rstrip() for line in html.splitlines()) + "\n"
+    output_path.write_text(normalized, encoding="utf-8")
 
 
 def run_attribution_from_frames(

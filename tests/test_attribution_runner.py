@@ -35,11 +35,13 @@ def _protocol() -> dict[str, object]:
         "threshold_sensitivity": {
             "entry": [0.1, 0.15, 0.2],
             "exit": [-0.05, 0.0, 0.05],
+            "combine_families": False,
         },
         "state_machine_sensitivity": {
             "entry_confirm_days": [1, 2],
             "min_hold_days": [2, 3, 4],
             "exit_confirm_days": [1, 2],
+            "combine_families": False,
         },
         "promotion": {
             "select_challenger": False,

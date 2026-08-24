@@ -568,8 +568,9 @@ def run_attribution_from_frames(
     _write_csv(artifacts_dir / "weight_sensitivity.csv", pd.DataFrame(weight_rows))
 
     threshold_rows: list[dict[str, object]] = []
-    for parameter, values in protocol["threshold_sensitivity"].items():
-        field = "enter" if parameter == "entry" else "exit"
+    threshold_fields = {"entry": "enter", "exit": "exit"}
+    for parameter, field in threshold_fields.items():
+        values = protocol["threshold_sensitivity"][parameter]
         baseline_value = getattr(champion_rule, field)
         for value in values:
             if float(value) == float(baseline_value):

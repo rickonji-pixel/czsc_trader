@@ -82,6 +82,25 @@ CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周�
 
 只使用命令本次返回的 `output_dir`，并将其中的基线版本、规则哈希、行情哈希、区间指标、审计和必需产物与便携验证快照核对；不得查找或硬编码历史R编号。
 
+## 小团队冠军—挑战者实验
+
+第一轮实验只研究离场后的再入场冷却期和门控。研究入口在打开年度行情文件前强制截止到2025-12-31，2026数据不参与候选生成、评价或排序：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_experiment.py
+```
+
+只有2023、2024、2025三个年度中，挑战者收益率和夏普率都严格高于 `baseline_20260823`，程序才输出 `frozen_challenger.json`。最大回撤、换手、持仓比例和交易次数只观察，不影响PASS和排序。
+
+将通过者保存为受Git跟踪的冻结文件并提交后，才能在独立命令中读取2026：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_holdout.py `
+  --frozen-challenger configs\frozen_challengers\<文件名>.json
+```
+
+2026Q1、2026H1、2026M1-M8三个窗口必须各自同时满足收益率和夏普率严格高于冠军，才产生新冠军候选；程序不会自动晋升基线。
+
 ## 测试
 
 ```powershell

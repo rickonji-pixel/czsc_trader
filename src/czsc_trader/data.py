@@ -179,6 +179,8 @@ def load_market_data(
     raw_dir: Path,
     symbol: str = SYMBOL,
     asset_type: str | None = None,
+    *,
+    cutoff: pd.Timestamp | str | None = None,
 ) -> MarketData:
     """Load, normalize, hash, and fully reconcile the supplied raw K-lines."""
     raw_dir = Path(raw_dir)
@@ -201,8 +203,10 @@ def load_market_data(
     file_records = manifest.get("files")
     if not isinstance(file_records, dict) or not file_records:
         raise ValueError(f"{code}: manifest files must be a non-empty object")
+    cutoff_ts = pd.Timestamp(cutoff).normalize() if cutoff is not None else None
     hashes: dict[str, str] = {}
     grouped: dict[str, list[pd.DataFrame]] = {freq: [] for freq in FREQUENCIES}
+    visible_records: dict[str, object] = {}
 
     for filename, record in file_records.items():
         if not isinstance(record, dict):
@@ -211,8 +215,11 @@ def load_market_data(
         if not match:
             raise ValueError(f"{filename}: invalid flat market-data filename")
         freq = match.group(1)
+        year = int(match.group(2))
         if record.get("frequency") != freq:
             raise ValueError(f"{filename}: manifest frequency differs from filename")
+        if cutoff_ts is not None and year > cutoff_ts.year:
+            continue
         path = raw_dir / str(filename)
         if not path.is_file():
             raise FileNotFoundError(f"Missing raw K-line file: {filename}")
@@ -220,7 +227,12 @@ def load_market_data(
         if str(record.get("sha256", "")).lower() != digest:
             raise ValueError(f"{filename}: SHA-256 differs from manifest")
         hashes[path.name] = digest
-        grouped[freq].append(_read_one(path, freq, normalized_symbol))
+        frame = _read_one(path, freq, normalized_symbol)
+        if cutoff_ts is not None:
+            frame = frame.loc[frame["dt"].dt.normalize() <= cutoff_ts].copy()
+        if not frame.empty:
+            grouped[freq].append(frame)
+            visible_records[str(filename)] = record
 
     missing_frequencies = [freq for freq, frames in grouped.items() if not frames]
     if missing_frequencies:
@@ -232,6 +244,10 @@ def load_market_data(
     for name, frame in (("30m", intraday), ("daily", daily), ("weekly", weekly)):
         _validate_frame(frame, name)
     _validate_reconciliation(intraday, daily, weekly)
+    visible_manifest = manifest.copy()
+    visible_manifest["files"] = visible_records
+    if cutoff_ts is not None:
+        visible_manifest["visible_cutoff"] = str(cutoff_ts.date())
     return MarketData(
         intraday,
         daily,
@@ -239,5 +255,5 @@ def load_market_data(
         hashes,
         normalized_symbol,
         manifest_asset,
-        manifest,
+        visible_manifest,
     )

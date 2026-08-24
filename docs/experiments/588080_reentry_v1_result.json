@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "experiment_id": "588080_reentry_v1",
+  "protocol": "configs/experiments/588080_reentry_v1.json",
+  "champion": "baseline_20260823",
+  "visible_sample_end": "2025-12-31",
+  "market_manifest": "data/raw/588080_manifest.json",
+  "market_manifest_sha256": "aa45b09ee04ff13c5e4d75dbd38d816412e5ade66ac155f9e59a5474325a04ce",
+  "candidate_count": 20,
+  "status": "FAIL",
+  "best_candidate": {
+    "candidate_id": "cooldown0_gate-trend",
+    "cooldown_days": 0,
+    "reentry_gate": "trend",
+    "pass_count": 1,
+    "windows": {
+      "2023": {
+        "champion_return": -0.06031910763728798,
+        "challenger_return": -0.058154367032038135,
+        "return_delta": 0.0021647406052498486,
+        "champion_sharpe": -0.3898777490492146,
+        "challenger_sharpe": -0.39368011847166445,
+        "sharpe_delta": -0.0038023694224498805,
+        "pass": false
+      },
+      "2024": {
+        "champion_return": 0.06821503071757551,
+        "challenger_return": 0.07619129808244685,
+        "return_delta": 0.007976267364871337,
+        "champion_sharpe": 0.429718323504386,
+        "challenger_sharpe": 0.4534348009354132,
+        "sharpe_delta": 0.023716477431027227,
+        "pass": true
+      },
+      "2025": {
+        "champion_return": 0.5165797353772803,
+        "challenger_return": 0.46968440250216714,
+        "return_delta": -0.04689533287511316,
+        "champion_sharpe": 2.1935321360904703,
+        "challenger_sharpe": 2.078763524280942,
+        "sharpe_delta": -0.11476861180952813,
+        "pass": false
+      }
+    }
+  },
+  "pass_count_distribution": {
+    "0": 16,
+    "1": 4,
+    "2": 0,
+    "3": 0
+  },
+  "frozen_challenger": null,
+  "holdout_accessed": false,
+  "decision": "Keep baseline_20260823; the re-entry hypothesis is rejected."
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment_id": "588080_reentry_v1",
+  "symbol": "588080.SH",
+  "champion": "baseline_20260823",
+  "visible_sample_end": "2025-12-31",
+  "validation_periods": {
+    "2023": ["2023-01-01", "2023-12-31"],
+    "2024": ["2024-01-01", "2024-12-31"],
+    "2025": ["2025-01-01", "2025-12-31"]
+  },
+  "single_change": "post-exit re-entry cooldown and gate",
+  "cooldown_days": [0, 2, 3, 5, 8],
+  "reentry_gates": ["none", "structure", "trend", "structure_and_trend"],
+  "pass_rule": "challenger return > champion return AND challenger Sharpe > champion Sharpe in every validation window",
+  "selection_metrics": ["strategy_return", "sharpe"],
+  "observational_only": ["max_drawdown", "turnover", "exposure", "trade_count"]
+}

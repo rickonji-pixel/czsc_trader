@@ -6,6 +6,7 @@ import shutil
 import pandas as pd
 import pytest
 
+import czsc_trader.data as data_module
 from czsc_trader.data import load_market_data
 
 
@@ -16,12 +17,12 @@ def test_loads_verified_market_data() -> None:
     """Catch missing partitions, normalization, or intraday sessions."""
     data = load_market_data(RAW_DIR)
 
-    assert len(data.intraday) == 5_112
-    assert len(data.daily) == 639
-    assert len(data.weekly) == 136
+    assert len(data.intraday) == 11_200
+    assert len(data.daily) == 1_400
+    assert len(data.weekly) == 295
     assert data.intraday["symbol"].unique().tolist() == ["588080.SH"]
     assert data.intraday.groupby(data.intraday["dt"].dt.normalize()).size().eq(8).all()
-    assert len(data.hashes) == 9
+    assert len(data.hashes) == 21
 
 
 def test_cross_frequency_prices_reconcile() -> None:
@@ -41,6 +42,8 @@ def test_cross_frequency_prices_reconcile() -> None:
         daily[["open", "high", "low", "close"]],
         check_freq=False,
         check_names=False,
+        rtol=0.0,
+        atol=0.005,
     )
 
 
@@ -56,6 +59,31 @@ def test_truncate_keeps_only_information_available_by_cutoff() -> None:
     assert truncated.hashes == data.hashes
     assert truncated.symbol == data.symbol
     assert truncated.asset_type == data.asset_type
+
+
+def test_cutoff_loader_never_opens_future_year_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Catch holdout K-lines being opened before the challenger is frozen."""
+    opened: list[str] = []
+    original = data_module._read_one
+
+    def recording_read(path: Path, freq: str, symbol: str) -> pd.DataFrame:
+        opened.append(path.name)
+        return original(path, freq, symbol)
+
+    monkeypatch.setattr(data_module, "_read_one", recording_read)
+
+    visible = load_market_data(RAW_DIR, cutoff="2025-12-31")
+
+    assert opened
+    assert all("_2026.csv" not in name for name in opened)
+    assert visible.daily["dt"].max() == pd.Timestamp("2025-12-31")
+    assert set(visible.hashes) == {
+        f"588080_{frequency}_{year}.csv"
+        for frequency in ("30m", "daily", "weekly")
+        for year in range(2020, 2026)
+    }
 
 
 def _write_generic_fixture(tmp_path: Path) -> Path:

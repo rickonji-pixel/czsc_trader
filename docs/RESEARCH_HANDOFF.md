@@ -2,7 +2,7 @@
 
 > **设备与输出约束（最高优先级）**
 >
-> 不得假定新会话与当前会话运行在同一台设备，不得假定仓库位于相同绝对路径，也不得假定任何历史 `outputs/` 目录、R编号或本地回测产物存在。`outputs/` 不受Git跟踪，不能作为跨会话交接依据。需要回测或研究结果时，必须先确认当前仓库根目录和受Git跟踪的数据、配置，再在当前设备重新运行相应命令，并仅使用该次命令实际返回的 `output_dir`。
+> 不得假定新会话与当前会话运行在同一台设备或仓库位于相同绝对路径。正式研究必须读取受Git跟踪的 `experiments/MMDD_EXX/`，不得依赖本机历史 `outputs/`；`outputs/` 只保存普通回测产物，不受Git跟踪。需要新回测时，在当前设备重新运行并仅使用本次返回的 `output_dir`；需要复核历史研究时，验证实验清单哈希后读取四份研究文档和 `artifacts/`。
 
 ## 0. 研究与通用回测边界
 
@@ -14,7 +14,7 @@ prepare_market_data.py → PASS行情清单 → 最新冻结规则基线 → run
 
 必须区分：
 
-- `scripts/run_research.py`：仅用于588080候选研究、排序和选择，产生 `candidate_results.csv`、`selected_rule.json`；
+- `scripts/run_research.py`：仅用于588080候选研究、排序和选择，研究资料写入受Git跟踪的 `experiments/MMDD_EXX/`；
 - `scripts/run_backtest.py`：只加载一个已冻结基线，对指定标的执行，不遍历候选、不更新基线；
 - `scripts/prepare_market_data.py`：通过 Tushare 获取 A股股票或 ETF 数据，在获取阶段统一生成后复权30分钟、日线和周线，验证后发布扁平年度CSV、manifest和validation报告。股票使用 `adj_factor`，ETF使用 `fund_adj`；OHLC乘因子、成交量除以因子、成交额不变，周线由后复权日线聚合。
 
@@ -247,9 +247,9 @@ git diff --check
 .\.venv\Scripts\python.exe scripts\run_research.py
 ```
 
-输出目录自动使用 `outputs/<证券代码>_<MMDD>_RXX` 的下一个未占用版本，不覆盖当前设备已有目录。
+实验目录自动使用 `experiments/<MMDD>_EXX` 的下一个同日编号，不覆盖、不回填，日期变化后从EX01重新开始。脚本会返回实际 `experiment_dir`；完成后必须提交该目录。
 
-脚本会在终端JSON中返回本次实际 `output_dir`。仅本次运行需要使用该目录时才记录返回值，不得硬编码任何历史R编号。
+每轮实验固定保存 `01_goal.md`、`02_design.md`、`03_execution.md`、`04_conclusion.md`、`experiment_manifest.json` 和 `artifacts/`。完整候选、协议和机器指标必须保留，失败研究不得只报告最佳候选。
 
 复现当前588080冻结基线（不执行候选搜索、不修改基线）：
 
@@ -311,6 +311,8 @@ git status --short
 ## 9. 建议的后续工作
 
 ### 2020—2025冠军—挑战者研究协议
+
+本轮已完成档案：`experiments/0824_EX01/`。结论为FAIL，冠军保持 `baseline_20260823`，未生成冻结挑战者，未访问2026留出集。
 
 下一轮研究仍只锚定588080，冠军固定为 `baseline_20260823`。研究代码在打开年度CSV前排除2026文件，只允许使用上市日至2025-12-31的数据。第一项实验只改变离场后的再入场冷却期与门控，共20个预声明组合；其他冠军参数保持不变。
 

@@ -6,7 +6,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
-# Reproducible research artifacts.
+# Local fixed-rule backtest outputs; formal research is tracked in experiments/.
 outputs/
 
 # Local credentials for optional Tushare dataflows.

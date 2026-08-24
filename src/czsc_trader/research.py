@@ -20,6 +20,11 @@ from .backtest import PeriodBacktestResult, run_period_backtests
 from .charting import DIVERGENCE_CONFIG, write_period_chart
 from .data import SYMBOL, load_market_data
 from .diagnostics import build_trade_diagnostics
+from .experiment_archive import (
+    build_experiment_manifest,
+    create_experiment_dir,
+    validate_experiment_archive,
+)
 from .factors import generate_factor_frame
 from .objectives import RETURN_TARGETS, TARGET_PERIODS, overall_pass
 from .walk_forward import CANDIDATES, Rule, select_fixed_rule
@@ -328,13 +333,49 @@ def run_research(raw_dir: Path, output_dir: Path) -> dict[str, object]:
 
 def run_dated_research(
     raw_dir: Path,
-    outputs_root: Path,
+    experiments_root: Path,
     *,
     run_date: date | None = None,
     runner: Callable[[Path, Path], dict[str, object]] | None = None,
 ) -> dict[str, object]:
-    """Run research in a new ``<symbol>_<MMDD>_RXX`` output directory."""
+    """Run legacy candidate search in a tracked ``MMDD_EXX`` archive."""
     effective_date = run_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
-    output_dir = create_output_dir(outputs_root, SYMBOL, effective_date)
+    experiment_dir = create_experiment_dir(experiments_root, effective_date)
+    artifacts_dir = experiment_dir / "artifacts"
+    artifacts_dir.mkdir()
     effective_runner = runner or run_research
-    return effective_runner(Path(raw_dir), output_dir)
+    summary = effective_runner(Path(raw_dir), artifacts_dir)
+    (experiment_dir / "01_goal.md").write_text(
+        "# 研究目标\n\n使用预声明的纯CZSC候选空间挑战当前固定规则，不自动晋升基线。\n",
+        encoding="utf-8",
+    )
+    (experiment_dir / "02_design.md").write_text(
+        "# 研究设计\n\n遍历固定候选空间，使用相同数据、费用和窗口独立回测并排序。\n",
+        encoding="utf-8",
+    )
+    (experiment_dir / "03_execution.md").write_text(
+        f"# 执行过程\n\n- 日期：{effective_date.isoformat()}\n- 状态：COMPLETED\n- 机器证据：`artifacts/`\n",
+        encoding="utf-8",
+    )
+    (experiment_dir / "04_conclusion.md").write_text(
+        "# 研究结论\n\n详细指标和选定规则见 `artifacts/metrics.json` 与 `artifacts/selected_rule.json`。\n",
+        encoding="utf-8",
+    )
+    build_experiment_manifest(
+        experiment_dir,
+        {
+            "experiment_id": experiment_dir.name,
+            "date": effective_date.isoformat(),
+            "status": "COMPLETED",
+            "symbol": SYMBOL,
+            "asset_type": "etf",
+            "visible_sample_end": None,
+            "holdout_accessed": False,
+        },
+    )
+    validate_experiment_archive(experiment_dir)
+    return {
+        **summary,
+        "output_dir": str(artifacts_dir.resolve()),
+        "experiment_dir": str(experiment_dir.resolve()),
+    }

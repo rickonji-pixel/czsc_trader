@@ -37,7 +37,7 @@
 **Files:**
 - Create: `src/czsc_trader/experiments.py`
 - Create: `tests/test_experiments.py`
-- Create: `configs/experiments/588080_reentry_v1.json`
+- Create: `experiments/0824_EX01/artifacts/protocol.json`（后续按研究档案规范迁移）
 
 - [x] Add failing tests for cooldown semantics, strict return-and-Sharpe PASS, all-window PASS, and deterministic ranking.
 - [x] Implement 20 predeclared challengers from cooldown `[0,2,3,5,8]` and gate `[none,structure,trend,structure_and_trend]` while preserving all champion parameters.
@@ -62,7 +62,7 @@
 
 **Files:**
 - Modify: `data/raw/588080_*`
-- Generate locally: `outputs/<actual experiment directory>`
+- Track formally: `experiments/0824_EX01/`
 
 - [x] Fetch 588080 from `2020-01-01` through `2026-08-21` using the existing Tushare HFQ pipeline.
 - [x] Verify manifest, adjustment factor, 30m/daily reconciliation, daily/weekly reconciliation, and file hashes.

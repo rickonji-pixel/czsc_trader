@@ -1,6 +1,6 @@
 # CZSC 固定规则研究与通用基线回测
 
-跨设备基线、复现方式和新会话交接说明见 `docs/RESEARCH_HANDOFF.md`。`outputs/` 仅为本机生成目录，不随Git同步；复现时应使用受Git跟踪的目标配置运行冻结基线，再与 `docs/baselines/588080_2026_expected.json` 核对。
+跨设备基线、复现方式和新会话交接说明见 `docs/RESEARCH_HANDOFF.md`。正式研究资料统一进入受Git跟踪的 `experiments/MMDD_EXX/`；`outputs/` 只保存普通固定规则回测的本机产物，不随Git同步。
 
 项目包含两条严格分离的流程：
 
@@ -17,15 +17,14 @@
 .\.venv\Scripts\python.exe scripts\run_research.py
 ```
 
-结果写入 `outputs/<股票代码>_<MMDD>_RXX`，其中 `RXX` 自动使用当前设备上下一个未占用编号，
-不会覆盖已有结果，也不要求不同设备使用相同编号。
+结果写入 `experiments/<MMDD>_EXX`。`EXX` 每天从01重新开始，按同日已有最大编号单调递增，不覆盖、不回填。每轮固定包含 `01_goal.md`、`02_design.md`、`03_execution.md`、`04_conclusion.md`、机器证据目录 `artifacts/` 和带SHA-256的 `experiment_manifest.json`，全部纳入Git跟踪。
 其中 `report.md` 汇总2026Q1、2026H1和2026年1–8月的目标收益、策略收益和目标差额。三个周期分别
 以100万元现金、零持仓建立独立 vectorbt 组合；首日开盘只执行上一交易日已形成的信号，
 并分别输出 `orders_<周期>.csv` 与 `equity_<周期>.csv`。
 
 每个周期同时生成 `chart_<周期>.html` 离线交互式日线图。主图包含日K、截至周期末由
 CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周期初始因子对齐和 vectorbt 实际成交点；
-副图展示结构、趋势、量价位置与综合因子分数。日期轴按实际K线交易日动态折叠周末、法定节假日和停牌日，避免无数据区间产生空白。五笔/七笔背驰同时进入结构因子。研究目录还输出 `trade_diagnostics.csv`，用于观察完整买卖回合、持仓天数和连续反转；诊断层不能改变仓位或选优结果。
+副图展示结构、趋势、量价位置与综合因子分数。日期轴按实际K线交易日动态折叠周末、法定节假日和停牌日，避免无数据区间产生空白。五笔/七笔背驰同时进入结构因子。研究档案的 `artifacts/` 还保存 `trade_diagnostics.csv`，用于观察完整买卖回合、持仓天数和连续反转；诊断层不能改变仓位或选优结果。
 
 ## 数据准备与通用回测
 
@@ -84,6 +83,8 @@ CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周�
 
 ## 小团队冠军—挑战者实验
 
+第一轮正式研究档案是 `experiments/0824_EX01/`，其目标、设计、执行过程、结论和20个完整候选均可跨设备复核。该档案是本轮结论的唯一权威来源，不依赖任何本机 `outputs/` 目录。
+
 第一轮实验只研究离场后的再入场冷却期和门控。研究入口在打开年度行情文件前强制截止到2025-12-31，2026数据不参与候选生成、评价或排序：
 
 ```powershell
@@ -96,7 +97,7 @@ CZSC 1.0.1 确认的笔、五笔/七笔背驰、因子仓位切换信号、周�
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_holdout.py `
-  --frozen-challenger configs\frozen_challengers\<文件名>.json
+  --frozen-challenger experiments\<来源实验>\artifacts\frozen_challenger.json
 ```
 
 2026Q1、2026H1、2026M1-M8三个窗口必须各自同时满足收益率和夏普率严格高于冠军，才产生新冠军候选；程序不会自动晋升基线。

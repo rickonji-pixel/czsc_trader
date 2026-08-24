@@ -344,10 +344,18 @@ def _study_from_protocol(
     runtime_dir: Path,
     protocol: Mapping[str, object],
     protocol_digest: str,
+    *,
+    storage_mode: str = "sqlite",
 ) -> optuna.Study:
     config = protocol["optuna"]
-    runtime_dir.mkdir(parents=True, exist_ok=True)
-    database = runtime_dir / "optuna.db"
+    if storage_mode == "sqlite":
+        runtime_dir.mkdir(parents=True, exist_ok=True)
+        database = runtime_dir / "optuna.db"
+        storage: str | optuna.storages.BaseStorage = f"sqlite:///{database.as_posix()}"
+    elif storage_mode == "memory":
+        storage = optuna.storages.InMemoryStorage()
+    else:
+        raise ValueError(f"unsupported storage mode: {storage_mode}")
     sampler = optuna.samplers.TPESampler(
         seed=int(config["seed"]),
         n_startup_trials=int(config["n_startup_trials"]),
@@ -359,8 +367,8 @@ def _study_from_protocol(
         study_name=str(protocol["experiment_id"]),
         direction="maximize",
         sampler=sampler,
-        storage=f"sqlite:///{database.as_posix()}",
-        load_if_exists=True,
+        storage=storage,
+        load_if_exists=storage_mode == "sqlite",
     )
     expected_attrs = {
         "experiment_id": str(protocol["experiment_id"]),
@@ -675,7 +683,12 @@ def run_optuna_experiment(
         raise ValueError("candidate metadata has no signal support audit")
     _write_json(artifacts / "event_signal_support.json", support)
 
-    study = _study_from_protocol(experiment_dir / "runtime", context.protocol, protocol_digest)
+    study = _study_from_protocol(
+        experiment_dir / "runtime",
+        context.protocol,
+        protocol_digest,
+        storage_mode="sqlite",
+    )
     recovered = recover_running_trials(study)
     initial_params = trial_params_for_strategy(
         context.origin_weights,

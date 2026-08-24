@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import optuna
 import pandas as pd
 import pytest
 import czsc_trader.data as data_module
 
 from czsc_trader.optuna_runner import (
     TrialEvaluationInputs,
+    _study_from_protocol,
     build_trial_outcome,
     evaluate_trial_batch,
     evaluate_trial_request,
@@ -41,6 +43,23 @@ def test_formal_protocol_is_accepted_without_relaxing_holdout_boundary() -> None
     protocol["holdout_windows"] = ["2026H1"]
     with pytest.raises(ValueError, match="holdout windows"):
         validate_ex07_protocol(protocol)
+
+
+def test_study_storage_modes_isolate_memory_from_sqlite(tmp_path: Path) -> None:
+    protocol = json.loads(PROTOCOL_PATH.read_text(encoding="utf-8"))
+    memory_runtime = tmp_path / "memory-runtime"
+    sqlite_runtime = tmp_path / "sqlite-runtime"
+
+    memory = _study_from_protocol(
+        memory_runtime, protocol, "memory-digest", storage_mode="memory"
+    )
+    sqlite = _study_from_protocol(sqlite_runtime, protocol, "sqlite-digest")
+
+    assert isinstance(memory._storage, optuna.storages.InMemoryStorage)
+    assert not memory_runtime.exists()
+    assert (sqlite_runtime / "optuna.db").is_file()
+    with pytest.raises(ValueError, match="unsupported storage mode"):
+        _study_from_protocol(tmp_path / "bad-runtime", protocol, "bad", storage_mode="bad")
 
 
 def test_trial_objective_is_worst_return_delta_and_ignores_sharpe() -> None:

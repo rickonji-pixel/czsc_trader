@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
+import joblib
+from joblib import Parallel, delayed, parallel_config
 import numpy as np
 import pandas as pd
 
@@ -46,6 +49,170 @@ class FactorSpec:
     @property
     def spec_id(self) -> str:
         return f"step{self.step:.3f}_r{self.rounds}_en{self.enter:+.3f}_ex{self.exit:+.3f}"
+
+
+@dataclass(frozen=True, order=True)
+class RollingFitTask:
+    step: float
+    rounds: int
+    validation: str
+
+    @property
+    def key(self) -> tuple[float, int, str]:
+        return self.step, self.rounds, self.validation
+
+
+@dataclass(frozen=True)
+class RollingFitInputs:
+    factor_values: np.ndarray
+    factor_index: pd.DatetimeIndex
+    factor_names: tuple[str, ...]
+    origin_values: np.ndarray
+    origin_name: str | None
+    ex04_target_values: np.ndarray
+    ex04_target_name: str | None
+    ex04_enter: float
+    ex04_exit: float
+    state_rule: Any
+    daily: pd.DataFrame
+    periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]]
+    fee_rate: float
+    init_cash: float
+    protocol: dict[str, object]
+
+    @classmethod
+    def from_frames(
+        cls,
+        factors: pd.DataFrame,
+        origin: pd.Series,
+        ex04_target: pd.Series,
+        *,
+        ex04_enter: float,
+        ex04_exit: float,
+        state_rule: Any,
+        daily: pd.DataFrame,
+        periods: Mapping[str, tuple[pd.Timestamp, pd.Timestamp]],
+        fee_rate: float,
+        init_cash: float,
+        protocol: Mapping[str, object],
+    ) -> "RollingFitInputs":
+        factor_values = np.ascontiguousarray(factors.to_numpy(dtype=float))
+        factor_values.setflags(write=False)
+        origin_values = np.ascontiguousarray(origin.to_numpy(dtype=float))
+        origin_values.setflags(write=False)
+        target_values = np.ascontiguousarray(ex04_target.to_numpy(dtype=float))
+        target_values.setflags(write=False)
+        return cls(
+            factor_values=factor_values,
+            factor_index=pd.DatetimeIndex(factors.index),
+            factor_names=tuple(map(str, factors.columns)),
+            origin_values=origin_values,
+            origin_name=origin.name,
+            ex04_target_values=target_values,
+            ex04_target_name=ex04_target.name,
+            ex04_enter=float(ex04_enter),
+            ex04_exit=float(ex04_exit),
+            state_rule=state_rule,
+            daily=daily.copy(),
+            periods=dict(periods),
+            fee_rate=float(fee_rate),
+            init_cash=float(init_cash),
+            protocol=dict(protocol),
+        )
+
+    def frames(self) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
+        factors = pd.DataFrame(
+            self.factor_values,
+            index=self.factor_index,
+            columns=self.factor_names,
+            copy=False,
+        )
+        origin = pd.Series(
+            self.origin_values,
+            index=self.factor_names,
+            name=self.origin_name,
+            copy=False,
+        )
+        target = pd.Series(
+            self.ex04_target_values,
+            index=self.factor_index,
+            name=self.ex04_target_name,
+            copy=False,
+        )
+        return factors, origin, target
+
+
+def _rolling_fit_tasks(protocol: Mapping[str, object]) -> tuple[RollingFitTask, ...]:
+    return tuple(
+        sorted(
+            RollingFitTask(float(step), int(rounds), str(validation))
+            for step in protocol["weight_steps"]
+            for rounds in protocol["coordinate_rounds"]
+            for validation in protocol["validation_windows"]
+        )
+    )
+
+
+def _fit_rolling_weights(
+    inputs: Any,
+    tasks: Sequence[RollingFitTask],
+    n_jobs: int,
+    *,
+    worker: Callable[[RollingFitTask, Any], tuple[tuple[float, int, str], pd.Series]] | None = None,
+) -> dict[tuple[float, int, str], pd.Series]:
+    if n_jobs not in {1, 2, 4, 8}:
+        raise ValueError("n_jobs must be one of 1, 2, 4, 8")
+    ordered = tuple(sorted(tasks, key=lambda task: task.key))
+    expected_keys = tuple(task.key for task in ordered)
+    if len(set(expected_keys)) != len(expected_keys):
+        raise ValueError("rolling fit task keys must be unique")
+    runner = _run_rolling_fit_task if worker is None else worker
+    with parallel_config(
+        backend="loky",
+        inner_max_num_threads=1,
+        max_nbytes="100K",
+        mmap_mode="r",
+    ):
+        rows = Parallel(n_jobs=n_jobs)(delayed(runner)(task, inputs) for task in ordered)
+    if len(rows) != len(expected_keys):
+        raise RuntimeError("rolling fit task result count differs from request")
+    result = dict(sorted(rows, key=lambda row: row[0]))
+    if tuple(result) != expected_keys:
+        raise RuntimeError("rolling fit task keys are missing, duplicated, or unknown")
+    return result
+
+
+def _benchmark_parallel_jobs(
+    inputs: Any,
+    tasks: Sequence[RollingFitTask],
+    choices: Sequence[int],
+    *,
+    worker: Callable[[RollingFitTask, Any], tuple[tuple[float, int, str], pd.Series]] | None = None,
+) -> dict[str, object]:
+    timings: dict[str, float] = {}
+    reference: dict[tuple[float, int, str], pd.Series] | None = None
+    equivalent = True
+    for n_jobs in choices:
+        started = perf_counter()
+        result = _fit_rolling_weights(inputs, tasks, int(n_jobs), worker=worker)
+        timings[str(n_jobs)] = perf_counter() - started
+        if reference is None:
+            reference = result
+        elif tuple(result) != tuple(reference) or any(
+            not result[key].equals(reference[key]) for key in reference
+        ):
+            equivalent = False
+    if not equivalent:
+        raise AssertionError("serial and parallel rolling weights differ")
+    selected = min((seconds, int(n_jobs)) for n_jobs, seconds in timings.items())[1]
+    return {
+        "backend": "loky",
+        "joblib_version": joblib.__version__,
+        "choices": [int(value) for value in choices],
+        "selected_n_jobs": selected,
+        "serial_parallel_equivalent": equivalent,
+        "timings_seconds": timings,
+    }
 
 
 def build_factor_specs(protocol: Mapping[str, object]) -> tuple[FactorSpec, ...]:
@@ -196,6 +363,34 @@ def _fit_weights(
     return fitted
 
 
+def _run_rolling_fit_task(
+    task: RollingFitTask,
+    inputs: RollingFitInputs,
+) -> tuple[tuple[float, int, str], pd.Series]:
+    factors, origin, ex04_target = inputs.frames()
+    training_names = training_windows_before(inputs.periods, task.validation)
+    training_periods = {name: inputs.periods[name] for name in training_names}
+    evaluator = _PeriodEvaluator(
+        inputs.daily,
+        training_periods,
+        inputs.fee_rate,
+        inputs.init_cash,
+    )
+    weights = _fit_weights(
+        factors,
+        origin,
+        ex04_target,
+        inputs.ex04_enter,
+        inputs.ex04_exit,
+        inputs.state_rule,
+        evaluator,
+        FactorSpec(task.step, task.rounds, inputs.ex04_enter, inputs.ex04_exit),
+        inputs.protocol,
+    )
+    weights.attrs["cache_stats"] = evaluator.cache_stats
+    return task.key, weights
+
+
 def _candidate_rows(candidate: CandidateFactors) -> pd.DataFrame:
     state_lookup = {
         str(row["factor"]): row for row in candidate.metadata.get("states", [])
@@ -255,7 +450,38 @@ def _selection(
     validation_evaluator = _PeriodEvaluator(data.daily, validation_periods, fee_rate, init_cash)
     ex04_validation = validation_evaluator.evaluate(ex04_target)
     specs = build_factor_specs(protocol)
-    fitted_cache: dict[tuple[float, int, str], pd.Series] = {}
+    rolling_inputs = RollingFitInputs.from_frames(
+        factors,
+        origin,
+        ex04_target,
+        ex04_enter=ex04_enter,
+        ex04_exit=ex04_exit,
+        state_rule=state_rule,
+        daily=data.daily,
+        periods=periods,
+        fee_rate=fee_rate,
+        init_cash=init_cash,
+        protocol=protocol,
+    )
+    all_tasks = _rolling_fit_tasks(protocol)
+    benchmark_tasks = tuple(
+        task
+        for task in all_tasks
+        if task.step == 0.025
+        and task.rounds == 1
+        and task.validation in VALIDATION_WINDOWS[:4]
+    )
+    benchmark = _benchmark_parallel_jobs(
+        rolling_inputs,
+        benchmark_tasks,
+        tuple(int(value) for value in protocol.get("parallel_n_jobs_choices", [1])),
+    )
+    _write_json(artifacts / "parallel_benchmark.json", benchmark)
+    fitted_cache = _fit_rolling_weights(
+        rolling_inputs,
+        all_tasks,
+        int(benchmark["selected_n_jobs"]),
+    )
     rows: list[dict[str, object]] = []
     for spec in specs:
         metrics: dict[str, dict[str, object]] = {}
@@ -263,22 +489,7 @@ def _selection(
         shifts: list[float] = []
         for validation in VALIDATION_WINDOWS:
             key = (spec.step, spec.rounds, validation)
-            weights = fitted_cache.get(key)
-            if weights is None:
-                training_names = training_windows_before(periods, validation)
-                training_periods = {name: periods[name] for name in training_names}
-                weights = _fit_weights(
-                    factors,
-                    origin,
-                    ex04_target,
-                    ex04_enter,
-                    ex04_exit,
-                    state_rule,
-                    _PeriodEvaluator(data.daily, training_periods, fee_rate, init_cash),
-                    spec,
-                    protocol,
-                )
-                fitted_cache[key] = weights
+            weights = fitted_cache[key]
             target, _ = _target(factors, weights, spec.enter, spec.exit, state_rule)
             metrics[validation] = validation_evaluator.evaluate(target)[validation]
             active_counts.append(int(weights.ne(0.0).sum()))
@@ -308,6 +519,7 @@ def _selection(
     ranked.to_csv(artifacts / "candidate_results.csv", index=False, encoding="utf-8-sig")
     best_id = str(ranked.iloc[0]["spec_id"])
     best = next(spec for spec in specs if spec.spec_id == best_id)
+    final_evaluator = _PeriodEvaluator(data.daily, periods, fee_rate, init_cash)
     final_weights = _fit_weights(
         factors,
         origin,
@@ -315,13 +527,17 @@ def _selection(
         ex04_enter,
         ex04_exit,
         state_rule,
-        _PeriodEvaluator(data.daily, periods, fee_rate, init_cash),
+        final_evaluator,
         best,
         protocol,
     )
     final_weights.rename_axis("factor").reset_index().assign(
         active=lambda frame: frame["weight"].ne(0.0)
     ).to_csv(artifacts / "factor_weights.csv", index=False, encoding="utf-8-sig")
+    rolling_cache_stats = {
+        key: sum(int(weights.attrs.get("cache_stats", {}).get(key, 0)) for weights in fitted_cache.values())
+        for key in ("hits", "misses", "entries")
+    }
     summary = {
         "best_spec": best_id,
         "candidate_count": len(ranked),
@@ -335,6 +551,12 @@ def _selection(
         "selection_cutoff": "2025-12-31",
         "visible_data_hashes": data.hashes,
         "holdout_accessed": False,
+        "parallel": benchmark,
+        "cache_stats": {
+            "rolling_fits": rolling_cache_stats,
+            "validation": validation_evaluator.cache_stats,
+            "final_fit": final_evaluator.cache_stats,
+        },
     }
     _write_json(artifacts / "selection_metrics.json", summary)
     return best, final_weights, summary

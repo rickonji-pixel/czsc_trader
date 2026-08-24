@@ -4,6 +4,12 @@ import pandas as pd
 import pytest
 
 from czsc_trader.factor_discovery_runner import (
+    RollingFitTask,
+    RollingFitInputs,
+    _benchmark_parallel_jobs,
+    _fit_rolling_weights,
+    _rolling_fit_tasks,
+    _run_rolling_fit_task,
     build_comparison_window,
     build_factor_specs,
     factor_holdout_pass,
@@ -55,6 +61,118 @@ def test_protocol_and_grid_freeze_exact_sixty_four_configs() -> None:
     protocol["selection_metric"] = "sharpe"
     with pytest.raises(ValueError, match="return only"):
         validate_factor_protocol(protocol)
+
+
+def test_rolling_fit_tasks_are_exact_and_deterministic() -> None:
+    tasks = _rolling_fit_tasks(_protocol())
+
+    assert len(tasks) == 32
+    assert len({task.key for task in tasks}) == 32
+    assert tasks == tuple(sorted(tasks, key=lambda task: task.key))
+
+
+def test_fit_tasks_parallel_matches_serial() -> None:
+    tasks = (
+        RollingFitTask(0.025, 1, "2022H1"),
+        RollingFitTask(0.025, 1, "2022H2"),
+    )
+
+    def fake_worker(task: RollingFitTask, inputs: object):
+        del inputs
+        return task.key, pd.Series({"base": 1.0, "event": task.step})
+
+    serial = _fit_rolling_weights(None, tasks, n_jobs=1, worker=fake_worker)
+    parallel = _fit_rolling_weights(None, tasks, n_jobs=2, worker=fake_worker)
+
+    assert list(serial) == list(parallel)
+    for key in serial:
+        pd.testing.assert_series_equal(serial[key], parallel[key], check_exact=True)
+
+
+def test_parallel_benchmark_requires_exact_weight_equivalence() -> None:
+    tasks = (
+        RollingFitTask(0.025, 1, "2022H1"),
+        RollingFitTask(0.025, 1, "2022H2"),
+    )
+
+    def fake_worker(task: RollingFitTask, inputs: object):
+        del inputs
+        return task.key, pd.Series({"base": 1.0, "event": task.step})
+
+    result = _benchmark_parallel_jobs(
+        None,
+        tasks,
+        choices=(1, 2),
+        worker=fake_worker,
+    )
+
+    assert result["backend"] == "loky"
+    assert result["choices"] == [1, 2]
+    assert result["selected_n_jobs"] in {1, 2}
+    assert result["serial_parallel_equivalent"] is True
+    assert set(result["timings_seconds"]) == {"1", "2"}
+
+
+def test_rolling_fit_inputs_round_trip_read_only_factor_values() -> None:
+    index = pd.date_range("2021-01-01", periods=3, freq="D")
+    factors = pd.DataFrame({"base": [1.0, 0.0, -1.0], "event": [0.0, 1.0, 0.0]}, index=index)
+    origin = pd.Series({"base": 1.0, "event": 0.0})
+    target = pd.Series([0.0, 1.0, 1.0], index=index)
+    daily = pd.DataFrame({"dt": index, "open": [1.0] * 3, "close": [1.0] * 3})
+
+    inputs = RollingFitInputs.from_frames(
+        factors,
+        origin,
+        target,
+        ex04_enter=0.2,
+        ex04_exit=0.0,
+        state_rule=None,
+        daily=daily,
+        periods={"2021H1": (index[0], index[-1])},
+        fee_rate=0.0005,
+        init_cash=1_000_000,
+        protocol=_protocol(),
+    )
+    rebuilt_factors, rebuilt_origin, rebuilt_target = inputs.frames()
+
+    assert inputs.factor_values.flags.writeable is False
+    pd.testing.assert_frame_equal(rebuilt_factors, factors)
+    pd.testing.assert_series_equal(rebuilt_origin, origin)
+    pd.testing.assert_series_equal(rebuilt_target, target)
+
+
+def test_rolling_fit_worker_uses_only_training_windows_before_validation(monkeypatch) -> None:
+    index = pd.date_range("2021-01-01", periods=3, freq="D")
+    inputs = RollingFitInputs.from_frames(
+        pd.DataFrame({"base": [1.0, 0.0, -1.0]}, index=index),
+        pd.Series({"base": 1.0}),
+        pd.Series([0.0, 1.0, 1.0], index=index),
+        ex04_enter=0.2,
+        ex04_exit=0.0,
+        state_rule=None,
+        daily=pd.DataFrame({"dt": index, "open": [1.0] * 3, "close": [1.0] * 3}),
+        periods={
+            "2021H1": (pd.Timestamp("2021-01-01"), pd.Timestamp("2021-06-30")),
+            "2021H2": (pd.Timestamp("2021-07-01"), pd.Timestamp("2021-12-31")),
+            "2022H1": (pd.Timestamp("2022-01-01"), pd.Timestamp("2022-06-30")),
+        },
+        fee_rate=0.0005,
+        init_cash=1_000_000,
+        protocol=_protocol(),
+    )
+    captured_periods = {}
+
+    def fake_fit(factors, origin, target, enter, exit_, state_rule, evaluator, spec, protocol):
+        del factors, target, enter, exit_, state_rule, spec, protocol
+        captured_periods.update(evaluator.periods)
+        return origin.rename("weight")
+
+    monkeypatch.setattr("czsc_trader.factor_discovery_runner._fit_weights", fake_fit)
+    key, weights = _run_rolling_fit_task(RollingFitTask(0.025, 1, "2022H1"), inputs)
+
+    assert key == (0.025, 1, "2022H1")
+    assert set(captured_periods) == {"2021H1", "2021H2"}
+    assert weights.attrs["cache_stats"] == {"hits": 0, "misses": 0, "entries": 0}
 
 
 def test_training_windows_are_strictly_before_validation() -> None:

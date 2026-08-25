@@ -47,7 +47,7 @@ def test_data_validate_reads_the_tracked_market_dataset() -> None:
         "symbol": "588080.SH",
         "asset_type": "etf",
         "requested_start": "2020-01-01",
-        "requested_end": "2026-08-24",
+        "requested_end": "2026-08-25",
         "validation_status": "PASS",
         "frequencies": ["30m", "daily", "weekly"],
         "file_count": 21,

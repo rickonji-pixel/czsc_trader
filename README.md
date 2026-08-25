@@ -38,7 +38,7 @@ czsc-trader archive validate
 ## 数据准备与验证
 
 ~~~powershell
-.\.venv\Scripts\czsc-trader.exe data prepare --symbol 600519.SH --asset stock --start 2024-01-01 --end 2026-08-24
+.\.venv\Scripts\czsc-trader.exe data prepare --symbol 600519.SH --asset stock --start 2024-01-01 --end 2026-08-25
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
 ~~~
 

@@ -7,6 +7,7 @@ import shutil
 import tempfile
 
 from czsc_trader.experiment_archive import MANIFEST_NAME, validate_experiment_archive
+from czsc_trader.research.contracts import ResearchProtocolError
 from czsc_trader.research.registry import ExperimentRegistry
 
 from .context import RepositoryContext
@@ -57,8 +58,11 @@ def run_experiment(
             f"frozen experiment cannot run in place: {experiment_dir.name}",
         )
     protocol = _load_protocol(experiment_dir)
-    handler = registry.resolve(protocol, experiment_dir.name)
-    handler.validate_protocol(protocol)
+    try:
+        handler = registry.resolve(protocol, experiment_dir.name)
+        handler.validate_protocol(protocol)
+    except (ResearchProtocolError, ValueError) as exc:
+        raise ValidationError("experiment_protocol_invalid", str(exc)) from exc
     try:
         summary = handler.run(context, experiment_dir)
     except Exception as exc:
@@ -91,8 +95,11 @@ def replay_experiment(
     except (OSError, ValueError) as exc:
         raise ValidationError("experiment_archive_invalid", str(exc)) from exc
     protocol = _load_protocol(source)
-    handler = registry.resolve(protocol, source.name)
-    handler.validate_protocol(protocol)
+    try:
+        handler = registry.resolve(protocol, source.name)
+        handler.validate_protocol(protocol)
+    except (ResearchProtocolError, ValueError) as exc:
+        raise ValidationError("experiment_protocol_invalid", str(exc)) from exc
     before = _tree_hashes(source)
     output.parent.mkdir(parents=True, exist_ok=True)
     workspace = Path(tempfile.mkdtemp(prefix=".replay_", dir=output.parent))

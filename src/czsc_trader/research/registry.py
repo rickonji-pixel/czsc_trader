@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from czsc_trader.application.errors import UsageError
-
-from .contracts import ExperimentHandler
+from .contracts import ExperimentHandler, ResearchProtocolError
 
 
 class ExperimentRegistry:
@@ -17,12 +15,9 @@ class ExperimentRegistry:
     def register(self, handler: ExperimentHandler) -> None:
         handler_id = str(handler.handler_id)
         if not handler_id:
-            raise UsageError("empty_handler_id", "handler identity must not be empty")
+            raise ResearchProtocolError("handler identity must not be empty")
         if handler_id in self._handlers:
-            raise UsageError(
-                "duplicate_handler_id",
-                f"duplicate experiment handler: {handler_id}",
-            )
+            raise ResearchProtocolError(f"duplicate experiment handler: {handler_id}")
         self._handlers[handler_id] = handler
 
     def resolve(
@@ -37,10 +32,9 @@ class ExperimentRegistry:
         )
         handler = self._handlers.get(handler_id)
         if handler is None:
-            raise UsageError(
-                "experiment_handler_not_found",
-                f"no registered handler for experiment {experiment_id}: {handler_id or 'missing identity'}",
-                context={"experiment_id": experiment_id, "handler": handler_id},
+            raise ResearchProtocolError(
+                f"no registered handler for experiment {experiment_id}: "
+                f"{handler_id or 'missing identity'}"
             )
         return handler
 

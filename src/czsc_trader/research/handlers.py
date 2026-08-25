@@ -8,11 +8,12 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from czsc_trader.application.context import RepositoryContext
 from czsc_trader.experiment_archive import MANIFEST_NAME
 
+from .contracts import ResearchContext
 
-Runner = Callable[[RepositoryContext, Path], dict[str, object]]
+
+Runner = Callable[[ResearchContext, Path], dict[str, object]]
 
 
 @contextmanager
@@ -47,14 +48,14 @@ class FunctionHandler:
 
     def run(
         self,
-        context: RepositoryContext,
+        context: ResearchContext,
         experiment_dir: Path,
     ) -> dict[str, object]:
         return self._runner(context, experiment_dir)
 
     def replay(
         self,
-        context: RepositoryContext,
+        context: ResearchContext,
         source_dir: Path,
         output_dir: Path,
     ) -> dict[str, object]:
@@ -64,7 +65,7 @@ class FunctionHandler:
 
 
 def _completed_archive(
-    context: RepositoryContext,
+    context: ResearchContext,
     experiment_dir: Path,
     function: Callable[[Path], Path],
 ) -> dict[str, object]:
@@ -80,7 +81,7 @@ def _completed_archive(
 
 
 def _champion_challenge(
-    context: RepositoryContext, experiment_dir: Path
+    context: ResearchContext, experiment_dir: Path
 ) -> dict[str, object]:
     from czsc_trader.experiments import run_pre2026_experiment
 
@@ -91,7 +92,7 @@ def _champion_challenge(
     )
 
 
-def _four_layer(context: RepositoryContext, experiment_dir: Path) -> dict[str, object]:
+def _four_layer(context: ResearchContext, experiment_dir: Path) -> dict[str, object]:
     from czsc_trader.four_layer_runner import run_four_layer_experiment
 
     return run_four_layer_experiment(
@@ -99,7 +100,7 @@ def _four_layer(context: RepositoryContext, experiment_dir: Path) -> dict[str, o
     )
 
 
-def _return_only(context: RepositoryContext, experiment_dir: Path) -> dict[str, object]:
+def _return_only(context: ResearchContext, experiment_dir: Path) -> dict[str, object]:
     from czsc_trader.return_only_runner import run_return_only_experiment
 
     return run_return_only_experiment(
@@ -108,7 +109,7 @@ def _return_only(context: RepositoryContext, experiment_dir: Path) -> dict[str, 
 
 
 def _factor_discovery(
-    context: RepositoryContext, experiment_dir: Path
+    context: ResearchContext, experiment_dir: Path
 ) -> dict[str, object]:
     from czsc_trader.factor_discovery_runner import run_factor_discovery_experiment
 
@@ -133,7 +134,7 @@ def _git_head(root: Path) -> str:
     ).strip()
 
 
-def _optuna(context: RepositoryContext, experiment_dir: Path) -> dict[str, object]:
+def _optuna(context: ResearchContext, experiment_dir: Path) -> dict[str, object]:
     from czsc_trader.optuna_runner import (
         run_optuna_experiment,
         validate_ex07_protocol,
@@ -155,7 +156,7 @@ def _optuna(context: RepositoryContext, experiment_dir: Path) -> dict[str, objec
     )
 
 
-def _top3(context: RepositoryContext, experiment_dir: Path) -> dict[str, object]:
+def _top3(context: ResearchContext, experiment_dir: Path) -> dict[str, object]:
     from czsc_trader.top3_holdout_runner import run_tournament_experiment
 
     return run_tournament_experiment(

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
@@ -500,16 +499,4 @@ def run_return_only_experiment(
     }
 
 
-def cli() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--experiment-dir", type=Path, default=Path("experiments/0824_EX04"))
-    args = parser.parse_args()
-    result = run_return_only_experiment(
-        Path("data/raw"), Path("configs/rule_baselines"), args.experiment_dir
-    )
-    print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
-
-
-if __name__ == "__main__":
-    cli()
 

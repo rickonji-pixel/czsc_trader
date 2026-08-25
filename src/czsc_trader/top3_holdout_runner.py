@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -528,19 +527,3 @@ def run_tournament_experiment(
     }
 
 
-def cli() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--experiment-dir", type=Path, default=Path("experiments/0825_EX01")
-    )
-    parser.add_argument("--execution-commit", required=True)
-    args = parser.parse_args()
-    repo_root = Path.cwd().resolve()
-    result = run_tournament_experiment(
-        repo_root, args.experiment_dir, execution_commit=args.execution_commit
-    )
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-
-
-if __name__ == "__main__":
-    cli()

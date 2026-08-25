@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -905,40 +904,3 @@ def run_optuna_experiment(
     }
 
 
-def cli() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
-    parser.add_argument(
-        "--baseline-root", type=Path, default=Path("configs/rule_baselines")
-    )
-    parser.add_argument(
-        "--experiment-dir", type=Path, default=Path("experiments/0824_EX07")
-    )
-    parser.add_argument("--storage-mode", choices=("sqlite", "memory"), default="sqlite")
-    parser.add_argument("--require-full-trial-count", action="store_true")
-    parser.add_argument("--execution-commit")
-    args = parser.parse_args()
-    protocol = _read_json(args.experiment_dir / "artifacts" / "protocol.json")
-    experiment_id = str(protocol.get("experiment_id", ""))
-    protocol_validator = (
-        validate_ex08_protocol if experiment_id == "0824_EX08" else validate_ex07_protocol
-    )
-    declared_storage = protocol.get("storage_mode")
-    if declared_storage is not None and declared_storage != args.storage_mode:
-        parser.error("storage mode differs from preregistered protocol")
-    result = run_optuna_experiment(
-        args.raw_dir,
-        args.baseline_root,
-        args.experiment_dir,
-        protocol_validator=protocol_validator,
-        storage_mode=args.storage_mode,
-        recover_runtime=args.storage_mode == "sqlite",
-        collect_batch_timings=args.storage_mode == "memory",
-        require_full_trial_count=args.require_full_trial_count,
-        execution_commit=args.execution_commit,
-    )
-    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
-
-
-if __name__ == "__main__":
-    cli()

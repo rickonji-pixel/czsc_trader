@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
@@ -885,31 +884,3 @@ def run_factor_discovery_experiment(
     }
 
 
-def cli() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
-    parser.add_argument("--baseline-root", type=Path, default=Path("configs/rule_baselines"))
-    parser.add_argument(
-        "--ex05-path",
-        type=Path,
-        default=Path("experiments/0824_EX05/artifacts/frozen_challenger.json"),
-    )
-    parser.add_argument(
-        "--ex04-path",
-        type=Path,
-        default=Path("experiments/0824_EX04/artifacts/frozen_challenger.json"),
-    )
-    parser.add_argument("--experiment-dir", type=Path, default=Path("experiments/0824_EX06"))
-    args = parser.parse_args()
-    result = run_factor_discovery_experiment(
-        args.raw_dir,
-        args.baseline_root,
-        args.ex04_path,
-        args.experiment_dir,
-        ex05_path=args.ex05_path,
-    )
-    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
-
-
-if __name__ == "__main__":
-    cli()

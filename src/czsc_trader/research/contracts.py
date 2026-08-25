@@ -3,7 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from czsc_trader.application.context import RepositoryContext
+
+class ResearchContext(Protocol):
+    root: Path
+    raw_dir: Path
+    baseline_root: Path
+    experiments_root: Path
+    outputs_root: Path
+
+
+class ResearchProtocolError(ValueError):
+    """The protocol cannot select a unique supported research handler."""
 
 
 class ExperimentHandler(Protocol):
@@ -13,13 +23,13 @@ class ExperimentHandler(Protocol):
 
     def run(
         self,
-        context: RepositoryContext,
+        context: ResearchContext,
         experiment_dir: Path,
     ) -> dict[str, object]: ...
 
     def replay(
         self,
-        context: RepositoryContext,
+        context: ResearchContext,
         source_dir: Path,
         output_dir: Path,
     ) -> dict[str, object]: ...

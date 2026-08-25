@@ -204,13 +204,13 @@ Commit: `research: add stable EX06 diagnosis entrypoint`
 **Interfaces:**
 - Produces an immutable execution SHA for the formal archive.
 
-- [ ] **Step 1: Run implementation verification**
+- [x] **Step 1: Run implementation verification**
 
 Run focused tests from Tasks 1—3, `\.\.venv\Scripts\python.exe -m compileall -q src tests scripts`, `git diff --check`, and validate all tracked experiment archives.
 
 Expected: every command exits zero.
 
-- [ ] **Step 2: Mark Tasks 1—3 complete and commit the clean execution version**
+- [x] **Step 2: Mark Tasks 1—3 complete and commit the clean execution version**
 
 Commit: `research: freeze EX06 diagnosis implementation`
 

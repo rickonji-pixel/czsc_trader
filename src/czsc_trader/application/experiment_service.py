@@ -104,11 +104,32 @@ def replay_experiment(
     output.parent.mkdir(parents=True, exist_ok=True)
     workspace = Path(tempfile.mkdtemp(prefix=".replay_", dir=output.parent))
     source_copy = workspace / "source"
-    staging_output = workspace / "output"
+    staging_output = workspace / source.name
     try:
         shutil.copytree(source, source_copy)
         staging_output.mkdir()
         summary = handler.replay(context, source_copy, staging_output)
+        replay_manifest_path = staging_output / MANIFEST_NAME
+        if replay_manifest_path.is_file():
+            replay_manifest = json.loads(
+                replay_manifest_path.read_text(encoding="utf-8")
+            )
+            replay_manifest.update(
+                {
+                    "experiment_id": source.name,
+                    "run_type": "experiment_replay",
+                    "source_experiment": source.name,
+                    "source_manifest_sha256": sha256(
+                        (source / MANIFEST_NAME).read_bytes()
+                    ).hexdigest(),
+                }
+            )
+            temporary_manifest = replay_manifest_path.with_suffix(".json.tmp")
+            temporary_manifest.write_text(
+                json.dumps(replay_manifest, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            temporary_manifest.replace(replay_manifest_path)
         if _tree_hashes(source) != before:
             raise SafetyError(
                 "frozen_experiment_modified",

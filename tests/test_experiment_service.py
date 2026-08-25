@@ -35,6 +35,9 @@ class RecordingHandler:
         (output_dir / "replay.json").write_text(
             json.dumps({"status": "COMPLETE"}), encoding="utf-8"
         )
+        (output_dir / "experiment_manifest.json").write_text(
+            json.dumps({"experiment_id": output_dir.name}), encoding="utf-8"
+        )
         return {"status": "COMPLETE", "experiment_dir": str(output_dir)}
 
 
@@ -106,6 +109,13 @@ def test_replay_publishes_outside_source_without_mutating_archive(tmp_path: Path
     assert Path(result.artifacts["output_dir"]) == output.resolve()
     assert Path(result.result["experiment_dir"]) == output.resolve()
     assert (output / "replay.json").is_file()
+    replay_manifest = json.loads(
+        (output / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert replay_manifest["experiment_id"] == "0901_EX01"
+    assert replay_manifest["run_type"] == "experiment_replay"
+    assert replay_manifest["source_experiment"] == "0901_EX01"
+    assert len(replay_manifest["source_manifest_sha256"]) == 64
     assert _digest_tree(archive) == before
 
 

@@ -1,0 +1,6 @@
+﻿held_out_year,selected_rule_id,selected_is_fallback,training_support,positive_training_years,worst_annual_mean,median_annual_mean,training_pooled_mean,complexity
+2021,always_ex04,True,0,0,0.0,0.0,0.0,0
+2022,action_family=continue_hold|block_label=joint_margin_block,False,9,3,-0.0054065666737078,0.010803590299341708,0.011798547767713389,2
+2023,always_ex04,True,0,0,0.0,0.0,0.0,0
+2024,action_family=enter_now|block_label=threshold_block,False,8,3,-0.0003669370949954999,0.007307480649994201,0.00824289653333795,2
+2025,always_ex04,True,0,0,0.0,0.0,0.0,0

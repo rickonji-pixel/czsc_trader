@@ -836,3 +836,103 @@ def test_cli_dispatches_new_exit_representation_to_stable_entrypoint(
     entrypoint.cli()
 
     assert called == [archive]
+
+
+def _preregistered_decision_boundary_archive(tmp_path: Path) -> Path:
+    archive = tmp_path / "0826_EX01"
+    artifacts = archive / "artifacts"
+    artifacts.mkdir(parents=True)
+    protocol = json.loads(
+        Path("experiments/0826_EX01/artifacts/protocol.json").read_text(encoding="utf-8")
+    )
+    (artifacts / "protocol.json").write_text(
+        json.dumps(protocol, ensure_ascii=False), encoding="utf-8"
+    )
+    for name in REQUIRED_DOCUMENTS:
+        (archive / name).write_text(f"# {name}\n", encoding="utf-8")
+    return archive
+
+
+def test_preregistered_decision_boundary_writes_a_complete_diagnostic_archive(
+    tmp_path: Path, monkeypatch
+) -> None:
+    archive = _preregistered_decision_boundary_archive(tmp_path)
+
+    def fake_runner(repository_root: Path, experiment_dir: Path, protocol: dict[str, object]):
+        assert repository_root == Path(".")
+        artifacts = experiment_dir / "artifacts"
+        classification = {
+            "classification": "no_stable_boundary",
+            "modal_rule_id": "action_family=enter_now",
+            "same_rule_folds": 3,
+            "oof_matched_events": 9,
+            "oof_supported_years": 5,
+            "positive_oof_years": 3,
+            "annual_sign_test_pvalue": 0.5,
+            "pooled_oof_mean_action_value": 0.001,
+            "maximum_single_positive_gain_share": 0.4,
+            "gates": {"same_rule_stable": False},
+        }
+        (artifacts / "identity_audit.json").write_text(
+            json.dumps({"status": "PASS", "holdout_accessed": False}), encoding="utf-8"
+        )
+        for filename in (
+            "frontier_events.csv",
+            "excluded_intervals.csv",
+            "boundary_rules.csv",
+            "fold_selection.csv",
+            "out_of_fold_predictions.csv",
+        ):
+            pd.DataFrame([{"value": 1}]).to_csv(artifacts / filename, index=False)
+        (artifacts / "boundary_classification.json").write_text(
+            json.dumps(classification), encoding="utf-8"
+        )
+        summary = {
+            "status": "COMPLETE",
+            "holdout_accessed": False,
+            "frozen_challenger": None,
+            "frontier_event_count": 44,
+            "eligible_event_count": 43,
+            "excluded_interval_count": 1,
+            "rule_count": 49,
+            "classification": classification,
+        }
+        (artifacts / "metrics.json").write_text(json.dumps(summary), encoding="utf-8")
+        return summary
+
+    monkeypatch.setattr(entrypoint, "run_decision_boundary_diagnosis", fake_runner)
+
+    finalized = entrypoint.run_preregistered_decision_boundary(archive)
+
+    assert finalized == archive
+    manifest = validate_experiment_archive(archive)
+    assert manifest["status"] == "COMPLETE"
+    assert manifest["holdout_accessed"] is False
+    execution = (archive / "03_execution.md").read_text(encoding="utf-8")
+    assert "执行提交" in execution and "44" in execution
+    conclusion = (archive / "04_conclusion.md").read_text(encoding="utf-8")
+    assert "no_stable_boundary" in conclusion
+    assert "0824_EX04" in conclusion
+    assert "当前证据支持" in conclusion
+    assert not (archive / "artifacts" / "frozen_challenger.json").exists()
+    assert not (archive / "artifacts" / "orders.csv").exists()
+
+
+def test_cli_dispatches_decision_boundary_to_stable_entrypoint(
+    tmp_path: Path, monkeypatch
+) -> None:
+    archive = _preregistered_decision_boundary_archive(tmp_path)
+    called: list[Path] = []
+
+    def fake_entrypoint(experiment_dir: Path) -> Path:
+        called.append(experiment_dir)
+        return experiment_dir
+
+    monkeypatch.setattr(entrypoint, "run_preregistered_decision_boundary", fake_entrypoint)
+    monkeypatch.setattr(
+        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
+    )
+
+    entrypoint.cli()
+
+    assert called == [archive]

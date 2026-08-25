@@ -84,6 +84,8 @@ A股股票与ETF统一使用Tushare后复权行情。只有复权因子、30分�
 
 ## 测试
 
+测试集只保留统一CLI的端到端功能验证，不为内部实现、历史runner或研究算法细节保留单元测试。
+
 ~~~powershell
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m compileall -q src tests

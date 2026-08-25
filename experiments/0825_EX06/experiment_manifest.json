@@ -2,7 +2,7 @@
   "schema_version": 1,
   "experiment_id": "0825_EX06",
   "date": "2026-08-25",
-  "status": "PRE_REGISTERED",
+  "status": "COMPLETE",
   "symbol": "588080.SH",
   "asset_type": "etf",
   "research_object": {
@@ -21,20 +21,52 @@
       "sha256": "9e5ee128edd14d3839747f14ffef7198d24ee26b4bc50df600675c6b329e1e31"
     },
     "03_execution.md": {
-      "bytes": 288,
-      "sha256": "e7bea0faf912cb4c11122a0319e43a6db821764d06d5aebd6307e7f006a4bfc7"
+      "bytes": 1501,
+      "sha256": "8e57fbc47d232ae030770d0c7103259dce1cb979980d94f61a4f0057a0afb219"
     },
     "04_conclusion.md": {
-      "bytes": 101,
-      "sha256": "efc24e0499ccc5dbba98dbd2024cb26e03079fc389a693efaa81788331da56bb"
+      "bytes": 3129,
+      "sha256": "163c5b2168dfe8e73c621a1aa650451ed9cfde4dabb2b8f681e97014ba0206c8"
+    },
+    "artifacts/confirmed_signatures.csv": {
+      "bytes": 388,
+      "sha256": "403ba7499851c95becc5b9f9b172425af6b85ed99e793585b2dd77201895eb02"
+    },
+    "artifacts/descriptor_definitions.csv": {
+      "bytes": 1945,
+      "sha256": "a1e1b08d0c7e3d300e48df4e49cda954511b41d3b7fde4b4b44943c1afaae8d7"
+    },
+    "artifacts/discovered_signatures.csv": {
+      "bytes": 204,
+      "sha256": "06290d8148c0a511bc97e18501e44f325e95bc844bd2a2db97ba715e49c5ff35"
+    },
+    "artifacts/event_new_representation.csv": {
+      "bytes": 101603,
+      "sha256": "ad1f873d3ab33c3b717daec0ae434375167a03513bb215946216e6d543ebefd9"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 4174,
+      "sha256": "9786d0be37c21df743a6ba027dd0a4ae4a1c6db1d04ade6372741abcd7902b6f"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 2463,
+      "sha256": "020d3bb9d211590e1c137d286ebf0ba7528a1a9a3c410a2276d5e11b9cf5a363"
+    },
+    "artifacts/permutation_audit.json": {
+      "bytes": 149,
+      "sha256": "276735f11b5f9689ced5a1ad71fba3d47d1b6555460bf332d5fcc301ce5aa7f0"
     },
     "artifacts/protocol.json": {
       "bytes": 3211,
       "sha256": "1b649f8eeaeabc3f8b5a2665b2db0a9cb152a53d2ecf28fdf22c5de353162cf3"
     },
+    "artifacts/representation_classification.json": {
+      "bytes": 265,
+      "sha256": "873529fae15e6ed1a87e88b52001a88a6015f1f02a403faf53d29afd75e52d9b"
+    },
     "implementation_plan.md": {
       "bytes": 13261,
-      "sha256": "a1de009cafc42a4788fd8b09e54fa804344e953569b5d1920d0bc59fc656046d"
+      "sha256": "3f6506dff905d313f9811d4083a0dffef5aee2112894cafc343e6e2f74a7b860"
     }
   }
 }

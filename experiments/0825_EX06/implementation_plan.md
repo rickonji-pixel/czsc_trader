@@ -214,13 +214,13 @@ Expected: every command exits zero.
 
 Commit: `research: freeze EX06 diagnosis implementation`
 
-- [ ] **Step 3: Verify clean tree and record HEAD**
+- [x] **Step 3: Verify clean tree and record HEAD**
 
 Run: `git status --short --branch` and `git rev-parse HEAD`.
 
 Expected: no modified/untracked files; the returned SHA becomes the formal execution commit.
 
-- [ ] **Step 4: Execute exactly once**
+- [x] **Step 4: Execute exactly once**
 
 Run: `.\.venv\Scripts\python.exe scripts\run_experiment.py --experiment-dir experiments\0825_EX06`
 
@@ -239,21 +239,21 @@ Expected: the command returns the actual finalized `0825_EX06` directory and doe
 **Interfaces:**
 - Produces a portable COMPLETE or ERROR research archive and the next-session handoff.
 
-- [ ] **Step 1: Audit the formal result without changing its machine class**
+- [x] **Step 1: Audit the formal result without changing its machine class**
 
 Verify 20 unique event identities, 28 descriptor identities and formulas, causal history bounds, three fixed dominant dates, 11 protective events, 364 permutations, exact p-value arithmetic, finite exported numeric values, tracked 2020—2025 hashes only, and absence of orders/candidates/frozen challengers.
 
-- [ ] **Step 2: Update the handoff from machine artifacts**
+- [x] **Step 2: Update the handoff from machine artifacts**
 
 State the concrete classification, qualifying or rejected signatures, contamination, exact p-value, no-2026 audit, and whether a subsequent independent strategy experiment is allowed. Do not describe a diagnostic signature as a trading rule.
 
-- [ ] **Step 3: Rebuild and validate the final archive**
+- [x] **Step 3: Rebuild and validate the final archive**
 
 Run archive validation for `0825_EX06`, then all tracked experiment directories, compileall, focused tests, and `git diff --check`.
 
 Expected: every command exits zero.
 
-- [ ] **Step 4: Commit the final tracked archive**
+- [x] **Step 4: Commit the final tracked archive**
 
 Commit: `research: archive 0825 EX06 representation diagnosis`
 

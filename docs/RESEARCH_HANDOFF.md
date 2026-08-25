@@ -4,7 +4,7 @@
 >
 > 不得假定新会话与上一会话位于同一台设备、同一绝对路径，或保留任何未提交文件。不得依赖历史 `outputs/`、本地SQLite数据库、虚拟环境和终端输出。研究事实只以Git跟踪的源码、配置、`data/raw/*_manifest.json`、`data/raw/*_validation.json` 和 `experiments/MMDD_EXX/` 为准。`outputs/`只用于普通回测输出，不是研究档案；需要结果时必须在当前设备重新运行，并使用命令实际返回的目录。
 
-本文档记录截至 **2026-08-25 / 0825_EX05** 的可接力状态。新会话应先验证仓库当前状态，不能把本文中的分支或提交描述当成未经核验的实时事实。
+本文档记录截至 **2026-08-25 / 0825_EX06** 的可接力状态。新会话应先验证仓库当前状态，不能把本文中的分支或提交描述当成未经核验的实时事实。
 
 ## 1. 当前目标与两个基线
 
@@ -90,7 +90,7 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 
 候选身份以 `experiments/0824_EX06/artifacts/factor_candidates.csv` 及其协议哈希为准。
 
-## 4. 0824_EX01—0825_EX05研究进度
+## 4. 0824_EX01—0825_EX06研究进度
 
 每轮实验的完整事实均位于 `experiments/<实验编号>/`：
 
@@ -116,6 +116,7 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 | 0825_EX03 | EX04交易路径归因 | 三个落后半年窗口的精确财富账本、入退场机制、决策阻断与因果混合状态机 | COMPLETE；主分类`mixed_path_failure`，退出侧是更强线索但不能全局回退退出逻辑 |
 | 0825_EX04 | EX04离场信号诊断 | 20个离场分歧事件的继续持有反事实、上下文区分、连续特征和路径集中度 | COMPLETE；`path_concentrated_exit_failure`，多数离场有效，少数错误离场主导损失，禁止直接优化 |
 | 0825_EX05 | 主导错误离场病灶解剖 | 展开`0824_EX04`的12个原始CZSC信号在20个离场前`T-20…T`的因果轨迹 | COMPLETE；`shared_but_contaminated_anatomy`，53个跨时间共同签名全部污染保护性离场，现有表示不足 |
+| 0825_EX06 | 新离场表示诊断 | 预注册28个连续结构/能量/量价描述符，顺序确认并做364种精确标签枚举 | COMPLETE；`insufficient_new_representation_evidence`，2个表面低污染签名未通过多重比较校正，禁止晋升 |
 
 ### 4.1 EX07最终证据
 
@@ -304,6 +305,33 @@ experiments/0825_EX05/artifacts/confirmed_atomic_signatures.csv
 experiments/0825_EX05/artifacts/dominant_event_panels.svg
 ```
 
+### 4.8 0825_EX06最终证据
+
+本轮只使用2020—2025数据检验28个预注册新增描述符，不生成挑战者、不访问2026、不判策略PASS/FAIL：
+
+- 20个事件形成560行事件描述符矩阵，原始值全部有限，所有最大输入日期不晚于信号日；
+- 2021发现8个共同分位签名，6个通过2023时间确认，2个达到表面低污染门槛；
+- `downside_semivol5_to20=Q5`命中三个主导错误、1个保护、另1个错误和3个中性，不命中下跌保护或保护性joint-margin；
+- `weekly_close_to_ma10=Q5`命中三个主导错误和2个保护，不命中下跌保护、保护性joint-margin、其他错误或中性；
+- 唯一证据完整性失败为`2021-06-16 / ma20_slope5`只有117个有限历史值，低于预注册120日；
+- 364种伪标签组合中60种也能产生合格签名，精确p值`0.164835`高于0.05；即使忽略单格历史不足，两个漂亮签名也未通过多重比较校正；
+- 机器分类为`insufficient_new_representation_evidence`，不得降低门槛、重分箱或直接设计离场门控；
+- 18个行情哈希只覆盖2020—2025，无订单、候选、冻结挑战者或holdout结果。
+
+研究含义：连续波动和周线位置比原12个类别信号更接近病灶，但当前3个主导正例不足以排除偶然。当前不应继续围绕这两个表象调离场规则；若没有独立验证样本或真正独立信息，应优先转向2025H2入场问题。
+
+权威文件：
+
+```text
+experiments/0825_EX06/03_execution.md
+experiments/0825_EX06/04_conclusion.md
+experiments/0825_EX06/artifacts/metrics.json
+experiments/0825_EX06/artifacts/representation_classification.json
+experiments/0825_EX06/artifacts/event_new_representation.csv
+experiments/0825_EX06/artifacts/confirmed_signatures.csv
+experiments/0825_EX06/artifacts/permutation_audit.json
+```
+
 ## 5. 代码结构与入口
 
 ### 5.1 稳定用户入口
@@ -312,7 +340,7 @@ experiments/0825_EX05/artifacts/dominant_event_panels.svg
 |---|---|
 | `scripts/prepare_market_data.py` | 从dataflows/Tushare获取、后复权、验证并发布A股股票或ETF行情 |
 | `scripts/run_backtest.py` | 对任意已准备证券执行冻结基线回测 |
-| `scripts/run_experiment.py` | 按实验目录协议运行早期冠军挑战及0825_EX02—0825_EX05诊断 |
+| `scripts/run_experiment.py` | 按实验目录协议运行早期冠军挑战及0825_EX02—0825_EX06诊断 |
 | `scripts/run_holdout.py` | 对受跟踪且已冻结的挑战者执行独立2026检验 |
 
 普通回测输出目录固定为 `outputs/<证券代码>_<MMDD>_RXX`。未提供收益目标时只输出指标，验收状态为 `N/A`。
@@ -331,9 +359,10 @@ experiments/0825_EX05/artifacts/dominant_event_panels.svg
 | `ex04_path_attribution_runner.py` | 0825_EX03冻结EX04的逐日路径、持仓区间、决策阻断和因果混合状态机归因 |
 | `exit_signal_diagnosis_runner.py` | 0825_EX04离场事件继续持有反事实、上下文、连续特征和集中度诊断 |
 | `dominant_exit_anatomy_runner.py` | 0825_EX05主导离场病灶的因果轨迹、原子签名、时间确认和保护性污染诊断 |
+| `new_exit_representation_runner.py` | 0825_EX06新增连续描述符、因果分位、顺序确认、污染检查和精确标签枚举 |
 | `experiment_archive.py` | 实验目录、清单生成和哈希验证 |
 
-EX03—0825_EX05的运行器默认绑定各自实验目录。已有实验是冻结档案，不应为“复现”而直接覆盖运行。若要开展新实验，先创建新的 `MMDD_EXX` 目录并预注册协议，再显式传入 `--experiment-dir`。
+EX03—0825_EX06的运行器默认绑定各自实验目录。已有实验是冻结档案，不应为“复现”而直接覆盖运行。若要开展新实验，先创建新的 `MMDD_EXX` 目录并预注册协议，再显式传入 `--experiment-dir`。
 
 ## 6. 数据状态
 
@@ -439,14 +468,14 @@ EX07—EX08使用现有模块入口，不使用`scripts/run_experiment.py`或另
 
 ## 9. 下一轮研究建议
 
-EX08和0825_EX01拒绝“扩大同一搜索或重排同一Trial集合”；0825_EX02说明`0824_EX04`附近是局部平台；0825_EX03发现退出侧是落后窗口的强线索；0825_EX04证明该线索由少数事件集中驱动；0825_EX05进一步证明三个主导病灶在`0824_EX04`现有12信号轨迹中没有独特、低污染的共同指纹。离场错误已定位到少数持仓中断，但当前表示层不能在事前区分它们与有效保护。
+EX08和0825_EX01拒绝“扩大同一搜索或重排同一Trial集合”；0825_EX02说明`0824_EX04`附近是局部平台；0825_EX03发现退出侧是落后窗口的强线索；0825_EX04证明该线索由少数事件集中驱动；0825_EX05证明原12信号轨迹没有低污染共同指纹；0825_EX06新增28个连续表示后虽出现两个表面低污染签名，但精确多重比较p值0.164835，仍不能排除小样本偶然。
 
 下一步优先级：
 
-1. 停止在`0824_EX04`同一12信号上继续离场微调，不全局放宽阈值、不增加确认日、不延长最短持仓，也不拼接`joint_margin_block`、20日均线多头或单日跌破条件；
-2. 若继续离场研究，先提出一个真正新增、信号日可知且不由三个病灶事后反推的表示假设，例如CZSC笔段几何、离场前波动结构或成交量结构，并单独做纯诊断；
-3. 如果不能在查看新表示结果前写出确定特征和反例门槛，结束离场方向，保留`0824_EX04`现有离场；
-4. 另一条独立路线是2025H2入场问题；其唯一离场事件在`0825_EX04`为中性，因此入场研究不得混入离场修改；
+1. 停止在`0824_EX04`同一12信号上继续离场微调，也不得把`downside_semivol5_to20=Q5`或`weekly_close_to_ma10=Q5`直接写成门控；
+2. 不得在`0825_EX06`同轮降低120日历史门槛、合并分位箱、删除其余描述符或规避精确p值后重算；
+3. 若继续离场研究，必须有独立验证样本或与本轮28项真正独立的新信息，否则结束离场方向并保留`0824_EX04`现有离场；
+4. 当前更优先的独立路线是2025H2入场问题；其唯一离场事件在`0825_EX04`为中性，因此入场研究不得混入离场修改；
 5. 项目允许588080使用标的独立策略，当前不要求跨标的外推，但同一标的七个控制窗口不得被系统性破坏；
 6. 新实验仍只用2020—2025选择和冻结，2026只允许冻结后一次验收，且不得反馈同轮参数。
 
@@ -458,7 +487,7 @@ EX08和0825_EX01拒绝“扩大同一搜索或重排同一Trial集合”；0825_
 2. 确认仓库根目录、分支、远端和工作区状态。
 3. 从 `registry.json` 区分通用回测基线与EX04研究基线。
 4. 验证588080行情manifest和validation。
-5. 验证0824_EX01—0825_EX05实验清单，不依赖历史outputs。
+5. 验证0824_EX01—0825_EX06实验清单，不依赖历史outputs。
 6. 阅读EX04、EX06、EX07的目标、设计和结论。
 7. 修改前定位对应测试；修改后运行最小相关测试并明确测试范围。
 8. 研究任务先预注册；普通回测只加载冻结规则。
@@ -487,8 +516,9 @@ EX08和0825_EX01拒绝“扩大同一搜索或重排同一Trial集合”；0825_
 9. experiments/0825_EX03/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md}
 10. experiments/0825_EX04/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md}
 11. experiments/0825_EX05/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md}
+12. experiments/0825_EX06/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md}
 
-重要边界：baseline_20260823是通用回测正式基线；当前研究基线是0824_EX04冻结策略。EX07完成608个SQLite Optuna Trial，EX08完成4096个纯内存Optuna Trial；0825_EX01复用EX08输出按三套规则冻结8个唯一候选并统一补测2026，三轮挑战均FAIL。0825_EX02—0825_EX05只用2020—2025完成0824_EX04机制、交易路径、离场信号及主导病灶诊断，均为COMPLETE、不判PASS/FAIL、不访问2026；0825_EX04分类为path_concentrated_exit_failure，0825_EX05分类为shared_but_contaminated_anatomy，当前12信号无法把三个主导错误离场与保护性离场分开，禁止继续拼接同一表示层的离场条件。研究事实只认Git跟踪的experiments档案；outputs只用于当前设备新运行的普通回测。2026约束按单次实验执行：策略冻结前不可访问，冻结后一次验收，不得把验收结果反馈给同轮参数。
+重要边界：baseline_20260823是通用回测正式基线；当前研究基线是0824_EX04冻结策略。EX07完成608个SQLite Optuna Trial，EX08完成4096个纯内存Optuna Trial；0825_EX01复用EX08输出按三套规则冻结8个唯一候选并统一补测2026，三轮挑战均FAIL。0825_EX02—0825_EX06只用2020—2025完成0824_EX04机制、交易路径、离场信号、主导病灶及新增表示诊断，均为COMPLETE、不判PASS/FAIL、不访问2026；0825_EX04分类为path_concentrated_exit_failure，0825_EX05分类为shared_but_contaminated_anatomy，0825_EX06分类为insufficient_new_representation_evidence且精确p值0.164835。现有证据不允许继续拼接离场条件或直接采用两个低污染表象。研究事实只认Git跟踪的experiments档案；outputs只用于当前设备新运行的普通回测。2026约束按单次实验执行：策略冻结前不可访问，冻结后一次验收，不得把验收结果反馈给同轮参数。
 
 默认在master做轻量开发；重量级研究先询问是否新建分支；禁止使用git worktree。保护所有已有修改。只在任务需要时运行回测或研究，并使用命令实际返回的目录。研究结果无论PASS还是FAIL都必须如实归档。实盘账户没有明确成交回报时一律按未成交处理。
 ```

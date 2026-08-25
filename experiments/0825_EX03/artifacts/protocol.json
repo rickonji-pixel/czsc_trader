@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0825_EX03",
+  "experiment_type": "ex04_path_attribution",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "visible_sample_end": "2025-12-31",
+  "holdout_access_allowed": false,
+  "general_baseline": {
+    "version": "baseline_20260823",
+    "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5"
+  },
+  "research_object": {
+    "path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "source_evidence": {
+    "protocol_path": "experiments/0825_EX02/artifacts/protocol.json",
+    "protocol_sha256": "1e8f79bcc2a3c6657aa5ea0c52c63d0ca141a713cd9f0015450627e4fcd5a1b8",
+    "window_comparison_path": "experiments/0825_EX02/artifacts/window_comparison.csv",
+    "window_comparison_sha256": "7d92084a016b1d12e63f9bd49887e9d4662bf8a8c4aaf09e50ed81a6af065e8e",
+    "regime_attribution_path": "experiments/0825_EX02/artifacts/regime_attribution.csv",
+    "regime_attribution_sha256": "cde7e36dd7517bbdece852e40f2784073f3daa965679c922c6ae552289d5647c"
+  },
+  "diagnostic_windows": [
+    "2021H1", "2021H2", "2022H1", "2022H2", "2023H1",
+    "2023H2", "2024H1", "2024H2", "2025H1", "2025H2"
+  ],
+  "underperformance_windows": ["2021H1", "2023H1", "2025H2"],
+  "control_windows": [
+    "2021H2", "2022H1", "2022H2", "2023H2", "2024H1", "2024H2", "2025H1"
+  ],
+  "fee_rate": 0.0005,
+  "init_cash": 1000000.0,
+  "equivalence_tolerance": 1e-12,
+  "path_closure_tolerance": 1e-12,
+  "factor_groups": ["structure", "trend", "volume_position"],
+  "variants": [
+    "baseline",
+    "ex04",
+    "weights_only",
+    "thresholds_only",
+    "baseline_entry_ex04_exit",
+    "ex04_entry_baseline_exit"
+  ],
+  "regime": {
+    "lookback_trading_days": 60,
+    "uptrend_threshold": 0.1,
+    "downtrend_threshold": -0.1,
+    "information_lag_days": 1
+  },
+  "mechanism_families": {
+    "entry": ["fully_missed_entry", "late_entry"],
+    "exit": ["early_exit", "interrupted_holding"]
+  },
+  "classification": {
+    "pooled_negative_log_share": 0.6,
+    "per_window_negative_log_share": 0.5,
+    "joint_pooled_negative_log_share": 0.4,
+    "joint_per_window_negative_log_share": 0.4,
+    "minimum_supported_windows": 2,
+    "counterfactual_return_improvement": 0.001,
+    "require_positive_median_improvement": true
+  },
+  "promotion": {
+    "select_challenger": false,
+    "write_frozen_challenger": false,
+    "run_holdout": false,
+    "update_baseline": false,
+    "optimize_parameters": false
+  }
+}

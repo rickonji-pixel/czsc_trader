@@ -81,11 +81,21 @@ def test_fixed_backtest_uses_latest_baseline_and_writes_nonresearch_artifacts(
     assert "candidate_results.csv" not in actual
     assert "selected_rule.json" not in actual
     manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["baseline"]["version"] == "baseline_20260823"
+    assert manifest["baseline"]["version"] == "baseline_20260826"
     assert manifest["baseline"]["sha256"]
-    assert manifest["baseline"]["verification_snapshot"] == (
-        "docs/baselines/588080_2026_expected.json"
+    assert manifest["baseline"]["verification_snapshot"] == ""
+    assert manifest["baseline"]["strategy"] == "czsc_four_layer"
+    assert manifest["baseline"]["status"] == "active"
+    assert manifest["baseline"]["scope"] == "symbol"
+    assert manifest["baseline"]["symbol"] == "588080.SH"
+    assert manifest["baseline"]["source_path"] == (
+        "experiments/0824_EX04/artifacts/frozen_challenger.json"
     )
+    assert manifest["baseline"]["source_sha256"] == (
+        "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+    )
+    assert manifest["baseline"]["selection_sample_end"] == "2025-12-31"
+    assert manifest["baseline"]["forward_validation_start"] == "2026-08-26"
     assert manifest["data"]["hashes"]
     assert manifest["symbol"] == "588080.SH"
     audit = json.loads((output / "audit.json").read_text(encoding="utf-8"))
@@ -138,3 +148,44 @@ def test_explicit_unknown_baseline_fails_with_failure_record(tmp_path: Path) -> 
     failure = tmp_path / "588080_0823_R01" / "failure.json"
     assert failure.is_file()
     assert "Unknown rule baseline" in failure.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("version", [None, "baseline_20260826"])
+def test_active_baseline_scope_rejects_other_symbols_before_loading_data(
+    tmp_path: Path, version: str | None
+) -> None:
+    with pytest.raises(ValueError, match="588080.SH"):
+        run_fixed_backtest(
+            _request(
+                tmp_path,
+                symbol="600519.SH",
+                asset_type="stock",
+                baseline=version,
+            ),
+            run_date=date(2026, 8, 26),
+        )
+
+    failure = tmp_path / "600519_0826_R01" / "failure.json"
+    assert failure.is_file()
+    assert "588080.SH" in failure.read_text(encoding="utf-8")
+
+
+def test_explicit_archived_baseline_remains_replayable(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        runner,
+        "write_period_chart",
+        lambda *args: Path(args[-1]).write_text("<html></html>", encoding="utf-8")
+        or Path(args[-1]),
+    )
+
+    summary = run_fixed_backtest(
+        _request(tmp_path, baseline="baseline_20260823"),
+        run_date=date(2026, 8, 26),
+    )
+
+    manifest = json.loads(
+        (Path(summary["output_dir"]) / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["baseline"]["version"] == "baseline_20260823"
+    assert manifest["baseline"]["status"] == "archived"
+    assert manifest["baseline"]["strategy"] == "czsc_fixed_rule"

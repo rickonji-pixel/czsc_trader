@@ -13,12 +13,12 @@ import pandas as pd
 
 from .audit import audit_no_lookahead
 from .backtest import PeriodBacktestResult, run_period_backtests
+from .baseline_execution import apply_resolved_baseline
 from .baselines import resolve_baseline
 from .charting import write_period_chart
 from .data import load_market_data
 from .factors import generate_factor_frame
 from .output_paths import create_output_dir
-from .rules import apply_fixed_rule
 
 
 @dataclass(frozen=True)
@@ -153,7 +153,11 @@ def run_fixed_backtest(
     effective_date = run_date or datetime.now().astimezone().date()
     output_dir = create_output_dir(request.outputs_root, request.symbol, effective_date)
     try:
-        baseline = resolve_baseline(request.baseline_root, request.baseline)
+        baseline = resolve_baseline(
+            request.baseline_root,
+            request.baseline,
+            symbol=request.symbol,
+        )
         data = load_market_data(request.raw_dir, request.symbol, request.asset_type)
         if request.targets_path is not None:
             periods, return_targets = _load_target_config(request.targets_path)
@@ -168,7 +172,7 @@ def run_fixed_backtest(
             cutoff = end
         causal_data = data.truncate(cutoff)
         factor_result = generate_factor_frame(causal_data)
-        applied = apply_fixed_rule(factor_result.frame, baseline.rule)
+        applied = apply_resolved_baseline(factor_result.frame, baseline)
         factor_output = factor_result.frame.copy()
         factor_output.insert(0, "target_position", applied.target_position)
         factor_output.insert(1, "factor_score", applied.scores)
@@ -253,6 +257,14 @@ def run_fixed_backtest(
                 "version": baseline.version,
                 "sha256": baseline.sha256,
                 "verification_snapshot": baseline.verification_snapshot,
+                "strategy": baseline.strategy,
+                "status": baseline.status,
+                "scope": baseline.scope,
+                "symbol": baseline.symbol,
+                "source_path": baseline.source_path,
+                "source_sha256": baseline.source_sha256,
+                "selection_sample_end": baseline.selection_sample_end,
+                "forward_validation_start": baseline.forward_validation_start,
                 "rule": baseline.rule_payload,
             },
             "data": {

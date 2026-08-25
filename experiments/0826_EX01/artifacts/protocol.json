@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0826_EX01",
+  "experiment_type": "ex04_decision_boundary_diagnosis",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "visible_sample_end": "2025-12-31",
+  "holdout_access_allowed": false,
+  "research_object": {
+    "path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "source_evidence": {
+    "protocol_path": "experiments/0825_EX03/artifacts/protocol.json",
+    "protocol_sha256": "37106e1ab95a836756ca1526e7b20482f591b033c87011db5af98bef8d649c06",
+    "daily_path_ledger_path": "experiments/0825_EX03/artifacts/daily_path_ledger.csv",
+    "daily_path_ledger_sha256": "dd8003568db0368f4aa589838c534298b3e5fab0b0489009ecd367350042f218",
+    "decision_events_path": "experiments/0825_EX03/artifacts/decision_events.csv",
+    "decision_events_sha256": "712e219ffe44c3283f5bff1e90727ecdd3367cd196b33fa94ab6ba7b0eb89633",
+    "experiment_manifest_path": "experiments/0825_EX03/experiment_manifest.json",
+    "experiment_manifest_sha256": "e238125a11df649f41000448dc7f3f5556991eb7414cbe17704e5c2152b6308b"
+  },
+  "years": [2021, 2022, 2023, 2024, 2025],
+  "action_families": ["enter_now", "continue_hold"],
+  "event_type_map": {
+    "missed_baseline_entry": "enter_now",
+    "early_ex04_exit": "continue_hold"
+  },
+  "eligible_regimes": ["uptrend", "sideways", "downtrend"],
+  "excluded_regimes": ["warmup"],
+  "block_labels": [
+    "threshold_block",
+    "weight_block",
+    "independent_double_block",
+    "joint_margin_block"
+  ],
+  "margin_bands": {
+    "near_absolute_max": 0.0125,
+    "labels": ["near", "far"]
+  },
+  "rule_families": [
+    ["action_family"],
+    ["action_family", "regime"],
+    ["action_family", "block_label"],
+    ["action_family", "margin_band"],
+    ["action_family", "regime", "margin_band"],
+    ["action_family", "block_label", "margin_band"]
+  ],
+  "sample": {
+    "baseline_execution_position": 1.0,
+    "ex04_execution_position": 0.0,
+    "action_value_column": "log_wealth_delta",
+    "action_value_multiplier": -1.0,
+    "allowed_unmatched_interval_reasons": ["missing_causal_event"],
+    "expected_unmatched_interval_count": 1,
+    "expected_frontier_event_count": 44,
+    "expected_eligible_event_count": 43
+  },
+  "selection": {
+    "minimum_training_events": 8,
+    "require_all_training_years": true,
+    "require_positive_pooled_training_mean": true,
+    "ranking": [
+      "positive_training_years_desc",
+      "worst_annual_mean_desc",
+      "median_annual_mean_desc",
+      "pooled_event_mean_desc",
+      "training_support_desc",
+      "complexity_asc",
+      "rule_id_asc"
+    ]
+  },
+  "classification": {
+    "minimum_same_rule_folds": 4,
+    "minimum_oof_events": 10,
+    "minimum_oof_supported_years": 5,
+    "minimum_positive_oof_years": 5,
+    "annual_sign_test_alpha": 0.05,
+    "require_positive_pooled_oof_mean": true,
+    "maximum_single_positive_gain_share": 0.25
+  },
+  "promotion": {
+    "select_challenger": false,
+    "write_frozen_challenger": false,
+    "run_holdout": false,
+    "update_baseline": false,
+    "optimize_parameters": false,
+    "write_orders": false
+  }
+}

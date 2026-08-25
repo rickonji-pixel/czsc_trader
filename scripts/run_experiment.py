@@ -41,6 +41,10 @@ from czsc_trader.new_exit_representation_runner import (
     run_new_exit_representation,
     validate_protocol as validate_new_exit_representation_protocol,
 )
+from czsc_trader.decision_boundary_runner import (
+    run_decision_boundary_diagnosis,
+    validate_protocol as validate_decision_boundary_protocol,
+)
 from czsc_trader.experiments import run_pre2026_experiment
 
 
@@ -1022,6 +1026,171 @@ def run_preregistered_new_exit_representation(experiment_dir: Path) -> Path:
     return experiment_dir
 
 
+def _decision_boundary_conclusion_markdown(classification: dict[str, object]) -> str:
+    gates = classification.get("gates", {})
+    lines = [
+        "# 研究结论",
+        "",
+        "## 判定边界",
+        "",
+        "本轮是`0824_EX04`决策边界稳定性诊断，状态为 **COMPLETE**。",
+        "不判策略PASS/FAIL，不生成挑战者，不访问2026。",
+        "",
+        "## 机器分类",
+        "",
+        f"- 分类：`{classification['classification']}`。",
+        f"- 跨折众数规则：`{classification.get('modal_rule_id')}`。",
+        f"- 同一规则入选折数：{int(classification.get('same_rule_folds', 0))}/5。",
+        f"- 留出匹配事件：{int(classification.get('oof_matched_events', 0))}个。",
+        f"- 留出正向年份：{int(classification.get('positive_oof_years', 0))}/5。",
+        f"- 年度精确符号检验p值：{float(classification.get('annual_sign_test_pvalue', 1.0)):.6f}。",
+        f"- 留出池化平均行动价值：{float(classification.get('pooled_oof_mean_action_value', 0.0)):+.6f}。",
+        f"- 最大单一正收益事件份额：{float(classification.get('maximum_single_positive_gain_share', 1.0)):.2%}。",
+        "",
+        "## 门槛审计",
+        "",
+    ]
+    if isinstance(gates, dict):
+        for name, passed in gates.items():
+            lines.append(f"- `{name}`：{'PASS' if bool(passed) else 'FAIL'}。")
+    lines.extend(["", "## 研究含义", ""])
+    if classification["classification"] == "stable_boundary_found":
+        lines.extend(
+            [
+                "现有证据识别出一个跨年份稳定的简单决策边界，但它仍不是可直接交易的规则。",
+                "只有下一轮独立预注册策略实验可以把该边界转化为单一冻结修改；本轮不得生成候选或访问2026。",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "没有找到同时满足跨折规则一致、五年留出方向、支持数、精确符号检验和事件集中度的稳定边界。",
+                "因此，在当前数据、现有事前信息以及EX04与通用基线所张成的动作空间内，",
+                "`0824_EX04`应保留为当前证据支持的588080最佳可用研究策略；不再继续基于这些历史样本做回溯修补。",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "本结论不宣称EX04是数学上的全局最优；未来新数据或真正独立的新信息可以另立研究。",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def run_preregistered_decision_boundary(experiment_dir: Path) -> Path:
+    """Finalize the preregistered 0826_EX01 decision-boundary diagnosis."""
+    experiment_dir = Path(experiment_dir).resolve()
+    protocol_path = experiment_dir / "artifacts" / "protocol.json"
+    if not protocol_path.is_file():
+        raise FileNotFoundError(f"missing preregistered protocol: {protocol_path}")
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    validate_decision_boundary_protocol(protocol)
+    research = protocol.get("research_object")
+    if not isinstance(research, dict):
+        raise ValueError("decision boundary protocol is missing 0824_EX04 identity")
+    status = "ERROR"
+    try:
+        summary = run_decision_boundary_diagnosis(Path("."), experiment_dir, protocol)
+        if summary.get("status") != "COMPLETE":
+            raise ValueError("decision boundary runner did not complete")
+        if summary.get("holdout_accessed") is not False:
+            raise ValueError("decision boundary diagnosis reported holdout access")
+        if summary.get("frozen_challenger") is not None:
+            raise ValueError("decision boundary diagnosis produced a frozen challenger")
+        sample = protocol["sample"]
+        if int(summary.get("frontier_event_count", -1)) != int(
+            sample["expected_frontier_event_count"]
+        ):
+            raise ValueError("decision frontier event count differs from protocol")
+        if int(summary.get("eligible_event_count", -1)) != int(
+            sample["expected_eligible_event_count"]
+        ):
+            raise ValueError("eligible decision event count differs from protocol")
+        if int(summary.get("excluded_interval_count", -1)) != int(
+            sample["expected_unmatched_interval_count"]
+        ):
+            raise ValueError("excluded interval count differs from protocol")
+        for forbidden in (
+            "frozen_challenger.json",
+            "orders.csv",
+            "candidate_results.csv",
+            "holdout_metrics.json",
+        ):
+            if (experiment_dir / "artifacts" / forbidden).exists():
+                raise ValueError(f"decision boundary diagnosis wrote forbidden {forbidden}")
+        classification = summary["classification"]
+        executed_at = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "## 正式执行\n\n"
+            "- 状态：`COMPLETE`\n"
+            f"- 执行时间：{executed_at}\n"
+            f"- 执行提交：`{_git_head()}`\n"
+            f"- Python：{platform.python_version()}\n"
+            f"- pandas：{_installed_version('pandas')}\n"
+            f"- NumPy：{_installed_version('numpy')}\n"
+            "- 当前研究基线：`0824_EX04`冻结策略\n"
+            "- 路径与决策来源：`0825_EX03`正式档案\n"
+            f"- 可连接决策区间：{int(summary['frontier_event_count'])}个\n"
+            f"- 建模合格事件：{int(summary['eligible_event_count'])}个\n"
+            f"- 因果状态不足排除：{int(summary['excluded_interval_count'])}个\n"
+            f"- 固定边界规则：{int(summary['rule_count'])}项（含回退规则）\n"
+            f"- 机器分类：`{classification['classification']}`\n"
+            "- 2026数据访问：否\n"
+            "- 优化、候选、订单和冻结策略：未执行\n"
+            "- 机器证据：`artifacts/`\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            _decision_boundary_conclusion_markdown(classification), encoding="utf-8"
+        )
+        status = "COMPLETE"
+    except Exception as exc:
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "- 状态：`ERROR`\n"
+            f"- 异常：{type(exc).__name__}: {exc}\n"
+            "- 2026数据访问：否\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            "# 研究结论\n\n正式执行失败，没有决策边界结论，不得修改EX04或访问2026。\n",
+            encoding="utf-8",
+        )
+        build_experiment_manifest(
+            experiment_dir,
+            {
+                "experiment_id": experiment_dir.name,
+                "date": "2026-08-26",
+                "status": status,
+                "symbol": protocol.get("symbol", "588080.SH"),
+                "asset_type": protocol.get("asset_type", "etf"),
+                "research_object": research,
+                "visible_sample_end": "2025-12-31",
+                "holdout_accessed": False,
+            },
+        )
+        validate_experiment_archive(experiment_dir)
+        raise
+    build_experiment_manifest(
+        experiment_dir,
+        {
+            "experiment_id": experiment_dir.name,
+            "date": "2026-08-26",
+            "status": status,
+            "symbol": protocol.get("symbol", "588080.SH"),
+            "asset_type": protocol.get("asset_type", "etf"),
+            "research_object": research,
+            "visible_sample_end": "2025-12-31",
+            "holdout_accessed": False,
+        },
+    )
+    validate_experiment_archive(experiment_dir)
+    return experiment_dir
+
+
 def main(
     experiments_root: Path = Path("experiments"),
     *,
@@ -1155,6 +1324,8 @@ def cli() -> None:
             completed = run_preregistered_dominant_exit_anatomy(args.experiment_dir)
         elif experiment_type == "new_exit_representation_diagnosis":
             completed = run_preregistered_new_exit_representation(args.experiment_dir)
+        elif experiment_type == "ex04_decision_boundary_diagnosis":
+            completed = run_preregistered_decision_boundary(args.experiment_dir)
         else:
             raise ValueError(f"unsupported preregistered experiment type: {experiment_type}")
         print(completed)

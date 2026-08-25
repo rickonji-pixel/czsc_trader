@@ -2,7 +2,7 @@
   "schema_version": 1,
   "experiment_id": "0825_EX05",
   "date": "2026-08-25",
-  "status": "PRE_REGISTERED",
+  "status": "COMPLETE",
   "symbol": "588080.SH",
   "asset_type": "etf",
   "research_object": {
@@ -21,12 +21,44 @@
       "sha256": "99590c8d4453665ffa2447958725cd164abff4d71b806eb00d90722793bdd709"
     },
     "03_execution.md": {
-      "bytes": 238,
-      "sha256": "f29da05075dd6bdb2b89fc24345eaaf13c621363984a9e24af44539fc9586b16"
+      "bytes": 1427,
+      "sha256": "c479e32d13f3840c0e39dbcdbe421c405c9eecf295d1244ac315bf30812c4ede"
     },
     "04_conclusion.md": {
-      "bytes": 101,
-      "sha256": "7124e6ddb2491904dfe2843732481327087acb19f863a7959ac49d30bb957ace"
+      "bytes": 4192,
+      "sha256": "c4c7e566b2ad8ffed5f276df6a8ffaf06b418c4c947633f4feec2113cf392fd9"
+    },
+    "artifacts/anatomy_classification.json": {
+      "bytes": 192,
+      "sha256": "3eb4319e78ae8db1bb24654ad41e99a5fcf1ffebb59883cb7b232c3ad2648aa9"
+    },
+    "artifacts/confirmed_atomic_signatures.csv": {
+      "bytes": 5225,
+      "sha256": "2afaeed082a6c08c640a8fab9c9ad023d8036ba3ed56cbfcbcaf76f57e2c2b8f"
+    },
+    "artifacts/discovered_atomic_signatures.csv": {
+      "bytes": 8490,
+      "sha256": "c2e082170a5fbfbc67af1de8e07126abe90ef92443d249e574360dd1ed8a2dfc"
+    },
+    "artifacts/dominant_event_panels.svg": {
+      "bytes": 3098,
+      "sha256": "56711fe4c2e1be8b9d82e9f25845d557756e12f64183e1904b6beb8ff2f61c73"
+    },
+    "artifacts/event_descriptor_matrix.csv": {
+      "bytes": 26921,
+      "sha256": "31f611aa28103eea066a11749470c3ec05f6d260b7e622dcc4698489099a15d3"
+    },
+    "artifacts/event_signal_trajectory.csv": {
+      "bytes": 207766,
+      "sha256": "afac54e4ef4848315c9134c0f20b1ea1de2871c0e2908020d8ba47c6ecb088e4"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 3746,
+      "sha256": "b8fa62be1fb866ae31b1b3206cad4620cffe62ab8cb04de355db5dc7a74a89a8"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 2423,
+      "sha256": "9344a0e686bbb9126261990e407e98a8afc90331802da2604297130b94da246f"
     },
     "artifacts/protocol.json": {
       "bytes": 2007,
@@ -34,7 +66,7 @@
     },
     "implementation_plan.md": {
       "bytes": 5711,
-      "sha256": "b6a7595a2875821bcb385e511eb793df90fa236088f909383efeb8cb85966940"
+      "sha256": "dd15fbed3984b13020fa3391653aea4ffa42a5b20b3793be9e97bfe32026fd5a"
     }
   }
 }

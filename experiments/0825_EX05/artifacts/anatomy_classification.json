@@ -1,0 +1,7 @@
+{
+  "classification": "shared_but_contaminated_anatomy",
+  "event_count": 20,
+  "discovered_signature_count": 83,
+  "confirmed_signature_count": 53,
+  "low_contamination_signature_count": 0
+}

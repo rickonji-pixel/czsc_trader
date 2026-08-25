@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0825_EX02",
+  "date": "2026-08-25",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "research_object": {
+    "experiment": "0824_EX04",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 1795,
+      "sha256": "600250d6d5e9fb2aaba329c7e10286121edfbcbb35cd63c74195e1e06cad551c"
+    },
+    "02_design.md": {
+      "bytes": 7512,
+      "sha256": "4fba64744b3f655a61ab25b3f4b3f1dca776934656c984fb39b8fdd9ab13874c"
+    },
+    "03_execution.md": {
+      "bytes": 135,
+      "sha256": "97276bc69660d04077f4794ea8d26662e339a73445f0c336c42e049a68dc6ed8"
+    },
+    "04_conclusion.md": {
+      "bytes": 86,
+      "sha256": "7696a552d33231365b7c9a65d7b5daa25479414f52d3bd42e2da5d9265926456"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2349,
+      "sha256": "cfe323ce73df80f55024de2822e4cd3a747eecd76ba49f0fcc1f968c78e53383"
+    }
+  }
+}

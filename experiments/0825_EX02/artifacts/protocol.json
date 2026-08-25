@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0825_EX02",
+  "experiment_type": "ex04_mechanism_attribution",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "visible_sample_end": "2025-12-31",
+  "holdout_access_allowed": false,
+  "general_baseline": {
+    "version": "baseline_20260823",
+    "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5"
+  },
+  "research_object": {
+    "path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "primary_windows": ["2021", "2022", "2023", "2024", "2025"],
+  "diagnostic_windows": [
+    "2021H1", "2021H2", "2022H1", "2022H2", "2023H1",
+    "2023H2", "2024H1", "2024H2", "2025H1", "2025H2"
+  ],
+  "continuous_window": {
+    "start": "2021-01-01",
+    "end": "2025-12-31"
+  },
+  "fee_rate": 0.0005,
+  "init_cash": 1000000.0,
+  "equivalence_tolerance": 1e-12,
+  "factor_groups": ["structure", "trend", "volume_position"],
+  "component_variants": ["baseline", "weights_only", "thresholds_only", "combined"],
+  "group_coalition_count": 8,
+  "weight_perturbation_step": 0.0125,
+  "threshold_perturbations": {
+    "enter": [0.15, 0.1625, 0.1875, 0.2],
+    "exit": [0.0, 0.0125, 0.0375, 0.05],
+    "combine_families": false
+  },
+  "local_geometry": {
+    "nearby_median_absolute_return_delta": 0.01,
+    "nearby_min_return_delta": -0.05,
+    "plateau_min_count": 24,
+    "peak_negative_median_threshold": -0.001,
+    "peak_negative_median_min_count": 24,
+    "peak_bad_min_threshold": -0.05,
+    "peak_bad_min_count": 16,
+    "total_perturbations": 32
+  },
+  "regime": {
+    "lookback_trading_days": 60,
+    "uptrend_threshold": 0.1,
+    "downtrend_threshold": -0.1,
+    "information_lag_days": 1
+  },
+  "bootstrap": {
+    "method": "paired_circular_moving_block",
+    "block_length_trading_days": 20,
+    "replications": 2000,
+    "seed": 20260825,
+    "quantiles": [0.025, 0.5, 0.975]
+  },
+  "materiality": {
+    "return_contribution": 0.001,
+    "sharpe_contribution": 0.02,
+    "stable_year_count": 4,
+    "total_primary_years": 5,
+    "single_interval_dominance_share": 0.5
+  },
+  "promotion": {
+    "select_challenger": false,
+    "write_frozen_challenger": false,
+    "run_holdout": false,
+    "update_baseline": false,
+    "optimize_parameters": false
+  }
+}

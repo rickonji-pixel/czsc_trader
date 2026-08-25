@@ -1,4 +1,4 @@
-# CZSC Trader Research
+# CZSC Trader
 
 本仓库提供行情准备、冻结基线回测、预注册研究、隔离复现和Git研究档案验证。跨设备研究边界与当前588080正式基线见 [RESEARCH_HANDOFF.md](docs/RESEARCH_HANDOFF.md)。
 
@@ -12,7 +12,8 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip check
 ~~~
 
-若需从Tushare准备行情，再安装可选数据依赖并配置被Git忽略的 dataflows/.env：
+若需从Tushare准备行情，再安装可选数据依赖并按
+[dataflows/README.md](dataflows/README.md) 配置被Git忽略的 `dataflows/.env`：
 
 ~~~powershell
 .\.venv\Scripts\python.exe -m pip install -r dataflows\requirements-dataflows.txt
@@ -62,16 +63,19 @@ A股股票与ETF统一使用Tushare后复权行情。只有复权因子、30分�
 
 ## 研究与档案
 
-新实验必须先创建并预注册新的 MMDD_EXX 目录：
+新实验必须先创建并预注册新的 `MMDD_EXX` 目录：
 
 ~~~powershell
-.\.venv\Scripts\czsc-trader.exe experiment run --dir experiments\<新实验>
+.\.venv\Scripts\czsc-trader.exe experiment run --dir experiments\MMDD_EXX
 ~~~
 
 存在有效 experiment_manifest.json 的冻结目录会被拒绝原地执行。需要历史复现时必须指定源目录之外、尚不存在的隔离输出：
 
 ~~~powershell
-.\.venv\Scripts\czsc-trader.exe experiment replay --dir experiments\<冻结实验> --output replays\<冻结实验>
+$replayDir = Join-Path ([System.IO.Path]::GetTempPath()) `
+  ("czsc-trader-0824_EX08-" + [guid]::NewGuid())
+.\.venv\Scripts\czsc-trader.exe experiment replay `
+  --dir experiments\0824_EX08 --output $replayDir
 ~~~
 
 验证一个或全部Git研究档案：
@@ -80,7 +84,8 @@ A股股票与ETF统一使用Tushare后复权行情。只有复权因子、30分�
 .\.venv\Scripts\czsc-trader.exe archive validate --all
 ~~~
 
-研究事实只认Git跟踪的 experiments 档案；outputs 和 replay目录不是研究证据。2026行情已在项目层面观察，不能重新作为独立留出样本。
+研究事实、当前边界和正式研究流程以 [RESEARCH_HANDOFF.md](docs/RESEARCH_HANDOFF.md)
+为准。Git跟踪的实验档案是研究事实；`outputs/`和隔离回放目录都不是研究证据。
 
 ## 测试
 

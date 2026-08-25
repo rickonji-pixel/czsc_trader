@@ -130,3 +130,39 @@ def positions_from_scores(
                 holding_days += 1
         output.append(position)
     return pd.Series(output, index=scores.index, name="target_position", dtype=float)
+
+
+def build_four_layer_events(
+    target_position: pd.Series,
+    scores: pd.Series,
+    enter: float,
+    exit_: float,
+) -> pd.DataFrame:
+    """Describe every frozen four-layer position transition for causal audit."""
+    if not target_position.index.equals(scores.index):
+        raise ValueError("four-layer target and score indices must match")
+    target = target_position.astype(float)
+    previous = target.shift(1, fill_value=0.0)
+    rows: list[dict[str, object]] = []
+    for signal_date in target.index[target.ne(previous)]:
+        after = float(target.loc[signal_date])
+        event_type = "Entry" if after == 1.0 else "Exit"
+        score = float(scores.loc[signal_date])
+        rows.append(
+            {
+                "event_id": f"FourLayer:{pd.Timestamp(signal_date):%Y%m%d}:{event_type}",
+                "signal_date": pd.Timestamp(signal_date),
+                "event_type": event_type,
+                "factor_score": score,
+                "enter_threshold": float(enter),
+                "exit_threshold": float(exit_),
+                "before_position": float(previous.loc[signal_date]),
+                "after_position": after,
+                "reason": (
+                    f"score {score:.6f} >= enter {float(enter):.6f}"
+                    if event_type == "Entry"
+                    else f"score {score:.6f} <= exit {float(exit_):.6f}"
+                ),
+            }
+        )
+    return pd.DataFrame(rows)

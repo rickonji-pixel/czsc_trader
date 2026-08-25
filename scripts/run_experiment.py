@@ -33,6 +33,10 @@ from czsc_trader.exit_signal_diagnosis_runner import (
     run_exit_signal_diagnosis,
     validate_protocol as validate_exit_signal_protocol,
 )
+from czsc_trader.dominant_exit_anatomy_runner import (
+    run_dominant_exit_anatomy,
+    validate_protocol as validate_dominant_anatomy_protocol,
+)
 from czsc_trader.experiments import run_pre2026_experiment
 
 
@@ -690,6 +694,156 @@ def run_preregistered_exit_signal_diagnosis(experiment_dir: Path) -> Path:
     return experiment_dir
 
 
+def _dominant_anatomy_conclusion_markdown(artifacts_dir: Path) -> str:
+    classification = json.loads(
+        (artifacts_dir / "anatomy_classification.json").read_text(encoding="utf-8")
+    )
+    confirmed_path = artifacts_dir / "confirmed_atomic_signatures.csv"
+    confirmed = pd.read_csv(confirmed_path) if confirmed_path.is_file() else pd.DataFrame()
+    machine = str(classification["classification"])
+    low = int(classification.get("low_contamination_signature_count", 0))
+    lines = [
+        "# 研究结论",
+        "",
+        "## 机器分类",
+        "",
+        f"本轮分类为 **`{machine}`**。",
+        "",
+        f"- 2021发现阶段原子签名：{int(classification.get('discovered_signature_count', 0))}个；",
+        f"- 2023时间确认签名：{int(classification.get('confirmed_signature_count', 0))}个；",
+        f"- 低保护性污染签名：{low}个。",
+        "",
+        "## 身份边界",
+        "",
+        "当前研究基线是`0824_EX04`冻结策略；三个病灶及20个结果标签来自`0825_EX04`正式档案。",
+        "本轮只展开`0824_EX04`已有12个CZSC信号在信号日前的轨迹。",
+        "",
+    ]
+    if not confirmed.empty:
+        lines.extend(["## 已确认原子签名", ""])
+        for row in confirmed.head(20).to_dict(orient="records"):
+            lines.append(
+                f"- `{row['factor']} / {row['descriptor']} = {row['value']}`："
+                f"保护性支持{int(row.get('protective_support', 0))}，"
+                f"保护性joint-margin支持{int(row.get('joint_margin_protective_support', 0))}。"
+            )
+        lines.append("")
+    lines.extend(
+        [
+            "## 使用边界",
+            "",
+            "即使存在低污染共同签名，它也只是下一轮可证伪的机制假设，不是交易规则。",
+            "本轮没有优化、候选、订单、冻结挑战者或2026访问；不得把本轮结果反馈修改本轮特征。",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def run_preregistered_dominant_exit_anatomy(experiment_dir: Path) -> Path:
+    """Finalize the preregistered 0825_EX05 dominant-exit anatomy in place."""
+    experiment_dir = Path(experiment_dir).resolve()
+    protocol_path = experiment_dir / "artifacts" / "protocol.json"
+    if not protocol_path.is_file():
+        raise FileNotFoundError(f"missing preregistered protocol: {protocol_path}")
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    validate_dominant_anatomy_protocol(protocol)
+    research = protocol.get("research_baseline")
+    if not isinstance(research, dict):
+        raise ValueError("dominant anatomy protocol is missing 0824_EX04 identity")
+    status = "ERROR"
+    try:
+        summary = run_dominant_exit_anatomy(Path("data/raw"), experiment_dir, protocol)
+        if summary.get("status") != "COMPLETE":
+            raise ValueError("dominant exit anatomy runner did not complete")
+        if summary.get("holdout_accessed") is not False:
+            raise ValueError("dominant exit anatomy reported holdout access")
+        if summary.get("frozen_challenger") is not None:
+            raise ValueError("dominant exit anatomy produced a frozen challenger")
+        if int(summary.get("event_count", -1)) != int(protocol["expected_event_count"]):
+            raise ValueError("dominant exit anatomy event count differs from protocol")
+        if int(summary.get("factor_count", -1)) != int(protocol["expected_factor_count"]):
+            raise ValueError("dominant exit anatomy factor count differs from protocol")
+        if float(summary.get("max_signal_day_score_error", float("inf"))) > 1e-12:
+            raise ValueError("dominant exit anatomy score identity does not close")
+        hashes = summary.get("visible_data_hashes", {})
+        if not isinstance(hashes, dict) or any("2026" in str(name) for name in hashes):
+            raise ValueError("dominant exit anatomy contains a 2026 data hash")
+        for forbidden in ("frozen_challenger.json", "orders.csv", "candidate_results.csv"):
+            if (experiment_dir / "artifacts" / forbidden).exists():
+                raise ValueError(f"dominant exit anatomy wrote forbidden {forbidden}")
+        classification = summary["anatomy_classification"]["classification"]
+        executed_at = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "## 正式执行\n\n"
+            "- 状态：`COMPLETE`\n"
+            f"- 执行时间：{executed_at}\n"
+            f"- 执行提交：`{_git_head()}`\n"
+            f"- Python：{platform.python_version()}\n"
+            f"- pandas：{_installed_version('pandas')}\n"
+            f"- NumPy：{_installed_version('numpy')}\n"
+            "- 当前研究基线：`0824_EX04`冻结策略\n"
+            "- 诊断事件来源：`0825_EX04`正式档案\n"
+            f"- 可见行情文件数：{len(hashes)}\n"
+            f"- 离场事件：{int(summary['event_count'])}个\n"
+            f"- 原始CZSC信号：{int(summary['factor_count'])}个\n"
+            f"- 因果轨迹：{int(summary['trajectory_rows'])}行\n"
+            f"- 机器分类：`{classification}`\n"
+            "- 2026数据访问：否\n"
+            "- 优化、候选和冻结策略：未执行\n"
+            "- 机器证据：`artifacts/`\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            _dominant_anatomy_conclusion_markdown(experiment_dir / "artifacts"),
+            encoding="utf-8",
+        )
+        status = "COMPLETE"
+    except Exception as exc:
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "- 状态：`ERROR`\n"
+            f"- 异常：{type(exc).__name__}: {exc}\n"
+            "- 2026数据访问：否\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            "# 研究结论\n\n正式执行失败，没有共同病灶结论，不得生成策略或访问2026。\n",
+            encoding="utf-8",
+        )
+        build_experiment_manifest(
+            experiment_dir,
+            {
+                "experiment_id": experiment_dir.name,
+                "date": "2026-08-25",
+                "status": status,
+                "symbol": protocol.get("symbol", "588080.SH"),
+                "asset_type": protocol.get("asset_type", "etf"),
+                "research_object": {"path": research["path"], "sha256": research["sha256"]},
+                "visible_sample_end": "2025-12-31",
+                "holdout_accessed": False,
+            },
+        )
+        validate_experiment_archive(experiment_dir)
+        raise
+    build_experiment_manifest(
+        experiment_dir,
+        {
+            "experiment_id": experiment_dir.name,
+            "date": "2026-08-25",
+            "status": status,
+            "symbol": protocol.get("symbol", "588080.SH"),
+            "asset_type": protocol.get("asset_type", "etf"),
+            "research_object": {"path": research["path"], "sha256": research["sha256"]},
+            "visible_sample_end": "2025-12-31",
+            "holdout_accessed": False,
+        },
+    )
+    validate_experiment_archive(experiment_dir)
+    return experiment_dir
+
+
 def main(
     experiments_root: Path = Path("experiments"),
     *,
@@ -819,6 +973,8 @@ def cli() -> None:
             completed = run_preregistered_ex04_path_attribution(args.experiment_dir)
         elif experiment_type == "ex04_exit_signal_diagnosis":
             completed = run_preregistered_exit_signal_diagnosis(args.experiment_dir)
+        elif experiment_type == "dominant_exit_path_anatomy":
+            completed = run_preregistered_dominant_exit_anatomy(args.experiment_dir)
         else:
             raise ValueError(f"unsupported preregistered experiment type: {experiment_type}")
         print(completed)

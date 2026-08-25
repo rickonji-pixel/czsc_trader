@@ -573,3 +573,107 @@ def test_cli_dispatches_exit_signal_protocol_to_stable_entrypoint(
     entrypoint.cli()
 
     assert called == [archive]
+
+
+def _preregistered_dominant_anatomy_archive(tmp_path: Path) -> Path:
+    archive = tmp_path / "0825_EX05"
+    (archive / "artifacts").mkdir(parents=True)
+    for name in REQUIRED_DOCUMENTS:
+        (archive / name).write_text(f"# {name}\n", encoding="utf-8")
+    protocol = json.loads(
+        Path("experiments/0825_EX05/artifacts/protocol.json").read_text(encoding="utf-8")
+    )
+    (archive / "artifacts" / "protocol.json").write_text(
+        json.dumps(protocol), encoding="utf-8"
+    )
+    return archive
+
+
+def test_preregistered_dominant_anatomy_finalizes_same_archive(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Catch EX05 allocating another archive or promoting a diagnostic signature."""
+    archive = _preregistered_dominant_anatomy_archive(tmp_path)
+
+    def fake_runner(raw_dir, experiment_dir, protocol):
+        assert experiment_dir == archive
+        assert protocol["research_baseline"]["experiment_id"] == "0824_EX04"
+        assert protocol["source_archive"]["experiment_id"] == "0825_EX04"
+        artifacts = experiment_dir / "artifacts"
+        classification = {
+            "classification": "shared_confirmed_low_contamination_anatomy",
+            "event_count": 20,
+            "discovered_signature_count": 4,
+            "confirmed_signature_count": 2,
+            "low_contamination_signature_count": 1,
+        }
+        (artifacts / "anatomy_classification.json").write_text(
+            json.dumps(classification), encoding="utf-8"
+        )
+        pd.DataFrame(
+            [
+                {
+                    "factor": "raw__daily__example",
+                    "descriptor": "run_length_bin",
+                    "value": "2_3",
+                    "protective_support": 1,
+                    "joint_margin_protective_support": 0,
+                    "low_contamination": True,
+                }
+            ]
+        ).to_csv(artifacts / "confirmed_atomic_signatures.csv", index=False)
+        payload = {
+            "status": "COMPLETE",
+            "visible_data_hashes": {"588080_daily_2025.csv": "abc"},
+            "holdout_accessed": False,
+            "frozen_challenger": None,
+            "event_count": 20,
+            "factor_count": 12,
+            "trajectory_rows": 420,
+            "descriptor_count": 124,
+            "discovered_signature_count": 4,
+            "confirmed_signature_count": 2,
+            "low_contamination_signature_count": 1,
+            "max_signal_day_score_error": 1e-16,
+            "anatomy_classification": classification,
+        }
+        (artifacts / "metrics.json").write_text(json.dumps(payload), encoding="utf-8")
+        return payload
+
+    monkeypatch.setattr(entrypoint, "run_dominant_exit_anatomy", fake_runner)
+
+    finalized = entrypoint.run_preregistered_dominant_exit_anatomy(archive)
+
+    assert finalized == archive
+    manifest = validate_experiment_archive(archive)
+    assert manifest["status"] == "COMPLETE"
+    assert manifest["research_object"]["path"].startswith("experiments/0824_EX04/")
+    execution = (archive / "03_execution.md").read_text(encoding="utf-8")
+    assert "执行提交" in execution
+    conclusion = (archive / "04_conclusion.md").read_text(encoding="utf-8")
+    assert "shared_confirmed_low_contamination_anatomy" in conclusion
+    assert "不是交易规则" in conclusion
+    assert "0824_EX04" in conclusion and "0825_EX04" in conclusion
+    assert not (archive / "artifacts" / "frozen_challenger.json").exists()
+    assert not (archive / "artifacts" / "orders.csv").exists()
+
+
+def test_cli_dispatches_dominant_anatomy_protocol_to_stable_entrypoint(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Catch EX05 falling through to an optimizer or an older EX04 diagnostic."""
+    archive = _preregistered_dominant_anatomy_archive(tmp_path)
+    called: list[Path] = []
+
+    def fake_entrypoint(experiment_dir: Path) -> Path:
+        called.append(experiment_dir)
+        return experiment_dir
+
+    monkeypatch.setattr(entrypoint, "run_preregistered_dominant_exit_anatomy", fake_entrypoint)
+    monkeypatch.setattr(
+        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
+    )
+
+    entrypoint.cli()
+
+    assert called == [archive]

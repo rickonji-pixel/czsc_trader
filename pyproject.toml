@@ -17,6 +17,9 @@ dependencies = [
     "optuna==4.9.0",
 ]
 
+[project.scripts]
+czsc-trader = "czsc_trader.cli.main:main"
+
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
 

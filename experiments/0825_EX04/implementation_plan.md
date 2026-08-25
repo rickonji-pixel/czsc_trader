@@ -35,14 +35,14 @@
 - Produces: `summarize_contexts(events, axes, rules) -> pd.DataFrame`
 - Produces: `classify_exit_quality(events, windows, contexts, features, protocol) -> dict[str, object]`
 
-- [ ] Write a literal three-day replay test where an exit/re-entry path loses two fees relative to continuing to hold, plus baseline-exit and window-end endpoint tests.
-- [ ] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_exit_signal_diagnosis_runner.py` and verify RED because the module is absent.
-- [ ] Implement replay with normalized pre-exit wealth of1.0. For `ex04_reentry_execution`, actual terminal wealth is `(1-fee)/(1+fee)` while continued wealth is `endpoint_open/start_open`; for `baseline_exit_execution`, continued terminal wealth additionally multiplies by`1-fee`; for `window_end_close`, use final close without a terminal fee.
-- [ ] Add literal boundary tests proving `+0.005` and `-0.005` are neutral because material labels require strict inequality.
-- [ ] Add hand-derived Cliff's delta tests, including ties.
-- [ ] Add context tests proving minimum support, minimum windows,75% target rate, net sign, and50% single-event cap are all required.
-- [ ] Add classification tests for insufficient, concentrated, systematic, context-dependent, and mixed branches.
-- [ ] Run the focused test and verify GREEN; refactor only after it remains green.
+- [x] Write a literal three-day replay test where an exit/re-entry path loses two fees relative to continuing to hold, plus baseline-exit and window-end endpoint tests.
+- [x] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_exit_signal_diagnosis_runner.py` and verify RED because the module is absent.
+- [x] Implement replay with normalized pre-exit wealth of1.0. For `ex04_reentry_execution`, actual terminal wealth is `(1-fee)/(1+fee)` while continued wealth is `endpoint_open/start_open`; for `baseline_exit_execution`, continued terminal wealth additionally multiplies by`1-fee`; for `window_end_close`, use final close without a terminal fee.
+- [x] Add literal boundary tests proving `+0.005` and `-0.005` are neutral because material labels require strict inequality.
+- [x] Add hand-derived Cliff's delta tests, including ties.
+- [x] Add context tests proving minimum support, minimum windows,75% target rate, net sign, and50% single-event cap are all required.
+- [x] Add classification tests for insufficient, concentrated, systematic, context-dependent, and mixed branches.
+- [x] Run the focused test and verify GREEN; refactor only after it remains green.
 
 ### Task 2: Formal pre-2026 exit diagnosis runner
 
@@ -55,15 +55,15 @@
 - Produces: `validate_source_archive(repository_root: Path, source: Mapping[str, object]) -> dict[str, object]`
 - Produces: `run_exit_signal_diagnosis(raw_dir: Path, experiment_dir: Path, protocol: Mapping[str, object]) -> dict[str, object]`
 
-- [ ] Write failing tests that reject protocol holdout drift, optimization flags, an event count other than20, duplicate IDs, source-manifest hash drift, a 2026 event date, a non-closing path ledger, and non-finite evidence.
-- [ ] Validate the source with `validate_experiment_archive`, require `0825_EX03 / COMPLETE / holdout_accessed=false`, and compare every protocol-declared portable file hash with the source manifest.
-- [ ] Load market data with cutoff`2025-12-31`, reject 2026 hashes, and read only the six frozen EX03 artifacts declared in the protocol.
-- [ ] Filter exactly20 exit events, join the three group contribution rows per event, and derive score gaps, threshold margin, contribution gaps, trend-contribution sign, and consecutive prior EX04 holding days from the EX03 ledger.
-- [ ] For each event, locate the first later EX04 re-entry execution or baseline exit execution inside its independent half-year; resolve same-day ties by protocol endpoint priority and otherwise use half-year last close.
-- [ ] Replay each event, write the exact path ledger, verify per-event log-wealth closure within`1e-12`, and assign false/protective/neutral labels at strict`±0.005`.
-- [ ] Aggregate by ten windows, underperformance/control cohort, four categorical axes, and14 continuous features; calculate concentration and apply the frozen classification order.
-- [ ] Write every artifact named in the spec, plus identity and metrics JSON with `holdout_accessed=false` and `frozen_challenger=null`.
-- [ ] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_exit_signal_diagnosis_runner.py tests/test_ex04_path_attribution_runner.py tests/test_experiment_archive.py tests/test_backtest.py`.
+- [x] Write failing tests that reject protocol holdout drift, optimization flags, an event count other than20, duplicate IDs, source-manifest hash drift, a 2026 event date, a non-closing path ledger, and non-finite evidence.
+- [x] Validate the source with `validate_experiment_archive`, require `0825_EX03 / COMPLETE / holdout_accessed=false`, and compare every protocol-declared portable file hash with the source manifest.
+- [x] Load market data with cutoff`2025-12-31`, reject 2026 hashes, and read only the six frozen EX03 artifacts declared in the protocol.
+- [x] Filter exactly20 exit events, join the three group contribution rows per event, and derive score gaps, threshold margin, contribution gaps, trend-contribution sign, and consecutive prior EX04 holding days from the EX03 ledger.
+- [x] For each event, locate the first later EX04 re-entry execution or baseline exit execution inside its independent half-year; resolve same-day ties by protocol endpoint priority and otherwise use half-year last close.
+- [x] Replay each event, write the exact path ledger, verify per-event log-wealth closure within`1e-12`, and assign false/protective/neutral labels at strict`±0.005`.
+- [x] Aggregate by ten windows, underperformance/control cohort, four categorical axes, and14 continuous features; calculate concentration and apply the frozen classification order.
+- [x] Write every artifact named in the spec, plus identity and metrics JSON with `holdout_accessed=false` and `frozen_challenger=null`.
+- [x] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_exit_signal_diagnosis_runner.py tests/test_ex04_path_attribution_runner.py tests/test_experiment_archive.py tests/test_backtest.py`.
 
 ### Task 3: Stable experiment entrypoint
 
@@ -75,11 +75,11 @@
 - Consumes: `run_exit_signal_diagnosis(...)`
 - Produces: `run_preregistered_exit_signal_diagnosis(experiment_dir: Path) -> Path`
 
-- [ ] Write a failing temporary-archive test proving same-directory finalization, COMPLETE manifest, no holdout, no challenger, evidence-specific conclusion text, and CLI dispatch for `ex04_exit_signal_diagnosis`.
-- [ ] Implement protocol dispatch and validate returned status, hashes, event count, closure, forbidden files, holdout flag, and frozen challenger before writing docs.
-- [ ] On success, write execution environment, implementation SHA, counts, closure, and machine classification; on exception, archive `ERROR` and re-raise without accessing 2026.
-- [ ] Build and validate the experiment manifest in both paths.
-- [ ] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_experiment_entrypoints.py tests/test_exit_signal_diagnosis_runner.py`.
+- [x] Write a failing temporary-archive test proving same-directory finalization, COMPLETE manifest, no holdout, no challenger, evidence-specific conclusion text, and CLI dispatch for `ex04_exit_signal_diagnosis`.
+- [x] Implement protocol dispatch and validate returned status, hashes, event count, closure, forbidden files, holdout flag, and frozen challenger before writing docs.
+- [x] On success, write execution environment, implementation SHA, counts, closure, and machine classification; on exception, archive `ERROR` and re-raise without accessing 2026.
+- [x] Build and validate the experiment manifest in both paths.
+- [x] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_experiment_entrypoints.py tests/test_exit_signal_diagnosis_runner.py`.
 
 ### Task 4: Formal execution and delivery
 
@@ -90,9 +90,9 @@
 - Modify: `experiments/0825_EX04/experiment_manifest.json`
 - Modify: `docs/RESEARCH_HANDOFF.md`
 
-- [ ] Commit tested implementation, then execute `.\.venv\Scripts\python.exe scripts\run_experiment.py --experiment-dir experiments\0825_EX04` once from that SHA.
-- [ ] Audit exactly20 unique events, all endpoint types, event-level closure, label counts, ten windows, loss/control cohorts, context support, continuous effects, concentration, finite numeric values, no 2026 hash, and no challenger/order files.
-- [ ] Write the concrete conclusion without changing machine classifications; explicitly distinguish a diagnostic context from a deployable trading rule.
-- [ ] Update the handoff, mark completed plan steps, and rebuild the manifest without rerunning the experiment.
-- [ ] Run focused tests, compileall, all experiment-archive validation, the structured EX04 research audit, and `git diff --check`.
+- [x] Commit tested implementation, then execute `.\.venv\Scripts\python.exe scripts\run_experiment.py --experiment-dir experiments\0825_EX04` once from that SHA.
+- [x] Audit exactly20 unique events, all endpoint types, event-level closure, label counts, ten windows, loss/control cohorts, context support, continuous effects, concentration, finite numeric values, no 2026 hash, and no challenger/order files.
+- [x] Write the concrete conclusion without changing machine classifications; explicitly distinguish a diagnostic context from a deployable trading rule.
+- [x] Update the handoff, mark completed plan steps, and rebuild the manifest without rerunning the experiment.
+- [x] Run focused tests, compileall, all experiment-archive validation, the structured EX04 research audit, and `git diff --check`.
 - [ ] Commit the final archive. Do not merge or push without user instruction.

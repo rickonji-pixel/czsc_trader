@@ -1,0 +1,7 @@
+{
+  "false_exit_count": 5,
+  "total_false_exit_log_loss": 0.12138881355642958,
+  "top1_share": 0.36622469537624386,
+  "top3_share": 0.8534789158308601,
+  "concentrated": true
+}

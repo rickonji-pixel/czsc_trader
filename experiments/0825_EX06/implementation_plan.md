@@ -166,7 +166,7 @@ Commit: `research: add EX06 representation runner`
 - Produces: `run_preregistered_new_exit_representation(experiment_dir: Path) -> Path`.
 - Adds CLI dispatch for `experiment_type == "new_exit_representation_diagnosis"`.
 
-- [ ] **Step 1: Write failing in-place finalization and CLI tests**
+- [x] **Step 1: Write failing in-place finalization and CLI tests**
 
 Use a temporary preregistered archive and fake runner to prove the entrypoint records the execution SHA, renders the exact machine class and counts, builds a COMPLETE manifest in the same directory, rejects promotion flags, creates no order/candidate/frozen file, and is selected by CLI dispatch.
 
@@ -177,17 +177,17 @@ assert validate_experiment_archive(archive)["status"] == "COMPLETE"
 assert "0824_EX04" in (archive / "04_conclusion.md").read_text(encoding="utf-8")
 ```
 
-- [ ] **Step 2: Run entrypoint tests and verify RED**
+- [x] **Step 2: Run entrypoint tests and verify RED**
 
 Run: `.\.venv\Scripts\python.exe -m pytest -q tests/test_experiment_entrypoints.py -k new_exit_representation`
 
 Expected: FAIL because the entrypoint and CLI dispatch are absent.
 
-- [ ] **Step 3: Implement success and ERROR finalization**
+- [x] **Step 3: Implement success and ERROR finalization**
 
 Follow the existing `0825_EX05` in-place diagnostic pattern. On success, write concrete execution and conclusion documents from machine artifacts; on failure, archive `ERROR`, retain `holdout_accessed=false`, validate the manifest, and re-raise.
 
-- [ ] **Step 4: Run entrypoint plus runner tests and commit**
+- [x] **Step 4: Run entrypoint plus runner tests and commit**
 
 Run: `.\.venv\Scripts\python.exe -m pytest -q tests/test_experiment_entrypoints.py tests/test_new_exit_representation_runner.py`
 

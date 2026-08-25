@@ -37,6 +37,10 @@ from czsc_trader.dominant_exit_anatomy_runner import (
     run_dominant_exit_anatomy,
     validate_protocol as validate_dominant_anatomy_protocol,
 )
+from czsc_trader.new_exit_representation_runner import (
+    run_new_exit_representation,
+    validate_protocol as validate_new_exit_representation_protocol,
+)
 from czsc_trader.experiments import run_pre2026_experiment
 
 
@@ -844,6 +848,180 @@ def run_preregistered_dominant_exit_anatomy(experiment_dir: Path) -> Path:
     return experiment_dir
 
 
+def _new_exit_representation_conclusion_markdown(artifacts_dir: Path) -> str:
+    classification = json.loads(
+        (artifacts_dir / "representation_classification.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    confirmed_path = artifacts_dir / "confirmed_signatures.csv"
+    confirmed = pd.read_csv(confirmed_path) if confirmed_path.is_file() else pd.DataFrame()
+    machine = str(classification["classification"])
+    exact_p = float(classification.get("exact_p_value", 1.0))
+    lines = [
+        "# 研究结论",
+        "",
+        "## 机器分类",
+        "",
+        f"本轮分类为 **`{machine}`**。",
+        "",
+        f"- 2021发现签名：{int(classification.get('discovered_signature_count', 0))}个；",
+        f"- 2023时间确认签名：{int(classification.get('confirmed_signature_count', 0))}个；",
+        f"- 低保护性污染签名：{int(classification.get('low_contamination_signature_count', 0))}个；",
+        f"- 364种精确标签枚举校正p值：{exact_p:.6f}。",
+        "",
+        "## 身份边界",
+        "",
+        "当前研究基线是`0824_EX04`冻结策略；20个离场事件和结果标签来自`0825_EX04`正式档案。",
+        "`0825_EX05`只提供原12信号表示不足的先验否定证据。本轮仅检验28个预注册新增描述符。",
+        "",
+    ]
+    if not confirmed.empty:
+        lines.extend(["## 已确认签名", ""])
+        for row in confirmed.head(28).to_dict(orient="records"):
+            lines.append(
+                f"- `{row['descriptor']} = {row['quantile_bin']}`："
+                f"保护性支持{int(row.get('protective_support', 0))}，"
+                f"下跌保护支持{int(row.get('downtrend_protective_support', 0))}，"
+                f"保护性joint-margin支持{int(row.get('joint_margin_protective_support', 0))}，"
+                f"低污染={str(bool(row.get('low_contamination', False))).lower()}。"
+            )
+        lines.append("")
+    lines.extend(
+        [
+            "## 使用边界",
+            "",
+            "即使分类为`new_representation_confirmed`，签名也只允许进入下一轮独立策略实验，不是交易规则。",
+            "本轮没有优化、候选、订单、冻结挑战者或2026访问；不得把结果反馈修改本轮描述符、分箱或门槛。",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def run_preregistered_new_exit_representation(experiment_dir: Path) -> Path:
+    """Finalize the preregistered 0825_EX06 representation diagnosis in place."""
+    experiment_dir = Path(experiment_dir).resolve()
+    protocol_path = experiment_dir / "artifacts" / "protocol.json"
+    if not protocol_path.is_file():
+        raise FileNotFoundError(f"missing preregistered protocol: {protocol_path}")
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    validate_new_exit_representation_protocol(protocol)
+    research = protocol.get("research_baseline")
+    if not isinstance(research, dict):
+        raise ValueError("new representation protocol is missing 0824_EX04 identity")
+    status = "ERROR"
+    try:
+        summary = run_new_exit_representation(
+            Path("data/raw"), experiment_dir, protocol
+        )
+        if summary.get("status") != "COMPLETE":
+            raise ValueError("new exit representation runner did not complete")
+        if summary.get("holdout_accessed") is not False:
+            raise ValueError("new exit representation reported holdout access")
+        if summary.get("frozen_challenger") is not None:
+            raise ValueError("new exit representation produced a frozen challenger")
+        if int(summary.get("event_count", -1)) != int(protocol["expected_event_count"]):
+            raise ValueError("new exit representation event count differs from protocol")
+        if int(summary.get("descriptor_count", -1)) != int(
+            protocol["expected_descriptor_count"]
+        ):
+            raise ValueError("new exit representation descriptor count differs from protocol")
+        if int(summary.get("matrix_rows", -1)) != int(protocol["expected_event_count"]) * int(
+            protocol["expected_descriptor_count"]
+        ):
+            raise ValueError("new exit representation matrix size differs from protocol")
+        exact_p = float(summary.get("exact_p_value", float("nan")))
+        if not 0.0 <= exact_p <= 1.0:
+            raise ValueError("new exit representation exact p-value is invalid")
+        hashes = summary.get("visible_data_hashes", {})
+        if not isinstance(hashes, dict) or any("2026" in str(name) for name in hashes):
+            raise ValueError("new exit representation contains a 2026 data hash")
+        for forbidden in ("frozen_challenger.json", "orders.csv", "candidate_results.csv"):
+            if (experiment_dir / "artifacts" / forbidden).exists():
+                raise ValueError(f"new exit representation wrote forbidden {forbidden}")
+        classification = summary["representation_classification"]["classification"]
+        executed_at = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "## 正式执行\n\n"
+            "- 状态：`COMPLETE`\n"
+            f"- 执行时间：{executed_at}\n"
+            f"- 执行提交：`{_git_head()}`\n"
+            f"- Python：{platform.python_version()}\n"
+            f"- pandas：{_installed_version('pandas')}\n"
+            f"- NumPy：{_installed_version('numpy')}\n"
+            "- 当前研究基线：`0824_EX04`冻结策略\n"
+            "- 事件与标签来源：`0825_EX04`正式档案\n"
+            "- 前序否定证据：`0825_EX05`正式档案\n"
+            f"- 可见行情文件数：{len(hashes)}\n"
+            f"- 离场事件：{int(summary['event_count'])}个\n"
+            f"- 新增描述符：{int(summary['descriptor_count'])}个\n"
+            f"- 事件描述符矩阵：{int(summary['matrix_rows'])}行\n"
+            f"- 精确置换p值：{exact_p:.6f}\n"
+            f"- 机器分类：`{classification}`\n"
+            "- 2026数据访问：否\n"
+            "- 优化、候选和冻结策略：未执行\n"
+            "- 机器证据：`artifacts/`\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            _new_exit_representation_conclusion_markdown(
+                experiment_dir / "artifacts"
+            ),
+            encoding="utf-8",
+        )
+        status = "COMPLETE"
+    except Exception as exc:
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "- 状态：`ERROR`\n"
+            f"- 异常：{type(exc).__name__}: {exc}\n"
+            "- 2026数据访问：否\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            "# 研究结论\n\n正式执行失败，没有新增表示结论，不得生成策略或访问2026。\n",
+            encoding="utf-8",
+        )
+        build_experiment_manifest(
+            experiment_dir,
+            {
+                "experiment_id": experiment_dir.name,
+                "date": "2026-08-25",
+                "status": status,
+                "symbol": protocol.get("symbol", "588080.SH"),
+                "asset_type": protocol.get("asset_type", "etf"),
+                "research_object": {
+                    "path": research["path"],
+                    "sha256": research["sha256"],
+                },
+                "visible_sample_end": "2025-12-31",
+                "holdout_accessed": False,
+            },
+        )
+        validate_experiment_archive(experiment_dir)
+        raise
+    build_experiment_manifest(
+        experiment_dir,
+        {
+            "experiment_id": experiment_dir.name,
+            "date": "2026-08-25",
+            "status": status,
+            "symbol": protocol.get("symbol", "588080.SH"),
+            "asset_type": protocol.get("asset_type", "etf"),
+            "research_object": {
+                "path": research["path"],
+                "sha256": research["sha256"],
+            },
+            "visible_sample_end": "2025-12-31",
+            "holdout_accessed": False,
+        },
+    )
+    validate_experiment_archive(experiment_dir)
+    return experiment_dir
+
+
 def main(
     experiments_root: Path = Path("experiments"),
     *,
@@ -975,6 +1153,8 @@ def cli() -> None:
             completed = run_preregistered_exit_signal_diagnosis(args.experiment_dir)
         elif experiment_type == "dominant_exit_path_anatomy":
             completed = run_preregistered_dominant_exit_anatomy(args.experiment_dir)
+        elif experiment_type == "new_exit_representation_diagnosis":
+            completed = run_preregistered_new_exit_representation(args.experiment_dir)
         else:
             raise ValueError(f"unsupported preregistered experiment type: {experiment_type}")
         print(completed)

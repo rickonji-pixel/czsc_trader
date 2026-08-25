@@ -677,3 +677,162 @@ def test_cli_dispatches_dominant_anatomy_protocol_to_stable_entrypoint(
     entrypoint.cli()
 
     assert called == [archive]
+
+
+def _preregistered_new_exit_representation_archive(tmp_path: Path) -> Path:
+    archive = tmp_path / "0825_EX06"
+    (archive / "artifacts").mkdir(parents=True)
+    for name in REQUIRED_DOCUMENTS:
+        (archive / name).write_text(f"# {name}\n", encoding="utf-8")
+    protocol = json.loads(
+        Path("experiments/0825_EX06/artifacts/protocol.json").read_text(encoding="utf-8")
+    )
+    (archive / "artifacts" / "protocol.json").write_text(
+        json.dumps(protocol), encoding="utf-8"
+    )
+    return archive
+
+
+def test_preregistered_new_exit_representation_finalizes_same_archive(
+    tmp_path: Path, monkeypatch
+) -> None:
+    archive = _preregistered_new_exit_representation_archive(tmp_path)
+
+    def fake_runner(raw_dir, experiment_dir, protocol):
+        assert experiment_dir == archive
+        assert protocol["research_baseline"]["experiment_id"] == "0824_EX04"
+        assert protocol["event_source"]["experiment_id"] == "0825_EX04"
+        artifacts = experiment_dir / "artifacts"
+        classification = {
+            "classification": "new_representation_confirmed",
+            "event_count": 20,
+            "descriptor_count": 28,
+            "discovered_signature_count": 4,
+            "confirmed_signature_count": 2,
+            "low_contamination_signature_count": 1,
+            "exact_p_value": 0.03,
+        }
+        pd.DataFrame(
+            [
+                {
+                    "descriptor": "atr5_to_atr20",
+                    "quantile_bin": "Q1",
+                    "protective_support": 1,
+                    "downtrend_protective_support": 0,
+                    "joint_margin_protective_support": 0,
+                    "other_false_support": 1,
+                    "neutral_support": 0,
+                    "low_contamination": True,
+                }
+            ]
+        ).to_csv(artifacts / "confirmed_signatures.csv", index=False)
+        pd.DataFrame([{"descriptor": "atr5_to_atr20", "quantile_bin": "Q1"}]).to_csv(
+            artifacts / "discovered_signatures.csv", index=False
+        )
+        pd.DataFrame(
+            [
+                {
+                    "descriptor": "atr5_to_atr20",
+                    "family": "pullback_energy",
+                    "formula": "ATR5/ATR20",
+                    "history_basis": "daily",
+                }
+            ]
+        ).to_csv(artifacts / "descriptor_definitions.csv", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "event_id": "example",
+                    "descriptor": "atr5_to_atr20",
+                    "raw_value": 0.8,
+                    "quantile_bin": "Q1",
+                }
+            ]
+        ).to_csv(artifacts / "event_new_representation.csv", index=False)
+        (artifacts / "permutation_audit.json").write_text(
+            json.dumps(
+                {
+                    "combination_count": 364,
+                    "qualifying_combination_count": 11,
+                    "exact_p_value": 0.03,
+                    "observed_label_set_qualifies": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (artifacts / "representation_classification.json").write_text(
+            json.dumps(classification), encoding="utf-8"
+        )
+        (artifacts / "identity_audit.json").write_text(
+            json.dumps({"status": "PASS", "holdout_accessed": False}),
+            encoding="utf-8",
+        )
+        payload = {
+            "status": "COMPLETE",
+            "visible_data_hashes": {"588080_daily_2025.csv": "abc"},
+            "holdout_accessed": False,
+            "frozen_challenger": None,
+            "event_count": 20,
+            "descriptor_count": 28,
+            "matrix_rows": 560,
+            "discovered_signature_count": 4,
+            "confirmed_signature_count": 2,
+            "low_contamination_signature_count": 1,
+            "exact_p_value": 0.03,
+            "representation_classification": classification,
+        }
+        (artifacts / "metrics.json").write_text(json.dumps(payload), encoding="utf-8")
+        return payload
+
+    monkeypatch.setattr(entrypoint, "run_new_exit_representation", fake_runner)
+
+    finalized = entrypoint.run_preregistered_new_exit_representation(archive)
+
+    assert finalized == archive
+    manifest = validate_experiment_archive(archive)
+    assert manifest["status"] == "COMPLETE"
+    assert manifest["holdout_accessed"] is False
+    execution = (archive / "03_execution.md").read_text(encoding="utf-8")
+    assert "执行提交" in execution
+    conclusion = (archive / "04_conclusion.md").read_text(encoding="utf-8")
+    assert "new_representation_confirmed" in conclusion
+    assert "0.030000" in conclusion
+    assert "0824_EX04" in conclusion and "0825_EX04" in conclusion
+    assert "不是交易规则" in conclusion
+    assert not (archive / "artifacts" / "frozen_challenger.json").exists()
+    assert not (archive / "artifacts" / "orders.csv").exists()
+
+
+def test_preregistered_new_exit_representation_rejects_promotion(
+    tmp_path: Path,
+) -> None:
+    archive = _preregistered_new_exit_representation_archive(tmp_path)
+    path = archive / "artifacts" / "protocol.json"
+    protocol = json.loads(path.read_text(encoding="utf-8"))
+    protocol["promotion"]["select_candidate"] = True
+    path.write_text(json.dumps(protocol), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="promotion"):
+        entrypoint.run_preregistered_new_exit_representation(archive)
+
+
+def test_cli_dispatches_new_exit_representation_to_stable_entrypoint(
+    tmp_path: Path, monkeypatch
+) -> None:
+    archive = _preregistered_new_exit_representation_archive(tmp_path)
+    called: list[Path] = []
+
+    def fake_entrypoint(experiment_dir: Path) -> Path:
+        called.append(experiment_dir)
+        return experiment_dir
+
+    monkeypatch.setattr(
+        entrypoint, "run_preregistered_new_exit_representation", fake_entrypoint
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
+    )
+
+    entrypoint.cli()
+
+    assert called == [archive]

@@ -16,6 +16,10 @@ import pandas as pd
 
 from czsc_trader.attribution_runner import run_champion_attribution
 from czsc_trader.baselines import resolve_baseline
+from czsc_trader.ex04_attribution_runner import (
+    run_ex04_attribution,
+    validate_protocol as validate_ex04_attribution_protocol,
+)
 from czsc_trader.experiment_archive import (
     build_experiment_manifest,
     create_experiment_dir,
@@ -246,6 +250,169 @@ def run_preregistered_attribution(experiment_dir: Path) -> Path:
     return experiment_dir
 
 
+def _ex04_conclusion_markdown(artifacts_dir: Path) -> str:
+    classifications = pd.read_csv(artifacts_dir / "classification.csv")
+    local = json.loads((artifacts_dir / "local_geometry.json").read_text(encoding="utf-8"))
+    bootstrap = json.loads(
+        (artifacts_dir / "bootstrap_summary.json").read_text(encoding="utf-8")
+    )
+    metrics = json.loads((artifacts_dir / "metrics.json").read_text(encoding="utf-8"))
+    windows = pd.read_csv(artifacts_dir / "window_comparison.csv")
+    quantiles = bootstrap["quantiles"]
+    lines = [
+        "# 研究结论",
+        "",
+        "## 判定边界",
+        "",
+        "本轮是EX04机制归因与稳定性诊断，状态为 **COMPLETE**。"
+        "不判定策略PASS/FAIL，不生成挑战者，不访问2026。",
+        "",
+        "## 核心机器结论",
+        "",
+        f"- 局部几何：`{local['classification']}`。",
+        f"- 单一区间主导：`{str(bool(metrics['single_interval_dominated'])).lower()}`。",
+        f"- 配对区块bootstrap：{int(bootstrap['replications'])}次；"
+        f"2.5%/中位数/97.5%分位为"
+        f"{float(quantiles['0.025']):+.4%} / {float(quantiles['0.5']):+.4%} / "
+        f"{float(quantiles['0.975']):+.4%}；差值大于0的比例"
+        f"{float(bootstrap['probability_delta_above_zero']):.2%}。",
+        "",
+        "## 稳定机制分类",
+        "",
+        "| 类型 | 对象 | 分类 | 正向年度 | 负向年度 | 收益贡献中位数 | 夏普贡献中位数 |",
+        "|---|---|---|---:|---:|---:|---:|",
+    ]
+    for row in classifications.itertuples(index=False):
+        lines.append(
+            f"| {row.object_type} | `{row.object_id}` | `{row.classification}` | "
+            f"{int(row.positive_years)} | {int(row.negative_years)} | "
+            f"{float(row.median_return_contribution):+.4%} | "
+            f"{float(row.median_sharpe_contribution):+.4f} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## 年度EX04相对通用基线",
+            "",
+            "| 年度 | 收益增量 | 夏普增量 | 基线持仓率 | EX04持仓率 |",
+            "|---|---:|---:|---:|---:|",
+        ]
+    )
+    annual = windows.loc[windows["window"].astype(str).isin([str(year) for year in range(2021, 2026)])]
+    for row in annual.itertuples(index=False):
+        lines.append(
+            f"| {row.window} | {float(row.return_delta):+.4%} | "
+            f"{float(row.sharpe_delta):+.4f} | {float(row.baseline_exposure):.2%} | "
+            f"{float(row.ex04_exposure):.2%} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## 后续边界",
+            "",
+            "后续方向只能按预注册映射从上述分类、局部几何、路径集中度和bootstrap证据推导。"
+            "混合或被单一区间主导的证据不得强行转化为优化对象；本轮结果不得反馈修改本轮参数。",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def run_preregistered_ex04_attribution(experiment_dir: Path) -> Path:
+    """Finalize the preregistered EX04 diagnosis in its existing archive."""
+    experiment_dir = Path(experiment_dir).resolve()
+    protocol_path = experiment_dir / "artifacts" / "protocol.json"
+    if not protocol_path.is_file():
+        raise FileNotFoundError(f"missing preregistered protocol: {protocol_path}")
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    validate_ex04_attribution_protocol(protocol)
+    research_object = protocol.get("research_object")
+    if not isinstance(research_object, dict):
+        raise ValueError("EX04 attribution protocol is missing research object identity")
+    status = "ERROR"
+    try:
+        summary = run_ex04_attribution(
+            Path("data/raw"), Path("configs/rule_baselines"), experiment_dir, protocol
+        )
+        if summary.get("status") != "COMPLETE":
+            raise ValueError("EX04 attribution runner did not complete")
+        if summary.get("holdout_accessed") is not False:
+            raise ValueError("EX04 attribution runner reported holdout access")
+        if summary.get("frozen_challenger") is not None:
+            raise ValueError("EX04 diagnosis produced a frozen challenger")
+        hashes = summary.get("visible_data_hashes", {})
+        if not isinstance(hashes, dict) or any("2026" in str(name) for name in hashes):
+            raise ValueError("EX04 diagnosis contains a 2026 data hash")
+        if (experiment_dir / "artifacts" / "frozen_challenger.json").exists():
+            raise ValueError("EX04 diagnosis wrote a forbidden frozen challenger")
+        executed_at = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "## 正式执行\n\n"
+            "- 状态：`COMPLETE`\n"
+            f"- 执行时间：{executed_at}\n"
+            f"- 执行提交：`{_git_head()}`\n"
+            f"- Python：{platform.python_version()}\n"
+            f"- CZSC：{_installed_version('czsc')}\n"
+            f"- vectorbt：{_installed_version('vectorbt')}\n"
+            f"- pandas：{_installed_version('pandas')}\n"
+            f"- NumPy：{_installed_version('numpy')}\n"
+            f"- 可见行情文件数：{len(hashes)}\n"
+            f"- 组件组合：{summary['component_variant_count']}项\n"
+            f"- 因子组联盟：{summary['group_coalition_count']}项\n"
+            f"- 局部扰动：{summary['local_perturbation_count']}项\n"
+            "- 2026数据访问：否\n"
+            "- 冻结挑战者：未生成\n"
+            "- 机器证据：`artifacts/`\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            _ex04_conclusion_markdown(experiment_dir / "artifacts"), encoding="utf-8"
+        )
+        status = "COMPLETE"
+    except Exception as exc:
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "- 状态：`ERROR`\n"
+            f"- 异常：{type(exc).__name__}: {exc}\n"
+            "- 2026数据访问：否\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            "# 研究结论\n\n正式执行失败，没有归因结论，不得优化EX04或访问2026。\n",
+            encoding="utf-8",
+        )
+        build_experiment_manifest(
+            experiment_dir,
+            {
+                "experiment_id": experiment_dir.name,
+                "date": "2026-08-25",
+                "status": status,
+                "symbol": protocol.get("symbol", "588080.SH"),
+                "asset_type": "etf",
+                "research_object": research_object,
+                "visible_sample_end": "2025-12-31",
+                "holdout_accessed": False,
+            },
+        )
+        validate_experiment_archive(experiment_dir)
+        raise
+    build_experiment_manifest(
+        experiment_dir,
+        {
+            "experiment_id": experiment_dir.name,
+            "date": "2026-08-25",
+            "status": status,
+            "symbol": protocol.get("symbol", "588080.SH"),
+            "asset_type": "etf",
+            "research_object": research_object,
+            "visible_sample_end": "2025-12-31",
+            "holdout_accessed": False,
+        },
+    )
+    validate_experiment_archive(experiment_dir)
+    return experiment_dir
+
+
 def main(
     experiments_root: Path = Path("experiments"),
     *,
@@ -364,7 +531,15 @@ def cli() -> None:
     parser.add_argument("--protocol", type=Path, default=DEFAULT_PROTOCOL)
     args = parser.parse_args()
     if args.experiment_dir is not None:
-        completed = run_preregistered_attribution(args.experiment_dir)
+        protocol_path = args.experiment_dir / "artifacts" / "protocol.json"
+        protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+        experiment_type = protocol.get("experiment_type")
+        if experiment_type == "champion_attribution":
+            completed = run_preregistered_attribution(args.experiment_dir)
+        elif experiment_type == "ex04_mechanism_attribution":
+            completed = run_preregistered_ex04_attribution(args.experiment_dir)
+        else:
+            raise ValueError(f"unsupported preregistered experiment type: {experiment_type}")
         print(completed)
     else:
         main(protocol_path=args.protocol)

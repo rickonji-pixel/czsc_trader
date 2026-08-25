@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import pytest
+import pandas as pd
 
 from czsc_trader.experiment_archive import (
     REQUIRED_DOCUMENTS,
@@ -258,3 +259,117 @@ def test_preregistered_attribution_rejects_any_promotion_flag(tmp_path: Path) ->
 
     with pytest.raises(ValueError, match="promotion"):
         entrypoint.run_preregistered_attribution(archive)
+
+
+def _preregistered_ex04_attribution_archive(tmp_path: Path) -> Path:
+    archive = tmp_path / "0825_EX02"
+    (archive / "artifacts").mkdir(parents=True)
+    for name in REQUIRED_DOCUMENTS:
+        (archive / name).write_text(f"# {name}\n", encoding="utf-8")
+    protocol = json.loads(
+        Path("experiments/0825_EX02/artifacts/protocol.json").read_text(encoding="utf-8")
+    )
+    (archive / "artifacts" / "protocol.json").write_text(
+        json.dumps(protocol), encoding="utf-8"
+    )
+    return archive
+
+
+def test_preregistered_ex04_attribution_finalizes_same_archive(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Catch EX04 diagnosis allocating another experiment or enabling a holdout."""
+    archive = _preregistered_ex04_attribution_archive(tmp_path)
+
+    def fake_runner(raw_dir, baseline_root, experiment_dir, protocol):
+        assert experiment_dir == archive
+        assert protocol["holdout_access_allowed"] is False
+        artifacts = experiment_dir / "artifacts"
+        pd.DataFrame(
+            [
+                {
+                    "object_type": "component",
+                    "object_id": "weights",
+                    "classification": "stable_positive",
+                    "positive_years": 4,
+                    "negative_years": 0,
+                    "median_return_contribution": 0.02,
+                    "median_sharpe_contribution": 0.1,
+                    "single_interval_dominated": False,
+                }
+            ]
+        ).to_csv(artifacts / "classification.csv", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "window": "2021",
+                    "baseline_return": 0.1,
+                    "ex04_return": 0.12,
+                    "return_delta": 0.02,
+                    "baseline_sharpe": 1.0,
+                    "ex04_sharpe": 1.1,
+                    "sharpe_delta": 0.1,
+                    "baseline_max_drawdown": -0.1,
+                    "ex04_max_drawdown": -0.08,
+                    "baseline_exposure": 0.5,
+                    "ex04_exposure": 0.45,
+                    "baseline_trade_count": 4,
+                    "ex04_trade_count": 4,
+                }
+            ]
+        ).to_csv(artifacts / "window_comparison.csv", index=False)
+        pd.DataFrame(
+            [{"regime": "uptrend", "daily_return_delta_sum": 0.03}]
+        ).to_csv(artifacts / "regime_attribution.csv", index=False)
+        (artifacts / "local_geometry.json").write_text(
+            json.dumps({"classification": "broad_plateau"}), encoding="utf-8"
+        )
+        (artifacts / "bootstrap_summary.json").write_text(
+            json.dumps(
+                {
+                    "replications": 2000,
+                    "quantiles": {"0.025": -0.01, "0.5": 0.02, "0.975": 0.05},
+                    "probability_delta_above_zero": 0.8,
+                }
+            ),
+            encoding="utf-8",
+        )
+        payload = {
+            "status": "COMPLETE",
+            "visible_data_hashes": {"588080_daily_2025.csv": "abc"},
+            "holdout_accessed": False,
+            "frozen_challenger": None,
+            "component_variant_count": 4,
+            "local_perturbation_count": 32,
+            "group_coalition_count": 8,
+            "single_interval_dominated": False,
+        }
+        (artifacts / "metrics.json").write_text(json.dumps(payload), encoding="utf-8")
+        return payload
+
+    monkeypatch.setattr(entrypoint, "run_ex04_attribution", fake_runner)
+
+    finalized = entrypoint.run_preregistered_ex04_attribution(archive)
+
+    assert finalized == archive
+    manifest = validate_experiment_archive(archive)
+    assert manifest["status"] == "COMPLETE"
+    assert manifest["holdout_accessed"] is False
+    conclusion = (archive / "04_conclusion.md").read_text(encoding="utf-8")
+    assert "weights" in conclusion
+    assert "broad_plateau" in conclusion
+    assert not (archive / "artifacts" / "frozen_challenger.json").exists()
+
+
+def test_preregistered_ex04_attribution_rejects_promotion(
+    tmp_path: Path,
+) -> None:
+    """Catch a diagnostic archive being converted into same-round optimization."""
+    archive = _preregistered_ex04_attribution_archive(tmp_path)
+    path = archive / "artifacts" / "protocol.json"
+    protocol = json.loads(path.read_text(encoding="utf-8"))
+    protocol["promotion"]["optimize_parameters"] = True
+    path.write_text(json.dumps(protocol), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="promotion"):
+        entrypoint.run_preregistered_ex04_attribution(archive)

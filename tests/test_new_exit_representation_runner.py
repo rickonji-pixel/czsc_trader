@@ -18,6 +18,12 @@ from czsc_trader.new_exit_representation_runner import (
     compute_weekly_descriptor,
     discover_and_confirm_signatures,
     exact_permutation_audit,
+    run_new_exit_representation,
+    validate_archive_reference,
+    validate_artifact_reference,
+    validate_event_cohort,
+    validate_novelty_exclusion,
+    validate_visible_hashes,
     validate_protocol,
 )
 
@@ -147,6 +153,13 @@ def test_daily_descriptor_identity_and_literal_formulas() -> None:
     assert np.isnan(frame.loc[0, "return_volume_corr10"])
 
 
+def test_descriptors_accept_normalized_market_data_vol_column() -> None:
+    daily = _daily_fixture().rename(columns={"volume": "vol"})
+    frame = compute_daily_descriptors(daily)
+
+    assert frame["volume_t_to20"].notna().any()
+
+
 def test_daily_descriptors_turn_zero_denominators_into_nan() -> None:
     daily = _daily_fixture()
     daily.loc[:, ["open", "high", "low", "close"]] = 100.0
@@ -201,6 +214,22 @@ def test_causal_quantile_bins_exclude_current_and_use_lower_closed_boundary() ->
     assert bins.loc[5, "x"] == "Q5"
     assert bins.loc[6, "x"] == "Q1"
     assert bins.loc[4, "x"] is None
+
+
+def test_quantile_bins_accept_distinct_weekly_history_settings() -> None:
+    raw = pd.DataFrame(
+        {"dt": pd.date_range("2020-01-03", periods=22, freq="W-FRI"), "x": range(22)}
+    )
+    bins = assign_causal_quantile_bins(
+        raw,
+        _protocol(),
+        descriptor_ids=("x",),
+        history_window=26,
+        minimum_history=20,
+    )
+
+    assert bins.loc[19, "x"] is None
+    assert bins.loc[20, "x"] == "Q5"
 
 
 def test_discovery_confirmation_and_contamination_are_sequential() -> None:
@@ -270,3 +299,169 @@ def test_classification_order(
     )
 
     assert result["classification"] == expected
+
+
+def test_visible_hashes_and_event_cohort_reject_identity_drift() -> None:
+    validate_visible_hashes({"588080_daily_2025.csv": "abc"})
+    with pytest.raises(ValueError, match="2026"):
+        validate_visible_hashes({"588080_daily_2026.csv": "abc"})
+
+    events = pd.read_csv("experiments/0825_EX04/artifacts/exit_event_counterfactuals.csv")
+    validate_event_cohort(events, _protocol())
+    with pytest.raises(ValueError, match="event"):
+        validate_event_cohort(events.iloc[:-1], _protocol())
+
+
+def test_tracked_source_identity_chain_matches_preregistration() -> None:
+    protocol = _protocol()
+    root = Path.cwd()
+
+    source = validate_archive_reference(root, protocol["event_source"], label="0825_EX04")
+    prior = validate_archive_reference(
+        root, protocol["prior_negative_result"], label="0825_EX05"
+    )
+    baseline = validate_artifact_reference(
+        root, protocol["research_baseline"], label="0824_EX04"
+    )
+    novelty = validate_novelty_exclusion(root, protocol["novelty_exclusion"])
+
+    assert source["experiment_id"] == "0825_EX04"
+    assert prior["experiment_id"] == "0825_EX05"
+    assert baseline == protocol["research_baseline"]["sha256"]
+    assert novelty == protocol["novelty_exclusion"]["portable_manifest_sha256"]
+
+
+def test_tracked_source_identity_chain_rejects_hash_drift() -> None:
+    protocol = _protocol()
+    root = Path.cwd()
+    source = json.loads(json.dumps(protocol["event_source"]))
+    source["files"]["artifacts/metrics.json"] = "0" * 64
+    with pytest.raises(ValueError, match="hash differs"):
+        validate_archive_reference(root, source, label="0825_EX04")
+
+    baseline = json.loads(json.dumps(protocol["research_baseline"]))
+    baseline["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="hash differs"):
+        validate_artifact_reference(root, baseline, label="0824_EX04")
+
+    novelty = json.loads(json.dumps(protocol["novelty_exclusion"]))
+    novelty["portable_manifest_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="hash differs"):
+        validate_novelty_exclusion(root, novelty)
+
+
+def _formal_market_fixture():
+    from czsc_trader.data import MarketData
+
+    dates = pd.bdate_range("2020-01-01", "2025-12-31")
+    close = 100 + np.linspace(0, 50, len(dates)) + np.sin(np.arange(len(dates)) / 13)
+    daily = pd.DataFrame(
+        {
+            "dt": dates,
+            "open": close * 0.999,
+            "high": close * 1.005,
+            "low": close * 0.995,
+            "close": close,
+            "vol": 10_000 + (np.arange(len(dates)) % 37) * 100,
+        }
+    )
+    times = ("10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00")
+    intraday_rows: list[dict[str, object]] = []
+    for index, date in enumerate(dates):
+        day_close = float(close[index])
+        for bar_index, time in enumerate(times):
+            bar_close = day_close * (0.998 + 0.0005 * (bar_index + 1))
+            bar_open = day_close * (0.998 + 0.0005 * bar_index)
+            intraday_rows.append(
+                {
+                    "dt": pd.Timestamp(f"{date.date()} {time}"),
+                    "open": bar_open,
+                    "high": max(bar_open, bar_close) * 1.001,
+                    "low": min(bar_open, bar_close) * 0.999,
+                    "close": bar_close,
+                    "vol": float(1_000 + bar_index * 10),
+                }
+            )
+    intraday = pd.DataFrame(intraday_rows)
+    weekly = (
+        daily.assign(_week=daily["dt"].dt.to_period("W-SUN"))
+        .groupby("_week", as_index=False)
+        .agg(
+            dt=("dt", "max"),
+            open=("open", "first"),
+            high=("high", "max"),
+            low=("low", "min"),
+            close=("close", "last"),
+            vol=("vol", "sum"),
+        )
+        .drop(columns="_week", errors="ignore")
+    )
+    return MarketData(
+        intraday=intraday,
+        daily=daily,
+        weekly=weekly,
+        hashes={"588080_daily_2025.csv": "abc", "588080_30m_2025.csv": "def", "588080_weekly_2025.csv": "ghi"},
+    )
+
+
+def test_formal_runner_writes_only_frozen_diagnostic_artifacts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    experiment_dir = tmp_path / "experiments" / "0825_EX06"
+    artifacts = experiment_dir / "artifacts"
+    artifacts.mkdir(parents=True)
+    protocol = _protocol()
+    (artifacts / "protocol.json").write_text(
+        json.dumps(protocol, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    source_events = pd.read_csv(
+        "experiments/0825_EX04/artifacts/exit_event_counterfactuals.csv"
+    )
+
+    monkeypatch.setattr(
+        "czsc_trader.new_exit_representation_runner.validate_archive_reference",
+        lambda *args, **kwargs: {"experiment_id": kwargs.get("label", "source")},
+    )
+    monkeypatch.setattr(
+        "czsc_trader.new_exit_representation_runner.validate_artifact_reference",
+        lambda *args, **kwargs: "baseline-sha",
+    )
+    monkeypatch.setattr(
+        "czsc_trader.new_exit_representation_runner.validate_novelty_exclusion",
+        lambda *args, **kwargs: "novelty-sha",
+    )
+    monkeypatch.setattr(
+        "czsc_trader.new_exit_representation_runner.load_market_data",
+        lambda *args, **kwargs: _formal_market_fixture(),
+    )
+    monkeypatch.setattr(
+        "czsc_trader.new_exit_representation_runner.load_source_events",
+        lambda *args, **kwargs: source_events.copy(),
+    )
+
+    summary = run_new_exit_representation(tmp_path / "data" / "raw", experiment_dir, protocol)
+
+    assert summary["status"] == "COMPLETE"
+    assert summary["event_count"] == 20
+    assert summary["descriptor_count"] == 28
+    assert summary["holdout_accessed"] is False
+    assert summary["frozen_challenger"] is None
+    expected = {
+        "protocol.json",
+        "identity_audit.json",
+        "descriptor_definitions.csv",
+        "event_new_representation.csv",
+        "discovered_signatures.csv",
+        "confirmed_signatures.csv",
+        "permutation_audit.json",
+        "representation_classification.json",
+        "metrics.json",
+    }
+    assert {path.name for path in artifacts.iterdir()} == expected
+    matrix = pd.read_csv(artifacts / "event_new_representation.csv")
+    assert len(matrix) == 20 * 28
+    assert pd.to_datetime(matrix["max_input_dt"]).le(
+        pd.to_datetime(matrix["signal_date"])
+    ).all()
+    for forbidden in ("orders.csv", "candidate_results.csv", "frozen_challenger.json"):
+        assert not (artifacts / forbidden).exists()

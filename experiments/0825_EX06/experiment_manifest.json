@@ -29,12 +29,12 @@
       "sha256": "efc24e0499ccc5dbba98dbd2024cb26e03079fc389a693efaa81788331da56bb"
     },
     "artifacts/protocol.json": {
-      "bytes": 3174,
-      "sha256": "9697e5febdd66bbf846831bb896479841c0ba3d27690df0c5f69d0ddb0bcc36a"
+      "bytes": 3211,
+      "sha256": "1b649f8eeaeabc3f8b5a2665b2db0a9cb152a53d2ecf28fdf22c5de353162cf3"
     },
     "implementation_plan.md": {
       "bytes": 13261,
-      "sha256": "a65f3d6f28962b1220d09202d8afd2b51f1a448b16adcdc4eda1c11b5c998f42"
+      "sha256": "1f7ba29fc268891ce70ff2d049df13c04c89ae76ccaedc0139ef3e1b65a6cde7"
     }
   }
 }

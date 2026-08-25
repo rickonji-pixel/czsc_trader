@@ -26,6 +26,7 @@
   },
   "prior_negative_result": {
     "experiment_id": "0825_EX05",
+    "path": "experiments/0825_EX05",
     "classification": "shared_but_contaminated_anatomy",
     "holdout_accessed": false,
     "files": {

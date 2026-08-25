@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 from itertools import combinations
+import json
 from pathlib import Path
 from typing import Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+
+from .data import load_market_data
+from .experiment_archive import validate_experiment_archive
 
 
 DAILY_DESCRIPTOR_IDS = (
@@ -46,6 +51,13 @@ INTRADAY_DESCRIPTOR_IDS = (
 WEEKLY_DESCRIPTOR_IDS = ("weekly_close_to_ma10",)
 DESCRIPTOR_IDS = DAILY_DESCRIPTOR_IDS + INTRADAY_DESCRIPTOR_IDS + WEEKLY_DESCRIPTOR_IDS
 
+DESCRIPTOR_FAMILIES = {
+    **{name: "trend_geometry" for name in DESCRIPTOR_IDS[:8]},
+    **{name: "pullback_energy" for name in DESCRIPTOR_IDS[8:16]},
+    **{name: "price_volume_structure" for name in DESCRIPTOR_IDS[16:23]},
+    **{name: "intraday_weekly_structure" for name in DESCRIPTOR_IDS[23:]},
+}
+
 
 def _safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
     result = numerator.astype(float).div(denominator.astype(float))
@@ -82,6 +94,8 @@ def validate_protocol(protocol: Mapping[str, object]) -> None:
 
 
 def _require_ohlcv(frame: pd.DataFrame) -> pd.DataFrame:
+    if "volume" not in frame.columns and "vol" in frame.columns:
+        frame = frame.rename(columns={"vol": "volume"})
     required = ["dt", "open", "high", "low", "close", "volume"]
     missing = sorted(set(required) - set(frame.columns))
     if missing:
@@ -298,11 +312,13 @@ def assign_causal_quantile_bins(
     protocol: Mapping[str, object],
     *,
     descriptor_ids: Sequence[str] | None = None,
+    history_window: int | None = None,
+    minimum_history: int | None = None,
 ) -> pd.DataFrame:
     """Assign current rows to bins computed strictly from earlier rows."""
     ids = tuple(descriptor_ids or [column for column in frame if column != "dt"])
-    window = int(protocol["daily_history_window"])
-    minimum = int(protocol["daily_minimum_history"])
+    window = int(history_window or protocol["daily_history_window"])
+    minimum = int(minimum_history or protocol["daily_minimum_history"])
     values = frame.loc[:, ["dt", *ids]].copy().sort_values("dt").reset_index(drop=True)
     output = pd.DataFrame({"dt": pd.to_datetime(values["dt"])})
     for descriptor in ids:
@@ -521,3 +537,432 @@ def classify_representation(
         ),
         "exact_p_value": float(permutation_audit.get("exact_p_value", 1.0)),
     }
+
+
+def validate_visible_hashes(hashes: Mapping[str, str]) -> None:
+    """Prove the loaded market bundle contains tracked pre-2026 inputs only."""
+    if not hashes:
+        raise ValueError("visible market hash set is empty")
+    if any("2026" in str(name) for name in hashes):
+        raise ValueError("visible market hashes contain 2026")
+
+
+def validate_event_cohort(
+    events: pd.DataFrame, protocol: Mapping[str, object]
+) -> None:
+    """Validate the fixed twenty-event cohort inherited from 0825_EX04."""
+    required = {
+        "event_id",
+        "signal_date",
+        "outcome_label",
+        "regime",
+        "block_label",
+    }
+    if not required <= set(events.columns):
+        raise ValueError("event cohort is missing required columns")
+    if len(events) != int(protocol["expected_event_count"]):
+        raise ValueError("event cohort count differs from preregistration")
+    if not events["event_id"].is_unique:
+        raise ValueError("event identities are duplicated")
+    required_ids = {
+        *[str(value) for value in protocol["discovery_event_ids"]],
+        str(protocol["confirmation_event_id"]),
+    }
+    if not required_ids <= set(events["event_id"].astype(str)):
+        raise ValueError("dominant event identities differ from preregistration")
+    counts = events["outcome_label"].value_counts().to_dict()
+    if counts != {"protective_exit": 11, "false_exit": 5, "neutral_exit": 4}:
+        raise ValueError("event outcome counts differ from the frozen source")
+
+
+def validate_archive_reference(
+    repository_root: Path,
+    specification: Mapping[str, object],
+    *,
+    label: str,
+) -> dict[str, object]:
+    """Validate a portable tracked archive and the preregistered file records."""
+    archive = Path(repository_root) / str(specification.get("path", ""))
+    manifest = validate_experiment_archive(archive)
+    for key in ("experiment_id", "status", "holdout_accessed"):
+        if key in specification and manifest.get(key) != specification.get(key):
+            raise ValueError(f"{label} {key} differs from preregistration")
+    expected_files = specification.get("files")
+    if not isinstance(expected_files, Mapping):
+        raise ValueError(f"{label} file identities are missing")
+    manifest_files = manifest.get("files")
+    if not isinstance(manifest_files, Mapping):
+        raise ValueError(f"{label} manifest files are missing")
+    for relative, expected in expected_files.items():
+        record = manifest_files.get(str(relative))
+        if not isinstance(record, Mapping) or record.get("sha256") != str(expected):
+            raise ValueError(f"{label} file hash differs: {relative}")
+    return manifest
+
+
+def validate_artifact_reference(
+    repository_root: Path,
+    specification: Mapping[str, object],
+    *,
+    label: str,
+) -> str:
+    """Validate one byte-exact tracked artifact."""
+    path = Path(repository_root) / str(specification.get("path", ""))
+    if not path.is_file():
+        raise FileNotFoundError(f"{label} artifact is missing: {path}")
+    digest = sha256(path.read_bytes()).hexdigest()
+    if digest != str(specification.get("sha256", "")):
+        raise ValueError(f"{label} hash differs from preregistration")
+    return digest
+
+
+def validate_novelty_exclusion(
+    repository_root: Path, specification: Mapping[str, object]
+) -> str:
+    """Validate the portable EX06 candidate list used to reject renamed factors."""
+    relative_path = Path(str(specification.get("path", "")))
+    parts = relative_path.parts
+    if len(parts) < 4 or parts[0] != "experiments":
+        raise ValueError("novelty exclusion path is invalid")
+    archive = Path(repository_root) / Path(*parts[:2])
+    manifest = validate_experiment_archive(archive)
+    name = Path(*parts[2:]).as_posix()
+    record = manifest.get("files", {}).get(name)
+    expected = str(specification.get("portable_manifest_sha256", ""))
+    if not isinstance(record, Mapping) or record.get("sha256") != expected:
+        raise ValueError("novelty exclusion hash differs from preregistration")
+    return expected
+
+
+def load_source_events(
+    repository_root: Path, specification: Mapping[str, object]
+) -> pd.DataFrame:
+    """Load the fixed event cohort after its archive identity is validated."""
+    path = (
+        Path(repository_root)
+        / str(specification["path"])
+        / "artifacts"
+        / "exit_event_counterfactuals.csv"
+    )
+    return pd.read_csv(path)
+
+
+def _descriptor_definitions() -> pd.DataFrame:
+    formulas = {
+        "close_to_ma20": "C/MA20-1",
+        "ma20_slope5": "MA20_t/MA20_t-5-1",
+        "ma10_ma20_spread": "MA10/MA20-1",
+        "drawdown_from_high20": "C/max(H,20)-1",
+        "close_location20": "(C-min(L,20))/(max(H,20)-min(L,20))",
+        "return5": "C/C_t-5-1",
+        "return10": "C/C_t-10-1",
+        "prior_low10_buffer": "C/min(L_t-10:t-1)-1",
+        "atr5_to_atr20": "ATR5/ATR20",
+        "tr_to_atr20": "TR/ATR20",
+        "realized_vol5_to20": "sample_std(ret,5)/sample_std(ret,20)",
+        "downside_semivol5_to20": "rms(min(ret,0),5)/rms(min(ret,0),20)",
+        "negative_day_share5": "count(ret<0,5)/5",
+        "max_drawdown5_to_atr20": "max_close_drawdown(5)/(ATR20/C)",
+        "daily_close_location": "(C-L)/(H-L)",
+        "gap_abs_to_atr20": "abs(O/C_t-1-1)/(ATR20/C_t-1)",
+        "volume5_to20": "mean(V,5)/mean(V,20)",
+        "volume_t_to20": "V/mean(V,20)",
+        "down_up_volume_ratio10": "mean(V|ret<0,10)/mean(V|ret>0,10)",
+        "signed_volume_imbalance5": "sum(sign(ret)*V,5)/sum(V,5)",
+        "signed_volume_imbalance10": "sum(sign(ret)*V,10)/sum(V,10)",
+        "return_volume_corr10": "corr(ret,log1p(V),10)",
+        "log_volume_slope5": "ols_slope(log1p(V),0:4)",
+        "intraday_down_volume_share": "sum(30m_V|30m_ret<0)/sum(30m_V)",
+        "intraday_realized_vol_to20": "sqrt(sum(30m_ret^2))/median(prior20)",
+        "intraday_close_location": "(day_C-day_L)/(day_H-day_L)",
+        "last4_30m_return": "last_C/first_O_of_last4-1",
+        "weekly_close_to_ma10": "completed_week_C/completed_week_MA10-1",
+    }
+    return pd.DataFrame(
+        [
+            {
+                "descriptor": descriptor,
+                "family": DESCRIPTOR_FAMILIES[descriptor],
+                "formula": formulas[descriptor],
+                "history_basis": "weekly" if descriptor in WEEKLY_DESCRIPTOR_IDS else "daily",
+            }
+            for descriptor in DESCRIPTOR_IDS
+        ]
+    )
+
+
+def _history_counts(
+    frame: pd.DataFrame, descriptor_ids: Sequence[str], window: int
+) -> pd.DataFrame:
+    result = pd.DataFrame({"dt": pd.to_datetime(frame["dt"])})
+    for descriptor in descriptor_ids:
+        result[descriptor] = (
+            pd.to_numeric(frame[descriptor], errors="coerce")
+            .notna()
+            .astype(int)
+            .shift(1)
+            .rolling(window, min_periods=1)
+            .sum()
+            .fillna(0)
+            .astype(int)
+        )
+    return result
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_csv(path: Path, frame: pd.DataFrame) -> None:
+    frame.to_csv(path, index=False, encoding="utf-8-sig")
+
+
+def run_new_exit_representation(
+    raw_dir: Path,
+    experiment_dir: Path,
+    protocol: Mapping[str, object],
+) -> dict[str, object]:
+    """Execute the frozen pre-2026 representation diagnosis exactly once."""
+    validate_protocol(protocol)
+    experiment_dir = Path(experiment_dir).resolve()
+    repository_root = experiment_dir.parent.parent
+    artifacts = experiment_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    forbidden_names = {"orders.csv", "candidate_results.csv", "frozen_challenger.json"}
+    present_forbidden = forbidden_names & {path.name for path in artifacts.iterdir()}
+    if present_forbidden:
+        raise ValueError(f"diagnostic archive contains forbidden outputs: {sorted(present_forbidden)}")
+
+    event_source = protocol.get("event_source")
+    prior_negative = protocol.get("prior_negative_result")
+    research_baseline = protocol.get("research_baseline")
+    novelty = protocol.get("novelty_exclusion")
+    if not all(
+        isinstance(value, Mapping)
+        for value in (event_source, prior_negative, research_baseline, novelty)
+    ):
+        raise ValueError("protocol source identities are incomplete")
+    source_manifest = validate_archive_reference(
+        repository_root, event_source, label="0825_EX04"
+    )
+    prior_manifest = validate_archive_reference(
+        repository_root, prior_negative, label="0825_EX05"
+    )
+    baseline_digest = validate_artifact_reference(
+        repository_root, research_baseline, label="0824_EX04"
+    )
+    novelty_digest = validate_novelty_exclusion(repository_root, novelty)
+
+    cutoff = pd.Timestamp(str(protocol["visible_sample_end"]))
+    market = load_market_data(
+        Path(raw_dir), str(protocol["symbol"]), str(protocol["asset_type"]), cutoff=cutoff
+    )
+    validate_visible_hashes(market.hashes)
+    market_max_dates = (
+        pd.to_datetime(market.intraday["dt"]).dt.normalize().max(),
+        pd.to_datetime(market.daily["dt"]).max(),
+        pd.to_datetime(market.weekly["dt"]).max(),
+    )
+    if any(maximum > cutoff for maximum in market_max_dates):
+        raise ValueError("market frame exceeds visible sample cutoff")
+
+    events = load_source_events(repository_root, event_source)
+    validate_event_cohort(events, protocol)
+    events = events.copy()
+    events["signal_date"] = pd.to_datetime(events["signal_date"])
+    if events["signal_date"].max() > cutoff:
+        raise ValueError("event cohort exceeds visible sample cutoff")
+
+    daily_raw = compute_daily_descriptors(market.daily)
+    intraday_raw = compute_intraday_descriptors(market.intraday)
+    daily_intraday_raw = daily_raw.merge(
+        intraday_raw, on="dt", how="left", validate="one_to_one"
+    )
+    daily_intraday_ids = DAILY_DESCRIPTOR_IDS + INTRADAY_DESCRIPTOR_IDS
+    daily_bins = assign_causal_quantile_bins(
+        daily_intraday_raw,
+        protocol,
+        descriptor_ids=daily_intraday_ids,
+    )
+    daily_counts = _history_counts(
+        daily_intraday_raw,
+        daily_intraday_ids,
+        int(protocol["daily_history_window"]),
+    )
+
+    weekly_dates = pd.to_datetime(market.weekly["dt"]).reset_index(drop=True)
+    weekly_raw = pd.DataFrame(
+        {
+            "dt": weekly_dates,
+            "weekly_close_to_ma10": compute_weekly_descriptor(
+                weekly_dates, market.weekly
+            ),
+        }
+    )
+    weekly_bins = assign_causal_quantile_bins(
+        weekly_raw,
+        protocol,
+        descriptor_ids=WEEKLY_DESCRIPTOR_IDS,
+        history_window=int(protocol["weekly_history_window"]),
+        minimum_history=int(protocol["weekly_minimum_history"]),
+    )
+    weekly_counts = _history_counts(
+        weekly_raw, WEEKLY_DESCRIPTOR_IDS, int(protocol["weekly_history_window"])
+    )
+    weekly_evidence = weekly_raw.rename(
+        columns={"dt": "weekly_feature_date"}
+    ).merge(
+        weekly_bins.rename(columns={"dt": "weekly_feature_date"}),
+        on="weekly_feature_date",
+        suffixes=("_raw", "_bin"),
+        validate="one_to_one",
+    ).merge(
+        weekly_counts.rename(columns={"dt": "weekly_feature_date"}),
+        on="weekly_feature_date",
+        validate="one_to_one",
+    )
+    daily_dates = pd.DataFrame({"dt": pd.to_datetime(daily_intraday_raw["dt"])})
+    weekly_aligned = pd.merge_asof(
+        daily_dates.sort_values("dt"),
+        weekly_evidence.sort_values("weekly_feature_date"),
+        left_on="dt",
+        right_on="weekly_feature_date",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+
+    raw_lookup = daily_intraday_raw.set_index("dt")
+    bin_lookup = daily_bins.set_index("dt")
+    count_lookup = daily_counts.set_index("dt")
+    weekly_lookup = weekly_aligned.set_index("dt")
+    matrix_rows: list[dict[str, object]] = []
+    for event in events.to_dict(orient="records"):
+        signal_date = pd.Timestamp(event["signal_date"])
+        if signal_date not in raw_lookup.index:
+            raise ValueError(f"event signal date is missing from market data: {signal_date.date()}")
+        for descriptor in DESCRIPTOR_IDS:
+            if descriptor in WEEKLY_DESCRIPTOR_IDS:
+                raw_value = weekly_lookup.at[signal_date, f"{descriptor}_raw"]
+                quantile_bin = weekly_lookup.at[signal_date, f"{descriptor}_bin"]
+                history_count = weekly_lookup.at[signal_date, descriptor]
+                feature_date = weekly_lookup.at[signal_date, "weekly_feature_date"]
+            else:
+                raw_value = raw_lookup.at[signal_date, descriptor]
+                quantile_bin = bin_lookup.at[signal_date, descriptor]
+                history_count = count_lookup.at[signal_date, descriptor]
+                feature_date = signal_date
+            matrix_rows.append(
+                {
+                    "event_id": str(event["event_id"]),
+                    "window": str(event.get("window", "")),
+                    "signal_date": signal_date,
+                    "outcome_label": str(event["outcome_label"]),
+                    "regime": str(event["regime"]),
+                    "block_label": str(event["block_label"]),
+                    "descriptor": descriptor,
+                    "family": DESCRIPTOR_FAMILIES[descriptor],
+                    "raw_value": float(raw_value) if pd.notna(raw_value) else np.nan,
+                    "quantile_bin": quantile_bin if pd.notna(quantile_bin) else None,
+                    "history_count": int(history_count) if pd.notna(history_count) else 0,
+                    "feature_date": pd.Timestamp(feature_date) if pd.notna(feature_date) else pd.NaT,
+                    "max_input_dt": pd.Timestamp(feature_date) if pd.notna(feature_date) else pd.NaT,
+                }
+            )
+    matrix = pd.DataFrame(matrix_rows)
+
+    expected_rows = len(events) * len(DESCRIPTOR_IDS)
+    per_event_counts = matrix.groupby("event_id")["descriptor"].nunique()
+    raw_finite = bool(np.isfinite(matrix["raw_value"].to_numpy(dtype=float)).all())
+    bins_present = bool(matrix["quantile_bin"].isin(["Q1", "Q2", "Q3", "Q4", "Q5"]).all())
+    causal_dates = bool(
+        pd.to_datetime(matrix["max_input_dt"])
+        .le(pd.to_datetime(matrix["signal_date"]))
+        .all()
+    )
+    history_ok = bool(
+        (
+            matrix.loc[matrix["descriptor"].ne("weekly_close_to_ma10"), "history_count"]
+            >= int(protocol["daily_minimum_history"])
+        ).all()
+        and (
+            matrix.loc[matrix["descriptor"].eq("weekly_close_to_ma10"), "history_count"]
+            >= int(protocol["weekly_minimum_history"])
+        ).all()
+    )
+    evidence_checks = {
+        "expected_matrix_rows": len(matrix) == expected_rows,
+        "descriptor_identity_per_event": bool(per_event_counts.eq(len(DESCRIPTOR_IDS)).all()),
+        "raw_values_finite": raw_finite,
+        "quantile_bins_present": bins_present,
+        "causal_dates": causal_dates,
+        "minimum_history": history_ok,
+    }
+    evidence_ok = all(evidence_checks.values())
+
+    discovered, confirmed = discover_and_confirm_signatures(events, matrix, protocol)
+    permutation = exact_permutation_audit(events, matrix, protocol)
+    classification = classify_representation(
+        event_count=len(events),
+        descriptor_count=len(DESCRIPTOR_IDS),
+        discovered_count=len(discovered),
+        confirmed=confirmed,
+        permutation_audit=permutation,
+        evidence_ok=evidence_ok,
+        protocol=protocol,
+    )
+    identity = {
+        "status": "PASS" if evidence_ok else "INSUFFICIENT",
+        "research_baseline": {
+            "experiment_id": research_baseline["experiment_id"],
+            "path": research_baseline["path"],
+            "sha256": baseline_digest,
+        },
+        "event_source": {
+            "experiment_id": source_manifest.get("experiment_id"),
+            "status": source_manifest.get("status"),
+            "holdout_accessed": source_manifest.get("holdout_accessed"),
+            "file_sha256": dict(event_source["files"]),
+        },
+        "prior_negative_result": {
+            "experiment_id": prior_manifest.get("experiment_id"),
+            "classification": prior_negative["classification"],
+            "holdout_accessed": prior_negative["holdout_accessed"],
+            "file_sha256": dict(prior_negative["files"]),
+        },
+        "novelty_exclusion_sha256": novelty_digest,
+        "descriptor_ids": list(DESCRIPTOR_IDS),
+        "evidence_checks": evidence_checks,
+        "visible_data_hashes": market.hashes,
+        "holdout_accessed": False,
+    }
+    metrics = {
+        "status": "COMPLETE",
+        "experiment_id": str(protocol["experiment_id"]),
+        "visible_sample_end": str(cutoff.date()),
+        "visible_data_hashes": market.hashes,
+        "holdout_accessed": False,
+        "frozen_challenger": None,
+        "event_count": len(events),
+        "descriptor_count": len(DESCRIPTOR_IDS),
+        "matrix_rows": len(matrix),
+        "discovered_signature_count": len(discovered),
+        "confirmed_signature_count": len(confirmed),
+        "low_contamination_signature_count": int(
+            confirmed.get("low_contamination", pd.Series(dtype=bool)).astype(bool).sum()
+        ),
+        "exact_p_value": float(permutation["exact_p_value"]),
+        "representation_classification": classification,
+    }
+
+    _write_csv(artifacts / "descriptor_definitions.csv", _descriptor_definitions())
+    _write_csv(artifacts / "event_new_representation.csv", matrix)
+    _write_csv(artifacts / "discovered_signatures.csv", discovered)
+    _write_csv(artifacts / "confirmed_signatures.csv", confirmed)
+    _write_json(artifacts / "permutation_audit.json", permutation)
+    _write_json(artifacts / "representation_classification.json", classification)
+    _write_json(artifacts / "identity_audit.json", identity)
+    _write_json(artifacts / "metrics.json", metrics)
+    return metrics

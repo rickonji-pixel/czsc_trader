@@ -116,7 +116,7 @@ Commit: `research: implement EX06 representation core`
 - Produces: `run_new_exit_representation(raw_dir: Path, experiment_dir: Path, protocol: Mapping[str, object]) -> dict[str, object]`
 - Produces exactly the nine artifacts listed in `02_design.md`.
 
-- [ ] **Step 1: Write failing integration and identity tests**
+- [x] **Step 1: Write failing integration and identity tests**
 
 Test source archive drift, baseline drift, prior-negative-result drift, novelty-list drift, wrong event identities, descriptor identity drift, fewer than 20 events, 2026 hashes, future timestamps, non-finite exported values, and forbidden output names.
 
@@ -132,7 +132,7 @@ assert summary["holdout_accessed"] is False
 assert summary["frozen_challenger"] is None
 ```
 
-- [ ] **Step 2: Implement one-pass formal runner**
+- [x] **Step 2: Implement one-pass formal runner**
 
 Load the market bundle once with cutoff `2025-12-31`; calculate all historical descriptor rows before joining the fixed events; export raw values and bins in long form; write descriptor definitions, discovery/confirmation tables, permutation audit, identity audit, classification, and metrics with deterministic column order and UTF-8 JSON.
 
@@ -145,13 +145,13 @@ def run_new_exit_representation(raw_dir, experiment_dir, protocol):
     return metrics
 ```
 
-- [ ] **Step 3: Run focused and neighboring regression tests**
+- [x] **Step 3: Run focused and neighboring regression tests**
 
 Run: `.\.venv\Scripts\python.exe -m pytest -q tests/test_new_exit_representation_runner.py tests/test_dominant_exit_anatomy_runner.py tests/test_exit_signal_diagnosis_runner.py tests/test_experiment_archive.py`
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit the tested formal runner**
+- [x] **Step 4: Commit the tested formal runner**
 
 Commit: `research: add EX06 representation runner`
 

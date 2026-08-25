@@ -57,6 +57,8 @@
   "classification": {
     "pooled_negative_log_share": 0.6,
     "per_window_negative_log_share": 0.5,
+    "joint_pooled_negative_log_share": 0.4,
+    "joint_per_window_negative_log_share": 0.4,
     "minimum_supported_windows": 2,
     "counterfactual_return_improvement": 0.001,
     "require_positive_median_improvement": true

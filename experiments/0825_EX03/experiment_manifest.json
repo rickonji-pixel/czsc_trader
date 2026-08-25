@@ -17,20 +17,20 @@
       "sha256": "f51c33ab70258c1c6ad14e40951abf63d4cac28773a2b047081ee0ba4386c635"
     },
     "02_design.md": {
-      "bytes": 6950,
-      "sha256": "3c40cae55d49c20ce2aa546d39f18977aacc45148055cb02277f621234155bf0"
+      "bytes": 7258,
+      "sha256": "faa23c4506e2655589a13cb74103c92200d46082b35ca382b279aa7427c5701f"
     },
     "03_execution.md": {
-      "bytes": 135,
-      "sha256": "97276bc69660d04077f4794ea8d26662e339a73445f0c336c42e049a68dc6ed8"
+      "bytes": 542,
+      "sha256": "00a10af26cfce4e266c738f12ef60d8c935ec406ef88c334ee7eb03ef7be3108"
     },
     "04_conclusion.md": {
       "bytes": 92,
       "sha256": "fc817ea1a903c3f8b857d4ccf9c62a10a208df520ea6b71eaaa70320bec65730"
     },
     "artifacts/protocol.json": {
-      "bytes": 2477,
-      "sha256": "6daca20f274e159e25092d3915dc08f26fbf66dea662d93e142795ee45191820"
+      "bytes": 2569,
+      "sha256": "92dc1b43f4a7cb0e32f34540670a01d78f12db73a0480261e2c13a6c0fab2673"
     },
     "implementation_plan.md": {
       "bytes": 4956,

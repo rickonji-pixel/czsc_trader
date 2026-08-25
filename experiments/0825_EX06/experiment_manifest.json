@@ -31,6 +31,10 @@
     "artifacts/protocol.json": {
       "bytes": 2760,
       "sha256": "143dd625d3e7b70482d7a9dccf84f6f3a6b32d9202f10ea5d4ca5062e76ab7a5"
+    },
+    "implementation_plan.md": {
+      "bytes": 13261,
+      "sha256": "b9df31bfba35ab5a00128bc54ab29f96bff32601182f6a944a34b0e70f4b5b00"
     }
   }
 }

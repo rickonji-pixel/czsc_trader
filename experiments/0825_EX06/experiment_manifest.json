@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0825_EX06",
+  "date": "2026-08-25",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "research_object": {
+    "path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 2509,
+      "sha256": "5bceae11519782eeabe3f358689734bc53d17139ccaf6b9ce90bc6c4815578b2"
+    },
+    "02_design.md": {
+      "bytes": 6629,
+      "sha256": "44786b54ea1f256b60347a6749837d04488df4f52a4957024b9bb7f1ce627b2f"
+    },
+    "03_execution.md": {
+      "bytes": 288,
+      "sha256": "e7bea0faf912cb4c11122a0319e43a6db821764d06d5aebd6307e7f006a4bfc7"
+    },
+    "04_conclusion.md": {
+      "bytes": 101,
+      "sha256": "efc24e0499ccc5dbba98dbd2024cb26e03079fc389a693efaa81788331da56bb"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2760,
+      "sha256": "143dd625d3e7b70482d7a9dccf84f6f3a6b32d9202f10ea5d4ca5062e76ab7a5"
+    }
+  }
+}

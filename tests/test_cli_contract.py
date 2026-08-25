@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from czsc_trader.application.errors import ValidationError
 from czsc_trader.application.results import CommandResult
@@ -71,3 +72,30 @@ def test_command_failure_is_a_stable_json_error(capsys, tmp_path) -> None:
     assert exit_code == 2
     assert payload["status"] == "FAIL"
     assert payload["error"]["code"] == "repository_root_not_found"
+
+
+def test_backtest_command_routes_through_application_service(capsys, tmp_path) -> None:
+    exit_code = main(
+        [
+            "backtest",
+            "run",
+            "--symbol",
+            "588080.SH",
+            "--asset",
+            "etf",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-30",
+            "--outputs-root",
+            str(tmp_path),
+            "--repo-root",
+            ".",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["command"] == "backtest.run"
+    assert payload["result"]["baseline"] == "baseline_20260826"
+    assert Path(payload["artifacts"]["output_dir"]).is_dir()

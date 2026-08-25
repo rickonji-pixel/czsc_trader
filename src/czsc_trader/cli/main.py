@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from datetime import date
 from pathlib import Path
 import traceback
 
@@ -10,6 +11,7 @@ from czsc_trader.application.baseline_service import (
     show_baseline,
     validate_baseline,
 )
+from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.data_service import validate_data
 from czsc_trader.application.errors import CommandError, InternalError
@@ -41,6 +43,23 @@ def _data_validate(args: argparse.Namespace):
     return validate_data(_context(args), args.symbol)
 
 
+def _backtest_run(args: argparse.Namespace):
+    return run_backtest(
+        _context(args),
+        BacktestCommand(
+            symbol=args.symbol,
+            asset_type=args.asset,
+            start=args.start,
+            end=args.end,
+            baseline=args.baseline,
+            targets_path=args.targets,
+            fee_rate=args.fee_rate,
+            init_cash=args.init_cash,
+            outputs_root=args.outputs_root,
+        ),
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="czsc-trader")
     resources = parser.add_subparsers(dest="resource", required=True)
@@ -69,7 +88,23 @@ def build_parser() -> argparse.ArgumentParser:
             command_name=f"baseline.{action}",
         )
 
-    resources.add_parser("backtest")
+    backtest = resources.add_parser("backtest")
+    backtest_actions = backtest.add_subparsers(dest="action", required=True)
+    backtest_run = backtest_actions.add_parser("run")
+    backtest_run.add_argument("--symbol", required=True)
+    backtest_run.add_argument("--asset", required=True, choices=("stock", "etf"))
+    backtest_run.add_argument("--start", type=date.fromisoformat)
+    backtest_run.add_argument("--end", type=date.fromisoformat)
+    backtest_run.add_argument("--baseline")
+    backtest_run.add_argument("--targets", type=Path)
+    backtest_run.add_argument("--fee-rate", type=float, default=0.0005)
+    backtest_run.add_argument("--init-cash", type=float, default=1_000_000.0)
+    backtest_run.add_argument("--outputs-root", type=Path)
+    _add_repository_root(backtest_run)
+    backtest_run.set_defaults(
+        command_handler=_backtest_run,
+        command_name="backtest.run",
+    )
     resources.add_parser("experiment")
     resources.add_parser("archive")
     return parser

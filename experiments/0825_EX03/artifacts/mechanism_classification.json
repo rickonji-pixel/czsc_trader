@@ -1,0 +1,31 @@
+{
+  "classification": "mixed_path_failure",
+  "total_negative_log_loss": 0.23570699065736034,
+  "unclassified_negative_log_loss": 0.0,
+  "entry": {
+    "pooled_negative_log_share": 0.486410112516098,
+    "window_negative_log_shares": {
+      "2021H1": 0.3460548719138778,
+      "2023H1": 0.31663333678418143,
+      "2025H2": 0.7830952254381411
+    },
+    "strong_path_support": false,
+    "joint_path_support": false,
+    "hybrid_support": true,
+    "hybrid_improved_windows": 2,
+    "hybrid_median_return_improvement": 0.0015640026061849444
+  },
+  "exit": {
+    "pooled_negative_log_share": 0.513589887483902,
+    "window_negative_log_shares": {
+      "2021H1": 0.6539451280861222,
+      "2023H1": 0.6833666632158186,
+      "2025H2": 0.21690477456185878
+    },
+    "strong_path_support": false,
+    "joint_path_support": true,
+    "hybrid_support": true,
+    "hybrid_improved_windows": 3,
+    "hybrid_median_return_improvement": 0.02817940471010938
+  }
+}

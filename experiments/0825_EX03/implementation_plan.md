@@ -32,10 +32,10 @@
 - `classify_score_block(...) -> str`
 - `classify_mechanism(mechanism_rows, hybrid_rows, protocol) -> dict[str, object]`
 
-- [ ] Write literal tests for causal dual-score state evolution, fully missed/late/early/interrupted path labels, the five score-block labels, exact log-wealth closure, and every mechanism-classification branch.
-- [ ] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_ex04_path_attribution_runner.py` and verify RED because the module is absent.
-- [ ] Implement the minimal pure functions without I/O.
-- [ ] Run the same test and verify GREEN.
+- [x] Write literal tests for causal dual-score state evolution, fully missed/late/early/interrupted path labels, the five score-block labels, exact log-wealth closure, and every mechanism-classification branch.
+- [x] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_ex04_path_attribution_runner.py` and verify RED because the module is absent.
+- [x] Implement the minimal pure functions without I/O.
+- [x] Run the same test and verify GREEN.
 
 ### Task 2: Formal pre-2026 path runner
 
@@ -46,10 +46,10 @@
 **Interface:**
 - `run_ex04_path_attribution(raw_dir: Path, baseline_root: Path, experiment_dir: Path, protocol: Mapping[str, object]) -> dict[str, object]`
 
-- [ ] Write failing validation tests for protocol drift, source-evidence hashes, EX04 identity, non-closing path ledgers, unclassified baseline-only days, and 2026 hashes.
-- [ ] Implement baseline/EX04 identity checks, six frozen variants, independently funded half-year daily ledgers, regime-path aggregation, baseline episodes, score events, group contributions, hybrid metrics, classification, and required artifacts.
-- [ ] Verify every window's log-wealth closure within `1e-12`, all baseline-only days classified, and all numeric outputs finite.
-- [ ] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_ex04_path_attribution_runner.py tests/test_ex04_attribution_runner.py tests/test_four_layer_runner.py tests/test_backtest.py`.
+- [x] Write failing validation tests for protocol drift, source-evidence hashes, EX04 identity, non-closing path ledgers, unclassified baseline-only days, and 2026 hashes.
+- [x] Implement baseline/EX04 identity checks, six frozen variants, independently funded half-year daily ledgers, regime-path aggregation, baseline episodes, score events, group contributions, hybrid metrics, classification, and required artifacts.
+- [x] Verify every window's log-wealth closure within `1e-12`, all baseline-only days classified, and all numeric outputs finite.
+- [x] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_ex04_path_attribution_runner.py tests/test_ex04_attribution_runner.py tests/test_four_layer_runner.py tests/test_backtest.py`.
 
 ### Task 3: Stable entrypoint integration
 
@@ -60,9 +60,9 @@
 **Interface:**
 - `run_preregistered_ex04_path_attribution(experiment_dir: Path) -> Path`
 
-- [ ] Write a failing temporary-archive test proving same-directory finalization, no holdout, no challenger, COMPLETE manifest, and protocol-based CLI dispatch.
-- [ ] Implement EX03 dispatch, execution metadata, evidence-specific conclusion rendering, ERROR archival, manifest rebuild, and archive validation.
-- [ ] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_experiment_entrypoints.py tests/test_ex04_path_attribution_runner.py`.
+- [x] Write a failing temporary-archive test proving same-directory finalization, no holdout, no challenger, COMPLETE manifest, and protocol-based CLI dispatch.
+- [x] Implement EX03 dispatch, execution metadata, evidence-specific conclusion rendering, ERROR archival, manifest rebuild, and archive validation.
+- [x] Run `.\.venv\Scripts\python.exe -m pytest -q tests/test_experiment_entrypoints.py tests/test_ex04_path_attribution_runner.py`.
 
 ### Task 4: Formal execution and delivery
 
@@ -73,8 +73,8 @@
 - Modify: `experiments/0825_EX03/experiment_manifest.json`
 - Modify: `docs/RESEARCH_HANDOFF.md`
 
-- [ ] Commit tested implementation, then execute `.\.venv\Scripts\python.exe scripts\run_experiment.py --experiment-dir experiments\0825_EX03` once from that SHA.
-- [ ] Audit 10-window closure, the three frozen loss windows, mechanism shares, score-event labels, six variants, finite numeric values, no 2026 hash, and no challenger.
-- [ ] Write the concrete mechanism conclusion without changing machine classifications; update handoff and rebuild the manifest.
-- [ ] Run focused tests, compileall, all experiment-archive validation, research audit, and `git diff --check`.
+- [x] Commit tested implementation, then execute `.\.venv\Scripts\python.exe scripts\run_experiment.py --experiment-dir experiments\0825_EX03` once from that SHA.
+- [x] Audit 10-window closure, the three frozen loss windows, mechanism shares, score-event labels, six variants, finite numeric values, no 2026 hash, and no challenger.
+- [x] Write the concrete mechanism conclusion without changing machine classifications; update handoff and rebuild the manifest.
+- [x] Run focused tests, compileall, all experiment-archive validation, research audit, and `git diff --check`.
 - [ ] Commit the final archive. Do not merge or push without user instruction.

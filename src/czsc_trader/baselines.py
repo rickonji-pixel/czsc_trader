@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 import re
 
+import numpy as np
+
 from .rules import Rule
 
 
@@ -23,6 +25,16 @@ class ResolvedBaseline:
     rule_payload: dict[str, object]
     sha256: str
     verification_snapshot: str
+    strategy: str = "czsc_fixed_rule"
+    status: str = "active"
+    scope: str = "generic"
+    symbol: str | None = None
+    factor_names: tuple[str, ...] = ()
+    factor_weights: tuple[float, ...] = ()
+    source_path: str = ""
+    source_sha256: str = ""
+    selection_sample_end: str = ""
+    forward_validation_start: str = ""
 
 
 def _validate_version(version: str) -> None:
@@ -99,10 +111,61 @@ def _parse_rule(payload: dict[str, object]) -> Rule:
     )
 
 
-def resolve_baseline(root: Path, version: str | None = None) -> ResolvedBaseline:
+def _parse_four_layer(
+    payload: dict[str, object], archived: ResolvedBaseline
+) -> tuple[Rule, tuple[str, ...], tuple[float, ...]]:
+    names_value = payload.get("factor_names")
+    weights_value = payload.get("weights")
+    spec = payload.get("spec")
+    champion = payload.get("champion")
+    if not isinstance(names_value, list) or not isinstance(weights_value, dict):
+        raise ValueError("four-layer baseline factors or weights are missing")
+    if not isinstance(spec, dict) or not isinstance(champion, dict):
+        raise ValueError("four-layer baseline spec or champion is missing")
+    factor_names = tuple(map(str, names_value))
+    if len(factor_names) != 12 or len(set(factor_names)) != 12:
+        raise ValueError("four-layer baseline must freeze 12 unique factors")
+    if set(map(str, weights_value)) != set(factor_names):
+        raise ValueError("four-layer baseline weight identities differ from factors")
+    factor_weights = tuple(float(weights_value[name]) for name in factor_names)
+    if any(not np.isfinite(value) for value in factor_weights):
+        raise ValueError("four-layer baseline weights must be finite")
+    if abs(sum(map(abs, factor_weights)) - 1.0) > 1e-12:
+        raise ValueError("four-layer baseline weights must have L1 norm one")
+    if str(champion.get("version")) != archived.version:
+        raise ValueError("four-layer champion version differs from archived baseline")
+    if str(champion.get("sha256")) != archived.sha256:
+        raise ValueError("four-layer champion SHA-256 differs from archived baseline")
+    enter = float(spec["enter"])
+    exit_ = float(spec["exit"])
+    if exit_ >= enter:
+        raise ValueError("four-layer baseline exit must be lower than enter")
+    state = archived.rule
+    return (
+        Rule(
+            weights=state.weights,
+            enter=enter,
+            exit=exit_,
+            confirm_days=state.confirm_days,
+            min_hold_days=state.min_hold_days,
+            exit_confirm_days=state.exit_confirm_days,
+            entry_gate=state.entry_gate,
+        ),
+        factor_names,
+        factor_weights,
+    )
+
+
+def resolve_baseline(
+    root: Path,
+    version: str | None = None,
+    *,
+    symbol: str | None = None,
+) -> ResolvedBaseline:
     """Resolve and verify one immutable baseline."""
     root = Path(root)
     registry = _load_json_object(root / "registry.json")
+    explicit = version is not None
     selected_version = str(version or registry.get("latest", ""))
     _validate_version(selected_version)
     baselines = registry.get("baselines")
@@ -111,6 +174,20 @@ def resolve_baseline(root: Path, version: str | None = None) -> ResolvedBaseline
     entry = baselines[selected_version]
     if not isinstance(entry, dict):
         raise ValueError(f"Invalid registry entry for {selected_version}")
+    status = str(entry.get("status", "active"))
+    scope = str(entry.get("scope", "generic"))
+    if status not in {"active", "archived"}:
+        raise ValueError(f"{selected_version}: unknown baseline status {status!r}")
+    if status == "archived" and not explicit:
+        raise ValueError(f"{selected_version} is archived and requires an explicit version")
+    scoped_symbol = str(entry.get("symbol", "")) or None
+    if scope == "symbol":
+        if scoped_symbol is None:
+            raise ValueError(f"{selected_version}: symbol scope is missing its symbol")
+        if symbol is None:
+            raise ValueError(f"{selected_version} requires symbol {scoped_symbol}")
+        if str(symbol) != scoped_symbol:
+            raise ValueError(f"{selected_version} is restricted to {scoped_symbol}")
     filename = str(entry.get("file", ""))
     expected_filename = f"{selected_version}.json"
     if filename != expected_filename:
@@ -123,12 +200,48 @@ def resolve_baseline(root: Path, version: str | None = None) -> ResolvedBaseline
     expected = str(entry.get("sha256", ""))
     if digest != expected:
         raise ValueError(f"{selected_version}: SHA-256 differs from registry")
+    strategy = str(entry.get("strategy", "czsc_fixed_rule"))
+    factor_names: tuple[str, ...] = ()
+    factor_weights: tuple[float, ...] = ()
+    source_path = str(entry.get("source_path", ""))
+    source_digest = str(entry.get("source_sha256", ""))
+    if strategy == "czsc_fixed_rule":
+        rule = _parse_rule(payload)
+    elif strategy == "czsc_four_layer":
+        if not source_path or not source_digest:
+            raise ValueError(f"{selected_version}: four-layer source identity is missing")
+        repository_root = root.resolve().parent.parent
+        source = repository_root / source_path
+        if not source.is_file():
+            raise ValueError(f"{selected_version}: missing four-layer source {source}")
+        source_bytes = source.read_bytes()
+        if sha256(source_bytes).hexdigest() != source_digest:
+            raise ValueError(f"{selected_version}: source SHA-256 differs from registry")
+        if rule_path.read_bytes() != source_bytes:
+            raise ValueError(f"{selected_version}: promoted file is not byte-identical to source")
+        champion = payload.get("champion")
+        if not isinstance(champion, dict):
+            raise ValueError("four-layer baseline champion is missing")
+        archived = resolve_baseline(root, str(champion.get("version", "")))
+        rule, factor_names, factor_weights = _parse_four_layer(payload, archived)
+    else:
+        raise ValueError(f"{selected_version}: unknown baseline strategy {strategy!r}")
     return ResolvedBaseline(
         version=selected_version,
-        rule=_parse_rule(payload),
+        rule=rule,
         rule_payload=payload,
         sha256=digest,
         verification_snapshot=str(entry.get("verification_snapshot", "")),
+        strategy=strategy,
+        status=status,
+        scope=scope,
+        symbol=scoped_symbol,
+        factor_names=factor_names,
+        factor_weights=factor_weights,
+        source_path=source_path,
+        source_sha256=source_digest,
+        selection_sample_end=str(entry.get("selection_sample_end", "")),
+        forward_validation_start=str(entry.get("forward_validation_start", "")),
     )
 
 

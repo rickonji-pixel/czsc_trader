@@ -1,6 +1,6 @@
 {
-  "schema_version": 2,
-  "latest": "baseline_20260823",
+  "schema_version": 3,
+  "latest": "baseline_20260826",
   "baselines": {
     "baseline_20260823": {
       "file": "baseline_20260823.json",
@@ -8,11 +8,32 @@
       "verification_snapshot": "docs/baselines/588080_2026_expected.json",
       "frozen_at_utc": "2026-08-23T00:00:00+00:00",
       "strategy": "czsc_fixed_rule",
+      "status": "archived",
+      "scope": "historical_generic",
       "required_frequencies": [
         "30m",
         "daily",
         "weekly"
       ]
+    },
+    "baseline_20260826": {
+      "file": "baseline_20260826.json",
+      "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+      "verification_snapshot": "",
+      "frozen_at_utc": "2026-08-26T00:00:00+00:00",
+      "strategy": "czsc_four_layer",
+      "status": "active",
+      "scope": "symbol",
+      "symbol": "588080.SH",
+      "required_frequencies": [
+        "30m",
+        "daily",
+        "weekly"
+      ],
+      "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+      "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f",
+      "selection_sample_end": "2025-12-31",
+      "forward_validation_start": "2026-08-26"
     }
   }
 }

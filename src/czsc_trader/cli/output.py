@@ -12,16 +12,24 @@ def _write(payload: dict[str, object]) -> None:
     sys.stdout.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
 
 
-def write_result(result: CommandResult) -> int:
+def write_result(result: CommandResult, *, output_format: str = "json") -> int:
     payload = asdict(result)
     payload["warnings"] = list(result.warnings)
-    _write(payload)
+    if output_format == "text":
+        sys.stdout.write(f"{result.status} {result.command}\n")
+        sys.stdout.write(json.dumps(payload["result"], ensure_ascii=False, indent=2, default=str) + "\n")
+    else:
+        _write(payload)
     return 0
 
 
-def write_error(command: str, error: CommandError) -> int:
-    _write(
-        {
+def write_error(
+    command: str,
+    error: CommandError,
+    *,
+    output_format: str = "json",
+) -> int:
+    payload = {
             "status": "FAIL",
             "command": command,
             "error": {
@@ -32,5 +40,8 @@ def write_error(command: str, error: CommandError) -> int:
             "artifacts": {},
             "warnings": [],
         }
-    )
+    if output_format == "text":
+        sys.stdout.write(f"FAIL {command}\n{error.code}: {error.message}\n")
+    else:
+        _write(payload)
     return error.exit_code

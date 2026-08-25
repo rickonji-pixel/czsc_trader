@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from datetime import date, datetime
 from importlib.metadata import PackageNotFoundError, version
 import json
@@ -269,7 +268,6 @@ def run_preregistered_attribution(experiment_dir: Path) -> Path:
     validate_experiment_archive(experiment_dir)
     return experiment_dir
 
-
 def _ex04_conclusion_markdown(artifacts_dir: Path) -> str:
     classifications = pd.read_csv(artifacts_dir / "classification.csv")
     local = json.loads((artifacts_dir / "local_geometry.json").read_text(encoding="utf-8"))
@@ -432,7 +430,6 @@ def run_preregistered_ex04_attribution(experiment_dir: Path) -> Path:
     validate_experiment_archive(experiment_dir)
     return experiment_dir
 
-
 def _ex04_path_conclusion_markdown(artifacts_dir: Path) -> str:
     classification = json.loads(
         (artifacts_dir / "mechanism_classification.json").read_text(encoding="utf-8")
@@ -572,8 +569,6 @@ def run_preregistered_ex04_path_attribution(experiment_dir: Path) -> Path:
     )
     validate_experiment_archive(experiment_dir)
     return experiment_dir
-
-
 def _exit_signal_conclusion_markdown(artifacts_dir: Path) -> str:
     result = json.loads(
         (artifacts_dir / "exit_quality_classification.json").read_text(encoding="utf-8")
@@ -1299,39 +1294,5 @@ def main(
         },
     )
     validate_experiment_archive(experiment_dir)
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
     return experiment_dir
-
-
-def cli() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--experiment-dir", type=Path)
-    parser.add_argument("--protocol", type=Path, default=DEFAULT_PROTOCOL)
-    args = parser.parse_args()
-    if args.experiment_dir is not None:
-        protocol_path = args.experiment_dir / "artifacts" / "protocol.json"
-        protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
-        experiment_type = protocol.get("experiment_type")
-        if experiment_type == "champion_attribution":
-            completed = run_preregistered_attribution(args.experiment_dir)
-        elif experiment_type == "ex04_mechanism_attribution":
-            completed = run_preregistered_ex04_attribution(args.experiment_dir)
-        elif experiment_type == "ex04_path_attribution":
-            completed = run_preregistered_ex04_path_attribution(args.experiment_dir)
-        elif experiment_type == "ex04_exit_signal_diagnosis":
-            completed = run_preregistered_exit_signal_diagnosis(args.experiment_dir)
-        elif experiment_type == "dominant_exit_path_anatomy":
-            completed = run_preregistered_dominant_exit_anatomy(args.experiment_dir)
-        elif experiment_type == "new_exit_representation_diagnosis":
-            completed = run_preregistered_new_exit_representation(args.experiment_dir)
-        elif experiment_type == "ex04_decision_boundary_diagnosis":
-            completed = run_preregistered_decision_boundary(args.experiment_dir)
-        else:
-            raise ValueError(f"unsupported preregistered experiment type: {experiment_type}")
-        print(completed)
-    else:
-        main(protocol_path=args.protocol)
-
-
-if __name__ == "__main__":
-    cli()
+# End of preregistered research orchestration.

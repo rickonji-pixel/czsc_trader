@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from czsc_trader.application.errors import ValidationError
 from czsc_trader.application.results import CommandResult
 from czsc_trader.cli.main import main
@@ -99,3 +101,42 @@ def test_backtest_command_routes_through_application_service(capsys, tmp_path) -
     assert payload["command"] == "backtest.run"
     assert payload["result"]["baseline"] == "baseline_20260826"
     assert Path(payload["artifacts"]["output_dir"]).is_dir()
+
+
+def test_archive_validate_all_is_available_from_unified_cli(capsys) -> None:
+    exit_code = main(["archive", "validate", "--all", "--repo-root", "."])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["command"] == "archive.validate"
+    assert payload["result"]["validated_count"] == 15
+
+
+def test_experiment_run_rejects_frozen_archive_from_unified_cli(capsys) -> None:
+    exit_code = main(
+        [
+            "experiment",
+            "run",
+            "--dir",
+            "experiments/0824_EX04",
+            "--repo-root",
+            ".",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 4
+    assert payload["error"]["code"] == "frozen_experiment_run_forbidden"
+
+
+def test_text_format_is_human_readable_and_not_json(capsys) -> None:
+    exit_code = main(
+        ["baseline", "list", "--format", "text", "--repo-root", "."]
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert output.startswith("PASS baseline.list\n")
+    assert "baseline_20260826" in output
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(output)

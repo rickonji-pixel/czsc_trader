@@ -1,7 +1,6 @@
 from datetime import date
 import json
 from pathlib import Path
-import sys
 
 import pytest
 import pandas as pd
@@ -11,8 +10,8 @@ from czsc_trader.experiment_archive import (
     build_experiment_manifest,
     validate_experiment_archive,
 )
-import scripts.run_experiment as entrypoint
-import scripts.run_holdout as holdout_entrypoint
+from czsc_trader.research import holdout as holdout_entrypoint
+from czsc_trader.research import preregistered as entrypoint
 
 
 def test_pre2026_entrypoint_writes_a_complete_experiment_archive(
@@ -456,27 +455,6 @@ def test_preregistered_ex04_path_attribution_finalizes_same_archive(
     assert not (archive / "artifacts" / "frozen_challenger.json").exists()
 
 
-def test_cli_dispatches_ex04_path_protocol_to_stable_entrypoint(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """Catch EX03 falling through to an unsupported or legacy experiment runner."""
-    archive = _preregistered_ex04_path_archive(tmp_path)
-    called: list[Path] = []
-
-    def fake_entrypoint(experiment_dir: Path) -> Path:
-        called.append(experiment_dir)
-        return experiment_dir
-
-    monkeypatch.setattr(entrypoint, "run_preregistered_ex04_path_attribution", fake_entrypoint)
-    monkeypatch.setattr(
-        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
-    )
-
-    entrypoint.cli()
-
-    assert called == [archive]
-
-
 def _preregistered_exit_signal_archive(tmp_path: Path) -> Path:
     archive = tmp_path / "0825_EX04"
     (archive / "artifacts").mkdir(parents=True)
@@ -552,28 +530,6 @@ def test_preregistered_exit_signal_diagnosis_finalizes_same_archive(
     assert "不能直接作为交易规则" in conclusion
     assert not (archive / "artifacts" / "frozen_challenger.json").exists()
     assert not (archive / "artifacts" / "orders.csv").exists()
-
-
-def test_cli_dispatches_exit_signal_protocol_to_stable_entrypoint(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """Catch EX04 falling through to an optimizer or unsupported protocol path."""
-    archive = _preregistered_exit_signal_archive(tmp_path)
-    called: list[Path] = []
-
-    def fake_entrypoint(experiment_dir: Path) -> Path:
-        called.append(experiment_dir)
-        return experiment_dir
-
-    monkeypatch.setattr(entrypoint, "run_preregistered_exit_signal_diagnosis", fake_entrypoint)
-    monkeypatch.setattr(
-        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
-    )
-
-    entrypoint.cli()
-
-    assert called == [archive]
-
 
 def _preregistered_dominant_anatomy_archive(tmp_path: Path) -> Path:
     archive = tmp_path / "0825_EX05"
@@ -656,29 +612,6 @@ def test_preregistered_dominant_anatomy_finalizes_same_archive(
     assert "0824_EX04" in conclusion and "0825_EX04" in conclusion
     assert not (archive / "artifacts" / "frozen_challenger.json").exists()
     assert not (archive / "artifacts" / "orders.csv").exists()
-
-
-def test_cli_dispatches_dominant_anatomy_protocol_to_stable_entrypoint(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """Catch EX05 falling through to an optimizer or an older EX04 diagnostic."""
-    archive = _preregistered_dominant_anatomy_archive(tmp_path)
-    called: list[Path] = []
-
-    def fake_entrypoint(experiment_dir: Path) -> Path:
-        called.append(experiment_dir)
-        return experiment_dir
-
-    monkeypatch.setattr(entrypoint, "run_preregistered_dominant_exit_anatomy", fake_entrypoint)
-    monkeypatch.setattr(
-        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
-    )
-
-    entrypoint.cli()
-
-    assert called == [archive]
-
-
 def _preregistered_new_exit_representation_archive(tmp_path: Path) -> Path:
     archive = tmp_path / "0825_EX06"
     (archive / "artifacts").mkdir(parents=True)
@@ -816,28 +749,6 @@ def test_preregistered_new_exit_representation_rejects_promotion(
         entrypoint.run_preregistered_new_exit_representation(archive)
 
 
-def test_cli_dispatches_new_exit_representation_to_stable_entrypoint(
-    tmp_path: Path, monkeypatch
-) -> None:
-    archive = _preregistered_new_exit_representation_archive(tmp_path)
-    called: list[Path] = []
-
-    def fake_entrypoint(experiment_dir: Path) -> Path:
-        called.append(experiment_dir)
-        return experiment_dir
-
-    monkeypatch.setattr(
-        entrypoint, "run_preregistered_new_exit_representation", fake_entrypoint
-    )
-    monkeypatch.setattr(
-        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
-    )
-
-    entrypoint.cli()
-
-    assert called == [archive]
-
-
 def _preregistered_decision_boundary_archive(tmp_path: Path) -> Path:
     archive = tmp_path / "0826_EX01"
     artifacts = archive / "artifacts"
@@ -917,22 +828,4 @@ def test_preregistered_decision_boundary_writes_a_complete_diagnostic_archive(
     assert not (archive / "artifacts" / "frozen_challenger.json").exists()
     assert not (archive / "artifacts" / "orders.csv").exists()
 
-
-def test_cli_dispatches_decision_boundary_to_stable_entrypoint(
-    tmp_path: Path, monkeypatch
-) -> None:
-    archive = _preregistered_decision_boundary_archive(tmp_path)
-    called: list[Path] = []
-
-    def fake_entrypoint(experiment_dir: Path) -> Path:
-        called.append(experiment_dir)
-        return experiment_dir
-
-    monkeypatch.setattr(entrypoint, "run_preregistered_decision_boundary", fake_entrypoint)
-    monkeypatch.setattr(
-        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
-    )
-
-    entrypoint.cli()
-
-    assert called == [archive]
+# CLI routing is covered by test_cli_contract and test_research_registry.

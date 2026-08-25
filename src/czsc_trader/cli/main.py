@@ -12,15 +12,24 @@ from czsc_trader.application.baseline_service import (
     validate_baseline,
 )
 from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
+from czsc_trader.application.archive_service import validate_archives
 from czsc_trader.application.context import RepositoryContext
-from czsc_trader.application.data_service import validate_data
+from czsc_trader.application.data_service import (
+    PrepareDataCommand,
+    prepare_data,
+    validate_data,
+)
 from czsc_trader.application.errors import CommandError, InternalError
+from czsc_trader.application.experiment_service import replay_experiment, run_experiment
+from czsc_trader.research.registry import build_default_registry
 
 from .output import write_error, write_result
 
 
 def _add_repository_root(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--repo-root", type=Path)
+    parser.add_argument("--format", choices=("json", "text"), default="json")
+    parser.add_argument("--debug", action="store_true")
 
 
 def _context(args: argparse.Namespace) -> RepositoryContext:
@@ -43,6 +52,18 @@ def _data_validate(args: argparse.Namespace):
     return validate_data(_context(args), args.symbol)
 
 
+def _data_prepare(args: argparse.Namespace):
+    return prepare_data(
+        _context(args),
+        PrepareDataCommand(
+            symbol=args.symbol,
+            asset_type=args.asset,
+            start=args.start,
+            end=args.end,
+        ),
+    )
+
+
 def _backtest_run(args: argparse.Namespace):
     return run_backtest(
         _context(args),
@@ -60,12 +81,51 @@ def _backtest_run(args: argparse.Namespace):
     )
 
 
+def _repository_path(context: RepositoryContext, value: Path) -> Path:
+    return value.resolve() if value.is_absolute() else (context.root / value).resolve()
+
+
+def _archive_validate(args: argparse.Namespace):
+    context = _context(args)
+    archive = _repository_path(context, args.archive) if args.archive else None
+    return validate_archives(context, archive, all_archives=args.all)
+
+
+def _experiment_run(args: argparse.Namespace):
+    context = _context(args)
+    return run_experiment(
+        context,
+        _repository_path(context, args.experiment_dir),
+        build_default_registry(),
+    )
+
+
+def _experiment_replay(args: argparse.Namespace):
+    context = _context(args)
+    return replay_experiment(
+        context,
+        _repository_path(context, args.experiment_dir),
+        _repository_path(context, args.output),
+        build_default_registry(),
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="czsc-trader")
     resources = parser.add_subparsers(dest="resource", required=True)
 
     data = resources.add_parser("data")
     data_actions = data.add_subparsers(dest="action", required=True)
+    data_prepare = data_actions.add_parser("prepare")
+    data_prepare.add_argument("--symbol", required=True)
+    data_prepare.add_argument("--asset", required=True, choices=("stock", "etf"))
+    data_prepare.add_argument("--start", required=True, type=date.fromisoformat)
+    data_prepare.add_argument("--end", required=True, type=date.fromisoformat)
+    _add_repository_root(data_prepare)
+    data_prepare.set_defaults(
+        command_handler=_data_prepare,
+        command_name="data.prepare",
+    )
     data_validate = data_actions.add_parser("validate")
     data_validate.add_argument("--symbol", required=True)
     _add_repository_root(data_validate)
@@ -105,8 +165,35 @@ def build_parser() -> argparse.ArgumentParser:
         command_handler=_backtest_run,
         command_name="backtest.run",
     )
-    resources.add_parser("experiment")
-    resources.add_parser("archive")
+    experiment = resources.add_parser("experiment")
+    experiment_actions = experiment.add_subparsers(dest="action", required=True)
+    experiment_run = experiment_actions.add_parser("run")
+    experiment_run.add_argument("--dir", dest="experiment_dir", type=Path, required=True)
+    _add_repository_root(experiment_run)
+    experiment_run.set_defaults(
+        command_handler=_experiment_run,
+        command_name="experiment.run",
+    )
+    experiment_replay = experiment_actions.add_parser("replay")
+    experiment_replay.add_argument("--dir", dest="experiment_dir", type=Path, required=True)
+    experiment_replay.add_argument("--output", type=Path, required=True)
+    _add_repository_root(experiment_replay)
+    experiment_replay.set_defaults(
+        command_handler=_experiment_replay,
+        command_name="experiment.replay",
+    )
+
+    archive = resources.add_parser("archive")
+    archive_actions = archive.add_subparsers(dest="action", required=True)
+    archive_validate = archive_actions.add_parser("validate")
+    selection = archive_validate.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--archive", type=Path)
+    selection.add_argument("--all", action="store_true")
+    _add_repository_root(archive_validate)
+    archive_validate.set_defaults(
+        command_handler=_archive_validate,
+        command_name="archive.validate",
+    )
     return parser
 
 
@@ -117,12 +204,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = args.command_handler(args)
     except CommandError as exc:
-        return write_error(command, exc)
+        return write_error(command, exc, output_format=args.format)
     except Exception as exc:  # pragma: no cover - exercised through --debug later
         if getattr(args, "debug", False):
             traceback.print_exc()
         return write_error(
             command,
             InternalError("internal_error", str(exc)),
+            output_format=args.format,
         )
-    return write_result(result)
+    return write_result(result, output_format=args.format)

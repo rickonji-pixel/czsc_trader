@@ -1,10 +1,48 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import date
+
 from czsc_trader.data import load_market_data
+from czsc_trader.market_data_prep import prepare_market_data
 
 from .context import RepositoryContext
 from .errors import ValidationError
 from .results import CommandResult
+
+
+@dataclass(frozen=True)
+class PrepareDataCommand:
+    symbol: str
+    asset_type: str
+    start: date
+    end: date
+
+
+def prepare_data(
+    context: RepositoryContext,
+    request: PrepareDataCommand,
+) -> CommandResult:
+    try:
+        summary = prepare_market_data(
+            request.symbol,
+            request.asset_type,
+            request.start,
+            request.end,
+            context.raw_dir,
+        )
+    except (OSError, ValueError) as exc:
+        raise ValidationError(
+            "market_data_preparation_failed",
+            str(exc),
+            context={"symbol": request.symbol},
+        ) from exc
+    return CommandResult(
+        status="PASS",
+        command="data.prepare",
+        result=summary,
+        artifacts={"manifest": summary["manifest"]},
+    )
 
 
 def validate_data(context: RepositoryContext, symbol: str) -> CommandResult:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from datetime import date, datetime
 import json
 from pathlib import Path
@@ -14,12 +13,6 @@ from czsc_trader.experiment_archive import (
     validate_experiment_archive,
 )
 from czsc_trader.experiments import run_2026_holdout
-
-
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--frozen-challenger", required=True, type=Path)
-    return parser
 
 
 def main(
@@ -89,10 +82,4 @@ def main(
         },
     )
     validate_experiment_archive(experiment_dir)
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
     return experiment_dir
-
-
-if __name__ == "__main__":
-    args = _parser().parse_args()
-    main(args.frozen_challenger)

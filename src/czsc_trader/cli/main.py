@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
+import sys
 import traceback
 
 from czsc_trader.application.baseline_service import (
@@ -19,11 +20,16 @@ from czsc_trader.application.data_service import (
     prepare_data,
     validate_data,
 )
-from czsc_trader.application.errors import CommandError, InternalError
+from czsc_trader.application.errors import CommandError, InternalError, UsageError
 from czsc_trader.application.experiment_service import replay_experiment, run_experiment
 from czsc_trader.research.registry import build_default_registry
 
 from .output import write_error, write_result
+
+
+class CommandParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise UsageError("invalid_arguments", message)
 
 
 def _add_repository_root(parser: argparse.ArgumentParser) -> None:
@@ -111,11 +117,15 @@ def _experiment_replay(args: argparse.Namespace):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="czsc-trader")
-    resources = parser.add_subparsers(dest="resource", required=True)
+    parser = CommandParser(prog="czsc-trader")
+    resources = parser.add_subparsers(
+        dest="resource", required=True, parser_class=CommandParser
+    )
 
     data = resources.add_parser("data")
-    data_actions = data.add_subparsers(dest="action", required=True)
+    data_actions = data.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
     data_prepare = data_actions.add_parser("prepare")
     data_prepare.add_argument("--symbol", required=True)
     data_prepare.add_argument("--asset", required=True, choices=("stock", "etf"))
@@ -132,7 +142,9 @@ def build_parser() -> argparse.ArgumentParser:
     data_validate.set_defaults(command_handler=_data_validate, command_name="data.validate")
 
     baseline = resources.add_parser("baseline")
-    baseline_actions = baseline.add_subparsers(dest="action", required=True)
+    baseline_actions = baseline.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
     baseline_list = baseline_actions.add_parser("list")
     _add_repository_root(baseline_list)
     baseline_list.set_defaults(
@@ -149,7 +161,9 @@ def build_parser() -> argparse.ArgumentParser:
         )
 
     backtest = resources.add_parser("backtest")
-    backtest_actions = backtest.add_subparsers(dest="action", required=True)
+    backtest_actions = backtest.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
     backtest_run = backtest_actions.add_parser("run")
     backtest_run.add_argument("--symbol", required=True)
     backtest_run.add_argument("--asset", required=True, choices=("stock", "etf"))
@@ -166,7 +180,9 @@ def build_parser() -> argparse.ArgumentParser:
         command_name="backtest.run",
     )
     experiment = resources.add_parser("experiment")
-    experiment_actions = experiment.add_subparsers(dest="action", required=True)
+    experiment_actions = experiment.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
     experiment_run = experiment_actions.add_parser("run")
     experiment_run.add_argument("--dir", dest="experiment_dir", type=Path, required=True)
     _add_repository_root(experiment_run)
@@ -184,7 +200,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     archive = resources.add_parser("archive")
-    archive_actions = archive.add_subparsers(dest="action", required=True)
+    archive_actions = archive.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
     archive_validate = archive_actions.add_parser("validate")
     selection = archive_validate.add_mutually_exclusive_group(required=True)
     selection.add_argument("--archive", type=Path)
@@ -197,9 +215,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _command_hint(arguments: Sequence[str]) -> str:
+    positional = [value for value in arguments[:2] if not value.startswith("-")]
+    return ".".join(positional) if positional else "czsc-trader"
+
+
+def _format_hint(arguments: Sequence[str]) -> str:
+    for index, value in enumerate(arguments):
+        if value == "--format" and index + 1 < len(arguments):
+            return str(arguments[index + 1])
+        if value.startswith("--format="):
+            return value.partition("=")[2]
+    return "json"
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    try:
+        args = parser.parse_args(arguments)
+    except UsageError as exc:
+        return write_error(
+            _command_hint(arguments),
+            exc,
+            output_format=_format_hint(arguments),
+        )
     command = str(getattr(args, "command_name", args.resource))
     try:
         result = args.command_handler(args)

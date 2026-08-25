@@ -121,9 +121,13 @@ def replay_experiment(
         raise ExecutionError("experiment_replay_failed", str(exc)) from exc
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
+    normalized_summary = dict(summary)
+    for key in ("experiment_dir", "output_dir"):
+        if key in normalized_summary:
+            normalized_summary[key] = str(output)
     return CommandResult(
         status="PASS",
         command="experiment.replay",
-        result=summary,
+        result=normalized_summary,
         artifacts={"output_dir": str(output)},
     )

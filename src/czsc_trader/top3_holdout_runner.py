@@ -525,5 +525,4 @@ def run_tournament_experiment(
         ],
         "experiment_dir": str(experiment_dir),
     }
-
-
+# CLI dispatch lives in czsc_trader.cli.

@@ -7,6 +7,7 @@ import pytest
 
 from czsc_trader.application.context import RepositoryContext
 import czsc_trader.research.handlers as handler_module
+from czsc_trader.experiment_archive import REQUIRED_DOCUMENTS, build_experiment_manifest
 from czsc_trader.research.contracts import ResearchProtocolError
 from czsc_trader.research.registry import ExperimentRegistry, build_default_registry
 
@@ -98,3 +99,44 @@ def test_ex08_handler_enforces_formal_memory_execution_contract(
     assert captured["collect_batch_timings"] is True
     assert captured["require_full_trial_count"] is True
     assert captured["execution_commit"] == "abc123"
+
+
+def test_champion_challenge_handler_publishes_complete_archive_in_requested_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    experiment_dir = tmp_path / "experiments" / "0824_EX01"
+    artifacts = experiment_dir / "artifacts"
+    artifacts.mkdir(parents=True)
+    protocol = {"experiment_id": "fixture", "visible_sample_end": "2025-12-31"}
+    protocol_path = artifacts / "protocol.json"
+    protocol_path.write_text(json.dumps(protocol), encoding="utf-8")
+
+    def fake_main(experiments_root, *, run_date, protocol_path):
+        generated = Path(experiments_root) / "0824_EX01"
+        (generated / "artifacts").mkdir(parents=True)
+        for name in REQUIRED_DOCUMENTS:
+            (generated / name).write_text(f"# {name}\n", encoding="utf-8")
+        (generated / "artifacts" / "protocol.json").write_text(
+            Path(protocol_path).read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        build_experiment_manifest(
+            generated,
+            {"experiment_id": "0824_EX01", "status": "FAIL", "holdout_accessed": False},
+        )
+        return generated
+
+    monkeypatch.setattr("czsc_trader.research.preregistered.main", fake_main)
+    context = RepositoryContext(
+        root=tmp_path,
+        raw_dir=tmp_path / "data" / "raw",
+        baseline_root=tmp_path / "configs" / "rule_baselines",
+        experiments_root=tmp_path / "experiments",
+        outputs_root=tmp_path / "outputs",
+    )
+    handler = build_default_registry().resolve(protocol, "0824_EX01")
+
+    result = handler.run(context, experiment_dir)
+
+    assert result["status"] == "FAIL"
+    assert Path(result["experiment_dir"]) == experiment_dir
+    assert (experiment_dir / "experiment_manifest.json").is_file()

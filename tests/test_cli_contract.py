@@ -140,3 +140,15 @@ def test_text_format_is_human_readable_and_not_json(capsys) -> None:
     assert "baseline_20260826" in output
     with pytest.raises(json.JSONDecodeError):
         json.loads(output)
+
+
+def test_argument_error_uses_same_json_failure_contract(capsys) -> None:
+    exit_code = main(["baseline", "show", "--repo-root", "."])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 2
+    assert captured.err == ""
+    assert payload["status"] == "FAIL"
+    assert payload["command"] == "baseline.show"
+    assert payload["error"]["code"] == "invalid_arguments"

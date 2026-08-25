@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import contextmanager
+from datetime import date, datetime
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
+import tempfile
 
 from czsc_trader.experiment_archive import MANIFEST_NAME
 
@@ -83,13 +86,31 @@ def _completed_archive(
 def _champion_challenge(
     context: ResearchContext, experiment_dir: Path
 ) -> dict[str, object]:
-    from czsc_trader.experiments import run_pre2026_experiment
+    from . import preregistered
 
-    return run_pre2026_experiment(
-        context.raw_dir,
-        context.baseline_root,
-        experiment_dir / "artifacts",
+    match = re.fullmatch(r"(\d{2})(\d{2})_EX\d{2}", experiment_dir.name)
+    if match is None:
+        raise ValueError("champion challenge directory must use MMDD_EXXX")
+    run_date = date(datetime.now().year, int(match.group(1)), int(match.group(2)))
+    protocol_path = (experiment_dir / "artifacts" / "protocol.json").resolve()
+    with tempfile.TemporaryDirectory(
+        prefix=".champion_challenge_", dir=experiment_dir.parent
+    ) as temporary:
+        with _repository_cwd(context.root):
+            generated = preregistered.main(
+                Path(temporary),
+                run_date=run_date,
+                protocol_path=protocol_path,
+            )
+        shutil.rmtree(experiment_dir)
+        shutil.copytree(generated, experiment_dir)
+    manifest = json.loads(
+        (experiment_dir / MANIFEST_NAME).read_text(encoding="utf-8")
     )
+    return {
+        "status": str(manifest.get("status", "COMPLETE")),
+        "experiment_dir": str(experiment_dir),
+    }
 
 
 def _four_layer(context: ResearchContext, experiment_dir: Path) -> dict[str, object]:

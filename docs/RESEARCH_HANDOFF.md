@@ -360,14 +360,20 @@ experiments/0826_EX01/artifacts/metrics.json
 
 ## 5. 代码结构与入口
 
-### 5.1 稳定用户入口
+### 5.1 唯一稳定入口
 
-| 入口 | 职责 |
+安装项目后只使用`czsc-trader`命令；旧Python脚本入口和runner模块CLI已经删除。
+
+| 命令 | 职责 |
 |---|---|
-| `scripts/prepare_market_data.py` | 从dataflows/Tushare获取、后复权、验证并发布A股股票或ETF行情 |
-| `scripts/run_backtest.py` | 对任意已准备证券执行冻结基线回测 |
-| `scripts/run_experiment.py` | 按实验目录协议运行早期冠军挑战及0825_EX02—0826_EX01诊断 |
-| `scripts/run_holdout.py` | 历史实验的冻结后2026验收入口；2026现已观察，不再用于新独立验收 |
+| `czsc-trader data prepare/validate` | 获取、后复权、发布或验证A股股票与ETF行情 |
+| `czsc-trader baseline list/show/validate` | 查看并验证不可变基线注册表 |
+| `czsc-trader backtest run` | 对已准备证券执行冻结基线普通回测 |
+| `czsc-trader experiment run` | 只运行尚未冻结的预注册实验目录 |
+| `czsc-trader experiment replay` | 在源档案之外隔离复现冻结实验 |
+| `czsc-trader archive validate` | 验证一个或全部Git研究档案 |
+
+默认`stdout`只输出一份JSON，进度和诊断进入`stderr`；`--format text`用于人工阅读。所有命令从当前目录向上发现仓库，也可显式传入`--repo-root`。
 
 普通回测输出目录固定为 `outputs/<证券代码>_<MMDD>_RXX`。未提供收益目标时只输出指标，验收状态为 `N/A`。
 
@@ -390,7 +396,7 @@ experiments/0826_EX01/artifacts/metrics.json
 | `baseline_execution.py` | 统一执行归档固定规则与活动四层冻结基线 |
 | `experiment_archive.py` | 实验目录、清单生成和哈希验证 |
 
-EX03—0826_EX01的运行器默认绑定各自实验目录。已有实验是冻结档案，不应为“复现”而直接覆盖运行。若要开展新实验，先创建新的`MMDD_EXX`目录并预注册协议，再显式传入`--experiment-dir`。
+数值runner不再包含参数解析或`main`入口。显式研究处理器注册表把协议类型映射到实现。已有实验是冻结档案，`experiment run`会在加载研究数据前拒绝；若要复现，必须使用`experiment replay`和源目录之外的新输出目录。新研究仍须先创建新的`MMDD_EXX`目录并预注册协议。
 
 ## 6. 数据状态
 
@@ -443,7 +449,7 @@ git rev-parse --show-toplevel
 git status --short --branch
 git log -5 --oneline --decorate
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall -q src tests scripts
+.\.venv\Scripts\python.exe -m compileall -q src tests
 git diff --check
 ```
 
@@ -452,7 +458,7 @@ git diff --check
 ### 7.3 验证实验档案
 
 ```powershell
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [validate_experiment_archive(p) for p in sorted(Path('experiments').iterdir()) if p.is_dir()]; print('experiment archives: PASS')"
+.\.venv\Scripts\czsc-trader.exe archive validate --all
 ```
 
 该命令只验证Git档案完整性，不重新执行耗时研究。
@@ -460,26 +466,25 @@ git diff --check
 ### 7.4 普通回测示例
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_backtest.py `
+.\.venv\Scripts\czsc-trader.exe backtest run `
   --symbol 588080.SH --asset etf `
   --targets configs\backtest_targets\588080_2026.json
 ```
 
 未指定`--baseline`时，588080默认使用`baseline_20260826`。上述2026目标文件现在只用于已见历史表现复算，不构成独立验收。必须读取命令本次返回的`output_dir`，不得假设新设备存在任何历史输出目录。
 
-### 7.5 Optuna正式研究入口
+### 7.5 正式研究与隔离复现
 
-EX07—EX08使用现有模块入口，不使用`scripts/run_experiment.py`或另建实验脚本。下列命令仅记录EX08已经执行过的入口形态，**不得对冻结的EX08目录重跑**：
+冻结的EX07—EX08只能验证或隔离复现，不得原地重跑：
 
 ```powershell
-.\.venv\Scripts\python.exe -m czsc_trader.optuna_runner `
-  --experiment-dir experiments\0824_EX08 `
-  --storage-mode memory `
-  --require-full-trial-count `
-  --execution-commit <干净执行提交SHA>
+.\.venv\Scripts\czsc-trader.exe archive validate --archive experiments\0824_EX08
+.\.venv\Scripts\czsc-trader.exe experiment replay `
+  --dir experiments\0824_EX08 `
+  --output replays\0824_EX08
 ```
 
-新实验必须先创建新的预注册目录，再传入该新目录。`--storage-mode`、完整Trial要求、停止条件和TPE参数必须与协议一致；正式执行从干净且已提交的代码状态启动。
+新实验必须先创建新的预注册目录，并在协议中声明已注册`handler`或受支持的`experiment_type`，再执行`czsc-trader experiment run --dir <新目录>`。存储方式、Trial要求、停止条件和TPE参数由协议与处理器共同校验；正式执行仍须从干净且已提交的代码状态启动。
 
 ## 8. Git与研究工作流
 

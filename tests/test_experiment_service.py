@@ -35,7 +35,7 @@ class RecordingHandler:
         (output_dir / "replay.json").write_text(
             json.dumps({"status": "COMPLETE"}), encoding="utf-8"
         )
-        return {"status": "COMPLETE"}
+        return {"status": "COMPLETE", "experiment_dir": str(output_dir)}
 
 
 def _context(root: Path) -> RepositoryContext:
@@ -104,6 +104,7 @@ def test_replay_publishes_outside_source_without_mutating_archive(tmp_path: Path
 
     assert result.status == "PASS"
     assert Path(result.artifacts["output_dir"]) == output.resolve()
+    assert Path(result.result["experiment_dir"]) == output.resolve()
     assert (output / "replay.json").is_file()
     assert _digest_tree(archive) == before
 

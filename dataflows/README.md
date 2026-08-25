@@ -54,7 +54,7 @@ etf_frame, etf_metadata = fetch_etf_ohlcv(
 ```
 
 The `fetch_*_ohlcv` functions raise vendor and empty-data errors directly and
-are the stable machine interface used by `scripts/prepare_market_data.py`.
+are the stable machine interface used by `czsc-trader data prepare`.
 
 A-share stock and ETF bars are backward-adjusted (`hfq`) by default during
 fetching. Stock factors come from `adj_factor` and ETF factors from `fund_adj`.

@@ -1,6 +1,7 @@
 from datetime import date
 import json
 from pathlib import Path
+import sys
 
 import pytest
 import pandas as pd
@@ -373,3 +374,104 @@ def test_preregistered_ex04_attribution_rejects_promotion(
 
     with pytest.raises(ValueError, match="promotion"):
         entrypoint.run_preregistered_ex04_attribution(archive)
+
+
+def _preregistered_ex04_path_archive(tmp_path: Path) -> Path:
+    archive = tmp_path / "0825_EX03"
+    (archive / "artifacts").mkdir(parents=True)
+    for name in REQUIRED_DOCUMENTS:
+        (archive / name).write_text(f"# {name}\n", encoding="utf-8")
+    protocol = json.loads(
+        Path("experiments/0825_EX03/artifacts/protocol.json").read_text(encoding="utf-8")
+    )
+    (archive / "artifacts" / "protocol.json").write_text(
+        json.dumps(protocol), encoding="utf-8"
+    )
+    return archive
+
+
+def test_preregistered_ex04_path_attribution_finalizes_same_archive(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Catch EX03 allocating another archive, holdout, or frozen challenger."""
+    archive = _preregistered_ex04_path_archive(tmp_path)
+
+    def fake_runner(raw_dir, baseline_root, experiment_dir, protocol):
+        assert experiment_dir == archive
+        assert protocol["holdout_access_allowed"] is False
+        artifacts = experiment_dir / "artifacts"
+        classification = {
+            "classification": "entry_failure",
+            "total_negative_log_loss": 0.2,
+            "unclassified_negative_log_loss": 0.0,
+            "entry": {
+                "pooled_negative_log_share": 0.8,
+                "hybrid_improved_windows": 2,
+                "hybrid_median_return_improvement": 0.01,
+            },
+            "exit": {
+                "pooled_negative_log_share": 0.2,
+                "hybrid_improved_windows": 0,
+                "hybrid_median_return_improvement": 0.0,
+            },
+        }
+        (artifacts / "mechanism_classification.json").write_text(
+            json.dumps(classification), encoding="utf-8"
+        )
+        pd.DataFrame(
+            [
+                {
+                    "window": "2021H1",
+                    "mechanism": "late_entry",
+                    "negative_log_loss": 0.2,
+                }
+            ]
+        ).to_csv(artifacts / "mechanism_contributions.csv", index=False)
+        payload = {
+            "status": "COMPLETE",
+            "visible_data_hashes": {"588080_daily_2025.csv": "abc"},
+            "holdout_accessed": False,
+            "frozen_challenger": None,
+            "variant_count": 6,
+            "window_count": 10,
+            "baseline_episode_count": 12,
+            "decision_event_count": 7,
+            "max_absolute_closure_residual": 1e-16,
+            "mechanism_classification": classification,
+        }
+        (artifacts / "metrics.json").write_text(json.dumps(payload), encoding="utf-8")
+        return payload
+
+    monkeypatch.setattr(entrypoint, "run_ex04_path_attribution", fake_runner)
+
+    finalized = entrypoint.run_preregistered_ex04_path_attribution(archive)
+
+    assert finalized == archive
+    manifest = validate_experiment_archive(archive)
+    assert manifest["status"] == "COMPLETE"
+    assert manifest["holdout_accessed"] is False
+    conclusion = (archive / "04_conclusion.md").read_text(encoding="utf-8")
+    assert "entry_failure" in conclusion
+    assert "不访问2026" in conclusion
+    assert not (archive / "artifacts" / "frozen_challenger.json").exists()
+
+
+def test_cli_dispatches_ex04_path_protocol_to_stable_entrypoint(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Catch EX03 falling through to an unsupported or legacy experiment runner."""
+    archive = _preregistered_ex04_path_archive(tmp_path)
+    called: list[Path] = []
+
+    def fake_entrypoint(experiment_dir: Path) -> Path:
+        called.append(experiment_dir)
+        return experiment_dir
+
+    monkeypatch.setattr(entrypoint, "run_preregistered_ex04_path_attribution", fake_entrypoint)
+    monkeypatch.setattr(
+        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
+    )
+
+    entrypoint.cli()
+
+    assert called == [archive]

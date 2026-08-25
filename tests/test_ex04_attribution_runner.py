@@ -13,6 +13,7 @@ from czsc_trader.ex04_attribution_runner import (
     component_attribution,
     difference_intervals,
     market_regimes,
+    normalize_cash_sharpe,
     paired_circular_block_bootstrap,
     perturb_weight,
     validate_protocol,
@@ -183,3 +184,31 @@ def test_protocol_rejects_research_boundary_changes(
 
     with pytest.raises(ValueError, match=message):
         validate_protocol(protocol)
+
+
+def test_zero_exposure_coalition_has_zero_sharpe_utility() -> None:
+    """Catch vectorbt's infinite all-cash Sharpe contaminating Shapley values."""
+    cash = {
+        "strategy_return": 0.0,
+        "sharpe": float("inf"),
+        "exposure": 0.0,
+        "trade_count": 0,
+    }
+
+    result = normalize_cash_sharpe(cash)
+
+    assert result["sharpe"] == 0.0
+    assert np.isfinite(float(result["sharpe"]))
+
+
+def test_nonfinite_active_coalition_sharpe_is_rejected() -> None:
+    """Catch a genuinely invalid active coalition being silently converted to cash."""
+    active = {
+        "strategy_return": 0.1,
+        "sharpe": float("inf"),
+        "exposure": 0.5,
+        "trade_count": 2,
+    }
+
+    with pytest.raises(ValueError, match="non-finite"):
+        normalize_cash_sharpe(active)

@@ -294,6 +294,23 @@ def _window_rows(
     return rows
 
 
+def normalize_cash_sharpe(metrics: Mapping[str, object]) -> dict[str, object]:
+    """Give an all-cash payoff zero utility and reject other non-finite Sharpes."""
+    result = dict(metrics)
+    sharpe = float(result["sharpe"])
+    if np.isfinite(sharpe):
+        return result
+    is_cash = (
+        abs(float(result["strategy_return"])) <= 1e-15
+        and abs(float(result["exposure"])) <= 1e-15
+        and int(result["trade_count"]) == 0
+    )
+    if not is_cash:
+        raise ValueError("active coalition produced a non-finite Sharpe utility")
+    result["sharpe"] = 0.0
+    return result
+
+
 def _classify_contribution_rows(
     rows: pd.DataFrame,
     *,
@@ -494,7 +511,10 @@ def run_ex04_attribution(
         target = positions_from_scores(
             score_four_layer(factors, weights), ex04_enter, ex04_exit, baseline.rule
         )
-        values = evaluator.evaluate(target)
+        values = {
+            window: normalize_cash_sharpe(metrics)
+            for window, metrics in evaluator.evaluate(target).items()
+        }
         if not coalition:
             values = {
                 window: {**metrics, "strategy_return": 0.0, "sharpe": 0.0}

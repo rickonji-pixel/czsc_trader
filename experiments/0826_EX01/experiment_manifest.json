@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0826_EX01",
+  "date": "2026-08-26",
+  "status": "COMPLETE",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "research_object": {
+    "path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 1988,
+      "sha256": "efdf416a302a96ac92d65f7261f35f1f885aa78b3186515c9ec04331d5d1c52e"
+    },
+    "02_design.md": {
+      "bytes": 5454,
+      "sha256": "07685bde3066d322e9f8dfd2c62978a40451314fa563b82412a46aa2ef940ecc"
+    },
+    "03_execution.md": {
+      "bytes": 606,
+      "sha256": "4060538e4f3cd90b78780b747700349ae5e56ef63352b893f7257f285650c5fa"
+    },
+    "04_conclusion.md": {
+      "bytes": 1315,
+      "sha256": "86f8daf4b481cf486823bb9036d116c0bdfe85369dfcc2df6bc4b9f322d5a33e"
+    },
+    "artifacts/boundary_classification.json": {
+      "bytes": 716,
+      "sha256": "bccf7d9fb57b4146f67e99e40a045877fe4776da24a3cd3d77e753fb2132ff02"
+    },
+    "artifacts/boundary_rules.csv": {
+      "bytes": 4361,
+      "sha256": "5de6018b792b96c033b2753083ddc0eb35d80f8df8bd5d7f202617fe729840c4"
+    },
+    "artifacts/excluded_intervals.csv": {
+      "bytes": 171,
+      "sha256": "590f4295a62c92e817704b1f7d99d76ab4d71d1aa8587d7b10da65e7430666e7"
+    },
+    "artifacts/fold_selection.csv": {
+      "bytes": 556,
+      "sha256": "1e6d17bfafee7390614fc999f6bf9a8ed3d83e986533b6e02eb19959cc68e91f"
+    },
+    "artifacts/frontier_events.csv": {
+      "bytes": 9271,
+      "sha256": "30a809f5b10a8f3ba7a97ab6590326c2b65fb08417dc8ce741c7879c7e113985"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 1032,
+      "sha256": "9077bb5f493fd4529aecb07ca74d8c4d6e535f9282c51767403f3da4da6ede46"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 1023,
+      "sha256": "33a31dc057f63a59c980fb67a3444f1a6e1705daa7c8ea594390a3c390332759"
+    },
+    "artifacts/out_of_fold_predictions.csv": {
+      "bytes": 4204,
+      "sha256": "efd3f5439d9308e391d90f4c5de410dcec47e2375fb615b360ead17c5ed28c10"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3209,
+      "sha256": "593746cd4dd19f01d18dd719f286b5c0e763fd7d443766631bc598dbff72de00"
+    },
+    "implementation_plan.md": {
+      "bytes": 570,
+      "sha256": "58e47d7da69e91009fea9a4c4efaf9b123cd0f9f2982158507e7b034dcd51219"
+    }
+  }
+}

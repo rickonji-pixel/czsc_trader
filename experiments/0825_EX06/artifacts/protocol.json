@@ -52,6 +52,16 @@
   "weekly_history_window": 26,
   "weekly_minimum_history": 20,
   "quantile_boundaries": [0.2, 0.4, 0.6, 0.8],
+  "calculation_conventions": {
+    "return_type": "simple",
+    "standard_deviation_ddof": 1,
+    "downside_semivol_denominator": "all_window_observations",
+    "max_drawdown_close_observations": 5,
+    "quantile_interpolation": "linear",
+    "quantile_boundary_side": "right_closed_lower_bin",
+    "intraday_first_return": "open_to_close",
+    "weekly_alignment": "last_completed_week_allow_exact_timestamp"
+  },
   "discovery_event_ids": [
     "2021H1:early_ex04_exit:20210616",
     "2021H2:early_ex04_exit:20210706"

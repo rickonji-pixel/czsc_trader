@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0825_EX04",
+  "date": "2026-08-25",
+  "status": "COMPLETE",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "research_object": {
+    "path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 1647,
+      "sha256": "affb4256ad83907ffc400c61f1a73725c943c7b1d49faf15bc78f6876506c8a5"
+    },
+    "02_design.md": {
+      "bytes": 5659,
+      "sha256": "02f89f1d250a9277bf289a3f98ffe85b513a261e164feeceabfc196d41d99bc2"
+    },
+    "03_execution.md": {
+      "bytes": 1231,
+      "sha256": "81f4ebecb759f3c85741fe8ebc20bf6b8835fc79115ae241fd210f171bd2b837"
+    },
+    "04_conclusion.md": {
+      "bytes": 4678,
+      "sha256": "8fa9c6611aded869afa9eb39ada6c940f430f78aa28f8b225762b281f26777da"
+    },
+    "artifacts/continuous_feature_separation.csv": {
+      "bytes": 1497,
+      "sha256": "be22b8bf7d1f82383c85823adb940e667b6626c64be1e49a67e3c3917d213779"
+    },
+    "artifacts/exit_concentration.json": {
+      "bytes": 177,
+      "sha256": "9258dba8f9cedbf8e0c7bc31758873b8841690a6a1bd6a2e234047e67ca79d6c"
+    },
+    "artifacts/exit_event_counterfactuals.csv": {
+      "bytes": 12663,
+      "sha256": "cafc9983f7a0853a8f2b4cfa04a58bc5453fb5eefd43da4ad24118874c432eb7"
+    },
+    "artifacts/exit_event_path_ledger.csv": {
+      "bytes": 10751,
+      "sha256": "3a354830c2e9fb1ccf07d4db119e5cb355761cb5930f517c2c952be2ed4377d2"
+    },
+    "artifacts/exit_quality_by_context.csv": {
+      "bytes": 1368,
+      "sha256": "df7932735999a514c9f86e4b8f4893811727d91f917cad7ea2161bf085ad6e8f"
+    },
+    "artifacts/exit_quality_by_window.csv": {
+      "bytes": 903,
+      "sha256": "ae56e42786edf5709433f700b07b0538f898c733cac0ba728052173452e26fe3"
+    },
+    "artifacts/exit_quality_classification.json": {
+      "bytes": 370,
+      "sha256": "6d2b56e5722eb30953fb9307cead0505135010924494483be87e9da71b0d56f2"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 2936,
+      "sha256": "807241ba6bdba8911094579ca061a262dc21da435bec8494eec52bb2eb2f84e8"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 2999,
+      "sha256": "699475cd7788ad8dbe11e80044899e9fba2642ca6015225bc704072e02d6e734"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3429,
+      "sha256": "6157c6330192605540fb8cab0e4b940f7546cf093807bccec540831ce086ff60"
+    },
+    "implementation_plan.md": {
+      "bytes": 7963,
+      "sha256": "12ec21820a35211a6a6346978857f69908c383dc956dd2470c1112ce2f360e78"
+    }
+  }
+}

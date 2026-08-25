@@ -475,3 +475,101 @@ def test_cli_dispatches_ex04_path_protocol_to_stable_entrypoint(
     entrypoint.cli()
 
     assert called == [archive]
+
+
+def _preregistered_exit_signal_archive(tmp_path: Path) -> Path:
+    archive = tmp_path / "0825_EX04"
+    (archive / "artifacts").mkdir(parents=True)
+    for name in REQUIRED_DOCUMENTS:
+        (archive / name).write_text(f"# {name}\n", encoding="utf-8")
+    protocol = json.loads(
+        Path("experiments/0825_EX04/artifacts/protocol.json").read_text(encoding="utf-8")
+    )
+    (archive / "artifacts" / "protocol.json").write_text(
+        json.dumps(protocol), encoding="utf-8"
+    )
+    return archive
+
+
+def test_preregistered_exit_signal_diagnosis_finalizes_same_archive(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Catch EX04 allocating a new archive or turning diagnosis into a candidate."""
+    archive = _preregistered_exit_signal_archive(tmp_path)
+
+    def fake_runner(raw_dir, experiment_dir, protocol):
+        assert experiment_dir == archive
+        assert protocol["holdout_access_allowed"] is False
+        classification = {
+            "classification": "context_dependent_exit_quality",
+            "event_count": 20,
+            "false_exit_count": 8,
+            "protective_exit_count": 6,
+            "neutral_exit_count": 6,
+            "concentration": {
+                "total_false_exit_log_loss": 0.2,
+                "top1_share": 0.2,
+                "top3_share": 0.45,
+                "concentrated": False,
+            },
+        }
+        artifacts = experiment_dir / "artifacts"
+        (artifacts / "exit_quality_classification.json").write_text(
+            json.dumps(classification), encoding="utf-8"
+        )
+        payload = {
+            "status": "COMPLETE",
+            "visible_data_hashes": {"588080_daily_2025.csv": "abc"},
+            "holdout_accessed": False,
+            "frozen_challenger": None,
+            "event_count": 20,
+            "path_ledger_rows": 100,
+            "endpoint_counts": {"baseline_exit_execution": 10, "ex04_reentry_execution": 10},
+            "outcome_counts": {
+                "false_exit": 8,
+                "protective_exit": 6,
+                "neutral_exit": 6,
+            },
+            "max_absolute_closure_residual": 1e-16,
+            "qualifying_false_contexts": 1,
+            "qualifying_protective_contexts": 1,
+            "stable_large_effect_features": 0,
+            "exit_quality_classification": classification,
+        }
+        (artifacts / "metrics.json").write_text(json.dumps(payload), encoding="utf-8")
+        return payload
+
+    monkeypatch.setattr(entrypoint, "run_exit_signal_diagnosis", fake_runner)
+
+    finalized = entrypoint.run_preregistered_exit_signal_diagnosis(archive)
+
+    assert finalized == archive
+    manifest = validate_experiment_archive(archive)
+    assert manifest["status"] == "COMPLETE"
+    assert manifest["holdout_accessed"] is False
+    conclusion = (archive / "04_conclusion.md").read_text(encoding="utf-8")
+    assert "context_dependent_exit_quality" in conclusion
+    assert "不能直接作为交易规则" in conclusion
+    assert not (archive / "artifacts" / "frozen_challenger.json").exists()
+    assert not (archive / "artifacts" / "orders.csv").exists()
+
+
+def test_cli_dispatches_exit_signal_protocol_to_stable_entrypoint(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Catch EX04 falling through to an optimizer or unsupported protocol path."""
+    archive = _preregistered_exit_signal_archive(tmp_path)
+    called: list[Path] = []
+
+    def fake_entrypoint(experiment_dir: Path) -> Path:
+        called.append(experiment_dir)
+        return experiment_dir
+
+    monkeypatch.setattr(entrypoint, "run_preregistered_exit_signal_diagnosis", fake_entrypoint)
+    monkeypatch.setattr(
+        sys, "argv", ["run_experiment.py", "--experiment-dir", str(archive)]
+    )
+
+    entrypoint.cli()
+
+    assert called == [archive]

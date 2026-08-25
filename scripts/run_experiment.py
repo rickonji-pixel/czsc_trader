@@ -29,6 +29,10 @@ from czsc_trader.experiment_archive import (
     create_experiment_dir,
     validate_experiment_archive,
 )
+from czsc_trader.exit_signal_diagnosis_runner import (
+    run_exit_signal_diagnosis,
+    validate_protocol as validate_exit_signal_protocol,
+)
 from czsc_trader.experiments import run_pre2026_experiment
 
 
@@ -558,6 +562,134 @@ def run_preregistered_ex04_path_attribution(experiment_dir: Path) -> Path:
     return experiment_dir
 
 
+def _exit_signal_conclusion_markdown(artifacts_dir: Path) -> str:
+    result = json.loads(
+        (artifacts_dir / "exit_quality_classification.json").read_text(encoding="utf-8")
+    )
+    concentration = result["concentration"]
+    return (
+        "# 研究结论\n\n"
+        "## 判定边界\n\n"
+        "本轮是EX04离场信号的事件级诊断，状态为 **COMPLETE**。"
+        "不判定策略PASS/FAIL，不生成挑战者，不访问2026。\n\n"
+        "## 机器分类\n\n"
+        f"- 分类：`{result['classification']}`。\n"
+        f"- 错误/保护/中性离场：{int(result['false_exit_count'])} / "
+        f"{int(result['protective_exit_count'])} / {int(result['neutral_exit_count'])}。\n"
+        f"- 错误离场Top 1/Top 3贡献份额：{float(concentration['top1_share']):.2%} / "
+        f"{float(concentration['top3_share']):.2%}；"
+        f"路径集中：{str(bool(concentration['concentrated'])).lower()}。\n\n"
+        "## 使用边界\n\n"
+        "上下文或连续特征只具有诊断意义，不能直接作为交易规则。"
+        "只有符合预注册后续映射的分类，才允许在下一轮单独设计候选；"
+        "本轮结果不得反馈修改本轮标签、阈值或特征。\n"
+    )
+
+
+def run_preregistered_exit_signal_diagnosis(experiment_dir: Path) -> Path:
+    """Finalize the preregistered EX04 exit-signal diagnosis in place."""
+    experiment_dir = Path(experiment_dir).resolve()
+    protocol_path = experiment_dir / "artifacts" / "protocol.json"
+    if not protocol_path.is_file():
+        raise FileNotFoundError(f"missing preregistered protocol: {protocol_path}")
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    validate_exit_signal_protocol(protocol)
+    research_object = protocol.get("research_object")
+    if not isinstance(research_object, dict):
+        raise ValueError("exit signal protocol is missing research object identity")
+    status = "ERROR"
+    try:
+        summary = run_exit_signal_diagnosis(
+            Path("data/raw"), experiment_dir, protocol
+        )
+        if summary.get("status") != "COMPLETE":
+            raise ValueError("exit signal diagnosis runner did not complete")
+        if summary.get("holdout_accessed") is not False:
+            raise ValueError("exit signal diagnosis reported holdout access")
+        if summary.get("frozen_challenger") is not None:
+            raise ValueError("exit signal diagnosis produced a frozen challenger")
+        if int(summary.get("event_count", -1)) != int(protocol["expected_event_count"]):
+            raise ValueError("exit signal diagnosis event count differs from protocol")
+        if float(summary.get("max_absolute_closure_residual", float("inf"))) > float(
+            protocol["path_closure_tolerance"]
+        ):
+            raise ValueError("exit signal diagnosis path ledger does not close")
+        hashes = summary.get("visible_data_hashes", {})
+        if not isinstance(hashes, dict) or any("2026" in str(name) for name in hashes):
+            raise ValueError("exit signal diagnosis contains a 2026 data hash")
+        for forbidden in ("frozen_challenger.json", "orders.csv"):
+            if (experiment_dir / "artifacts" / forbidden).exists():
+                raise ValueError(f"exit signal diagnosis wrote forbidden {forbidden}")
+        executed_at = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+        classification = summary["exit_quality_classification"]["classification"]
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "## 正式执行\n\n"
+            "- 状态：`COMPLETE`\n"
+            f"- 执行时间：{executed_at}\n"
+            f"- 执行提交：`{_git_head()}`\n"
+            f"- Python：{platform.python_version()}\n"
+            f"- pandas：{_installed_version('pandas')}\n"
+            f"- NumPy：{_installed_version('numpy')}\n"
+            f"- 可见行情文件数：{len(hashes)}\n"
+            f"- 冻结离场事件：{int(summary['event_count'])}个\n"
+            f"- 事件路径账本：{int(summary['path_ledger_rows'])}行\n"
+            f"- 最大闭合残差：{float(summary['max_absolute_closure_residual']):.3e}\n"
+            f"- 机器分类：`{classification}`\n"
+            "- 2026数据访问：否\n"
+            "- 优化、候选和冻结策略：未执行\n"
+            "- 机器证据：`artifacts/`\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            _exit_signal_conclusion_markdown(experiment_dir / "artifacts"),
+            encoding="utf-8",
+        )
+        status = "COMPLETE"
+    except Exception as exc:
+        (experiment_dir / "03_execution.md").write_text(
+            "# 执行过程\n\n"
+            "- 状态：`ERROR`\n"
+            f"- 异常：{type(exc).__name__}: {exc}\n"
+            "- 2026数据访问：否\n",
+            encoding="utf-8",
+        )
+        (experiment_dir / "04_conclusion.md").write_text(
+            "# 研究结论\n\n正式执行失败，没有离场信号质量结论，不得优化或访问2026。\n",
+            encoding="utf-8",
+        )
+        build_experiment_manifest(
+            experiment_dir,
+            {
+                "experiment_id": experiment_dir.name,
+                "date": "2026-08-25",
+                "status": status,
+                "symbol": protocol.get("symbol", "588080.SH"),
+                "asset_type": protocol.get("asset_type", "etf"),
+                "research_object": research_object,
+                "visible_sample_end": "2025-12-31",
+                "holdout_accessed": False,
+            },
+        )
+        validate_experiment_archive(experiment_dir)
+        raise
+    build_experiment_manifest(
+        experiment_dir,
+        {
+            "experiment_id": experiment_dir.name,
+            "date": "2026-08-25",
+            "status": status,
+            "symbol": protocol.get("symbol", "588080.SH"),
+            "asset_type": protocol.get("asset_type", "etf"),
+            "research_object": research_object,
+            "visible_sample_end": "2025-12-31",
+            "holdout_accessed": False,
+        },
+    )
+    validate_experiment_archive(experiment_dir)
+    return experiment_dir
+
+
 def main(
     experiments_root: Path = Path("experiments"),
     *,
@@ -685,6 +817,8 @@ def cli() -> None:
             completed = run_preregistered_ex04_attribution(args.experiment_dir)
         elif experiment_type == "ex04_path_attribution":
             completed = run_preregistered_ex04_path_attribution(args.experiment_dir)
+        elif experiment_type == "ex04_exit_signal_diagnosis":
+            completed = run_preregistered_exit_signal_diagnosis(args.experiment_dir)
         else:
             raise ValueError(f"unsupported preregistered experiment type: {experiment_type}")
         print(completed)

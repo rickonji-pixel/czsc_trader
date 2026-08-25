@@ -249,3 +249,11 @@ git status --short --branch
 ```
 
 Expected: `master` is clean and ahead of `origin/master` only by the promotion commits; pushing is not performed unless explicitly requested.
+
+## Execution Record
+
+- Task 1 completed in `7da6bcd`: schema-3 resolver and byte-identical active baseline.
+- Task 2 completed in `365522b`: unified fixed-rule/four-layer execution adapter.
+- Task 3 completed in `d803516`: symbol-scoped ordinary backtest integration and identity proof.
+- Task 4 verification: 27 focused tests passed; all experiment archives passed; Python compilation passed; full suite passed with 333 tests and four unchanged Optuna experimental warnings.
+- No research, holdout, or ordinary output run was created as promotion evidence.

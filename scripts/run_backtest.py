@@ -1,4 +1,4 @@
-"""Run a validated symbol with one immutable fixed-rule baseline."""
+"""Run a validated symbol with one immutable registered baseline."""
 
 from __future__ import annotations
 

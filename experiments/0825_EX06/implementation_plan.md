@@ -36,7 +36,7 @@
 - Produces: `exact_permutation_audit(events: pd.DataFrame, matrix: pd.DataFrame, protocol: Mapping[str, object]) -> dict[str, object]`
 - Produces: `classify_representation(...) -> dict[str, object]`
 
-- [ ] **Step 1: Write failing formula and causality tests**
+- [x] **Step 1: Write failing formula and causality tests**
 
 Create deterministic OHLCV fixtures and assert literal values for representative formulas from all four families, exact column order of 28 descriptors, completed-week alignment, division-by-zero to `NaN`, exclusion of the current observation from historical quantiles, right-closed lower-bin boundary behavior, and no timestamps after event T.
 
@@ -54,13 +54,13 @@ def test_causal_bins_exclude_current_value():
     assert bins.loc[5, "x"] == "Q5"
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run: `.\.venv\Scripts\python.exe -m pytest -q tests/test_new_exit_representation_runner.py`
 
 Expected: collection fails because `czsc_trader.new_exit_representation_runner` does not exist.
 
-- [ ] **Step 3: Implement the 28 formulas and causal binning**
+- [x] **Step 3: Implement the 28 formulas and causal binning**
 
 Use named constants to freeze identity and order, vectorized rolling operations for daily history, one daily aggregation for 30-minute inputs, and `merge_asof(..., direction="backward", allow_exact_matches=True)` against completed weekly rows.
 
@@ -79,7 +79,7 @@ DESCRIPTOR_IDS = (
 )
 ```
 
-- [ ] **Step 4: Add and run signature/permutation classification tests**
+- [x] **Step 4: Add and run signature/permutation classification tests**
 
 Cover all five machine classes, exact enumeration count `364`, a qualifying observed label set with corrected `p<=0.05`, a low-contamination signature rejected by multiplicity, downtrend and `joint_margin_block` vetoes, neutral/secondary false exits excluded from the primary denominator, and missing-history evidence failure.
 
@@ -97,7 +97,7 @@ assert classification["classification"] in {
 }
 ```
 
-- [ ] **Step 5: Run focused tests and commit the pure core**
+- [x] **Step 5: Run focused tests and commit the pure core**
 
 Run: `.\.venv\Scripts\python.exe -m pytest -q tests/test_new_exit_representation_runner.py`
 

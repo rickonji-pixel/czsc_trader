@@ -12,7 +12,7 @@ import platform
 import pandas as pd
 
 from .audit import audit_no_lookahead
-from .backtest import PeriodBacktestResult, run_period_backtests
+from .backtest import PeriodBacktestResult, run_backtest, run_period_backtests
 from .baseline_execution import apply_resolved_baseline
 from .baselines import resolve_baseline
 from .charting import write_period_chart
@@ -28,7 +28,8 @@ class BacktestRequest:
     start: date | None = None
     end: date | None = None
     baseline: str | None = None
-    targets_path: Path | None = None
+    windows_path: Path | None = None
+    window: str | None = None
     fee_rate: float = 0.0005
     init_cash: float = 1_000_000.0
     raw_dir: Path = Path("data/raw")
@@ -65,32 +66,65 @@ def _write_csv(path: Path, frame: pd.DataFrame, *, index: bool = False) -> None:
     temporary.replace(path)
 
 
-def _load_target_config(path: Path) -> tuple[
-    dict[str, tuple[pd.Timestamp, pd.Timestamp]], dict[str, float]
-]:
+def _load_window_config(
+    path: Path,
+    available_dates: pd.Series,
+) -> dict[str, tuple[pd.Timestamp, pd.Timestamp]]:
+    def parse_fixed_boundary(value: str, name: object, boundary: str) -> pd.Timestamp:
+        try:
+            timestamp = pd.Timestamp(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"backtest window {name} has invalid {boundary}"
+            ) from exc
+        if pd.isna(timestamp):
+            raise ValueError(f"backtest window {name} has invalid {boundary}")
+        return timestamp
+
     try:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"Cannot read target config {path}: {exc}") from exc
+        raise ValueError(f"Cannot read backtest window config {path}: {exc}") from exc
     periods_payload = payload.get("periods") if isinstance(payload, dict) else None
     if not isinstance(periods_payload, dict) or not periods_payload:
-        raise ValueError("target config periods must be a non-empty object")
+        raise ValueError("backtest window config periods must be a non-empty object")
     periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
-    targets: dict[str, float] = {}
     for name, item in periods_payload.items():
         if not isinstance(item, dict):
-            raise ValueError(f"target period {name} must be an object")
+            raise ValueError(f"backtest window {name} must be an object")
         try:
-            start = pd.Timestamp(str(item["start"]))
-            end = pd.Timestamp(str(item["end"]))
-            target = float(item["min_return"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(f"target period {name} requires start, end and min_return") from exc
+            start_raw = item["start"]
+            end_raw = item["end"]
+        except KeyError as exc:
+            raise ValueError(f"backtest window {name} requires start and end") from exc
+        start_value = str(start_raw)
+        end_value = str(end_raw)
+        dates = pd.DatetimeIndex(available_dates).normalize()
+        dynamic_values = {"first_available_in_year", "last_available_in_year"}
+        if start_value in dynamic_values or end_value in dynamic_values:
+            try:
+                year = int(item["year"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"backtest window {name} requires integer year for dynamic boundaries"
+                ) from exc
+            candidates = dates[dates.year == year]
+            if candidates.empty:
+                raise ValueError(f"backtest window {name} has no market data in {year}")
+        start = (
+            candidates.min()
+            if start_value == "first_available_in_year"
+            else parse_fixed_boundary(start_value, name, "start")
+        )
+        end = (
+            candidates.max()
+            if end_value == "last_available_in_year"
+            else parse_fixed_boundary(end_value, name, "end")
+        )
         if start > end:
-            raise ValueError(f"target period {name} starts after it ends")
+            raise ValueError(f"backtest window {name} starts after it ends")
         periods[str(name)] = (start, end)
-        targets[str(name)] = target
-    return periods, targets
+    return periods
 
 
 def _equity_frame(
@@ -110,6 +144,51 @@ def _equity_frame(
     )
 
 
+def _comparison_metrics(
+    daily: pd.DataFrame,
+    result: PeriodBacktestResult,
+    *,
+    fee_rate: float,
+    init_cash: float,
+) -> dict[str, float | str]:
+    """Project ordinary-backtest output without changing research metrics."""
+    start = pd.Timestamp(str(result.metrics["start"]))
+    end = pd.Timestamp(str(result.metrics["end"]))
+    dates = pd.to_datetime(daily["dt"])
+    period_daily = daily.loc[(dates >= start) & (dates <= end)].copy()
+    buyhold_target = pd.Series(
+        1.0,
+        index=pd.DatetimeIndex(pd.to_datetime(period_daily["dt"]), name="dt"),
+        name="buyhold_target",
+    )
+    buyhold = run_backtest(
+        period_daily,
+        buyhold_target,
+        fee_rate=fee_rate,
+        init_cash=init_cash,
+        initial_target=1.0,
+    )
+    strategy_return = float(result.metrics["strategy_return"])
+    buyhold_return = float(result.metrics["buyhold_return"])
+    strategy_sharpe = float(result.metrics["sharpe"])
+    buyhold_sharpe = float(buyhold.metrics["sharpe"])
+    strategy_max_drawdown = float(result.metrics["max_drawdown"])
+    buyhold_max_drawdown = float(buyhold.metrics["max_drawdown"])
+    return {
+        "start": str(result.metrics["start"]),
+        "end": str(result.metrics["end"]),
+        "strategy_return": strategy_return,
+        "buyhold_return": buyhold_return,
+        "return_difference": strategy_return - buyhold_return,
+        "strategy_sharpe": strategy_sharpe,
+        "buyhold_sharpe": buyhold_sharpe,
+        "sharpe_difference": strategy_sharpe - buyhold_sharpe,
+        "strategy_max_drawdown": strategy_max_drawdown,
+        "buyhold_max_drawdown": buyhold_max_drawdown,
+        "max_drawdown_difference": strategy_max_drawdown - buyhold_max_drawdown,
+    }
+
+
 def _report(
     symbol: str,
     baseline_version: str,
@@ -120,13 +199,12 @@ def _report(
         f"# {symbol} 固定基线规则回测",
         "",
         f"- 规则基线：`{baseline_version}`",
-        f"- 验收状态：`{metrics['acceptance_status']}`",
         "- 本次只应用冻结规则，未执行候选搜索或参数选优。",
         "",
-        "## 区间指标",
+        "## 策略与 Buy & Hold 比较",
         "",
-        "| 区间 | 开始 | 结束 | 策略收益 | 最大回撤 | 夏普率 | 交易次数 | 状态 |",
-        "| --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
+        "| 区间 | 开始 | 结束 | 策略收益 | Buy & Hold收益 | 收益差 | 策略夏普 | Buy & Hold夏普 | 夏普差 | 策略最大回撤 | Buy & Hold最大回撤 | 最大回撤差 |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     windows = metrics["windows"]
     assert isinstance(windows, dict)
@@ -134,8 +212,14 @@ def _report(
         assert isinstance(values, dict)
         lines.append(
             f"| {name} | {values['start']} | {values['end']} | "
-            f"{float(values['strategy_return']):.2%} | {float(values['max_drawdown']):.2%} | "
-            f"{float(values['sharpe']):.3f} | {int(values['trade_count'])} | {values['status']} |"
+            f"{float(values['strategy_return']):.2%} | {float(values['buyhold_return']):.2%} | "
+            f"{float(values['return_difference']):.2%} | "
+            f"{float(values['strategy_sharpe']):.3f} | "
+            f"{float(values['buyhold_sharpe']):.3f} | "
+            f"{float(values['sharpe_difference']):.3f} | "
+            f"{float(values['strategy_max_drawdown']):.2%} | "
+            f"{float(values['buyhold_max_drawdown']):.2%} | "
+            f"{float(values['max_drawdown_difference']):.2%} |"
         )
     lines.extend(["", "## 交互式图表", ""])
     lines.extend(f"- [{name}]({name})" for name in chart_files)
@@ -148,8 +232,10 @@ def run_fixed_backtest(
     run_date: date | None = None,
 ) -> dict[str, object]:
     """Run one already-frozen rule against one validated symbol."""
-    if request.targets_path is not None and (request.start is not None or request.end is not None):
-        raise ValueError("--targets cannot be combined with --start or --end")
+    if request.windows_path is not None and (request.start is not None or request.end is not None):
+        raise ValueError("--windows cannot be combined with --start or --end")
+    if request.window is not None and request.windows_path is None:
+        raise ValueError("--window requires --windows")
     effective_date = run_date or datetime.now().astimezone().date()
     output_dir = create_output_dir(request.outputs_root, request.symbol, effective_date)
     try:
@@ -159,8 +245,15 @@ def run_fixed_backtest(
             symbol=request.symbol,
         )
         data = load_market_data(request.raw_dir, request.symbol, request.asset_type)
-        if request.targets_path is not None:
-            periods, return_targets = _load_target_config(request.targets_path)
+        if request.windows_path is not None:
+            periods = _load_window_config(
+                request.windows_path,
+                data.daily["dt"],
+            )
+            if request.window is not None:
+                if request.window not in periods:
+                    raise ValueError(f"unknown backtest window: {request.window}")
+                periods = {request.window: periods[request.window]}
             cutoff = max(end for _, end in periods.values())
         else:
             start = pd.Timestamp(request.start or data.daily["dt"].min().date())
@@ -168,7 +261,6 @@ def run_fixed_backtest(
             if start > end:
                 raise ValueError("backtest start must not be after end")
             periods = {"full": (start, end)}
-            return_targets = None
             cutoff = end
         causal_data = data.truncate(cutoff)
         factor_result = generate_factor_frame(causal_data)
@@ -188,7 +280,6 @@ def run_fixed_backtest(
             init_cash=request.init_cash,
             factor_events=applied.events,
             factor_frame=factor_output,
-            return_targets=return_targets,
         )
         order_pieces = [result.orders for result in results.values()]
         orders = pd.concat(order_pieces, ignore_index=True) if order_pieces else pd.DataFrame()
@@ -208,16 +299,17 @@ def run_fixed_backtest(
             applied.target_position,
             factor_output,
         )
-        windows = {name: result.metrics for name, result in results.items()}
-        acceptance_status = (
-            "N/A"
-            if return_targets is None
-            else "PASS" if all(bool(values["pass"]) for values in windows.values()) else "FAIL"
-        )
+        windows = {
+            name: _comparison_metrics(
+                causal_data.daily,
+                result,
+                fee_rate=request.fee_rate,
+                init_cash=request.init_cash,
+            )
+            for name, result in results.items()
+        }
         metrics: dict[str, object] = {
-            "acceptance_status": acceptance_status,
             "windows": windows,
-            "audit": audit,
         }
 
         single = list(results) == ["full"]
@@ -276,7 +368,6 @@ def run_fixed_backtest(
                 name: {"start": str(start.date()), "end": str(end.date())}
                 for name, (start, end) in periods.items()
             },
-            "acceptance_status": acceptance_status,
             "charts": chart_files,
             "audit_status": audit["status"],
             "versions": {
@@ -292,7 +383,6 @@ def run_fixed_backtest(
         return {
             "symbol": data.symbol,
             "baseline": baseline.version,
-            "acceptance_status": acceptance_status,
             "windows": windows,
             "output_dir": str(output_dir.resolve()),
         }

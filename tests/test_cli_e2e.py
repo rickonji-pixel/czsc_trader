@@ -9,6 +9,19 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+COMPARISON_KEYS = {
+    "start",
+    "end",
+    "strategy_return",
+    "buyhold_return",
+    "return_difference",
+    "strategy_sharpe",
+    "buyhold_sharpe",
+    "sharpe_difference",
+    "strategy_max_drawdown",
+    "buyhold_max_drawdown",
+    "max_drawdown_difference",
+}
 CLI = Path(sys.executable).with_name(
     "czsc-trader.exe" if sys.platform == "win32" else "czsc-trader"
 )
@@ -69,7 +82,7 @@ def test_data_validate_reads_the_tracked_market_dataset() -> None:
         "symbol": "588080.SH",
         "asset_type": "etf",
         "requested_start": "2020-01-01",
-        "requested_end": "2026-08-25",
+        "requested_end": "2026-08-26",
         "validation_status": "PASS",
         "frequencies": ["30m", "daily", "weekly"],
         "file_count": 21,
@@ -127,11 +140,51 @@ def test_backtest_run_publishes_audited_artifacts(tmp_path: Path) -> None:
 
     output_dir = Path(payload["artifacts"]["output_dir"])
     full = payload["result"]["windows"]["full"]
+    assert output_dir.name.startswith("588080_")
+    assert output_dir.name.endswith("_BT01")
     assert payload["result"]["baseline"] == "baseline_20260826"
+    assert set(full) == COMPARISON_KEYS
     assert full["strategy_return"] == pytest.approx(0.6197253904580182)
-    assert full["trade_count"] == 10
+    assert full["return_difference"] == pytest.approx(
+        full["strategy_return"] - full["buyhold_return"]
+    )
+    assert full["sharpe_difference"] == pytest.approx(
+        full["strategy_sharpe"] - full["buyhold_sharpe"]
+    )
+    assert full["max_drawdown_difference"] == pytest.approx(
+        full["strategy_max_drawdown"] - full["buyhold_max_drawdown"]
+    )
     assert (output_dir / "audit.json").is_file()
     assert (output_dir / "report.md").is_file()
+
+
+def test_backtest_window_resolves_first_and_last_trading_day_in_year(
+    tmp_path: Path,
+) -> None:
+    payload = json_result(
+        "backtest",
+        "run",
+        "--symbol",
+        "588080.SH",
+        "--asset",
+        "etf",
+        "--windows",
+        REPO_ROOT / "configs" / "backtest_windows" / "588080_2026.json",
+        "--window",
+        "2026FULL",
+        "--outputs-root",
+        tmp_path,
+        "--repo-root",
+        REPO_ROOT,
+    )
+
+    result = payload["result"]
+    assert "acceptance_status" not in result
+    assert set(result["windows"]) == {"2026FULL"}
+    window = result["windows"]["2026FULL"]
+    assert set(window) == COMPARISON_KEYS
+    assert window["start"] == "2026-01-05"
+    assert window["end"] == "2026-08-26"
 
 
 def test_archive_validate_checks_every_tracked_experiment() -> None:

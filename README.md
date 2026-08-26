@@ -54,10 +54,12 @@ A股股票与ETF统一使用Tushare后复权行情。只有复权因子、30分�
 执行588080当前活动基线：
 
 ~~~powershell
-.\.venv\Scripts\czsc-trader.exe backtest run --symbol 588080.SH --asset etf --targets configs\backtest_targets\588080_2026.json
+.\.venv\Scripts\czsc-trader.exe backtest run --symbol 588080.SH --asset etf --windows configs\backtest_windows\588080_2026.json --window 2026FULL
 ~~~
 
-未显式指定基线时，588080默认使用 baseline_20260826，即冻结的0824EX04四层策略。baseline_20260823只允许显式历史复现。普通回测只应用冻结规则，不搜索或修改参数；输出进入 outputs/<证券代码>_<MMDD>_RXX，实际目录以命令返回的 artifacts.output_dir 为准。
+窗口配置中的`2026FULL`左右边界分别从已验证日线动态解析为2026年第一个和最后一个有记录的交易日，不需要在行情更新后手工修改日期。普通回测只比较冻结策略与Buy & Hold的收益率、夏普率和最大回撤率及三项差值，不执行目标判定。
+
+未显式指定基线时，588080默认使用 baseline_20260826，即冻结的0824EX04四层策略。baseline_20260823只允许显式历史复现。普通回测只应用冻结规则，不搜索或修改参数；输出进入 outputs/<证券代码>_<MMDD>_BTXX，实际目录以命令返回的 artifacts.output_dir 为准。
 
 ## 研究与档案
 

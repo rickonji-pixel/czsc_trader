@@ -13,7 +13,7 @@ def create_output_dir(outputs_root: Path, symbol: str, run_date: date) -> Path:
     outputs_root = Path(outputs_root)
     outputs_root.mkdir(parents=True, exist_ok=True)
     for revision in count(1):
-        output_dir = outputs_root / f"{symbol_code}_{run_date:%m%d}_R{revision:02d}"
+        output_dir = outputs_root / f"{symbol_code}_{run_date:%m%d}_BT{revision:02d}"
         try:
             output_dir.mkdir(exist_ok=False)
         except FileExistsError:

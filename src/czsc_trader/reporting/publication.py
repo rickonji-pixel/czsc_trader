@@ -17,7 +17,7 @@ def publish_run_directory(
     outputs_root.mkdir(parents=True, exist_ok=True)
     code = symbol.split(".", maxsplit=1)[0]
     for revision in count(1):
-        destination = outputs_root / f"{code}_{run_date:%m%d}_R{revision:02d}"
+        destination = outputs_root / f"{code}_{run_date:%m%d}_BT{revision:02d}"
         if destination.exists():
             continue
         try:

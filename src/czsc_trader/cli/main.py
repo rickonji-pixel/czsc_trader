@@ -79,7 +79,8 @@ def _backtest_run(args: argparse.Namespace):
             start=args.start,
             end=args.end,
             baseline=args.baseline,
-            targets_path=args.targets,
+            windows_path=args.windows,
+            window=args.window,
             fee_rate=args.fee_rate,
             init_cash=args.init_cash,
             outputs_root=args.outputs_root,
@@ -170,7 +171,8 @@ def build_parser() -> argparse.ArgumentParser:
     backtest_run.add_argument("--start", type=date.fromisoformat)
     backtest_run.add_argument("--end", type=date.fromisoformat)
     backtest_run.add_argument("--baseline")
-    backtest_run.add_argument("--targets", type=Path)
+    backtest_run.add_argument("--windows", type=Path)
+    backtest_run.add_argument("--window")
     backtest_run.add_argument("--fee-rate", type=float, default=0.0005)
     backtest_run.add_argument("--init-cash", type=float, default=1_000_000.0)
     backtest_run.add_argument("--outputs-root", type=Path)

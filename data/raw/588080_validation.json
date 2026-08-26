@@ -1,8 +1,8 @@
 {
   "status": "PASS",
   "intraday": {
-    "bar_count": 11216,
-    "complete_day_count": 1402,
+    "bar_count": 11224,
+    "complete_day_count": 1403,
     "session_times": [
       "10:00",
       "10:30",
@@ -15,11 +15,11 @@
     ]
   },
   "reconciliation": {
-    "daily_matched_days": 1402,
+    "daily_matched_days": 1403,
     "weekly_matched_periods": 296,
     "price_tolerance": 0.005,
     "volume_relative_tolerance": 1e-05,
     "amount_relative_tolerance": 1e-05
   },
-  "generated_at_utc": "2026-08-25T18:12:47.587205+00:00"
+  "generated_at_utc": "2026-08-26T12:03:47.210494+00:00"
 }

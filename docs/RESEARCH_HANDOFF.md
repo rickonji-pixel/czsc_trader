@@ -11,7 +11,7 @@
 ### 1.1 长期研究目标
 
 - 标的固定为 `588080.SH`；
-- 历史数据覆盖上市日至2026-08-25；
+- 当前数据覆盖上市日至2026-08-26；
 - 截至2026-08-25的数据已经被项目观察，全部属于已见历史证据；
 - `0824_EX04`已冻结为当前588080正式基线，不再利用已见历史样本继续回溯修补；
 - 新的独立证据从2026-08-26之后的前向行情开始；
@@ -146,7 +146,7 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 
 默认`stdout`只输出一份JSON，进度和诊断进入`stderr`；`--format text`用于人工阅读。所有命令从当前目录向上发现仓库，也可显式传入`--repo-root`。
 
-普通回测默认输出到 `outputs/<证券代码>_<MMDD>_RXX`，也可通过`--outputs-root`指定其他根目录；实际目录只认命令返回的`artifacts.output_dir`。未提供收益目标时只输出指标，验收状态为 `N/A`。
+普通回测默认输出到 `outputs/<证券代码>_<MMDD>_BTXX`，也可通过`--outputs-root`指定其他根目录；实际目录只认命令返回的`artifacts.output_dir`。普通回测只比较冻结策略与Buy & Hold的收益率、夏普率和最大回撤率及三项差值，不包含目标阈值或PASS/FAIL判定。
 
 研究协议到实现的映射由`src/czsc_trader/research/registry.py`和各实验的`artifacts/protocol.json`共同决定。数值runner不提供独立CLI；跨机接力不得依赖本文维护易漂移的内部模块清单，实际代码位置应从当前提交和注册表发现。
 
@@ -157,7 +157,7 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 588080受跟踪行情覆盖：
 
 - 起点：2020-11-16（上市日）；
-- 当前数据末日：2026-08-25；
+- 当前数据末日：2026-08-26；
 - 频率：30分钟、日线、周线；
 - 复权：后复权 `hfq`；
 - 当前验证：`data/raw/588080_validation.json` 为PASS。
@@ -217,10 +217,13 @@ git diff --check
 ```powershell
 .\.venv\Scripts\czsc-trader.exe backtest run `
   --symbol 588080.SH --asset etf `
-  --targets configs\backtest_targets\588080_2026.json
+  --windows configs\backtest_windows\588080_2026.json `
+  --window 2026FULL
 ```
 
-未指定`--baseline`时，588080默认使用`baseline_20260826`。上述2026目标文件只用于已见历史表现复算，不构成独立验收。必须读取命令返回的`artifacts.output_dir`，不得假设新设备存在任何历史输出目录。
+未指定`--baseline`时，588080默认使用`baseline_20260826`。窗口文件只定义日期，不包含收益目标；`--window`只运行指定窗口。必须读取命令返回的`artifacts.output_dir`，不得假设新设备存在任何历史输出目录。
+
+`configs/backtest_windows/588080_2026.json`中的`2026FULL`左右边界都不是固定日期；普通回测会从已通过manifest与三周期校验的`data/raw`日线中取2026年第一个和最后一个有记录的交易日。历史研究代码、实验档案和`docs/baselines/588080_2026_expected.json`仍保留各自冻结时的数据边界，不随行情更新改写。
 
 ### 7.4 正式研究与隔离复现
 

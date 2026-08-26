@@ -21,7 +21,8 @@ class BacktestCommand:
     start: date | None = None
     end: date | None = None
     baseline: str | None = None
-    targets_path: Path | None = None
+    windows_path: Path | None = None
+    window: str | None = None
     fee_rate: float = 0.0005
     init_cash: float = 1_000_000.0
     outputs_root: Path | None = None
@@ -52,7 +53,8 @@ def run_backtest(
                 start=request.start,
                 end=request.end,
                 baseline=request.baseline,
-                targets_path=_repository_path(context, request.targets_path),
+                windows_path=_repository_path(context, request.windows_path),
+                window=request.window,
                 fee_rate=request.fee_rate,
                 init_cash=request.init_cash,
                 raw_dir=context.raw_dir,

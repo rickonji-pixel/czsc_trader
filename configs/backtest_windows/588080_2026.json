@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "symbol": "588080.SH",
+  "periods": {
+    "2026Q1": {
+      "start": "2026-01-01",
+      "end": "2026-03-31"
+    },
+    "2026H1": {
+      "start": "2026-01-01",
+      "end": "2026-06-30"
+    },
+    "2026FULL": {
+      "start": "first_available_in_year",
+      "end": "last_available_in_year",
+      "year": 2026
+    }
+  }
+}

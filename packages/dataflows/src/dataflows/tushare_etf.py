@@ -1,4 +1,8 @@
+"""Tushare ETF market-data adapter."""
+
 from __future__ import annotations
+
+from pathlib import Path
 
 import pandas as pd
 
@@ -141,6 +145,7 @@ def _fetch_tushare_etf_ohlcv(
     end_date: str,
     *,
     period: str = "daily",
+    env_file: str | Path | None = None,
 ) -> tuple[pd.DataFrame, str, str]:
     period = normalize_period(period)
     market = detect_market(symbol)
@@ -151,7 +156,7 @@ def _fetch_tushare_etf_ohlcv(
     if infer_asset_type(ts_code, "auto") != "fund":
         raise ValueError(f"{symbol} is not recognized as an A-share ETF")
 
-    pro = get_tushare_pro()
+    pro = get_tushare_pro(env_file)
     if period == "30m":
         pieces = [
             pro.etf_mins(
@@ -195,9 +200,13 @@ def _fetch_tushare_etf_ohlcv(
 
 
 def _fetch_hfq_factors(
-    ts_code: str, start_date: str, end_date: str
+    ts_code: str,
+    start_date: str,
+    end_date: str,
+    *,
+    env_file: str | Path | None = None,
 ) -> pd.DataFrame:
-    dataframe = get_tushare_pro().fund_adj(
+    dataframe = get_tushare_pro(env_file).fund_adj(
         ts_code=ts_code,
         start_date=start_date.replace("-", ""),
         end_date=end_date.replace("-", ""),
@@ -210,6 +219,8 @@ def fetch_etf_ohlcv(
     start_date: str,
     end_date: str,
     period: str = "daily",
+    *,
+    env_file: str | Path | None = None,
 ) -> tuple[pd.DataFrame, dict[str, str]]:
     """Return normalized Tushare ETF bars and machine-readable metadata."""
     normalized_period = normalize_period(period)
@@ -219,11 +230,14 @@ def fetch_etf_ohlcv(
         start_date,
         end_date,
         period=fetch_period,
+        env_file=env_file,
     )
     if dataframe.empty:
         raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
     correction_dates = dataframe.attrs.get("hardcoded_volume_corrections", [])
-    factors = _fetch_hfq_factors(ts_code, start_date, end_date)
+    factors = _fetch_hfq_factors(
+        ts_code, start_date, end_date, env_file=env_file
+    )
     dataframe = apply_hfq_adjustment(dataframe, factors)
     if normalized_period == "weekly":
         dataframe = _resample_weekly(dataframe)

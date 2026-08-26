@@ -1,0 +1,1 @@
+"""Reusable market-data adapters."""

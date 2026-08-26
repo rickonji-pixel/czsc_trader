@@ -8,16 +8,14 @@
 
 ~~~powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows -e ".[test]"
 .\.venv\Scripts\python.exe -m pip check
 ~~~
 
-若需从Tushare准备行情，再安装可选数据依赖并按
-[dataflows/README.md](dataflows/README.md) 配置被Git忽略的 `dataflows/.env`：
-
-~~~powershell
-.\.venv\Scripts\python.exe -m pip install -r dataflows\requirements-dataflows.txt
-~~~
+行情适配器是独立子项目 [packages/dataflows/README.md](packages/dataflows/README.md)，
+与主项目通过上面的同一条命令安装。若需从Tushare准备行情，将根目录
+`.env.example`复制为被Git忽略的`.env`并填写令牌。`dataflows`包不依赖
+`czsc_trader`，未来可整体拆分为独立仓库。
 
 ## 统一命令
 

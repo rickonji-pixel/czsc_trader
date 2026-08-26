@@ -1,3 +1,5 @@
+"""Market and vendor symbol resolution."""
+
 from __future__ import annotations
 
 import re

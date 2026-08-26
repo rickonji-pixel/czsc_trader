@@ -1,24 +1,26 @@
-# Financial dataflows
+# Financial dataflows package
 
-This package provides text-report adapters and machine-readable DataFrame APIs
-for Tushare market data, indicators, fundamentals, and news.
+This directory is an independently installable Python subproject. Its runtime
+package lives at `packages/dataflows/src/dataflows/` and deliberately does not
+depend on `czsc_trader`.
 
 ## Setup
 
-Install the optional runtime dependencies into the project environment:
+From the repository root, install this package and the application together:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -r dataflows\requirements-dataflows.txt
+.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows -e ".[test]"
 ```
 
-Copy `dataflows/.env.example` to `dataflows/.env`, then fill the local token:
+Copy `.env.example` to `.env` in the repository root, then fill the local token:
 
 ```dotenv
 TUSHARE_TOKEN=your-token
 ```
 
-The process environment takes precedence over `dataflows/.env`. The real
-`dataflows/.env` file is ignored by Git.
+The process environment takes precedence over the explicit credential file. The
+application passes the ignored repository-root `.env`; the reusable package does
+not assume a repository layout.
 
 ## Stock and ETF bars
 

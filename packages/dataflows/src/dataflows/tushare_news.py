@@ -1,3 +1,5 @@
+"""Tushare news-data adapter."""
+
 from __future__ import annotations
 
 import pandas as pd

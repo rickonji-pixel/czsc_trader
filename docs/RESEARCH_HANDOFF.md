@@ -150,6 +150,8 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 
 研究协议到实现的映射由`src/czsc_trader/research/registry.py`和各实验的`artifacts/protocol.json`共同决定。数值runner不提供独立CLI；跨机接力不得依赖本文维护易漂移的内部模块清单，实际代码位置应从当前提交和注册表发现。
 
+行情适配器是位于`packages/dataflows/`的独立Python子项目，运行时导入名为`dataflows`且不得依赖`czsc_trader`。新设备使用`.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows -e ".[test]"`同时安装子项目和主项目；本地Tushare令牌只放在被Git忽略的仓库根目录`.env`中。安装后的CLI不得依赖仓库根目录出现在`PYTHONPATH`中。
+
 ## 6. 数据状态
 
 588080受跟踪行情覆盖：

@@ -41,10 +41,11 @@ later published privately or moved to another Git repository.
 ## Dependencies and Installation
 
 `packages/dataflows/pyproject.toml` declares only dependencies needed by the
-adapter library. The root `pyproject.toml` declares `dataflows` as a local path
-dependency, so a normal editable installation of the root project installs both
-packages. The installed `czsc-trader` entry point must work outside the checkout
-without relying on the repository root in `PYTHONPATH`.
+adapter library. The root `pyproject.toml` declares the independent distribution
+as a required dependency. A documented, cross-device bootstrap command installs
+the local subproject and root project together; it must not embed an absolute
+checkout path in project metadata. The installed `czsc-trader` entry point must
+work outside the checkout without relying on the repository root in `PYTHONPATH`.
 
 ## Configuration
 
@@ -78,4 +79,3 @@ Verification covers:
 - package compilation and dependency integrity;
 - research archive validation;
 - confirmation that `.env` contents and tracked raw data are unchanged.
-

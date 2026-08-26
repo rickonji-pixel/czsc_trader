@@ -1,4 +1,8 @@
+"""Tushare stock market-data adapter."""
+
 from __future__ import annotations
+
+from pathlib import Path
 
 import pandas as pd
 
@@ -104,6 +108,7 @@ def _fetch_tushare_ohlcv(
     *,
     period: str = "daily",
     asset_type: str = "auto",
+    env_file: str | Path | None = None,
 ) -> tuple[pd.DataFrame, str, str]:
     period = normalize_period(period)
     market = detect_market(symbol)
@@ -116,7 +121,7 @@ def _fetch_tushare_ohlcv(
                 "A-share ETFs are not supported by tushare_stock; "
                 "use dataflows.tushare_etf.get_etf instead"
             )
-        module = get_tushare_module()
+        module = get_tushare_module(env_file)
         fetch_frequency = {"daily": "D", "weekly": "W", "30m": "30min"}[period]
         dataframe = module.pro_bar(
             ts_code=ts_code,
@@ -145,7 +150,7 @@ def _fetch_tushare_ohlcv(
             validate_a_share_30m_bars(normalized)
         return normalized, market, ts_code
 
-    pro = get_tushare_pro()
+    pro = get_tushare_pro(env_file)
     if period == "30m" and market == MARKET_US:
         raise ValueError("Tushare US 30m bars are not wired in this implementation")
     method_name = "hk_mins" if period == "30m" else {MARKET_HK: "hk_daily", MARKET_US: "us_daily"}[market]
@@ -177,9 +182,13 @@ def _fetch_tushare_ohlcv(
 
 
 def _fetch_hfq_factors(
-    ts_code: str, start_date: str, end_date: str
+    ts_code: str,
+    start_date: str,
+    end_date: str,
+    *,
+    env_file: str | Path | None = None,
 ) -> pd.DataFrame:
-    dataframe = get_tushare_pro().adj_factor(
+    dataframe = get_tushare_pro(env_file).adj_factor(
         ts_code=ts_code,
         start_date=start_date.replace("-", ""),
         end_date=end_date.replace("-", ""),
@@ -192,6 +201,8 @@ def fetch_stock_ohlcv(
     start_date: str,
     end_date: str,
     period: str = "daily",
+    *,
+    env_file: str | Path | None = None,
 ) -> tuple[pd.DataFrame, dict[str, str]]:
     """Return normalized Tushare stock bars and machine-readable metadata."""
     normalized_period = normalize_period(period)
@@ -206,6 +217,7 @@ def fetch_stock_ohlcv(
         end_date,
         period=fetch_period,
         asset_type="stock",
+        env_file=env_file,
     )
     if dataframe.empty:
         raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
@@ -217,7 +229,9 @@ def fetch_stock_ohlcv(
         "asset_type": "stock",
     }
     if market == MARKET_A_SHARE:
-        factors = _fetch_hfq_factors(ts_code, start_date, end_date)
+        factors = _fetch_hfq_factors(
+            ts_code, start_date, end_date, env_file=env_file
+        )
         dataframe = apply_hfq_adjustment(dataframe, factors)
         if normalized_period == "weekly":
             dataframe = _resample_weekly(dataframe)

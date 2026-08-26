@@ -30,6 +30,7 @@ def prepare_data(
             request.start,
             request.end,
             context.raw_dir,
+            env_file=context.root / ".env",
         )
     except (OSError, ValueError) as exc:
         raise ValidationError(

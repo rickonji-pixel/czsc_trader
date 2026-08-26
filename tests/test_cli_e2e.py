@@ -32,6 +32,28 @@ def json_result(*arguments: object, expected_exit: int = 0) -> dict[str, object]
     return json.loads(completed.stdout)
 
 
+def test_dataflows_package_imports_outside_the_checkout(tmp_path: Path) -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from pathlib import Path; import dataflows; "
+                "print(Path(dataflows.__file__).resolve())"
+            ),
+        ],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    module_path = Path(completed.stdout.strip())
+    assert module_path.is_relative_to(REPO_ROOT / "packages" / "dataflows")
+
+
 def test_data_validate_reads_the_tracked_market_dataset() -> None:
     payload = json_result(
         "data",

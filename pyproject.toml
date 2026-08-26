@@ -9,6 +9,7 @@ description = "Causal CZSC and vectorbt research pipeline for 588080.SH"
 requires-python = ">=3.12"
 dependencies = [
     "czsc==1.0.1",
+    "czsc-dataflows==0.1.0",
     "vectorbt==1.1.0",
     "pandas>=3.0.3,<4",
     "numpy>=2.4.6",

@@ -10,7 +10,7 @@ __pycache__/
 outputs/
 
 # Local credentials for optional Tushare dataflows.
-dataflows/.env
+/.env
 
 # Runtime-only Optuna studies; formal trial exports live in experiment artifacts.
 experiments/*/runtime/*.db

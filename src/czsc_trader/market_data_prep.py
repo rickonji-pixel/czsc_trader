@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date, datetime, timezone
+from functools import partial
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -183,14 +184,20 @@ def _default_fetcher(
     start: date,
     end: date,
     period: str,
+    *,
+    env_file: str | Path | None = None,
 ) -> tuple[pd.DataFrame, dict[str, str]]:
     if asset_type == "stock":
         from dataflows.tushare_stock import fetch_stock_ohlcv
 
-        return fetch_stock_ohlcv(symbol, start.isoformat(), end.isoformat(), period)
+        return fetch_stock_ohlcv(
+            symbol, start.isoformat(), end.isoformat(), period, env_file=env_file
+        )
     from dataflows.tushare_etf import fetch_etf_ohlcv
 
-    return fetch_etf_ohlcv(symbol, start.isoformat(), end.isoformat(), period)
+    return fetch_etf_ohlcv(
+        symbol, start.isoformat(), end.isoformat(), period, env_file=env_file
+    )
 
 
 def _csv_frame(frame: pd.DataFrame, period: str) -> pd.DataFrame:
@@ -220,6 +227,7 @@ def prepare_market_data(
     data_dir: Path,
     *,
     fetcher: MarketFetcher | None = None,
+    env_file: str | Path | None = None,
 ) -> dict[str, object]:
     """Fetch and publish one fully validated flat market-data generation."""
     normalized_symbol, code = _normalize_symbol(symbol)
@@ -228,7 +236,7 @@ def prepare_market_data(
         raise ValueError("asset_type must be stock or etf")
     if start > end:
         raise ValueError("start must not be after end")
-    effective_fetcher = fetcher or _default_fetcher
+    effective_fetcher = fetcher or partial(_default_fetcher, env_file=env_file)
     frames: dict[str, pd.DataFrame] = {}
     metadata: dict[str, dict[str, str]] = {}
     for period in FREQUENCIES:

@@ -1,6 +1,7 @@
 {
   "schema_version": 2,
   "symbol": "159352.SZ",
+  "name": "南方中证A500ETF",
   "code": "159352",
   "asset_type": "etf",
   "vendor": "tushare",

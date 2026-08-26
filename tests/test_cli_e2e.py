@@ -80,6 +80,7 @@ def test_data_validate_reads_the_tracked_market_dataset() -> None:
     assert payload["status"] == "PASS"
     assert payload["result"] == {
         "symbol": "588080.SH",
+        "name": "易方达上证科创板50成份ETF",
         "asset_type": "etf",
         "requested_start": "2020-01-01",
         "requested_end": "2026-08-26",
@@ -89,7 +90,7 @@ def test_data_validate_reads_the_tracked_market_dataset() -> None:
     }
 
 
-def test_baseline_commands_expose_and_verify_the_active_baseline() -> None:
+def test_baseline_commands_expose_and_verify_the_generic_active_baseline() -> None:
     listed = json_result("baseline", "list", "--repo-root", REPO_ROOT)
     shown = json_result(
         "baseline",
@@ -107,7 +108,7 @@ def test_baseline_commands_expose_and_verify_the_active_baseline() -> None:
         "--version",
         "baseline_20260826",
         "--symbol",
-        "588080.SH",
+        "159516.SZ",
         "--repo-root",
         REPO_ROOT,
     )
@@ -115,6 +116,8 @@ def test_baseline_commands_expose_and_verify_the_active_baseline() -> None:
     assert listed["result"]["latest"] == "baseline_20260826"
     assert shown["result"]["strategy"] == "czsc_four_layer"
     assert validated["status"] == "PASS"
+    assert validated["result"]["scope"] == "generic"
+    assert validated["result"]["symbol"] is None
     assert validated["result"]["sha256"] == (
         "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
     )
@@ -158,18 +161,18 @@ def test_backtest_run_publishes_audited_artifacts(tmp_path: Path) -> None:
     assert (output_dir / "report.md").is_file()
 
 
-def test_backtest_window_resolves_first_and_last_trading_day_in_year(
+def test_generic_backtest_window_resolves_each_symbols_trading_dates(
     tmp_path: Path,
 ) -> None:
     payload = json_result(
         "backtest",
         "run",
         "--symbol",
-        "588080.SH",
+        "159516.SZ",
         "--asset",
         "etf",
         "--windows",
-        REPO_ROOT / "configs" / "backtest_windows" / "588080_2026.json",
+        REPO_ROOT / "configs" / "backtest_windows" / "2026.json",
         "--window",
         "2026FULL",
         "--outputs-root",
@@ -179,12 +182,13 @@ def test_backtest_window_resolves_first_and_last_trading_day_in_year(
     )
 
     result = payload["result"]
+    assert result["baseline"] == "baseline_20260826"
     assert "acceptance_status" not in result
     assert set(result["windows"]) == {"2026FULL"}
     window = result["windows"]["2026FULL"]
     assert set(window) == COMPARISON_KEYS
     assert window["start"] == "2026-01-05"
-    assert window["end"] == "2026-08-26"
+    assert window["end"] == "2026-08-25"
 
 
 def test_archive_validate_checks_every_tracked_experiment() -> None:

@@ -1,6 +1,7 @@
 {
   "schema_version": 2,
   "symbol": "159516.SZ",
+  "name": "国泰中证半导体材料设备主题ETF",
   "code": "159516",
   "asset_type": "etf",
   "vendor": "tushare",

@@ -27,7 +27,7 @@
 configs/rule_baselines/baseline_20260826.json
 ```
 
-实际默认版本由`configs/rule_baselines/registry.json`的`latest`决定。`baseline_20260826`与`experiments/0824_EX04/artifacts/frozen_challenger.json`逐字节相同，是12因子四层策略，只允许用于`588080.SH`。独立前向验证起点为2026-08-26。
+实际默认版本由`configs/rule_baselines/registry.json`的`latest`决定。`baseline_20260826`与`experiments/0824_EX04/artifacts/frozen_challenger.json`逐字节相同，是12因子四层策略，允许用于所有已验证标的的普通回测。它的调参与研究证据仍只来自`588080.SH`；其他标的结果不自动构成外推有效性证据。588080独立前向验证起点为2026-08-26。
 
 ### 1.3 历史归档基线
 
@@ -41,7 +41,7 @@ configs/rule_baselines/baseline_20260823.json
 
 | 名称 | 用途 | 当前身份 |
 |---|---|---|
-| `baseline_20260826` | 588080默认普通回测、后续前向比较 | 活动正式基线，来源为0824_EX04 |
+| `baseline_20260826` | 默认普通回测、588080后续前向比较 | 通用活动基线，来源为0824_EX04；跨标的可用不等于已证明通用有效 |
 | `baseline_20260823` | 显式历史复现 | 归档基线，不再默认使用 |
 | `experiments/0824_EX04/.../frozen_challenger.json` | 新基线来源与历史实验研究对象 | 冻结源档案，禁止改写 |
 
@@ -144,7 +144,7 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 | `czsc-trader experiment replay` | 在源档案之外隔离复现冻结实验 |
 | `czsc-trader archive validate` | 验证一个或全部Git研究档案 |
 
-默认`stdout`只输出一份JSON，进度和诊断进入`stderr`；`--format text`用于人工阅读。所有命令从当前目录向上发现仓库，也可显式传入`--repo-root`。
+默认`stdout`只输出一份UTF-8 JSON，进度和诊断进入`stderr`；`--format text`用于人工阅读。所有命令从当前目录向上发现仓库，也可显式传入`--repo-root`。
 
 普通回测默认输出到 `outputs/<证券代码>_<MMDD>_BTXX`，也可通过`--outputs-root`指定其他根目录；实际目录只认命令返回的`artifacts.output_dir`。普通回测只比较冻结策略与Buy & Hold的收益率、夏普率和最大回撤率及三项差值，不包含目标阈值或PASS/FAIL判定。
 
@@ -161,6 +161,15 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 - 频率：30分钟、日线、周线；
 - 复权：后复权 `hfq`；
 - 当前验证：`data/raw/588080_validation.json` 为PASS。
+
+每个`data/raw/*_manifest.json`顶层都必须包含非空`name`，其值由Tushare证券基础信息接口返回；`data prepare`会在发布行情时自动写入，`data validate`会校验并返回该中文简称。当前已准备的4个标的是：
+
+| 标的 | manifest中文简称 |
+|---|---|
+| `159352.SZ` | 南方中证A500ETF |
+| `159516.SZ` | 国泰中证半导体材料设备主题ETF |
+| `515050.SH` | 华夏中证5G通信主题ETF |
+| `588080.SH` | 易方达上证科创板50成份ETF |
 
 新设备必须读取以下文件确认实时状态，不要仅相信本文日期：
 
@@ -217,13 +226,13 @@ git diff --check
 ```powershell
 .\.venv\Scripts\czsc-trader.exe backtest run `
   --symbol 588080.SH --asset etf `
-  --windows configs\backtest_windows\588080_2026.json `
+  --windows configs\backtest_windows\2026.json `
   --window 2026FULL
 ```
 
-未指定`--baseline`时，588080默认使用`baseline_20260826`。窗口文件只定义日期，不包含收益目标；`--window`只运行指定窗口。必须读取命令返回的`artifacts.output_dir`，不得假设新设备存在任何历史输出目录。
+未指定`--baseline`时，所有标的默认使用`baseline_20260826`。窗口文件只定义日期，不绑定标的、不包含收益目标；`--window`只运行指定窗口。必须读取命令返回的`artifacts.output_dir`，不得假设新设备存在任何历史输出目录。
 
-`configs/backtest_windows/588080_2026.json`中的`2026FULL`左右边界都不是固定日期；普通回测会从已通过manifest与三周期校验的`data/raw`日线中取2026年第一个和最后一个有记录的交易日。历史研究代码、实验档案和`docs/baselines/588080_2026_expected.json`仍保留各自冻结时的数据边界，不随行情更新改写。
+`configs/backtest_windows/2026.json`中的`2026FULL`左右边界都不是固定日期；普通回测会按当前标的，从已通过manifest与三周期校验的`data/raw`日线中取2026年第一个和最后一个有记录的交易日。历史研究代码、实验档案和`docs/baselines/588080_2026_expected.json`仍保留各自冻结时的数据边界，不随行情更新改写。
 
 ### 7.4 正式研究与隔离复现
 
@@ -269,7 +278,7 @@ EX08和0825_EX01拒绝“扩大同一搜索或重排同一Trial集合”；0825_
 3. 从2026-08-26之后开始积累前向表现、信号事件、成交和偏差证据；
 4. 没有足够新样本前，不启动新的参数搜索、局部病灶修补或2026补测；
 5. 若未来引入真正独立的新信息，必须另立预注册实验，且不能把已见历史反馈为同轮规则；
-6. 项目允许588080使用标的独立策略，其他标的不得默认套用该活动基线。
+6. `baseline_20260826`允许所有已验证标的默认用于普通回测，但其研究证据只来自588080；跨标的回测结果不得直接表述为通用有效性结论。
 
 这只是下一轮讨论起点，不是已批准协议。新会话不得直接启动优化或访问2026调参，必须先与用户确认目标和实验设计。
 
@@ -317,7 +326,7 @@ EX08和0825_EX01拒绝“扩大同一搜索或重排同一Trial集合”；0825_
 4. .\.venv\Scripts\czsc-trader.exe archive validate --all
 5. .\.venv\Scripts\python.exe -m pytest -q
 
-重要边界：当前身份只认configs/rule_baselines/registry.json；baseline_20260826是588080活动正式基线，与0824_EX04冻结策略同源；baseline_20260823只用于显式历史复现。研究事实只认Git跟踪的实验档案；引用某轮精确事实前必须完整阅读该轮档案。outputs只用于当前设备新运行的普通回测，隔离回放产物也不是研究证据。2026已经被观察，不能再作为独立留出；新独立前向证据从2026-08-26之后开始。
+重要边界：当前身份只认configs/rule_baselines/registry.json；baseline_20260826是通用活动正式基线，与0824_EX04冻结策略同源，但调参与研究证据只来自588080；baseline_20260823只用于显式历史复现。研究事实只认Git跟踪的实验档案；引用某轮精确事实前必须完整阅读该轮档案。outputs只用于当前设备新运行的普通回测，隔离回放产物也不是研究证据。2026已经被观察，不能再作为独立留出；588080新独立前向证据从2026-08-26之后开始。
 
 默认在master做轻量开发；重量级开发或正式研究先询问是否新建分支；禁止git worktree。保护已有修改。只在任务需要时运行回测或研究，并使用命令实际返回的目录。正式研究先预注册，PASS、FAIL、ERROR和诊断结果都必须如实归档。实盘账户没有明确成交回报时一律按未成交处理。
 ```

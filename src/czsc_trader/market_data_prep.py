@@ -31,6 +31,7 @@ VENDOR_COLUMNS = ("Date", "Open", "High", "Low", "Close", "Volume", "Amount")
 MarketFetcher: TypeAlias = Callable[
     [str, str, date, date, str], tuple[pd.DataFrame, dict[str, str]]
 ]
+InstrumentNameFetcher: TypeAlias = Callable[[str, str], str]
 
 
 def _normalize_symbol(symbol: str) -> tuple[str, str]:
@@ -227,6 +228,7 @@ def prepare_market_data(
     data_dir: Path,
     *,
     fetcher: MarketFetcher | None = None,
+    name_fetcher: InstrumentNameFetcher | None = None,
     env_file: str | Path | None = None,
 ) -> dict[str, object]:
     """Fetch and publish one fully validated flat market-data generation."""
@@ -236,6 +238,17 @@ def prepare_market_data(
         raise ValueError("asset_type must be stock or etf")
     if start > end:
         raise ValueError("start must not be after end")
+    if name_fetcher is None:
+        from dataflows.tushare_common import fetch_instrument_name
+
+        effective_name_fetcher = partial(fetch_instrument_name, env_file=env_file)
+    else:
+        effective_name_fetcher = name_fetcher
+    instrument_name = str(
+        effective_name_fetcher(normalized_symbol, normalized_asset)
+    ).strip()
+    if not instrument_name:
+        raise ValueError("instrument name must not be empty")
     effective_fetcher = fetcher or partial(_default_fetcher, env_file=env_file)
     frames: dict[str, pd.DataFrame] = {}
     metadata: dict[str, dict[str, str]] = {}
@@ -310,6 +323,7 @@ def prepare_market_data(
         manifest = {
             "schema_version": 2 if adjustment is not None else 1,
             "symbol": normalized_symbol,
+            "name": instrument_name,
             "code": code,
             "asset_type": normalized_asset,
             "vendor": "tushare",

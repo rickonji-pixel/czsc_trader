@@ -1,6 +1,7 @@
 {
   "schema_version": 2,
   "symbol": "588080.SH",
+  "name": "易方达上证科创板50成份ETF",
   "code": "588080",
   "asset_type": "etf",
   "vendor": "tushare",

@@ -232,6 +232,8 @@ def _format_hint(arguments: Sequence[str]) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = build_parser()
     arguments = list(sys.argv[1:] if argv is None else argv)
     try:

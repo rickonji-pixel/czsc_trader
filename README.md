@@ -31,7 +31,7 @@ czsc-trader experiment replay
 czsc-trader archive validate
 ~~~
 
-默认 stdout 是单一JSON文档，进度和诊断进入stderr；可用 --format text 查看人工可读结果。所有命令都支持 --repo-root，未指定时从当前目录向上发现仓库。
+默认 stdout 是UTF-8编码的单一JSON文档，进度和诊断进入stderr；可用 --format text 查看人工可读结果。所有命令都支持 --repo-root，未指定时从当前目录向上发现仓库。
 
 ## 数据准备与验证
 
@@ -40,7 +40,7 @@ czsc-trader archive validate
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
 ~~~
 
-A股股票与ETF统一使用Tushare后复权行情。只有复权因子、30分钟交易时段、每日8根K线及三频对账全部通过后才发布到 data/raw；普通回测不会隐式联网刷新数据。
+A股股票与ETF统一使用Tushare后复权行情。只有证券基础信息、复权因子、30分钟交易时段、每日8根K线及三频对账全部通过后才发布到 data/raw；普通回测不会隐式联网刷新数据。每个`*_manifest.json`顶层保存Tushare返回的`name`中文简称，`data validate`会校验并返回该字段。
 
 ## 冻结基线回测
 
@@ -54,12 +54,12 @@ A股股票与ETF统一使用Tushare后复权行情。只有复权因子、30分�
 执行588080当前活动基线：
 
 ~~~powershell
-.\.venv\Scripts\czsc-trader.exe backtest run --symbol 588080.SH --asset etf --windows configs\backtest_windows\588080_2026.json --window 2026FULL
+.\.venv\Scripts\czsc-trader.exe backtest run --symbol 588080.SH --asset etf --windows configs\backtest_windows\2026.json --window 2026FULL
 ~~~
 
 窗口配置中的`2026FULL`左右边界分别从已验证日线动态解析为2026年第一个和最后一个有记录的交易日，不需要在行情更新后手工修改日期。普通回测只比较冻结策略与Buy & Hold的收益率、夏普率和最大回撤率及三项差值，不执行目标判定。
 
-未显式指定基线时，588080默认使用 baseline_20260826，即冻结的0824EX04四层策略。baseline_20260823只允许显式历史复现。普通回测只应用冻结规则，不搜索或修改参数；输出进入 outputs/<证券代码>_<MMDD>_BTXX，实际目录以命令返回的 artifacts.output_dir 为准。
+未显式指定基线时，所有标的默认使用 baseline_20260826，即冻结的0824EX04四层策略。该规则允许跨标的普通回测，但其调参与研究证据仍只来自588080，其他标的结果不自动构成外推有效性证据。baseline_20260823只允许显式历史复现。普通回测只应用冻结规则，不搜索或修改参数；输出进入 outputs/<证券代码>_<MMDD>_BTXX，实际目录以命令返回的 artifacts.output_dir 为准。
 
 ## 研究与档案
 

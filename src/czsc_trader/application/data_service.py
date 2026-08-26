@@ -69,6 +69,7 @@ def validate_data(context: RepositoryContext, symbol: str) -> CommandResult:
         command="data.validate",
         result={
             "symbol": data.symbol,
+            "name": manifest["name"],
             "asset_type": data.asset_type,
             "requested_start": manifest.get("requested_start"),
             "requested_end": manifest.get("requested_end"),

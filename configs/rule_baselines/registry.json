@@ -23,8 +23,7 @@
       "frozen_at_utc": "2026-08-26T00:00:00+00:00",
       "strategy": "czsc_four_layer",
       "status": "active",
-      "scope": "symbol",
-      "symbol": "588080.SH",
+      "scope": "generic",
       "required_frequencies": [
         "30m",
         "daily",

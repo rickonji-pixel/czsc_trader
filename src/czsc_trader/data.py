@@ -193,6 +193,9 @@ def load_market_data(
         raise ValueError(
             f"{code}: manifest symbol {manifest.get('symbol')} does not match {normalized_symbol}"
         )
+    manifest_name = manifest.get("name")
+    if not isinstance(manifest_name, str) or not manifest_name.strip():
+        raise ValueError(f"{code}: manifest name must be a non-empty string")
     manifest_asset = str(manifest.get("asset_type", ""))
     if asset_type is not None and manifest_asset != str(asset_type).lower():
         raise ValueError(

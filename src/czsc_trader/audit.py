@@ -57,7 +57,10 @@ def audit_no_lookahead(
         if pd.Timestamp(event["signal_date"]) != signal_date:
             raise AssertionError("order signal_date differs from factor event")
         event_type = str(order["event_type"])
-        expected_types = {"Buy": {"Entry", "InitialEntry"}, "Sell": {"Exit"}}
+        expected_types = {
+            "Buy": {"Entry", "Increase", "InitialEntry"},
+            "Sell": {"Reduce", "Exit"},
+        }
         if event_type not in expected_types.get(str(order["side"]), set()) or event_type != str(event["event_type"]):
             raise AssertionError("order direction does not match factor event direction")
         if signal_date not in target.index or signal_date not in frame.index:
@@ -68,6 +71,10 @@ def audit_no_lookahead(
             raise AssertionError("entry factor event does not match a target transition")
         if event_type == "Exit" and not (before > 0.0 and after == 0.0):
             raise AssertionError("exit factor event does not match a target transition")
+        if event_type == "Reduce" and not (before > after > 0.0):
+            raise AssertionError("reduce factor event does not match a target transition")
+        if event_type == "Increase" and not (0.0 < before < after):
+            raise AssertionError("increase factor event does not match a target transition")
         if event_type == "InitialEntry" and after <= 0.0:
             raise AssertionError("initial entry does not match an active factor target")
         expected_before = 0.0 if event_type == "InitialEntry" else before

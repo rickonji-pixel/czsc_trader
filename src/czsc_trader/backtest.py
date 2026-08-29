@@ -209,10 +209,12 @@ def _attach_factor_provenance(
                 "reason": "period starts in cash and aligns to prior active CZSC factor target",
             }
         else:
-            expected_type = "Entry" if side == "Buy" else "Exit"
+            expected_types = (
+                {"Entry", "Increase"} if side == "Buy" else {"Reduce", "Exit"}
+            )
             matches = source.loc[
                 (source["signal_date"] == signal_date)
-                & (source["event_type"] == expected_type)
+                & (source["event_type"].isin(expected_types))
             ] if not source.empty else source
             if len(matches) != 1:
                 raise AssertionError(
@@ -220,7 +222,7 @@ def _attach_factor_provenance(
                 )
             event = matches.iloc[0].to_dict()
             event_id = str(event["event_id"])
-            event_type = expected_type
+            event_type = str(event["event_type"])
         event_ids.append(event_id)
         event_types.append(event_type)
         used_events.append(event)

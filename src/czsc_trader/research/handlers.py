@@ -200,6 +200,21 @@ def _position_sizing(
     )
 
 
+def _dynamic_position_sizing(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.dynamic_position_sizing_runner import (
+        run_dynamic_position_sizing_experiment,
+    )
+
+    return run_dynamic_position_sizing_experiment(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -222,6 +237,9 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("optuna_inmemory_full_joint_strategy_search", _optuna),
         FunctionHandler("ex08_top3_holdout_tournament", _top3),
         FunctionHandler("entry_fixed_position_sizing", _position_sizing),
+        FunctionHandler(
+            "dynamic_score_zone_position_sizing", _dynamic_position_sizing
+        ),
     ]
     handlers.extend(
         FunctionHandler(

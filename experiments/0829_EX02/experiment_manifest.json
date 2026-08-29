@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0829_EX02",
+  "date": "2026-08-29",
+  "status": "FAIL",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+    "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": true,
+  "frozen_challenger_sha256": "2705035c42fa090837f1ad9ceaa7d116a13b4113cbd0ab06b12322447868c421",
+  "files": {
+    "01_goal.md": {
+      "bytes": 1545,
+      "sha256": "e16e62b1d756bac7be9c5e901a813a3d74da0e37cda061715bf19af58ad88e52"
+    },
+    "02_design.md": {
+      "bytes": 2694,
+      "sha256": "68e208ca19d45a3430b10bdb91c273b2ecbc4183e8c402aa825fefb55ef8ecfa"
+    },
+    "03_execution.md": {
+      "bytes": 495,
+      "sha256": "d3a04b2fd72e21cbb2a9a85648e581151775b9bec6e599622f5718e91c1e213d"
+    },
+    "04_conclusion.md": {
+      "bytes": 1019,
+      "sha256": "39a33f81aba9a790129160fa083853a3fd637b47bc815d06b386c4c60db2d9cf"
+    },
+    "artifacts/factor_events.csv": {
+      "bytes": 28974,
+      "sha256": "f673d4b014e233192d572c585f4a0d5c4d86f4afb7e312adac284bdba1497d4d"
+    },
+    "artifacts/frozen_challenger.json": {
+      "bytes": 2632,
+      "sha256": "a8d1c831bc5480de2dcf200481755174d59671aea7a770404c44531fb77cf941"
+    },
+    "artifacts/holdout_metrics.json": {
+      "bytes": 4462,
+      "sha256": "54724236e310762bceaffb18588f32f05462a1994fbf1545cae4d9b368c9f5bb"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 1589,
+      "sha256": "7ccab729f83fbd66a121ef2ddc7fd1c8821b7a3b6639c47b1e52dfbfff8367bb"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 4170,
+      "sha256": "13dc24d05f25e01661051d04942770e8d85b9f80c47b5457769994c8b2f5501f"
+    },
+    "artifacts/position_path.csv": {
+      "bytes": 65389,
+      "sha256": "4ba69cdfec61f8cddc33ad7a95d7480fe3bddc76d72ec389583f69be2de79a0b"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1770,
+      "sha256": "24f68542f9b2917e4dd0266b8aae59ef42809519a0b3dc2f23b4f99b9e05c48b"
+    },
+    "artifacts/selection_metrics.json": {
+      "bytes": 2282,
+      "sha256": "ae5257cd3b99dc29d4612020b9455d0933b73dcde6e0e65fbd5633cd1f46e767"
+    },
+    "artifacts/visible_metrics.csv": {
+      "bytes": 1762,
+      "sha256": "b8e2492b5d793156121f5eb3aee5da3bc47530d34212ab0cde70bd88145afc3c"
+    },
+    "implementation_plan.md": {
+      "bytes": 671,
+      "sha256": "c029164dce09b327d934d32be867a726acc1f1ae83aaba619783dfdbdb1c8d91"
+    }
+  }
+}

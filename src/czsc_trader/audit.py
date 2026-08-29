@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 
@@ -12,8 +13,13 @@ def audit_no_lookahead(
     factor_frame: pd.DataFrame,
 ) -> dict[str, int | str]:
     """Reject trades that lack exact CZSC factor provenance or causal timing."""
-    if not target_position.isin([0.0, 1.0]).all():
-        raise AssertionError("target_position contains values outside long/cash {0, 1}")
+    target_values = target_position.astype(float)
+    if (
+        target_values.isna().any()
+        or not np.isfinite(target_values).all()
+        or not target_values.between(0.0, 1.0).all()
+    ):
+        raise AssertionError("target_position contains values outside [0, 1]")
     if not target_position.index.is_monotonic_increasing or target_position.index.has_duplicates:
         raise AssertionError("target_position index must be unique and increasing")
 
@@ -56,12 +62,22 @@ def audit_no_lookahead(
             raise AssertionError("order direction does not match factor event direction")
         if signal_date not in target.index or signal_date not in frame.index:
             raise AssertionError("factor event date is missing from target or factor frame")
-        if event_type == "Entry" and not (previous.loc[signal_date] == 0.0 and target.loc[signal_date] == 1.0):
+        before = float(previous.loc[signal_date])
+        after = float(target.loc[signal_date])
+        if event_type == "Entry" and not (before == 0.0 and after > 0.0):
             raise AssertionError("entry factor event does not match a target transition")
-        if event_type == "Exit" and not (previous.loc[signal_date] == 1.0 and target.loc[signal_date] == 0.0):
+        if event_type == "Exit" and not (before > 0.0 and after == 0.0):
             raise AssertionError("exit factor event does not match a target transition")
-        if event_type == "InitialEntry" and target.loc[signal_date] != 1.0:
+        if event_type == "InitialEntry" and after <= 0.0:
             raise AssertionError("initial entry does not match an active factor target")
+        expected_before = 0.0 if event_type == "InitialEntry" else before
+        if (
+            "before_position" not in event
+            or "after_position" not in event
+            or abs(float(event["before_position"]) - expected_before) > 1e-12
+            or abs(float(event["after_position"]) - after) > 1e-12
+        ):
+            raise AssertionError("factor event positions differ from target transition")
         if "factor_score" in event and "factor_score" in frame:
             if abs(float(event["factor_score"]) - float(frame.loc[signal_date, "factor_score"])) > 1e-12:
                 raise AssertionError("factor event score differs from factor frame")

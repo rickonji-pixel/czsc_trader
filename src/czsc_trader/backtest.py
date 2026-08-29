@@ -56,12 +56,20 @@ def _independent_equity(
         desired = float(execution_target.loc[date])
         open_price = float(row["open"])
         if desired != previous_target:
-            if desired == 1.0:
-                shares = cash / (open_price * (1.0 + fee_rate))
-                cash = 0.0
+            portfolio_value = cash + shares * open_price
+            current_asset_value = shares * open_price
+            desired_asset_value = desired * portfolio_value
+            asset_value_delta = desired_asset_value - current_asset_value
+            if asset_value_delta > 0.0:
+                requested_shares = asset_value_delta / open_price
+                affordable_shares = cash / (open_price * (1.0 + fee_rate))
+                bought = min(requested_shares, affordable_shares)
+                cash -= bought * open_price * (1.0 + fee_rate)
+                shares += bought
             else:
-                cash = shares * open_price * (1.0 - fee_rate)
-                shares = 0.0
+                sold = min(-asset_value_delta / open_price, shares)
+                cash += sold * open_price * (1.0 - fee_rate)
+                shares -= sold
             previous_target = desired
         values.append(cash + shares * float(row["close"]))
     return pd.Series(values, index=prices.index, name="independent_equity")
@@ -103,16 +111,23 @@ def run_backtest(
     """Execute decision-date positions at the following session's open."""
     prices = _normalize_prices(daily)
     target = target_position.reindex(prices.index)
-    if target.isna().any() or not target.isin([0.0, 1.0]).all():
-        raise ValueError("target positions must be long/cash values 0 or 1")
-    if initial_target not in (0.0, 1.0):
-        raise ValueError("initial_target must be long/cash value 0 or 1")
+    if (
+        target.isna().any()
+        or not np.isfinite(target.astype(float)).all()
+        or not target.astype(float).between(0.0, 1.0).all()
+    ):
+        raise ValueError("target positions must be finite values between 0 and 1")
+    if not np.isfinite(float(initial_target)) or not 0.0 <= float(initial_target) <= 1.0:
+        raise ValueError("initial_target must be a finite value between 0 and 1")
     execution_target = target.shift(1).fillna(0.0).rename("execution_target")
     execution_target.iloc[0] = initial_target
+    order_target = execution_target.where(
+        execution_target.ne(execution_target.shift(1))
+    )
 
     portfolio = vbt.Portfolio.from_orders(
         close=prices["close"],
-        size=execution_target,
+        size=order_target,
         size_type="targetpercent",
         price=prices["open"],
         fees=fee_rate,
@@ -149,6 +164,7 @@ def _factor_snapshot(factor_frame: pd.DataFrame, signal_date: pd.Timestamp) -> d
         "volume_position",
         "factor_score",
         "enter_threshold",
+        "full_threshold",
         "exit_threshold",
     )
     return {column: frame.loc[signal_date, column] for column in columns if column in frame.columns}
@@ -161,6 +177,7 @@ def _attach_factor_provenance(
     factor_frame: pd.DataFrame,
     period_start: pd.Timestamp,
     initial_signal_date: pd.Timestamp,
+    initial_target: float,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     enriched = orders.copy()
     if enriched.empty:
@@ -188,7 +205,7 @@ def _attach_factor_provenance(
                 "event_type": event_type,
                 **_factor_snapshot(factor_frame, signal_date),
                 "before_position": 0.0,
-                "after_position": 1.0,
+                "after_position": float(initial_target),
                 "reason": "period starts in cash and aligns to prior active CZSC factor target",
             }
         else:
@@ -262,6 +279,7 @@ def run_period_backtests(
                 factor_frame,
                 start,
                 signal_date,
+                float(target.loc[signal_date]),
             )
         buyhold_terminal = (
             init_cash

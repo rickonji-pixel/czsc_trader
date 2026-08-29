@@ -187,6 +187,19 @@ def _top3(context: ResearchContext, experiment_dir: Path) -> dict[str, object]:
     )
 
 
+def _position_sizing(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.position_sizing_runner import run_position_sizing_experiment
+
+    return run_position_sizing_experiment(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -208,6 +221,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("optuna_joint_strategy_search", _optuna),
         FunctionHandler("optuna_inmemory_full_joint_strategy_search", _optuna),
         FunctionHandler("ex08_top3_holdout_tournament", _top3),
+        FunctionHandler("entry_fixed_position_sizing", _position_sizing),
     ]
     handlers.extend(
         FunctionHandler(

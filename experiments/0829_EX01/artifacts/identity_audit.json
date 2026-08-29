@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "champion_version": "baseline_20260826",
+  "champion_sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+  "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+  "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f",
+  "factor_count": 12,
+  "factor_names": [
+    "raw__30m__cxt_bi_status_V230101",
+    "raw__30m__cxt_third_buy_V230228__di_1",
+    "raw__daily__cxt_bi_status_V230101",
+    "raw__daily__cxt_five_bi_V230619__di_1",
+    "raw__daily__cxt_seven_bi_V230620__di_1",
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5",
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10",
+    "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20",
+    "raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26",
+    "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+    "raw__daily__pressure_support_V240406__di_1__w_20",
+    "raw__weekly__cxt_bi_status_V230101"
+  ],
+  "weight_l1_norm": 1.0,
+  "champion_position_values": [
+    0.0,
+    1.0
+  ],
+  "entry_threshold": 0.175,
+  "exit_threshold": 0.025,
+  "confirm_days": 1,
+  "min_hold_days": 3,
+  "exit_confirm_days": 1,
+  "entry_gate": "none",
+  "protocol_champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+    "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  }
+}

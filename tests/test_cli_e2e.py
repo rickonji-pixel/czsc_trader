@@ -83,7 +83,7 @@ def test_data_validate_reads_the_tracked_market_dataset() -> None:
         "name": "易方达上证科创板50成份ETF",
         "asset_type": "etf",
         "requested_start": "2020-01-01",
-        "requested_end": "2026-08-26",
+        "requested_end": "2026-08-28",
         "validation_status": "PASS",
         "frequencies": ["30m", "daily", "weekly"],
         "file_count": 21,
@@ -188,7 +188,7 @@ def test_generic_backtest_window_resolves_each_symbols_trading_dates(
     window = result["windows"]["2026FULL"]
     assert set(window) == COMPARISON_KEYS
     assert window["start"] == "2026-01-05"
-    assert window["end"] == "2026-08-25"
+    assert window["end"] == "2026-08-28"
 
 
 def test_archive_validate_checks_every_tracked_experiment() -> None:

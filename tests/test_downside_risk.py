@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from czsc_trader.audit import audit_no_lookahead
+from czsc_trader.backtest import run_period_backtests
+
 
 def test_downside_volatility_uses_only_negative_log_returns() -> None:
     from czsc_trader.downside_risk import downside_volatility
@@ -59,3 +62,61 @@ def test_downside_risk_spec_has_stable_candidate_identity() -> None:
     spec = DownsideRiskSpec(20, 0.8, 0.5)
 
     assert spec.candidate_id == "dv_L20_Q80_P0.50"
+
+
+def test_downside_risk_events_drive_exact_next_open_resize_orders() -> None:
+    from czsc_trader.downside_risk import (
+        DownsideRiskSpec,
+        build_downside_risk_events,
+    )
+
+    index = pd.date_range("2026-01-05", periods=7, freq="B", name="dt")
+    daily = pd.DataFrame({"open": 100.0, "close": 100.0}, index=index)
+    baseline = pd.Series([0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0], index=index)
+    target = pd.Series([0.0, 0.5, 1.0, 0.5, 0.0, 0.0, 0.0], index=index)
+    scores = pd.Series([0.0, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0], index=index)
+    risk = pd.Series([0.1, 0.4, 0.2, 0.5, 0.2, 0.2, 0.2], index=index)
+    threshold = pd.Series([0.3] * len(index), index=index)
+    stress = risk.gt(threshold)
+    spec = DownsideRiskSpec(20, 0.8, 0.5)
+
+    events = build_downside_risk_events(
+        target,
+        baseline,
+        scores,
+        risk,
+        threshold,
+        stress,
+        spec,
+    )
+    factor_frame = pd.DataFrame({"factor_score": scores}, index=index)
+    result = run_period_backtests(
+        daily,
+        target,
+        {"P": (index[1], index[-1])},
+        factor_events=events,
+        factor_frame=factor_frame,
+    )["P"]
+
+    assert events["event_type"].tolist() == [
+        "Entry",
+        "Increase",
+        "Reduce",
+        "Exit",
+    ]
+    assert events["before_position"].tolist() == [0.0, 0.5, 1.0, 0.5]
+    assert events["after_position"].tolist() == [0.5, 1.0, 0.5, 0.0]
+    assert events["candidate_id"].unique().tolist() == [spec.candidate_id]
+    assert result.orders["side"].tolist() == ["Buy", "Buy", "Sell", "Sell"]
+    assert result.orders["event_type"].tolist() == [
+        "Entry",
+        "Increase",
+        "Reduce",
+        "Exit",
+    ]
+    assert audit_no_lookahead(
+        result.orders,
+        result.factor_events,
+        target,
+        factor_frame,
+    )["status"] == "PASS"

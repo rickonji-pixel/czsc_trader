@@ -1,0 +1,4 @@
+﻿left_family,right_family,overlap_count
+trend_damage,negative_persistence,7
+trend_damage,intraday_pressure,6
+negative_persistence,intraday_pressure,3

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0830_EX03",
+  "date": "2026-08-30",
+  "status": "COMPLETE",
+  "program_id": "0830_position_risk_five_rounds",
+  "program_round": 1,
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+    "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2023-12-31",
+  "validation_accessed": false,
+  "historical_check_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 485,
+      "sha256": "cdaab85ff33dfd568d56ecd8c050a3039576ca1986a63d66fee95cbb5696629b"
+    },
+    "02_design.md": {
+      "bytes": 754,
+      "sha256": "bd857f3fa00ee84c7d2c24d2a75f1fed79a38ab4b24043d916b4f2548bd5fb09"
+    },
+    "03_execution.md": {
+      "bytes": 188,
+      "sha256": "814b984040bae39f15cfdf9934f06b895a1d154f52a104a48f21f7ae08f11861"
+    },
+    "04_conclusion.md": {
+      "bytes": 174,
+      "sha256": "485013c0f78f538c0101d4b58c64063e38ecb9a957dc414f764aeb7dac81d474"
+    },
+    "artifacts/diagnostic_metrics.json": {
+      "bytes": 1408,
+      "sha256": "9e283536265df7e1f1f28638028073ef2db72461432f63da1f62f8ee2907b485"
+    },
+    "artifacts/hazard_events.csv": {
+      "bytes": 12562,
+      "sha256": "e6fe62ebab001d18dbc96d2c5fc90fb5795b611e3594df9682378c2f468bc6f3"
+    },
+    "artifacts/hazard_summary.csv": {
+      "bytes": 888,
+      "sha256": "4789f999ad3aef21df2d6b74eb0d4c2fd8c0d44bfd9ebebb81333e901f53f14b"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 1589,
+      "sha256": "7ccab729f83fbd66a121ef2ddc7fd1c8821b7a3b6639c47b1e52dfbfff8367bb"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1486,
+      "sha256": "97df8f6ea5c4f9078eba9b73bba6fd32f404cc74c94ac9bb5bfdc8aabda50e7c"
+    },
+    "artifacts/state_overlap.csv": {
+      "bytes": 152,
+      "sha256": "c55135a3931551914c765c34ad4aad4ad0d3d6362545e8f00a5f1d62f90b86b7"
+    },
+    "implementation_plan.md": {
+      "bytes": 301,
+      "sha256": "cdc8d0ccb97cc0d90d3690c417ba2dd58e846f9d095f254d6a9ee5eac8ad41c2"
+    }
+  }
+}

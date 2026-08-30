@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0830_EX07",
+  "date": "2026-08-30",
+  "status": "ERROR",
+  "program_id": "0830_position_risk_five_rounds",
+  "program_round": 5,
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+    "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2025-12-31",
+  "validation_accessed": true,
+  "historical_check_accessed": false,
+  "failure_stage": "runtime_error",
+  "files": {
+    "01_goal.md": {
+      "bytes": 554,
+      "sha256": "f9b5bf5aeae20137f9b0b42336e4284871c8f6f2c2f4dcd100e57744f43323f8"
+    },
+    "02_design.md": {
+      "bytes": 584,
+      "sha256": "57be85feb54c30633dda1f1131ed3dc2dc9de2a0b40acd2a70b9a7b7e00a8bd7"
+    },
+    "03_execution.md": {
+      "bytes": 298,
+      "sha256": "cbb6f24c0f90612ad165904f6985bc91cc6ac23129b4e08d076bd53f7ea01f56"
+    },
+    "04_conclusion.md": {
+      "bytes": 92,
+      "sha256": "100b4de55ba5ce75b89b0f01c185d0b2107483fb452015823a71039ad09c1e35"
+    },
+    "artifacts/error.json": {
+      "bytes": 226,
+      "sha256": "a08995bc622bdc71804ba2261f6b4ed0bdefcd5c01912966b4cc0da406c423fa"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 1589,
+      "sha256": "7ccab729f83fbd66a121ef2ddc7fd1c8821b7a3b6639c47b1e52dfbfff8367bb"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1978,
+      "sha256": "ae5c471294873d5614caf84c776845812bb6d3dff0d994032c1a32b5481894a7"
+    },
+    "implementation_plan.md": {
+      "bytes": 356,
+      "sha256": "a252e7788f618d413ba541d154150434a57885179abc2109140c560f0dd27aeb"
+    }
+  }
+}

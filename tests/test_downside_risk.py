@@ -310,9 +310,11 @@ def test_downside_risk_protocol_resolves_to_dedicated_handler() -> None:
     assert handler.handler_id == "downside_risk_position_optimization"
 
 
-def _copy_preregistration(tmp_path: Path) -> tuple[Path, dict[str, object]]:
-    source = REPO_ROOT / "experiments" / "0830_EX01"
-    experiment_dir = tmp_path / "0830_EX01"
+def _copy_preregistration(
+    tmp_path: Path, experiment_id: str = "0830_EX01"
+) -> tuple[Path, dict[str, object]]:
+    source = REPO_ROOT / "experiments" / experiment_id
+    experiment_dir = tmp_path / experiment_id
     (experiment_dir / "artifacts").mkdir(parents=True)
     for name in ("01_goal.md", "02_design.md", "implementation_plan.md"):
         shutil.copy2(source / name, experiment_dir / name)
@@ -351,6 +353,30 @@ def test_no_eligible_candidate_archives_fail_without_2026_access(
     assert manifest["status"] == "FAIL"
     assert manifest["holdout_accessed"] is False
     assert not (experiment_dir / "artifacts" / "frozen_challenger.json").exists()
+
+
+def test_no_eligible_conclusion_uses_retry_experiment_identity(
+    tmp_path: Path,
+) -> None:
+    from czsc_trader.downside_risk_runner import _finalize_no_eligible
+
+    experiment_dir, protocol = _copy_preregistration(tmp_path, "0830_EX02")
+    selection = {
+        "candidate_count": 27,
+        "eligible_count": 0,
+        "holdout_accessed": False,
+    }
+
+    _finalize_no_eligible(
+        experiment_dir,
+        protocol,
+        selection,
+        execution_commit="deadbeef",
+    )
+
+    conclusion = (experiment_dir / "04_conclusion.md").read_text(encoding="utf-8")
+    assert "0830_EX02结果" in conclusion
+    assert "0830_EX01结果" not in conclusion
 
 
 def test_downside_risk_error_archive_preserves_holdout_access_flag(

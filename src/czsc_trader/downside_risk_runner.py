@@ -582,7 +582,7 @@ def _finalize_no_eligible(
     )
     (experiment_dir / "04_conclusion.md").write_text(
         "# 研究结论\n\n"
-        "0830_EX01结果为 **FAIL**。27项候选中没有方案同时满足选择期收益不下降和最大回撤严格改善，因此没有冻结挑战者，也没有访问2026。活动基线未改变。\n",
+        f"{experiment_dir.name}结果为 **FAIL**。27项候选中没有方案同时满足选择期收益不下降和最大回撤严格改善，因此没有冻结挑战者，也没有访问2026。活动基线未改变。\n",
         encoding="utf-8",
     )
     build_experiment_manifest(

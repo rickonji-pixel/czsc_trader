@@ -184,6 +184,28 @@ def test_downside_risk_protocol_builds_exact_preregistered_grid() -> None:
         validate_downside_risk_protocol(changed)
 
 
+def test_downside_risk_retry_protocol_preserves_original_rules() -> None:
+    from czsc_trader.downside_risk_runner import (
+        build_downside_risk_specs,
+        validate_downside_risk_protocol,
+    )
+
+    protocol = json.loads(
+        (
+            REPO_ROOT
+            / "experiments"
+            / "0830_EX02"
+            / "artifacts"
+            / "protocol.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    validate_downside_risk_protocol(protocol)
+
+    assert protocol["retry_of"] == "0830_EX01"
+    assert len(build_downside_risk_specs(protocol)) == 27
+
+
 def test_candidate_ranking_excludes_ineligible_rows_before_drawdown_sort() -> None:
     from czsc_trader.downside_risk_runner import rank_eligible_candidates
 

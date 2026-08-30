@@ -71,7 +71,6 @@ def validate_downside_risk_protocol(protocol: Mapping[str, object]) -> None:
     """Reject any drift from the committed 0830_EX01 protocol."""
     expected_scalars = {
         "schema_version": 1,
-        "experiment_id": "0830_EX01",
         "handler": "downside_risk_position_optimization",
         "experiment_type": "downside_risk_position_optimization",
         "status": "PRE_REGISTERED",
@@ -103,6 +102,15 @@ def validate_downside_risk_protocol(protocol: Mapping[str, object]) -> None:
     for key, expected in expected_scalars.items():
         if protocol.get(key) != expected:
             raise ValueError(f"downside-risk protocol differs for {key}")
+    experiment_id = protocol.get("experiment_id")
+    if experiment_id == "0830_EX01":
+        if protocol.get("retry_of") is not None:
+            raise ValueError("original downside-risk protocol cannot declare retry_of")
+    elif experiment_id == "0830_EX02":
+        if protocol.get("retry_of") != "0830_EX01":
+            raise ValueError("downside-risk retry identity differs")
+    else:
+        raise ValueError("downside-risk experiment identity differs")
     if protocol.get("champion") != EXPECTED_CHAMPION:
         raise ValueError("downside-risk champion identity differs")
     expected_sequences = {
@@ -651,7 +659,7 @@ def run_downside_risk_experiment(
     fee_rate: float = 0.0005,
     init_cash: float = 1_000_000.0,
 ) -> dict[str, object]:
-    """Execute the committed 0830_EX01 selection, freeze, and final backtest."""
+    """Execute a committed downside-risk selection, freeze, and final backtest."""
     experiment_dir = Path(experiment_dir).resolve()
     artifacts = experiment_dir / "artifacts"
     protocol = json.loads((artifacts / "protocol.json").read_text(encoding="utf-8"))

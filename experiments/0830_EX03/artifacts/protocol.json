@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0830_EX03",
+  "handler": "position_risk_five_rounds",
+  "experiment_type": "position_risk_five_rounds",
+  "program_id": "0830_position_risk_five_rounds",
+  "program_round": 1,
+  "round_type": "holding_hazard_attribution",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+    "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "warmup_start": "2020-01-01",
+  "discovery_start": "2021-01-01",
+  "discovery_end": "2023-12-31",
+  "validation_start": "2024-01-01",
+  "validation_end": "2025-12-31",
+  "historical_check_end": "2026-08-28",
+  "representative_states": {
+    "trend_damage": {"lookback": 60, "drawdown": 0.10, "sma": 20},
+    "negative_persistence": {"window": 10, "negative_count": 7, "sma": 20},
+    "intraday_pressure": {"close_location": 0.25, "down_volume_share": 0.70, "sma": 20}
+  },
+  "forward_horizons": [5, 10],
+  "diagnostic_only": true,
+  "later_grid_mutation_allowed": false,
+  "fee_rate": 0.0005,
+  "init_cash": 1000000.0,
+  "validation_accessed": false,
+  "historical_check_accessed": false,
+  "observed_data_disclosure": "all dates are previously observed project history; segment isolation only prevents feedback within this program"
+}

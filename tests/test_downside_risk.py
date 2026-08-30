@@ -71,6 +71,32 @@ def test_downside_risk_spec_has_stable_candidate_identity() -> None:
     assert spec.candidate_id == "dv_L20_Q80_P0.50"
 
 
+def test_candidate_path_accepts_market_data_with_dt_column() -> None:
+    from czsc_trader.downside_risk import DownsideRiskSpec
+    from czsc_trader.downside_risk_runner import _candidate_path
+
+    index = pd.date_range("2024-01-02", periods=270, freq="B", name="dt")
+    daily = pd.DataFrame(
+        {
+            "dt": index,
+            "close": np.linspace(100.0, 90.0, len(index)),
+        }
+    )
+    baseline = pd.Series(1.0, index=index, name="target_position")
+
+    target, risk, threshold, stress = _candidate_path(
+        daily,
+        baseline,
+        DownsideRiskSpec(10, 0.8, 0.5),
+        history=252,
+    )
+
+    assert target.index.equals(index)
+    assert risk.index.equals(index)
+    assert threshold.index.equals(index)
+    assert stress.index.equals(index)
+
+
 def test_downside_risk_events_drive_exact_next_open_resize_orders() -> None:
     from czsc_trader.downside_risk import (
         DownsideRiskSpec,

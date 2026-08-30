@@ -179,7 +179,14 @@ def _candidate_path(
     spec: DownsideRiskSpec,
     history: int,
 ) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
-    risk = downside_volatility(daily["close"].reindex(baseline_target.index), spec.lookback)
+    prices = daily.copy()
+    if "dt" in prices.columns:
+        prices = prices.set_index("dt")
+    prices.index = pd.DatetimeIndex(pd.to_datetime(prices.index), name="dt")
+    prices = prices.sort_index()
+    risk = downside_volatility(
+        prices["close"].reindex(baseline_target.index), spec.lookback
+    )
     threshold = downside_stress_threshold(
         risk, spec.stress_quantile, history=history
     )

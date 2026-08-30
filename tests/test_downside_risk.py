@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from czsc_trader.audit import audit_no_lookahead
 from czsc_trader.backtest import run_period_backtests
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_downside_volatility_uses_only_negative_log_returns() -> None:
@@ -120,3 +126,118 @@ def test_downside_risk_events_drive_exact_next_open_resize_orders() -> None:
         target,
         factor_frame,
     )["status"] == "PASS"
+
+
+def test_downside_risk_protocol_builds_exact_preregistered_grid() -> None:
+    from czsc_trader.downside_risk_runner import (
+        build_downside_risk_specs,
+        validate_downside_risk_protocol,
+    )
+
+    protocol = json.loads(
+        (
+            REPO_ROOT
+            / "experiments"
+            / "0830_EX01"
+            / "artifacts"
+            / "protocol.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    validate_downside_risk_protocol(protocol)
+    specs = build_downside_risk_specs(protocol)
+
+    assert len(specs) == 27
+    assert len({spec.candidate_id for spec in specs}) == 27
+    assert specs[0].candidate_id == "dv_L10_Q70_P0.25"
+    assert specs[-1].candidate_id == "dv_L40_Q90_P0.75"
+
+    changed = {**protocol, "stress_history": 251}
+    with pytest.raises(ValueError, match="stress_history"):
+        validate_downside_risk_protocol(changed)
+
+
+def test_candidate_ranking_excludes_ineligible_rows_before_drawdown_sort() -> None:
+    from czsc_trader.downside_risk_runner import rank_eligible_candidates
+
+    rows = pd.DataFrame(
+        [
+            {
+                "candidate_id": "eligible_a",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.20,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.17,
+                "max_drawdown_improvement": 0.03,
+                "worst_annual_return_delta": -0.03,
+                "full_trade_count": 20,
+            },
+            {
+                "candidate_id": "eligible_b",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.21,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.17,
+                "max_drawdown_improvement": 0.03,
+                "worst_annual_return_delta": -0.02,
+                "full_trade_count": 25,
+            },
+            {
+                "candidate_id": "eligible_c",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.22,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.17,
+                "max_drawdown_improvement": 0.03,
+                "worst_annual_return_delta": -0.02,
+                "full_trade_count": 15,
+            },
+            {
+                "candidate_id": "lower_return",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.19,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.10,
+                "max_drawdown_improvement": 0.10,
+                "worst_annual_return_delta": 0.10,
+                "full_trade_count": 1,
+            },
+            {
+                "candidate_id": "flat_drawdown",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.30,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.20,
+                "max_drawdown_improvement": 0.0,
+                "worst_annual_return_delta": 0.10,
+                "full_trade_count": 1,
+            },
+        ]
+    )
+
+    ranked = rank_eligible_candidates(rows)
+
+    assert ranked["candidate_id"].tolist() == [
+        "eligible_c",
+        "eligible_b",
+        "eligible_a",
+    ]
+
+
+def test_2026_objective_accepts_equal_return_but_requires_better_drawdown() -> None:
+    from czsc_trader.downside_risk_runner import downside_risk_2026_pass
+
+    champion = {"strategy_return": 0.50, "max_drawdown": -0.20}
+
+    assert downside_risk_2026_pass(
+        champion,
+        {"strategy_return": 0.50, "max_drawdown": -0.19},
+    )
+    assert not downside_risk_2026_pass(
+        champion,
+        {"strategy_return": 0.50, "max_drawdown": -0.20},
+    )
+    assert not downside_risk_2026_pass(
+        champion,
+        {"strategy_return": 0.49, "max_drawdown": -0.10},
+    )

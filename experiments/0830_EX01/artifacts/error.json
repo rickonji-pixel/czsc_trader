@@ -1,0 +1,6 @@
+{
+  "status": "ERROR",
+  "error_type": "ValueError",
+  "error_message": "close prices must be positive and finite",
+  "holdout_accessed": false
+}

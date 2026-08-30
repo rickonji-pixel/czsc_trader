@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0830_EX01",
+  "date": "2026-08-30",
+  "status": "ERROR",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+    "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2025-12-31",
+  "holdout_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 1454,
+      "sha256": "d2b41e8ba8960afe34a3fb2d88dffe2ee765b35d470bb195467bbd7ea2979d86"
+    },
+    "02_design.md": {
+      "bytes": 2253,
+      "sha256": "8f25880b41fe77a65c330499c26217e6295319f32d1570c703e9a9d21e318a3e"
+    },
+    "03_execution.md": {
+      "bytes": 226,
+      "sha256": "98db678d2463e1310de8bc68e9183f11bc100b64ad7261caa03215e1463fd237"
+    },
+    "04_conclusion.md": {
+      "bytes": 171,
+      "sha256": "f078b17c113e4ffa7140aea6167a1d9153851cd5b2052823efe0ae13085a14af"
+    },
+    "artifacts/error.json": {
+      "bytes": 146,
+      "sha256": "d38ddc6dec3bd4f92962dce8750b3c99305a1e58bacf348cb52570cc49791de1"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 1589,
+      "sha256": "7ccab729f83fbd66a121ef2ddc7fd1c8821b7a3b6639c47b1e52dfbfff8367bb"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2242,
+      "sha256": "43a67a531401f99815c9f8a6baeaab44f826e0279d19d88a7441d90a2bbe8da6"
+    },
+    "implementation_plan.md": {
+      "bytes": 620,
+      "sha256": "e049b31f0c441dfce8112879d57456040daeb661f3de0f749aa5f86283071e56"
+    }
+  }
+}

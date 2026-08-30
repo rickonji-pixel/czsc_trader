@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0830_EX06",
+  "date": "2026-08-30",
+  "status": "PASS",
+  "program_id": "0830_position_risk_five_rounds",
+  "program_round": 4,
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+    "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
+    "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f"
+  },
+  "visible_sample_end": "2023-12-31",
+  "validation_accessed": false,
+  "historical_check_accessed": false,
+  "frozen_challenger_sha256": "279c8acaa3e7b48e3226ce15f4b7cf0599efd34b6fd4eb26f3b3ba2f165bc123",
+  "files": {
+    "01_goal.md": {
+      "bytes": 447,
+      "sha256": "0952ab1cb725d4b314324f0408bf0577b2577926dbb57ee459028f1f450c2e48"
+    },
+    "02_design.md": {
+      "bytes": 511,
+      "sha256": "5dc9ff32f5f9c00c74bc1a7d60131c2cd687666b7678b824d36bdb4e72a9b9ba"
+    },
+    "03_execution.md": {
+      "bytes": 247,
+      "sha256": "d1b43866abf8b8926e3fe540bcaf114d95299294f30f7e04e378f0b63c127229"
+    },
+    "04_conclusion.md": {
+      "bytes": 175,
+      "sha256": "6c89b7390a811f752773a4a7853e130a9d49f529e83685870b6eb75e7211ad09"
+    },
+    "artifacts/candidate_results.csv": {
+      "bytes": 5172,
+      "sha256": "8a560cb8c3b5033c3a22ae260ffd3e393dae358450933937b2d52d5e5aeadb62"
+    },
+    "artifacts/causal_audit.json": {
+      "bytes": 101,
+      "sha256": "684e260da99ce51202e01f95400af72018249572db252e77e3c382553c44bb0c"
+    },
+    "artifacts/factor_events.csv": {
+      "bytes": 26537,
+      "sha256": "35f5d1e1db2132698a43fce2ab0c460a4d1893e393095e6470c584d25ae81044"
+    },
+    "artifacts/frozen_challenger.json": {
+      "bytes": 2283,
+      "sha256": "8ef63e571ff7333e3d68d1ce0a551520a36f35a9221dceb72585f97428478de0"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 1589,
+      "sha256": "7ccab729f83fbd66a121ef2ddc7fd1c8821b7a3b6639c47b1e52dfbfff8367bb"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 15885,
+      "sha256": "fb09ca1054d057d91d4916fb69ae9dcf64f42cf39b8d8af987d7f1023f82353b"
+    },
+    "artifacts/position_path.csv": {
+      "bytes": 19034,
+      "sha256": "ea11ef2f3d6e243f19f154259f236c02d6bebb74de2c82667ef1d61ea0557925"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1648,
+      "sha256": "275bacbed506256c040d992533814e076cd118cf182da0abf9b361744afdefad"
+    },
+    "artifacts/selection_metrics.json": {
+      "bytes": 1516,
+      "sha256": "6f52ec2a35c9b3176b15680765979bc4692e9b60d1474dc89ad88cbaca1a6bb1"
+    },
+    "implementation_plan.md": {
+      "bytes": 296,
+      "sha256": "9307091d2002c261482f2cd854f8ac4c01ef7394be90610679a4d12a909a46f1"
+    }
+  }
+}

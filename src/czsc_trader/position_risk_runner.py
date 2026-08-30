@@ -155,6 +155,12 @@ ROUND_EXPECTED: dict[str, dict[str, object]] = {
         "historical_check_access_before_validation_freeze": False,
     },
 }
+ROUND_EXPECTED["0830_EX08"] = {
+    **ROUND_EXPECTED["0830_EX07"],
+    "experiment_id": "0830_EX08",
+    "retry_of": "0830_EX07",
+    "retry_scope": "exact_protocol_after_initial_entry_audit_fix",
+}
 
 
 def validate_position_risk_protocol(
@@ -512,7 +518,7 @@ def _evaluate_specs(
         )
         full_result = challenger_results[full_name]
         audit = audit_no_lookahead(
-            full_result.orders, events, target, factor_frame
+            full_result.orders, full_result.factor_events, target, factor_frame
         )
         transition_count = int(target.ne(target.shift(1, fill_value=0.0)).sum())
         row = _metric_row(

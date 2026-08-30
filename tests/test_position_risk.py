@@ -19,6 +19,7 @@ from czsc_trader.position_risk import (
     compose_overlay_target,
 )
 from czsc_trader.position_risk_runner import (
+    _evaluate_specs,
     build_hazard_diagnostics,
     _metric_row,
     frozen_spec_payload,
@@ -314,7 +315,39 @@ def test_position_risk_events_execute_at_next_open_and_pass_audit() -> None:
     assert audit["status"] == "PASS"
 
 
-@pytest.mark.parametrize("experiment_id", [f"0830_EX0{n}" for n in range(3, 8)])
+def test_candidate_evaluation_audits_synthetic_initial_entry_provenance() -> None:
+    daily = _daily_fixture()
+    intraday = _intraday_fixture(daily)
+    index = pd.DatetimeIndex(daily["dt"])
+    applied = SimpleNamespace(
+        target_position=pd.Series(1.0, index=index),
+        scores=pd.Series(0.20, index=index),
+    )
+    data = SimpleNamespace(daily=daily, intraday=intraday)
+    spec = RiskOverlaySpec(
+        "intraday_pressure",
+        0.5,
+        (("close_location", 0.25), ("down_volume_share", 0.60)),
+    )
+
+    rows, paths, _ = _evaluate_specs(
+        data,
+        applied,
+        (spec,),
+        {"TEST": (index[20], index[-1])},
+        full_name="TEST",
+        annual_names=(),
+        fee_rate=0.0005,
+        init_cash=1_000_000.0,
+    )
+
+    assert rows.loc[0, "audit_status"] == "PASS"
+    assert paths[spec.candidate_id]["results"]["TEST"].orders.loc[
+        0, "event_type"
+    ] == "InitialEntry"
+
+
+@pytest.mark.parametrize("experiment_id", [f"0830_EX0{n}" for n in range(3, 9)])
 def test_five_round_protocols_match_exact_preregistration(experiment_id: str) -> None:
     path = REPO_ROOT / "experiments" / experiment_id / "artifacts" / "protocol.json"
     protocol = json.loads(path.read_text(encoding="utf-8"))

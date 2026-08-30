@@ -215,6 +215,19 @@ def _dynamic_position_sizing(
     )
 
 
+def _downside_risk_position(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.downside_risk_runner import run_downside_risk_experiment
+
+    return run_downside_risk_experiment(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -239,6 +252,9 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("entry_fixed_position_sizing", _position_sizing),
         FunctionHandler(
             "dynamic_score_zone_position_sizing", _dynamic_position_sizing
+        ),
+        FunctionHandler(
+            "downside_risk_position_optimization", _downside_risk_position
         ),
     ]
     handlers.extend(

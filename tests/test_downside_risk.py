@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -241,3 +242,86 @@ def test_2026_objective_accepts_equal_return_but_requires_better_drawdown() -> N
         champion,
         {"strategy_return": 0.49, "max_drawdown": -0.10},
     )
+
+
+def test_downside_risk_protocol_resolves_to_dedicated_handler() -> None:
+    from czsc_trader.research.registry import build_default_registry
+
+    protocol = json.loads(
+        (
+            REPO_ROOT
+            / "experiments"
+            / "0830_EX01"
+            / "artifacts"
+            / "protocol.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    handler = build_default_registry().resolve(protocol, "0830_EX01")
+
+    assert handler.handler_id == "downside_risk_position_optimization"
+
+
+def _copy_preregistration(tmp_path: Path) -> tuple[Path, dict[str, object]]:
+    source = REPO_ROOT / "experiments" / "0830_EX01"
+    experiment_dir = tmp_path / "0830_EX01"
+    (experiment_dir / "artifacts").mkdir(parents=True)
+    for name in ("01_goal.md", "02_design.md", "implementation_plan.md"):
+        shutil.copy2(source / name, experiment_dir / name)
+    shutil.copy2(
+        source / "artifacts" / "protocol.json",
+        experiment_dir / "artifacts" / "protocol.json",
+    )
+    protocol = json.loads(
+        (experiment_dir / "artifacts" / "protocol.json").read_text(encoding="utf-8")
+    )
+    return experiment_dir, protocol
+
+
+def test_no_eligible_candidate_archives_fail_without_2026_access(
+    tmp_path: Path,
+) -> None:
+    from czsc_trader.downside_risk_runner import _finalize_no_eligible
+
+    experiment_dir, protocol = _copy_preregistration(tmp_path)
+    selection = {
+        "candidate_count": 27,
+        "eligible_count": 0,
+        "holdout_accessed": False,
+    }
+
+    _finalize_no_eligible(
+        experiment_dir,
+        protocol,
+        selection,
+        execution_commit="deadbeef",
+    )
+
+    manifest = json.loads(
+        (experiment_dir / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["status"] == "FAIL"
+    assert manifest["holdout_accessed"] is False
+    assert not (experiment_dir / "artifacts" / "frozen_challenger.json").exists()
+
+
+def test_downside_risk_error_archive_preserves_holdout_access_flag(
+    tmp_path: Path,
+) -> None:
+    from czsc_trader.downside_risk_runner import _finalize_error
+
+    experiment_dir, protocol = _copy_preregistration(tmp_path)
+
+    _finalize_error(
+        experiment_dir,
+        protocol,
+        RuntimeError("ledger mismatch"),
+        execution_commit="deadbeef",
+        holdout_accessed=True,
+    )
+
+    manifest = json.loads(
+        (experiment_dir / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["status"] == "ERROR"
+    assert manifest["holdout_accessed"] is True

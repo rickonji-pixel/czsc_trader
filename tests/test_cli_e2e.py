@@ -195,7 +195,7 @@ def test_archive_validate_checks_every_tracked_experiment() -> None:
     payload = json_result("archive", "validate", "--all", "--repo-root", REPO_ROOT)
 
     assert payload["status"] == "PASS"
-    assert payload["result"]["validated_count"] == 19
+    assert payload["result"]["validated_count"] == 25
     assert payload["result"]["experiments"] == [
         "0824_EX01",
         "0824_EX02",
@@ -216,6 +216,12 @@ def test_archive_validate_checks_every_tracked_experiment() -> None:
         "0829_EX02",
         "0830_EX01",
         "0830_EX02",
+        "0830_EX03",
+        "0830_EX04",
+        "0830_EX05",
+        "0830_EX06",
+        "0830_EX07",
+        "0830_EX08",
     ]
 
 

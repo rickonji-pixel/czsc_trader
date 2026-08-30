@@ -3,6 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+import json
+from pathlib import Path
+import shutil
+from types import SimpleNamespace
 
 from czsc_trader.audit import audit_no_lookahead
 from czsc_trader.backtest import run_period_backtests
@@ -14,6 +18,20 @@ from czsc_trader.position_risk import (
     build_risk_features,
     compose_overlay_target,
 )
+from czsc_trader.position_risk_runner import (
+    build_hazard_diagnostics,
+    _metric_row,
+    frozen_spec_payload,
+    risk_spec_from_frozen,
+    permitted_position_risk_cutoff,
+    rank_eligible_position_risk,
+    run_position_risk_program,
+    validate_position_risk_protocol,
+)
+from czsc_trader.research.registry import build_default_registry
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _daily_fixture(days: int = 30) -> pd.DataFrame:
@@ -294,3 +312,229 @@ def test_position_risk_events_execute_at_next_open_and_pass_audit() -> None:
         "Exit",
     ]
     assert audit["status"] == "PASS"
+
+
+@pytest.mark.parametrize("experiment_id", [f"0830_EX0{n}" for n in range(3, 8)])
+def test_five_round_protocols_match_exact_preregistration(experiment_id: str) -> None:
+    path = REPO_ROOT / "experiments" / experiment_id / "artifacts" / "protocol.json"
+    protocol = json.loads(path.read_text(encoding="utf-8"))
+
+    validate_position_risk_protocol(protocol, experiment_id)
+
+    protocol["fee_rate"] = 0.001
+    with pytest.raises(ValueError):
+        validate_position_risk_protocol(protocol, experiment_id)
+
+
+def test_position_risk_protocol_rejects_grid_and_identity_mutations() -> None:
+    path = REPO_ROOT / "experiments" / "0830_EX04" / "artifacts" / "protocol.json"
+    original = json.loads(path.read_text(encoding="utf-8"))
+    mutations = (
+        ("lookbacks", [20, 40, 120]),
+        ("candidate_ranking", list(reversed(original["candidate_ranking"]))),
+        ("discovery_end", "2024-12-31"),
+        ("program_round", 3),
+    )
+    for key, value in mutations:
+        protocol = json.loads(json.dumps(original))
+        protocol[key] = value
+        with pytest.raises(ValueError, match=key):
+            validate_position_risk_protocol(protocol, "0830_EX04")
+
+
+def test_rank_eligible_position_risk_applies_hard_gate_and_stable_order() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "candidate_id": "return_fail",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.19,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.10,
+                "max_drawdown_improvement": 0.10,
+                "worst_annual_return_delta": 0.01,
+                "full_return_delta": -0.01,
+                "transition_count": 1,
+            },
+            {
+                "candidate_id": "drawdown_fail",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.21,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.20,
+                "max_drawdown_improvement": 0.0,
+                "worst_annual_return_delta": 0.01,
+                "full_return_delta": 0.01,
+                "transition_count": 1,
+            },
+            {
+                "candidate_id": "eligible_b",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.22,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.15,
+                "max_drawdown_improvement": 0.05,
+                "worst_annual_return_delta": 0.00,
+                "full_return_delta": 0.02,
+                "transition_count": 4,
+            },
+            {
+                "candidate_id": "eligible_a",
+                "full_champion_return": 0.20,
+                "full_challenger_return": 0.22,
+                "full_champion_max_drawdown": -0.20,
+                "full_challenger_max_drawdown": -0.15,
+                "max_drawdown_improvement": 0.05,
+                "worst_annual_return_delta": 0.00,
+                "full_return_delta": 0.02,
+                "transition_count": 4,
+            },
+        ]
+    )
+
+    ranked = rank_eligible_position_risk(rows)
+
+    assert ranked["candidate_id"].tolist() == ["eligible_a", "eligible_b"]
+
+
+def test_position_risk_cutoffs_enforce_program_boundaries() -> None:
+    protocols = {
+        experiment_id: json.loads(
+            (
+                REPO_ROOT
+                / "experiments"
+                / experiment_id
+                / "artifacts"
+                / "protocol.json"
+            ).read_text(encoding="utf-8")
+        )
+        for experiment_id in ("0830_EX03", "0830_EX04", "0830_EX07")
+    }
+
+    assert permitted_position_risk_cutoff(protocols["0830_EX03"], "discovery") == pd.Timestamp("2023-12-31")
+    assert permitted_position_risk_cutoff(protocols["0830_EX04"], "discovery") == pd.Timestamp("2023-12-31")
+    assert permitted_position_risk_cutoff(protocols["0830_EX07"], "validation") == pd.Timestamp("2025-12-31")
+    assert permitted_position_risk_cutoff(protocols["0830_EX07"], "historical") == pd.Timestamp("2026-08-28")
+    with pytest.raises(ValueError):
+        permitted_position_risk_cutoff(protocols["0830_EX04"], "validation")
+
+
+def test_risk_spec_frozen_payload_round_trips_exactly() -> None:
+    spec = build_family_specs("intraday_pressure")[3]
+
+    payload = frozen_spec_payload(spec)
+    restored = risk_spec_from_frozen(payload)
+
+    assert restored == spec
+    assert payload["candidate_id"] == spec.candidate_id
+
+
+def test_hazard_diagnostics_only_use_held_days_with_complete_horizons() -> None:
+    features = _state_frame()
+    index = features.index
+    daily = pd.DataFrame(
+        {
+            "dt": index,
+            "open": np.arange(10.0, 18.0),
+            "high": np.arange(10.5, 18.5),
+            "low": np.arange(9.5, 17.5),
+            "close": np.arange(10.2, 18.2),
+            "vol": 1000.0,
+            "amount": 10000.0,
+        }
+    )
+    champion = pd.Series([0, 1, 1, 1, 0, 0, 0, 0], index=index, dtype=float)
+    protocol = json.loads(
+        (
+            REPO_ROOT
+            / "experiments"
+            / "0830_EX03"
+            / "artifacts"
+            / "protocol.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    events, summary, overlap = build_hazard_diagnostics(
+        features, daily, champion, protocol
+    )
+
+    assert set(summary["family"]) == {
+        "trend_damage",
+        "negative_persistence",
+        "intraday_pressure",
+    }
+    assert events["signal_date"].isin(index[champion.eq(1.0)]).all()
+    assert events["horizon"].eq(5).all()
+    assert set(overlap.columns) == {"left_family", "right_family", "overlap_count"}
+
+
+def test_position_risk_program_handler_is_registered() -> None:
+    protocol = json.loads(
+        (
+            REPO_ROOT
+            / "experiments"
+            / "0830_EX03"
+            / "artifacts"
+            / "protocol.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    handler = build_default_registry().resolve(protocol, "0830_EX03")
+
+    assert handler.handler_id == "position_risk_five_rounds"
+
+
+def test_round_five_without_family_winners_fails_before_loading_data(
+    tmp_path: Path,
+) -> None:
+    experiments_root = tmp_path / "experiments"
+    experiment_dir = experiments_root / "0830_EX07"
+    source = REPO_ROOT / "experiments" / "0830_EX07"
+    (experiment_dir / "artifacts").mkdir(parents=True)
+    for name in ("01_goal.md", "02_design.md", "implementation_plan.md"):
+        shutil.copy2(source / name, experiment_dir / name)
+    shutil.copy2(
+        source / "artifacts" / "protocol.json",
+        experiment_dir / "artifacts" / "protocol.json",
+    )
+
+    result = run_position_risk_program(
+        tmp_path / "missing-raw",
+        REPO_ROOT / "configs" / "rule_baselines",
+        experiments_root,
+        experiment_dir,
+        execution_commit="deadbeef",
+    )
+
+    manifest = json.loads(
+        (experiment_dir / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert result["status"] == "FAIL"
+    assert manifest["validation_accessed"] is False
+    assert manifest["historical_check_accessed"] is False
+    assert not (experiment_dir / "artifacts" / "validation_metrics.csv").exists()
+
+
+def test_historical_metric_row_accepts_no_annual_windows() -> None:
+    metrics = {
+        "strategy_return": 0.10,
+        "max_drawdown": -0.20,
+        "sharpe": 1.0,
+        "exposure": 0.5,
+        "trade_count": 2,
+    }
+    challenger_metrics = {**metrics, "strategy_return": 0.11, "max_drawdown": -0.19}
+    champion = {"2026FULL": SimpleNamespace(metrics=metrics)}
+    challenger = {"2026FULL": SimpleNamespace(metrics=challenger_metrics)}
+
+    row = _metric_row(
+        build_family_specs("trend_damage")[0],
+        champion,
+        challenger,
+        full_name="2026FULL",
+        annual_names=(),
+        transition_count=2,
+    )
+
+    assert np.isnan(row["worst_annual_return_delta"])
+    assert row["full_return_delta"] == pytest.approx(0.01)

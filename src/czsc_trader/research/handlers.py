@@ -228,6 +228,20 @@ def _downside_risk_position(
     )
 
 
+def _position_risk_program(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.position_risk_runner import run_position_risk_program
+
+    return run_position_risk_program(
+        context.raw_dir,
+        context.baseline_root,
+        context.experiments_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -256,6 +270,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler(
             "downside_risk_position_optimization", _downside_risk_position
         ),
+        FunctionHandler("position_risk_five_rounds", _position_risk_program),
     ]
     handlers.extend(
         FunctionHandler(

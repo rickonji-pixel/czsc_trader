@@ -168,6 +168,53 @@ def evaluate_factor_stability(
     return pd.DataFrame(rows)
 
 
+def evaluate_conditional_factor_stability(
+    indicator: pd.Series,
+    condition: pd.Series,
+    outcomes: pd.DataFrame,
+    *,
+    years: Sequence[int],
+    horizons: Sequence[int],
+) -> pd.DataFrame:
+    """Compare a state with controls restricted to a declared parent condition."""
+    active = indicator.reindex(outcomes.index).fillna(0.0).astype(bool)
+    universe = condition.reindex(outcomes.index).fillna(False).astype(bool)
+    if (active & ~universe).any():
+        raise ValueError("conditional factor is active outside its control universe")
+    factor_name = str(indicator.name or "unnamed")
+    rows: list[dict[str, object]] = []
+    for year in map(int, years):
+        year_mask = outcomes.index.year == year
+        for raw_horizon in horizons:
+            horizon = int(raw_horizon)
+            columns = [f"return_{horizon}", f"mae_{horizon}", f"max_drawdown_{horizon}"]
+            valid = year_mask & outcomes[columns].notna().all(axis=1).to_numpy()
+            active_mask = valid & active.to_numpy(dtype=bool)
+            control_mask = valid & universe.to_numpy(dtype=bool) & ~active.to_numpy(dtype=bool)
+            active_means = outcomes.loc[active_mask, columns].mean()
+            control_means = outcomes.loc[control_mask, columns].mean()
+            rows.append(
+                {
+                    "factor": factor_name,
+                    "factor_kind": "state",
+                    "year": year,
+                    "horizon": horizon,
+                    "active_n": int(active_mask.sum()),
+                    "control_n": int(control_mask.sum()),
+                    "active_return": float(active_means[columns[0]]),
+                    "control_return": float(control_means[columns[0]]),
+                    "return_delta": float(active_means[columns[0]] - control_means[columns[0]]),
+                    "active_mae": float(active_means[columns[1]]),
+                    "control_mae": float(control_means[columns[1]]),
+                    "mae_delta": float(active_means[columns[1]] - control_means[columns[1]]),
+                    "active_max_drawdown": float(active_means[columns[2]]),
+                    "control_max_drawdown": float(control_means[columns[2]]),
+                    "max_drawdown_delta": float(active_means[columns[2]] - control_means[columns[2]]),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def _consistent_effect(values: pd.Series, minimum_absolute_effect: float) -> tuple[int, float] | None:
     numeric = pd.to_numeric(values, errors="coerce")
     if numeric.isna().any() or numeric.eq(0.0).any():

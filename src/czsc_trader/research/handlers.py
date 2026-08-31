@@ -249,6 +249,19 @@ def _czsc_factor_stability(
         run_czsc_factor_stability_experiment,
     )
 
+
+def _czsc_bi_layer_stability(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.czsc_bi_layer_runner import run_bi_layer_stability_experiment
+
+    return run_bi_layer_stability_experiment(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
     return run_czsc_factor_stability_experiment(
         context.raw_dir,
         context.baseline_root,
@@ -287,6 +300,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         ),
         FunctionHandler("position_risk_five_rounds", _position_risk_program),
         FunctionHandler("czsc_factor_stability_diagnostic", _czsc_factor_stability),
+        FunctionHandler("czsc_bi_layer_stability_diagnostic", _czsc_bi_layer_stability),
     ]
     handlers.extend(
         FunctionHandler(

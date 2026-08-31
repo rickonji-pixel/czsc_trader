@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX04",
+  "date": "2026-09-01",
+  "status": "COMPLETE",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "protocol_sha256": "7944b9be9fb51d83813b53583bc7efa221388cfc1fa593c77ff44ac8596283cc",
+  "visible_sample_end": "2025-12-31",
+  "validation_accessed": false,
+  "historical_2026_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 796,
+      "sha256": "44c4a7cb2160110fa926c4ca5c835692a23a452bede97987f1ea7300f37a1d6a"
+    },
+    "02_design.md": {
+      "bytes": 936,
+      "sha256": "b6f52c87b76332f0a588652344bdde20f0fd9ebaafca1293681c5cac83be2474"
+    },
+    "03_execution.md": {
+      "bytes": 209,
+      "sha256": "b3d70462593774d7e2b0b2508eecef95508a9157f3f613022f30edc6b4e10df1"
+    },
+    "04_conclusion.md": {
+      "bytes": 1493,
+      "sha256": "976ccce35d7400aa08d2ccc8a14262262018461856938ab8f5b8d4e434ade953"
+    },
+    "artifacts/causal_replay_audit.json": {
+      "bytes": 291,
+      "sha256": "f06b2af1f9e0895338492317d3b7809a4fd59ffe7bfcc7fc2653fddac3742c8f"
+    },
+    "artifacts/classification.json": {
+      "bytes": 742,
+      "sha256": "26aabc35c4082936f1e85a9949af0240cc5d40b06d16a0ece21ff691d5817bde"
+    },
+    "artifacts/conditional_metrics.csv": {
+      "bytes": 7302,
+      "sha256": "56c7da6c008000df89b14c2e926b3653ec0fa428811833f338c1661b81a80c5c"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 1987,
+      "sha256": "e1bac4176179a2e00694896274fb50973fc6f475a3c0a54f5fb054584277d2fd"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 324,
+      "sha256": "1ca756571672056a45c72dfd4941276f13f28f20470ab9b335979cce0e05b45f"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 998,
+      "sha256": "7944b9be9fb51d83813b53583bc7efa221388cfc1fa593c77ff44ac8596283cc"
+    },
+    "artifacts/redundancy_audit.json": {
+      "bytes": 375,
+      "sha256": "e7964a633640452472b2ec64fa2b72d1287468b45a5cfad27528577ae5d0a568"
+    },
+    "implementation_plan.md": {
+      "bytes": 1283,
+      "sha256": "401304993a9d093c37cd107f201e51bc9ff2ddeeee96293de8b1fa303b066310"
+    }
+  }
+}

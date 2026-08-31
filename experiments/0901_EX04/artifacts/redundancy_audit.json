@@ -1,0 +1,14 @@
+[
+  {
+    "factor": "valid__cxt_bi_zdf::向上",
+    "exact_match": false,
+    "closest_reference": "raw__daily__cxt_bi_status_V230101",
+    "max_abs_correlation": 0.6651139128748756
+  },
+  {
+    "factor": "valid__cxt_bi_zdf::向下",
+    "exact_match": false,
+    "closest_reference": "raw__daily__cxt_bi_status_V230101",
+    "max_abs_correlation": 0.6361473195304475
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "rows_checked": 731,
+  "factors_checked": 4,
+  "mismatch_count": 0,
+  "mismatches_by_factor": {
+    "valid__cxt_bi_zdf::向上": 0,
+    "valid__cxt_bi_zdf::向下": 0,
+    "condition::valid__cxt_bi_zdf::向上": 0,
+    "condition::valid__cxt_bi_zdf::向下": 0
+  }
+}

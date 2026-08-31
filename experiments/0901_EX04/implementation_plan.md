@@ -21,14 +21,13 @@
 
 ### Task 1: Registered diagnostic
 
-- [ ] Add a failing handler registration test.
-- [ ] Implement exact conditional paths, support, correlations, and causal replay.
-- [ ] Run the committed protocol.
+- [x] Add a failing handler registration test.
+- [x] Implement exact conditional paths, support, correlations, and causal replay.
+- [x] Run the committed protocol.
 
 ### Task 2: Archive
 
-- [ ] Inspect both yearly paths and write the conclusion.
-- [ ] Update the research handoff.
-- [ ] Validate archives and focused CLI tests.
-- [ ] Commit without merging or pushing.
-
+- [x] Inspect both yearly paths and write the conclusion.
+- [x] Update the research handoff.
+- [x] Validate archives and focused CLI tests.
+- [x] Commit without merging or pushing.

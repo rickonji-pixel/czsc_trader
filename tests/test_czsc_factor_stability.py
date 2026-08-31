@@ -8,9 +8,11 @@ import pandas as pd
 import pytest
 
 from czsc_trader.czsc_factor_stability import (
+    audit_causal_prefix,
     build_forward_outcomes,
     event_onsets,
     evaluate_factor_stability,
+    leave_one_out_deltas,
     select_discovery_candidates,
     validate_frozen_candidates,
 )
@@ -160,3 +162,26 @@ def test_czsc_factor_stability_handler_is_registered() -> None:
     handler = build_default_registry().resolve(protocol, "0901_EX01")
 
     assert handler.handler_id == "czsc_factor_stability_diagnostic"
+
+
+def test_causal_prefix_audit_reports_exact_factor_mismatches() -> None:
+    index = pd.bdate_range("2021-01-04", periods=3)
+    discovery = pd.DataFrame({"a": [0, 1, 0], "b": [1, 0, 1]}, index=index)
+    replay = discovery.copy()
+    replay.loc[index[1], "b"] = 1
+
+    audit = audit_causal_prefix(discovery, replay, ("a", "b"))
+
+    assert audit == {
+        "status": "FAIL",
+        "rows_checked": 3,
+        "factors_checked": 2,
+        "mismatch_count": 1,
+        "mismatches_by_factor": {"a": 0, "b": 1},
+    }
+
+
+def test_leave_one_out_deltas_expose_single_event_dependence() -> None:
+    deltas = leave_one_out_deltas(pd.Series([0.10, 0.30, -0.20]), control_mean=0.0)
+
+    assert deltas == pytest.approx([0.05, -0.05, 0.20])

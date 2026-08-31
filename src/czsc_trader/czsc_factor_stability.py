@@ -11,6 +11,41 @@ import pandas as pd
 ENDPOINTS = ("return_delta", "max_drawdown_delta")
 
 
+def audit_causal_prefix(
+    discovery: pd.DataFrame,
+    replay: pd.DataFrame,
+    factor_names: Sequence[str],
+) -> dict[str, object]:
+    """Require later-cutoff replay to preserve every earlier factor value."""
+    names = list(map(str, factor_names))
+    missing = sorted((set(names) - set(discovery.columns)) | (set(names) - set(replay.columns)))
+    if missing:
+        raise ValueError(f"causal prefix factors missing: {missing}")
+    right = replay.reindex(discovery.index)
+    mismatches: dict[str, int] = {}
+    for name in names:
+        left_values = discovery[name]
+        right_values = right[name]
+        equal = left_values.eq(right_values) | (left_values.isna() & right_values.isna())
+        mismatches[name] = int((~equal).sum())
+    total = int(sum(mismatches.values()))
+    return {
+        "status": "PASS" if total == 0 else "FAIL",
+        "rows_checked": int(len(discovery)),
+        "factors_checked": len(names),
+        "mismatch_count": total,
+        "mismatches_by_factor": mismatches,
+    }
+
+
+def leave_one_out_deltas(active_values: pd.Series, *, control_mean: float) -> list[float]:
+    """Return active-minus-control means after omitting each active observation."""
+    values = pd.to_numeric(active_values, errors="coerce").dropna().to_numpy(dtype=float)
+    if len(values) <= 1:
+        return []
+    return [float(np.delete(values, offset).mean() - float(control_mean)) for offset in range(len(values))]
+
+
 def _close_series(daily: pd.DataFrame, index: pd.DatetimeIndex) -> pd.Series:
     frame = daily.copy()
     if "dt" in frame.columns:

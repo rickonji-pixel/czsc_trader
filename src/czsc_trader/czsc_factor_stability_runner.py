@@ -11,8 +11,11 @@ import pandas as pd
 
 from .baselines import resolve_baseline
 from .czsc_factor_stability import (
+    audit_causal_prefix,
     build_forward_outcomes,
+    event_onsets,
     evaluate_factor_stability,
+    leave_one_out_deltas,
     select_discovery_candidates,
     validate_frozen_candidates,
 )
@@ -125,6 +128,7 @@ def _docs(
     selected_count: int,
     stable_count: int,
     validation_accessed: bool,
+    causal_replay_status: str,
 ) -> None:
     execution = [
         "# 0901_EX01 执行过程",
@@ -135,6 +139,7 @@ def _docs(
         f"- 满足状态/事件支持度：{supported_count}项。",
         f"- 发现段冻结候选：{selected_count}项。",
         f"- 是否访问2024—2025验证段：{str(validation_accessed).lower()}。",
+        f"- 因果前缀重放：`{causal_replay_status}`。",
         "- 未访问2026，未搜索权重、阈值或仓位。",
     ]
     conclusion = [
@@ -144,6 +149,7 @@ def _docs(
         "",
         f"发现段冻结{selected_count}个候选，最终有{stable_count}个因子通过锁定验证。",
         "通过只代表因子具有下一轮统一策略研究价值，不代表已经形成可交易策略。",
+        "稳定因子的事件样本量、留一敏感性和状态起点敏感性见`artifacts/robustness_audit.json`。",
         "若没有稳定因子，不应事后降低支持度、效应门槛或改变主周期。",
     ]
     (experiment_dir / "03_execution.md").write_text("\n".join(execution) + "\n", encoding="utf-8")
@@ -187,6 +193,7 @@ def run_czsc_factor_stability_experiment(
     validation_accessed = not selected.empty
     validation_metrics = pd.DataFrame()
     validated = pd.DataFrame()
+    validation = None
     if validation_accessed:
         validation_data = load_market_data(raw_dir, "588080.SH", "etf", cutoff=pd.Timestamp(str(protocol["validation_end"])))
         validation = generate_candidate_factors(
@@ -207,10 +214,77 @@ def run_czsc_factor_stability_experiment(
         validation_metrics.to_csv(artifacts / "validation_metrics.csv", index=False, encoding="utf-8-sig")
         validated.to_csv(artifacts / "validation_selection.csv", index=False, encoding="utf-8-sig")
 
+    causal_replay = (
+        audit_causal_prefix(
+            discovery.factors,
+            validation.factors,
+            selected["factor"].tolist(),
+        )
+        if validation is not None
+        else {
+            "status": "NOT_RUN",
+            "rows_checked": 0,
+            "factors_checked": 0,
+            "mismatch_count": 0,
+            "mismatches_by_factor": {},
+        }
+    )
+    _write_json(artifacts / "causal_replay_audit.json", causal_replay)
     stable = validated[validated["pass"]].copy() if not validated.empty else validated
     stable_payload = [] if stable.empty else stable.to_dict("records")
     _write_json(artifacts / "stable_factors.json", stable_payload)
-    status = "PASS" if stable_payload else "FAIL"
+    robustness: list[dict[str, object]] = []
+    if validation is not None and stable_payload:
+        outcomes = build_forward_outcomes(
+            validation_data.daily,
+            pd.DatetimeIndex(validation.factors.index),
+            (int(protocol["primary_horizon"]),),
+        )
+        return_column = f"return_{int(protocol['primary_horizon'])}"
+        drawdown_column = f"max_drawdown_{int(protocol['primary_horizon'])}"
+        for item in stable_payload:
+            name = str(item["factor"])
+            kind = str(item["factor_kind"])
+            indicator = validation.factors[name]
+            detail: dict[str, object] = {"factor": name, "factor_kind": kind}
+            if kind == "state":
+                starts = event_onsets(indicator).astype(float).rename(name)
+                onset_metrics = evaluate_factor_stability(
+                    starts,
+                    outcomes,
+                    factor_kind="state",
+                    years=(*DISCOVERY_YEARS, *VALIDATION_YEARS),
+                    horizons=(int(protocol["primary_horizon"]),),
+                )
+                detail["state_episode_onset_metrics"] = onset_metrics.to_dict("records")
+            else:
+                active = event_onsets(indicator)
+                event_years: list[dict[str, object]] = []
+                for year in VALIDATION_YEARS:
+                    valid = outcomes[return_column].notna() & outcomes.index.year.__eq__(year)
+                    active_values = outcomes.loc[valid & active, return_column]
+                    control_values = outcomes.loc[valid & ~active, return_column]
+                    control_mean = float(control_values.mean())
+                    loo = leave_one_out_deltas(active_values, control_mean=control_mean)
+                    event_years.append(
+                        {
+                            "year": year,
+                            "event_count": int(len(active_values)),
+                            "active_return_mean": float(active_values.mean()),
+                            "active_return_median": float(active_values.median()),
+                            "control_return_mean": control_mean,
+                            "positive_return_ratio": float(active_values.gt(0.0).mean()),
+                            "leave_one_out_positive_count": int(sum(value > 0.0 for value in loo)),
+                            "leave_one_out_count": len(loo),
+                            "event_dates": [str(date.date()) for date in active_values.index],
+                            "event_returns": [float(value) for value in active_values],
+                            "active_max_drawdown_mean": float(outcomes.loc[valid & active, drawdown_column].mean()),
+                        }
+                    )
+                detail["validation_event_robustness"] = event_years
+            robustness.append(detail)
+    _write_json(artifacts / "robustness_audit.json", robustness)
+    status = "ERROR" if causal_replay["status"] == "FAIL" else "PASS" if stable_payload else "FAIL"
     identity = {
         "status": "PASS",
         "champion_version": baseline.version,
@@ -222,6 +296,7 @@ def run_czsc_factor_stability_experiment(
         "validation_end": str(protocol["validation_end"]) if validation_accessed else None,
         "validation_accessed": validation_accessed,
         "access_2026": False,
+        "causal_replay_status": causal_replay["status"],
     }
     _write_json(artifacts / "identity_audit.json", identity)
     summary = {
@@ -244,6 +319,7 @@ def run_czsc_factor_stability_experiment(
         selected_count=len(selected),
         stable_count=len(stable_payload),
         validation_accessed=validation_accessed,
+        causal_replay_status=str(causal_replay["status"]),
     )
     protocol_sha = sha256((artifacts / "protocol.json").read_bytes()).hexdigest()
     build_experiment_manifest(

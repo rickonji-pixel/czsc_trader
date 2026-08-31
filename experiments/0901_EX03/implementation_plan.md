@@ -21,19 +21,18 @@
 
 ### Task 1: Causal state age
 
-- [ ] Write a failing test for consecutive state age reset and increment.
-- [ ] Implement the pure age and diagnostic summary functions.
-- [ ] Verify focused tests pass.
+- [x] Write a failing test for consecutive state age reset and increment.
+- [x] Implement the pure age and diagnostic summary functions.
+- [x] Verify focused tests pass.
 
 ### Task 2: Registered diagnostic
 
-- [ ] Add a failing handler test.
-- [ ] Implement and run the committed diagnostic protocol.
-- [ ] Inspect yearly correlations and fixed bins.
+- [x] Add a failing handler test.
+- [x] Implement and run the committed diagnostic protocol.
+- [x] Inspect yearly correlations and fixed bins.
 
 ### Task 3: Archive
 
-- [ ] Write the evidence-bounded conclusion and handoff update.
-- [ ] Validate all archives and focused CLI tests.
-- [ ] Commit without merging or pushing.
-
+- [x] Write the evidence-bounded conclusion and handoff update.
+- [x] Validate all archives and focused CLI tests.
+- [x] Commit without merging or pushing.

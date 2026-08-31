@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "rows_checked": 731,
+  "factors_checked": 2,
+  "mismatch_count": 0,
+  "mismatches_by_factor": {
+    "state": 0,
+    "state_age": 0
+  }
+}

@@ -29,10 +29,10 @@
 **Interfaces:**
 - Produces: `build_forward_outcomes`, `evaluate_factor_stability`, `select_discovery_candidates`, and `validate_frozen_candidates`.
 
-- [ ] Write focused tests for causal horizon labels, event-transition collapsing, yearly sign consistency, and validation direction locking.
-- [ ] Run the focused tests and verify they fail because the module does not exist.
-- [ ] Implement the smallest pure functions that satisfy the protocol.
-- [ ] Run the focused tests and verify they pass.
+- [x] Write focused tests for causal horizon labels, event-transition collapsing, yearly sign consistency, and validation direction locking.
+- [x] Run the focused tests and verify they fail because the module does not exist.
+- [x] Implement the smallest pure functions that satisfy the protocol.
+- [x] Run the focused tests and verify they pass.
 
 ### Task 2: Registered experiment runner
 
@@ -45,9 +45,9 @@
 - Consumes: the Task 1 functions and existing `generate_candidate_factors`.
 - Produces: `run_czsc_factor_stability_experiment` and handler id `czsc_factor_stability_diagnostic`.
 
-- [ ] Add a failing registry-resolution test for the exact protocol.
-- [ ] Register the new handler and implement discovery-before-validation execution.
-- [ ] Run focused tests and confirm handler resolution and cutoff protection pass.
+- [x] Add a failing registry-resolution test for the exact protocol.
+- [x] Register the new handler and implement discovery-before-validation execution.
+- [x] Run focused tests and confirm handler resolution and cutoff protection pass.
 
 ### Task 3: Execute and archive 0901_EX01
 
@@ -58,9 +58,8 @@
 - Create: `experiments/0901_EX01/04_conclusion.md`
 - Create: `experiments/0901_EX01/experiment_manifest.json`
 
-- [ ] Commit the pre-registered protocol before execution.
-- [ ] Run `czsc-trader experiment run --dir experiments/0901_EX01`.
-- [ ] Inspect candidate support, discovery selection, and locked validation results.
-- [ ] Validate the experiment archive and run only the focused tests plus CLI contract smoke coverage.
-- [ ] Commit implementation and complete archive without merging or pushing.
-
+- [x] Commit the pre-registered protocol before execution.
+- [x] Run `czsc-trader experiment run --dir experiments/0901_EX01`.
+- [x] Inspect candidate support, discovery selection, and locked validation results.
+- [x] Validate the experiment archive and run only the focused tests plus CLI contract smoke coverage.
+- [x] Commit implementation and complete archive without merging or pushing.

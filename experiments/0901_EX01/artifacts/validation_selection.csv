@@ -1,0 +1,12 @@
+﻿factor,factor_kind,endpoint,direction,discovery_effect,validation_effect,validation_yearly_effects,pass
+state__raw__daily__cxt_bi_trend_V230913__di_1::下降趋势,state,max_drawdown_delta,-1,-0.00790083944173811,0.007869399052293034,"{'2024': -0.0011151563631682238, '2025': 0.01685395446775429}",False
+state__raw__daily__cxt_bi_zdf_V230601__di_1::向上,state,max_drawdown_delta,1,0.007178435506436644,0.015131057985410552,"{'2024': 0.014712310101074391, '2025': 0.015549805869746712}",True
+state__raw__daily__cxt_decision_V240612__di_1::其他,state,return_delta,1,0.010578408726917002,-0.03963858464054401,"{'2024': -0.06856324919029998, '2025': -0.010713920090788046}",False
+state__raw__daily__cxt_nine_bi_V230621__di_1::其他,state,return_delta,1,0.054327616934142585,-0.0013582130788267616,"{'2024': 0.04464724698596147, '2025': -0.04736367314361499}",False
+state__raw__daily__cxt_overlap_V240526__di_1::顶重合0次,state,return_delta,-1,-0.022641700857238333,0.042160017853560244,"{'2024': 0.07313545846274003, '2025': 0.011184577244380454}",False
+state__raw__daily__cxt_overlap_V240526__di_1::顶重合1次,state,return_delta,1,0.0234990535468747,-0.027562482262063745,"{'2024': -0.06542816343316174, '2025': 0.01030319890903425}",False
+state__raw__daily__cxt_second_bs_V230320__di_1::二卖,event,return_delta,1,0.018427437771632322,0.027044461288277505,"{'2024': 0.01579432279121597, '2025': 0.038294599785339035}",True
+state__raw__daily__cxt_second_bs_V230320__di_1::其他,state,return_delta,-1,-0.022868965713289963,0.005585537182730119,"{'2024': 0.04174226720250145, '2025': -0.030571192837041215}",False
+state__raw__daily__cxt_third_bs_V230318__di_1::其他,state,return_delta,1,0.01383887047265541,,"{'2024': 0.032562319692945506, '2025': nan}",False
+state__raw__daily__cxt_third_bs_V230319__di_1::三卖,event,return_delta,1,0.014038485116635894,,"{'2024': -0.038069251472917016, '2025': nan}",False
+state__raw__daily__cxt_three_bi_V230618__di_1::其他,state,return_delta,-1,-0.009387689659002869,-0.007936625330944292,"{'2024': -0.022595533334088043, '2025': 0.006722282672199459}",False

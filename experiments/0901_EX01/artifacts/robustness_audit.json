@@ -1,0 +1,173 @@
+[
+  {
+    "factor": "state__raw__daily__cxt_bi_zdf_V230601__di_1::向上",
+    "factor_kind": "state",
+    "state_episode_onset_metrics": [
+      {
+        "factor": "state__raw__daily__cxt_bi_zdf_V230601__di_1::向上",
+        "factor_kind": "state",
+        "year": 2021,
+        "horizon": 20,
+        "active_n": 16,
+        "control_n": 227,
+        "active_return": 0.021206692487526192,
+        "control_return": -0.006864761978229046,
+        "return_delta": 0.02807145446575524,
+        "active_mae": -0.025546795645101067,
+        "control_mae": -0.045578462586864925,
+        "mae_delta": 0.020031666941763858,
+        "active_max_drawdown": -0.054575599265510887,
+        "control_max_drawdown": -0.06483740354634536,
+        "max_drawdown_delta": 0.010261804280834473
+      },
+      {
+        "factor": "state__raw__daily__cxt_bi_zdf_V230601__di_1::向上",
+        "factor_kind": "state",
+        "year": 2022,
+        "horizon": 20,
+        "active_n": 16,
+        "control_n": 226,
+        "active_return": -0.0006142394234604151,
+        "control_return": -0.019573113328127282,
+        "return_delta": 0.018958873904666867,
+        "active_mae": -0.03984524418928337,
+        "control_mae": -0.06926346508100882,
+        "mae_delta": 0.029418220891725452,
+        "active_max_drawdown": -0.07131344454769858,
+        "control_max_drawdown": -0.0881141504303005,
+        "max_drawdown_delta": 0.01680070588260192
+      },
+      {
+        "factor": "state__raw__daily__cxt_bi_zdf_V230601__di_1::向上",
+        "factor_kind": "state",
+        "year": 2023,
+        "horizon": 20,
+        "active_n": 15,
+        "control_n": 227,
+        "active_return": -0.01490491786836526,
+        "control_return": -0.019876471211042412,
+        "return_delta": 0.004971553342677152,
+        "active_mae": -0.04376296530602975,
+        "control_mae": -0.04580464321941775,
+        "mae_delta": 0.002041677913387996,
+        "active_max_drawdown": -0.06371132254358579,
+        "control_max_drawdown": -0.06271227110031946,
+        "max_drawdown_delta": -0.0009990514432663272
+      },
+      {
+        "factor": "state__raw__daily__cxt_bi_zdf_V230601__di_1::向上",
+        "factor_kind": "state",
+        "year": 2024,
+        "horizon": 20,
+        "active_n": 16,
+        "control_n": 226,
+        "active_return": -0.0051826664484943,
+        "control_return": 0.02848353220304468,
+        "return_delta": -0.033666198651538984,
+        "active_mae": -0.056325161337059455,
+        "control_mae": -0.0496671284855269,
+        "mae_delta": -0.006658032851532554,
+        "active_max_drawdown": -0.0752939492562516,
+        "control_max_drawdown": -0.08386864691371679,
+        "max_drawdown_delta": 0.008574697657465186
+      },
+      {
+        "factor": "state__raw__daily__cxt_bi_zdf_V230601__di_1::向上",
+        "factor_kind": "state",
+        "year": 2025,
+        "horizon": 20,
+        "active_n": 19,
+        "control_n": 204,
+        "active_return": 0.04809633118213015,
+        "control_return": 0.031990605937945046,
+        "return_delta": 0.016105725244185104,
+        "active_mae": -0.03168292426317499,
+        "control_mae": -0.034802642445058096,
+        "mae_delta": 0.0031197181818831063,
+        "active_max_drawdown": -0.06467095024159286,
+        "control_max_drawdown": -0.06543404884961282,
+        "max_drawdown_delta": 0.0007630986080199575
+      }
+    ]
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V230320__di_1::二卖",
+    "factor_kind": "event",
+    "validation_event_robustness": [
+      {
+        "year": 2024,
+        "event_count": 18,
+        "active_return_mean": 0.04087720628076267,
+        "active_return_median": -0.012651421897075077,
+        "control_return_mean": 0.0250828834895467,
+        "positive_return_ratio": 0.4444444444444444,
+        "leave_one_out_positive_count": 16,
+        "leave_one_out_count": 18,
+        "event_dates": [
+          "2024-01-04",
+          "2024-01-15",
+          "2024-01-22",
+          "2024-01-29",
+          "2024-02-20",
+          "2024-02-29",
+          "2024-04-19",
+          "2024-05-07",
+          "2024-05-24",
+          "2024-06-06",
+          "2024-06-14",
+          "2024-06-21",
+          "2024-07-12",
+          "2024-07-23",
+          "2024-08-20",
+          "2024-08-27",
+          "2024-09-06",
+          "2024-09-18"
+        ],
+        "event_returns": [
+          -0.1563981042654029,
+          -0.025252525252525304,
+          0.07509881422924902,
+          0.12668463611859826,
+          0.07642487046632107,
+          -0.05447941888619845,
+          0.03208556149732633,
+          -0.021573604060913687,
+          0.016107382550335503,
+          -0.06036745406824151,
+          -0.04657179818887458,
+          -0.009020618556700999,
+          -0.016282225237449155,
+          -0.03653585926928282,
+          -0.06179775280898869,
+          0.027456647398844014,
+          0.35588235294117654,
+          0.5143288084464555
+        ],
+        "active_max_drawdown_mean": -0.09069672642617206
+      },
+      {
+        "year": 2025,
+        "event_count": 4,
+        "active_return_mean": 0.07097054375242381,
+        "active_return_median": 0.07701827902400982,
+        "control_return_mean": 0.03267594396708478,
+        "positive_return_ratio": 0.75,
+        "leave_one_out_positive_count": 4,
+        "leave_one_out_count": 4,
+        "event_dates": [
+          "2025-01-17",
+          "2025-01-24",
+          "2025-02-14",
+          "2025-04-15"
+        ],
+        "event_returns": [
+          0.14054600606673406,
+          0.08908908908908919,
+          0.06494746895893044,
+          -0.010700389105058439
+        ],
+        "active_max_drawdown_mean": -0.045279237196356625
+      }
+    ]
+  }
+]

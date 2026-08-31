@@ -88,9 +88,13 @@ def test_archive_validation_checks_every_tracked_experiment(
         REPO_ROOT,
     )
 
+    expected = sorted(
+        path.parent.name
+        for path in (REPO_ROOT / "experiments").glob("*/experiment_manifest.json")
+    )
     assert payload["status"] == "PASS"
-    assert payload["result"]["validated_count"] == 25
-    assert payload["result"]["experiments"][-1] == "0830_EX08"
+    assert payload["result"]["validated_count"] == len(expected)
+    assert payload["result"]["experiments"] == expected
 
 
 def test_frozen_archive_cannot_run_in_place(

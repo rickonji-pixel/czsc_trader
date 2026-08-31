@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "raw_signal_count": 21,
+  "canonical_factor_count": 52,
+  "supported_factor_count": 35,
+  "discovery_candidate_count": 11,
+  "stable_factor_count": 2,
+  "validation_accessed": true,
+  "access_2026": false
+}

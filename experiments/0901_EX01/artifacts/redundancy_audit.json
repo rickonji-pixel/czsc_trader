@@ -1,0 +1,68 @@
+[
+  {
+    "factor": "state__raw__daily__cxt_bi_trend_V230913__di_1::下降趋势",
+    "exact_match": false,
+    "closest_reference": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20",
+    "max_abs_correlation": 0.31836351902182175
+  },
+  {
+    "factor": "state__raw__daily__cxt_bi_zdf_V230601__di_1::向上",
+    "exact_match": false,
+    "closest_reference": "raw__daily__cxt_bi_status_V230101",
+    "max_abs_correlation": 0.6559035060513756
+  },
+  {
+    "factor": "state__raw__daily__cxt_decision_V240612__di_1::其他",
+    "exact_match": false,
+    "closest_reference": "raw__daily__cxt_five_bi_V230619__di_1",
+    "max_abs_correlation": 0.11243747740734761
+  },
+  {
+    "factor": "state__raw__daily__cxt_nine_bi_V230621__di_1::其他",
+    "exact_match": false,
+    "closest_reference": "raw__daily__cxt_seven_bi_V230620__di_1",
+    "max_abs_correlation": 0.20201428890334513
+  },
+  {
+    "factor": "state__raw__daily__cxt_overlap_V240526__di_1::顶重合0次",
+    "exact_match": false,
+    "closest_reference": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20",
+    "max_abs_correlation": 0.3473818689212998
+  },
+  {
+    "factor": "state__raw__daily__cxt_overlap_V240526__di_1::顶重合1次",
+    "exact_match": false,
+    "closest_reference": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_20",
+    "max_abs_correlation": 0.26918196278413903
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V230320__di_1::二卖",
+    "exact_match": false,
+    "closest_reference": "raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_5",
+    "max_abs_correlation": 0.2804136763112288
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V230320__di_1::其他",
+    "exact_match": false,
+    "closest_reference": "raw__daily__cxt_seven_bi_V230620__di_1",
+    "max_abs_correlation": 0.17968339368159988
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230318__di_1::其他",
+    "exact_match": false,
+    "closest_reference": "raw__daily__vol_window_V230731__di_1__m_30__n_10__w_5",
+    "max_abs_correlation": 0.1838012209228799
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230319__di_1::三卖",
+    "exact_match": false,
+    "closest_reference": "raw__weekly__cxt_bi_status_V230101",
+    "max_abs_correlation": 0.22654792757087747
+  },
+  {
+    "factor": "state__raw__daily__cxt_three_bi_V230618__di_1::其他",
+    "exact_match": false,
+    "closest_reference": "raw__daily__tas_macd_base_V221028__di_1__fastperiod_12__signalperiod_9__slowperiod_26",
+    "max_abs_correlation": 0.19942346622582727
+  }
+]

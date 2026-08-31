@@ -11,6 +11,23 @@ import pandas as pd
 ENDPOINTS = ("return_delta", "max_drawdown_delta")
 
 
+def classify_yearly_effects(
+    values: pd.Series,
+    *,
+    minimum_abs_median: float,
+) -> str:
+    """Classify five visible yearly effects without choosing a direction post hoc."""
+    numeric = pd.to_numeric(values, errors="coerce")
+    if len(numeric) != 5 or numeric.isna().any() or numeric.eq(0.0).any():
+        return "no_stable_incremental_validity"
+    signs = np.sign(numeric.to_numpy(dtype=float)).astype(int)
+    if len(set(signs.tolist())) != 1:
+        return "no_stable_incremental_validity"
+    if float(numeric.abs().median()) + 1e-15 < float(minimum_abs_median):
+        return "no_stable_incremental_validity"
+    return "stable_incremental_validity"
+
+
 def audit_causal_prefix(
     discovery: pd.DataFrame,
     replay: pd.DataFrame,

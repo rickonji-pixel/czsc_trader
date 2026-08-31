@@ -15,6 +15,7 @@ from .czsc_factor_stability import (
     build_forward_outcomes,
     event_onsets,
     evaluate_factor_stability,
+    factor_redundancy_audit,
     leave_one_out_deltas,
     select_discovery_candidates,
     validate_frozen_candidates,
@@ -189,6 +190,15 @@ def run_czsc_factor_stability_experiment(
     discovery_metrics.to_csv(artifacts / "discovery_metrics.csv", index=False, encoding="utf-8-sig")
     selected.to_csv(artifacts / "candidate_selection.csv", index=False, encoding="utf-8-sig")
     _write_json(artifacts / "factor_universe.json", discovery.metadata)
+    redundancy = (
+        factor_redundancy_audit(
+            discovery.factors[selected["factor"].tolist()],
+            discovery.factors[list(baseline.factor_names)],
+        )
+        if not selected.empty
+        else []
+    )
+    _write_json(artifacts / "redundancy_audit.json", redundancy)
 
     validation_accessed = not selected.empty
     validation_metrics = pd.DataFrame()

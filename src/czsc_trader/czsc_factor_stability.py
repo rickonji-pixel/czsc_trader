@@ -46,6 +46,31 @@ def leave_one_out_deltas(active_values: pd.Series, *, control_mean: float) -> li
     return [float(np.delete(values, offset).mean() - float(control_mean)) for offset in range(len(values))]
 
 
+def factor_redundancy_audit(
+    candidates: pd.DataFrame,
+    references: pd.DataFrame,
+) -> list[dict[str, object]]:
+    """Report exact identity and closest linear overlap with frozen factors."""
+    if not candidates.index.equals(references.index):
+        raise ValueError("candidate and reference factor indices differ")
+    rows: list[dict[str, object]] = []
+    for name in map(str, candidates.columns):
+        values = candidates[name].astype(float)
+        correlations = references.astype(float).corrwith(values).abs().dropna()
+        closest = str(correlations.idxmax()) if not correlations.empty else ""
+        maximum = float(correlations.max()) if not correlations.empty else 0.0
+        exact = any(values.equals(references[column].astype(float)) for column in references.columns)
+        rows.append(
+            {
+                "factor": name,
+                "exact_match": bool(exact),
+                "closest_reference": closest,
+                "max_abs_correlation": maximum,
+            }
+        )
+    return rows
+
+
 def _close_series(daily: pd.DataFrame, index: pd.DatetimeIndex) -> pd.Series:
     frame = daily.copy()
     if "dt" in frame.columns:

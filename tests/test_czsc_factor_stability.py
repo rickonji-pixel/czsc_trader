@@ -12,6 +12,7 @@ from czsc_trader.czsc_factor_stability import (
     build_forward_outcomes,
     event_onsets,
     evaluate_factor_stability,
+    factor_redundancy_audit,
     leave_one_out_deltas,
     select_discovery_candidates,
     validate_frozen_candidates,
@@ -185,3 +186,21 @@ def test_leave_one_out_deltas_expose_single_event_dependence() -> None:
     deltas = leave_one_out_deltas(pd.Series([0.10, 0.30, -0.20]), control_mean=0.0)
 
     assert deltas == pytest.approx([0.05, -0.05, 0.20])
+
+
+def test_factor_redundancy_audit_identifies_exact_and_partial_overlap() -> None:
+    index = pd.bdate_range("2021-01-04", periods=5)
+    reference = pd.DataFrame(
+        {"base_a": [0, 1, 0, 1, 0], "base_b": [-1, -1, 0, 1, 1]}, index=index
+    )
+    candidates = pd.DataFrame(
+        {"same": [0, 1, 0, 1, 0], "different": [1, 1, 0, 0, 1]}, index=index
+    )
+
+    audit = factor_redundancy_audit(candidates, reference)
+
+    rows = {row["factor"]: row for row in audit}
+    assert rows["same"]["exact_match"] is True
+    assert rows["same"]["max_abs_correlation"] == pytest.approx(1.0)
+    assert rows["same"]["closest_reference"] == "base_a"
+    assert rows["different"]["exact_match"] is False

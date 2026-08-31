@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX02",
+  "handler": "czsc_bi_layer_stability_diagnostic",
+  "experiment_type": "czsc_bi_layer_stability_diagnostic",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "signal": "cxt_bi_zdf_V230601",
+  "signal_parameters": {"di": 1, "n": 5},
+  "directions": ["向上", "向下"],
+  "layers": ["第1层", "第2层", "第3层", "第4层", "第5层"],
+  "discovery_start": "2021-01-01",
+  "discovery_end": "2023-12-31",
+  "validation_start": "2024-01-01",
+  "validation_end": "2025-12-31",
+  "horizons": [5, 20, 60],
+  "primary_horizon": 20,
+  "minimum_absolute_effect": 0.005,
+  "discovery_min_active_days_per_year": 5,
+  "discovery_min_total_active_days": 20,
+  "validation_min_active_days_per_year": 3,
+  "selection_endpoints": ["return_delta", "max_drawdown_delta"],
+  "control_policy": "same_direction_other_layers",
+  "pass_rule": "at least one frozen joint factor preserves endpoint direction in 2024 and 2025 with validation support and aggregate absolute effect >= 0.005",
+  "access_2026": false
+}

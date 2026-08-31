@@ -262,6 +262,19 @@ def _czsc_bi_layer_stability(
         execution_commit=_git_head(context.root),
     )
 
+
+def _czsc_state_age(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.czsc_state_age_runner import run_state_age_diagnosis
+
+    return run_state_age_diagnosis(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
     return run_czsc_factor_stability_experiment(
         context.raw_dir,
         context.baseline_root,
@@ -301,6 +314,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("position_risk_five_rounds", _position_risk_program),
         FunctionHandler("czsc_factor_stability_diagnostic", _czsc_factor_stability),
         FunctionHandler("czsc_bi_layer_stability_diagnostic", _czsc_bi_layer_stability),
+        FunctionHandler("czsc_state_age_diagnosis", _czsc_state_age),
     ]
     handlers.extend(
         FunctionHandler(

@@ -21,20 +21,19 @@
 
 ### Task 1: Multi-value factor construction
 
-- [ ] Write failing tests for exact v1/v2 parsing and same-direction controls.
-- [ ] Implement joint factor construction and conditional stability evaluation.
-- [ ] Verify the focused tests pass.
+- [x] Write failing tests for exact v1/v2 parsing and same-direction controls.
+- [x] Implement joint factor construction and conditional stability evaluation.
+- [x] Verify the focused tests pass.
 
 ### Task 2: Registered experiment execution
 
-- [ ] Add a failing handler registration test.
-- [ ] Implement discovery freeze, validation support gates, causal replay, and redundancy audit.
-- [ ] Execute the committed protocol and inspect every frozen candidate.
+- [x] Add a failing handler registration test.
+- [x] Implement discovery freeze, validation support gates, causal replay, and redundancy audit.
+- [x] Execute the committed protocol and inspect every frozen candidate.
 
 ### Task 3: Archive and verification
 
-- [ ] Write execution and conclusion documents.
-- [ ] Validate all experiment hashes.
-- [ ] Run focused and CLI contract tests.
-- [ ] Commit without merging or pushing.
-
+- [x] Write execution and conclusion documents.
+- [x] Validate all experiment hashes.
+- [x] Run focused and CLI contract tests.
+- [x] Commit without merging or pushing.

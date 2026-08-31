@@ -2,7 +2,17 @@
 
 本仓库提供行情准备、冻结基线回测、预注册研究、隔离复现和Git研究档案验证。跨设备研究边界与当前588080正式基线见 [RESEARCH_HANDOFF.md](docs/RESEARCH_HANDOFF.md)。
 
-唯一用户入口是安装后生成的 czsc-trader 命令。旧 scripts 脚本和 runner 模块CLI已经删除，不存在第二套调用方式。
+唯一用户入口是安装后生成的 `czsc-trader` 命令。旧`scripts`脚本和runner模块CLI已经删除，不存在第二套调用方式。
+
+## 当前状态
+
+- 活动基线：`baseline_20260826`，来源为`0824_EX04`冻结的12因子四层策略；
+- 588080行情：30分钟、日线和周线均覆盖至2026-08-28并通过校验；
+- 最新正式研究档案：`0830_EX08`，当前共有25个Git跟踪实验档案；
+- 仓位研究结论：已测试的入场定仓、动态仓位、下行风险以及三类风险压力机制均未产生可晋升方案，活动基线不变；
+- 证据边界：截至2026-08-28的行情均已被观察，新的未观察前向行情从该日期之后开始。
+
+上述状态是文档快照；实际基线身份只认`configs/rule_baselines/registry.json`，行情范围只认当前manifest与校验结果，研究事实只认Git实验档案。
 
 ## 环境
 
@@ -36,7 +46,7 @@ czsc-trader archive validate
 ## 数据准备与验证
 
 ~~~powershell
-.\.venv\Scripts\czsc-trader.exe data prepare --symbol 600519.SH --asset stock --start 2024-01-01 --end 2026-08-25
+.\.venv\Scripts\czsc-trader.exe data prepare --symbol 600519.SH --asset stock --start 2024-01-01 --end 2026-08-28
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
 ~~~
 
@@ -59,7 +69,7 @@ A股股票与ETF统一使用Tushare后复权行情。只有证券基础信息、
 
 窗口配置中的`2026FULL`左右边界分别从已验证日线动态解析为2026年第一个和最后一个有记录的交易日，不需要在行情更新后手工修改日期。普通回测只比较冻结策略与Buy & Hold的收益率、夏普率和最大回撤率及三项差值，不执行目标判定。
 
-未显式指定基线时，所有标的默认使用 baseline_20260826，即冻结的0824EX04四层策略。该规则允许跨标的普通回测，但其调参与研究证据仍只来自588080，其他标的结果不自动构成外推有效性证据。baseline_20260823只允许显式历史复现。普通回测只应用冻结规则，不搜索或修改参数；输出进入 outputs/<证券代码>_<MMDD>_BTXX，实际目录以命令返回的 artifacts.output_dir 为准。
+未显式指定基线时，所有标的默认使用`baseline_20260826`，即冻结的`0824_EX04`四层策略。该规则允许跨标的普通回测，但其调参与研究证据仍只来自588080，其他标的结果不自动构成外推有效性证据。`baseline_20260823`只允许显式历史复现。普通回测只应用冻结规则，不搜索或修改参数；输出进入`outputs/<证券代码>_<MMDD>_BTXX`，实际目录以命令返回的`artifacts.output_dir`为准。
 
 ## 研究与档案
 
@@ -87,9 +97,11 @@ $replayDir = Join-Path ([System.IO.Path]::GetTempPath()) `
 研究事实、当前边界和正式研究流程以 [RESEARCH_HANDOFF.md](docs/RESEARCH_HANDOFF.md)
 为准。Git跟踪的实验档案是研究事实；`outputs/`和隔离回放目录都不是研究证据。
 
+最近完成的五轮仓位风险研究（`0830_EX03`—`0830_EX08`，其中`0830_EX07`为技术ERROR、`0830_EX08`为同协议重试）只让日内抛压候选通过了2021—2023发现段；该冻结候选在2024—2025验证段收益下降且最大回撤恶化，因此最终FAIL，并按预注册门槛没有访问2026。该结果只否定已测试机制及参数范围，不代表所有仓位管理方法均无效。
+
 ## 测试
 
-测试集只保留统一CLI的端到端功能验证，不为内部实现、历史runner或研究算法细节保留单元测试。
+测试集包括统一CLI端到端验证，以及仓位状态机、风险特征、资金账本、因果事件和技术错误重试的针对性单元与回归测试。
 
 ~~~powershell
 .\.venv\Scripts\python.exe -m pytest -q

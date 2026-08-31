@@ -4,7 +4,7 @@
 >
 > 不得假定新会话与上一会话位于同一台设备、同一绝对路径，或保留任何未提交文件。不得依赖历史 `outputs/`、本地SQLite数据库、虚拟环境和终端输出。研究事实只以Git跟踪的源码、配置、`data/raw/*_manifest.json`、`data/raw/*_validation.json` 和 `experiments/MMDD_EXX/` 为准。`outputs/`只用于普通回测输出，不是研究档案；需要结果时必须在当前设备重新运行，并使用命令实际返回的目录。
 
-本文档记录截至 **2026-08-30 / 0830_EX08** 的可接力状态。新会话应先验证仓库当前状态，不能把本文中的分支或提交描述当成未经核验的实时事实。
+本文档记录截至 **2026-08-31 / 0830_EX08** 的可接力状态。五轮仓位风险研究已合并到`master`；此后没有新增正式实验。新会话应先验证仓库当前状态，不能把本文中的分支、提交或日期描述当成未经核验的实时事实。
 
 ## 1. 当前目标与两个基线
 
@@ -147,6 +147,8 @@ CZSC因子（包含类别归一化） → 权重 → 加权计分 → 入场/离
 
 唯一发现段胜者`intraday_C0.35_V0.60_P0.50`把发现段收益从1.6356%提高到5.5349%，并把最大回撤从-25.5149%改善到-22.1030%。但在未参与选择的2024—2025验证段，收益相对冠军下降5.1992个百分点，最大回撤恶化0.9210个百分点，因此不满足两个硬门槛中的任何一个。最终没有仓位方案晋升，活动基线仍为`baseline_20260826`；2026FULL未运行，不存在可报告的新候选2026结果。
 
+这一结果证伪的是本计划预注册的趋势损伤、连续下跌和日内抛压三类机制及其参数范围，不等于证明所有仓位管理方法都无效。后续若继续研究仓位，必须引入不同且有金融机制依据的新信息或架构，不能对已失败网格做事后细化或组合。
+
 ## 5. 稳定入口与实现发现
 
 安装项目后只使用`czsc-trader`命令；旧Python脚本入口和runner模块CLI已经删除。
@@ -208,7 +210,7 @@ cd czsc_trader
 git switch master
 git pull --ff-only origin master
 py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows -e ".[test]"
 ```
 
 关键依赖以`pyproject.toml`为准。SQLite由Python标准库提供，不需要单独安装；虚拟环境和本地SQLite运行库都不跨机复制。
@@ -343,7 +345,7 @@ EX08和0825_EX01拒绝“扩大同一搜索或重排同一Trial集合”；0825_
 
 如果当前仓库没有.venv，先执行：
 1. py -3.12 -m venv .venv
-2. .\.venv\Scripts\python.exe -m pip install -e ".[test]"
+2. .\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows -e ".[test]"
 
 再用当前设备执行：
 1. .\.venv\Scripts\python.exe -m pip check

@@ -104,6 +104,32 @@ def test_czsc_route_multiplicity_handler_propagates_runner_summary(
     assert handler.run(context, tmp_path) == expected
 
 
+def test_czsc_champion_condition_handler_propagates_runner_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import czsc_trader.czsc_champion_condition_runner as runner
+
+    expected = {"status": "FAIL", "experiment_dir": str(tmp_path)}
+    monkeypatch.setattr(
+        runner,
+        "run_champion_position_condition",
+        lambda *args, **kwargs: expected,
+    )
+    handler = next(
+        item
+        for item in registered_handlers()
+        if item.handler_id == "czsc_champion_position_condition"
+    )
+    context = SimpleNamespace(
+        root=REPO_ROOT,
+        raw_dir=REPO_ROOT / "data" / "raw",
+        baseline_root=REPO_ROOT / "configs" / "rule_baselines",
+    )
+
+    assert handler.run(context, tmp_path) == expected
+
+
 def invoke_cli(
     capsys: pytest.CaptureFixture[str],
     *arguments: object,

@@ -323,6 +323,21 @@ def _czsc_route_multiplicity(
         execution_commit=_git_head(context.root),
     )
 
+
+def _czsc_champion_condition(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.czsc_champion_condition_runner import (
+        run_champion_position_condition,
+    )
+
+    return run_champion_position_condition(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -358,6 +373,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("czsc_incremental_validity_diagnosis", _czsc_incremental_validity),
         FunctionHandler("czsc_route_family_diagnostic", _czsc_route_family),
         FunctionHandler("czsc_route_multiplicity_audit", _czsc_route_multiplicity),
+        FunctionHandler("czsc_champion_position_condition", _czsc_champion_condition),
     ]
     handlers.extend(
         FunctionHandler(

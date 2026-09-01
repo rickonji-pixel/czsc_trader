@@ -31,6 +31,12 @@ This is a persistent target-state strategy. A crossover changes the target, but
 the position remains active while `MA5 > MA20` rather than only on the crossover
 date.
 
+Crossovers are confirmed only from the two discrete moving-average values at a
+session close. The visual intersection of Plotly line segments between adjacent
+sessions is not a signal timestamp. If session T first closes with `MA5 <= MA20`,
+T is the Sell signal date and the order executes at session T+1 open; chart order
+markers therefore use the execution date rather than the signal date.
+
 ## Shared execution and metrics
 
 All three strategies use `run_backtest` so execution prices, fees, portfolio

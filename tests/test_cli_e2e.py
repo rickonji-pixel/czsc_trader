@@ -29,6 +29,23 @@ TRACKED_SYMBOLS = (
 )
 
 
+def test_experiment_archive_normalizes_python_line_endings(tmp_path: Path) -> None:
+    from czsc_trader.experiment_archive import (
+        build_experiment_manifest,
+        validate_experiment_archive,
+    )
+
+    for name in ("01_goal.md", "02_design.md", "03_execution.md", "04_conclusion.md"):
+        (tmp_path / name).write_text("document\n", encoding="utf-8")
+    runner = tmp_path / "run_experiment.py"
+    runner.write_bytes(b"print('research')\n")
+    build_experiment_manifest(tmp_path, {"experiment_id": "test"})
+
+    runner.write_bytes(b"print('research')\r\n")
+
+    validate_experiment_archive(tmp_path)
+
+
 def test_robustness_cscv_uses_all_complementary_splits() -> None:
     from czsc_trader.robustness import contiguous_blocks, cscv_pbo
 

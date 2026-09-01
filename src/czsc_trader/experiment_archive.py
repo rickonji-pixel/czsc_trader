@@ -16,7 +16,7 @@ REQUIRED_DOCUMENTS = (
     "04_conclusion.md",
 )
 MANIFEST_NAME = "experiment_manifest.json"
-TEXT_SUFFIXES = {".csv", ".html", ".json", ".md", ".txt"}
+TEXT_SUFFIXES = {".csv", ".html", ".json", ".md", ".py", ".txt"}
 
 
 def create_experiment_dir(root: Path, run_date: date) -> Path:

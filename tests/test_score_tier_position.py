@@ -107,3 +107,29 @@ def test_score_monotonicity_rejects_two_reversed_years() -> None:
 
     assert result.summary["status"] == "FAIL"
     assert result.summary["same_direction_years"] == 3
+
+
+def test_score_tier_diagnostic_protocol_rejects_future_or_changed_boundaries() -> None:
+    from czsc_trader.score_tier_diagnostic_runner import validate_protocol
+
+    valid = {
+        "experiment_id": "0901_EX16",
+        "handler": "ex13_score_monotonicity_diagnostic",
+        "symbol": "588080.SH",
+        "visible_end": "2025-12-31",
+        "access_2026": False,
+        "challenger_experiment": "0901_EX13",
+        "challenger_manifest_sha256": "7f381ff0e6cefffd77149cab93d759b46a1b6ef06d046b1169ffd3506a011589",
+        "tier_boundaries": [0.025, 0.075, 0.125, 0.175],
+        "minimum_annual_support": 30,
+        "hac_max_lag": 20,
+    }
+    validate_protocol(valid)
+    for key, value in (
+        ("visible_end", "2026-08-28"),
+        ("access_2026", True),
+        ("tier_boundaries", [0.025, 0.10, 0.125, 0.175]),
+        ("minimum_annual_support", 20),
+    ):
+        with pytest.raises(ValueError):
+            validate_protocol({**valid, key: value})

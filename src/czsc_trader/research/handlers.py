@@ -365,6 +365,19 @@ def _czsc_unified_factor_integration(
         execution_commit=_git_head(context.root),
     )
 
+
+def _ex13_score_monotonicity(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.score_tier_diagnostic_runner import run_score_tier_diagnostic
+
+    return run_score_tier_diagnostic(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -403,6 +416,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("czsc_champion_position_condition", _czsc_champion_condition),
         FunctionHandler("czsc_route_pairwise_interaction", _czsc_pairwise_interaction),
         FunctionHandler("czsc_unified_factor_integration", _czsc_unified_factor_integration),
+        FunctionHandler("ex13_score_monotonicity_diagnostic", _ex13_score_monotonicity),
     ]
     handlers.extend(
         FunctionHandler(

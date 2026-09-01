@@ -178,6 +178,32 @@ def test_czsc_unified_factor_integration_handler_propagates_runner_summary(
     assert handler.run(context, tmp_path) == expected
 
 
+def test_ex13_score_monotonicity_handler_propagates_runner_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import czsc_trader.score_tier_diagnostic_runner as runner
+
+    expected = {"status": "FAIL", "experiment_dir": str(tmp_path)}
+    monkeypatch.setattr(
+        runner,
+        "run_score_tier_diagnostic",
+        lambda *args, **kwargs: expected,
+    )
+    handler = next(
+        item
+        for item in registered_handlers()
+        if item.handler_id == "ex13_score_monotonicity_diagnostic"
+    )
+    context = SimpleNamespace(
+        root=REPO_ROOT,
+        raw_dir=REPO_ROOT / "data" / "raw",
+        baseline_root=REPO_ROOT / "configs" / "rule_baselines",
+    )
+
+    assert handler.run(context, tmp_path) == expected
+
+
 def invoke_cli(
     capsys: pytest.CaptureFixture[str],
     *arguments: object,

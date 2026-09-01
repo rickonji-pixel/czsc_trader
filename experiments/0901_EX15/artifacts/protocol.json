@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX15",
+  "evaluation_type": "frozen_retrospective_replay",
+  "status": "EXECUTED_AFTER_USER_REQUEST",
+  "symbol": "588080.SH",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "challenger_experiment": "0901_EX13",
+  "challenger_manifest_sha256": "7f381ff0e6cefffd77149cab93d759b46a1b6ef06d046b1169ffd3506a011589",
+  "route_decision_experiment": "0901_EX14",
+  "route_decision_manifest_sha256": "46661794d5fff9ea88719ec5a2c2c65b9e1f1d5713fefe789efc7540bb5c9484",
+  "data_end": "2026-08-28",
+  "periods": {
+    "2026Q1": ["2026-01-01", "2026-03-31"],
+    "2026H1": ["2026-01-01", "2026-06-30"],
+    "2026M1_M8": ["2026-01-01", "2026-08-31"]
+  },
+  "fee_rate": 0.0005,
+  "init_cash": 1000000.0,
+  "parameter_search": false,
+  "active_baseline_mutation": false,
+  "independent_out_of_sample_claim": false
+}

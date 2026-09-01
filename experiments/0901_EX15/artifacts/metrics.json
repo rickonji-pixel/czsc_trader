@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "COMPLETE",
+  "promotion_decision": "KEEP_CURRENT_CHAMPION",
+  "current_champion": "baseline_20260826",
+  "challenger": "0901_EX13",
+  "data_end": "2026-08-28",
+  "source_event_count_2026": 0,
+  "target_difference_days_2026": 0,
+  "all_period_metrics_identical": true,
+  "return_floor_pass": true,
+  "strict_max_drawdown_improvement_pass": false,
+  "promotion_gate_pass": false,
+  "active_baseline_changed": false,
+  "independent_out_of_sample_claim": false
+}

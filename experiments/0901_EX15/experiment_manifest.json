@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX15",
+  "date": "2026-09-01",
+  "status": "COMPLETE",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "promotion_decision": "KEEP_CURRENT_CHAMPION",
+  "visible_sample_end": "2026-08-28",
+  "validation_accessed": true,
+  "historical_2026_accessed": true,
+  "independent_out_of_sample_claim": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 276,
+      "sha256": "8a4763dc1b4727a3019a3a696b13db552f9fff972046cd04777da1ec340b050f"
+    },
+    "02_design.md": {
+      "bytes": 667,
+      "sha256": "54fe1e2606ac1f76994fcc4fc6fa2dc6c086d82a746b7d088b7d3fac89696104"
+    },
+    "03_execution.md": {
+      "bytes": 402,
+      "sha256": "d8feab7110e004f02992160913f34f88e5e194a7ab78306f86dfcc9768474863"
+    },
+    "04_conclusion.md": {
+      "bytes": 641,
+      "sha256": "10a0a62eff173a64597f32ce82e31ecf8c94890011f3102ee3a32067b74fcde1"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 425,
+      "sha256": "5e2e2432459302cf764569f52cd215475da789ddca308d8790ccdaddc15d7aee"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 497,
+      "sha256": "0d3dd764d6350e8e8977b51bf3cd5eaefd1755e6f6994fc063d40f3362edf2b7"
+    },
+    "artifacts/period_comparison.csv": {
+      "bytes": 790,
+      "sha256": "daaaf053cf2c371175b6df83a51daf7cc981d0aad2d87da0af83442863aee492"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 944,
+      "sha256": "96dd6f416dac9c222dad8bdc14db50defc51e8d7acd9c0bd24bdff749f3bdd00"
+    }
+  }
+}

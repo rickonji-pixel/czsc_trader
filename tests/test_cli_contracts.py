@@ -130,6 +130,28 @@ def test_czsc_champion_condition_handler_propagates_runner_summary(
     assert handler.run(context, tmp_path) == expected
 
 
+def test_czsc_pairwise_handler_propagates_runner_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import czsc_trader.czsc_pairwise_runner as runner
+
+    expected = {"status": "FAIL", "experiment_dir": str(tmp_path)}
+    monkeypatch.setattr(
+        runner,
+        "run_pairwise_interaction",
+        lambda *args, **kwargs: expected,
+    )
+    handler = next(
+        item
+        for item in registered_handlers()
+        if item.handler_id == "czsc_route_pairwise_interaction"
+    )
+    context = SimpleNamespace(root=REPO_ROOT)
+
+    assert handler.run(context, tmp_path) == expected
+
+
 def invoke_cli(
     capsys: pytest.CaptureFixture[str],
     *arguments: object,

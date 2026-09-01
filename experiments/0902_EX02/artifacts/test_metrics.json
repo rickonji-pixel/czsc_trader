@@ -1,0 +1,31 @@
+{
+  "frozen_policy_sha256": "d902a498e86dc120e8f9f478ca9d60af9c0257ef6f32b7545c83bd8fcbc55760",
+  "selected_execution": {
+    "max_drawdown": -0.12086776859504134,
+    "calmar": 9.926452067046565,
+    "win_loss_ratio": 22.150778610041733,
+    "return": 0.6547916516015184,
+    "sharpe": 2.490497203697645,
+    "cycle_count": 7,
+    "t1_fill_rate": 0.8571428571428571,
+    "two_day_fill_rate": 1.0,
+    "final_fill_rate": 1.0,
+    "average_wait_sessions": 1.1428571428571428,
+    "longest_wait_sessions": 2,
+    "missed_cycles": 0,
+    "cap_p95": -1.4237041917458685e-05,
+    "cap_mean": -0.00032291067174511356,
+    "average_open_improvement": 0.0003358080943446521,
+    "worst_open_improvement": 0.0,
+    "average_diagnostic_participation": 0.00019199971878778875,
+    "maximum_diagnostic_participation": 0.0003051948350285445,
+    "trade_count": 13
+  },
+  "unconditional_next_open": {
+    "max_drawdown": -0.12086776859504123,
+    "calmar": 10.876004142837745,
+    "win_loss_ratio": 19.6579772525972,
+    "return": 0.7094430673578125,
+    "sharpe": 3.1507597704577917
+  }
+}

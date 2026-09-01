@@ -379,11 +379,11 @@ def test_all_frozen_experiment_archives_validate() -> None:
     payload = _run_cli_json("archive", "validate", "--all")
 
     assert payload["status"] == "PASS"
-    assert payload["result"]["validated_count"] == 47
+    assert payload["result"]["validated_count"] == 48
     assert payload["result"]["experiments"][-3:] == [
-        "0901_EX20",
         "0901_EX21",
         "0902_EX01",
+        "0902_EX02",
     ]
 
 

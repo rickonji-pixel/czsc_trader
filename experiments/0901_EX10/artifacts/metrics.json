@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "tested_hypothesis_count": 3462,
+  "formal_admitted_count": 412,
+  "multiplicity_survivor_count": 1,
+  "fdr_q": 0.1,
+  "family_counts": {
+    "0901_EX06": {
+      "canonical": 899,
+      "eligible": 287,
+      "formal_admitted": 117
+    },
+    "0901_EX07": {
+      "canonical": 81,
+      "eligible": 24,
+      "formal_admitted": 4
+    },
+    "0901_EX08": {
+      "canonical": 3491,
+      "eligible": 1330,
+      "formal_admitted": 259
+    },
+    "0901_EX09": {
+      "canonical": 276,
+      "eligible": 90,
+      "formal_admitted": 32
+    }
+  },
+  "visible_sample_end": "2025-12-31",
+  "access_2026": false
+}

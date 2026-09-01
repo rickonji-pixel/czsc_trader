@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX18",
+  "date": "2026-09-01",
+  "status": "COMPLETE",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "route_decision": "SCORE_TIER_ROUTE_TERMINATED",
+  "diagnostic_experiment": "0901_EX17",
+  "visible_sample_end": "2025-12-31",
+  "validation_accessed": false,
+  "historical_2026_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 229,
+      "sha256": "79d132ca764080a296b970ec6957b853713a63eb8b0da99ef148af274f5993c0"
+    },
+    "02_design.md": {
+      "bytes": 429,
+      "sha256": "ead90ba2be3f7bb21926860a7eb48992bc601666ee1ab6087795ccd9d3017c07"
+    },
+    "03_execution.md": {
+      "bytes": 723,
+      "sha256": "88a2ac304f347ab9c9f551e6dd3fe11e4d7cdc6febedec196964735545fc10b1"
+    },
+    "04_conclusion.md": {
+      "bytes": 706,
+      "sha256": "d7280b2d908057b0ef73c94a66f6e2fa8650992e717a1910762d801d04c45345"
+    },
+    "artifacts/candidate_funnel.csv": {
+      "bytes": 402,
+      "sha256": "5bc9dcd5121fa6d0697d4d436862c95d91b454145c6691e4a8c75b719c202c63"
+    },
+    "artifacts/parent_manifests.json": {
+      "bytes": 169,
+      "sha256": "d48769fe4df2bd08a60df1516670d5efe84e7ef3c932ce32415cb41afe199ebe"
+    },
+    "artifacts/route_decision.json": {
+      "bytes": 807,
+      "sha256": "52af92a4c0a44c466d23a65405cce9424ba380bd3ce704aa40802a91557cfd95"
+    }
+  }
+}

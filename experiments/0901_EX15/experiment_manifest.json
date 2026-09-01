@@ -20,20 +20,20 @@
       "sha256": "54fe1e2606ac1f76994fcc4fc6fa2dc6c086d82a746b7d088b7d3fac89696104"
     },
     "03_execution.md": {
-      "bytes": 402,
-      "sha256": "d8feab7110e004f02992160913f34f88e5e194a7ab78306f86dfcc9768474863"
+      "bytes": 689,
+      "sha256": "1190f6a37dd0ba81ab5111b2fe84f22f5f824369f279a9519406c747c63799c3"
     },
     "04_conclusion.md": {
-      "bytes": 641,
-      "sha256": "10a0a62eff173a64597f32ce82e31ecf8c94890011f3102ee3a32067b74fcde1"
+      "bytes": 860,
+      "sha256": "828075b097cc76ede34032af073a3a6bb9edeadf9b7eefea46c3179f47cdb88a"
     },
     "artifacts/identity_audit.json": {
       "bytes": 425,
       "sha256": "5e2e2432459302cf764569f52cd215475da789ddca308d8790ccdaddc15d7aee"
     },
     "artifacts/metrics.json": {
-      "bytes": 497,
-      "sha256": "0d3dd764d6350e8e8977b51bf3cd5eaefd1755e6f6994fc063d40f3362edf2b7"
+      "bytes": 875,
+      "sha256": "8e117236c43dc54d0f70ee1d248466e92d651a42d9dd3dd27729c36da1338ceb"
     },
     "artifacts/period_comparison.csv": {
       "bytes": 790,

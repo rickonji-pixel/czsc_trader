@@ -319,7 +319,7 @@ def test_cli_exposes_only_supported_resources() -> None:
         for line in completed.stdout.splitlines()
         if line.strip().startswith("{") and line.strip().endswith("}")
     )
-    assert resource_line == "{data,baseline,backtest,archive}"
+    assert resource_line == "{data,baseline,backtest,advice,archive}"
     assert "experiment" not in completed.stdout
 
 
@@ -392,6 +392,72 @@ def test_active_execution_policy_is_frozen_ex02_winner() -> None:
     assert policy.parameter == 0.0
     assert policy.warning_gap_q05 == pytest.approx(-0.006797902176638775)
     assert policy.source_path == "experiments/0902_EX02/artifacts/frozen_execution_policy.json"
+
+
+def test_daily_advice_maps_target_and_actual_position_to_manual_action() -> None:
+    from czsc_trader.application.advice_service import build_advice
+    from czsc_trader.execution_policies import resolve_execution_policy
+
+    policy = resolve_execution_policy(
+        REPO_ROOT / "configs" / "execution_policies",
+        symbol="588080.SH",
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+        required=True,
+    )
+    assert policy is not None
+    common = {
+        "signal_date": pd.Timestamp("2026-09-01"),
+        "close": 1.688,
+        "quantity": 50_000,
+        "policy": policy,
+    }
+
+    cash = build_advice(target_position=0, actual_position=0, **common)
+    entry = build_advice(target_position=1, actual_position=0, **common)
+    holding = build_advice(target_position=1, actual_position=1, **common)
+    exit_advice = build_advice(target_position=0, actual_position=1, **common)
+
+    assert (cash["state"], cash["action"]) == ("CASH", "WAIT")
+    assert (entry["state"], entry["action"]) == ("PENDING_ENTRY", "BUY")
+    assert entry["order"]["order_type"] == "限价委托"
+    assert entry["order"]["maximum_buy_price"] == pytest.approx(1.688)
+    assert entry["order"]["low_open_warning_price"] == pytest.approx(1.676)
+    assert entry["order"]["valid_for"] == "NEXT_TRADING_SESSION"
+    assert (holding["state"], holding["action"]) == ("HOLDING", "HOLD")
+    assert (exit_advice["state"], exit_advice["action"]) == ("PENDING_EXIT", "SELL")
+    assert exit_advice["order"]["primary_order_type"] == "限价委托"
+    assert "券商显示的当日合法价格下限" in exit_advice["order"]["price_instruction"]
+
+    with pytest.raises(ValueError, match="100-share lots"):
+        build_advice(target_position=1, actual_position=0, quantity=50_050, **{
+            key: value for key, value in common.items() if key != "quantity"
+        })
+
+
+def test_installed_cli_generates_stateless_daily_advice() -> None:
+    payload = _run_cli_json(
+        "advice",
+        "run",
+        "--symbol",
+        "588080.SH",
+        "--asset",
+        "etf",
+        "--actual-position",
+        "1",
+        "--quantity",
+        "50000",
+    )
+
+    assert payload["status"] == "PASS"
+    result = payload["result"]
+    assert result["data_cutoff"] == "2026-09-01"
+    assert result["baseline"]["version"] == "baseline_20260901"
+    assert result["execution_policy"]["version"] == "execution_policy_20260902"
+    assert result["actual_position"] == 1
+    assert result["quantity"] == 50000
+    assert result["valid_for"] == "NEXT_TRADING_SESSION"
+    assert result["confirmation_rule"] == "未收到明确成交回报时，实际仓位保持不变。"
 
 
 def test_all_frozen_experiment_archives_validate() -> None:

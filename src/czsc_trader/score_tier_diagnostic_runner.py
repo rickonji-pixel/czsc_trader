@@ -31,7 +31,6 @@ def _write_json(path: Path, payload: object) -> None:
 
 def validate_protocol(protocol: Mapping[str, object]) -> None:
     expected = {
-        "experiment_id": "0901_EX16",
         "handler": "ex13_score_monotonicity_diagnostic",
         "symbol": "588080.SH",
         "visible_end": "2025-12-31",
@@ -45,6 +44,18 @@ def validate_protocol(protocol: Mapping[str, object]) -> None:
     for key, value in expected.items():
         if protocol.get(key) != value:
             raise ValueError(f"score-tier diagnostic protocol {key} differs from preregistration")
+    experiment_id = protocol.get("experiment_id")
+    if experiment_id == "0901_EX16":
+        return
+    retry_expected = {
+        "experiment_id": "0901_EX17",
+        "technical_retry_of": "0901_EX16",
+        "technical_retry_manifest_sha256": "1203b1cd18a7e0bb6a45e110332b7a1ea33012c36a16d8ffc696e9586f892b8f",
+        "numeric_prefix_absolute_tolerance": 1e-12,
+    }
+    for key, value in retry_expected.items():
+        if protocol.get(key) != value:
+            raise ValueError(f"score-tier diagnostic retry {key} differs from preregistration")
 
 
 def _safe_json(value: object) -> object:
@@ -55,6 +66,26 @@ def _safe_json(value: object) -> object:
     if isinstance(value, (np.integer,)):
         return int(value)
     return value
+
+
+def numeric_prefix_equal(
+    left: pd.Series,
+    right: pd.Series,
+    *,
+    absolute_tolerance: float = 1e-12,
+) -> bool:
+    """Compare causal numeric replays while allowing machine-scale roundoff."""
+    if not left.index.equals(right.index):
+        return False
+    return bool(
+        np.allclose(
+            left.to_numpy(dtype=float),
+            right.to_numpy(dtype=float),
+            rtol=0.0,
+            atol=float(absolute_tolerance),
+            equal_nan=True,
+        )
+    )
 
 
 def run_score_tier_diagnostic(
@@ -124,7 +155,11 @@ def run_score_tier_diagnostic(
     causal = {
         "status": "PASS",
         "prefix_cutoff": "2023-12-31",
-        "score_equal": prefix_scores.equals(scores.reindex(prefix_scores.index)),
+        "score_equal": numeric_prefix_equal(
+            prefix_scores,
+            scores.reindex(prefix_scores.index),
+            absolute_tolerance=float(protocol.get("numeric_prefix_absolute_tolerance", 0.0)),
+        ),
         "tier_equal": prefix_tiers.equals(full_tiers.reindex(prefix_tiers.index)),
         "event_equal": prefix_event.equals(event.reindex(prefix_event.index)),
         "target_equal": prefix_target.equals(target.reindex(prefix_target.index)),
@@ -160,10 +195,11 @@ def run_score_tier_diagnostic(
             "access_2026": False,
         },
     )
+    experiment_id = str(protocol["experiment_id"])
     (experiment_dir / "03_execution.md").write_text(
         "\n".join(
             [
-                "# 0901_EX16 执行过程",
+                f"# {experiment_id} 执行过程",
                 "",
                 f"- 执行提交：`{execution_commit}`。",
                 f"- 评价交易日：{len(eval_index)}；EX13持仓日：{int(target.reindex(eval_index).eq(1.0).sum())}。",
@@ -178,7 +214,7 @@ def run_score_tier_diagnostic(
     (experiment_dir / "04_conclusion.md").write_text(
         "\n".join(
             [
-                "# 0901_EX16 结论",
+                f"# {experiment_id} 结论",
                 "",
                 f"状态：`{status}`。",
                 "",
@@ -192,7 +228,7 @@ def run_score_tier_diagnostic(
     build_experiment_manifest(
         experiment_dir,
         {
-            "experiment_id": "0901_EX16",
+            "experiment_id": experiment_id,
             "date": "2026-09-01",
             "status": status,
             "symbol": "588080.SH",

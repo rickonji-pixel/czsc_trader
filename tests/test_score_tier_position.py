@@ -125,6 +125,16 @@ def test_score_tier_diagnostic_protocol_rejects_future_or_changed_boundaries() -
         "hac_max_lag": 20,
     }
     validate_protocol(valid)
+    retry = {
+        **valid,
+        "experiment_id": "0901_EX17",
+        "technical_retry_of": "0901_EX16",
+        "technical_retry_manifest_sha256": "1203b1cd18a7e0bb6a45e110332b7a1ea33012c36a16d8ffc696e9586f892b8f",
+        "numeric_prefix_absolute_tolerance": 1e-12,
+    }
+    validate_protocol(retry)
+    with pytest.raises(ValueError):
+        validate_protocol({**retry, "numeric_prefix_absolute_tolerance": 1e-8})
     for key, value in (
         ("visible_end", "2026-08-28"),
         ("access_2026", True),
@@ -133,3 +143,12 @@ def test_score_tier_diagnostic_protocol_rejects_future_or_changed_boundaries() -
     ):
         with pytest.raises(ValueError):
             validate_protocol({**valid, key: value})
+
+
+def test_numeric_prefix_equality_accepts_only_machine_scale_roundoff() -> None:
+    from czsc_trader.score_tier_diagnostic_runner import numeric_prefix_equal
+
+    left = pd.Series([0.2, 0.4], index=pd.date_range("2023-01-01", periods=2))
+
+    assert numeric_prefix_equal(left, left + pd.Series([0.0, 1e-16], index=left.index))
+    assert not numeric_prefix_equal(left, left + pd.Series([0.0, 1e-8], index=left.index))

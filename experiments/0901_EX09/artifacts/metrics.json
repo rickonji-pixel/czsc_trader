@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "family": "cross_frequency",
+  "raw_signal_config_count": 150,
+  "canonical_factor_count": 276,
+  "admitted_factor_count": 32,
+  "rejection_counts": {
+    "cross_year_direction": 34,
+    "minimum_absolute_effect": 18,
+    "state_active_support": 186,
+    "state_influence": 6
+  },
+  "causal_replay_status": "PASS",
+  "visible_sample_end": "2025-12-31",
+  "access_2026": false
+}

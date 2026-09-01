@@ -391,6 +391,20 @@ def _regime_conditioned_weight(
         execution_commit=_git_head(context.root),
     )
 
+
+def _regime_candidate_tournament(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.regime_tournament_runner import run_regime_tournament
+
+    return run_regime_tournament(
+        context.raw_dir,
+        context.baseline_root,
+        context.experiments_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -431,6 +445,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("czsc_unified_factor_integration", _czsc_unified_factor_integration),
         FunctionHandler("ex13_score_monotonicity_diagnostic", _ex13_score_monotonicity),
         FunctionHandler("regime_conditioned_weight_challenge", _regime_conditioned_weight),
+        FunctionHandler("regime_candidate_score_tournament", _regime_candidate_tournament),
     ]
     handlers.extend(
         FunctionHandler(

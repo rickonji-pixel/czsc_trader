@@ -230,6 +230,33 @@ def test_regime_weight_handler_propagates_runner_summary(
     assert handler.run(context, tmp_path) == expected
 
 
+def test_regime_tournament_handler_propagates_runner_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import czsc_trader.regime_tournament_runner as runner
+
+    expected = {"status": "COMPLETE", "experiment_dir": str(tmp_path)}
+    monkeypatch.setattr(
+        runner,
+        "run_regime_tournament",
+        lambda *args, **kwargs: expected,
+    )
+    handler = next(
+        item
+        for item in registered_handlers()
+        if item.handler_id == "regime_candidate_score_tournament"
+    )
+    context = SimpleNamespace(
+        root=REPO_ROOT,
+        raw_dir=REPO_ROOT / "data" / "raw",
+        baseline_root=REPO_ROOT / "configs" / "rule_baselines",
+        experiments_root=REPO_ROOT / "experiments",
+    )
+
+    assert handler.run(context, tmp_path) == expected
+
+
 def invoke_cli(
     capsys: pytest.CaptureFixture[str],
     *arguments: object,

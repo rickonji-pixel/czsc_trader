@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date, datetime, timezone
 from functools import partial
-from hashlib import sha256
 import json
 from pathlib import Path
 import re
@@ -15,6 +14,8 @@ from typing import TypeAlias
 
 import numpy as np
 import pandas as pd
+
+from .identity import raw_file_sha256
 
 from .data import (
     AMOUNT_RELATIVE_TOLERANCE,
@@ -317,7 +318,7 @@ def prepare_market_data(
                     "rows": int(len(yearly)),
                     "first": timestamps.min().isoformat(),
                     "last": timestamps.max().isoformat(),
-                    "sha256": sha256(path.read_bytes()).hexdigest(),
+                    "sha256": raw_file_sha256(path),
                 }
         generated_at = datetime.now(timezone.utc).isoformat()
         manifest = {

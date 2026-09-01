@@ -200,6 +200,38 @@ def test_common_admission_rejects_single_outlier_driven_event() -> None:
     assert result.rejected.set_index("factor").loc["outlier_event", "reason"] == "event_influence"
 
 
+def test_event_requires_conditional_effect_in_every_supported_year() -> None:
+    dates = pd.DatetimeIndex(
+        [pd.Timestamp(year=year, month=1, day=day) for year in range(2021, 2026) for day in range(1, 21)],
+        name="dt",
+    )
+    event = np.zeros(len(dates))
+    positions = [offset for year in range(5) for offset in (year * 20, year * 20 + 5)]
+    event[positions] = 1.0
+    outcomes = pd.DataFrame(
+        {"return_20": np.where(event == 1.0, 0.03, 0.0), "max_drawdown_20": 0.0},
+        index=dates,
+    )
+    target = np.zeros(len(dates))
+    target[dates.year == 2022] = 0.0
+    target[[position for position in positions if dates[position].year == 2022]] = 1.0
+    references = pd.DataFrame({"target_position": target}, index=dates)
+    candidates = pd.DataFrame({"event_without_2022_control": event}, index=dates)
+    _, _, _, protocol = _admission_fixture()
+
+    result = admit_factors(
+        candidates,
+        references,
+        outcomes,
+        protocol,
+        factor_kinds={"event_without_2022_control": "event"},
+        causal_passed={"event_without_2022_control"},
+    )
+
+    assert result.admitted.empty
+    assert result.rejected.iloc[0]["reason"] == "cross_year_direction"
+
+
 def test_route_family_protocol_rejects_mutable_or_future_scope() -> None:
     valid = {
         "experiment_id": "0901_EX06",

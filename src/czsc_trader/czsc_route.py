@@ -360,8 +360,21 @@ def _conditional_yearly_effects(
     return rows, selected
 
 
-def _direction_passes(effects: pd.Series, kind: str, protocol: dict[str, object]) -> bool:
-    numeric = pd.to_numeric(effects, errors="coerce").dropna()
+def _direction_passes(
+    effects: pd.Series,
+    kind: str,
+    protocol: dict[str, object],
+    *,
+    supported_years: set[int],
+) -> bool:
+    raw = pd.to_numeric(effects, errors="coerce")
+    if kind == "event":
+        required = raw.reindex(sorted(supported_years))
+        if required.isna().any():
+            return False
+        numeric = required
+    else:
+        numeric = raw.dropna()
     if numeric.empty or numeric.eq(0.0).any():
         return False
     signs = np.sign(numeric.to_numpy(dtype=float))
@@ -442,6 +455,19 @@ def admit_factors(
         if support_reason is not None:
             rejected_rows.append({"factor": name, "reason": support_reason})
             continue
+        if kind == "event":
+            event_active = event_onsets(indicator)
+            event_year_counts = pd.Series(
+                event_active.to_numpy(dtype=int),
+                index=pd.DatetimeIndex(event_active.index).year,
+            ).groupby(level=0).sum()
+            supported_years = {
+                int(year)
+                for year, count in event_year_counts.items()
+                if int(count) >= int(protocol["event_min_occurrences_per_supported_year"])
+            }
+        else:
+            supported_years = set(range(2021, 2026))
         endpoint_choices: list[dict[str, object]] = []
         endpoint_failure = "cross_year_direction"
         for endpoint in endpoints:
@@ -458,7 +484,12 @@ def admit_factors(
             conditional_rows.extend(rows)
             yearly_rows.extend(rows)
             effects = pd.Series({int(row["year"]): float(row["effect"]) for row in rows})
-            if not _direction_passes(effects, kind, protocol):
+            if not _direction_passes(
+                effects,
+                kind,
+                protocol,
+                supported_years=supported_years,
+            ):
                 continue
             aggregate = float(effects.dropna().mean())
             if abs(aggregate) + 1e-15 < float(protocol["minimum_absolute_effect"]):

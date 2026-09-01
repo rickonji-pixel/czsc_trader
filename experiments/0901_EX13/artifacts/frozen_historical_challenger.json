@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment": "0901_EX13",
+  "sample_end": "2025-12-31",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "source_factor": "dynamic__state__raw__daily__cxt_bi_zdf_V230601__di_1__v2::第1层__exit",
+  "source_semantics": "positive one-day exit event",
+  "event_weight": 0.2,
+  "champion_weight_scale": 0.8,
+  "entry_threshold": 0.175,
+  "exit_threshold": 0.025,
+  "confirm_days": 1,
+  "min_hold_days": 3,
+  "exit_confirm_days": 1,
+  "execution": "next_session_open",
+  "fee_rate": 0.0005
+}

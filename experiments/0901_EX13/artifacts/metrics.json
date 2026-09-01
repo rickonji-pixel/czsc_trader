@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "candidate_count": 6,
+  "passing_candidate_count": 1,
+  "selected_event_weight": 0.2,
+  "event_count": 34,
+  "champion": {
+    "strategy_return": 0.7699865045469618,
+    "max_drawdown": -0.2551487317445502,
+    "sharpe": 0.7342490225522434,
+    "trade_count": 133,
+    "exposure": 0.5363036303630363
+  },
+  "challenger": {
+    "strategy_return": 0.9257896654255948,
+    "max_drawdown": -0.21595737134825022,
+    "sharpe": 0.8259089918521363,
+    "trade_count": 121,
+    "exposure": 0.518976897689769
+  },
+  "causal_audit": "PASS",
+  "visible_sample_end": "2025-12-31",
+  "access_2026": false
+}

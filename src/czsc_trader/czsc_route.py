@@ -433,6 +433,36 @@ def build_cross_frequency_factors(
     return frame, records
 
 
+def build_champion_position_factors(
+    parent: pd.Series,
+    target_position: pd.Series,
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
+    """Split one causal parent event by the champion position known on that date."""
+    if not parent.index.equals(target_position.index):
+        raise ValueError("parent event and champion target indices differ")
+    active = parent.fillna(0.0).astype(bool)
+    target = target_position.astype(float)
+    if not target.isin([0.0, 1.0]).all():
+        raise ValueError("champion target position must be binary")
+    pieces: dict[str, pd.Series] = {}
+    records: list[dict[str, object]] = []
+    parent_name = str(parent.name or "unnamed")
+    for position in (0, 1):
+        name = f"conditional__{parent_name}__target_{position}"
+        pieces[name] = (active & target.eq(float(position))).astype(float).rename(name)
+        records.append(
+            {
+                "factor": name,
+                "parent_factor": parent_name,
+                "champion_target_position": position,
+                "factor_kind": "event",
+                "status": "candidate",
+                "canonical_factor": name,
+            }
+        )
+    return pd.DataFrame(pieces, index=parent.index), records
+
+
 def _support_reason(
     indicator: pd.Series,
     kind: str,

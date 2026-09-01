@@ -11,6 +11,7 @@ from czsc_trader.czsc_route import (
     admit_factors,
     build_family_factors,
     build_cross_frequency_factors,
+    build_champion_position_factors,
     build_dynamic_factors,
     classify_signal_family,
     inventory_records,
@@ -320,3 +321,15 @@ def test_hac_incremental_test_detects_signal_beyond_reference() -> None:
     assert result["coefficient"] > 0.02
     assert result["p_value"] < 0.01
     assert result["nobs"] == 600
+
+
+def test_champion_position_factors_split_signal_without_future_labels() -> None:
+    index = pd.date_range("2021-01-01", periods=6, freq="D")
+    parent = pd.Series([0, 1, 0, 1, 1, 0], index=index, name="risk_event", dtype=float)
+    target = pd.Series([0, 0, 1, 1, 0, 1], index=index, dtype=float)
+
+    factors, records = build_champion_position_factors(parent, target)
+
+    assert factors["conditional__risk_event__target_0"].tolist() == [0, 1, 0, 0, 1, 0]
+    assert factors["conditional__risk_event__target_1"].tolist() == [0, 0, 0, 1, 0, 0]
+    assert {row["factor_kind"] for row in records} == {"event"}

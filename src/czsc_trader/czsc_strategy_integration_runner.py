@@ -235,6 +235,13 @@ def run_unified_factor_integration(
         )
     pd.DataFrame(comparison_rows).to_csv(artifacts / "period_comparison.csv", index=False, encoding="utf-8-sig")
     if status == "PASS" and causal_audit["status"] == "PASS":
+        effective_weights = {
+            str(name): float(weight) * (1.0 - selected_weight)
+            for name, weight in zip(
+                baseline.factor_names, baseline.factor_weights, strict=True
+            )
+        }
+        effective_weights[source_factor] = selected_weight
         _write_json(
             artifacts / "frozen_historical_challenger.json",
             {
@@ -244,6 +251,8 @@ def run_unified_factor_integration(
                 "champion": protocol["champion"],
                 "source_factor": source_factor,
                 "source_semantics": "positive one-day exit event",
+                "factor_names": [*map(str, baseline.factor_names), source_factor],
+                "weights": effective_weights,
                 "event_weight": selected_weight,
                 "champion_weight_scale": 1.0 - selected_weight,
                 "entry_threshold": baseline.rule.enter,

@@ -43,8 +43,8 @@
       "sha256": "a55a891bc1ff5d1abf44c60adbb67b9520c0675611d7f56d0f0134e1c7dee4a6"
     },
     "artifacts/frozen_historical_challenger.json": {
-      "bytes": 607,
-      "sha256": "9432e38fb06fa424fc08b27b994b7ea19b5f2fe294d0f7bda831200f206a0640"
+      "bytes": 2433,
+      "sha256": "0077e33a5ad995c1ee677f4957b3d08bdf4955eaf7005aa6b7128170d1fe34fa"
     },
     "artifacts/identity_audit.json": {
       "bytes": 2145,

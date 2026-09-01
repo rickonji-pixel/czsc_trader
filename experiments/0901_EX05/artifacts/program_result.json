@@ -4,7 +4,7 @@
   "status": "COMPLETE",
   "result": "HISTORICAL_CHALLENGER_FOUND",
   "terminal_experiment": "0901_EX14",
-  "terminal_manifest_sha256": "30c7824bb73f45ddfef13ad0da24fc50b5d02a1ada4730ba84b7c3a969a1d61f",
+  "terminal_manifest_sha256": "46661794d5fff9ea88719ec5a2c2c65b9e1f1d5713fefe789efc7540bb5c9484",
   "challenger_experiment": "0901_EX13",
   "source_challenger": "experiments/0901_EX13/artifacts/frozen_historical_challenger.json",
   "canonical_factor_count": 4747,

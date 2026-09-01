@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX16",
+  "date": "2026-09-01",
+  "status": "ERROR",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "challenger_experiment": "0901_EX13",
+  "protocol_sha256": "54b8d69a33efe27fb79866e82e312dfdcc011a14f19c5912c0df4d1e81c0600a",
+  "visible_sample_end": "2025-12-31",
+  "validation_accessed": false,
+  "historical_2026_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 249,
+      "sha256": "15daebf294d842a373112069105865720b55b5991282ffe528f808d3298f85d0"
+    },
+    "02_design.md": {
+      "bytes": 731,
+      "sha256": "438f6ef719fe0879d8176468a09d25428173fb8ac3854ff6aa149bd26678679c"
+    },
+    "03_execution.md": {
+      "bytes": 368,
+      "sha256": "74f8c4fc6cda469b998fb53b4abecf6ff4e61add12de2cf6aa7dc4dd323dda91"
+    },
+    "04_conclusion.md": {
+      "bytes": 267,
+      "sha256": "9d6dffcb8f7987c1a59e1128c698875c694fa2c27c0b2c32d0400c44eb333ca3"
+    },
+    "artifacts/causal_replay_audit.json": {
+      "bytes": 173,
+      "sha256": "64749b4e2aa8470824aa32945d844a53a75afb38ebf3e0fff936712659dc05f9"
+    },
+    "artifacts/hac_result.json": {
+      "bytes": 148,
+      "sha256": "1ecb2083ac0a62741535123d0340b48ba753f4421b4ccaf0ce4a39eac3d8b224"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 2050,
+      "sha256": "704ca5e6841df4fd61c37cb51edb96bc23649e292c4199d431abd4603090bb3d"
+    },
+    "artifacts/influence_audit.csv": {
+      "bytes": 330,
+      "sha256": "16a431898efb4990591a6f625758a9584cecdb775d48e7349b74bdf78b7576a4"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 502,
+      "sha256": "c0381e335150dbf3fd28d2a83531be3702dc4a7ac599010a8e6c18bde36d9560"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1009,
+      "sha256": "54b8d69a33efe27fb79866e82e312dfdcc011a14f19c5912c0df4d1e81c0600a"
+    },
+    "artifacts/tier_metrics.csv": {
+      "bytes": 2971,
+      "sha256": "accc84ae784c6fe50a4eed0323a8d24bb440634d615ede4a26813ff9fed6e23b"
+    },
+    "artifacts/yearly_metrics.csv": {
+      "bytes": 166,
+      "sha256": "7212bc8587fb599ce1bb9e632039fff2f4bc4d5b635d4aa5ac2960d778e804d9"
+    }
+  }
+}

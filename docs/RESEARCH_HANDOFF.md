@@ -4,7 +4,7 @@
 >
 > 不得假定新会话与上一会话位于同一台设备、同一绝对路径，或保留任何未提交文件。不得依赖历史 `outputs/`、本地SQLite数据库、虚拟环境和终端输出。研究事实只以Git跟踪的源码、配置、`data/raw/*_manifest.json`、`data/raw/*_validation.json` 和 `experiments/MMDD_EXX/` 为准。`outputs/`只用于普通回测输出，不是研究档案；需要结果时必须在当前设备重新运行，并使用命令实际返回的目录。
 
-本文档记录截至 **2026-09-01 / 0901_EX18** 的可接力状态。0901_EX05—EX18在研究分支完成，形成一套更优历史挑战者、完成冻结后2026回看，并终止计分分档仓位路线，但尚未合并或推送；新会话应先验证仓库当前状态，不能把本文中的分支、提交或日期描述当成未经核验的实时事实。
+本文档记录截至 **2026-09-01 / 0901_EX18** 的可接力状态。0901_EX05—EX18已纳入`master`，形成一套更优历史挑战者、完成冻结后2026回看，并终止计分分档仓位路线；新会话仍应先验证仓库当前状态，不能把本文中的分支、提交或日期描述当成未经核验的实时事实。
 
 ## 1. 当前目标与两个基线
 
@@ -18,6 +18,8 @@
 - 后续若开展新研究，必须预注册独立信息和验证边界，不得把2026重新包装成留出样本。
 
 此前“单次实验内冻结后一次2026验收”的规则仍是历史实验事实，但截至当前，2026-08-28及以前结果已经跨多轮进入研究判断，不能再承担新的独立样本外角色。未来若需要新的未观察前向证据，应从2026-08-28之后积累；已见历史仍可用于透明开发和诊断，但不能被重新描述为新留出。
+
+下一条已讨论但尚未预注册的研究方向，是检验活动基线固定线性权重在因果可识别的两档市场状态下是否存在条件化改进空间。该方向不是既定结论，也没有实验编号、冻结regime定义或PASS规则；后续必须在新研究分支先完成设计和预注册，不能把本段讨论当作策略规则。
 
 ### 1.2 当前活动正式基线
 
@@ -372,6 +374,20 @@ $replayDir = Join-Path ([System.IO.Path]::GetTempPath()) `
 20. experiments/0901_EX02/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
 21. experiments/0901_EX03/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
 22. experiments/0901_EX04/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+23. experiments/0901_EX05/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+24. experiments/0901_EX06/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+25. experiments/0901_EX07/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+26. experiments/0901_EX08/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+27. experiments/0901_EX09/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+28. experiments/0901_EX10/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+29. experiments/0901_EX11/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+30. experiments/0901_EX12/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+31. experiments/0901_EX13/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+32. experiments/0901_EX14/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+33. experiments/0901_EX15/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+34. experiments/0901_EX16/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+35. experiments/0901_EX17/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
+36. experiments/0901_EX18/{01_goal.md,02_design.md,03_execution.md,04_conclusion.md,experiment_manifest.json}
 
 如果当前仓库没有.venv，先执行：
 1. py -3.12 -m venv .venv

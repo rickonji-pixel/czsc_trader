@@ -30,6 +30,38 @@ TRACKED_SYMBOLS = (
 )
 
 
+def test_portable_identity_separates_json_text_and_raw_bytes(tmp_path: Path) -> None:
+    from czsc_trader.identity import (
+        canonical_json_sha256,
+        normalized_text_sha256,
+        raw_file_sha256,
+    )
+
+    first_json = tmp_path / "first.json"
+    second_json = tmp_path / "second.json"
+    first_json.write_bytes('{\r\n  "b": "中",\r\n  "a": 1\r\n}\r\n'.encode("utf-8"))
+    second_json.write_bytes('{"a":1,"b":"中"}\n'.encode("utf-8"))
+
+    expected_json = "2831299868169bc527f55f88ebbdcd8b785d78d9e7dc64e6887dfbd2825dd247"
+    assert canonical_json_sha256(first_json) == expected_json
+    assert canonical_json_sha256(second_json) == expected_json
+    assert canonical_json_sha256({"b": "中", "a": 1}) == expected_json
+    assert raw_file_sha256(first_json) != raw_file_sha256(second_json)
+
+    lf = tmp_path / "lf.txt"
+    crlf = tmp_path / "crlf.txt"
+    cr = tmp_path / "cr.txt"
+    lf.write_bytes(b"alpha\nbeta\n")
+    crlf.write_bytes(b"alpha\r\nbeta\r\n")
+    cr.write_bytes(b"alpha\rbeta\r")
+    expected_text = "e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee"
+
+    assert normalized_text_sha256(lf) == expected_text
+    assert normalized_text_sha256(crlf) == expected_text
+    assert normalized_text_sha256(cr) == expected_text
+    assert len({raw_file_sha256(path) for path in (lf, crlf, cr)}) == 3
+
+
 def test_execution_policy_rounds_buy_limit_down_to_etf_tick() -> None:
     from czsc_trader.execution_policy import floor_to_tick
 

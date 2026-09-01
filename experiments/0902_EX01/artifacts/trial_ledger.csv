@@ -1,0 +1,47 @@
+﻿experiment_id,status,symbol,baseline_version,visible_sample_end,locked_test_end,locked_test_accessed,known_trial_count,count_basis,current_baseline_lineage
+0824_EX01,FAIL,588080.SH,,2025-12-31,,,20.0,artifact:candidate_results.csv rows,other_or_unknown
+0824_EX02,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0824_EX03,FAIL,588080.SH,,2025-12-31,,,72.0,artifact:candidate_results.csv rows,other_or_unknown
+0824_EX04,FAIL,588080.SH,,2025-12-31,,,144.0,artifact:candidate_results.csv rows,other_or_unknown
+0824_EX05,FAIL,588080.SH,,2025-12-31,,,64.0,artifact:candidate_results.csv rows,other_or_unknown
+0824_EX06,FAIL,588080.SH,,2025-12-31,,,64.0,artifact:candidate_results.csv rows,other_or_unknown
+0824_EX07,FAIL,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0824_EX08,FAIL,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0825_EX01,FAIL,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0825_EX02,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0825_EX03,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0825_EX04,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0825_EX05,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0825_EX06,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0826_EX01,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0829_EX01,FAIL,588080.SH,,2025-12-31,,,3.0,artifact:candidate_results.csv rows,other_or_unknown
+0829_EX02,FAIL,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0830_EX01,ERROR,588080.SH,,2025-12-31,,,27.0,protocol:candidate_count,other_or_unknown
+0830_EX02,FAIL,588080.SH,,2025-12-31,,,27.0,protocol:candidate_count,other_or_unknown
+0830_EX03,COMPLETE,588080.SH,,2023-12-31,,,,unknown,other_or_unknown
+0830_EX04,FAIL,588080.SH,,2023-12-31,,,12.0,protocol:candidate_count,other_or_unknown
+0830_EX05,FAIL,588080.SH,,2023-12-31,,,6.0,protocol:candidate_count,other_or_unknown
+0830_EX06,PASS,588080.SH,,2023-12-31,,,8.0,protocol:candidate_count,other_or_unknown
+0830_EX07,ERROR,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0830_EX08,FAIL,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX01,PASS,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX02,FAIL,588080.SH,,2023-12-31,,,,unknown,other_or_unknown
+0901_EX03,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX04,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX05,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX06,PASS,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX07,PASS,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX08,PASS,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX09,PASS,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX10,PASS,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX11,PASS,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX12,FAIL,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX13,PASS,588080.SH,,2025-12-31,,,6.0,artifact:candidate_results.csv rows,other_or_unknown
+0901_EX14,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX15,COMPLETE,588080.SH,,2026-08-28,,,,unknown,other_or_unknown
+0901_EX16,ERROR,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX17,FAIL,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX18,COMPLETE,588080.SH,,2025-12-31,,,,unknown,other_or_unknown
+0901_EX19,FAIL,588080.SH,baseline_20260826,2025-12-31,2026-08-28,False,625.0,protocol:candidate_count,parent_baseline
+0901_EX20,FAIL,588080.SH,baseline_20260826,2025-12-31,2026-08-28,True,625.0,protocol:candidate_count,direct_source
+0901_EX21,COMPLETE,588080.SH,baseline_20260826,2026-08-28,,,,unknown,parent_baseline

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
+import numpy as np
 
 from czsc_trader.rules import Rule
+from czsc_trader.score_tier_diagnostic import diagnose_score_monotonicity
 from czsc_trader.score_tier_position import (
     build_tier_mapping,
     classify_score_tiers,
@@ -58,3 +60,50 @@ def test_fractional_target_never_uses_next_score() -> None:
     full = positions_from_score_tiers(scores, _rule(), "M2")
 
     assert prefix.equals(full.iloc[:-1])
+
+
+def _diagnostic_fixture(*, reverse_last_two_years: bool = False):
+    dates = pd.DatetimeIndex(
+        np.concatenate(
+            [pd.bdate_range(f"{year}-01-04", periods=80).to_numpy() for year in range(2021, 2026)]
+        ),
+        name="dt",
+    )
+    scores = pd.Series(
+        np.tile(np.r_[np.full(35, 0.05), np.full(10, 0.10), np.full(35, 0.20)], 5),
+        index=dates,
+        name="factor_score",
+    )
+    target = pd.Series(1.0, index=dates, name="target_position")
+    event = pd.Series(0.0, index=dates, name="risk_event")
+    high = scores.ge(0.175)
+    returns = np.where(high, 0.05, 0.01)
+    drawdowns = np.where(high, -0.03, -0.10)
+    if reverse_last_two_years:
+        reverse = dates.year >= 2024
+        returns[reverse & high] = -0.03
+        drawdowns[reverse & high] = -0.15
+    outcomes = pd.DataFrame(index=dates)
+    for horizon in (5, 10, 20):
+        outcomes[f"return_{horizon}"] = returns
+        outcomes[f"max_drawdown_{horizon}"] = drawdowns
+    return scores, target, event, outcomes
+
+
+def test_score_monotonicity_passes_stable_cross_year_effects() -> None:
+    result = diagnose_score_monotonicity(*_diagnostic_fixture())
+
+    assert result.summary["status"] == "PASS"
+    assert result.summary["same_direction_years"] == 5
+    assert result.hac_result["coefficient"] > 0
+    assert result.hac_result["p_value"] <= 0.10
+    assert (result.influence_audit["leave_one_year_out_drawdown_effect"] > 0).all()
+
+
+def test_score_monotonicity_rejects_two_reversed_years() -> None:
+    result = diagnose_score_monotonicity(
+        *_diagnostic_fixture(reverse_last_two_years=True)
+    )
+
+    assert result.summary["status"] == "FAIL"
+    assert result.summary["same_direction_years"] == 3

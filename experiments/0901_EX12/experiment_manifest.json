@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX12",
+  "date": "2026-09-01",
+  "status": "FAIL",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "protocol_sha256": "d56dfbeb580f7d5494db64b3476413b5fb8b226192944cf5203b4c7c2f67414a",
+  "visible_sample_end": "2025-12-31",
+  "validation_accessed": false,
+  "historical_2026_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 621,
+      "sha256": "f315edfe14e68980ba52eda6b0a906b492176e7bee1642cdd7cbc418015af041"
+    },
+    "02_design.md": {
+      "bytes": 489,
+      "sha256": "d82ab764334a22a741400f18952b7d027109c4202690f776ffbccb40a9feb0cd"
+    },
+    "03_execution.md": {
+      "bytes": 310,
+      "sha256": "9efbeee7f48623a1775b97a101e2711e4d313f10cec042ac4cfaecefa3b9563a"
+    },
+    "04_conclusion.md": {
+      "bytes": 222,
+      "sha256": "1329d066208c6f10071595bf2dc849cf33a6c16d3f9d98003d683c500c383997"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 409,
+      "sha256": "85136ee0a33580e390c5c457db68265fb694aa1d01e668c262cbe4ccac800f4c"
+    },
+    "artifacts/interaction_candidates.json": {
+      "bytes": 322,
+      "sha256": "375d80a95bfbbe9c469124f9db0165c8d18b490a159f8f112619122f3ff60f45"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 232,
+      "sha256": "da0d39bca726753e28ac3560ed145a27b1725cfc804adb80b2b959a12b01e6e5"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 796,
+      "sha256": "d56dfbeb580f7d5494db64b3476413b5fb8b226192944cf5203b4c7c2f67414a"
+    }
+  }
+}

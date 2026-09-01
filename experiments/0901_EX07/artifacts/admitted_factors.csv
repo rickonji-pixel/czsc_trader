@@ -1,0 +1,5 @@
+﻿factor,factor_kind,endpoint,direction,conditional_effect,closest_reference,max_abs_correlation
+state__raw__30m__cxt_third_bs_V230319__di_1__v1::三卖,event,max_drawdown_20,1,0.00890024201088041,raw__daily__tas_ma_base_V221101__di_1__ma_type_SMA__timeperiod_10,0.22216993256910333
+state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|10笔|任意,event,return_20,-1,-0.05375285994400576,raw__30m__cxt_third_buy_V230228__di_1,0.4212567064319994
+state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|8笔|任意,event,max_drawdown_20,-1,-0.014789779620244867,raw__30m__cxt_third_buy_V230228__di_1,0.4098541887379687
+state__raw__daily__cxt_third_buy_V230228__di_1__v1::三买,event,return_20,-1,-0.03301442128192775,raw__weekly__cxt_bi_status_V230101,0.20951429403775265

@@ -1,0 +1,1001 @@
+[
+  {
+    "factor": "state__raw__30m__cxt_bs_V240526__di_1__v1::买点",
+    "raw_signal": "raw__30m__cxt_bs_V240526__di_1",
+    "representation": "v1",
+    "value": "买点",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_bs_V240526__di_1__v1::买点"
+  },
+  {
+    "factor": "state__raw__30m__cxt_bs_V240526__di_1__v1::卖点",
+    "raw_signal": "raw__30m__cxt_bs_V240526__di_1",
+    "representation": "v1",
+    "value": "卖点",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_bs_V240526__di_1__v1::卖点"
+  },
+  {
+    "factor": "state__raw__30m__cxt_bs_V240526__di_1__joint::买点|任意|任意",
+    "raw_signal": "raw__30m__cxt_bs_V240526__di_1",
+    "representation": "joint",
+    "value": "买点|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_bs_V240526__di_1__v1::买点"
+  },
+  {
+    "factor": "state__raw__30m__cxt_bs_V240526__di_1__joint::卖点|任意|任意",
+    "raw_signal": "raw__30m__cxt_bs_V240526__di_1",
+    "representation": "joint",
+    "value": "卖点|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_bs_V240526__di_1__v1::卖点"
+  },
+  {
+    "factor": "state__raw__30m__cxt_bs_V240527__di_1__v1::买点",
+    "raw_signal": "raw__30m__cxt_bs_V240527__di_1",
+    "representation": "v1",
+    "value": "买点",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_bs_V240527__di_1__v1::买点"
+  },
+  {
+    "factor": "state__raw__30m__cxt_bs_V240527__di_1__v1::卖点",
+    "raw_signal": "raw__30m__cxt_bs_V240527__di_1",
+    "representation": "v1",
+    "value": "卖点",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_bs_V240527__di_1__v1::卖点"
+  },
+  {
+    "factor": "state__raw__30m__cxt_bs_V240527__di_1__joint::买点|任意|任意",
+    "raw_signal": "raw__30m__cxt_bs_V240527__di_1",
+    "representation": "joint",
+    "value": "买点|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_bs_V240527__di_1__v1::买点"
+  },
+  {
+    "factor": "state__raw__30m__cxt_bs_V240527__di_1__joint::卖点|任意|任意",
+    "raw_signal": "raw__30m__cxt_bs_V240527__di_1",
+    "representation": "joint",
+    "value": "卖点|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_bs_V240527__di_1__v1::卖点"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__v1::一买",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "v1",
+    "value": "一买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__v1::一买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|11笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|11笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|11笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|13笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|13笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|13笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|15笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|15笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|15笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|17笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|17笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|17笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|19笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|19笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|19笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|21笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|21笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|21笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|5笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|5笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|5笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|7笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|7笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|7笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|9笔|任意",
+    "raw_signal": "raw__30m__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|9笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_buy_V221126__di_1__joint::一买|9笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__v1::一卖",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "v1",
+    "value": "一卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__v1::一卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|11笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|11笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|11笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|13笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|13笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|13笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|15笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|15笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|15笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|17笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|17笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|17笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|19笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|19笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|19笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|21笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|21笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|21笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|5笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|5笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|5笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|7笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|7笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|7笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|9笔|任意",
+    "raw_signal": "raw__30m__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|9笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_first_sell_V221126__di_1__joint::一卖|9笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_second_bs_V230320__di_1__v1::二买",
+    "raw_signal": "raw__30m__cxt_second_bs_V230320__di_1",
+    "representation": "v1",
+    "value": "二买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_second_bs_V230320__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_second_bs_V230320__di_1__v1::二卖",
+    "raw_signal": "raw__30m__cxt_second_bs_V230320__di_1",
+    "representation": "v1",
+    "value": "二卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_second_bs_V230320__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_second_bs_V230320__di_1__joint::二买|任意|任意",
+    "raw_signal": "raw__30m__cxt_second_bs_V230320__di_1",
+    "representation": "joint",
+    "value": "二买|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_second_bs_V230320__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_second_bs_V230320__di_1__joint::二卖|任意|任意",
+    "raw_signal": "raw__30m__cxt_second_bs_V230320__di_1",
+    "representation": "joint",
+    "value": "二卖|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_second_bs_V230320__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_second_bs_V240524__di_1__v1::二买",
+    "raw_signal": "raw__30m__cxt_second_bs_V240524__di_1",
+    "representation": "v1",
+    "value": "二买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_second_bs_V240524__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_second_bs_V240524__di_1__v1::二卖",
+    "raw_signal": "raw__30m__cxt_second_bs_V240524__di_1",
+    "representation": "v1",
+    "value": "二卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_second_bs_V240524__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_second_bs_V240524__di_1__joint::二买|任意|任意",
+    "raw_signal": "raw__30m__cxt_second_bs_V240524__di_1",
+    "representation": "joint",
+    "value": "二买|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_second_bs_V240524__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_second_bs_V240524__di_1__joint::二卖|任意|任意",
+    "raw_signal": "raw__30m__cxt_second_bs_V240524__di_1",
+    "representation": "joint",
+    "value": "二卖|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_second_bs_V240524__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230318__di_1__v1::三买",
+    "raw_signal": "raw__30m__cxt_third_bs_V230318__di_1",
+    "representation": "v1",
+    "value": "三买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230318__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230318__di_1__v1::三卖",
+    "raw_signal": "raw__30m__cxt_third_bs_V230318__di_1",
+    "representation": "v1",
+    "value": "三卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230318__di_1__joint::三买|任意|任意",
+    "raw_signal": "raw__30m__cxt_third_bs_V230318__di_1",
+    "representation": "joint",
+    "value": "三买|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230318__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230318__di_1__joint::三卖|任意|任意",
+    "raw_signal": "raw__30m__cxt_third_bs_V230318__di_1",
+    "representation": "joint",
+    "value": "三卖|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230319__di_1__v1::三买",
+    "raw_signal": "raw__30m__cxt_third_bs_V230319__di_1",
+    "representation": "v1",
+    "value": "三买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230319__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230319__di_1__v1::三卖",
+    "raw_signal": "raw__30m__cxt_third_bs_V230319__di_1",
+    "representation": "v1",
+    "value": "三卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230319__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三买|均线底分|任意",
+    "raw_signal": "raw__30m__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三买|均线底分|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三买|均线底分|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三买|均线新高|任意",
+    "raw_signal": "raw__30m__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三买|均线新高|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230318__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三买|均线顶分|任意",
+    "raw_signal": "raw__30m__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三买|均线顶分|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三买|均线顶分|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三卖|均线底分|任意",
+    "raw_signal": "raw__30m__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三卖|均线底分|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三卖|均线底分|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三卖|均线新低|任意",
+    "raw_signal": "raw__30m__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三卖|均线新低|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三卖|均线顶分|任意",
+    "raw_signal": "raw__30m__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三卖|均线顶分|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_bs_V230319__di_1__joint::三卖|均线顶分|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_buy_V230228__di_1__v1::三买",
+    "raw_signal": "raw__30m__cxt_third_buy_V230228__di_1",
+    "representation": "v1",
+    "value": "三买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_buy_V230228__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|10笔|任意",
+    "raw_signal": "raw__30m__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|10笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|10笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|12笔|任意",
+    "raw_signal": "raw__30m__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|12笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|12笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|14笔|任意",
+    "raw_signal": "raw__30m__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|14笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|14笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|6笔|任意",
+    "raw_signal": "raw__30m__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|6笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|6笔|任意"
+  },
+  {
+    "factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|8笔|任意",
+    "raw_signal": "raw__30m__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|8笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|8笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_bs_V240526__di_1__v1::买点",
+    "raw_signal": "raw__daily__cxt_bs_V240526__di_1",
+    "representation": "v1",
+    "value": "买点",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_bs_V240526__di_1__v1::买点"
+  },
+  {
+    "factor": "state__raw__daily__cxt_bs_V240526__di_1__joint::买点|任意|任意",
+    "raw_signal": "raw__daily__cxt_bs_V240526__di_1",
+    "representation": "joint",
+    "value": "买点|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_bs_V240526__di_1__v1::买点"
+  },
+  {
+    "factor": "state__raw__daily__cxt_bs_V240527__di_1__v1::买点",
+    "raw_signal": "raw__daily__cxt_bs_V240527__di_1",
+    "representation": "v1",
+    "value": "买点",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_bs_V240527__di_1__v1::买点"
+  },
+  {
+    "factor": "state__raw__daily__cxt_bs_V240527__di_1__v1::卖点",
+    "raw_signal": "raw__daily__cxt_bs_V240527__di_1",
+    "representation": "v1",
+    "value": "卖点",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_bs_V240527__di_1__v1::卖点"
+  },
+  {
+    "factor": "state__raw__daily__cxt_bs_V240527__di_1__joint::买点|任意|任意",
+    "raw_signal": "raw__daily__cxt_bs_V240527__di_1",
+    "representation": "joint",
+    "value": "买点|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_bs_V240527__di_1__v1::买点"
+  },
+  {
+    "factor": "state__raw__daily__cxt_bs_V240527__di_1__joint::卖点|任意|任意",
+    "raw_signal": "raw__daily__cxt_bs_V240527__di_1",
+    "representation": "joint",
+    "value": "卖点|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_bs_V240527__di_1__v1::卖点"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_buy_V221126__di_1__v1::一买",
+    "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+    "representation": "v1",
+    "value": "一买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_buy_V221126__di_1__v1::一买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|11笔|任意",
+    "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|11笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|11笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|13笔|任意",
+    "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|13笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|13笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|15笔|任意",
+    "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|15笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|15笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|5笔|任意",
+    "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|5笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|5笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|7笔|任意",
+    "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|7笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|7笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|9笔|任意",
+    "raw_signal": "raw__daily__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|9笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_buy_V221126__di_1__joint::一买|9笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_sell_V221126__di_1__v1::一卖",
+    "raw_signal": "raw__daily__cxt_first_sell_V221126__di_1",
+    "representation": "v1",
+    "value": "一卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_sell_V221126__di_1__v1::一卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_sell_V221126__di_1__joint::一卖|21笔|任意",
+    "raw_signal": "raw__daily__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|21笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_sell_V221126__di_1__joint::一卖|21笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_sell_V221126__di_1__joint::一卖|7笔|任意",
+    "raw_signal": "raw__daily__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|7笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_sell_V221126__di_1__joint::一卖|7笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_first_sell_V221126__di_1__joint::一卖|9笔|任意",
+    "raw_signal": "raw__daily__cxt_first_sell_V221126__di_1",
+    "representation": "joint",
+    "value": "一卖|9笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_first_sell_V221126__di_1__joint::一卖|9笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V230320__di_1__v1::二买",
+    "raw_signal": "raw__daily__cxt_second_bs_V230320__di_1",
+    "representation": "v1",
+    "value": "二买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_second_bs_V230320__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V230320__di_1__v1::二卖",
+    "raw_signal": "raw__daily__cxt_second_bs_V230320__di_1",
+    "representation": "v1",
+    "value": "二卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_second_bs_V230320__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V230320__di_1__joint::二买|任意|任意",
+    "raw_signal": "raw__daily__cxt_second_bs_V230320__di_1",
+    "representation": "joint",
+    "value": "二买|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_second_bs_V230320__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V230320__di_1__joint::二卖|任意|任意",
+    "raw_signal": "raw__daily__cxt_second_bs_V230320__di_1",
+    "representation": "joint",
+    "value": "二卖|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_second_bs_V230320__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V240524__di_1__v1::二买",
+    "raw_signal": "raw__daily__cxt_second_bs_V240524__di_1",
+    "representation": "v1",
+    "value": "二买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_second_bs_V240524__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V240524__di_1__v1::二卖",
+    "raw_signal": "raw__daily__cxt_second_bs_V240524__di_1",
+    "representation": "v1",
+    "value": "二卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_second_bs_V240524__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V240524__di_1__joint::二买|任意|任意",
+    "raw_signal": "raw__daily__cxt_second_bs_V240524__di_1",
+    "representation": "joint",
+    "value": "二买|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_second_bs_V240524__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_second_bs_V240524__di_1__joint::二卖|任意|任意",
+    "raw_signal": "raw__daily__cxt_second_bs_V240524__di_1",
+    "representation": "joint",
+    "value": "二卖|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_second_bs_V240524__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230318__di_1__v1::三买",
+    "raw_signal": "raw__daily__cxt_third_bs_V230318__di_1",
+    "representation": "v1",
+    "value": "三买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230318__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230318__di_1__v1::三卖",
+    "raw_signal": "raw__daily__cxt_third_bs_V230318__di_1",
+    "representation": "v1",
+    "value": "三卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230318__di_1__joint::三买|任意|任意",
+    "raw_signal": "raw__daily__cxt_third_bs_V230318__di_1",
+    "representation": "joint",
+    "value": "三买|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230318__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230318__di_1__joint::三卖|任意|任意",
+    "raw_signal": "raw__daily__cxt_third_bs_V230318__di_1",
+    "representation": "joint",
+    "value": "三卖|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230319__di_1__v1::三买",
+    "raw_signal": "raw__daily__cxt_third_bs_V230319__di_1",
+    "representation": "v1",
+    "value": "三买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230319__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230319__di_1__v1::三卖",
+    "raw_signal": "raw__daily__cxt_third_bs_V230319__di_1",
+    "representation": "v1",
+    "value": "三卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230319__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230319__di_1__joint::三买|均线底分|任意",
+    "raw_signal": "raw__daily__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三买|均线底分|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230319__di_1__joint::三买|均线底分|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230319__di_1__joint::三买|均线新高|任意",
+    "raw_signal": "raw__daily__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三买|均线新高|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230318__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230319__di_1__joint::三卖|均线新低|任意",
+    "raw_signal": "raw__daily__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三卖|均线新低|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230319__di_1__joint::三卖|均线新高|任意",
+    "raw_signal": "raw__daily__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三卖|均线新高|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230319__di_1__joint::三卖|均线新高|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_bs_V230319__di_1__joint::三卖|均线顶分|任意",
+    "raw_signal": "raw__daily__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三卖|均线顶分|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_bs_V230319__di_1__joint::三卖|均线顶分|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_buy_V230228__di_1__v1::三买",
+    "raw_signal": "raw__daily__cxt_third_buy_V230228__di_1",
+    "representation": "v1",
+    "value": "三买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_buy_V230228__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|10笔|任意",
+    "raw_signal": "raw__daily__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|10笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|10笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|12笔|任意",
+    "raw_signal": "raw__daily__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|12笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|12笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|14笔|任意",
+    "raw_signal": "raw__daily__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|14笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|14笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|6笔|任意",
+    "raw_signal": "raw__daily__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|6笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|6笔|任意"
+  },
+  {
+    "factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|8笔|任意",
+    "raw_signal": "raw__daily__cxt_third_buy_V230228__di_1",
+    "representation": "joint",
+    "value": "三买|8笔|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__daily__cxt_third_buy_V230228__di_1__joint::三买|8笔|任意"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_first_buy_V221126__di_1__v1::一买",
+    "raw_signal": "raw__weekly__cxt_first_buy_V221126__di_1",
+    "representation": "v1",
+    "value": "一买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__weekly__cxt_first_buy_V221126__di_1__v1::一买"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_first_buy_V221126__di_1__joint::一买|15笔|任意",
+    "raw_signal": "raw__weekly__cxt_first_buy_V221126__di_1",
+    "representation": "joint",
+    "value": "一买|15笔|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__weekly__cxt_first_buy_V221126__di_1__v1::一买"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_second_bs_V230320__di_1__v1::二买",
+    "raw_signal": "raw__weekly__cxt_second_bs_V230320__di_1",
+    "representation": "v1",
+    "value": "二买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__weekly__cxt_second_bs_V230320__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_second_bs_V230320__di_1__v1::二卖",
+    "raw_signal": "raw__weekly__cxt_second_bs_V230320__di_1",
+    "representation": "v1",
+    "value": "二卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__weekly__cxt_second_bs_V230320__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_second_bs_V230320__di_1__joint::二买|任意|任意",
+    "raw_signal": "raw__weekly__cxt_second_bs_V230320__di_1",
+    "representation": "joint",
+    "value": "二买|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__weekly__cxt_second_bs_V230320__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_second_bs_V230320__di_1__joint::二卖|任意|任意",
+    "raw_signal": "raw__weekly__cxt_second_bs_V230320__di_1",
+    "representation": "joint",
+    "value": "二卖|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__weekly__cxt_second_bs_V230320__di_1__v1::二卖"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_second_bs_V240524__di_1__v1::二买",
+    "raw_signal": "raw__weekly__cxt_second_bs_V240524__di_1",
+    "representation": "v1",
+    "value": "二买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__weekly__cxt_second_bs_V240524__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_second_bs_V240524__di_1__joint::二买|任意|任意",
+    "raw_signal": "raw__weekly__cxt_second_bs_V240524__di_1",
+    "representation": "joint",
+    "value": "二买|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__weekly__cxt_second_bs_V240524__di_1__v1::二买"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_third_bs_V230318__di_1__v1::三卖",
+    "raw_signal": "raw__weekly__cxt_third_bs_V230318__di_1",
+    "representation": "v1",
+    "value": "三卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__weekly__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_third_bs_V230318__di_1__joint::三卖|任意|任意",
+    "raw_signal": "raw__weekly__cxt_third_bs_V230318__di_1",
+    "representation": "joint",
+    "value": "三卖|任意|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__weekly__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__v1::三买",
+    "raw_signal": "raw__weekly__cxt_third_bs_V230319__di_1",
+    "representation": "v1",
+    "value": "三买",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__v1::三卖",
+    "raw_signal": "raw__weekly__cxt_third_bs_V230319__di_1",
+    "representation": "v1",
+    "value": "三卖",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__joint::三买|均线底分|任意",
+    "raw_signal": "raw__weekly__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三买|均线底分|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__v1::三买"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__joint::三卖|均线新低|任意",
+    "raw_signal": "raw__weekly__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三卖|均线新低|任意",
+    "factor_kind": "event",
+    "status": "aliased_duplicate",
+    "canonical_factor": "state__raw__weekly__cxt_third_bs_V230318__di_1__v1::三卖"
+  },
+  {
+    "factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__joint::三卖|均线顶分|任意",
+    "raw_signal": "raw__weekly__cxt_third_bs_V230319__di_1",
+    "representation": "joint",
+    "value": "三卖|均线顶分|任意",
+    "factor_kind": "event",
+    "status": "candidate",
+    "canonical_factor": "state__raw__weekly__cxt_third_bs_V230319__di_1__joint::三卖|均线顶分|任意"
+  }
+]

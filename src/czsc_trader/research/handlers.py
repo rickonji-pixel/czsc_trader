@@ -310,6 +310,19 @@ def _czsc_route_family(
         execution_commit=_git_head(context.root),
     )
 
+
+def _czsc_route_multiplicity(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.czsc_multiplicity_runner import run_multiplicity_audit
+
+    return run_multiplicity_audit(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -344,6 +357,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("czsc_state_age_diagnosis", _czsc_state_age),
         FunctionHandler("czsc_incremental_validity_diagnosis", _czsc_incremental_validity),
         FunctionHandler("czsc_route_family_diagnostic", _czsc_route_family),
+        FunctionHandler("czsc_route_multiplicity_audit", _czsc_route_multiplicity),
     ]
     handlers.extend(
         FunctionHandler(

@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from czsc_trader.czsc_multiplicity import benjamini_hochberg, hac_incremental_test
+
 from czsc_trader.czsc_route import (
     admit_factors,
     build_family_factors,
@@ -298,3 +300,23 @@ def test_cross_frequency_factors_use_only_same_day_completed_states() -> None:
     assert factors["cross__cxt_demo__di_1__30m_daily_divergence"].tolist() == [0, 1, 1, 0]
     assert factors["cross__cxt_demo__di_1__daily_weekly_divergence"].tolist() == [0, 0, 1, 0]
     assert all(row["factor_kind"] == "state" for row in records)
+
+
+def test_benjamini_hochberg_is_monotone_in_original_order() -> None:
+    adjusted = benjamini_hochberg(np.array([0.01, 0.04, 0.03, 0.20]))
+
+    assert np.allclose(adjusted, [0.04, 0.05333333333333334, 0.05333333333333334, 0.20])
+
+
+def test_hac_incremental_test_detects_signal_beyond_reference() -> None:
+    rng = np.random.default_rng(7)
+    candidate = rng.integers(0, 2, size=600).astype(float)
+    reference = rng.normal(size=(600, 2))
+    noise = rng.normal(scale=0.1, size=600)
+    outcome = 0.04 * candidate + 0.01 * reference[:, 0] + noise
+
+    result = hac_incremental_test(outcome, candidate, reference, max_lag=20)
+
+    assert result["coefficient"] > 0.02
+    assert result["p_value"] < 0.01
+    assert result["nobs"] == 600

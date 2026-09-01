@@ -6,6 +6,10 @@ import pandas as pd
 import pytest
 
 from czsc_trader.czsc_multiplicity import benjamini_hochberg, hac_incremental_test
+from czsc_trader.czsc_strategy_integration import (
+    integrate_event_factor,
+    strategy_candidate_passes,
+)
 
 from czsc_trader.czsc_route import (
     admit_factors,
@@ -333,3 +337,39 @@ def test_champion_position_factors_split_signal_without_future_labels() -> None:
     assert factors["conditional__risk_event__target_0"].tolist() == [0, 1, 0, 0, 1, 0]
     assert factors["conditional__risk_event__target_1"].tolist() == [0, 0, 0, 1, 0, 0]
     assert {row["factor_kind"] for row in records} == {"event"}
+
+
+def test_integrated_event_factor_preserves_champion_relative_weights() -> None:
+    index = pd.date_range("2021-01-01", periods=4, freq="D")
+    factors = pd.DataFrame({"a": [1, 0, -1, 1], "b": [0, 1, 1, -1]}, index=index)
+    weights = pd.Series({"a": 0.6, "b": 0.4})
+    event = pd.Series([0, 1, 0, 0], index=index, dtype=float)
+
+    result = integrate_event_factor(factors, weights, event, event_weight=0.2)
+
+    expected = factors @ (weights * 0.8) + event * 0.2
+    assert result.equals(expected.rename("factor_score"))
+    assert (weights["a"] * 0.8) / (weights["b"] * 0.8) == pytest.approx(1.5)
+
+
+def test_strategy_candidate_requires_return_floor_and_strict_drawdown_improvement() -> None:
+    champion = {"strategy_return": 0.50, "max_drawdown": -0.20}
+
+    assert strategy_candidate_passes(
+        champion,
+        {"strategy_return": 0.50, "max_drawdown": -0.19},
+        return_tolerance=1e-12,
+        drawdown_tolerance=1e-12,
+    )
+    assert not strategy_candidate_passes(
+        champion,
+        {"strategy_return": 0.499, "max_drawdown": -0.10},
+        return_tolerance=1e-12,
+        drawdown_tolerance=1e-12,
+    )
+    assert not strategy_candidate_passes(
+        champion,
+        {"strategy_return": 0.60, "max_drawdown": -0.20},
+        return_tolerance=1e-12,
+        drawdown_tolerance=1e-12,
+    )

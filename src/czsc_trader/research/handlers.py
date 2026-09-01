@@ -350,6 +350,21 @@ def _czsc_pairwise_interaction(
         execution_commit=_git_head(context.root),
     )
 
+
+def _czsc_unified_factor_integration(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.czsc_strategy_integration_runner import (
+        run_unified_factor_integration,
+    )
+
+    return run_unified_factor_integration(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -387,6 +402,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("czsc_route_multiplicity_audit", _czsc_route_multiplicity),
         FunctionHandler("czsc_champion_position_condition", _czsc_champion_condition),
         FunctionHandler("czsc_route_pairwise_interaction", _czsc_pairwise_interaction),
+        FunctionHandler("czsc_unified_factor_integration", _czsc_unified_factor_integration),
     ]
     handlers.extend(
         FunctionHandler(

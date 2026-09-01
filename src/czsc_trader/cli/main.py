@@ -14,6 +14,7 @@ from czsc_trader.application.baseline_service import (
 )
 from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
 from czsc_trader.application.archive_service import validate_archives
+from czsc_trader.application.advice_service import AdviceCommand, run_advice
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.data_service import (
     PrepareDataCommand,
@@ -81,6 +82,19 @@ def _backtest_run(args: argparse.Namespace):
             fee_rate=args.fee_rate,
             init_cash=args.init_cash,
             outputs_root=args.outputs_root,
+        ),
+    )
+
+
+def _advice_run(args: argparse.Namespace):
+    return run_advice(
+        _context(args),
+        AdviceCommand(
+            symbol=args.symbol,
+            asset_type=args.asset,
+            actual_position=args.actual_position,
+            quantity=args.quantity,
+            baseline=args.baseline,
         ),
     )
 
@@ -158,6 +172,21 @@ def build_parser() -> argparse.ArgumentParser:
     backtest_run.set_defaults(
         command_handler=_backtest_run,
         command_name="backtest.run",
+    )
+    advice = resources.add_parser("advice")
+    advice_actions = advice.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
+    advice_run = advice_actions.add_parser("run")
+    advice_run.add_argument("--symbol", required=True)
+    advice_run.add_argument("--asset", required=True, choices=("stock", "etf"))
+    advice_run.add_argument("--actual-position", required=True, type=int, choices=(0, 1))
+    advice_run.add_argument("--quantity", required=True, type=int)
+    advice_run.add_argument("--baseline")
+    _add_repository_root(advice_run)
+    advice_run.set_defaults(
+        command_handler=_advice_run,
+        command_name="advice.run",
     )
     archive = resources.add_parser("archive")
     archive_actions = archive.add_subparsers(

@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0902_EX02",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "baseline": {
+    "version": "baseline_20260901",
+    "sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993"
+  },
+  "research_start": "2020-01-01",
+  "research_end": "2025-12-31",
+  "test_start": "2026-01-01",
+  "test_end": "2026-09-01",
+  "minimum_t1_fill_rate": 0.9,
+  "fee_rate": 0.0005,
+  "init_cash": 1000000.0,
+  "diagnostic_quantity": 50000,
+  "tick": 0.001,
+  "fixed_premium_start": -0.02,
+  "fixed_premium_stop": 0.05,
+  "fixed_premium_step": 0.0025,
+  "atr_window": 20,
+  "atr_multiplier_start": -0.5,
+  "atr_multiplier_stop": 2.0,
+  "atr_multiplier_step": 0.125,
+  "access_2026_after_freeze_only": true,
+  "selection": [
+    "t1_fill_rate_gte_0.90",
+    "cap_p95_asc",
+    "cap_mean_asc",
+    "worst_calmar_desc",
+    "worst_drawdown_desc",
+    "fixed_family_first",
+    "parameter_asc"
+  ],
+  "performance_metrics_role": "report_only"
+}

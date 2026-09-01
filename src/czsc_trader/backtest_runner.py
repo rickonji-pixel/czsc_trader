@@ -17,6 +17,13 @@ from .baseline_execution import apply_resolved_baseline
 from .baselines import resolve_baseline
 from .charting import write_period_chart
 from .data import load_market_data
+from .execution_policies import ResolvedExecutionPolicy, resolve_execution_policy
+from .execution_policy import (
+    ExecutionSimulation,
+    entry_limit_series,
+    policy_metrics,
+    simulate_limit_policy,
+)
 from .factors import generate_factor_frame
 from .ma_charting import write_ma_chart
 from .moving_average import moving_average_signals
@@ -38,6 +45,7 @@ class BacktestRequest:
     raw_dir: Path = Path("data/raw")
     outputs_root: Path = Path("outputs")
     baseline_root: Path = Path("configs/rule_baselines")
+    execution_policy_root: Path = Path("configs/execution_policies")
 
 
 def _json_default(value: object) -> object:
@@ -177,8 +185,9 @@ def _strategy_metrics(
     *,
     fee_rate: float,
     init_cash: float,
+    execution: ExecutionSimulation | None = None,
 ) -> dict[str, object]:
-    """Build one exact-schema, independently funded three-strategy comparison."""
+    """Build one independently funded strategy comparison."""
     start = pd.Timestamp(str(active.metrics["start"]))
     end = pd.Timestamp(str(active.metrics["end"]))
     dates = pd.to_datetime(daily["dt"])
@@ -195,30 +204,82 @@ def _strategy_metrics(
         init_cash=init_cash,
         initial_target=1.0,
     )
+    strategies = {
+        "active_baseline": strategy_comparison_metrics(
+            active.equity, active.orders, init_cash, float(active.metrics["sharpe"])
+        ),
+        "buyhold": strategy_comparison_metrics(
+            buyhold.equity, buyhold.orders, init_cash, float(buyhold.metrics["sharpe"])
+        ),
+        "ma5_ma20": strategy_comparison_metrics(
+            ma.equity, ma.orders, init_cash, float(ma.metrics["sharpe"])
+        ),
+    }
+    if execution is not None:
+        values = policy_metrics(execution, init_cash)
+        strategies["active_baseline_execution_policy"] = {
+            key: values[key]
+            for key in ("max_drawdown", "calmar", "win_loss_ratio", "return", "sharpe")
+        }
     return {
         "start": str(active.metrics["start"]),
         "end": str(active.metrics["end"]),
-        "strategies": {
-            "active_baseline": strategy_comparison_metrics(
-                active.equity,
-                active.orders,
-                init_cash,
-                float(active.metrics["sharpe"]),
-            ),
-            "buyhold": strategy_comparison_metrics(
-                buyhold.equity,
-                buyhold.orders,
-                init_cash,
-                float(buyhold.metrics["sharpe"]),
-            ),
-            "ma5_ma20": strategy_comparison_metrics(
-                ma.equity,
-                ma.orders,
-                init_cash,
-                float(ma.metrics["sharpe"]),
-            ),
-        },
+        "strategies": strategies,
     }
+
+
+def _execution_policy_results(
+    daily: pd.DataFrame,
+    intraday: pd.DataFrame,
+    target_position: pd.Series,
+    periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]],
+    policy: ResolvedExecutionPolicy,
+    *,
+    fee_rate: float,
+    init_cash: float,
+) -> dict[str, ExecutionSimulation]:
+    """Run one independently funded execution simulation per requested window."""
+    daily_dates = pd.DatetimeIndex(pd.to_datetime(daily["dt"]), name="dt")
+    limits = entry_limit_series(
+        daily,
+        policy.family,
+        policy.parameter,
+        atr_window=policy.atr_window,
+        tick=policy.tick,
+    )
+    output: dict[str, ExecutionSimulation] = {}
+    for name, (start, end) in periods.items():
+        prior = daily_dates[daily_dates < start]
+        if prior.empty:
+            raise ValueError(f"execution-policy window {name} has no prior signal session")
+        simulation_start = prior[-1]
+        daily_mask = pd.Series(daily_dates, index=daily.index).between(simulation_start, end)
+        period_daily = daily.loc[daily_mask].copy()
+        intraday_dates = pd.to_datetime(intraday["dt"]).dt.normalize()
+        period_intraday = intraday.loc[
+            intraday_dates.between(simulation_start.normalize(), end.normalize())
+        ].copy()
+        period_index = pd.DatetimeIndex(pd.to_datetime(period_daily["dt"]), name="dt")
+        simulation = simulate_limit_policy(
+            period_daily,
+            period_intraday,
+            target_position.reindex(period_index),
+            limits.reindex(period_index),
+            fee_rate=fee_rate,
+            init_cash=init_cash,
+        )
+        execution_dates = pd.to_datetime(simulation.orders["execution_date"])
+        orders = simulation.orders.loc[
+            execution_dates.dt.normalize().between(start.normalize(), end.normalize())
+        ].copy().reset_index(drop=True)
+        output[name] = ExecutionSimulation(
+            simulation.equity.loc[start:end].copy(),
+            orders,
+            simulation.daily_state.loc[start:end].copy(),
+            simulation.cycles.copy(),
+            {},
+        )
+    return output
 
 
 def _report(
@@ -244,7 +305,8 @@ def _report(
     windows = metrics["windows"]
     assert isinstance(windows, dict)
     labels = {
-        "active_baseline": "活动基线",
+        "active_baseline": "活动基线·次日开盘",
+        "active_baseline_execution_policy": "活动基线·执行规则",
         "buyhold": "BuyHold",
         "ma5_ma20": "MA5/MA20",
     }
@@ -263,7 +325,14 @@ def _report(
         )
         strategies = values["strategies"]
         assert isinstance(strategies, dict)
-        for strategy_id in ("active_baseline", "buyhold", "ma5_ma20"):
+        for strategy_id in (
+            "active_baseline",
+            "active_baseline_execution_policy",
+            "buyhold",
+            "ma5_ma20",
+        ):
+            if strategy_id not in strategies:
+                continue
             item = strategies[strategy_id]
             assert isinstance(item, dict)
             lines.append(
@@ -293,6 +362,12 @@ def run_fixed_backtest(
             request.baseline_root,
             request.baseline,
             symbol=request.symbol,
+        )
+        execution_policy = resolve_execution_policy(
+            request.execution_policy_root,
+            symbol=request.symbol,
+            baseline_version=baseline.version,
+            baseline_sha256=baseline.sha256,
         )
         data = load_market_data(request.raw_dir, request.symbol, request.asset_type)
         if request.windows_path is not None:
@@ -348,6 +423,19 @@ def run_fixed_backtest(
             fee_rate=request.fee_rate,
             init_cash=request.init_cash,
         )
+        execution_results = (
+            _execution_policy_results(
+                causal_data.daily,
+                causal_data.intraday,
+                applied.target_position,
+                periods,
+                execution_policy,
+                fee_rate=request.fee_rate,
+                init_cash=request.init_cash,
+            )
+            if execution_policy is not None
+            else {}
+        )
         order_pieces = [result.orders for result in results.values()]
         orders = pd.concat(order_pieces, ignore_index=True) if order_pieces else pd.DataFrame()
         event_pieces = [applied.events, *[result.factor_events for result in results.values()]]
@@ -373,6 +461,7 @@ def run_fixed_backtest(
                 ma_results[name],
                 fee_rate=request.fee_rate,
                 init_cash=request.init_cash,
+                execution=execution_results.get(name),
             )
             for name, result in results.items()
         }
@@ -421,6 +510,16 @@ def run_fixed_backtest(
                 output_dir / ma_chart_name,
             )
             chart_files.append(ma_chart_name)
+            execution_result = execution_results.get(name)
+            if execution_result is not None:
+                _write_csv(
+                    output_dir / f"execution_orders{suffix}.csv",
+                    execution_result.orders,
+                )
+                _write_csv(
+                    output_dir / f"execution_equity{suffix}.csv",
+                    execution_result.daily_state.reset_index(),
+                )
 
         _write_csv(output_dir / "factors.csv", factor_output, index=True)
         _write_csv(output_dir / "ma_signals.csv", ma_signals, index=True)
@@ -445,6 +544,17 @@ def run_fixed_backtest(
                     "execution": "next_session_open",
                     "position": "full_or_cash",
                 },
+                **(
+                    {
+                        "active_baseline_execution_policy": {
+                            "version": execution_policy.version,
+                            "sha256": execution_policy.sha256,
+                            "execution": "daily_limit_policy",
+                        }
+                    }
+                    if execution_policy is not None
+                    else {}
+                ),
             },
             "baseline": {
                 "version": baseline.version,

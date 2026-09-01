@@ -6,8 +6,8 @@
   "asset_type": "etf",
   "vendor": "tushare",
   "requested_start": "2025-01-01",
-  "requested_end": "2026-08-28",
-  "generated_at_utc": "2026-08-29T05:54:00.390826+00:00",
+  "requested_end": "2026-09-01",
+  "generated_at_utc": "2026-09-01T11:34:48.628207+00:00",
   "files": {
     "159352_30m_2025.csv": {
       "frequency": "30m",
@@ -20,10 +20,10 @@
     "159352_30m_2026.csv": {
       "frequency": "30m",
       "year": 2026,
-      "rows": 1272,
+      "rows": 1288,
       "first": "2026-01-05T10:00:00",
-      "last": "2026-08-28T15:00:00",
-      "sha256": "6820f8ed2a93e8437fdd55280c4da5c7a0c04f93ffc85d8b2e88430cffd4a3c4"
+      "last": "2026-09-01T15:00:00",
+      "sha256": "bc4b94410c6273549e35d962daf391352c95db5926c336f7ad19fe6a399fd8dd"
     },
     "159352_daily_2025.csv": {
       "frequency": "daily",
@@ -36,10 +36,10 @@
     "159352_daily_2026.csv": {
       "frequency": "daily",
       "year": 2026,
-      "rows": 159,
+      "rows": 161,
       "first": "2026-01-05T00:00:00",
-      "last": "2026-08-28T00:00:00",
-      "sha256": "293aeed999f99b9d4a3adb98f9f10736093965b2db95d85fd9685452d4d1ec50"
+      "last": "2026-09-01T00:00:00",
+      "sha256": "602ce8b1f35f672d21dda3264bed46a16eb0403f043c73fa9e765ebface0c55e"
     },
     "159352_weekly_2025.csv": {
       "frequency": "weekly",
@@ -52,10 +52,10 @@
     "159352_weekly_2026.csv": {
       "frequency": "weekly",
       "year": 2026,
-      "rows": 33,
+      "rows": 34,
       "first": "2026-01-09T00:00:00",
-      "last": "2026-08-28T00:00:00",
-      "sha256": "b54986a5987e280fbcba05a72881d99986df20385cba6b4d99096c5f08cd90f5"
+      "last": "2026-09-01T00:00:00",
+      "sha256": "6c129cc8332226626606f7abec8809b79d4a7df1d77dc4806f846c6d51fefff7"
     }
   },
   "fetch_metadata": {
@@ -67,7 +67,7 @@
       "asset_type": "etf",
       "adjustment": "hfq",
       "adjustment_factor_source": "fund_adj",
-      "adjustment_factor_sha256": "a4e3d020a6ff16f7c5d83710f168cf419cf164dda8749f04a198c93d5c8827c9"
+      "adjustment_factor_sha256": "7a88613499a1efbde4d051227e5be0a73fee8d80e12352280d4f256a8a9bdb3b"
     },
     "daily": {
       "vendor": "tushare",
@@ -77,7 +77,7 @@
       "asset_type": "etf",
       "adjustment": "hfq",
       "adjustment_factor_source": "fund_adj",
-      "adjustment_factor_sha256": "a4e3d020a6ff16f7c5d83710f168cf419cf164dda8749f04a198c93d5c8827c9"
+      "adjustment_factor_sha256": "7a88613499a1efbde4d051227e5be0a73fee8d80e12352280d4f256a8a9bdb3b"
     },
     "weekly": {
       "vendor": "tushare",
@@ -87,12 +87,12 @@
       "asset_type": "etf",
       "adjustment": "hfq",
       "adjustment_factor_source": "fund_adj",
-      "adjustment_factor_sha256": "a4e3d020a6ff16f7c5d83710f168cf419cf164dda8749f04a198c93d5c8827c9"
+      "adjustment_factor_sha256": "7a88613499a1efbde4d051227e5be0a73fee8d80e12352280d4f256a8a9bdb3b"
     }
   },
   "adjustment": {
     "mode": "hfq",
     "factor_source": "fund_adj",
-    "factor_sha256": "a4e3d020a6ff16f7c5d83710f168cf419cf164dda8749f04a198c93d5c8827c9"
+    "factor_sha256": "7a88613499a1efbde4d051227e5be0a73fee8d80e12352280d4f256a8a9bdb3b"
   }
 }

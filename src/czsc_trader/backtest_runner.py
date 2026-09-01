@@ -18,7 +18,10 @@ from .baselines import resolve_baseline
 from .charting import write_period_chart
 from .data import load_market_data
 from .factors import generate_factor_frame
+from .ma_charting import write_ma_chart
+from .moving_average import moving_average_signals
 from .output_paths import create_output_dir
+from .strategy_metrics import strategy_comparison_metrics
 
 
 @dataclass(frozen=True)
@@ -144,16 +147,40 @@ def _equity_frame(
     )
 
 
-def _comparison_metrics(
-    daily: pd.DataFrame,
+def _ma_equity_frame(
     result: PeriodBacktestResult,
+    target_position: pd.Series,
+    signals: pd.DataFrame,
+) -> pd.DataFrame:
+    index = pd.DatetimeIndex(result.equity.index, name="dt")
+    prior = target_position.index[target_position.index < index[0]]
+    if prior.empty:
+        raise ValueError("MA backtest period has no prior signal")
+    execution = target_position.reindex(index).shift(1)
+    execution.iloc[0] = float(target_position.loc[prior[-1]])
+    return pd.DataFrame(
+        {
+            "dt": index,
+            "equity": result.equity.to_numpy(),
+            "target_position": target_position.reindex(index).to_numpy(),
+            "execution_position": execution.to_numpy(),
+            "ma5": signals["ma5"].reindex(index).to_numpy(),
+            "ma20": signals["ma20"].reindex(index).to_numpy(),
+        }
+    )
+
+
+def _strategy_metrics(
+    daily: pd.DataFrame,
+    active: PeriodBacktestResult,
+    ma: PeriodBacktestResult,
     *,
     fee_rate: float,
     init_cash: float,
-) -> dict[str, float | str]:
-    """Project ordinary-backtest output without changing research metrics."""
-    start = pd.Timestamp(str(result.metrics["start"]))
-    end = pd.Timestamp(str(result.metrics["end"]))
+) -> dict[str, object]:
+    """Build one exact-schema, independently funded three-strategy comparison."""
+    start = pd.Timestamp(str(active.metrics["start"]))
+    end = pd.Timestamp(str(active.metrics["end"]))
     dates = pd.to_datetime(daily["dt"])
     period_daily = daily.loc[(dates >= start) & (dates <= end)].copy()
     buyhold_target = pd.Series(
@@ -168,24 +195,29 @@ def _comparison_metrics(
         init_cash=init_cash,
         initial_target=1.0,
     )
-    strategy_return = float(result.metrics["strategy_return"])
-    buyhold_return = float(result.metrics["buyhold_return"])
-    strategy_sharpe = float(result.metrics["sharpe"])
-    buyhold_sharpe = float(buyhold.metrics["sharpe"])
-    strategy_max_drawdown = float(result.metrics["max_drawdown"])
-    buyhold_max_drawdown = float(buyhold.metrics["max_drawdown"])
     return {
-        "start": str(result.metrics["start"]),
-        "end": str(result.metrics["end"]),
-        "strategy_return": strategy_return,
-        "buyhold_return": buyhold_return,
-        "return_difference": strategy_return - buyhold_return,
-        "strategy_sharpe": strategy_sharpe,
-        "buyhold_sharpe": buyhold_sharpe,
-        "sharpe_difference": strategy_sharpe - buyhold_sharpe,
-        "strategy_max_drawdown": strategy_max_drawdown,
-        "buyhold_max_drawdown": buyhold_max_drawdown,
-        "max_drawdown_difference": strategy_max_drawdown - buyhold_max_drawdown,
+        "start": str(active.metrics["start"]),
+        "end": str(active.metrics["end"]),
+        "strategies": {
+            "active_baseline": strategy_comparison_metrics(
+                active.equity,
+                active.orders,
+                init_cash,
+                float(active.metrics["sharpe"]),
+            ),
+            "buyhold": strategy_comparison_metrics(
+                buyhold.equity,
+                buyhold.orders,
+                init_cash,
+                float(buyhold.metrics["sharpe"]),
+            ),
+            "ma5_ma20": strategy_comparison_metrics(
+                ma.equity,
+                ma.orders,
+                init_cash,
+                float(ma.metrics["sharpe"]),
+            ),
+        },
     }
 
 
@@ -195,32 +227,50 @@ def _report(
     metrics: dict[str, object],
     chart_files: list[str],
 ) -> str:
+    def percent(value: object) -> str:
+        return "N/A" if value is None else f"{float(value):.2%}"
+
+    def ratio(value: object) -> str:
+        return "N/A" if value is None else f"{float(value):.3f}"
+
     lines = [
         f"# {symbol} 固定基线规则回测",
         "",
         f"- 规则基线：`{baseline_version}`",
         "- 本次只应用冻结规则，未执行候选搜索或参数选优。",
         "",
-        "## 策略与 Buy & Hold 比较",
-        "",
-        "| 区间 | 开始 | 结束 | 策略收益 | Buy & Hold收益 | 收益差 | 策略夏普 | Buy & Hold夏普 | 夏普差 | 策略最大回撤 | Buy & Hold最大回撤 | 最大回撤差 |",
-        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "## 策略比较",
     ]
     windows = metrics["windows"]
     assert isinstance(windows, dict)
+    labels = {
+        "active_baseline": "活动基线",
+        "buyhold": "BuyHold",
+        "ma5_ma20": "MA5/MA20",
+    }
     for name, values in windows.items():
         assert isinstance(values, dict)
-        lines.append(
-            f"| {name} | {values['start']} | {values['end']} | "
-            f"{float(values['strategy_return']):.2%} | {float(values['buyhold_return']):.2%} | "
-            f"{float(values['return_difference']):.2%} | "
-            f"{float(values['strategy_sharpe']):.3f} | "
-            f"{float(values['buyhold_sharpe']):.3f} | "
-            f"{float(values['sharpe_difference']):.3f} | "
-            f"{float(values['strategy_max_drawdown']):.2%} | "
-            f"{float(values['buyhold_max_drawdown']):.2%} | "
-            f"{float(values['max_drawdown_difference']):.2%} |"
+        lines.extend(
+            [
+                "",
+                f"## {name}",
+                "",
+                f"区间：{values['start']} 至 {values['end']}",
+                "",
+                "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |",
+                "| --- | ---: | ---: | ---: | ---: | ---: |",
+            ]
         )
+        strategies = values["strategies"]
+        assert isinstance(strategies, dict)
+        for strategy_id in ("active_baseline", "buyhold", "ma5_ma20"):
+            item = strategies[strategy_id]
+            assert isinstance(item, dict)
+            lines.append(
+                f"| {labels[strategy_id]} | {percent(item['max_drawdown'])} | "
+                f"{ratio(item['calmar'])} | {ratio(item['win_loss_ratio'])} | "
+                f"{percent(item['return'])} | {ratio(item['sharpe'])} |"
+            )
     lines.extend(["", "## 交互式图表", ""])
     lines.extend(f"- [{name}]({name})" for name in chart_files)
     return "\n".join(lines) + "\n"
@@ -290,6 +340,14 @@ def run_fixed_backtest(
             factor_events=applied.events,
             factor_frame=factor_output,
         )
+        ma_signals = moving_average_signals(causal_data.daily, fast=5, slow=20)
+        ma_results = run_period_backtests(
+            causal_data.daily,
+            ma_signals["target_position"],
+            periods,
+            fee_rate=request.fee_rate,
+            init_cash=request.init_cash,
+        )
         order_pieces = [result.orders for result in results.values()]
         orders = pd.concat(order_pieces, ignore_index=True) if order_pieces else pd.DataFrame()
         event_pieces = [applied.events, *[result.factor_events for result in results.values()]]
@@ -309,9 +367,10 @@ def run_fixed_backtest(
             factor_output,
         )
         windows = {
-            name: _comparison_metrics(
+            name: _strategy_metrics(
                 causal_data.daily,
                 result,
+                ma_results[name],
                 fee_rate=request.fee_rate,
                 init_cash=request.init_cash,
             )
@@ -341,8 +400,30 @@ def run_fixed_backtest(
                 output_dir / chart_name,
             )
             chart_files.append(chart_name)
+            ma_result = ma_results[name]
+            _write_csv(output_dir / f"ma_orders{suffix}.csv", ma_result.orders)
+            _write_csv(
+                output_dir / f"ma_equity{suffix}.csv",
+                _ma_equity_frame(
+                    ma_result,
+                    ma_signals["target_position"],
+                    ma_signals,
+                ),
+            )
+            ma_chart_name = f"ma_chart{suffix}.html"
+            write_ma_chart(
+                causal_data.daily,
+                ma_signals,
+                ma_result.orders,
+                pd.Timestamp(str(ma_result.metrics["start"])),
+                pd.Timestamp(str(ma_result.metrics["end"])),
+                f"{data.symbol} {name} · MA5/MA20",
+                output_dir / ma_chart_name,
+            )
+            chart_files.append(ma_chart_name)
 
         _write_csv(output_dir / "factors.csv", factor_output, index=True)
+        _write_csv(output_dir / "ma_signals.csv", ma_signals, index=True)
         _write_csv(output_dir / "factor_events.csv", factor_events)
         _write_json(output_dir / "audit.json", audit)
         _write_json(output_dir / "metrics.json", metrics)
@@ -354,6 +435,17 @@ def run_fixed_backtest(
             "asset_type": data.asset_type,
             "fee_rate_per_side": request.fee_rate,
             "initial_cash": request.init_cash,
+            "metrics_schema_version": 2,
+            "comparison_strategies": {
+                "active_baseline": baseline.version,
+                "buyhold": {"initial_target": 1.0},
+                "ma5_ma20": {
+                    "fast": 5,
+                    "slow": 20,
+                    "execution": "next_session_open",
+                    "position": "full_or_cash",
+                },
+            },
             "baseline": {
                 "version": baseline.version,
                 "sha256": baseline.sha256,

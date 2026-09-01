@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pandas as pd
 import pytest
 
 
@@ -12,18 +13,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CLI = Path(sys.executable).with_name(
     "czsc-trader.exe" if sys.platform == "win32" else "czsc-trader"
 )
-COMPARISON_KEYS = {
-    "start",
-    "end",
-    "strategy_return",
-    "buyhold_return",
-    "return_difference",
-    "strategy_sharpe",
-    "buyhold_sharpe",
-    "sharpe_difference",
-    "strategy_max_drawdown",
-    "buyhold_max_drawdown",
-    "max_drawdown_difference",
+STRATEGY_METRIC_KEYS = {
+    "max_drawdown",
+    "calmar",
+    "win_loss_ratio",
+    "return",
+    "sharpe",
 }
 TRACKED_SYMBOLS = (
     "159352.SZ",
@@ -166,16 +161,61 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert output_dir.name.startswith("588080_")
     assert output_dir.name.endswith("_BT01")
     assert payload["result"]["baseline"] == "baseline_20260901"
-    assert set(full) == COMPARISON_KEYS
-    assert full["strategy_return"] == pytest.approx(0.7528525916956634)
-    assert full["return_difference"] == pytest.approx(
-        full["strategy_return"] - full["buyhold_return"]
+    assert set(full) == {"start", "end", "strategies"}
+    strategies = full["strategies"]
+    assert set(strategies) == {"active_baseline", "buyhold", "ma5_ma20"}
+    assert all(set(metrics) == STRATEGY_METRIC_KEYS for metrics in strategies.values())
+    assert strategies["active_baseline"]["return"] == pytest.approx(
+        0.7528525916956634
     )
-    assert full["sharpe_difference"] == pytest.approx(
-        full["strategy_sharpe"] - full["buyhold_sharpe"]
+    assert strategies["ma5_ma20"] == pytest.approx(
+        {
+            "max_drawdown": -0.22945460734778733,
+            "calmar": 1.520558369439513,
+            "win_loss_ratio": 3.2767930702460384,
+            "return": 0.20069278199087237,
+            "sharpe": 1.234024171393839,
+        }
     )
-    assert full["max_drawdown_difference"] == pytest.approx(
-        full["strategy_max_drawdown"] - full["buyhold_max_drawdown"]
-    )
+    assert strategies["buyhold"]["win_loss_ratio"] is None
+
     assert (output_dir / "audit.json").is_file()
     assert (output_dir / "report.md").is_file()
+    assert (output_dir / "chart.html").is_file()
+    assert (output_dir / "ma_signals.csv").is_file()
+    assert (output_dir / "ma_orders.csv").is_file()
+    assert (output_dir / "ma_equity.csv").is_file()
+    assert (output_dir / "ma_chart.html").is_file()
+
+    ma_signals = pd.read_csv(output_dir / "ma_signals.csv", parse_dates=["dt"])
+    assert list(ma_signals.columns) == ["dt", "close", "ma5", "ma20", "target_position"]
+    first_session = ma_signals.loc[ma_signals["dt"] == "2026-01-05"].iloc[0]
+    assert first_session["target_position"] == 1.0
+    assert first_session["ma5"] == pytest.approx(1.40065584)
+    assert first_session["ma20"] == pytest.approx(1.37753371)
+
+    ma_orders = pd.read_csv(
+        output_dir / "ma_orders.csv",
+        parse_dates=["signal_date", "execution_date"],
+    )
+    assert ma_orders.iloc[0]["side"] == "Buy"
+    assert ma_orders.iloc[0]["signal_date"] == pd.Timestamp("2025-12-31")
+    assert ma_orders.iloc[0]["execution_date"] == pd.Timestamp("2026-01-05")
+    sessions = ma_signals["dt"].tolist()
+    next_session = dict(zip(sessions, sessions[1:]))
+    for order in ma_orders.itertuples():
+        assert next_session[order.signal_date] == order.execution_date
+
+    report = (output_dir / "report.md").read_text(encoding="utf-8")
+    assert "## full" in report
+    assert report.count("| 活动基线 |") == 1
+    assert report.count("| BuyHold |") == 1
+    assert report.count("| MA5/MA20 |") == 1
+    assert "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |" in report
+
+    ma_chart = (output_dir / "ma_chart.html").read_text(encoding="utf-8")
+    assert all(
+        label in ma_chart
+        for label in ("MA5", "MA20", "MA\\u4e70\\u5165", "MA\\u5356\\u51fa")
+    )
+    assert '"hovermode":"x unified"' in ma_chart

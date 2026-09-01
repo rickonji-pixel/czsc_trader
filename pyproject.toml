@@ -14,8 +14,6 @@ dependencies = [
     "pandas>=3.0.3,<4",
     "numpy>=2.4.6",
     "plotly==6.9.0",
-    "joblib==1.5.3",
-    "optuna==4.9.0",
 ]
 
 [project.scripts]

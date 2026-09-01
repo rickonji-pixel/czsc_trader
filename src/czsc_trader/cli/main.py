@@ -21,9 +21,6 @@ from czsc_trader.application.data_service import (
     validate_data,
 )
 from czsc_trader.application.errors import CommandError, InternalError, UsageError
-from czsc_trader.application.experiment_service import replay_experiment, run_experiment
-from czsc_trader.research.registry import build_default_registry
-
 from .output import write_error, write_result
 
 
@@ -98,25 +95,6 @@ def _archive_validate(args: argparse.Namespace):
     return validate_archives(context, archive, all_archives=args.all)
 
 
-def _experiment_run(args: argparse.Namespace):
-    context = _context(args)
-    return run_experiment(
-        context,
-        _repository_path(context, args.experiment_dir),
-        build_default_registry(),
-    )
-
-
-def _experiment_replay(args: argparse.Namespace):
-    context = _context(args)
-    return replay_experiment(
-        context,
-        _repository_path(context, args.experiment_dir),
-        _repository_path(context, args.output),
-        build_default_registry(),
-    )
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = CommandParser(prog="czsc-trader")
     resources = parser.add_subparsers(
@@ -181,26 +159,6 @@ def build_parser() -> argparse.ArgumentParser:
         command_handler=_backtest_run,
         command_name="backtest.run",
     )
-    experiment = resources.add_parser("experiment")
-    experiment_actions = experiment.add_subparsers(
-        dest="action", required=True, parser_class=CommandParser
-    )
-    experiment_run = experiment_actions.add_parser("run")
-    experiment_run.add_argument("--dir", dest="experiment_dir", type=Path, required=True)
-    _add_repository_root(experiment_run)
-    experiment_run.set_defaults(
-        command_handler=_experiment_run,
-        command_name="experiment.run",
-    )
-    experiment_replay = experiment_actions.add_parser("replay")
-    experiment_replay.add_argument("--dir", dest="experiment_dir", type=Path, required=True)
-    experiment_replay.add_argument("--output", type=Path, required=True)
-    _add_repository_root(experiment_replay)
-    experiment_replay.set_defaults(
-        command_handler=_experiment_replay,
-        command_name="experiment.replay",
-    )
-
     archive = resources.add_parser("archive")
     archive_actions = archive.add_subparsers(
         dest="action", required=True, parser_class=CommandParser

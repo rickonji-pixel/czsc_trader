@@ -1,116 +1,95 @@
-# CZSC Trader
+# czsc-trader
 
-本仓库提供行情准备、冻结基线回测、预注册研究、隔离复现和Git研究档案验证。跨设备研究边界与当前588080正式基线见 [RESEARCH_HANDOFF.md](docs/RESEARCH_HANDOFF.md)。
-
-唯一用户入口是安装后生成的 `czsc-trader` 命令。旧`scripts`脚本和runner模块CLI已经删除，不存在第二套调用方式。
-
-## 当前状态
-
-- 活动基线：`baseline_20260901`，来源为`0901_EX20`冻结的候选143，是ER60两档条件权重四层策略；
-- 588080行情：30分钟、日线和周线均覆盖至2026-08-31并通过校验；
-- 最新正式研究档案：`0901_EX21`，当前共有46个Git跟踪实验档案；
-- CZSC研究结论：0901_EX05—EX14从4,747个规范因子中确认一个历史风险缓解事件，形成`0901_EX13`历史挑战者；其2026仓位路径与活动基线相同，尚无晋升证据；
-- 仓位研究结论：已测试的入场定仓、动态仓位、下行风险、三类风险压力和EX13计分分档均未产生可晋升仓位方案，活动基线不变；
-- Regime权重结论：EX20从625项中冻结研究胜者143；EX21对全部6个合格候选执行2026Q1、H1、M1—M8九项评分，125、143、275、293均为8.0分并列第一；用户确认项目只做样本内研究后，143已晋升为活动基线；
-- 证据边界：2020—2025作为研究集，持续补全的2026行情作为项目内测试集；暂不引入实盘反馈或独立样本外声明。
-
-上述状态是文档快照；实际基线身份只认`configs/rule_baselines/registry.json`，行情范围只认当前manifest与校验结果，研究事实只认Git实验档案。
+面向A股股票与ETF的CZSC策略研究、固定基线回测和数据验证工具。
 
 ## 环境
 
-~~~powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows -e ".[test]"
-.\.venv\Scripts\python.exe -m pip check
-~~~
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e packages\dataflows
+.\.venv\Scripts\python.exe -m pip install -e .[test]
+```
 
-行情适配器是独立子项目 [packages/dataflows/README.md](packages/dataflows/README.md)，
-与主项目通过上面的同一条命令安装。若需从Tushare准备行情，将根目录
-`.env.example`复制为被Git忽略的`.env`并填写令牌。`dataflows`包不依赖
-`czsc_trader`，未来可整体拆分为独立仓库。
+根包依赖本仓库的 `czsc-dataflows`，行情发布时从 `.env` 读取
+Tushare凭据。普通验证和回测不会隐式联网。
 
-## 统一命令
+## 正式入口
 
-~~~text
-czsc-trader data prepare
-czsc-trader data validate
-czsc-trader baseline list
-czsc-trader baseline show
-czsc-trader baseline validate
-czsc-trader backtest run
-czsc-trader experiment run
-czsc-trader experiment replay
-czsc-trader archive validate
-~~~
+```powershell
+.\.venv\Scripts\czsc-trader.exe data prepare --help
+.\.venv\Scripts\czsc-trader.exe data validate --help
+.\.venv\Scripts\czsc-trader.exe baseline list --help
+.\.venv\Scripts\czsc-trader.exe baseline show --help
+.\.venv\Scripts\czsc-trader.exe baseline validate --help
+.\.venv\Scripts\czsc-trader.exe backtest run --help
+.\.venv\Scripts\czsc-trader.exe archive validate --help
+```
 
-默认 stdout 是UTF-8编码的单一JSON文档，进度和诊断进入stderr；可用 --format text 查看人工可读结果。所有命令都支持 --repo-root，未指定时从当前目录向上发现仓库。
+CLI只保留四类资源：`data`、`baseline`、`backtest`、`archive`。
+历史实验执行与重放已退役；`experiments/`只保存不可变研究档案。
 
-## 数据准备与验证
+## 数据
 
-~~~powershell
-.\.venv\Scripts\czsc-trader.exe data prepare --symbol 600519.SH --asset stock --start 2024-01-01 --end 2026-08-28
+```powershell
+.\.venv\Scripts\czsc-trader.exe data prepare `
+  --symbol 588080.SH --asset etf `
+  --start 2020-01-01 --end 2026-09-01
+
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
-~~~
+```
 
-A股股票与ETF统一使用Tushare后复权行情。只有证券基础信息、复权因子、30分钟交易时段、每日8根K线及三频对账全部通过后才发布到 data/raw；普通回测不会隐式联网刷新数据。每个`*_manifest.json`顶层保存Tushare返回的`name`中文简称，`data validate`会校验并返回该字段。
+A股股票与ETF统一使用Tushare后复权（`hfq`）行情。发布器同时生成并校验
+30分钟、日线和周线文件以及manifest、validation文件。
 
-## 冻结基线回测
+当前Git跟踪数据：
 
-查看并验证基线：
+| 标的 | 名称 | 起始日 | 截止日 |
+| --- | --- | --- | --- |
+| 159352.SZ | 南方中证A500ETF | 2025-01-01 | 2026-09-01 |
+| 159516.SZ | 国泰中证半导体材料设备主题ETF | 2025-01-01 | 2026-09-01 |
+| 515050.SH | 华夏中证5G通信主题ETF | 2024-01-02 | 2026-09-01 |
+| 588080.SH | 易方达上证科创板50成份ETF | 2020-01-01 | 2026-09-01 |
 
-~~~powershell
-.\.venv\Scripts\czsc-trader.exe baseline list
-.\.venv\Scripts\czsc-trader.exe baseline validate --version baseline_20260901 --symbol 588080.SH
-~~~
+## 活动基线
 
-执行588080当前活动基线：
+活动基线由 `configs/rule_baselines/registry.json` 决定。当前为
+`baseline_20260901`，策略类型 `czsc_regime_weight`，来源候选143。
 
-~~~powershell
-.\.venv\Scripts\czsc-trader.exe backtest run --symbol 588080.SH --asset etf --windows configs\backtest_windows\2026.json --window 2026FULL
-~~~
+```powershell
+.\.venv\Scripts\czsc-trader.exe baseline show `
+  --version baseline_20260901 --symbol 588080.SH
 
-窗口配置中的`2026FULL`左右边界分别从已验证日线动态解析为2026年第一个和最后一个有记录的交易日，不需要在行情更新后手工修改日期。普通回测只比较冻结策略与Buy & Hold的收益率、夏普率和最大回撤率及三项差值，不执行目标判定。
+.\.venv\Scripts\czsc-trader.exe baseline validate `
+  --version baseline_20260901 --symbol 588080.SH
+```
 
-未显式指定基线时，所有标的默认使用`baseline_20260901`，即冻结的EX20候选143。它使用T-1及以前收盘价计算ER60，并在trend/range两档选择固定权重；因子、阈值和状态机保持四层架构。该规则允许跨标的普通回测，但研究证据仍只来自588080。`baseline_20260826`和`baseline_20260823`只允许显式历史复现。普通回测只应用冻结规则，不搜索或修改参数；输出进入`outputs/<证券代码>_<MMDD>_BTXX`，实际目录以命令返回的`artifacts.output_dir`为准。
+未显式指定基线的回测默认使用注册表中的活动基线。
 
-## 研究与档案
+## 回测
 
-新实验必须先创建并预注册新的 `MMDD_EXX` 目录：
+```powershell
+.\.venv\Scripts\czsc-trader.exe backtest run `
+  --symbol 588080.SH --asset etf `
+  --start 2026-01-01 --end 2026-08-21
+```
 
-~~~powershell
-.\.venv\Scripts\czsc-trader.exe experiment run --dir experiments\MMDD_EXX
-~~~
+输出目录使用 `证券代码_MMDD_BTXX` 格式并写入 `outputs/`。该目录被
+Git忽略，只用于普通回测结果，不作为研究交接依据。
 
-存在有效 experiment_manifest.json 的冻结目录会被拒绝原地执行。需要历史复现时必须指定源目录之外、尚不存在的隔离输出：
+## 实验档案
 
-~~~powershell
-$replayDir = Join-Path ([System.IO.Path]::GetTempPath()) `
-  ("czsc-trader-0824_EX08-" + [guid]::NewGuid())
-.\.venv\Scripts\czsc-trader.exe experiment replay `
-  --dir experiments\0824_EX08 --output $replayDir
-~~~
-
-验证一个或全部Git研究档案：
-
-~~~powershell
+```powershell
 .\.venv\Scripts\czsc-trader.exe archive validate --all
-~~~
+```
 
-研究事实、当前边界和正式研究流程以 [RESEARCH_HANDOFF.md](docs/RESEARCH_HANDOFF.md)
-为准。Git跟踪的实验档案是研究事实；`outputs/`和隔离回放目录都不是研究证据。
-
-最近完成的CZSC终局计划（`0901_EX05`—`0901_EX14`）在冻结信息空间内从4,747个规范因子压缩出一个稳定风险缓解事件，并形成`0901_EX13`历史挑战者；`0901_EX15`显示其2026计分虽不同，但仓位路径和业绩与活动基线完全一致。随后`0901_EX16`—`0901_EX18`终止了不具备跨年单调证据的计分分档仓位路线。上述结论只覆盖冻结的信号、参数、周期、因子变换、线性计分与检验协议，不等于整个CZSC因子库或所有权重架构已经穷尽。
-
-`0901_EX19`错误地增加了用户未授权的年度3/5否决门槛，因此其FAIL只保留为原始实验事实，不再用来终止路线。`0901_EX20`保持同一研究对象、625项空间和数据边界，改为只按连续2021—2025的最大回撤、卡玛和盈亏比共同改善筛选，冻结候选143。挑战者2026M1—M8收益率72.4634%、卡玛11.3525、盈亏比19.6580、夏普3.2295均高于原活动基线，最大回撤与其同为-12.0868%。
-
-`0901_EX21`进一步固定EX20全部6个研究合格候选，在2026Q1、H1、M1—M8按最大回撤、卡玛和盈亏比逐格计分。125、143、275、293均以7胜2平0负获得8.0分并列第一；418得4.5分，400得2.5分。结合143在2021—2025的maximin第一名，用户确认其晋升为样本内冠军，现已注册为`baseline_20260901`。
+`experiments/MMDD_EXXX/`保存每轮实验的目标、设计、执行、结论和制品。
+档案可校验但不再通过统一入口重新运行。
 
 ## 测试
 
-测试集包括统一CLI端到端验证，以及仓位状态机、风险特征、资金账本、因果事件和技术错误重试的针对性单元与回归测试。
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\test_cli_e2e.py -q
+```
 
-~~~powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall -q src tests
-~~~
-完整跨设备接力流程以研究交接文档为准。
+项目只保留一个不联网的端到端测试文件，验证安装后的CLI、数据、活动基线、
+固定回测和全部实验档案。

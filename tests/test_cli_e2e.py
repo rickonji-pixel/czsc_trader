@@ -25,6 +25,47 @@ COMPARISON_KEYS = {
     "buyhold_max_drawdown",
     "max_drawdown_difference",
 }
+TRACKED_SYMBOLS = (
+    "159352.SZ",
+    "159516.SZ",
+    "515050.SH",
+    "588080.SH",
+)
+
+
+def _run_cli_json(*arguments: str) -> dict[str, object]:
+    completed = subprocess.run(
+        [str(CLI), *arguments, "--repo-root", str(REPO_ROOT), "--format", "json"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert completed.stderr == ""
+    return json.loads(completed.stdout)
+
+
+def test_cli_exposes_only_supported_resources() -> None:
+    completed = subprocess.run(
+        [str(CLI), "--help"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert completed.stderr == ""
+    resource_line = next(
+        line.strip()
+        for line in completed.stdout.splitlines()
+        if line.strip().startswith("{") and line.strip().endswith("}")
+    )
+    assert resource_line == "{data,baseline,backtest,archive}"
+    assert "experiment" not in completed.stdout
 
 
 def test_dataflows_package_imports_outside_the_checkout(tmp_path: Path) -> None:
@@ -47,6 +88,48 @@ def test_dataflows_package_imports_outside_the_checkout(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
     module_path = Path(completed.stdout.strip())
     assert module_path.is_relative_to(REPO_ROOT / "packages" / "dataflows")
+
+
+@pytest.mark.parametrize("symbol", TRACKED_SYMBOLS)
+def test_tracked_market_data_validates_through_latest_session(symbol: str) -> None:
+    payload = _run_cli_json("data", "validate", "--symbol", symbol)
+
+    assert payload["status"] == "PASS"
+    result = payload["result"]
+    assert result["symbol"] == symbol
+    assert result["requested_end"] == "2026-09-01"
+    assert result["validation_status"] == "PASS"
+    assert result["frequencies"] == ["30m", "daily", "weekly"]
+
+
+def test_active_baseline_is_candidate143() -> None:
+    payload = _run_cli_json(
+        "baseline",
+        "show",
+        "--version",
+        "baseline_20260901",
+        "--symbol",
+        "588080.SH",
+    )
+
+    assert payload["status"] == "PASS"
+    result = payload["result"]
+    assert result["version"] == "baseline_20260901"
+    assert result["strategy"] == "czsc_regime_weight"
+    assert result["status"] == "active"
+    assert result["rule"]["candidate_id"] == 143
+
+
+def test_all_frozen_experiment_archives_validate() -> None:
+    payload = _run_cli_json("archive", "validate", "--all")
+
+    assert payload["status"] == "PASS"
+    assert payload["result"]["validated_count"] == 46
+    assert payload["result"]["experiments"][-3:] == [
+        "0901_EX19",
+        "0901_EX20",
+        "0901_EX21",
+    ]
 
 
 def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:

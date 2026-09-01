@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX05",
+  "status": "COMPLETE",
+  "result": "HISTORICAL_CHALLENGER_FOUND",
+  "terminal_experiment": "0901_EX14",
+  "terminal_manifest_sha256": "30c7824bb73f45ddfef13ad0da24fc50b5d02a1ada4730ba84b7c3a969a1d61f",
+  "challenger_experiment": "0901_EX13",
+  "source_challenger": "experiments/0901_EX13/artifacts/frozen_historical_challenger.json",
+  "canonical_factor_count": 4747,
+  "formal_admitted_count": 412,
+  "global_multiplicity_survivor_count": 1,
+  "strategy_rounds_used": 1,
+  "strategy_candidates": 6,
+  "strategy_winners": 1,
+  "selected_event_weight": 0.2,
+  "return_delta": 0.155803160878633,
+  "max_drawdown_delta": 0.0391913603963,
+  "sharpe_delta": 0.09165996929989284,
+  "access_2026": false,
+  "active_baseline_changed": false
+}

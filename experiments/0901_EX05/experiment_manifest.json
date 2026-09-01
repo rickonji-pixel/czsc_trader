@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX05",
+  "date": "2026-09-01",
+  "status": "COMPLETE",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "result": "HISTORICAL_CHALLENGER_FOUND",
+  "terminal_experiment": "0901_EX14",
+  "visible_sample_end": "2025-12-31",
+  "validation_accessed": false,
+  "historical_2026_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 2492,
+      "sha256": "8a5ac6895077a975ec10a5edcb075fcb1d589091de281e98530bea4b103c7470"
+    },
+    "02_design.md": {
+      "bytes": 7276,
+      "sha256": "4c21a99bcdb6dcfd1285bf281214887e698e49cb112580e7af4612faf382114b"
+    },
+    "03_execution.md": {
+      "bytes": 879,
+      "sha256": "37d64ccb14d0f50b08cf280b6b8302ad3e00ca0601ef9807319f2f17df2c1ed6"
+    },
+    "04_conclusion.md": {
+      "bytes": 1185,
+      "sha256": "801a1703b39595abc2e95d809db8b05d70bb2f2c720ea988d2062c9a524ee0ff"
+    },
+    "artifacts/program_result.json": {
+      "bytes": 793,
+      "sha256": "32e2b1c2f2392b5140dee4b5096b2f70ac5cf9b48c978d9d60c384244f6ee305"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1693,
+      "sha256": "dfc38cb46835a70fb3050063e8e99e4bdee4934cfab61cd7249557393f82937f"
+    },
+    "artifacts/signal_generation_probe.json": {
+      "bytes": 24707,
+      "sha256": "4d53ae9008e14937ad7b039dcf28338322c9c17ffcaf584dc225be0273f36e45"
+    },
+    "artifacts/signal_inventory.json": {
+      "bytes": 39145,
+      "sha256": "0baf02a789774a33ba376eabe33030327bf3f6584382db2d71b9c75c4753fd32"
+    },
+    "implementation_plan.md": {
+      "bytes": 10598,
+      "sha256": "7348e45121784d99ea95a9356939efba672a5e6dc25f06a0776fe90e896a195a"
+    }
+  }
+}

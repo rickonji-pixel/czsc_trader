@@ -14,6 +14,7 @@
   "evaluation_end": "2025-12-31",
   "access_2026": false,
   "primary_horizon": 20,
+  "minimum_absolute_effect": 0.005,
   "auxiliary_horizons": [5, 60],
   "families": [
     "atomic_structure",

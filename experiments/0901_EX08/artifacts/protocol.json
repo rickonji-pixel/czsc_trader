@@ -13,7 +13,7 @@
   "frequencies": ["30分钟", "日线", "周线"],
   "parent_experiments": ["0901_EX06", "0901_EX07"],
   "parent_manifests": {
-    "0901_EX06": "f4f14cf6af753b343212fc0300a28b177f7fe732bcf5debeccbebf7e158842df7",
+    "0901_EX06": "f4f14cf6af753b343212fc0300a28b177f7fe732bcf5debeccebf7e158842df7",
     "0901_EX07": "3d58ac8f5dcb08fc814bfbab02ccf712bb120a3d9feaf506f0f2cdd6e5d9974c"
   },
   "signal_names": [
@@ -34,4 +34,3 @@
   "maximum_annual_absolute_effect_share": 0.5, "minimum_event_leave_one_out_effect_ratio": 0.5,
   "conditional_reference_min_abs_correlation": 0.8
 }
-

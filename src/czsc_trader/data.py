@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from hashlib import sha256
 import json
 from pathlib import Path
 import re
 
 import numpy as np
 import pandas as pd
+
+from .identity import raw_file_sha256
 
 
 SYMBOL = "588080.SH"
@@ -226,7 +227,7 @@ def load_market_data(
         path = raw_dir / str(filename)
         if not path.is_file():
             raise FileNotFoundError(f"Missing raw K-line file: {filename}")
-        digest = sha256(path.read_bytes()).hexdigest()
+        digest = raw_file_sha256(path)
         if str(record.get("sha256", "")).lower() != digest:
             raise ValueError(f"{filename}: SHA-256 differs from manifest")
         hashes[path.name] = digest

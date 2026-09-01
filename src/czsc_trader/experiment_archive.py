@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import date
-from hashlib import sha256
 import json
 from pathlib import Path
 import re
+
+from .identity import normalized_text_sha256, raw_file_sha256
 
 
 REQUIRED_DOCUMENTS = (
@@ -39,10 +40,10 @@ def create_experiment_dir(root: Path, run_date: date) -> Path:
 
 
 def _file_record(path: Path) -> dict[str, object]:
-    content = path.read_bytes()
     if path.suffix.lower() in TEXT_SUFFIXES:
-        content = content.replace(b"\r\n", b"\n")
-    return {"bytes": len(content), "sha256": sha256(content).hexdigest()}
+        normalized = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        return {"bytes": len(normalized), "sha256": normalized_text_sha256(path)}
+    return {"bytes": path.stat().st_size, "sha256": raw_file_sha256(path)}
 
 
 def _is_managed_file(experiment_dir: Path, path: Path) -> bool:

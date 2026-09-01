@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import sha256
 import json
 from pathlib import Path
 import re
+
+from .identity import canonical_json_sha256
 
 
 _VERSION_PATTERN = re.compile(r"execution_policy_(\d{8})$")
@@ -70,7 +71,7 @@ def resolve_execution_policy(
     if not isinstance(entry, dict):
         raise ValueError(f"invalid execution policy registry entry: {selected}")
     policy_path = root / str(entry.get("file", ""))
-    digest = sha256(policy_path.read_bytes()).hexdigest() if policy_path.is_file() else ""
+    digest = canonical_json_sha256(policy_path) if policy_path.is_file() else ""
     if digest != str(entry.get("sha256", "")).lower():
         raise ValueError(f"{selected}: policy SHA-256 differs from registry")
     payload = _read_json(policy_path)
@@ -91,7 +92,7 @@ def resolve_execution_policy(
         return None
     source_path = str(entry.get("source_path", ""))
     source_file = root.parent.parent / source_path
-    source_digest = sha256(source_file.read_bytes()).hexdigest() if source_file.is_file() else ""
+    source_digest = canonical_json_sha256(source_file) if source_file.is_file() else ""
     if source_digest != str(entry.get("source_sha256", "")).lower():
         raise ValueError(f"{selected}: source SHA-256 differs from registry")
     if str(payload.get("version", "")) != selected:

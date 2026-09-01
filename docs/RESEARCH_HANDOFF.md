@@ -34,7 +34,7 @@
 - source：
   `experiments/0901_EX20/artifacts/frozen_challenger.json`
 - source SHA-256：
-  `6aa655c4d5ecf24e300eb6b4987f8ae1976ff2a6f3d52baf58b32e9dcb588377`
+  `711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993`
 
 `baseline_20260826`和`baseline_20260823`已归档，但仍可显式解析。
 
@@ -200,3 +200,12 @@ BuyHold与MA5/MA20双均线策略。执行规则仅在标的与活动基线身�
 4. 不用未来数据反向改写同一实验的策略。
 5. 数据更新后先验证三频、复权和manifest，再开展研究或回测。
 6. 没有明确证据时，不宣称样本外、实盘或因果有效。
+
+## 可移植身份约束
+
+- 普通文本统一使用LF；不得新增单文件CRLF例外；
+- JSON规则和JSON来源制品使用语义SHA-256；
+- CSV、Markdown、Python等普通文本先归一化为LF再计算SHA-256；
+- `data/raw/*.csv`与二进制文件使用原始字节SHA-256；
+- 所有新实现复用`src/czsc_trader/identity.py`，避免在业务模块内重新实现哈希；
+- 历史实验档案保持原样，档案验证继续忽略换行差异及运行态字节码缓存。

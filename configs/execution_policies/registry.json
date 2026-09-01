@@ -4,10 +4,10 @@
   "policies": {
     "execution_policy_20260902": {
       "file": "execution_policy_20260902.json",
-      "sha256": "ed217d3fab8c063e26f6511aed5db1a0e51a4664e71fe439f2af8e05202946ba",
+      "sha256": "a2f2589e0827287e2c7c5619ec7981b372e1432ae84b5b986720bdf19c6528d8",
       "status": "active",
       "source_path": "experiments/0902_EX02/artifacts/frozen_execution_policy.json",
-      "source_sha256": "f5c63a0ef21b09d4a03c3a9df2957577a2145f47a1eda337244476223f270d1a",
+      "source_sha256": "6a1954fc8b0ab00ae02fdd780252c09e56defd8120ed8d797a7766a5c1d741a0",
       "promoted_at_utc": "2026-09-02T00:00:00+00:00"
     }
   }

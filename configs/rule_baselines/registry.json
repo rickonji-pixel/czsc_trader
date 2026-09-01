@@ -30,7 +30,7 @@
         "weekly"
       ],
       "source_path": "experiments/0824_EX04/artifacts/frozen_challenger.json",
-      "source_sha256": "c6fa86c0f87743564231dec4fb6e66971bde0fa4107829d077cb5cf31c53885f",
+      "source_sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
       "selection_sample_end": "2025-12-31",
       "forward_validation_start": "2026-08-26"
     },
@@ -48,7 +48,7 @@
         "weekly"
       ],
       "source_path": "experiments/0901_EX20/artifacts/frozen_challenger.json",
-      "source_sha256": "6aa655c4d5ecf24e300eb6b4987f8ae1976ff2a6f3d52baf58b32e9dcb588377",
+      "source_sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
       "selection_sample_end": "2026-08-28",
       "forward_validation_start": ""
     }

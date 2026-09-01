@@ -8,6 +8,7 @@ import pandas as pd
 from pandas.testing import assert_series_equal
 import pytest
 
+import czsc_trader.regime_weight_runner as regime_weight_runner
 from czsc_trader.four_layer import score_four_layer
 from czsc_trader.regime_weight import (
     candidate_relative_improvements,
@@ -315,6 +316,26 @@ def test_corrected_gate_uses_three_metrics_and_ranking_ignores_annual_results() 
     )
     ranked = rank_research_candidates(rows, annual_support_tiebreak=False)
     assert ranked["candidate_id"].tolist() == [1, 2, 0]
+
+
+def test_candidate_funnel_records_holdout_access_after_challenger_freeze() -> None:
+    candidates = pd.DataFrame(
+        {"continuous_quality_pass": [True, True, False], "pass": [True, True, False]}
+    )
+
+    payload = regime_weight_runner.candidate_funnel_payload(
+        candidates,
+        access_2026=True,
+        selected_candidate_id=143,
+    )
+
+    assert payload == {
+        "candidate_count": 3,
+        "continuous_quality_pass_count": 2,
+        "research_pass_count": 2,
+        "access_2026": True,
+        "selected_candidate_id": 143,
+    }
 
 
 def test_runner_rejects_protocol_before_market_data_access(tmp_path) -> None:

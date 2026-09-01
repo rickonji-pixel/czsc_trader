@@ -172,6 +172,26 @@ def rank_research_candidates(
     return ranked
 
 
+def candidate_funnel_payload(
+    candidates: pd.DataFrame,
+    *,
+    access_2026: bool,
+    selected_candidate_id: int | None = None,
+) -> dict[str, object]:
+    """Summarize candidate selection with the final holdout-access state."""
+    payload: dict[str, object] = {
+        "candidate_count": len(candidates),
+        "continuous_quality_pass_count": int(
+            candidates["continuous_quality_pass"].sum()
+        ),
+        "research_pass_count": int(candidates["pass"].sum()),
+        "access_2026": bool(access_2026),
+    }
+    if selected_candidate_id is not None:
+        payload["selected_candidate_id"] = int(selected_candidate_id)
+    return payload
+
+
 def _write_json(path: Path, payload: object) -> None:
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
@@ -499,12 +519,7 @@ def run_regime_weight_experiment(
     passing = candidates.loc[candidates["pass"].astype(bool)]
     _write_json(
         artifacts / "candidate_funnel.json",
-        {
-            "candidate_count": len(candidates),
-            "continuous_quality_pass_count": int(candidates["continuous_quality_pass"].sum()),
-            "research_pass_count": int(len(passing)),
-            "access_2026": False,
-        },
+        candidate_funnel_payload(candidates, access_2026=False),
     )
 
     if passing.empty:
@@ -724,6 +739,14 @@ def run_regime_weight_experiment(
         "causal_audit": causal_status,
         "access_2026": True,
     }
+    _write_json(
+        artifacts / "candidate_funnel.json",
+        candidate_funnel_payload(
+            candidates,
+            access_2026=True,
+            selected_candidate_id=selected_id,
+        ),
+    )
     _write_json(artifacts / "test_metrics.json", {"baseline": baseline_test, "challenger": challenger_test})
     _write_json(artifacts / "metrics.json", summary)
     _write_terminal_documents(

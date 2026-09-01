@@ -50,6 +50,8 @@ def _is_managed_file(experiment_dir: Path, path: Path) -> bool:
     return (
         path.is_file()
         and path.name != MANIFEST_NAME
+        and "__pycache__" not in relative.parts
+        and path.suffix.lower() != ".pyc"
         and (not relative.parts or relative.parts[0] != "runtime")
     )
 

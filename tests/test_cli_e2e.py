@@ -158,6 +158,27 @@ def test_experiment_archive_normalizes_python_line_endings(tmp_path: Path) -> No
     validate_experiment_archive(tmp_path)
 
 
+def test_experiment_archive_ignores_runtime_python_cache(tmp_path: Path) -> None:
+    from czsc_trader.experiment_archive import (
+        build_experiment_manifest,
+        validate_experiment_archive,
+    )
+
+    for name in ("01_goal.md", "02_design.md", "03_execution.md", "04_conclusion.md"):
+        (tmp_path / name).write_text("document\n", encoding="utf-8")
+    (tmp_path / "run_experiment.py").write_text("print('research')\n", encoding="utf-8")
+    cache = tmp_path / "__pycache__"
+    cache.mkdir()
+    bytecode = cache / "run_experiment.cpython-312.pyc"
+    bytecode.write_bytes(b"first-runtime-cache")
+
+    manifest = build_experiment_manifest(tmp_path, {"experiment_id": "test"})
+
+    assert "__pycache__/run_experiment.cpython-312.pyc" not in manifest["files"]
+    bytecode.write_bytes(b"changed-runtime-cache")
+    validate_experiment_archive(tmp_path)
+
+
 def test_robustness_cscv_uses_all_complementary_splits() -> None:
     from czsc_trader.robustness import contiguous_blocks, cscv_pbo
 

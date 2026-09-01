@@ -31,10 +31,6 @@
       "bytes": 931,
       "sha256": "5feaadd084d599bd98ce2aa3885d80bbb5d5c11b289b49a0a3a35386da844ae4"
     },
-    "__pycache__/run_experiment.cpython-312.pyc": {
-      "bytes": 28206,
-      "sha256": "76bf5cd7fcc4612e600ba79b6d7ea091999ea1cdece77052e6f39431f1245b1f"
-    },
     "artifacts/candidate_metrics.csv": {
       "bytes": 15179,
       "sha256": "7b6e63b9036f43152511b845f6dd021a78760a13cf404c2ba42268e5b902a703"

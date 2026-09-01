@@ -1,0 +1,3 @@
+﻿factor,endpoint,pass
+conditional__dynamic__state__raw__daily__cxt_bi_zdf_V230601__di_1__v2::第1层__exit__target_0,max_drawdown_20,True
+conditional__dynamic__state__raw__daily__cxt_bi_zdf_V230601__di_1__v2::第1层__exit__target_1,max_drawdown_20,True

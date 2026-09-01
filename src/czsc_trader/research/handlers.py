@@ -378,6 +378,19 @@ def _ex13_score_monotonicity(
         execution_commit=_git_head(context.root),
     )
 
+
+def _regime_conditioned_weight(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.regime_weight_runner import run_regime_weight_experiment
+
+    return run_regime_weight_experiment(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -417,6 +430,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("czsc_route_pairwise_interaction", _czsc_pairwise_interaction),
         FunctionHandler("czsc_unified_factor_integration", _czsc_unified_factor_integration),
         FunctionHandler("ex13_score_monotonicity_diagnostic", _ex13_score_monotonicity),
+        FunctionHandler("regime_conditioned_weight_challenge", _regime_conditioned_weight),
     ]
     handlers.extend(
         FunctionHandler(

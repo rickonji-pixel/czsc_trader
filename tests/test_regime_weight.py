@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from copy import deepcopy
+import json
+
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_series_equal
@@ -16,6 +19,13 @@ from czsc_trader.regime_weight import (
     risk_quality_metrics,
     score_with_regime_weights,
     strict_quality_pass,
+)
+from czsc_trader.regime_weight_runner import (
+    candidate_grid,
+    rank_research_candidates,
+    research_candidate_passes,
+    run_regime_weight_experiment,
+    validate_regime_weight_protocol,
 )
 
 
@@ -147,3 +157,112 @@ def test_invalid_order_sequence_is_rejected() -> None:
     )
     with pytest.raises(ValueError, match="start with Buy"):
         closed_trade_ledger(orders)
+
+
+def _valid_protocol() -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "experiment_id": "0901_EX19",
+        "handler": "regime_conditioned_weight_challenge",
+        "experiment_type": "regime_conditioned_weight_challenge",
+        "status": "PRE_REGISTERED",
+        "symbol": "588080.SH",
+        "asset_type": "etf",
+        "baseline": {
+            "version": "baseline_20260826",
+            "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
+        },
+        "calibration_start": "2020-01-01",
+        "research_start": "2021-01-01",
+        "research_end": "2025-12-31",
+        "test_start": "2026-01-01",
+        "test_end": "2026-08-28",
+        "er_lookback": 60,
+        "regime_labels": ["trend", "range", "warmup"],
+        "er_threshold_method": "research_valid_median",
+        "group_reference": "structure",
+        "multipliers": [0.5, 0.75, 1.0, 1.25, 1.5],
+        "candidate_count": 625,
+        "entry_threshold": 0.175,
+        "exit_threshold": 0.025,
+        "fee_rate": 0.0005,
+        "init_cash": 1_000_000.0,
+        "research_min_closed_trades": 20,
+        "test_min_closed_trades": 5,
+        "annual_double_win_minimum": 3,
+        "tolerance": 1e-12,
+        "access_2026_after_freeze_only": True,
+        "report_only_metrics": ["strategy_return", "sharpe", "exposure", "trade_count"],
+    }
+
+
+def test_protocol_freezes_research_test_and_grid_boundaries() -> None:
+    protocol = _valid_protocol()
+    validate_regime_weight_protocol(protocol)
+    for key, value in (
+        ("er_lookback", 59),
+        ("research_end", "2026-01-01"),
+        ("test_end", "2026-08-29"),
+        ("candidate_count", 624),
+    ):
+        changed = deepcopy(protocol)
+        changed[key] = value
+        with pytest.raises(ValueError):
+            validate_regime_weight_protocol(changed)
+
+
+def test_grid_has_625_stable_unique_candidates_and_baseline() -> None:
+    grid = candidate_grid((0.5, 0.75, 1.0, 1.25, 1.5))
+
+    assert len(grid) == len(set(grid)) == 625
+    assert grid[0] == (0.5, 0.5, 0.5, 0.5)
+    assert (1.0, 1.0, 1.0, 1.0) in grid
+
+
+def test_research_gate_and_rank_use_annual_support_then_maximin() -> None:
+    baseline = {
+        "max_drawdown": -0.2,
+        "calmar": 1.0,
+        "win_loss_ratio": 1.0,
+        "closed_trade_count": 30,
+        "has_wins_and_losses": True,
+    }
+    challenger = {
+        "max_drawdown": -0.15,
+        "calmar": 1.2,
+        "win_loss_ratio": 1.1,
+        "closed_trade_count": 20,
+        "has_wins_and_losses": True,
+    }
+    assert research_candidate_passes(baseline, challenger, annual_double_wins=3)
+    assert not research_candidate_passes(baseline, challenger, annual_double_wins=2)
+
+    rows = pd.DataFrame(
+        [
+            {"candidate_id": 2, "pass": True, "maximin_improvement": 0.10, "annual_double_wins": 4, "weight_shift": 0.1},
+            {"candidate_id": 1, "pass": True, "maximin_improvement": 0.11, "annual_double_wins": 3, "weight_shift": 0.2},
+            {"candidate_id": 0, "pass": False, "maximin_improvement": 9.00, "annual_double_wins": 5, "weight_shift": 0.0},
+        ]
+    )
+    ranked = rank_research_candidates(rows)
+    assert ranked["candidate_id"].tolist() == [1, 2, 0]
+    assert ranked["rank"].tolist() == [1, 2, 3]
+
+
+def test_runner_rejects_protocol_before_market_data_access(tmp_path) -> None:
+    experiment = tmp_path / "0901_EX19"
+    artifacts = experiment / "artifacts"
+    artifacts.mkdir(parents=True)
+    bad = _valid_protocol()
+    bad["research_end"] = "2026-01-01"
+    (artifacts / "protocol.json").write_text(
+        json.dumps(bad, ensure_ascii=False), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="research_end"):
+        run_regime_weight_experiment(
+            tmp_path / "raw",
+            tmp_path / "baselines",
+            experiment,
+            execution_commit="deadbeef",
+        )

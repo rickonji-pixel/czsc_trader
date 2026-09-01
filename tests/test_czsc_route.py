@@ -12,6 +12,7 @@ from czsc_trader.czsc_route import (
     inventory_records,
     parse_signal_value,
     probe_signal_frequencies,
+    replay_family_factors,
     validate_route_family_protocol,
 )
 
@@ -92,6 +93,11 @@ def test_family_builder_preserves_individual_and_joint_signal_values() -> None:
         row["representation"] == "joint" and row["value"] == "向上|第1层|强"
         for row in records
     )
+
+    canonical = [row for row in records if row["status"] == "candidate"]
+    replay = replay_family_factors(raw.iloc[:2], canonical)
+    assert list(replay.columns) == [row["factor"] for row in canonical]
+    assert replay.equals(factors.iloc[:2])
 
 
 def _admission_fixture() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, object]]:

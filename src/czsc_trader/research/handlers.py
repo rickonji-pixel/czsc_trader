@@ -297,6 +297,19 @@ def _czsc_incremental_validity(
         execution_commit=_git_head(context.root),
     )
 
+
+def _czsc_route_family(
+    context: ResearchContext, experiment_dir: Path
+) -> dict[str, object]:
+    from czsc_trader.czsc_route_runner import run_czsc_route_family
+
+    return run_czsc_route_family(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered
 
@@ -330,6 +343,7 @@ def registered_handlers() -> tuple[FunctionHandler, ...]:
         FunctionHandler("czsc_bi_layer_stability_diagnostic", _czsc_bi_layer_stability),
         FunctionHandler("czsc_state_age_diagnosis", _czsc_state_age),
         FunctionHandler("czsc_incremental_validity_diagnosis", _czsc_incremental_validity),
+        FunctionHandler("czsc_route_family_diagnostic", _czsc_route_family),
     ]
     handlers.extend(
         FunctionHandler(

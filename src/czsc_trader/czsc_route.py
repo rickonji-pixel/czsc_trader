@@ -238,6 +238,44 @@ def build_family_factors(
     return frame, records
 
 
+def replay_family_factors(
+    raw: pd.DataFrame,
+    records: Iterable[dict[str, object]],
+) -> pd.DataFrame:
+    """Recreate frozen factor identities without rediscovering aliases."""
+    parsed_by_raw: dict[str, pd.Series] = {}
+    pieces: list[pd.Series] = []
+    for record in records:
+        name = str(record["factor"])
+        raw_name = str(record["raw_signal"])
+        representation = str(record["representation"])
+        expected = str(record["value"])
+        if raw_name not in raw:
+            pieces.append(pd.Series(0.0, index=raw.index, name=name))
+            continue
+        parsed = parsed_by_raw.setdefault(raw_name, raw[raw_name].map(parse_signal_value))
+        if representation == "v1":
+            values = parsed.map(lambda item: item.primary)
+        elif representation == "v2":
+            values = parsed.map(lambda item: item.secondary)
+        elif representation == "v3":
+            values = parsed.map(lambda item: item.tertiary)
+        elif representation == "joint":
+            values = parsed.map(
+                lambda item: (
+                    "|".join([item.primary, item.secondary, item.tertiary])
+                    if item.primary is not None
+                    and item.secondary is not None
+                    and item.tertiary is not None
+                    else None
+                )
+            )
+        else:
+            raise ValueError(f"unknown factor representation: {representation}")
+        pieces.append(values.eq(expected).astype(float).rename(name))
+    return pd.concat(pieces, axis=1) if pieces else pd.DataFrame(index=raw.index)
+
+
 def _support_reason(
     indicator: pd.Series,
     kind: str,

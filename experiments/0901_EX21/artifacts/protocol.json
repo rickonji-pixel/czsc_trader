@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX21",
+  "handler": "regime_candidate_score_tournament",
+  "experiment_type": "regime_candidate_score_tournament",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "baseline": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "source_experiment": "0901_EX20",
+  "source_candidate_results_sha256": "bac24d498e76d46112ff1a1bf942472ffa40547b0aa73abd089befe6b78a7512",
+  "candidate_ids": [125, 143, 275, 293, 400, 418],
+  "windows": {
+    "2026Q1": ["2026-01-01", "2026-03-31"],
+    "2026H1": ["2026-01-01", "2026-06-30"],
+    "2026M1_M8": ["2026-01-01", "2026-08-28"]
+  },
+  "metrics": ["max_drawdown", "calmar", "win_loss_ratio"],
+  "scoring": {"better": 1.0, "tie": 0.5, "worse": 0.0},
+  "baseline_score": 4.5,
+  "ranking": "dense_score_desc",
+  "tolerance": 1e-12,
+  "fee_rate": 0.0005,
+  "init_cash": 1000000.0,
+  "report_only_metrics": ["strategy_return", "sharpe", "exposure", "trade_count"],
+  "evidence_role": "observed_2026_diagnostic_only"
+}

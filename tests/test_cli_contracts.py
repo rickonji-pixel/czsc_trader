@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from czsc_trader.cli.main import main
+from czsc_trader.research.handlers import registered_handlers
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +24,32 @@ COMPARISON_KEYS = {
     "buyhold_max_drawdown",
     "max_drawdown_difference",
 }
+
+
+def test_czsc_factor_stability_handler_propagates_runner_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import czsc_trader.czsc_factor_stability_runner as runner
+
+    expected = {"status": "PASS", "experiment_dir": str(tmp_path)}
+    monkeypatch.setattr(
+        runner,
+        "run_czsc_factor_stability_experiment",
+        lambda *args, **kwargs: expected,
+    )
+    handler = next(
+        item
+        for item in registered_handlers()
+        if item.handler_id == "czsc_factor_stability_diagnostic"
+    )
+    context = SimpleNamespace(
+        root=REPO_ROOT,
+        raw_dir=REPO_ROOT / "data" / "raw",
+        baseline_root=REPO_ROOT / "configs" / "rule_baselines",
+    )
+
+    assert handler.run(context, tmp_path) == expected
 
 
 def invoke_cli(

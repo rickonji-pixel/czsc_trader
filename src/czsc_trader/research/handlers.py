@@ -249,6 +249,13 @@ def _czsc_factor_stability(
         run_czsc_factor_stability_experiment,
     )
 
+    return run_czsc_factor_stability_experiment(
+        context.raw_dir,
+        context.baseline_root,
+        experiment_dir,
+        execution_commit=_git_head(context.root),
+    )
+
 
 def _czsc_bi_layer_stability(
     context: ResearchContext, experiment_dir: Path
@@ -289,14 +296,6 @@ def _czsc_incremental_validity(
         experiment_dir,
         execution_commit=_git_head(context.root),
     )
-
-    return run_czsc_factor_stability_experiment(
-        context.raw_dir,
-        context.baseline_root,
-        experiment_dir,
-        execution_commit=_git_head(context.root),
-    )
-
 
 def registered_handlers() -> tuple[FunctionHandler, ...]:
     from . import preregistered

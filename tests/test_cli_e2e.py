@@ -82,6 +82,47 @@ def test_execution_policy_retries_entry_without_changing_actual_position() -> No
     assert bool(result.cycles.iloc[0]["filled"])
 
 
+def test_execution_policy_selector_enforces_service_level_then_price() -> None:
+    from czsc_trader.execution_policy import select_execution_candidate
+
+    candidates = pd.DataFrame(
+        [
+            {
+                "candidate_id": "cheap",
+                "t1_fill_rate": 0.89,
+                "cap_p95": 0.001,
+                "cap_mean": 0.0,
+                "worst_calmar": 3.0,
+                "worst_drawdown": -0.05,
+                "family_rank": 0,
+                "parameter": 0.0,
+            },
+            {
+                "candidate_id": "fixed",
+                "t1_fill_rate": 0.91,
+                "cap_p95": 0.010,
+                "cap_mean": 0.005,
+                "worst_calmar": 1.0,
+                "worst_drawdown": -0.10,
+                "family_rank": 0,
+                "parameter": 0.5,
+            },
+            {
+                "candidate_id": "atr",
+                "t1_fill_rate": 0.95,
+                "cap_p95": 0.012,
+                "cap_mean": 0.004,
+                "worst_calmar": 2.0,
+                "worst_drawdown": -0.08,
+                "family_rank": 1,
+                "parameter": 0.5,
+            },
+        ]
+    )
+
+    assert select_execution_candidate(candidates)["candidate_id"] == "fixed"
+
+
 def test_experiment_archive_normalizes_python_line_endings(tmp_path: Path) -> None:
     from czsc_trader.experiment_archive import (
         build_experiment_manifest,

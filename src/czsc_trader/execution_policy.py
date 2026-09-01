@@ -8,6 +8,8 @@ from decimal import Decimal, ROUND_FLOOR
 import numpy as np
 import pandas as pd
 
+from .strategy_metrics import strategy_comparison_metrics
+
 
 @dataclass(frozen=True)
 class ExecutionSimulation:
@@ -286,6 +288,11 @@ def simulate_limit_policy(
                 "desired_position": desired,
                 "actual_position": actual_position,
                 "entry_limit": entry_limit,
+                "cap_premium": (
+                    entry_limit / float(prices.loc[signal_date, "close"]) - 1.0
+                    if location > 0 and np.isfinite(entry_limit)
+                    else np.nan
+                ),
                 "action": action,
                 "cash": cash,
                 "shares": shares,
@@ -302,3 +309,107 @@ def simulate_limit_policy(
     cycles = pd.DataFrame(cycle_rows)
     equity = state["equity"].astype(float).rename("equity")
     return ExecutionSimulation(equity, orders, state, cycles, {})
+
+
+def policy_metrics(
+    simulation: ExecutionSimulation,
+    init_cash: float,
+) -> dict[str, float | int | None]:
+    """Return execution-service and portfolio metrics for one simulation."""
+    equity = simulation.equity.astype(float)
+    daily_returns = equity.pct_change().dropna()
+    volatility = float(daily_returns.std(ddof=1)) if len(daily_returns) > 1 else float("nan")
+    sharpe = (
+        float(np.sqrt(252.0) * daily_returns.mean() / volatility)
+        if np.isfinite(volatility) and volatility > 0.0
+        else float("nan")
+    )
+    comparison = strategy_comparison_metrics(equity, simulation.orders, init_cash, sharpe)
+    cycles = simulation.cycles
+    cycle_count = int(len(cycles))
+    if cycle_count:
+        t1_fill_rate = float(cycles["t1_filled"].astype(bool).mean())
+        final_fill_rate = float(cycles["filled"].astype(bool).mean())
+        two_day_fill_rate = float(
+            (cycles["filled"].astype(bool) & cycles["wait_sessions"].astype(int).le(2)).mean()
+        )
+        filled_waits = cycles.loc[cycles["filled"].astype(bool), "wait_sessions"].astype(float)
+        average_wait = float(filled_waits.mean()) if not filled_waits.empty else None
+        longest_wait = int(filled_waits.max()) if not filled_waits.empty else None
+        missed_cycles = int((~cycles["filled"].astype(bool)).sum())
+    else:
+        t1_fill_rate = 0.0
+        two_day_fill_rate = 0.0
+        final_fill_rate = 0.0
+        average_wait = None
+        longest_wait = None
+        missed_cycles = 0
+    caps = simulation.daily_state.loc[
+        simulation.daily_state["desired_position"].eq(1.0)
+        & simulation.daily_state["actual_position"].shift(1, fill_value=0.0).eq(0.0),
+        "cap_premium",
+    ].dropna().astype(float)
+    buys = simulation.orders.loc[simulation.orders["side"].eq("Buy")]
+    participation = buys["diagnostic_participation"].dropna().astype(float)
+    improvements = buys["open_improvement"].dropna().astype(float)
+    return {
+        **comparison,
+        "cycle_count": cycle_count,
+        "t1_fill_rate": t1_fill_rate,
+        "two_day_fill_rate": two_day_fill_rate,
+        "final_fill_rate": final_fill_rate,
+        "average_wait_sessions": average_wait,
+        "longest_wait_sessions": longest_wait,
+        "missed_cycles": missed_cycles,
+        "cap_p95": float(caps.quantile(0.95)) if not caps.empty else None,
+        "cap_mean": float(caps.mean()) if not caps.empty else None,
+        "average_open_improvement": float(improvements.mean()) if not improvements.empty else None,
+        "worst_open_improvement": float(improvements.min()) if not improvements.empty else None,
+        "average_diagnostic_participation": (
+            float(participation.mean()) if not participation.empty else None
+        ),
+        "maximum_diagnostic_participation": (
+            float(participation.max()) if not participation.empty else None
+        ),
+        "trade_count": int(len(simulation.orders)),
+    }
+
+
+def select_execution_candidate(
+    candidates: pd.DataFrame,
+    minimum_t1_fill_rate: float = 0.90,
+) -> pd.Series:
+    """Select the cheapest deterministic candidate meeting the fill service."""
+    threshold = float(minimum_t1_fill_rate)
+    if not np.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+        raise ValueError("minimum T+1 fill rate must be in [0, 1]")
+    required = {
+        "candidate_id",
+        "t1_fill_rate",
+        "cap_p95",
+        "cap_mean",
+        "worst_calmar",
+        "worst_drawdown",
+        "family_rank",
+        "parameter",
+    }
+    if not required <= set(candidates.columns):
+        raise ValueError(f"candidate metrics missing columns: {sorted(required - set(candidates.columns))}")
+    eligible = candidates.loc[candidates["t1_fill_rate"].astype(float).ge(threshold)].copy()
+    if eligible.empty:
+        raise ValueError("no execution candidate meets the T+1 fill service level")
+    ranked = eligible.sort_values(
+        [
+            "cap_p95",
+            "cap_mean",
+            "worst_calmar",
+            "worst_drawdown",
+            "family_rank",
+            "parameter",
+            "candidate_id",
+        ],
+        ascending=[True, True, False, False, True, True, True],
+        na_position="last",
+        kind="stable",
+    )
+    return ranked.iloc[0].copy()

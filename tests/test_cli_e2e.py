@@ -376,6 +376,41 @@ def test_cli_exposes_only_supported_resources() -> None:
     assert "experiment" not in completed.stdout
 
 
+def test_repository_eol_contract_is_lf_with_raw_and_binary_exceptions() -> None:
+    completed = subprocess.run(
+        [
+            "git",
+            "check-attr",
+            "text",
+            "eol",
+            "--",
+            "README.md",
+            "configs/execution_policies/execution_policy_20260902.json",
+            "data/raw/588080_daily_2026.csv",
+            "artifacts/example.png",
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    attributes = {
+        (parts[0], parts[1]): parts[2]
+        for line in completed.stdout.splitlines()
+        if len(parts := line.split(": ", 2)) == 3
+    }
+    assert attributes[("README.md", "text")] == "auto"
+    assert attributes[("README.md", "eol")] == "lf"
+    assert attributes[
+        ("configs/execution_policies/execution_policy_20260902.json", "eol")
+    ] == "lf"
+    assert attributes[("data/raw/588080_daily_2026.csv", "text")] == "unset"
+    assert attributes[("artifacts/example.png", "text")] == "unset"
+
+
 def test_dataflows_package_imports_outside_the_checkout(tmp_path: Path) -> None:
     completed = subprocess.run(
         [

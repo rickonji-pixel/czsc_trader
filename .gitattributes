@@ -1,13 +1,13 @@
-# Raw market data hashes are part of the reproducibility contract.
+# Repository text is LF on every platform; this overrides user core.autocrlf.
+* text=auto eol=lf
+
+# Raw market data hashes preserve the exact published bytes.
 data/raw/*.csv -text
 
-# Formal protocol identity hashes use these checkout bytes on every device.
-experiments/0824_EX04/artifacts/frozen_challenger.json text eol=crlf
-experiments/0824_EX06/artifacts/protocol.json text eol=crlf
-experiments/0824_EX06/artifacts/factor_candidates.csv text eol=crlf
-experiments/0824_EX06/artifacts/factor_universe.json text eol=crlf
-experiments/0824_EX06/artifacts/frozen_challenger.json text eol=crlf
-experiments/0824_EX08/artifacts/frozen_challenger.json text eol=crlf
-experiments/0825_EX01/artifacts/frozen_candidates.json text eol=crlf
-configs/rule_baselines/baseline_20260826.json text eol=crlf
-configs/execution_policies/execution_policy_20260902.json text eol=crlf
+# Binary artifacts always retain exact bytes.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.db binary

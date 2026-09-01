@@ -1,0 +1,12 @@
+{
+  "observations": 1212,
+  "trial_count": 625,
+  "observed_sharpe": 0.6020861784631962,
+  "trial_sharpe_mean": 0.5078946779491474,
+  "trial_sharpe_std": 0.1267665024971061,
+  "expected_max_sharpe": 0.3953831894191574,
+  "skew": 4.607458721687545,
+  "pearson_kurtosis": 59.67850147838802,
+  "test_statistic": 0.49254188479047023,
+  "dsr_probability": 0.6888318400497675
+}

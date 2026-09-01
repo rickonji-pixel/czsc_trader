@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "start": "2026-01-05",
+  "end": "2026-09-01",
+  "session_count": 161,
+  "placebo_count": 160,
+  "observed_sharpe": 3.1507597704577917,
+  "placebo_sharpe_mean": 0.873184326817762,
+  "placebo_sharpe_median": 0.8126528973585257,
+  "placebo_sharpe_max": 5.076109302696237,
+  "exceedance_count": 9,
+  "empirical_pvalue": 0.062111801242236024,
+  "observed_percentile": 0.94375,
+  "prior_signal_date": "2025-12-31",
+  "prior_target": 1.0,
+  "boundary_convention": "all paths use the frozen strategy's causal pre-window target"
+}

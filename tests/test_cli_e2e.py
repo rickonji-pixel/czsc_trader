@@ -375,6 +375,25 @@ def test_active_baseline_is_candidate143() -> None:
     assert result["rule"]["candidate_id"] == 143
 
 
+def test_active_execution_policy_is_frozen_ex02_winner() -> None:
+    from czsc_trader.execution_policies import resolve_execution_policy
+
+    policy = resolve_execution_policy(
+        REPO_ROOT / "configs" / "execution_policies",
+        symbol="588080.SH",
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+        required=True,
+    )
+
+    assert policy.version == "execution_policy_20260902"
+    assert policy.status == "active"
+    assert policy.family == "fixed"
+    assert policy.parameter == 0.0
+    assert policy.warning_gap_q05 == pytest.approx(-0.006797902176638775)
+    assert policy.source_path == "experiments/0902_EX02/artifacts/frozen_execution_policy.json"
+
+
 def test_all_frozen_experiment_archives_validate() -> None:
     payload = _run_cli_json("archive", "validate", "--all")
 

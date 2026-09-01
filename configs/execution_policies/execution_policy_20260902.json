@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "version": "execution_policy_20260902",
+  "symbol": "588080.SH",
+  "baseline": {
+    "version": "baseline_20260901",
+    "sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993"
+  },
+  "family": "fixed",
+  "parameter": 0.0,
+  "atr_window": 20,
+  "tick": 0.001,
+  "fee_rate": 0.0005,
+  "warning_gap_q05": -0.006797902176638775,
+  "entry_order_type": "limit",
+  "exit_primary_order_type": "limit_at_legal_lower_bound",
+  "exit_continuous_fallback": "five_level_immediate_to_limit_with_protection"
+}

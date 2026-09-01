@@ -17,6 +17,7 @@ class RepositoryContext:
     root: Path
     raw_dir: Path
     baseline_root: Path
+    execution_policy_root: Path
     experiments_root: Path
     outputs_root: Path
 
@@ -40,6 +41,7 @@ class RepositoryContext:
             root=root,
             raw_dir=root / "data" / "raw",
             baseline_root=root / "configs" / "rule_baselines",
+            execution_policy_root=root / "configs" / "execution_policies",
             experiments_root=root / "experiments",
             outputs_root=root / "outputs",
         )

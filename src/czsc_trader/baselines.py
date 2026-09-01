@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from hashlib import sha256
 import json
 from pathlib import Path
 import re
@@ -12,6 +11,7 @@ import re
 import numpy as np
 
 from .rules import Rule
+from .identity import canonical_json_sha256
 
 
 _VERSION_PATTERN = re.compile(r"baseline_(\d{8})$")
@@ -60,21 +60,6 @@ def _load_json_object(path: Path) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError(f"{path}: expected a JSON object")
     return payload
-
-
-def _canonical_sha256(payload: dict[str, object]) -> str:
-    canonical = json.dumps(
-        payload,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return sha256(canonical).hexdigest()
-
-
-def _normalized_text_sha256(path: Path) -> str:
-    content = Path(path).read_bytes().replace(b"\r\n", b"\n")
-    return sha256(content).hexdigest()
 
 
 def _parse_rule(payload: dict[str, object]) -> Rule:
@@ -264,7 +249,7 @@ def resolve_baseline(
     if not rule_path.is_file():
         raise ValueError(f"Missing baseline file: {rule_path}")
     payload = _load_json_object(rule_path)
-    digest = _canonical_sha256(payload)
+    digest = canonical_json_sha256(payload)
     expected = str(entry.get("sha256", ""))
     if digest != expected:
         raise ValueError(f"{selected_version}: SHA-256 differs from registry")
@@ -285,11 +270,10 @@ def resolve_baseline(
         source = repository_root / source_path
         if not source.is_file():
             raise ValueError(f"{selected_version}: missing four-layer source {source}")
-        source_bytes = source.read_bytes()
-        if sha256(source_bytes).hexdigest() != source_digest:
+        if canonical_json_sha256(source) != source_digest:
             raise ValueError(f"{selected_version}: source SHA-256 differs from registry")
-        if rule_path.read_bytes() != source_bytes:
-            raise ValueError(f"{selected_version}: promoted file is not byte-identical to source")
+        if _load_json_object(source) != payload:
+            raise ValueError(f"{selected_version}: promoted payload differs from source")
         champion = payload.get("champion")
         if not isinstance(champion, dict):
             raise ValueError("four-layer baseline champion is missing")
@@ -302,10 +286,10 @@ def resolve_baseline(
         source = repository_root / source_path
         if not source.is_file():
             raise ValueError(f"{selected_version}: missing regime-weight source {source}")
-        if _normalized_text_sha256(source) != source_digest:
+        if canonical_json_sha256(source) != source_digest:
             raise ValueError(f"{selected_version}: source SHA-256 differs from registry")
         source_payload = _load_json_object(source)
-        if _canonical_sha256(source_payload) != digest:
+        if canonical_json_sha256(source_payload) != digest:
             raise ValueError(f"{selected_version}: promoted payload differs from source")
         parent = payload.get("baseline")
         if not isinstance(parent, dict):
@@ -364,7 +348,7 @@ def promote_baseline(
         raise FileExistsError(f"Baseline already exists: {rule_path}")
     text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     rule_path.write_text(text, encoding="utf-8")
-    digest = _canonical_sha256(payload)
+    digest = canonical_json_sha256(payload)
     baselines[version] = {
         "file": rule_path.name,
         "sha256": digest,

@@ -453,6 +453,45 @@ def test_active_execution_policy_is_frozen_ex02_winner() -> None:
     ) is None
 
 
+def test_active_identities_resolve_after_cross_platform_lf_checkout(tmp_path: Path) -> None:
+    from czsc_trader.baselines import resolve_baseline
+    from czsc_trader.execution_policies import resolve_execution_policy
+
+    relative_files = (
+        "configs/rule_baselines/registry.json",
+        "configs/rule_baselines/baseline_20260823.json",
+        "configs/rule_baselines/baseline_20260826.json",
+        "configs/rule_baselines/baseline_20260901.json",
+        "configs/execution_policies/registry.json",
+        "configs/execution_policies/execution_policy_20260902.json",
+        "experiments/0824_EX04/artifacts/frozen_challenger.json",
+        "experiments/0901_EX20/artifacts/frozen_challenger.json",
+        "experiments/0902_EX02/artifacts/frozen_execution_policy.json",
+    )
+    for relative in relative_files:
+        source = REPO_ROOT / relative
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(source.read_bytes().replace(b"\r\n", b"\n"))
+
+    baseline = resolve_baseline(
+        tmp_path / "configs" / "rule_baselines",
+        "baseline_20260901",
+        symbol="588080.SH",
+    )
+    policy = resolve_execution_policy(
+        tmp_path / "configs" / "execution_policies",
+        symbol="588080.SH",
+        baseline_version=baseline.version,
+        baseline_sha256=baseline.sha256,
+        required=True,
+    )
+
+    assert baseline.sha256 == "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993"
+    assert policy is not None
+    assert policy.version == "execution_policy_20260902"
+
+
 def test_daily_advice_maps_target_and_actual_position_to_manual_action() -> None:
     from czsc_trader.application.advice_service import build_advice
     from czsc_trader.execution_policies import resolve_execution_policy

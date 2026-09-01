@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX06",
+  "handler": "czsc_route_family_diagnostic",
+  "experiment_type": "czsc_route_family_diagnostic",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "champion": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "family": "atomic_structure",
+  "visible_end": "2025-12-31",
+  "access_2026": false,
+  "inventory_sha256": "0baf02a789774a33ba376eabe33030327bf3f6584382db2d71b9c75c4753fd32",
+  "frequencies": ["30分钟", "日线", "周线"],
+  "signal_names": [
+    "byi_bi_end_V230106", "byi_bi_end_V230107", "byi_fx_num_V230628", "byi_symmetry_zs_V221107",
+    "cxt_bi_base_V230228", "cxt_bi_end_V230104", "cxt_bi_end_V230105", "cxt_bi_end_V230222",
+    "cxt_bi_end_V230224", "cxt_bi_end_V230312", "cxt_bi_end_V230320", "cxt_bi_end_V230322",
+    "cxt_bi_end_V230324", "cxt_bi_end_V230618", "cxt_bi_end_V230815", "cxt_bi_status_V230101",
+    "cxt_bi_status_V230102", "cxt_bi_stop_V230815", "cxt_bi_trend_V230824", "cxt_bi_trend_V230913",
+    "cxt_bi_zdf_V230601", "cxt_decision_V240526", "cxt_decision_V240612", "cxt_decision_V240613",
+    "cxt_decision_V240614", "cxt_double_zs_V230311", "cxt_eleven_bi_V230622", "cxt_five_bi_V230619",
+    "cxt_fx_power_V221107", "cxt_nine_bi_V230621", "cxt_overlap_V240526", "cxt_overlap_V240612",
+    "cxt_range_oscillation_V230620", "cxt_seven_bi_V230620", "cxt_three_bi_V230618", "cxt_ubi_end_V230816",
+    "zdy_bi_end_V230406", "zdy_bi_end_V230407", "zdy_zs_V230423", "zdy_zs_space_V230421"
+  ],
+  "horizons": [5, 20, 60],
+  "primary_horizon": 20,
+  "minimum_absolute_effect": 0.005,
+  "state_min_active_days_per_year": 10,
+  "state_min_control_days_per_year": 10,
+  "state_max_active_ratio": 0.9,
+  "state_min_same_direction_years": 4,
+  "event_min_independent_occurrences": 10,
+  "event_min_years": 4,
+  "event_min_occurrences_per_supported_year": 2,
+  "maximum_annual_absolute_effect_share": 0.5,
+  "minimum_event_leave_one_out_effect_ratio": 0.5,
+  "conditional_reference_min_abs_correlation": 0.8
+}
+

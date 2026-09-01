@@ -1,0 +1,16 @@
+{
+  "status": "FAIL",
+  "supported_years": 0,
+  "same_direction_years": 0,
+  "aggregate_return_effect": 0.0003640549402122682,
+  "aggregate_drawdown_effect": -0.003053535575283914,
+  "maximum_annual_absolute_effect_share": null,
+  "hac_coefficient": 0.0008306933023881512,
+  "hac_p_value": 0.5085119888350562,
+  "evaluation_start": "2021-01-01",
+  "evaluation_end": "2025-12-31",
+  "observation_count": 1212,
+  "held_observation_count": 630,
+  "causal_replay_status": "PASS",
+  "access_2026": false
+}

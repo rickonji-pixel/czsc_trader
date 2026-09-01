@@ -29,6 +29,59 @@ TRACKED_SYMBOLS = (
 )
 
 
+def test_execution_policy_rounds_buy_limit_down_to_etf_tick() -> None:
+    from czsc_trader.execution_policy import floor_to_tick
+
+    assert floor_to_tick(1.68899) == pytest.approx(1.688)
+    assert floor_to_tick(1.68900) == pytest.approx(1.689)
+
+
+def test_execution_policy_retries_entry_without_changing_actual_position() -> None:
+    from czsc_trader.execution_policy import simulate_limit_policy
+
+    dates = pd.bdate_range("2026-01-02", periods=5)
+    daily = pd.DataFrame(
+        {
+            "dt": dates,
+            "open": [10.0, 10.0, 11.0, 10.8, 10.4],
+            "high": [10.2, 10.2, 11.2, 11.0, 10.6],
+            "low": [9.8, 9.8, 10.5, 10.1, 10.2],
+            "close": [10.0, 10.0, 10.8, 10.5, 10.3],
+        }
+    )
+    intraday_rows = []
+    session_times = ("10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00")
+    for date in dates:
+        for position, value in enumerate(session_times):
+            low = 10.4
+            if date == dates[3] and position == 1:
+                low = 10.1
+            intraday_rows.append(
+                {
+                    "dt": pd.Timestamp(f"{date.date()} {value}"),
+                    "open": 10.5,
+                    "high": 10.7,
+                    "low": low,
+                    "close": 10.5,
+                    "vol": 1_000_000.0,
+                }
+            )
+    intraday = pd.DataFrame(intraday_rows)
+    target = pd.Series([0.0, 1.0, 1.0, 0.0, 0.0], index=dates)
+    limits = pd.Series([9.9, 10.0, 10.2, 10.0, 10.0], index=dates)
+
+    result = simulate_limit_policy(daily, intraday, target, limits)
+
+    assert result.daily_state.loc[dates[2], "actual_position"] == 0.0
+    assert result.daily_state.loc[dates[3], "actual_position"] == 1.0
+    assert result.daily_state.loc[dates[4], "actual_position"] == 0.0
+    assert result.orders["side"].tolist() == ["Buy", "Sell"]
+    assert result.orders.iloc[0]["execution_date"] == pd.Timestamp("2026-01-07 10:30")
+    assert result.orders.iloc[0]["price"] == pytest.approx(10.2)
+    assert result.cycles.iloc[0]["wait_sessions"] == 2
+    assert bool(result.cycles.iloc[0]["filled"])
+
+
 def test_experiment_archive_normalizes_python_line_endings(tmp_path: Path) -> None:
     from czsc_trader.experiment_archive import (
         build_experiment_manifest,

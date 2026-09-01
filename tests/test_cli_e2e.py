@@ -392,6 +392,12 @@ def test_active_execution_policy_is_frozen_ex02_winner() -> None:
     assert policy.parameter == 0.0
     assert policy.warning_gap_q05 == pytest.approx(-0.006797902176638775)
     assert policy.source_path == "experiments/0902_EX02/artifacts/frozen_execution_policy.json"
+    assert resolve_execution_policy(
+        REPO_ROOT / "configs" / "execution_policies",
+        symbol="159352.SZ",
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+    ) is None
 
 
 def test_daily_advice_maps_target_and_actual_position_to_manual_action() -> None:
@@ -508,7 +514,12 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert payload["result"]["baseline"] == "baseline_20260901"
     assert set(full) == {"start", "end", "strategies"}
     strategies = full["strategies"]
-    assert set(strategies) == {"active_baseline", "buyhold", "ma5_ma20"}
+    assert set(strategies) == {
+        "active_baseline",
+        "active_baseline_execution_policy",
+        "buyhold",
+        "ma5_ma20",
+    }
     assert all(set(metrics) == STRATEGY_METRIC_KEYS for metrics in strategies.values())
     assert strategies["active_baseline"]["return"] == pytest.approx(
         0.7528525916956634
@@ -531,6 +542,8 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert (output_dir / "ma_orders.csv").is_file()
     assert (output_dir / "ma_equity.csv").is_file()
     assert (output_dir / "ma_chart.html").is_file()
+    assert (output_dir / "execution_orders.csv").is_file()
+    assert (output_dir / "execution_equity.csv").is_file()
 
     ma_signals = pd.read_csv(output_dir / "ma_signals.csv", parse_dates=["dt"])
     assert list(ma_signals.columns) == ["dt", "close", "ma5", "ma20", "target_position"]
@@ -553,7 +566,8 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
 
     report = (output_dir / "report.md").read_text(encoding="utf-8")
     assert "## full" in report
-    assert report.count("| 活动基线 |") == 1
+    assert report.count("| 活动基线·次日开盘 |") == 1
+    assert report.count("| 活动基线·执行规则 |") == 1
     assert report.count("| BuyHold |") == 1
     assert report.count("| MA5/MA20 |") == 1
     assert "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |" in report

@@ -60,6 +60,7 @@ def run_backtest(
                 raw_dir=context.raw_dir,
                 outputs_root=staging_root,
                 baseline_root=context.baseline_root,
+                execution_policy_root=context.execution_policy_root,
             ),
             run_date=effective_date,
         )

@@ -196,6 +196,31 @@ def _valid_protocol() -> dict[str, object]:
     }
 
 
+def _corrected_protocol() -> dict[str, object]:
+    protocol = _valid_protocol()
+    protocol.update(
+        {
+            "experiment_id": "0901_EX20",
+            "selection_metrics": ["max_drawdown", "calmar", "win_loss_ratio"],
+            "annual_metrics_role": "report_only",
+            "ranking": [
+                "maximin_improvement_desc",
+                "weight_shift_asc",
+                "candidate_id_asc",
+            ],
+            "report_only_metrics": [
+                "strategy_return",
+                "sharpe",
+                "exposure",
+                "trade_count",
+                "annual_metrics",
+            ],
+        }
+    )
+    del protocol["annual_double_win_minimum"]
+    return protocol
+
+
 def test_protocol_freezes_research_test_and_grid_boundaries() -> None:
     protocol = _valid_protocol()
     validate_regime_weight_protocol(protocol)
@@ -209,6 +234,16 @@ def test_protocol_freezes_research_test_and_grid_boundaries() -> None:
         changed[key] = value
         with pytest.raises(ValueError):
             validate_regime_weight_protocol(changed)
+
+
+def test_corrected_protocol_makes_annual_metrics_report_only() -> None:
+    protocol = _corrected_protocol()
+    validate_regime_weight_protocol(protocol)
+
+    changed = deepcopy(protocol)
+    changed["annual_double_win_minimum"] = 3
+    with pytest.raises(ValueError, match="annual_double_win_minimum"):
+        validate_regime_weight_protocol(changed)
 
 
 def test_grid_has_625_stable_unique_candidates_and_baseline() -> None:
@@ -247,6 +282,39 @@ def test_research_gate_and_rank_use_annual_support_then_maximin() -> None:
     ranked = rank_research_candidates(rows)
     assert ranked["candidate_id"].tolist() == [1, 2, 0]
     assert ranked["rank"].tolist() == [1, 2, 3]
+
+
+def test_corrected_gate_uses_three_metrics_and_ranking_ignores_annual_results() -> None:
+    baseline = {
+        "max_drawdown": -0.2,
+        "calmar": 1.0,
+        "win_loss_ratio": 1.0,
+        "closed_trade_count": 30,
+        "has_wins_and_losses": True,
+    }
+    challenger = {
+        "max_drawdown": -0.15,
+        "calmar": 1.2,
+        "win_loss_ratio": 1.1,
+        "closed_trade_count": 20,
+        "has_wins_and_losses": True,
+    }
+    assert research_candidate_passes(
+        baseline,
+        challenger,
+        annual_double_wins=0,
+        annual_minimum=None,
+    )
+
+    rows = pd.DataFrame(
+        [
+            {"candidate_id": 2, "pass": True, "maximin_improvement": 0.10, "annual_double_wins": 5, "weight_shift": 0.1},
+            {"candidate_id": 1, "pass": True, "maximin_improvement": 0.11, "annual_double_wins": 0, "weight_shift": 0.2},
+            {"candidate_id": 0, "pass": False, "maximin_improvement": 9.00, "annual_double_wins": 5, "weight_shift": 0.0},
+        ]
+    )
+    ranked = rank_research_candidates(rows, annual_support_tiebreak=False)
+    assert ranked["candidate_id"].tolist() == [1, 2, 0]
 
 
 def test_runner_rejects_protocol_before_market_data_access(tmp_path) -> None:

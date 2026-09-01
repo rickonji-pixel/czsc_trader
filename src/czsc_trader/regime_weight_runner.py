@@ -36,10 +36,13 @@ EXPECTED_MULTIPLIERS = [0.5, 0.75, 1.0, 1.25, 1.5]
 
 
 def validate_regime_weight_protocol(protocol: Mapping[str, object]) -> None:
-    """Reject any research boundary that differs from EX19 preregistration."""
+    """Reject any research boundary that differs from EX19/EX20 preregistration."""
+    experiment_id = str(protocol.get("experiment_id", ""))
+    if experiment_id not in {"0901_EX19", "0901_EX20"}:
+        raise ValueError("regime-weight protocol experiment_id differs from preregistration")
     expected = {
         "schema_version": 1,
-        "experiment_id": "0901_EX19",
+        "experiment_id": experiment_id,
         "handler": "regime_conditioned_weight_challenge",
         "experiment_type": "regime_conditioned_weight_challenge",
         "status": "PRE_REGISTERED",
@@ -62,11 +65,44 @@ def validate_regime_weight_protocol(protocol: Mapping[str, object]) -> None:
         "init_cash": 1_000_000.0,
         "research_min_closed_trades": 20,
         "test_min_closed_trades": 5,
-        "annual_double_win_minimum": 3,
         "tolerance": 1e-12,
         "access_2026_after_freeze_only": True,
-        "report_only_metrics": ["strategy_return", "sharpe", "exposure", "trade_count"],
     }
+    if experiment_id == "0901_EX19":
+        expected.update(
+            {
+                "annual_double_win_minimum": 3,
+                "report_only_metrics": [
+                    "strategy_return",
+                    "sharpe",
+                    "exposure",
+                    "trade_count",
+                ],
+            }
+        )
+    else:
+        expected.update(
+            {
+                "selection_metrics": ["max_drawdown", "calmar", "win_loss_ratio"],
+                "annual_metrics_role": "report_only",
+                "ranking": [
+                    "maximin_improvement_desc",
+                    "weight_shift_asc",
+                    "candidate_id_asc",
+                ],
+                "report_only_metrics": [
+                    "strategy_return",
+                    "sharpe",
+                    "exposure",
+                    "trade_count",
+                    "annual_metrics",
+                ],
+            }
+        )
+        if "annual_double_win_minimum" in protocol:
+            raise ValueError(
+                "regime-weight protocol annual_double_win_minimum is forbidden in EX20"
+            )
     for key, value in expected.items():
         if protocol.get(key) != value:
             raise ValueError(f"regime-weight protocol {key} differs from preregistration")
@@ -96,12 +132,12 @@ def research_candidate_passes(
     annual_double_wins: int,
     *,
     minimum_closed_trades: int = 20,
-    annual_minimum: int = 3,
+    annual_minimum: int | None = 3,
     tolerance: float = 1e-12,
 ) -> bool:
     """Apply continuous triple dominance plus annual drawdown-Calmar support."""
     return bool(
-        int(annual_double_wins) >= int(annual_minimum)
+        (annual_minimum is None or int(annual_double_wins) >= int(annual_minimum))
         and strict_quality_pass(
             baseline,
             challenger,
@@ -111,20 +147,25 @@ def research_candidate_passes(
     )
 
 
-def rank_research_candidates(rows: pd.DataFrame) -> pd.DataFrame:
+def rank_research_candidates(
+    rows: pd.DataFrame, *, annual_support_tiebreak: bool = True
+) -> pd.DataFrame:
     """Apply the deterministic preregistered candidate order."""
-    required = {
-        "candidate_id",
-        "pass",
-        "maximin_improvement",
-        "annual_double_wins",
-        "weight_shift",
-    }
+    required = {"candidate_id", "pass", "maximin_improvement", "weight_shift"}
+    if annual_support_tiebreak:
+        required.add("annual_double_wins")
     if not required <= set(rows.columns):
         raise ValueError(f"candidate rows missing columns: {sorted(required - set(rows.columns))}")
+    keys = ["pass", "maximin_improvement"]
+    ascending = [False, False]
+    if annual_support_tiebreak:
+        keys.append("annual_double_wins")
+        ascending.append(False)
+    keys.extend(["weight_shift", "candidate_id"])
+    ascending.extend([True, True])
     ranked = rows.sort_values(
-        ["pass", "maximin_improvement", "annual_double_wins", "weight_shift", "candidate_id"],
-        ascending=[False, False, False, True, True],
+        keys,
+        ascending=ascending,
         kind="stable",
     ).reset_index(drop=True)
     ranked.insert(0, "rank", range(1, len(ranked) + 1))
@@ -220,6 +261,7 @@ def _next_open_audit(orders: pd.DataFrame) -> bool:
 def _write_terminal_documents(
     experiment_dir: Path,
     *,
+    experiment_id: str,
     execution_commit: str,
     status: str,
     research_pass_count: int,
@@ -230,7 +272,7 @@ def _write_terminal_documents(
     challenger_metrics: Mapping[str, object] | None,
 ) -> None:
     lines = [
-        "# 0901_EX19 执行过程",
+        f"# {experiment_id} 执行过程",
         "",
         f"- 执行提交：`{execution_commit}`。",
         "- 研究阶段完整评估625套预注册regime组权重。",
@@ -241,7 +283,7 @@ def _write_terminal_documents(
     ]
     (experiment_dir / "03_execution.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     conclusion = [
-        "# 0901_EX19 结论",
+        f"# {experiment_id} 结论",
         "",
         f"状态：`{status}`。",
         "",
@@ -279,6 +321,8 @@ def run_regime_weight_experiment(
     artifacts = experiment_dir / "artifacts"
     protocol = json.loads((artifacts / "protocol.json").read_text(encoding="utf-8"))
     validate_regime_weight_protocol(protocol)
+    experiment_id = str(protocol["experiment_id"])
+    annual_metrics_report_only = protocol.get("annual_metrics_role") == "report_only"
     baseline = resolve_baseline(
         Path(baseline_root),
         str(protocol["baseline"]["version"]),
@@ -380,9 +424,10 @@ def run_regime_weight_experiment(
             year_metrics = {
                 name: _metrics(result, init_cash) for name, result in year_results.items()
             }
-            annual_double_wins = _annual_double_wins(
-                baseline_all, year_metrics, tolerance
-            )
+            if not annual_metrics_report_only:
+                annual_double_wins = _annual_double_wins(
+                    baseline_all, year_metrics, tolerance
+                )
             for year, values in year_metrics.items():
                 annual_rows.append(
                     {
@@ -391,6 +436,13 @@ def run_regime_weight_experiment(
                         **values,
                         "baseline_max_drawdown": baseline_all[year]["max_drawdown"],
                         "baseline_calmar": baseline_all[year]["calmar"],
+                        "baseline_win_loss_ratio": baseline_all[year]["win_loss_ratio"],
+                        "max_drawdown_improved": float(values["max_drawdown"])
+                        > float(baseline_all[year]["max_drawdown"]) + tolerance,
+                        "calmar_improved": float(values["calmar"])
+                        > float(baseline_all[year]["calmar"]) + tolerance,
+                        "win_loss_ratio_improved": float(values["win_loss_ratio"])
+                        > float(baseline_all[year]["win_loss_ratio"]) + tolerance,
                     }
                 )
         passed = research_candidate_passes(
@@ -398,7 +450,11 @@ def run_regime_weight_experiment(
             main,
             annual_double_wins,
             minimum_closed_trades=int(protocol["research_min_closed_trades"]),
-            annual_minimum=int(protocol["annual_double_win_minimum"]),
+            annual_minimum=(
+                None
+                if annual_metrics_report_only
+                else int(protocol["annual_double_win_minimum"])
+            ),
             tolerance=tolerance,
         )
         relative = (
@@ -413,7 +469,6 @@ def run_regime_weight_experiment(
             "range_trend_multiplier": multipliers[2],
             "range_volume_multiplier": multipliers[3],
             "continuous_quality_pass": continuous_quality,
-            "annual_double_wins": annual_double_wins,
             "pass": passed,
             "maximin_improvement": min(relative.values()),
             "drawdown_relative_improvement": relative["max_drawdown"],
@@ -422,6 +477,8 @@ def run_regime_weight_experiment(
             "weight_shift": _weight_shift(base_weights, selected_weights),
             **main,
         }
+        if not annual_metrics_report_only:
+            row["annual_double_wins"] = annual_double_wins
         candidate_rows.append(row)
         if passed:
             targets[candidate_id] = target
@@ -429,7 +486,10 @@ def run_regime_weight_experiment(
             weights_by_id[candidate_id] = selected_weights
             result_by_id[candidate_id] = all_results
 
-    candidates = rank_research_candidates(pd.DataFrame(candidate_rows))
+    candidates = rank_research_candidates(
+        pd.DataFrame(candidate_rows),
+        annual_support_tiebreak=not annual_metrics_report_only,
+    )
     candidates.replace([np.inf, -np.inf], np.nan).to_csv(
         artifacts / "candidate_results.csv", index=False, encoding="utf-8-sig"
     )
@@ -469,6 +529,7 @@ def run_regime_weight_experiment(
         )
         _write_terminal_documents(
             experiment_dir,
+            experiment_id=experiment_id,
             execution_commit=execution_commit,
             status="FAIL",
             research_pass_count=0,
@@ -481,7 +542,7 @@ def run_regime_weight_experiment(
         build_experiment_manifest(
             experiment_dir,
             {
-                "experiment_id": "0901_EX19",
+                "experiment_id": experiment_id,
                 "date": "2026-09-01",
                 "status": "FAIL",
                 "symbol": "588080.SH",
@@ -506,7 +567,7 @@ def run_regime_weight_experiment(
     selected_weights = weights_by_id[selected_id]
     frozen_payload = {
         "schema_version": 1,
-        "experiment": "0901_EX19",
+        "experiment": experiment_id,
         "research_end": "2025-12-31",
         "baseline": protocol["baseline"],
         "er_lookback": 60,
@@ -667,6 +728,7 @@ def run_regime_weight_experiment(
     _write_json(artifacts / "metrics.json", summary)
     _write_terminal_documents(
         experiment_dir,
+        experiment_id=experiment_id,
         execution_commit=execution_commit,
         status=formal_status,
         research_pass_count=int(len(passing)),
@@ -679,7 +741,7 @@ def run_regime_weight_experiment(
     build_experiment_manifest(
         experiment_dir,
         {
-            "experiment_id": "0901_EX19",
+            "experiment_id": experiment_id,
             "date": "2026-09-01",
             "status": formal_status,
             "symbol": "588080.SH",

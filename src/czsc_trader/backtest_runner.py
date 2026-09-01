@@ -264,7 +264,16 @@ def run_fixed_backtest(
             cutoff = end
         causal_data = data.truncate(cutoff)
         factor_result = generate_factor_frame(causal_data)
-        applied = apply_resolved_baseline(factor_result.frame, baseline)
+        daily_close = pd.Series(
+            causal_data.daily["close"].astype(float).to_numpy(),
+            index=pd.DatetimeIndex(pd.to_datetime(causal_data.daily["dt"]), name="dt"),
+            name="close",
+        )
+        applied = apply_resolved_baseline(
+            factor_result.frame,
+            baseline,
+            daily_close=daily_close,
+        )
         factor_output = factor_result.frame.copy()
         factor_output.insert(0, "target_position", applied.target_position)
         factor_output.insert(1, "factor_score", applied.scores)

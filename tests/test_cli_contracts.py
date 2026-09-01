@@ -300,7 +300,7 @@ def test_generic_window_uses_the_symbols_trading_dates(
     )
 
     result = payload["result"]
-    assert result["baseline"] == "baseline_20260826"
+    assert result["baseline"] == "baseline_20260901"
     assert "acceptance_status" not in result
     assert set(result["windows"]) == {"2026FULL"}
     window = result["windows"]["2026FULL"]

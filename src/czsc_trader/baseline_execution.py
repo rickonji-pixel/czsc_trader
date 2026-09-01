@@ -12,17 +12,20 @@ from .four_layer import (
     score_four_layer,
     validate_fixed_factor_weights,
 )
+from .regime_weight import classify_regimes, lagged_efficiency_ratio, score_with_regime_weights
 from .rules import AppliedRule, apply_fixed_rule
 
 
 def apply_resolved_baseline(
     factor_frame: pd.DataFrame,
     baseline: ResolvedBaseline,
+    *,
+    daily_close: pd.Series | None = None,
 ) -> AppliedRule:
     """Execute one already-frozen baseline without candidate generation."""
     if baseline.strategy == "czsc_fixed_rule":
         return apply_fixed_rule(factor_frame, baseline.rule)
-    if baseline.strategy != "czsc_four_layer":
+    if baseline.strategy not in {"czsc_four_layer", "czsc_regime_weight"}:
         raise ValueError(f"unknown baseline strategy: {baseline.strategy}")
     names = tuple(map(str, baseline.factor_names))
     if len(names) != len(set(names)):
@@ -34,7 +37,27 @@ def apply_resolved_baseline(
     factors = normalized_signal_factors(raw)
     weights = pd.Series(baseline.factor_weights, index=names, name="weight", dtype=float)
     validate_fixed_factor_weights(weights, names, minimum_absolute_weight=0.005)
-    scores = score_four_layer(factors, weights)
+    if baseline.strategy == "czsc_four_layer":
+        scores = score_four_layer(factors, weights)
+    else:
+        if daily_close is None:
+            raise ValueError("regime-weight baseline requires causal daily close prices")
+        close = daily_close.astype(float).copy()
+        close.index = pd.DatetimeIndex(pd.to_datetime(close.index), name=factors.index.name)
+        close = close.reindex(factors.index)
+        if close.isna().any():
+            raise ValueError("regime-weight daily close prices do not align to factors")
+        regimes = classify_regimes(
+            lagged_efficiency_ratio(close, baseline.er_lookback),
+            baseline.er_threshold,
+        )
+        regime_weights = {
+            label: pd.Series(values, index=names, name="weight", dtype=float)
+            for label, values in baseline.regime_factor_weights.items()
+        }
+        for selected in regime_weights.values():
+            validate_fixed_factor_weights(selected, names, minimum_absolute_weight=0.005)
+        scores = score_with_regime_weights(factors, regimes, regime_weights, weights)
     target = positions_from_scores(
         scores,
         baseline.rule.enter,

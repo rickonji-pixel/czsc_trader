@@ -82,9 +82,9 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     full = payload["result"]["windows"]["full"]
     assert output_dir.name.startswith("588080_")
     assert output_dir.name.endswith("_BT01")
-    assert payload["result"]["baseline"] == "baseline_20260826"
+    assert payload["result"]["baseline"] == "baseline_20260901"
     assert set(full) == COMPARISON_KEYS
-    assert full["strategy_return"] == pytest.approx(0.6197253904580182)
+    assert full["strategy_return"] == pytest.approx(0.7528525916956634)
     assert full["return_difference"] == pytest.approx(
         full["strategy_return"] - full["buyhold_return"]
     )

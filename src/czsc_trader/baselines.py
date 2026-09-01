@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from hashlib import sha256
 import json
@@ -31,6 +31,9 @@ class ResolvedBaseline:
     symbol: str | None = None
     factor_names: tuple[str, ...] = ()
     factor_weights: tuple[float, ...] = ()
+    regime_factor_weights: dict[str, tuple[float, ...]] = field(default_factory=dict)
+    er_lookback: int = 0
+    er_threshold: float = 0.0
     source_path: str = ""
     source_sha256: str = ""
     selection_sample_end: str = ""
@@ -67,6 +70,11 @@ def _canonical_sha256(payload: dict[str, object]) -> str:
         separators=(",", ":"),
     ).encode("utf-8")
     return sha256(canonical).hexdigest()
+
+
+def _normalized_text_sha256(path: Path) -> str:
+    content = Path(path).read_bytes().replace(b"\r\n", b"\n")
+    return sha256(content).hexdigest()
 
 
 def _parse_rule(payload: dict[str, object]) -> Rule:
@@ -156,6 +164,66 @@ def _parse_four_layer(
     )
 
 
+def _parse_regime_weight(
+    payload: dict[str, object], base: ResolvedBaseline
+) -> tuple[Rule, tuple[str, ...], tuple[float, ...], dict[str, tuple[float, ...]], int, float]:
+    names_value = payload.get("factor_names")
+    weights_value = payload.get("weights")
+    parent = payload.get("baseline")
+    if not isinstance(names_value, list) or not isinstance(weights_value, dict):
+        raise ValueError("regime-weight baseline factors or weights are missing")
+    if not isinstance(parent, dict):
+        raise ValueError("regime-weight parent baseline is missing")
+    factor_names = tuple(map(str, names_value))
+    if len(factor_names) != 12 or len(set(factor_names)) != 12:
+        raise ValueError("regime-weight baseline must freeze 12 unique factors")
+    if str(parent.get("version")) != base.version or str(parent.get("sha256")) != base.sha256:
+        raise ValueError("regime-weight parent baseline identity differs")
+    if tuple(base.factor_names) != factor_names:
+        raise ValueError("regime-weight factor identities differ from parent baseline")
+    if set(weights_value) != {"trend", "range"}:
+        raise ValueError("regime-weight baseline must contain trend and range weights")
+    regime_weights: dict[str, tuple[float, ...]] = {}
+    for label in ("trend", "range"):
+        selected = weights_value[label]
+        if not isinstance(selected, dict) or set(map(str, selected)) != set(factor_names):
+            raise ValueError(f"regime-weight {label} identities differ from factors")
+        values = tuple(float(selected[name]) for name in factor_names)
+        if any(not np.isfinite(value) for value in values):
+            raise ValueError(f"regime-weight {label} weights must be finite")
+        if abs(sum(map(abs, values)) - 1.0) > 1e-12:
+            raise ValueError(f"regime-weight {label} weights must have L1 norm one")
+        regime_weights[label] = values
+    lookback = int(payload.get("er_lookback", 0))
+    threshold = float(payload.get("er_threshold", float("nan")))
+    if lookback < 2 or not np.isfinite(threshold):
+        raise ValueError("regime-weight ER definition is invalid")
+    if payload.get("regime_labels") != ["trend", "range", "warmup"]:
+        raise ValueError("regime-weight labels differ from frozen definition")
+    if str(payload.get("execution")) != "next_session_open":
+        raise ValueError("regime-weight execution differs from frozen definition")
+    enter = float(payload["entry_threshold"])
+    exit_ = float(payload["exit_threshold"])
+    if exit_ >= enter:
+        raise ValueError("regime-weight exit must be lower than enter")
+    return (
+        Rule(
+            weights=base.rule.weights,
+            enter=enter,
+            exit=exit_,
+            confirm_days=int(payload["confirm_days"]),
+            min_hold_days=int(payload["min_hold_days"]),
+            exit_confirm_days=int(payload["exit_confirm_days"]),
+            entry_gate=base.rule.entry_gate,
+        ),
+        factor_names,
+        tuple(base.factor_weights),
+        regime_weights,
+        lookback,
+        threshold,
+    )
+
+
 def resolve_baseline(
     root: Path,
     version: str | None = None,
@@ -203,6 +271,9 @@ def resolve_baseline(
     strategy = str(entry.get("strategy", "czsc_fixed_rule"))
     factor_names: tuple[str, ...] = ()
     factor_weights: tuple[float, ...] = ()
+    regime_factor_weights: dict[str, tuple[float, ...]] = {}
+    er_lookback = 0
+    er_threshold = 0.0
     source_path = str(entry.get("source_path", ""))
     source_digest = str(entry.get("source_sha256", ""))
     if strategy == "czsc_fixed_rule":
@@ -224,6 +295,30 @@ def resolve_baseline(
             raise ValueError("four-layer baseline champion is missing")
         archived = resolve_baseline(root, str(champion.get("version", "")))
         rule, factor_names, factor_weights = _parse_four_layer(payload, archived)
+    elif strategy == "czsc_regime_weight":
+        if not source_path or not source_digest:
+            raise ValueError(f"{selected_version}: regime-weight source identity is missing")
+        repository_root = root.resolve().parent.parent
+        source = repository_root / source_path
+        if not source.is_file():
+            raise ValueError(f"{selected_version}: missing regime-weight source {source}")
+        if _normalized_text_sha256(source) != source_digest:
+            raise ValueError(f"{selected_version}: source SHA-256 differs from registry")
+        source_payload = _load_json_object(source)
+        if _canonical_sha256(source_payload) != digest:
+            raise ValueError(f"{selected_version}: promoted payload differs from source")
+        parent = payload.get("baseline")
+        if not isinstance(parent, dict):
+            raise ValueError("regime-weight parent baseline is missing")
+        base = resolve_baseline(root, str(parent.get("version", "")))
+        (
+            rule,
+            factor_names,
+            factor_weights,
+            regime_factor_weights,
+            er_lookback,
+            er_threshold,
+        ) = _parse_regime_weight(payload, base)
     else:
         raise ValueError(f"{selected_version}: unknown baseline strategy {strategy!r}")
     return ResolvedBaseline(
@@ -238,6 +333,9 @@ def resolve_baseline(
         symbol=scoped_symbol,
         factor_names=factor_names,
         factor_weights=factor_weights,
+        regime_factor_weights=regime_factor_weights,
+        er_lookback=er_lookback,
+        er_threshold=er_threshold,
         source_path=source_path,
         source_sha256=source_digest,
         selection_sample_end=str(entry.get("selection_sample_end", "")),

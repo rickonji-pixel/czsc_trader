@@ -15,6 +15,8 @@ from .baselines import resolve_baseline
 from .czsc_factor_stability import audit_causal_prefix, build_forward_outcomes, event_onsets
 from .czsc_route import (
     admit_factors,
+    build_cross_frequency_factors,
+    build_dynamic_factors,
     build_family_factors,
     replay_family_factors,
     validate_route_family_protocol,
@@ -88,6 +90,47 @@ def _event_ledger(factors: pd.DataFrame, kinds: Mapping[str, str]) -> pd.DataFra
     return pd.DataFrame(rows, columns=["factor", "event_date"])
 
 
+def _parent_factor_frame(raw: pd.DataFrame, experiment_dir: Path, protocol: Mapping[str, object]) -> tuple[pd.DataFrame, dict[str, str]]:
+    pieces: list[pd.DataFrame] = []
+    kinds: dict[str, str] = {}
+    parent_hashes = protocol.get("parent_manifests")
+    if not isinstance(parent_hashes, dict):
+        raise ValueError("dynamic family parent manifest hashes are missing")
+    for parent_name in map(str, protocol.get("parent_experiments", [])):
+        parent_dir = experiment_dir.parent / parent_name
+        manifest_path = parent_dir / "experiment_manifest.json"
+        if sha256(manifest_path.read_bytes()).hexdigest() != str(parent_hashes.get(parent_name, "")):
+            raise ValueError(f"dynamic parent manifest hash differs: {parent_name}")
+        parent_artifacts = parent_dir / "artifacts"
+        records = json.loads((parent_artifacts / "factor_universe.json").read_text(encoding="utf-8"))
+        canonical = [row for row in records if row["status"] == "candidate"]
+        frame = replay_family_factors(raw, canonical)
+        pieces.append(frame)
+        kinds.update({str(row["factor"]): str(row["factor_kind"]) for row in canonical})
+    if not pieces:
+        raise ValueError("dynamic family requires frozen parent experiments")
+    base = pd.concat(pieces, axis=1)
+    if base.columns.duplicated().any():
+        raise ValueError("dynamic parent factor identities are not unique")
+    return base, kinds
+
+
+def _build_route_family(
+    raw: pd.DataFrame,
+    family: str,
+    protocol: Mapping[str, object],
+    experiment_dir: Path,
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
+    if family in {"atomic_structure", "sparse_event"}:
+        return build_family_factors(raw, family, dict(protocol))
+    if family == "state_dynamic":
+        base, kinds = _parent_factor_frame(raw, experiment_dir, protocol)
+        return build_dynamic_factors(base, kinds)
+    if family == "cross_frequency":
+        return build_cross_frequency_factors(raw)
+    raise ValueError(f"route family runner cannot execute family {family}")
+
+
 def _write_docs(
     experiment_dir: Path,
     *,
@@ -148,8 +191,8 @@ def run_czsc_route_family(
     protocol = json.loads((artifacts / "protocol.json").read_text(encoding="utf-8"))
     validate_route_family_protocol(protocol)
     family = str(protocol["family"])
-    if family not in {"atomic_structure", "sparse_event"}:
-        raise ValueError(f"direct route runner cannot execute family {family}")
+    if family not in {"atomic_structure", "sparse_event", "state_dynamic", "cross_frequency"}:
+        raise ValueError(f"route family runner cannot execute family {family}")
     baseline = resolve_baseline(
         Path(baseline_root), str(protocol["champion"]["version"]), symbol="588080.SH"
     )
@@ -160,7 +203,7 @@ def run_czsc_route_family(
         raw_dir, "588080.SH", "etf", cutoff=pd.Timestamp(str(protocol["visible_end"]))
     )
     raw = _raw_signals(data, protocol)
-    factors, records = build_family_factors(raw, family, protocol)
+    factors, records = _build_route_family(raw, family, protocol, experiment_dir)
     canonical = [row for row in records if row["status"] == "candidate"]
     if list(factors.columns) != [str(row["factor"]) for row in canonical]:
         raise AssertionError("canonical factor metadata differs from factor frame")
@@ -174,13 +217,17 @@ def run_czsc_route_family(
         raw_dir, "588080.SH", "etf", cutoff=pd.Timestamp("2023-12-31")
     )
     prefix_raw = _raw_signals(prefix_data, protocol)
-    prefix_factors = replay_family_factors(prefix_raw, canonical)
-    causal = audit_causal_prefix(prefix_factors, factors, tuple(map(str, factors.columns)))
-    causal_passed = {
-        name
-        for name, mismatches in causal["mismatches_by_factor"].items()
-        if int(mismatches) == 0
-    }
+    if family in {"atomic_structure", "sparse_event"}:
+        prefix_factors = replay_family_factors(prefix_raw, canonical)
+        causal = audit_causal_prefix(prefix_factors, factors, tuple(map(str, factors.columns)))
+        causal_passed = {
+            name
+            for name, mismatches in causal["mismatches_by_factor"].items()
+            if int(mismatches) == 0
+        }
+    else:
+        causal = audit_causal_prefix(prefix_raw, raw, tuple(map(str, raw.columns)))
+        causal_passed = set(map(str, factors.columns)) if causal["status"] == "PASS" else set()
     admission = admit_factors(
         factors,
         references,

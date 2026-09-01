@@ -8,6 +8,8 @@ import pytest
 from czsc_trader.czsc_route import (
     admit_factors,
     build_family_factors,
+    build_cross_frequency_factors,
+    build_dynamic_factors,
     classify_signal_family,
     inventory_records,
     parse_signal_value,
@@ -259,3 +261,40 @@ def test_route_family_protocol_rejects_mutable_or_future_scope() -> None:
         changed = {**valid, key: value}
         with pytest.raises(ValueError):
             validate_route_family_protocol(changed)
+
+
+def test_dynamic_factors_encode_transitions_and_fixed_age_buckets() -> None:
+    index = pd.date_range("2021-01-01", periods=12, freq="D")
+    base = pd.DataFrame(
+        {"state_a": [0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1]},
+        index=index,
+        dtype=float,
+    )
+
+    factors, records = build_dynamic_factors(base, {"state_a": "state"})
+
+    assert factors["dynamic__state_a__onset"].tolist() == [0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+    assert factors["dynamic__state_a__exit"].tolist() == [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+    assert factors["dynamic__state_a__age_1_3"].tolist() == [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0]
+    assert factors["dynamic__state_a__age_4_8"].tolist() == [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1]
+    assert {row["factor_kind"] for row in records} == {"state", "event"}
+
+
+def test_cross_frequency_factors_use_only_same_day_completed_states() -> None:
+    index = pd.date_range("2021-01-01", periods=4, freq="D")
+    raw = pd.DataFrame(
+        {
+            "raw__30m__cxt_demo__di_1": ["向上_任意_任意", "向下_任意_任意", "向上_任意_任意", "向下_任意_任意"],
+            "raw__daily__cxt_demo__di_1": ["向上_任意_任意", "向上_任意_任意", "向下_任意_任意", "向下_任意_任意"],
+            "raw__weekly__cxt_demo__di_1": ["向上_任意_任意", "向上_任意_任意", "向上_任意_任意", "向下_任意_任意"],
+        },
+        index=index,
+    )
+
+    factors, records = build_cross_frequency_factors(raw)
+
+    all_up = next(row for row in records if row["factor"] == "cross__cxt_demo__di_1__all::向上")
+    assert factors[str(all_up["canonical_factor"])].tolist() == [1, 0, 0, 0]
+    assert factors["cross__cxt_demo__di_1__30m_daily_divergence"].tolist() == [0, 1, 1, 0]
+    assert factors["cross__cxt_demo__di_1__daily_weekly_divergence"].tolist() == [0, 0, 1, 0]
+    assert all(row["factor_kind"] == "state" for row in records)

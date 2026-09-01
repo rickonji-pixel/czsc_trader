@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -274,6 +274,163 @@ def replay_family_factors(
             raise ValueError(f"unknown factor representation: {representation}")
         pieces.append(values.eq(expected).astype(float).rename(name))
     return pd.concat(pieces, axis=1) if pieces else pd.DataFrame(index=raw.index)
+
+
+def _append_canonical_factor(
+    pieces: list[pd.Series],
+    records: list[dict[str, object]],
+    fingerprints: dict[bytes, str],
+    indicator: pd.Series,
+    metadata: dict[str, object],
+) -> None:
+    values = indicator.fillna(0.0).astype(float)
+    fingerprint = values.to_numpy(dtype=np.uint8).tobytes()
+    canonical = fingerprints.get(fingerprint)
+    record = {"factor": str(values.name), **metadata}
+    if canonical is not None:
+        records.append(
+            {**record, "status": "aliased_duplicate", "canonical_factor": canonical}
+        )
+        return
+    fingerprints[fingerprint] = str(values.name)
+    pieces.append(values)
+    records.append(
+        {**record, "status": "candidate", "canonical_factor": str(values.name)}
+    )
+
+
+def build_dynamic_factors(
+    base: pd.DataFrame,
+    factor_kinds: Mapping[str, str],
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
+    """Create frozen transition, age, and post-event representations."""
+    pieces: list[pd.Series] = []
+    records: list[dict[str, object]] = []
+    fingerprints: dict[bytes, str] = {}
+    for parent in sorted(map(str, base.columns)):
+        active = base[parent].fillna(0.0).astype(bool)
+        kind = str(factor_kinds[parent])
+        definitions: list[tuple[str, pd.Series, str]] = []
+        if kind == "state":
+            onset = active & ~active.shift(fill_value=False)
+            exit_ = ~active & active.shift(fill_value=False)
+            groups = (~active).cumsum()
+            age = active.astype(int).groupby(groups).cumsum().where(active, 0)
+            definitions.extend(
+                [
+                    ("onset", onset, "event"),
+                    ("exit", exit_, "event"),
+                    ("age_1_3", age.between(1, 3), "state"),
+                    ("age_4_8", age.between(4, 8), "state"),
+                    ("age_9_plus", age.ge(9), "state"),
+                ]
+            )
+        else:
+            onset = event_onsets(active)
+            positions = np.flatnonzero(onset.to_numpy(dtype=bool))
+            last = -10_000
+            since: list[int] = []
+            position_set = set(map(int, positions))
+            for offset in range(len(onset)):
+                if offset in position_set:
+                    last = offset
+                    since.append(0)
+                else:
+                    since.append(offset - last)
+            since_series = pd.Series(since, index=base.index)
+            prior = pd.Series(False, index=base.index)
+            for position in positions:
+                if any(0 < int(position) - int(previous) <= 20 for previous in positions if previous < position):
+                    prior.iloc[int(position)] = True
+            definitions.extend(
+                [
+                    ("post_1_5", since_series.between(1, 5), "state"),
+                    ("post_6_20", since_series.between(6, 20), "state"),
+                    ("repeat_within_20", prior, "event"),
+                ]
+            )
+        for definition, indicator, derived_kind in definitions:
+            name = f"dynamic__{parent}__{definition}"
+            _append_canonical_factor(
+                pieces,
+                records,
+                fingerprints,
+                indicator.astype(float).rename(name),
+                {
+                    "parent_factor": parent,
+                    "definition": definition,
+                    "factor_kind": derived_kind,
+                },
+            )
+    frame = pd.concat(pieces, axis=1) if pieces else pd.DataFrame(index=base.index)
+    return frame, records
+
+
+def build_cross_frequency_factors(
+    raw: pd.DataFrame,
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
+    """Construct exact same-state alignment and divergence across completed frequencies."""
+    grouped: dict[str, dict[str, str]] = {}
+    for column in map(str, raw.columns):
+        parts = column.split("__")
+        if len(parts) < 3 or parts[0] != "raw":
+            continue
+        grouped.setdefault("__".join(parts[2:]), {})[parts[1]] = column
+    pieces: list[pd.Series] = []
+    records: list[dict[str, object]] = []
+    fingerprints: dict[bytes, str] = {}
+    for signal, columns in sorted(grouped.items()):
+        if set(columns) != {"30m", "daily", "weekly"}:
+            continue
+        values = {
+            frequency: raw[column].map(parse_signal_value).map(lambda item: item.primary)
+            for frequency, column in columns.items()
+        }
+        common = sorted(
+            set(values["30m"].dropna())
+            & set(values["daily"].dropna())
+            & set(values["weekly"].dropna())
+            - NEUTRAL_VALUES
+        )
+        for category in common:
+            definitions = {
+                f"30m_daily::{category}": values["30m"].eq(category) & values["daily"].eq(category),
+                f"daily_weekly::{category}": values["daily"].eq(category) & values["weekly"].eq(category),
+                f"all::{category}": values["30m"].eq(category) & values["daily"].eq(category) & values["weekly"].eq(category),
+            }
+            for definition, indicator in definitions.items():
+                name = f"cross__{signal}__{definition}"
+                _append_canonical_factor(
+                    pieces,
+                    records,
+                    fingerprints,
+                    indicator.astype(float).rename(name),
+                    {
+                        "source_signal": signal,
+                        "definition": definition,
+                        "factor_kind": "state",
+                    },
+                )
+        for left, right, label in (
+            ("30m", "daily", "30m_daily_divergence"),
+            ("daily", "weekly", "daily_weekly_divergence"),
+        ):
+            valid = values[left].notna() & values[right].notna()
+            indicator = valid & values[left].ne(values[right])
+            name = f"cross__{signal}__{label}"
+            _append_canonical_factor(
+                pieces,
+                records,
+                fingerprints,
+                indicator.astype(float).rename(name),
+                {
+                    "source_signal": signal,
+                    "definition": label,
+                    "factor_kind": "state",
+                },
+            )
+    frame = pd.concat(pieces, axis=1) if pieces else pd.DataFrame(index=raw.index)
+    return frame, records
 
 
 def _support_reason(

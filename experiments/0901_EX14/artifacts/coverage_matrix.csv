@@ -1,0 +1,7 @@
+family,experiment,raw_signal_configs,canonical_factors,formal_admitted,global_survivors,status,conclusion
+atomic_structure,0901_EX06,120,899,117,0,PASS,no survivor after global multiplicity
+sparse_event,0901_EX07,30,81,4,0,PASS,no survivor after global multiplicity
+state_dynamic,0901_EX08,150,3491,259,1,PASS,one risk-relief exit event survived
+cross_frequency,0901_EX09,150,276,32,0,PASS,no survivor after global multiplicity
+champion_error_condition,0901_EX11,0,2,2,1,PASS,parent event confirmed at target 0 and 1
+eligible_pairwise_interaction,0901_EX12,0,1,0,0,FAIL,only AND pair was mutually exclusive zero

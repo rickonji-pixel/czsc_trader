@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -121,6 +122,23 @@ def test_execution_policy_selector_enforces_service_level_then_price() -> None:
     )
 
     assert select_execution_candidate(candidates)["candidate_id"] == "fixed"
+
+
+def test_execution_experiment_requires_frozen_policy_before_test_access(tmp_path: Path) -> None:
+    runner_path = REPO_ROOT / "experiments" / "0902_EX02" / "run_experiment.py"
+    spec = importlib.util.spec_from_file_location("execution_policy_experiment", runner_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    frozen = tmp_path / "frozen_execution_policy.json"
+
+    with pytest.raises(ValueError, match="frozen execution policy"):
+        module.assert_freeze_before_test(frozen, test_accessed=False)
+
+    frozen.write_text('{"status":"FROZEN"}\n', encoding="utf-8")
+    module.assert_freeze_before_test(frozen, test_accessed=False)
+    with pytest.raises(ValueError, match="already accessed"):
+        module.assert_freeze_before_test(frozen, test_accessed=True)
 
 
 def test_experiment_archive_normalizes_python_line_endings(tmp_path: Path) -> None:

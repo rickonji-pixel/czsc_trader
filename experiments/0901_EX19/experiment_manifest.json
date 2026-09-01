@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0901_EX19",
+  "date": "2026-09-01",
+  "status": "FAIL",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "baseline": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "protocol_sha256": "002e7334e9ba1ed54ef0b018f7634352aa662fe2e740c81b2a7affe1ac5c6e11",
+  "visible_sample_end": "2025-12-31",
+  "locked_test_accessed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 1007,
+      "sha256": "7a842a1e9da4ea4a1a60c14c1f9a763ba0e33e8928af19c05490c03f7d1bbab8"
+    },
+    "02_design.md": {
+      "bytes": 1874,
+      "sha256": "4a23c1b3b2fccc473ab52b7e2fd954051e1e054794fb32155aca0259aa566ed7"
+    },
+    "03_execution.md": {
+      "bytes": 367,
+      "sha256": "d7400a9e92d93a2ac740539082a67456b28861b36f7a815c344252c6f80ce717"
+    },
+    "04_conclusion.md": {
+      "bytes": 357,
+      "sha256": "ff49780db52ef1e524a79008c05be10cfd40728bdcc8a8626d82961a001b291a"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 6968,
+      "sha256": "9c436d71cf71ae063372bfd297cee02c7d612c944853be0b0b277577d341459a"
+    },
+    "artifacts/baseline_metrics.json": {
+      "bytes": 2960,
+      "sha256": "297d574287ab0d2ae57436a5475fd6d235f5f74c6a8d90f3b2c321ee1e249550"
+    },
+    "artifacts/candidate_funnel.json": {
+      "bytes": 119,
+      "sha256": "5c3052a3c9809be43ba168a5474c4bc9260f5ea248f80f137ab62c0101731653"
+    },
+    "artifacts/candidate_results.csv": {
+      "bytes": 149417,
+      "sha256": "64c7f1e1d3d3a7c227bd81e5d995ff766daa5e9bf023aad6c45ce3a76c619944"
+    },
+    "artifacts/identity_audit.json": {
+      "bytes": 1976,
+      "sha256": "e1f4ed7fa6ba83b5d9d0e6aeab2d3259f9ec65681ce3366902ff0d2b46c299a1"
+    },
+    "artifacts/metrics.json": {
+      "bytes": 618,
+      "sha256": "0317b9e3fc5b6a4975c35bda477fa08d9dabed027ac4c74a582b647eaf4b65eb"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1123,
+      "sha256": "002e7334e9ba1ed54ef0b018f7634352aa662fe2e740c81b2a7affe1ac5c6e11"
+    },
+    "artifacts/regime_support.csv": {
+      "bytes": 198,
+      "sha256": "4efda146b5aa28f6847f70c4c7fcbf1042cce6a504d68bb5f16145bc25fe075e"
+    }
+  }
+}

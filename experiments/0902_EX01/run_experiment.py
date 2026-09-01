@@ -23,7 +23,7 @@ from czsc_trader.experiment_archive import build_experiment_manifest, validate_e
 from czsc_trader.factors import generate_factor_frame, signal_groups
 from czsc_trader.four_layer import normalized_signal_factors, positions_from_scores
 from czsc_trader.regime_weight import classify_regimes, lagged_efficiency_ratio, project_group_weights, score_with_regime_weights
-from czsc_trader.robustness import cscv_pbo, cyclic_shifts, deflated_sharpe_ratio, parameter_geometry
+from czsc_trader.robustness import candidate_sharpes, cscv_pbo, cyclic_shifts, deflated_sharpe_ratio, parameter_geometry
 from czsc_trader.strategy_metrics import closed_trade_ledger, strategy_comparison_metrics
 
 
@@ -471,7 +471,7 @@ def run() -> dict[str, object]:
     _write_json(ARTIFACTS / "pbo_summary.json", pbo)
 
     selected_returns = returns["143"]
-    dsr = deflated_sharpe_ratio(selected_returns, metrics.set_index("candidate_id")["sharpe"])
+    dsr = deflated_sharpe_ratio(selected_returns, candidate_sharpes(returns))
     _write_json(ARTIFACTS / "deflated_sharpe.json", dsr)
 
     surface, neighbors = parameter_geometry(metrics, 143, PARAMETERS)

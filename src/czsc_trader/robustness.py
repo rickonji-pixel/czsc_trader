@@ -35,7 +35,10 @@ def contiguous_blocks(length: int, block_count: int) -> tuple[np.ndarray, ...]:
     return tuple(np.asarray(block, dtype=int) for block in np.array_split(np.arange(length), block_count))
 
 
-def _finite_sharpes(frame: pd.DataFrame) -> pd.Series:
+def candidate_sharpes(frame: pd.DataFrame) -> pd.Series:
+    """Calculate every candidate Sharpe on the shared 252-session scale."""
+    if frame.empty:
+        raise ValueError("candidate return frame must not be empty")
     sharpes = frame.apply(lambda column: annualized_sharpe(column.to_numpy()), axis=0)
     return sharpes.replace([np.inf, -np.inf], np.nan)
 
@@ -62,7 +65,7 @@ def cscv_pbo(
         validation_blocks = tuple(index for index in range(block_count) if index not in training_set)
         training_rows = np.concatenate([blocks[index] for index in training_blocks])
         validation_rows = np.concatenate([blocks[index] for index in validation_blocks])
-        training_sharpes = _finite_sharpes(matrix.iloc[training_rows])
+        training_sharpes = candidate_sharpes(matrix.iloc[training_rows])
         if training_sharpes.notna().sum() < 2:
             raise ValueError(f"split {split_id} has fewer than two finite training sharpes")
         selected = str(
@@ -71,7 +74,7 @@ def cscv_pbo(
                 key=lambda item: (-float(item[1]), str(item[0])),
             )[0][0]
         )
-        validation_sharpes = _finite_sharpes(matrix.iloc[validation_rows])
+        validation_sharpes = candidate_sharpes(matrix.iloc[validation_rows])
         selected_validation = float(validation_sharpes.loc[selected])
         finite_validation = validation_sharpes.dropna().sort_values(ascending=False, kind="stable")
         if len(finite_validation) < 2 or selected not in finite_validation.index:

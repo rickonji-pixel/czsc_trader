@@ -67,12 +67,18 @@ def test_robustness_cyclic_shifts_are_complete_and_unique() -> None:
 
 
 def test_robustness_deflated_sharpe_increases_with_selected_sharpe() -> None:
-    from czsc_trader.robustness import deflated_sharpe_ratio
+    from czsc_trader.robustness import candidate_sharpes, deflated_sharpe_ratio
 
     index = pd.date_range("2021-01-01", periods=500, freq="B")
     low = pd.Series(np.tile([0.003, -0.002], 250), index=index)
     high = pd.Series(np.tile([0.006, -0.002], 250), index=index)
     trials = pd.Series(np.linspace(0.1, 1.1, 625))
+
+    matrix = pd.DataFrame({"low": low, "high": high})
+    same_scale = candidate_sharpes(matrix)
+    assert same_scale["low"] == pytest.approx(
+        deflated_sharpe_ratio(low, same_scale)["observed_sharpe"]
+    )
 
     low_result = deflated_sharpe_ratio(low, trials)
     high_result = deflated_sharpe_ratio(high, trials)

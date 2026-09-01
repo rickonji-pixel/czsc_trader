@@ -43,6 +43,14 @@ def candidate_sharpes(frame: pd.DataFrame) -> pd.Series:
     return sharpes.replace([np.inf, -np.inf], np.nan)
 
 
+def _candidate_identity_key(value: object) -> tuple[int, int | str]:
+    text = str(value)
+    try:
+        return 0, int(text)
+    except ValueError:
+        return 1, text
+
+
 def cscv_pbo(
     returns: pd.DataFrame, block_count: int = 10
 ) -> tuple[pd.DataFrame, dict[str, float | int]]:
@@ -71,7 +79,7 @@ def cscv_pbo(
         selected = str(
             sorted(
                 training_sharpes.dropna().items(),
-                key=lambda item: (-float(item[1]), str(item[0])),
+                key=lambda item: (-float(item[1]), _candidate_identity_key(item[0])),
             )[0][0]
         )
         validation_sharpes = candidate_sharpes(matrix.iloc[validation_rows])
@@ -126,7 +134,7 @@ def deflated_sharpe_ratio(
         (1.0 - euler_gamma) * norm.ppf(1.0 - 1.0 / trial_count)
         + euler_gamma * norm.ppf(1.0 - 1.0 / (trial_count * np.e))
     )
-    expected_max = float(trials.mean() + trial_std * expected_standard_max)
+    expected_max = float(trial_std * expected_standard_max)
     observed = annualized_sharpe(values.to_numpy())
     daily_observed = observed / np.sqrt(252.0)
     daily_benchmark = expected_max / np.sqrt(252.0)
@@ -200,7 +208,24 @@ def cyclic_shifts(values: pd.Series) -> tuple[pd.Series, ...]:
     if len(values) < 2:
         raise ValueError("cyclic shifts require at least two observations")
     array = values.to_numpy(copy=True)
-    return tuple(
+    shifts = tuple(
         pd.Series(np.roll(array, -lag), index=values.index, name=values.name)
         for lag in range(1, len(values))
+    )
+    identities = {tuple(item.tolist()) for item in shifts}
+    if len(identities) != len(shifts):
+        raise ValueError("cyclic shifts are not unique for this signal sequence")
+    return shifts
+
+
+def placebo_signal_paths(
+    values: pd.Series, initial_target: float
+) -> tuple[tuple[int, pd.Series, float], ...]:
+    """Return observed and shifted paths with one common causal initial state."""
+    initial = float(initial_target)
+    if not np.isfinite(initial) or not 0.0 <= initial <= 1.0:
+        raise ValueError("initial_target must be finite and between zero and one")
+    return ((0, values.copy(), initial),) + tuple(
+        (lag, shifted, initial)
+        for lag, shifted in enumerate(cyclic_shifts(values), start=1)
     )

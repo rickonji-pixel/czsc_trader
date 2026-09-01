@@ -161,7 +161,7 @@ Update `test_all_frozen_experiment_archives_validate` to expect 47 archives endi
 
 - [ ] **Step 5: Validate the experiment and the full archive set**
 
-Run: `\.\.venv\Scripts\czsc-trader.exe archive validate --experiment 0902_EX01 --repo-root . --format json`
+Run: `\.\.venv\Scripts\czsc-trader.exe archive validate --archive experiments/0902_EX01 --repo-root . --format json`
 
 Run: `\.\.venv\Scripts\czsc-trader.exe archive validate --all --repo-root . --format json`
 

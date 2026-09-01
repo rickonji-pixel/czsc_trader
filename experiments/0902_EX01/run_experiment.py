@@ -23,7 +23,7 @@ from czsc_trader.experiment_archive import build_experiment_manifest, validate_e
 from czsc_trader.factors import generate_factor_frame, signal_groups
 from czsc_trader.four_layer import normalized_signal_factors, positions_from_scores
 from czsc_trader.regime_weight import classify_regimes, lagged_efficiency_ratio, project_group_weights, score_with_regime_weights
-from czsc_trader.robustness import candidate_sharpes, cscv_pbo, cyclic_shifts, deflated_sharpe_ratio, parameter_geometry
+from czsc_trader.robustness import candidate_sharpes, cscv_pbo, deflated_sharpe_ratio, parameter_geometry, placebo_signal_paths
 from czsc_trader.strategy_metrics import closed_trade_ledger, strategy_comparison_metrics
 
 
@@ -40,6 +40,7 @@ PARAMETERS = (
     "range_trend_multiplier",
     "range_volume_multiplier",
 )
+LOCKED_TEST_ACCESSED = False
 
 
 def _json_default(value: object) -> object:
@@ -101,8 +102,14 @@ def _critical_hashes() -> dict[str, str]:
         REPO_ROOT / "data" / "raw" / "588080_manifest.json",
         REPO_ROOT / "data" / "raw" / "588080_validation.json",
         REPO_ROOT / "src" / "czsc_trader" / "backtest.py",
+        REPO_ROOT / "src" / "czsc_trader" / "baseline_execution.py",
+        REPO_ROOT / "src" / "czsc_trader" / "data.py",
+        REPO_ROOT / "src" / "czsc_trader" / "factors.py",
         REPO_ROOT / "src" / "czsc_trader" / "four_layer.py",
         REPO_ROOT / "src" / "czsc_trader" / "regime_weight.py",
+        REPO_ROOT / "src" / "czsc_trader" / "robustness.py",
+        REPO_ROOT / "src" / "czsc_trader" / "strategy_metrics.py",
+        EXPERIMENT_DIR / "run_experiment.py",
     )
     return {path.relative_to(REPO_ROOT).as_posix(): _file_sha(path) for path in paths}
 
@@ -280,9 +287,14 @@ def _placebo_metrics(result: object, cash: float) -> dict[str, object]:
 
 
 def run_placebo_audit(protocol: dict[str, object]) -> tuple[pd.DataFrame, dict[str, object], dict[str, str]]:
+    global LOCKED_TEST_ACCESSED
+    registry = json.loads((BASELINE_ROOT / "registry.json").read_text(encoding="utf-8"))
+    if registry.get("latest") != "baseline_20260901":
+        raise ValueError("registry latest baseline is no longer baseline_20260901")
     active = resolve_baseline(BASELINE_ROOT, "baseline_20260901", symbol="588080.SH")
     if active.sha256 != protocol["active_baseline"]["sha256"] or active.strategy != "czsc_regime_weight":
         raise ValueError("active baseline identity differs")
+    LOCKED_TEST_ACCESSED = True
     data = load_market_data(RAW_DIR, "588080.SH", "etf", cutoff=protocol["placebo_end"])
     frame = generate_factor_frame(data).frame
     prices = _daily_prices(data)
@@ -295,16 +307,21 @@ def run_placebo_audit(protocol: dict[str, object]) -> tuple[pd.DataFrame, dict[s
         raise ValueError("placebo target sequence is incomplete")
     cash = float(protocol["init_cash"])
     fee = float(protocol["fee_rate"])
-    sequences = (target,) + cyclic_shifts(target)
+    prior_index = applied.target_position.index[applied.target_position.index < period_prices.index[0]]
+    if prior_index.empty:
+        raise ValueError("placebo window has no causal prior target")
+    prior_signal_date = pd.Timestamp(prior_index[-1])
+    prior_target = float(applied.target_position.loc[prior_signal_date])
+    sequences = placebo_signal_paths(target, prior_target)
     rows: list[dict[str, object]] = []
-    for lag, shifted in enumerate(sequences):
+    for lag, shifted, initial_target in sequences:
         result = run_backtest(
             period_prices,
             shifted,
             fee_rate=fee,
             init_cash=cash,
-            initial_target=float(shifted.iloc[-1]),
-            initial_signal_date=shifted.index[-1],
+            initial_target=initial_target,
+            initial_signal_date=prior_signal_date,
         )
         rows.append({"lag": lag, "is_observed": lag == 0, **_placebo_metrics(result, cash)})
     details = pd.DataFrame(rows)
@@ -326,7 +343,9 @@ def run_placebo_audit(protocol: dict[str, object]) -> tuple[pd.DataFrame, dict[s
         "exceedance_count": exceedances,
         "empirical_pvalue": pvalue,
         "observed_percentile": percentile,
-        "boundary_convention": "circular predecessor supplies initial execution target",
+        "prior_signal_date": str(prior_signal_date.date()),
+        "prior_target": prior_target,
+        "boundary_convention": "all paths use the frozen strategy's causal pre-window target",
     }
     return details, summary, data.hashes
 
@@ -474,9 +493,21 @@ def run() -> dict[str, object]:
     dsr = deflated_sharpe_ratio(selected_returns, candidate_sharpes(returns))
     _write_json(ARTIFACTS / "deflated_sharpe.json", dsr)
 
-    surface, neighbors = parameter_geometry(metrics, 143, PARAMETERS)
-    for metric in ("strategy_return", "sharpe", "max_drawdown", "calmar", "win_loss_ratio"):
+    surface, _ = parameter_geometry(metrics, 143, PARAMETERS)
+    reported_metrics = (
+        "strategy_return", "sharpe", "max_drawdown", "calmar",
+        "win_loss_ratio", "exposure", "trade_count", "closed_trade_count",
+    )
+    neighborhood = surface.loc[surface["manhattan_distance"].le(2.0)].copy()
+    for metric in reported_metrics:
         surface[f"{metric}_global_percentile"] = surface[metric].rank(pct=True, method="average")
+        local_percentile = neighborhood[metric].rank(pct=True, method="average")
+        surface[f"{metric}_neighborhood_percentile"] = surface["candidate_id"].map(
+            dict(zip(neighborhood["candidate_id"], local_percentile))
+        )
+    neighbors = surface.loc[
+        surface["manhattan_distance"].isin((1.0, 2.0))
+    ].sort_values(["manhattan_distance", "candidate_id"], kind="stable")
     _write_csv(ARTIFACTS / "parameter_surface.csv", surface)
     _write_csv(ARTIFACTS / "neighbor_geometry.csv", neighbors)
     _write_parameter_chart(surface, 143)
@@ -576,7 +607,7 @@ def _archive_error(exc: Exception) -> None:
             "protocol_sha256": _file_sha(PROTOCOL_PATH),
             "visible_sample_end": "2025-12-31",
             "locked_test_end": "2026-09-01",
-            "locked_test_accessed": False,
+            "locked_test_accessed": LOCKED_TEST_ACCESSED,
         },
     )
 

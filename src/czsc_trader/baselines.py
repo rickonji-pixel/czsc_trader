@@ -24,7 +24,6 @@ class ResolvedBaseline:
     rule: Rule
     rule_payload: dict[str, object]
     sha256: str
-    verification_snapshot: str
     strategy: str = "czsc_fixed_rule"
     status: str = "active"
     scope: str = "generic"
@@ -310,7 +309,6 @@ def resolve_baseline(
         rule=rule,
         rule_payload=payload,
         sha256=digest,
-        verification_snapshot=str(entry.get("verification_snapshot", "")),
         strategy=strategy,
         status=status,
         scope=scope,
@@ -330,7 +328,6 @@ def resolve_baseline(
 def promote_baseline(
     root: Path,
     selected_rule: Path,
-    verification_snapshot: str,
     now: datetime,
 ) -> ResolvedBaseline:
     """Explicitly freeze a selected rule as the next baseline version."""
@@ -352,7 +349,6 @@ def promote_baseline(
     baselines[version] = {
         "file": rule_path.name,
         "sha256": digest,
-        "verification_snapshot": verification_snapshot,
         "frozen_at_utc": now.isoformat(),
         "strategy": "czsc_fixed_rule",
         "required_frequencies": ["30m", "daily", "weekly"],

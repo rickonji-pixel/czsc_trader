@@ -504,7 +504,6 @@ def run_fixed_backtest(
             "baseline": {
                 "version": baseline.version,
                 "sha256": baseline.sha256,
-                "verification_snapshot": baseline.verification_snapshot,
                 "strategy": baseline.strategy,
                 "status": baseline.status,
                 "scope": baseline.scope,

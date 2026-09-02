@@ -5,7 +5,6 @@
     "baseline_20260823": {
       "file": "baseline_20260823.json",
       "sha256": "682be53a7b589a165d325be0c5a309765193d988301cd88f29b6111fefe3f5d5",
-      "verification_snapshot": "docs/baselines/588080_2026_expected.json",
       "frozen_at_utc": "2026-08-23T00:00:00+00:00",
       "strategy": "czsc_fixed_rule",
       "status": "archived",
@@ -19,7 +18,6 @@
     "baseline_20260826": {
       "file": "baseline_20260826.json",
       "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
-      "verification_snapshot": "",
       "frozen_at_utc": "2026-08-26T00:00:00+00:00",
       "strategy": "czsc_four_layer",
       "status": "archived",
@@ -37,7 +35,6 @@
     "baseline_20260901": {
       "file": "baseline_20260901.json",
       "sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
-      "verification_snapshot": "",
       "frozen_at_utc": "2026-09-01T00:00:00+00:00",
       "strategy": "czsc_regime_weight",
       "status": "active",

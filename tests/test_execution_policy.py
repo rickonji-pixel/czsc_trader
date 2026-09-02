@@ -135,7 +135,8 @@ def test_daily_advice_maps_target_and_actual_position_to_manual_action() -> None
     assert policy is not None
     common = {
         "signal_date": pd.Timestamp("2026-09-01"),
-        "close": 1.688,
+        "signal_close": 1.704,
+        "execution_close": 1.688,
         "quantity": 50_000,
         "policy": policy,
     }
@@ -150,6 +151,8 @@ def test_daily_advice_maps_target_and_actual_position_to_manual_action() -> None
     assert entry["order"]["order_type"] == "限价委托"
     assert entry["order"]["maximum_buy_price"] == pytest.approx(1.688)
     assert entry["order"]["low_open_warning_price"] == pytest.approx(1.676)
+    assert entry["signal_reference_price"] == pytest.approx(1.704)
+    assert entry["execution_reference_price"] == pytest.approx(1.688)
     assert entry["order"]["valid_for"] == "NEXT_TRADING_SESSION"
     assert (holding["state"], holding["action"]) == ("HOLDING", "HOLD")
     assert (exit_advice["state"], exit_advice["action"]) == ("PENDING_EXIT", "SELL")

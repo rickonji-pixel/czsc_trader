@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "symbol": "588080.SH",
+  "name": "易方达上证科创板50成份ETF",
+  "code": "588080",
+  "asset_type": "etf",
+  "vendor": "tushare",
+  "adjustment": "none",
+  "requested_start": "2020-01-01",
+  "requested_end": "2026-09-01",
+  "generated_at_utc": "2026-09-02T07:25:21.994083+00:00",
+  "files": {
+    "588080_execution_daily_2020.csv": {
+      "frequency": "daily",
+      "year": 2020,
+      "rows": 34,
+      "first": "2020-11-16T00:00:00",
+      "last": "2020-12-31T00:00:00",
+      "sha256": "7de117f2cdbe656921e6e3fcd51dab366170c637d2122bbc71cc63e83e62a0f4"
+    },
+    "588080_execution_daily_2021.csv": {
+      "frequency": "daily",
+      "year": 2021,
+      "rows": 243,
+      "first": "2021-01-04T00:00:00",
+      "last": "2021-12-31T00:00:00",
+      "sha256": "24f2ace23811ca32e935236c605230eb00f8e74eacf5e88e8b670c3bccd006a4"
+    },
+    "588080_execution_daily_2022.csv": {
+      "frequency": "daily",
+      "year": 2022,
+      "rows": 242,
+      "first": "2022-01-04T00:00:00",
+      "last": "2022-12-30T00:00:00",
+      "sha256": "7c7b8c91eff9c9fa546359f4b5b87b6c14b74243a1e327761a309621d8bea18a"
+    },
+    "588080_execution_daily_2023.csv": {
+      "frequency": "daily",
+      "year": 2023,
+      "rows": 242,
+      "first": "2023-01-03T00:00:00",
+      "last": "2023-12-29T00:00:00",
+      "sha256": "ae964cfb3ec985c54daf112672b7044efe36773e05d8fc77d50b81b6def88bde"
+    },
+    "588080_execution_daily_2024.csv": {
+      "frequency": "daily",
+      "year": 2024,
+      "rows": 242,
+      "first": "2024-01-02T00:00:00",
+      "last": "2024-12-31T00:00:00",
+      "sha256": "51e90a0fb986522c42ce7b5bc1128efd74492beae2fa36af98a1b78ac2ed42c6"
+    },
+    "588080_execution_daily_2025.csv": {
+      "frequency": "daily",
+      "year": 2025,
+      "rows": 243,
+      "first": "2025-01-02T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "cc057ba56d7f5c065550b654b701cb27eb6b1f9a2607becb6f322b20699bad50"
+    },
+    "588080_execution_daily_2026.csv": {
+      "frequency": "daily",
+      "year": 2026,
+      "rows": 161,
+      "first": "2026-01-05T00:00:00",
+      "last": "2026-09-01T00:00:00",
+      "sha256": "e397eab9a4a78c2dcc2eab373388b5d51b2f960b3fa5d956fd0048f5805c659d"
+    }
+  },
+  "fetch_metadata": {
+    "vendor": "tushare",
+    "market": "a_share",
+    "vendor_symbol": "588080.SH",
+    "period": "daily",
+    "asset_type": "etf",
+    "adjustment": "none"
+  }
+}

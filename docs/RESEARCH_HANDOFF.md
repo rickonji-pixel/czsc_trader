@@ -68,9 +68,10 @@ regime；`ER60`大于等于阈值为trend，低于阈值为range。trend表示�
 
 ## 数据状态
 
-所有A股ETF数据均通过 `czsc-dataflows` 从Tushare获取，并统一采用后复权
-（`hfq`）。`data prepare`发布30分钟、日线、周线、manifest和validation；
-`data validate`只验证本地发布结果，不联网。
+所有A股ETF数据均通过 `czsc-dataflows` 从Tushare获取。策略行情统一采用后复权
+（`hfq`）；委托定价使用同一来源、同一交易日的未复权日线，并通过独立
+execution manifest校验。`data prepare`同时发布两种价格口径；`data validate`
+只验证本地策略行情，`advice run`还会强制验证未复权执行价格，不联网。
 
 | 标的 | 名称 | 数据起始 | 数据截止 |
 | --- | --- | --- | --- |

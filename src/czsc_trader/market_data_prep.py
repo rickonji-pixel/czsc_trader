@@ -32,6 +32,9 @@ VENDOR_COLUMNS = ("Date", "Open", "High", "Low", "Close", "Volume", "Amount")
 MarketFetcher: TypeAlias = Callable[
     [str, str, date, date, str], tuple[pd.DataFrame, dict[str, str]]
 ]
+ExecutionPriceFetcher: TypeAlias = Callable[
+    [str, str, date, date], tuple[pd.DataFrame, dict[str, str]]
+]
 InstrumentNameFetcher: TypeAlias = Callable[[str, str], str]
 
 
@@ -202,6 +205,27 @@ def _default_fetcher(
     )
 
 
+def _default_execution_price_fetcher(
+    symbol: str,
+    asset_type: str,
+    start: date,
+    end: date,
+    *,
+    env_file: str | Path | None = None,
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    if asset_type == "stock":
+        from dataflows.tushare_stock import fetch_stock_unadjusted_daily
+
+        return fetch_stock_unadjusted_daily(
+            symbol, start.isoformat(), end.isoformat(), env_file=env_file
+        )
+    from dataflows.tushare_etf import fetch_etf_unadjusted_daily
+
+    return fetch_etf_unadjusted_daily(
+        symbol, start.isoformat(), end.isoformat(), env_file=env_file
+    )
+
+
 def _csv_frame(frame: pd.DataFrame, period: str) -> pd.DataFrame:
     source = _normalize_frame(frame, period).rename(
         columns={
@@ -229,6 +253,7 @@ def prepare_market_data(
     data_dir: Path,
     *,
     fetcher: MarketFetcher | None = None,
+    execution_fetcher: ExecutionPriceFetcher | None = None,
     name_fetcher: InstrumentNameFetcher | None = None,
     env_file: str | Path | None = None,
 ) -> dict[str, object]:
@@ -263,6 +288,21 @@ def prepare_market_data(
             raise ValueError(f"{period}: asset type does not match request")
         frames[period] = frame
         metadata[period] = item_metadata
+    effective_execution_fetcher = execution_fetcher or partial(
+        _default_execution_price_fetcher, env_file=env_file
+    )
+    execution_frame, execution_metadata = effective_execution_fetcher(
+        normalized_symbol, normalized_asset, start, end
+    )
+    execution_frame = _normalize_frame(execution_frame, "execution daily")
+    if execution_metadata.get("vendor_symbol") != normalized_symbol:
+        raise ValueError("execution daily: vendor symbol does not match request")
+    if execution_metadata.get("asset_type") != normalized_asset:
+        raise ValueError("execution daily: asset type does not match request")
+    if execution_metadata.get("period") != "daily":
+        raise ValueError("execution daily: period must be daily")
+    if execution_metadata.get("adjustment") != "none":
+        raise ValueError("execution daily: prices must be unadjusted")
     adjusted_metadata = [
         item for item in metadata.values() if item.get("adjustment") is not None
     ]
@@ -320,6 +360,23 @@ def prepare_market_data(
                     "last": timestamps.max().isoformat(),
                     "sha256": raw_file_sha256(path),
                 }
+        execution_records: dict[str, dict[str, object]] = {}
+        execution_output = _csv_frame(execution_frame, "daily")
+        execution_years = pd.to_datetime(execution_output["date"]).dt.year
+        for year in sorted(execution_years.unique()):
+            yearly = execution_output.loc[execution_years == year].reset_index(drop=True)
+            filename = f"{code}_execution_daily_{int(year)}.csv"
+            path = staging / filename
+            yearly.to_csv(path, index=False, encoding="utf-8-sig", lineterminator="\n")
+            timestamps = pd.to_datetime(yearly["date"])
+            execution_records[filename] = {
+                "frequency": "daily",
+                "year": int(year),
+                "rows": int(len(yearly)),
+                "first": timestamps.min().isoformat(),
+                "last": timestamps.max().isoformat(),
+                "sha256": raw_file_sha256(path),
+            }
         generated_at = datetime.now(timezone.utc).isoformat()
         manifest = {
             "schema_version": 2 if adjustment is not None else 1,
@@ -336,6 +393,20 @@ def prepare_market_data(
         }
         if adjustment is not None:
             manifest["adjustment"] = adjustment
+        execution_manifest = {
+            "schema_version": 1,
+            "symbol": normalized_symbol,
+            "name": instrument_name,
+            "code": code,
+            "asset_type": normalized_asset,
+            "vendor": execution_metadata["vendor"],
+            "adjustment": "none",
+            "requested_start": start.isoformat(),
+            "requested_end": end.isoformat(),
+            "generated_at_utc": generated_at,
+            "files": execution_records,
+            "fetch_metadata": execution_metadata,
+        }
         (staging / f"{code}_manifest.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
@@ -344,10 +415,16 @@ def prepare_market_data(
             + "\n",
             encoding="utf-8",
         )
+        (staging / f"{code}_execution_manifest.json").write_text(
+            json.dumps(execution_manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
         candidates = [
             *[staging / filename for filename in file_records],
+            *[staging / filename for filename in execution_records],
             staging / f"{code}_manifest.json",
             staging / f"{code}_validation.json",
+            staging / f"{code}_execution_manifest.json",
         ]
         backup_root = staging / "backups"
         backup_root.mkdir()
@@ -374,5 +451,9 @@ def prepare_market_data(
         "asset_type": normalized_asset,
         "validation_status": "PASS",
         "manifest": str((data_dir / f"{code}_manifest.json").resolve()),
+        "execution_price_manifest": str(
+            (data_dir / f"{code}_execution_manifest.json").resolve()
+        ),
         "files": sorted(file_records),
+        "execution_price_files": sorted(execution_records),
     }

@@ -8,7 +8,7 @@ import pandas as pd
 
 from czsc_trader.baseline_execution import apply_resolved_baseline
 from czsc_trader.baselines import resolve_baseline
-from czsc_trader.data import load_market_data
+from czsc_trader.data import load_execution_prices, load_market_data
 from czsc_trader.execution_policies import ResolvedExecutionPolicy, resolve_execution_policy
 from czsc_trader.execution_policy import floor_to_tick
 from czsc_trader.factors import generate_factor_frame
@@ -37,7 +37,8 @@ def _validate_account_input(actual_position: int, quantity: int) -> None:
 def build_advice(
     *,
     signal_date: pd.Timestamp,
-    close: float,
+    signal_close: float,
+    execution_close: float,
     target_position: int,
     actual_position: int,
     quantity: int,
@@ -54,14 +55,21 @@ def build_advice(
         "target_position": target_position,
         "actual_position": actual_position,
         "quantity": quantity,
+        "signal_reference_price": float(signal_close),
+        "execution_reference_price": float(execution_close),
+        "execution_price_adjustment": "none",
     }
     if target_position == 0 and actual_position == 0:
         return {**common, "state": "CASH", "action": "WAIT", "order": None}
     if target_position == 1 and actual_position == 1:
         return {**common, "state": "HOLDING", "action": "HOLD", "order": None}
     if target_position == 1:
-        maximum = floor_to_tick(float(close) * (1.0 + policy.parameter), policy.tick)
-        warning = floor_to_tick(float(close) * (1.0 + policy.warning_gap_q05), policy.tick)
+        maximum = floor_to_tick(
+            float(execution_close) * (1.0 + policy.parameter), policy.tick
+        )
+        warning = floor_to_tick(
+            float(execution_close) * (1.0 + policy.warning_gap_q05), policy.tick
+        )
         return {
             **common,
             "state": "PENDING_ENTRY",
@@ -109,6 +117,9 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
         )
         assert policy is not None
         data = load_market_data(context.raw_dir, request.symbol, request.asset_type)
+        execution_prices = load_execution_prices(
+            context.raw_dir, request.symbol, request.asset_type
+        )
         factor_result = generate_factor_frame(data)
         close = pd.Series(
             data.daily["close"].astype(float).to_numpy(),
@@ -121,10 +132,17 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
             daily_close=close,
         )
         signal_date = pd.Timestamp(close.index[-1])
+        execution_rows = execution_prices.loc[execution_prices["dt"].eq(signal_date)]
+        if len(execution_rows) != 1:
+            raise ValueError(
+                f"execution price must contain exactly one row for {signal_date.date()}"
+            )
+        execution_close = float(execution_rows.iloc[0]["close"])
         target = int(applied.target_position.loc[signal_date])
         advice = build_advice(
             signal_date=signal_date,
-            close=float(close.loc[signal_date]),
+            signal_close=float(close.loc[signal_date]),
+            execution_close=execution_close,
             target_position=target,
             actual_position=request.actual_position,
             quantity=request.quantity,

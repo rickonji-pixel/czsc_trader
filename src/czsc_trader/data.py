@@ -261,3 +261,51 @@ def load_market_data(
         manifest_asset,
         visible_manifest,
     )
+
+
+def load_execution_prices(
+    raw_dir: Path,
+    symbol: str = SYMBOL,
+    asset_type: str | None = None,
+    *,
+    cutoff: pd.Timestamp | str | None = None,
+) -> pd.DataFrame:
+    """Load manifest-verified unadjusted daily prices used for order pricing."""
+    raw_dir = Path(raw_dir)
+    normalized_symbol, code = _symbol_parts(symbol)
+    manifest = _read_json_object(raw_dir / f"{code}_execution_manifest.json")
+    if manifest.get("symbol") != normalized_symbol:
+        raise ValueError("execution-price manifest symbol does not match request")
+    if asset_type is not None and manifest.get("asset_type") != str(asset_type).lower():
+        raise ValueError("execution-price manifest asset type does not match request")
+    if manifest.get("adjustment") != "none":
+        raise ValueError("execution prices must be unadjusted")
+    records = manifest.get("files")
+    if not isinstance(records, dict) or not records:
+        raise ValueError("execution-price manifest files must be a non-empty object")
+    cutoff_ts = pd.Timestamp(cutoff).normalize() if cutoff is not None else None
+    frames: list[pd.DataFrame] = []
+    for filename, record in records.items():
+        if not isinstance(record, dict):
+            raise ValueError(f"{filename}: invalid execution-price record")
+        match = re.fullmatch(rf"{code}_execution_daily_(\d{{4}})\.csv", str(filename))
+        if not match:
+            raise ValueError(f"{filename}: invalid execution-price filename")
+        if record.get("frequency") != "daily":
+            raise ValueError(f"{filename}: execution-price frequency must be daily")
+        if cutoff_ts is not None and int(match.group(1)) > cutoff_ts.year:
+            continue
+        path = raw_dir / str(filename)
+        digest = raw_file_sha256(path)
+        if str(record.get("sha256", "")).lower() != digest:
+            raise ValueError(f"{filename}: SHA-256 differs from manifest")
+        frame = _read_one(path, "daily", normalized_symbol)
+        if cutoff_ts is not None:
+            frame = frame.loc[frame["dt"] <= cutoff_ts].copy()
+        if not frame.empty:
+            frames.append(frame)
+    if not frames:
+        raise ValueError(f"{code}: no visible execution prices")
+    result = pd.concat(frames, ignore_index=True).sort_values("dt").reset_index(drop=True)
+    _validate_frame(result, "execution daily")
+    return result

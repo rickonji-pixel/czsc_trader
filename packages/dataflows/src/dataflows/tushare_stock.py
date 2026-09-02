@@ -245,6 +245,36 @@ def fetch_stock_ohlcv(
     return dataframe.copy(), metadata
 
 
+def fetch_stock_unadjusted_daily(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    *,
+    env_file: str | Path | None = None,
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    """Return unadjusted daily A-share prices for executable order pricing."""
+    dataframe, market, ts_code = _fetch_tushare_ohlcv(
+        symbol,
+        start_date,
+        end_date,
+        period="daily",
+        asset_type="stock",
+        env_file=env_file,
+    )
+    if market != MARKET_A_SHARE:
+        raise ValueError("unadjusted execution prices currently require an A-share symbol")
+    if dataframe.empty:
+        raise ValueError(f"Tushare returned no data for {symbol} unadjusted daily")
+    return dataframe.copy(), {
+        "vendor": "tushare",
+        "market": market,
+        "vendor_symbol": ts_code,
+        "period": "daily",
+        "asset_type": "stock",
+        "adjustment": "none",
+    }
+
+
 def get_stock(
     symbol: str,
     start_date: str,

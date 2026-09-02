@@ -256,6 +256,33 @@ def fetch_etf_ohlcv(
     return dataframe.copy(), metadata
 
 
+def fetch_etf_unadjusted_daily(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    *,
+    env_file: str | Path | None = None,
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    """Return unadjusted daily ETF prices for executable order pricing."""
+    dataframe, market, ts_code = _fetch_tushare_etf_ohlcv(
+        symbol,
+        start_date,
+        end_date,
+        period="daily",
+        env_file=env_file,
+    )
+    if dataframe.empty:
+        raise ValueError(f"Tushare returned no data for {symbol} unadjusted daily")
+    return dataframe.copy(), {
+        "vendor": "tushare",
+        "market": market,
+        "vendor_symbol": ts_code,
+        "period": "daily",
+        "asset_type": "etf",
+        "adjustment": "none",
+    }
+
+
 def get_etf(
     symbol: str,
     start_date: str,

@@ -39,8 +39,10 @@ CLI只保留五类资源：`data`、`baseline`、`backtest`、`advice`、`archiv
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
 ```
 
-A股股票与ETF统一使用Tushare后复权（`hfq`）行情。发布器同时生成并校验
-30分钟、日线和周线文件以及manifest、validation文件。
+A股股票与ETF统一使用Tushare后复权（`hfq`）行情计算策略。发布器同时生成
+并校验30分钟、日线和周线文件以及manifest、validation文件；另行发布带独立
+manifest的未复权日线，仅用于生成可交易委托价格。策略价格与执行价格必须按
+交易日期严格对齐，二者不得混用。
 
 当前Git跟踪数据：
 
@@ -103,8 +105,9 @@ BuyHold与MA5/MA20双均线策略。若活动执行规则与标的、活动基�
   --actual-position 1 --quantity 50000
 ```
 
-命令读取最新完整收盘数据，使用活动信号基线和活动执行规则生成下一交易日
-建议。`--actual-position`必须明确传入0或1；`--quantity`必须为正数且符合
+命令读取最新完整收盘数据，使用后复权行情计算活动信号，并使用同日未复权
+收盘价和活动执行规则生成下一交易日建议。结果分别输出
+`signal_reference_price`和`execution_reference_price`。`--actual-position`必须明确传入0或1；`--quantity`必须为正数且符合
 100份整数倍。输出包含目标仓位、实际仓位、状态、动作、委托类型、买入最高
 价或卖出操作说明，以及两个冻结版本的身份。
 

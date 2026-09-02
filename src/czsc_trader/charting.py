@@ -193,6 +193,25 @@ def build_period_chart(
             name="日K",
             increasing_line_color="#d62728",
             decreasing_line_color="#2ca02c",
+            hoverinfo="skip",
+        ),
+        row=1,
+        col=1,
+    )
+    figure.add_trace(
+        go.Scatter(
+            x=period.index,
+            y=period["close"],
+            mode="markers",
+            name="日K数据",
+            showlegend=False,
+            marker={"color": "rgba(0,0,0,0)", "size": 12},
+            customdata=period[["open", "high", "low", "close"]].to_numpy(),
+            hovertemplate=(
+                "开 %{customdata[0]:.3f}<br>高 %{customdata[1]:.3f}"
+                "<br>低 %{customdata[2]:.3f}<br>收 %{customdata[3]:.3f}"
+                "<extra>日K</extra>"
+            ),
         ),
         row=1,
         col=1,

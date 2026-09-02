@@ -103,3 +103,25 @@ def test_default_publication_starts_at_1900_and_retries_after_five_minutes() -> 
     scheduler.tick(datetime(2026, 9, 2, 19, 5, 0))
 
     assert publisher.calls == ["2026-09-02", "2026-09-02"]
+
+
+def test_channel_failure_is_isolated_and_backed_off() -> None:
+    from paper_trading_engine.scheduler import RuntimeScheduler
+
+    class BrokenAccount(Engine):
+        def refresh_account(self):
+            self.calls.append("account")
+            raise RuntimeError("network down")
+
+    engine, store = BrokenAccount(), Store()
+    scheduler = RuntimeScheduler(engine, Publisher(), store, order_interval=5, account_interval=5)
+    scheduler.tick(datetime(2026, 9, 2, 10, 0, 0))
+    scheduler.tick(datetime(2026, 9, 2, 10, 0, 1))
+    scheduler.tick(datetime(2026, 9, 2, 10, 0, 5))
+    scheduler.tick(datetime(2026, 9, 2, 10, 0, 10))
+    scheduler.tick(datetime(2026, 9, 2, 10, 0, 20))
+
+    assert engine.calls.count("account") == 3
+    assert engine.calls.count("orders") == 4
+    assert [event[0] for event in store.events].count("SCHEDULER_OPERATION_FAILED") == 1
+    assert scheduler._failures["account"]["count"] == 3

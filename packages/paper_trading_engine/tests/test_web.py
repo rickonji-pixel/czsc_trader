@@ -38,6 +38,12 @@ class FakeEngine:
         self.cancelled.append(order_id)
         return self.status()
 
+    def pause_virtual(self, account_id):
+        return {"account_id": account_id, "paused": True}
+
+    def resume_virtual(self, account_id):
+        return {"account_id": account_id, "paused": False}
+
 
 def request_json(url: str, method: str = "GET", payload=None):
     data = None if payload is None else json.dumps(payload).encode("utf-8")
@@ -116,6 +122,10 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         assert 'id="account"' not in html
         assert 'id="decision"' not in html
         assert 'id="rawDetails"' in html
+        assert "最大回撤" in html
+        assert "卡玛比率" in html
+        assert "盈亏比" in html
+        assert "JSON.stringify(payload" not in html
     finally:
         server.shutdown()
         server.server_close()
@@ -172,3 +182,19 @@ def test_interventions_require_json_content_type() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_virtual_account_pause_and_resume_routes() -> None:
+    from paper_trading_engine.web import create_server
+
+    server = create_server(FakeEngine(), host="127.0.0.1", port=0)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        paused = request_json(base + "/api/virtual-accounts/baseline-143/pause", "POST", {})[1]
+        resumed = request_json(base + "/api/virtual-accounts/baseline-143/resume", "POST", {})[1]
+        assert paused == {"account_id": "baseline-143", "paused": True}
+        assert resumed["paused"] is False
+    finally:
+        server.shutdown(); server.server_close(); thread.join(timeout=3)

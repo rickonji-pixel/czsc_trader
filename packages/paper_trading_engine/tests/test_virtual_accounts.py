@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import date
 
 
 def test_virtual_accounts_are_isolated_and_persistent(tmp_path):
@@ -28,3 +29,39 @@ def test_virtual_fill_requires_strict_penetration():
     assert equal.status == "TOUCH_UNCERTAIN"
     assert below.price == Decimal("1.500")
     assert improved.price == Decimal("1.490")
+
+
+def test_virtual_engine_settles_then_generates_next_decision(tmp_path):
+    from paper_trading_engine.contracts import AdviceDecision, OrderSpec
+    from paper_trading_engine.store import PaperStore
+    from paper_trading_engine.virtual_engine import VirtualAccountEngine
+
+    class Advice:
+        def get_decision(self, actual_quantity, available_cash, cycle_target_quantity=None, baseline=None):
+            order = OrderSpec("BUY", 10_000, "LIMIT", 1.5, "DAY") if actual_quantity == 0 else None
+            return AdviceDecision(
+                "advice.v3", f"DEC-{actual_quantity}", "588080.SH", date(2026, 9, 2),
+                date(2026, 9, 3), actual_quantity, 10_000, 10_000,
+                10_000 - actual_quantity, "BUY" if order else "HOLD",
+                {"version": baseline, "sha256": "a" * 64}, 1.5, 1.5,
+                date(2026, 9, 2), order, () if order is None else (order,),
+                available_cash, 0.0005, 0.0, available_cash,
+            )
+
+    store = PaperStore(tmp_path / "runtime.db")
+    store.create_virtual_account("a", "策略A", "baseline_20260903", "a" * 64, Decimal("1000000"))
+    engine = VirtualAccountEngine(store, Advice())
+    first = engine.refresh_account("a", date(2026, 9, 2), None)
+    assert len(first["orders"]) == 1
+    assert len(store.virtual_intents("a")) == 1
+    second = engine.refresh_account(
+        "a", date(2026, 9, 3),
+        {"open": 1.49, "high": 1.52, "low": 1.48, "close": 1.51, "volume": 5_000_000},
+    )
+    assert second["quantity"] == 10_000
+    assert Decimal(second["cash"]) == Decimal("985092.5500")
+    assert len(second["fills"]) == 1
+    assert second["metrics"]["observation_start"] == "2026-09-03"
+    assert second["snapshots"][0]["total_assets"] == "1000192.5500"
+    engine.refresh_account("a", date(2026, 9, 3), second["bar"])
+    assert len(store.virtual_fills("a")) == 1

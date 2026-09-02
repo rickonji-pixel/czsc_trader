@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from urllib.parse import unquote, urlparse
 from typing import Protocol
 
 from .dashboard import DASHBOARD
@@ -15,6 +16,8 @@ class Operations(Protocol):
     def resume(self) -> dict[str, object]: ...
     def issue_cancel_token(self, channel_order_id: str) -> str: ...
     def confirm_cancel(self, channel_order_id: str, token: str) -> dict[str, object]: ...
+    def pause_virtual(self, account_id: str) -> dict[str, object]: ...
+    def resume_virtual(self, account_id: str) -> dict[str, object]: ...
 
 
 def create_server(
@@ -67,10 +70,20 @@ def create_server(
                     result = operations.confirm_cancel(
                         str(body["channel_order_id"]), str(body["token"])
                     )
+                elif (parts := urlparse(self.path).path.strip("/").split("/"))[:2] == ["api", "virtual-accounts"] and len(parts) == 4:
+                    account_id = unquote(parts[2])
+                    if parts[3] == "pause":
+                        result = operations.pause_virtual(account_id)
+                    elif parts[3] == "resume":
+                        result = operations.resume_virtual(account_id)
+                    else:
+                        self._json(404, {"error": "not found"}); return
                 else:
                     self._json(404, {"error": "not found"})
                     return
                 self._json(200, result)
+            except KeyError as exc:
+                self._json(404, {"error": f"unknown resource: {exc.args[0]}"})
             except Exception as exc:
                 self._json(409, {"error": str(exc)})
 

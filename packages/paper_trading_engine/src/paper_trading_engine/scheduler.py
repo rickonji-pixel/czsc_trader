@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from threading import Event
 
 
@@ -17,6 +17,7 @@ class RuntimeScheduler:
         account_interval: float = 60,
         decision_interval: float = 5,
         publish_time: str = "19:00",
+        virtual_refresh=None,
     ) -> None:
         self.engine = engine
         self.publisher = publisher
@@ -25,10 +26,47 @@ class RuntimeScheduler:
         self.account_interval = float(account_interval)
         self.decision_interval = float(decision_interval)
         self.publish_time = time.fromisoformat(publish_time)
+        self.virtual_refresh = virtual_refresh
         self._last_order: datetime | None = None
         self._last_account: datetime | None = None
         self._last_decision: datetime | None = None
         self._last_publish_attempt: datetime | None = None
+        self._failures: dict[str, dict[str, object]] = {}
+        self._retry_delays = (5, 15, 30, 60, 300)
+
+    def _guard(self, name: str, now: datetime, operation) -> bool:
+        state = self._failures.get(name)
+        if state is not None and now < state["next_retry"]:
+            return False
+        try:
+            operation()
+        except Exception as exc:
+            fingerprint = f"{type(exc).__name__}:{exc}"
+            previous = self._failures.get(name)
+            count = 1 if previous is None or previous["fingerprint"] != fingerprint else int(previous["count"]) + 1
+            first_at = now if count == 1 else previous["first_at"]
+            delay = self._retry_delays[min(count - 1, len(self._retry_delays) - 1)]
+            self._failures[name] = {
+                "fingerprint": fingerprint, "count": count, "first_at": first_at,
+                "last_at": now, "next_retry": now + timedelta(seconds=delay),
+            }
+            if count == 1:
+                self.store.add_event(
+                    "SCHEDULER_OPERATION_FAILED",
+                    {"operation": name, "error": str(exc), "failure_count": count,
+                     "first_at": now.isoformat(), "retry_after_seconds": delay},
+                )
+            return False
+        else:
+            if name in self._failures:
+                previous = self._failures.pop(name)
+                self.store.add_event(
+                    "SCHEDULER_OPERATION_RECOVERED",
+                    {"operation": name, "previous_error": previous["fingerprint"],
+                     "failure_count": previous["count"], "first_at": previous["first_at"].isoformat(),
+                     "last_at": previous["last_at"].isoformat()},
+                )
+            return True
 
     @staticmethod
     def _due(last: datetime | None, now: datetime, seconds: float) -> bool:
@@ -36,13 +74,13 @@ class RuntimeScheduler:
 
     def tick(self, now: datetime) -> None:
         if self._due(self._last_account, now, self.account_interval):
-            self.engine.refresh_account()
+            self._guard("account", now, self.engine.refresh_account)
             self._last_account = now
         if self._due(self._last_order, now, self.order_interval):
-            self.engine.refresh_orders()
+            self._guard("orders", now, self.engine.refresh_orders)
             self._last_order = now
         if self._due(self._last_decision, now, self.decision_interval):
-            self.engine.refresh_decision_if_changed()
+            self._guard("decision", now, self.engine.refresh_decision_if_changed)
             self._last_decision = now
         today = now.date().isoformat()
         publish_due = self._due(self._last_publish_attempt, now, 300)
@@ -61,6 +99,8 @@ class RuntimeScheduler:
                 self.store.set_setting("last_data_publish_date", today)
                 self.store.set_setting("data_publication_error", "")
                 self.store.add_event("DATA_PUBLISHED", {"date": today, "result": result})
+                if self.virtual_refresh is not None:
+                    self._guard("virtual_accounts", now, lambda: self.virtual_refresh(now.date()))
 
     def run(self, stopped: Event) -> None:
         while not stopped.is_set():

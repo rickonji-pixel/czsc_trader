@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
+import re
 from threading import RLock
 from typing import Any
 
@@ -68,14 +69,65 @@ class PaperStore:
                 initial_cash TEXT NOT NULL,
                 cash TEXT NOT NULL,
                 quantity INTEGER NOT NULL DEFAULT 0,
+                average_cost TEXT NOT NULL DEFAULT '0.0000',
+                realized_pnl TEXT NOT NULL DEFAULT '0.0000',
                 cycle_target INTEGER,
                 paused INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS virtual_intents (
+                intent_id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                decision_id TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(account_id, decision_id, intent_id)
+            );
+            CREATE TABLE IF NOT EXISTS virtual_orders (
+                order_id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                decision_id TEXT NOT NULL,
+                valid_session TEXT NOT NULL,
+                side TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                limit_price TEXT NOT NULL,
+                status TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(account_id, decision_id, order_id)
+            );
+            CREATE TABLE IF NOT EXISTS virtual_fills (
+                fill_id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                order_id TEXT NOT NULL UNIQUE,
+                session TEXT NOT NULL,
+                side TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                price TEXT NOT NULL,
+                fee TEXT NOT NULL,
+                realized_pnl TEXT NOT NULL DEFAULT '0.0000',
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS virtual_snapshots (
+                account_id TEXT NOT NULL,
+                session TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(account_id, session)
+            );
             """
         )
+        self._ensure_column("virtual_accounts", "average_cost", "TEXT NOT NULL DEFAULT '0.0000'")
+        self._ensure_column("virtual_accounts", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
+        self._ensure_column("virtual_fills", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._connection.commit()
+
+    def _ensure_column(self, table: str, column: str, declaration: str) -> None:
+        columns = {row["name"] for row in self._connection.execute(f"PRAGMA table_info({table})")}
+        if column not in columns:
+            self._connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
 
     def close(self) -> None:
         with self._lock:
@@ -116,8 +168,14 @@ class PaperStore:
     def create_virtual_account(self, account_id, name, baseline_version, baseline_sha256, initial_cash):
         from decimal import Decimal
         cash = Decimal(initial_cash).quantize(Decimal("0.0001"))
-        if cash <= 0:
+        if not cash.is_finite() or cash <= 0:
             raise ValueError("initial cash must be positive")
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", str(account_id)) is None:
+            raise ValueError("account id must use 1-64 letters, digits, dots, underscores or hyphens")
+        if not str(name).strip() or not str(baseline_version).strip():
+            raise ValueError("account name and baseline version are required")
+        if re.fullmatch(r"[0-9a-f]{64}", str(baseline_sha256).lower()) is None:
+            raise ValueError("baseline sha256 must contain 64 hexadecimal characters")
         now = _utc_now()
         with self._lock, self._connection:
             self._connection.execute(
@@ -145,6 +203,8 @@ class PaperStore:
     def update_virtual_account(self, account_id: str, *, cash, quantity: int, cycle_target: int | None):
         from decimal import Decimal
         value = str(Decimal(cash).quantize(Decimal("0.0001")))
+        if not Decimal(value).is_finite() or Decimal(value) < 0:
+            raise ValueError("virtual cash must be finite and non-negative")
         if quantity < 0 or quantity % 100 or (cycle_target is not None and cycle_target % 100):
             raise ValueError("virtual quantities must use non-negative 100-share lots")
         with self._lock, self._connection:
@@ -165,6 +225,115 @@ class PaperStore:
         if not changed:
             raise KeyError(account_id)
         return self.virtual_account(account_id)
+
+    def save_virtual_order(self, account_id: str, decision_id: str, valid_session: str, order_id: str, payload: dict[str, object]):
+        now = _utc_now()
+        with self._lock, self._connection:
+            intent_id = f"VI-{account_id}-{decision_id}"
+            self._connection.execute(
+                "INSERT OR IGNORE INTO virtual_intents(intent_id,account_id,decision_id,payload,created_at) VALUES(?,?,?,?,?)",
+                (intent_id, account_id, decision_id, json.dumps(payload, default=str), now),
+            )
+            self._connection.execute(
+                "INSERT OR IGNORE INTO virtual_orders(order_id,account_id,decision_id,valid_session,side,quantity,limit_price,status,payload,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (order_id, account_id, decision_id, valid_session, payload["side"], int(payload["quantity"]), str(payload["limit_price"]), "PENDING", json.dumps(payload), now, now),
+            )
+
+    def virtual_orders(self, account_id: str):
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT * FROM virtual_orders WHERE account_id=? ORDER BY created_at,order_id", (account_id,)
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def virtual_fills(self, account_id: str):
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT * FROM virtual_fills WHERE account_id=? ORDER BY created_at", (account_id,)
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def virtual_intents(self, account_id: str):
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT * FROM virtual_intents WHERE account_id=? ORDER BY created_at,intent_id", (account_id,)
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def settle_virtual_order(self, account_id: str, order_id: str, session: str, price, fee_rate):
+        from decimal import Decimal
+        with self._lock, self._connection:
+            order = self._connection.execute(
+                "SELECT * FROM virtual_orders WHERE account_id=? AND order_id=?", (account_id, order_id)
+            ).fetchone()
+            if order is None:
+                raise KeyError(order_id)
+            existing = self._connection.execute(
+                "SELECT fill_id FROM virtual_fills WHERE order_id=?", (order_id,)
+            ).fetchone()
+            if existing is not None:
+                return False
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+            quantity = int(order["quantity"])
+            value = Decimal(str(price)) * quantity
+            fee = (value * Decimal(str(fee_rate))).quantize(Decimal("0.0001"))
+            cash = Decimal(account["cash"])
+            held = int(account["quantity"])
+            average_cost = Decimal(account["average_cost"])
+            realized_total = Decimal(account["realized_pnl"])
+            realized_fill = Decimal("0")
+            if order["side"] == "BUY":
+                cash -= value + fee
+                average_cost = ((average_cost * held + value + fee) / (held + quantity)).quantize(Decimal("0.0001"))
+                held += quantity
+            else:
+                if quantity > held:
+                    raise ValueError("virtual sell exceeds holdings")
+                cash += value - fee
+                realized_fill = ((Decimal(str(price)) - average_cost) * quantity - fee).quantize(Decimal("0.0001"))
+                realized_total += realized_fill
+                held -= quantity
+                if held == 0:
+                    average_cost = Decimal("0")
+            if cash < 0:
+                raise ValueError("virtual account has insufficient cash")
+            fill_id = f"VF-{order_id}"
+            now = _utc_now()
+            self._connection.execute(
+                "INSERT INTO virtual_fills(fill_id,account_id,order_id,session,side,quantity,price,fee,realized_pnl,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (fill_id, account_id, order_id, session, order["side"], quantity, str(Decimal(str(price)).quantize(Decimal('0.0001'))), str(fee), str(realized_fill), now),
+            )
+            self._connection.execute(
+                "UPDATE virtual_orders SET status='FILLED',updated_at=? WHERE order_id=?", (now, order_id)
+            )
+            self._connection.execute(
+                "UPDATE virtual_accounts SET cash=?,quantity=?,average_cost=?,realized_pnl=?,cycle_target=?,updated_at=? WHERE account_id=?",
+                (str(cash.quantize(Decimal('0.0001'))), held, str(average_cost), str(realized_total.quantize(Decimal('0.0001'))), None if held == 0 else account["cycle_target"], now, account_id),
+            )
+        return True
+
+    def set_virtual_order_status(self, order_id: str, status: str):
+        with self._lock, self._connection:
+            self._connection.execute(
+                "UPDATE virtual_orders SET status=?,updated_at=? WHERE order_id=?", (status, _utc_now(), order_id)
+            )
+
+    def save_virtual_snapshot(self, account_id: str, session: str, payload: dict[str, object]) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT INTO virtual_snapshots(account_id,session,payload,created_at) VALUES(?,?,?,?) "
+                "ON CONFLICT(account_id,session) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at",
+                (account_id, session, json.dumps(payload, ensure_ascii=False, default=str), _utc_now()),
+            )
+
+    def virtual_snapshots(self, account_id: str):
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT session,payload,created_at FROM virtual_snapshots WHERE account_id=? ORDER BY session", (account_id,)
+            ).fetchall()
+        return [{"session": row["session"], **json.loads(row["payload"]), "created_at": row["created_at"]} for row in rows]
 
     def add_event(self, event_type: str, payload: dict[str, object]) -> None:
         with self._lock, self._connection:

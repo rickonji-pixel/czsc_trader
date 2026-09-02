@@ -244,7 +244,7 @@ class PaperTradingEngine:
             if order.symbol == self.symbol and order.status not in TERMINAL_ORDER_STATUSES
         ]
         alerts: list[str] = []
-        if decision.order is not None and not self.store.is_paused():
+        if decision.orders and not self.store.is_paused():
             if decision.valid_session != self.today():
                 alerts.append("DECISION_NOT_VALID_TODAY")
             elif not is_submission_window(self.now()):
@@ -259,7 +259,15 @@ class PaperTradingEngine:
                     self._orders,
                     self._account_snapshot.quote_health,
                 )
-                self._submit_once(decision, decision.order, snapshot)
+                for index, order in enumerate(decision.orders):
+                    decision_key = (
+                        decision.decision_id if len(decision.orders) == 1
+                        else f"{decision.decision_id}:{index}"
+                    )
+                    existing = self.store.find_intent_by_decision(decision_key)
+                    if existing is None or existing["status"] == "PENDING_SUBMIT":
+                        self._submit_once(decision, order, snapshot, index=index, decision_key=decision_key)
+                        break
         self._alerts = alerts
 
     def _save_status(self) -> dict[str, object]:
@@ -289,13 +297,17 @@ class PaperTradingEngine:
         decision: AdviceDecision,
         order: OrderSpec,
         snapshot: BrokerSnapshot,
+        *,
+        index: int = 0,
+        decision_key: str | None = None,
     ) -> None:
-        intent_id = f"PTE-{decision.decision_id}"
-        existing = self.store.find_intent_by_decision(decision.decision_id)
+        decision_key = decision_key or decision.decision_id
+        intent_id = f"PTE-{decision.decision_id}" if len(decision.orders) == 1 else f"PTE-{decision.decision_id}-{index}"
+        existing = self.store.find_intent_by_decision(decision_key)
         matching = next((item for item in snapshot.orders if item.remark == intent_id), None)
         intent = OrderIntent(
             intent_id=intent_id,
-            decision_id=decision.decision_id,
+            decision_id=decision_key,
             symbol=decision.symbol,
             side=order.side,
             quantity=order.quantity,
@@ -309,7 +321,7 @@ class PaperTradingEngine:
                 return
             self.store.add_event("ORDER_INTENT_RECOVERED", asdict(intent))
         else:
-            self.store.save_intent(intent_id, decision.decision_id, asdict(intent))
+            self.store.save_intent(intent_id, decision_key, asdict(intent))
             self.store.add_event("ORDER_INTENT_CREATED", asdict(intent))
         submitted = self.broker.place_order(intent)
         self._reconcile_order(submitted)

@@ -14,7 +14,7 @@ class FillOutcome:
 def settle_limit_order(side: str, quantity: int, limit_price: Decimal, open_price: Decimal, high: Decimal, low: Decimal) -> FillOutcome:
     if quantity <= 0 or quantity % 100:
         raise ValueError("quantity must use positive 100-share lots")
-    if min(limit_price, open_price, high, low) <= 0 or high < max(open_price, low):
+    if min(limit_price, open_price, high, low) <= 0 or high < max(open_price, low) or low > open_price:
         raise ValueError("invalid OHLC or limit price")
     if side == "BUY":
         if open_price <= limit_price:

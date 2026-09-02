@@ -152,6 +152,35 @@ def test_engine_persists_intent_before_submit_and_is_idempotent(tmp_path: Path) 
     assert second["orders"][0]["channel_order_id"] == "1001"
 
 
+def test_split_orders_submit_one_slice_at_a_time(tmp_path: Path) -> None:
+    from paper_trading_engine.engine import BrokerOrder
+
+    class MultiBroker(FakeBroker):
+        def place_order(self, intent):
+            number = str(1001 + len(self.placed))
+            self.placed.append(intent)
+            order = BrokerOrder(number, intent.symbol, intent.side, intent.quantity,
+                                intent.limit_price, "SUBMITTED", 0, 0.0, intent.intent_id)
+            self.current = replace(self.current, orders=self.current.orders + (order,))
+            return order
+
+    one = OrderSpec("BUY", 1_000_000, "LIMIT", 1.0, "DAY")
+    two = OrderSpec("BUY", 100, "LIMIT", 1.0, "DAY")
+    value = replace(decision(None), action="BUY", target_quantity=1_000_100,
+                    cycle_target_quantity=1_000_100, delta_quantity=1_000_100,
+                    order=None, orders=(one, two))
+    broker = MultiBroker()
+    engine, store, broker, _ = make_engine(tmp_path, broker=broker, advice=FakeAdvice(value))
+
+    engine.refresh()
+    assert [item.quantity for item in broker.placed] == [1_000_000]
+    first = broker.current.orders[0]
+    broker.current = replace(broker.current, orders=(replace(first, status="FILLED_ALL"),))
+    engine.refresh_orders()
+    assert [item.quantity for item in broker.placed] == [1_000_000, 100]
+    assert store.find_intent_by_decision("DEC-ONE:1") is not None
+
+
 def test_partial_fill_does_not_submit_again_while_original_order_is_active(tmp_path: Path) -> None:
     from paper_trading_engine.engine import BrokerPosition
 

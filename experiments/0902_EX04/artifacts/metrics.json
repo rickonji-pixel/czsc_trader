@@ -1,0 +1,49 @@
+{
+  "status": "COMPLETE",
+  "experiment_id": "0902_EX04",
+  "candidate_count": 261,
+  "control_candidate_id": 260,
+  "research_platform": {
+    "maximum_first_front_count": 3,
+    "member_count": 3,
+    "component_count": 2
+  },
+  "platform_test": {
+    "research_platform_member_count": 3,
+    "test_core_front_member_count": 0,
+    "test_pure_range_better_member_count": 0,
+    "test_core_front_and_pure_range_better_member_count": 0,
+    "control_test_pareto_layer": 1,
+    "control_test_max_drawdown": -0.12086776859504123,
+    "control_test_calmar": 10.29071534772381,
+    "control_test_win_loss_ratio": 5.263540895394769,
+    "control_test_return": 0.6812590298660464,
+    "research_platform_candidate_ids": [
+      16,
+      35,
+      27
+    ],
+    "test_core_front_candidate_ids": [
+      7,
+      47,
+      170,
+      196,
+      228,
+      244,
+      260
+    ],
+    "control_candidate_id": 260,
+    "control_research_first_front_count": 1,
+    "control_research_max_drawdown": -0.23072279847132016,
+    "control_research_calmar": 0.5363090874476745,
+    "control_research_win_loss_ratio": 4.62788041699249
+  },
+  "core_metrics": [
+    "max_drawdown",
+    "calmar",
+    "win_loss_ratio"
+  ],
+  "return_used_for_pareto": false,
+  "composite_pass_gate": false,
+  "automatic_promotion": false
+}

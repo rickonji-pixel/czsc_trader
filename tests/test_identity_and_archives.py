@@ -187,9 +187,9 @@ def test_all_frozen_experiment_archives_validate() -> None:
     )
 
     assert result.status == "PASS"
-    assert result.result["validated_count"] == 49
+    assert result.result["validated_count"] == 50
     assert result.result["experiments"][-3:] == [
-        "0902_EX01",
         "0902_EX02",
         "0902_EX03",
+        "0902_EX04",
     ]

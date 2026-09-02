@@ -1,0 +1,37 @@
+{
+  "status": "COMPLETE",
+  "experiment_id": "0902_EX03",
+  "active_baseline": {
+    "version": "baseline_20260901",
+    "sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993"
+  },
+  "candidate_count": 25,
+  "control_candidate_id": 18,
+  "representatives": {
+    "best_pure_range_return": 15,
+    "fewest_short_losses": 4,
+    "best_balanced": 11
+  },
+  "cross_sample_consistency": {
+    "research_pure_return_improved_count": 16,
+    "test_pure_return_improved_count": 1,
+    "both_samples_pure_return_improved_candidate_ids": [
+      0
+    ],
+    "both_samples_pure_return_and_short_loss_improved_candidate_ids": [
+      0
+    ],
+    "diagnostic_only": true,
+    "promotion_allowed": false
+  },
+  "research_period": [
+    "2021-01-01",
+    "2025-12-31"
+  ],
+  "test_period": [
+    "2026-01-01",
+    "2026-09-02"
+  ],
+  "composite_pass_gate": false,
+  "automatic_promotion": false
+}

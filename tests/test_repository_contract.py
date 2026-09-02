@@ -49,7 +49,7 @@ def test_all_tracked_market_data_validates_through_latest_session() -> None:
         result = validate_data(context, symbol).result
 
         assert result["symbol"] == symbol
-        assert result["requested_end"] == "2026-09-01"
+        assert result["requested_end"] == "2026-09-02"
         assert result["validation_status"] == "PASS"
         assert result["frequencies"] == ["30m", "daily", "weekly"]
 

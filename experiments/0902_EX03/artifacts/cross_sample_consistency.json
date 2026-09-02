@@ -1,0 +1,12 @@
+{
+  "research_pure_return_improved_count": 16,
+  "test_pure_return_improved_count": 1,
+  "both_samples_pure_return_improved_candidate_ids": [
+    0
+  ],
+  "both_samples_pure_return_and_short_loss_improved_candidate_ids": [
+    0
+  ],
+  "diagnostic_only": true,
+  "promotion_allowed": false
+}

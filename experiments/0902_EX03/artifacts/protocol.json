@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0902_EX03",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "active_baseline": {
+    "version": "baseline_20260901",
+    "sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993"
+  },
+  "parent_baseline": {
+    "version": "baseline_20260826",
+    "sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822"
+  },
+  "research_start": "2021-01-01",
+  "research_end": "2025-12-31",
+  "test_start": "2026-01-01",
+  "test_end": "2026-09-02",
+  "range_trend_multipliers": [0.5, 0.75, 1.0, 1.25, 1.5],
+  "range_volume_multipliers": [0.5, 0.75, 1.0, 1.25, 1.5],
+  "control_multipliers": [1.25, 1.25],
+  "candidate_count": 25,
+  "short_holding_max_sessions": 10,
+  "fee_rate": 0.0005,
+  "init_cash": 1000000.0,
+  "comparison_tolerance": 1e-12,
+  "locked_test_used_for_tuning": false,
+  "composite_pass_gate": false,
+  "automatic_promotion": false
+}

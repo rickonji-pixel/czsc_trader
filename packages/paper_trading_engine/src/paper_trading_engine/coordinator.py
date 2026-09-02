@@ -8,14 +8,17 @@ class PteCoordinator:
         self.channel = channel
         self.virtual = virtual
         self.store = channel.store
+        self._channel_error: str | None = None
 
     def refresh(self):
         try:
             channel = self.channel.refresh()
         except Exception as exc:
+            self._channel_error = str(exc)
             self.store.add_event("CHANNEL_REFRESH_FAILED", {"error": str(exc)})
             channel = self.channel.status()
-            channel = {**channel, "channel_error": str(exc)}
+        else:
+            self._channel_error = None
         return self._combined(channel)
 
     def refresh_account(self):
@@ -34,16 +37,27 @@ class PteCoordinator:
         return self._combined(self.channel.status())
 
     def _combined(self, channel):
+        channel = {**channel, "channel_error": self._channel_error}
         accounts = [self.virtual.status(row["account_id"]) for row in self.store.virtual_accounts()]
         starts = [item["metrics"]["observation_start"] for item in accounts if item["metrics"]["observation_start"]]
         ends = [item["metrics"]["observation_end"] for item in accounts if item["metrics"]["observation_end"]]
+        common_start = max(starts) if len(starts) == len(accounts) and accounts else None
+        common_end = min(ends) if len(ends) == len(accounts) and accounts else None
+        if common_start and common_end and common_start <= common_end:
+            for account in accounts:
+                account["comparison_metrics"] = self.virtual.metrics(
+                    account["account_id"], common_start, common_end
+                )
         return {
+            # Compatibility aliases keep an already-running pre-v3 watchdog healthy.
+            "environment": channel.get("environment"),
+            "symbol": channel.get("symbol"),
             "channel": channel,
             "virtual_accounts": accounts,
             "selected_account": accounts[0]["account_id"] if accounts else None,
             "comparison": {
-                "common_start": max(starts) if starts else None,
-                "common_end": min(ends) if ends else None,
+                "common_start": common_start,
+                "common_end": common_end,
                 "priority_metrics": ["maximum_drawdown", "calmar_ratio", "win_loss_ratio", "total_return"],
             },
         }

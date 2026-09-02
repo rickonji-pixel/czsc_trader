@@ -197,4 +197,6 @@ def test_virtual_account_pause_and_resume_routes() -> None:
         assert paused == {"account_id": "baseline-143", "paused": True}
         assert resumed["paused"] is False
     finally:
-        server.shutdown(); server.server_close(); thread.join(timeout=3)
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)

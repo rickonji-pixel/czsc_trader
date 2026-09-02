@@ -125,3 +125,17 @@ def test_health_probe_requires_pte_status_payload(monkeypatch) -> None:
 
     monkeypatch.setattr(watchdog, "urlopen", lambda *_args, **_kwargs: Response())
     assert watchdog.http_is_healthy("http://127.0.0.1:8080/api/status", 2.0) is True
+
+
+def test_health_probe_accepts_combined_channel_and_virtual_status(monkeypatch) -> None:
+    from paper_trading_engine import watchdog
+
+    class Response:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *_): return None
+        def read(self):
+            return b'{"channel":{"environment":"SIMULATE","symbol":"588080.SH"},"virtual_accounts":[]}'
+
+    monkeypatch.setattr(watchdog, "urlopen", lambda *_args, **_kwargs: Response())
+    assert watchdog.http_is_healthy("http://127.0.0.1:8080/api/status", 2.0) is True

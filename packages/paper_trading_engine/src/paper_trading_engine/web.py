@@ -77,7 +77,8 @@ def create_server(
                     elif parts[3] == "resume":
                         result = operations.resume_virtual(account_id)
                     else:
-                        self._json(404, {"error": "not found"}); return
+                        self._json(404, {"error": "not found"})
+                        return
                 else:
                     self._json(404, {"error": "not found"})
                     return

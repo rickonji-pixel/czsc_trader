@@ -77,14 +77,14 @@ def test_failed_data_publication_waits_before_retrying() -> None:
     engine, publisher, store = Engine(), FailingPublisher(), Store()
     scheduler = RuntimeScheduler(engine, publisher, store, publish_time="16:15")
     scheduler.tick(datetime(2026, 9, 2, 16, 15, 0))
-    scheduler.tick(datetime(2026, 9, 2, 16, 15, 5))
+    scheduler.tick(datetime(2026, 9, 2, 16, 15, 4))
 
     assert publisher.calls == 1
     assert store.events[-1][0] == "DATA_PUBLICATION_FAILED"
     assert store.values["data_publication_error"] == "vendor unavailable"
 
 
-def test_default_publication_starts_at_1900_and_retries_after_five_minutes() -> None:
+def test_default_publication_starts_at_1900_and_uses_bounded_backoff() -> None:
     from paper_trading_engine.scheduler import RuntimeScheduler
 
     class FailingPublisher:
@@ -99,10 +99,12 @@ def test_default_publication_starts_at_1900_and_retries_after_five_minutes() -> 
     scheduler = RuntimeScheduler(engine, publisher, store)
     scheduler.tick(datetime(2026, 9, 2, 18, 59, 59))
     scheduler.tick(datetime(2026, 9, 2, 19, 0, 0))
-    scheduler.tick(datetime(2026, 9, 2, 19, 4, 59))
-    scheduler.tick(datetime(2026, 9, 2, 19, 5, 0))
+    scheduler.tick(datetime(2026, 9, 2, 19, 0, 4))
+    scheduler.tick(datetime(2026, 9, 2, 19, 0, 5))
+    scheduler.tick(datetime(2026, 9, 2, 19, 0, 19))
+    scheduler.tick(datetime(2026, 9, 2, 19, 0, 20))
 
-    assert publisher.calls == ["2026-09-02", "2026-09-02"]
+    assert publisher.calls == ["2026-09-02", "2026-09-02", "2026-09-02"]
 
 
 def test_channel_failure_is_isolated_and_backed_off() -> None:

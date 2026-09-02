@@ -30,7 +30,6 @@ class RuntimeScheduler:
         self._last_order: datetime | None = None
         self._last_account: datetime | None = None
         self._last_decision: datetime | None = None
-        self._last_publish_attempt: datetime | None = None
         self._failures: dict[str, dict[str, object]] = {}
         self._retry_delays = (5, 15, 30, 60, 300)
 
@@ -52,7 +51,7 @@ class RuntimeScheduler:
             }
             if count == 1:
                 self.store.add_event(
-                    "SCHEDULER_OPERATION_FAILED",
+                    "DATA_PUBLICATION_FAILED" if name == "publication" else "SCHEDULER_OPERATION_FAILED",
                     {"operation": name, "error": str(exc), "failure_count": count,
                      "first_at": now.isoformat(), "retry_after_seconds": delay},
                 )
@@ -83,24 +82,29 @@ class RuntimeScheduler:
             self._guard("decision", now, self.engine.refresh_decision_if_changed)
             self._last_decision = now
         today = now.date().isoformat()
-        publish_due = self._due(self._last_publish_attempt, now, 300)
         if (
             now.time() >= self.publish_time
             and self.store.get_setting("last_data_publish_date") != today
-            and publish_due
         ):
-            self._last_publish_attempt = now
-            try:
-                result = self.publisher.publish(today)
-            except Exception as exc:
-                self.store.set_setting("data_publication_error", str(exc))
-                self.store.add_event("DATA_PUBLICATION_FAILED", {"date": today, "error": str(exc)})
-            else:
+            def publish():
+                try:
+                    result = self.publisher.publish(today)
+                except Exception as exc:
+                    self.store.set_setting("data_publication_error", str(exc))
+                    raise
                 self.store.set_setting("last_data_publish_date", today)
                 self.store.set_setting("data_publication_error", "")
                 self.store.add_event("DATA_PUBLISHED", {"date": today, "result": result})
-                if self.virtual_refresh is not None:
-                    self._guard("virtual_accounts", now, lambda: self.virtual_refresh(now.date()))
+            self._guard("publication", now, publish)
+        if (
+            self.virtual_refresh is not None
+            and self.store.get_setting("last_data_publish_date") == today
+            and self.store.get_setting("last_virtual_refresh_date") != today
+        ):
+            def refresh_virtual():
+                self.virtual_refresh(now.date())
+                self.store.set_setting("last_virtual_refresh_date", today)
+            self._guard("virtual_accounts", now, refresh_virtual)
 
     def run(self, stopped: Event) -> None:
         while not stopped.is_set():

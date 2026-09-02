@@ -81,8 +81,17 @@ class VirtualAccountEngine:
             "metrics": metrics,
         }
 
-    def _metrics(self, account, snapshots):
-        initial = float(account["initial_cash"])
+    def metrics(self, account_id: str, start: str | None = None, end: str | None = None):
+        account = self.store.virtual_account(account_id)
+        snapshots = self.store.virtual_snapshots(account_id)
+        return self._metrics(account, snapshots, start=start, end=end)
+
+    def _metrics(self, account, snapshots, *, start=None, end=None):
+        snapshots = [
+            item for item in snapshots
+            if (start is None or item["session"] >= start) and (end is None or item["session"] <= end)
+        ]
+        initial = float(snapshots[0]["total_assets"]) if start is not None and snapshots else float(account["initial_cash"])
         values = [float(item["total_assets"]) for item in snapshots]
         ending = values[-1] if values else float(account["cash"])
         total_return = ending / initial - 1 if initial else None
@@ -95,7 +104,11 @@ class VirtualAccountEngine:
         years = max(1 / 252, len(values) / 252)
         annual_return = (ending / initial) ** (1 / years) - 1 if initial and ending > 0 else None
         calmar = None if not max_drawdown or annual_return is None else annual_return / abs(max_drawdown)
-        pnl = [float(fill["realized_pnl"]) for fill in self.store.virtual_fills(account["account_id"]) if fill["side"] == "SELL"]
+        pnl = [
+            float(fill["realized_pnl"]) for fill in self.store.virtual_fills(account["account_id"])
+            if fill["side"] == "SELL" and (start is None or fill["session"] >= start)
+            and (end is None or fill["session"] <= end)
+        ]
         wins = sum(value for value in pnl if value > 0)
         losses = -sum(value for value in pnl if value < 0)
         ratio = wins / losses if losses else None

@@ -1,21 +1,21 @@
-# Futu Paper Operations Implementation Plan
+# Paper Trading Operations Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build and start a localhost page that observes and safely intervenes in the `SH.588080` Futu paper-trading loop.
+**Goal:** Build and start a localhost page that observes and safely intervenes in the `SH.588080` paper-trading loop, with Futu as the first channel adapter.
 
 **Architecture:** A broker-neutral coordinator persists snapshots and audit events to SQLite. A Futu gateway hard-locks paper trading, while a standard-library HTTP server exposes a small local dashboard and confirmed interventions.
 
 **Tech Stack:** Python 3.12, SQLite, standard-library HTTP server, futu-api 10.10, pytest.
 
-**Spec:** `docs/superpowers/specs/2026-09-02-futu-paper-operations-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-02-paper-trading-operations-design.md`
 
 ## Global Constraints
 
 - Only `TrdEnv.SIMULATE`, `TrdMarket.CN`, `SH.588080`, `TimeInForce.DAY`.
 - Missing real-time quote permission is degraded, not blocking.
 - Only cumulative order fill quantity and average price may update inferred fills.
-- Runtime account data stays under ignored `state/futu_paper/`.
+- Runtime account data stays under ignored `state/paper_trading/`.
 - No new research PASS thresholds.
 
 ---
@@ -73,7 +73,7 @@
 ### Task 4: Start and verify locally
 
 **Files:**
-- Runtime only: `state/futu_paper/runtime.db`
+- Runtime only: `state/paper_trading/runtime.db`
 
 **Interfaces:**
 - Consumes: `paper serve`.

@@ -63,6 +63,36 @@ def test_execution_policy_retries_entry_without_changing_actual_position() -> No
     assert bool(result.cycles.iloc[0]["filled"])
 
 
+def test_execution_policy_uses_round_lots_and_requires_price_penetration() -> None:
+    from czsc_trader.execution_policy import simulate_limit_policy
+
+    dates = pd.bdate_range("2026-01-05", periods=3)
+    daily = pd.DataFrame({
+        "dt": dates,
+        "open": [10.0, 10.2, 10.0],
+        "high": [10.2, 10.3, 10.2],
+        "low": [9.9, 10.0, 9.9],
+        "close": [10.0, 10.1, 10.1],
+    })
+    intraday = pd.DataFrame({
+        "dt": [pd.Timestamp("2026-01-06 10:00"), pd.Timestamp("2026-01-07 10:00")],
+        "low": [10.0, 9.9],
+        "vol": [1_000_000.0, 1_000_000.0],
+    })
+    target = pd.Series([1.0, 1.0, 1.0], index=dates)
+    limits = pd.Series([10.0, 10.0, 10.0], index=dates)
+
+    result = simulate_limit_policy(
+        daily, intraday, target, limits, init_cash=100_055.0,
+        lot_size=100, fill_on_equal_touch=False,
+    )
+
+    assert result.daily_state.loc[dates[1], "actual_position"] == 0.0
+    assert result.orders.iloc[0]["execution_date"] == pd.Timestamp("2026-01-07")
+    assert result.orders.iloc[0]["size"] % 100 == 0
+    assert result.daily_state.iloc[-1]["cash"] >= 0
+
+
 def test_execution_policy_selector_enforces_service_level_then_price() -> None:
     from czsc_trader.execution_policy import select_execution_candidate
 

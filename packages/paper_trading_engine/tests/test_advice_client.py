@@ -12,26 +12,26 @@ def payload(*, order: dict[str, object] | None = None) -> dict[str, object]:
         "status": "PASS",
         "command": "advice.run",
         "result": {
-            "contract_version": "advice.v2",
+            "contract_version": "advice.v3",
             "decision_id": "DEC-ABC123",
             "symbol": "588080.SH",
             "signal_date": "2026-09-01",
             "valid_session": "2026-09-02",
             "actual_quantity": 0,
             "target_quantity": 0 if order is None else 50_000,
-            "position_size": 50_000,
+            "cycle_target_quantity": 0 if order is None else 50_000,
             "available_cash": 1_000_000.0,
             "fee_rate": 0.0005,
             "estimated_order_cost": 0.0 if order is None else 84_442.2,
             "unallocated_cash": 1_000_000.0 if order is None else 915_557.8,
             "delta_quantity": 0 if order is None else 50_000,
             "action": "WAIT" if order is None else "BUY",
-            "baseline": {"version": "baseline_20260901", "sha256": "b" * 64},
-            "execution_policy": {"version": "execution_policy_20260902", "sha256": "e" * 64},
+            "baseline": {"version": "baseline_20260903", "sha256": "b" * 64},
             "signal_reference_price": 1.7043736,
             "execution_reference_price": 1.688,
             "data_cutoff": "2026-09-01",
             "order": order,
+            "orders": [] if order is None else [order],
         },
     }
 
@@ -102,7 +102,10 @@ def test_cli_advice_client_uses_shell_free_explicit_arguments(tmp_path: Path) ->
         timeout_seconds=15,
         runner=runner,
     )
-    decision = client.get_decision(actual_quantity=0, available_cash=1_000_000.0)
+    decision = client.get_decision(
+        actual_quantity=0, available_cash=1_000_000.0,
+        cycle_target_quantity=50_000, baseline="baseline_20260903",
+    )
 
     assert decision.decision_id == "DEC-ABC123"
     arguments, options = calls[0]
@@ -118,6 +121,10 @@ def test_cli_advice_client_uses_shell_free_explicit_arguments(tmp_path: Path) ->
         "0",
         "--available-cash",
         "1000000.00",
+        "--cycle-target-quantity",
+        "50000",
+        "--baseline",
+        "baseline_20260903",
         "--repo-root",
         str(tmp_path.resolve()),
         "--data-dir",

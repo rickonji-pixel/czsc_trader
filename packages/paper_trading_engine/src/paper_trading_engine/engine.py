@@ -94,7 +94,10 @@ class OrderIntent:
 
 
 class AdviceClient(Protocol):
-    def get_decision(self, actual_quantity: int, available_cash: float) -> AdviceDecision: ...
+    def get_decision(
+        self, actual_quantity: int, available_cash: float,
+        cycle_target_quantity: int | None = None, baseline: str | None = None,
+    ) -> AdviceDecision: ...
 
 
 class BrokerGateway(Protocol):
@@ -113,6 +116,7 @@ class PaperTradingEngine:
         advice: AdviceClient,
         *,
         symbol: str,
+        baseline: str = "baseline_20260903",
         today: Callable[[], date] = date.today,
         now: Callable[[], datetime] = shanghai_now,
     ) -> None:
@@ -120,12 +124,13 @@ class PaperTradingEngine:
         self.broker = broker
         self.advice = advice
         self.symbol = symbol.upper()
+        self.baseline = baseline
         self.today = today
         self.now = now
         self._account_snapshot: BrokerSnapshot | None = None
         self._orders: tuple[BrokerOrder, ...] = ()
         self._decision: AdviceDecision | None = None
-        self._decision_key: tuple[str | None, int, float] | None = None
+        self._decision_key: tuple[str | None, int, float, int | None] | None = None
         self._alerts: list[str] = []
         self._lock = RLock()
 
@@ -204,11 +209,16 @@ class PaperTradingEngine:
         identity_method = getattr(self.advice, "data_identity", None)
         identity = identity_method() if identity_method is not None else None
         available_cash = round(self._account_snapshot.account.cash, 2)
-        key = (identity, actual_quantity, available_cash)
+        saved_target = self.store.get_setting("cycle_target_quantity")
+        cycle_target = int(saved_target) if saved_target else None
+        key = (identity, actual_quantity, available_cash, cycle_target)
         if not force and self._decision is not None and key == self._decision_key:
             self._evaluate_submission()
             return self._save_status()
-        decision = self.advice.get_decision(actual_quantity, available_cash)
+        decision = self.advice.get_decision(
+            actual_quantity, available_cash,
+            cycle_target_quantity=cycle_target, baseline=self.baseline,
+        )
         if decision.symbol != self.symbol:
             raise PaperTradingSafetyError("advice symbol differs from engine whitelist")
         if decision.actual_quantity != actual_quantity:
@@ -216,6 +226,10 @@ class PaperTradingEngine:
         if round(decision.available_cash, 2) != available_cash:
             raise PaperTradingSafetyError("advice available cash differs from broker reconciliation")
         self._decision = decision
+        if decision.cycle_target_quantity:
+            self.store.set_setting("cycle_target_quantity", str(decision.cycle_target_quantity))
+        elif actual_quantity == 0:
+            self.store.set_setting("cycle_target_quantity", "")
         self._decision_key = key
         self._evaluate_submission()
         return self._save_status()

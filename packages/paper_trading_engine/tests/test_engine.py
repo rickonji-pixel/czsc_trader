@@ -12,22 +12,22 @@ from paper_trading_engine.contracts import AdviceDecision, OrderSpec
 def decision(order: OrderSpec | None = None) -> AdviceDecision:
     quantity = 0 if order is None else order.quantity
     return AdviceDecision(
-        contract_version="advice.v1",
+        contract_version="advice.v3",
         decision_id="DEC-ONE",
         symbol="588080.SH",
         signal_date=date(2026, 9, 1),
         valid_session=date(2026, 9, 2),
         actual_quantity=0,
         target_quantity=quantity,
-        position_size=50_000,
+        cycle_target_quantity=quantity,
         delta_quantity=quantity,
         action="WAIT" if order is None else "BUY",
-        baseline={"version": "baseline_20260901", "sha256": "b" * 64},
-        execution_policy={"version": "execution_policy_20260902", "sha256": "e" * 64},
+        baseline={"version": "baseline_20260903", "sha256": "b" * 64},
         signal_reference_price=1.704,
         execution_reference_price=1.688,
         data_cutoff=date(2026, 9, 1),
         order=order,
+        orders=() if order is None else (order,),
         available_cash=1_000_000.0,
         fee_rate=0.0005,
         estimated_order_cost=0.0,
@@ -44,7 +44,10 @@ class FakeAdvice:
     def data_identity(self) -> str:
         return self.identity
 
-    def get_decision(self, actual_quantity: int, available_cash: float) -> AdviceDecision:
+    def get_decision(
+        self, actual_quantity: int, available_cash: float,
+        cycle_target_quantity: int | None = None, baseline: str | None = None,
+    ) -> AdviceDecision:
         self.calls.append(actual_quantity)
         return replace(self.value, actual_quantity=actual_quantity)
 
@@ -153,7 +156,10 @@ def test_partial_fill_does_not_submit_again_while_original_order_is_active(tmp_p
     from paper_trading_engine.engine import BrokerPosition
 
     class QuantityAwareAdvice:
-        def get_decision(self, actual_quantity: int, available_cash: float) -> AdviceDecision:
+        def get_decision(
+            self, actual_quantity: int, available_cash: float,
+            cycle_target_quantity: int | None = None, baseline: str | None = None,
+        ) -> AdviceDecision:
             remaining = 50_000 - actual_quantity
             return replace(
                 decision(OrderSpec("BUY", remaining, "LIMIT", 1.688, "DAY")),

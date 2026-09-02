@@ -147,6 +147,8 @@ def simulate_limit_policy(
     fee_rate: float = 0.0005,
     init_cash: float = 1_000_000.0,
     diagnostic_quantity: int = 50_000,
+    lot_size: int | None = None,
+    fill_on_equal_touch: bool = True,
 ) -> ExecutionSimulation:
     """Simulate pre-open daily entry limits and priority next-open exits."""
     prices = _daily_prices(daily)
@@ -165,6 +167,8 @@ def simulate_limit_policy(
         raise ValueError("initial cash must be positive and finite")
     if int(diagnostic_quantity) <= 0:
         raise ValueError("diagnostic quantity must be positive")
+    if lot_size is not None and int(lot_size) <= 0:
+        raise ValueError("lot size must be positive")
 
     cash = float(init_cash)
     shares = 0.0
@@ -212,8 +216,15 @@ def simulate_limit_policy(
                 trigger = "open"
                 if not day_bars.empty:
                     touch_volume = float(day_bars.iloc[0]["vol"])
-            elif float(row["low"]) <= entry_limit:
-                touches = day_bars.loc[day_bars["low"].astype(float).le(entry_limit)]
+            elif (
+                float(row["low"]) <= entry_limit
+                if fill_on_equal_touch
+                else float(row["low"]) < entry_limit
+            ):
+                lows = day_bars["low"].astype(float)
+                touches = day_bars.loc[
+                    lows.le(entry_limit) if fill_on_equal_touch else lows.lt(entry_limit)
+                ]
                 if touches.empty:
                     raise AssertionError(f"daily low touches limit but 30m bars do not: {date.date()}")
                 fill_timestamp = pd.Timestamp(touches.index[0])
@@ -221,7 +232,15 @@ def simulate_limit_policy(
                 trigger = "intraday_limit"
                 touch_volume = float(touches.iloc[0]["vol"])
             if fill_price is not None and fill_timestamp is not None and trigger is not None:
-                shares = cash / (fill_price * (1.0 + float(fee_rate)))
+                affordable = cash / (fill_price * (1.0 + float(fee_rate)))
+                shares = (
+                    affordable
+                    if lot_size is None
+                    else float(int(affordable // int(lot_size)) * int(lot_size))
+                )
+                if shares <= 0:
+                    action = "entry_unfilled"
+                    continue
                 fees = shares * fill_price * float(fee_rate)
                 cash -= shares * fill_price + fees
                 if abs(cash) < 1e-8:

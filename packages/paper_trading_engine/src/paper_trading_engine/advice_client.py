@@ -35,7 +35,13 @@ class CliAdviceClient:
         self.timeout_seconds = float(timeout_seconds)
         self.runner = runner
 
-    def get_decision(self, actual_quantity: int, available_cash: float) -> AdviceDecision:
+    def get_decision(
+        self,
+        actual_quantity: int,
+        available_cash: float,
+        cycle_target_quantity: int | None = None,
+        baseline: str | None = None,
+    ) -> AdviceDecision:
         arguments = [
             str(self.executable),
             "advice",
@@ -48,13 +54,21 @@ class CliAdviceClient:
             str(actual_quantity),
             "--available-cash",
             f"{available_cash:.2f}",
-            "--repo-root",
-            str(self.repo_root),
-            "--data-dir",
-            str(self.data_dir),
-            "--format",
-            "json",
         ]
+        if cycle_target_quantity is not None:
+            arguments.extend(["--cycle-target-quantity", str(cycle_target_quantity)])
+        if baseline is not None:
+            arguments.extend(["--baseline", baseline])
+        arguments.extend(
+            [
+                "--repo-root",
+                str(self.repo_root),
+                "--data-dir",
+                str(self.data_dir),
+                "--format",
+                "json",
+            ]
+        )
         try:
             completed = self.runner(
                 arguments,

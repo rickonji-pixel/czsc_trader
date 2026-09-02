@@ -63,15 +63,15 @@ class AdviceDecision:
     valid_session: date
     actual_quantity: int
     target_quantity: int
-    position_size: int
+    cycle_target_quantity: int
     delta_quantity: int
     action: str
     baseline: dict[str, str]
-    execution_policy: dict[str, str]
     signal_reference_price: float
     execution_reference_price: float
     data_cutoff: date
     order: OrderSpec | None
+    orders: tuple[OrderSpec, ...] = ()
     available_cash: float = 0.0
     fee_rate: float = 0.0
     estimated_order_cost: float = 0.0
@@ -84,7 +84,7 @@ class AdviceDecision:
             raise AdviceContractError("advice command failed")
         value = _object(outer.get("result"), "result")
         version = str(value.get("contract_version", ""))
-        if version != "advice.v2":
+        if version != "advice.v3":
             raise AdviceContractError(f"unsupported advice contract version: {version}")
         try:
             signal_date = date.fromisoformat(str(value["signal_date"]))
@@ -94,23 +94,28 @@ class AdviceDecision:
             raise AdviceContractError("advice dates must use ISO format") from exc
         actual = _integer(value.get("actual_quantity"), "actual quantity")
         target = _integer(value.get("target_quantity"), "target quantity")
-        size = _integer(value.get("position_size"), "position size")
+        cycle_target = _integer(value.get("cycle_target_quantity"), "cycle target quantity")
         delta = _integer(value.get("delta_quantity"), "delta quantity")
-        if actual < 0 or target < 0 or size < 0 or any(q % 100 for q in (actual, target, size)):
+        if actual < 0 or target < 0 or cycle_target < 0 or any(q % 100 for q in (actual, target, cycle_target)):
             raise AdviceContractError("advice quantities must use non-negative 100-share lots")
         if target - actual != delta:
             raise AdviceContractError("delta quantity does not match target minus actual")
         order_payload = value.get("order")
         order = None if order_payload is None else OrderSpec.from_payload(order_payload)
+        orders_value = value.get("orders")
+        if not isinstance(orders_value, list):
+            raise AdviceContractError("orders must be a list")
+        orders = tuple(OrderSpec.from_payload(item) for item in orders_value)
         action = str(value.get("action", ""))
-        if (delta == 0) != (order is None):
-            raise AdviceContractError("order presence does not match quantity delta")
-        if order is not None:
+        if (delta == 0) != (len(orders) == 0):
+            raise AdviceContractError("orders presence does not match quantity delta")
+        if orders:
             expected_side = "BUY" if delta > 0 else "SELL"
-            if order.side != expected_side or order.quantity != abs(delta) or action != expected_side:
+            if any(item.side != expected_side for item in orders) or sum(item.quantity for item in orders) != abs(delta) or action != expected_side:
                 raise AdviceContractError("order does not match action and quantity delta")
+        if (len(orders) == 1 and order != orders[0]) or (len(orders) != 1 and order is not None):
+            raise AdviceContractError("order shortcut does not match orders")
         baseline = _object(value.get("baseline"), "baseline")
-        policy = _object(value.get("execution_policy"), "execution policy")
         return cls(
             contract_version=version,
             decision_id=str(value.get("decision_id", "")),
@@ -119,17 +124,17 @@ class AdviceDecision:
             valid_session=valid_session,
             actual_quantity=actual,
             target_quantity=target,
-            position_size=size,
+            cycle_target_quantity=cycle_target,
             delta_quantity=delta,
             action=action,
             baseline={"version": str(baseline.get("version", "")), "sha256": str(baseline.get("sha256", ""))},
-            execution_policy={"version": str(policy.get("version", "")), "sha256": str(policy.get("sha256", ""))},
             signal_reference_price=float(value["signal_reference_price"]),
             execution_reference_price=float(value["execution_reference_price"]),
             data_cutoff=data_cutoff,
             order=order,
+            orders=orders,
             available_cash=float(value["available_cash"]),
             fee_rate=float(value["fee_rate"]),
-            estimated_order_cost=float(value["estimated_order_cost"]),
-            unallocated_cash=float(value["unallocated_cash"]),
+            estimated_order_cost=float(value.get("estimated_order_cost", 0.0)),
+            unallocated_cash=float(value.get("unallocated_cash", value["available_cash"])),
         )

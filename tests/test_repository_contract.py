@@ -67,6 +67,8 @@ def test_active_execution_policy_is_frozen_ex02_winner() -> None:
     assert policy.family == "fixed"
     assert policy.parameter == 0.0
     assert policy.warning_gap_q05 == pytest.approx(-0.006797902176638775)
+    assert policy.exit_limit_ratio == pytest.approx(0.2)
+    assert policy.exit_price_rounding == "nearest_half_up"
     assert policy.source_path == "experiments/0902_EX02/artifacts/frozen_execution_policy.json"
     assert resolve_execution_policy(
         REPO_ROOT / "configs" / "execution_policies",

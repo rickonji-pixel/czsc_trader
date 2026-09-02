@@ -4,7 +4,7 @@
   "policies": {
     "execution_policy_20260902": {
       "file": "execution_policy_20260902.json",
-      "sha256": "a2f2589e0827287e2c7c5619ec7981b372e1432ae84b5b986720bdf19c6528d8",
+      "sha256": "a11b59776f806fb49614225e42b4ee6ad9f7175a0b19960391ac431c28ef3042",
       "status": "active",
       "source_path": "experiments/0902_EX02/artifacts/frozen_execution_policy.json",
       "source_sha256": "6a1954fc8b0ab00ae02fdd780252c09e56defd8120ed8d797a7766a5c1d741a0",

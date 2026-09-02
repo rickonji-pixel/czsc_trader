@@ -27,6 +27,8 @@ class ResolvedExecutionPolicy:
     fee_rate: float
     warning_gap_q05: float
     entry_order_type: str
+    exit_limit_ratio: float
+    exit_price_rounding: str
     exit_primary_order_type: str
     exit_continuous_fallback: str
     sha256: str
@@ -110,6 +112,8 @@ def resolve_execution_policy(
         fee_rate=float(payload.get("fee_rate")),
         warning_gap_q05=float(payload.get("warning_gap_q05")),
         entry_order_type=str(payload.get("entry_order_type", "")),
+        exit_limit_ratio=float(payload.get("exit_limit_ratio")),
+        exit_price_rounding=str(payload.get("exit_price_rounding", "")),
         exit_primary_order_type=str(payload.get("exit_primary_order_type", "")),
         exit_continuous_fallback=str(payload.get("exit_continuous_fallback", "")),
         sha256=digest,

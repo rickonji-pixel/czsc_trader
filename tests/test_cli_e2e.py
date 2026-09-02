@@ -15,6 +15,41 @@ STRATEGY_METRIC_KEYS = {"max_drawdown", "calmar", "win_loss_ratio", "return", "s
 STRATEGY_METRIC_KEYS.add("win_loss_ratio_status")
 
 
+def test_installed_cli_publishes_advice_v1_quantity_contract() -> None:
+    completed = subprocess.run(
+        [
+            str(CLI),
+            "advice",
+            "run",
+            "--symbol",
+            "588080.SH",
+            "--asset",
+            "etf",
+            "--actual-quantity",
+            "0",
+            "--position-size",
+            "50000",
+            "--repo-root",
+            str(REPO_ROOT),
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert completed.stderr == ""
+    payload = json.loads(completed.stdout)
+    assert payload["status"] == "PASS"
+    assert payload["result"]["contract_version"] == "advice.v1"
+    assert payload["result"]["actual_quantity"] == 0
+    assert payload["result"]["target_quantity"] == 0
+    assert payload["result"]["delta_quantity"] == 0
+    assert payload["result"]["order"] is None
+
+
 def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     completed = subprocess.run(
         [

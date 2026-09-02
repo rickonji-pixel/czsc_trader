@@ -88,13 +88,31 @@ def _backtest_run(args: argparse.Namespace):
 def _advice_run(args: argparse.Namespace):
     from czsc_trader.application.advice_service import AdviceCommand, run_advice
 
+    using_new = args.actual_quantity is not None or args.position_size is not None
+    using_legacy = args.actual_position is not None or args.quantity is not None
+    if using_new and using_legacy:
+        raise UsageError("invalid_arguments", "new and legacy quantity arguments cannot be mixed")
+    if using_new:
+        if args.actual_quantity is None or args.position_size is None:
+            raise UsageError(
+                "invalid_arguments", "--actual-quantity and --position-size are required together"
+            )
+        actual_quantity = args.actual_quantity
+        position_size = args.position_size
+    else:
+        if args.actual_position is None or args.quantity is None:
+            raise UsageError(
+                "invalid_arguments", "provide --actual-quantity/--position-size"
+            )
+        actual_quantity = args.actual_position * args.quantity
+        position_size = args.quantity
     return run_advice(
         _context(args),
         AdviceCommand(
             symbol=args.symbol,
             asset_type=args.asset,
-            actual_position=args.actual_position,
-            quantity=args.quantity,
+            actual_quantity=actual_quantity,
+            position_size=position_size,
             baseline=args.baseline,
         ),
     )
@@ -183,8 +201,10 @@ def build_parser() -> argparse.ArgumentParser:
     advice_run = advice_actions.add_parser("run")
     advice_run.add_argument("--symbol", required=True)
     advice_run.add_argument("--asset", required=True, choices=("stock", "etf"))
-    advice_run.add_argument("--actual-position", required=True, type=int, choices=(0, 1))
-    advice_run.add_argument("--quantity", required=True, type=int)
+    advice_run.add_argument("--actual-quantity", type=int)
+    advice_run.add_argument("--position-size", type=int)
+    advice_run.add_argument("--actual-position", type=int, choices=(0, 1))
+    advice_run.add_argument("--quantity", type=int)
     advice_run.add_argument("--baseline")
     _add_repository_root(advice_run)
     advice_run.set_defaults(

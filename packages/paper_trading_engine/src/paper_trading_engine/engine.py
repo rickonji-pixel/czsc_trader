@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
+from datetime import date, datetime, timedelta, timezone
 import secrets
 from typing import Protocol
 
 from .contracts import AdviceDecision, OrderSpec
 from .store import PaperStore
+
+
+TERMINAL_ORDER_STATUSES = {
+    "SUBMIT_FAILED",
+    "FILLED_ALL",
+    "CANCELLED_ALL",
+    "FAILED",
+    "DISABLED",
+    "DELETED",
+    "FILL_CANCELLED",
+}
 
 
 class PaperTradingSafetyError(RuntimeError):
@@ -87,11 +99,13 @@ class PaperTradingEngine:
         advice: AdviceClient,
         *,
         symbol: str,
+        today: Callable[[], date] = date.today,
     ) -> None:
         self.store = store
         self.broker = broker
         self.advice = advice
         self.symbol = symbol.upper()
+        self.today = today
 
     def _validate_snapshot(self, snapshot: BrokerSnapshot) -> None:
         if snapshot.account.environment != "SIMULATE":
@@ -138,8 +152,19 @@ class PaperTradingEngine:
             raise PaperTradingSafetyError("advice symbol differs from engine whitelist")
         if decision.actual_quantity != actual_quantity:
             raise PaperTradingSafetyError("advice actual quantity differs from broker reconciliation")
+        active_orders = [
+            order
+            for order in snapshot.orders
+            if order.symbol == self.symbol and order.status not in TERMINAL_ORDER_STATUSES
+        ]
+        alerts: list[str] = []
         if decision.order is not None and not self.store.is_paused():
-            self._submit_once(decision, decision.order, snapshot)
+            if decision.valid_session != self.today():
+                alerts.append("DECISION_NOT_VALID_TODAY")
+            elif active_orders:
+                alerts.append("ACTIVE_ORDER_BLOCKS_SUBMISSION")
+            else:
+                self._submit_once(decision, decision.order, snapshot)
         status = {
             "environment": snapshot.account.environment,
             "market": snapshot.account.market,
@@ -150,7 +175,7 @@ class PaperTradingEngine:
             "actual_quantity": actual_quantity,
             "last_decision": asdict(decision),
             "orders": self.store.orders(),
-            "alerts": [],
+            "alerts": alerts,
         }
         self.store.save_snapshot(status)
         return self.status()
@@ -233,3 +258,11 @@ class PaperTradingEngine:
         latest["paused"] = self.store.is_paused()
         latest["events"] = self.store.recent_events(50)
         return latest
+
+    def close(self) -> None:
+        try:
+            close_broker = getattr(self.broker, "close", None)
+            if close_broker is not None:
+                close_broker()
+        finally:
+            self.store.close()

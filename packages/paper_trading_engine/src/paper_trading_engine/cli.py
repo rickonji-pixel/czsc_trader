@@ -78,6 +78,7 @@ def main(
     engine_factory: Callable[[argparse.Namespace], PaperTradingEngine] = build_engine,
 ) -> int:
     args = build_parser().parse_args(argv)
+    engine = None
     try:
         engine = engine_factory(args)
         if args.action == "once":
@@ -116,6 +117,9 @@ def main(
             }
         )
         return 5
+    finally:
+        if engine is not None:
+            engine.close()
 
 
 if __name__ == "__main__":

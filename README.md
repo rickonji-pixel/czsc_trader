@@ -118,6 +118,13 @@ BuyHold与MA5/MA20双均线策略。若活动执行规则与标的、活动基�
 继续使用原实际仓位再次运行。建议有效期为`NEXT_TRADING_SESSION`；盘中价格
 只作执行风险观察，不改变最近完整收盘后的策略信号。
 
+## 模拟交易运行引擎
+
+独立包位于`packages/paper_trading_engine`，通过上述`advice.v1` CLI契约取得决策，
+负责Futu模拟渠道、SQLite审计和本机观测页面。安装与运行说明见
+`packages/paper_trading_engine/README.md`。PTE与策略包并列，运行时不导入
+`czsc_trader.*`，渠道适配器不参与定价。
+
 ## 实验档案
 
 ```powershell

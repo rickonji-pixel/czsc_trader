@@ -53,6 +53,7 @@ class FutuGateway:
 
             sdk = sdk_module
         self.sdk = sdk
+        self.sdk.SysConfig.enable_console_log(False)
         self.symbol = symbol.upper()
         self.code = _broker_code(self.symbol)
         self.trade_context = trade_context or sdk.OpenSecTradeContext(

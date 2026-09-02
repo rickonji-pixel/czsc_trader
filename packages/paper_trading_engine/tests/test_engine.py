@@ -101,7 +101,13 @@ def make_engine(tmp_path: Path, *, broker=None, advice=None):
     advice = advice or FakeAdvice(
         decision(OrderSpec("BUY", 50_000, "LIMIT", 1.688, "DAY"))
     )
-    return PaperTradingEngine(store, broker, advice, symbol="588080.SH"), store, broker, advice
+    return PaperTradingEngine(
+        store,
+        broker,
+        advice,
+        symbol="588080.SH",
+        today=lambda: date(2026, 9, 2),
+    ), store, broker, advice
 
 
 def test_engine_rejects_non_simulate_or_wrong_market_before_advice(tmp_path: Path) -> None:
@@ -126,6 +132,35 @@ def test_engine_persists_intent_before_submit_and_is_idempotent(tmp_path: Path) 
     assert len(broker.placed) == 1
     assert store.get_intent("PTE-DEC-ONE") is not None
     assert second["orders"][0]["channel_order_id"] == "1001"
+
+
+def test_partial_fill_does_not_submit_again_while_original_order_is_active(tmp_path: Path) -> None:
+    from paper_trading_engine.engine import BrokerPosition
+
+    class QuantityAwareAdvice:
+        def get_decision(self, actual_quantity: int) -> AdviceDecision:
+            remaining = 50_000 - actual_quantity
+            return replace(
+                decision(OrderSpec("BUY", remaining, "LIMIT", 1.688, "DAY")),
+                decision_id=f"DEC-{actual_quantity}",
+                actual_quantity=actual_quantity,
+                target_quantity=50_000,
+                delta_quantity=remaining,
+            )
+
+    engine, _, broker, _ = make_engine(tmp_path, advice=QuantityAwareAdvice())
+    engine.refresh()
+    submitted = broker.current.orders[0]
+    broker.current = replace(
+        broker.current,
+        positions=(BrokerPosition("588080.SH", 10_000),),
+        orders=(replace(submitted, status="FILLED_PART", cumulative_filled_quantity=10_000),),
+    )
+
+    status = engine.refresh()
+
+    assert len(broker.placed) == 1
+    assert "ACTIVE_ORDER_BLOCKS_SUBMISSION" in status["alerts"]
 
 
 def test_reconciliation_records_only_monotonic_fill_increments(tmp_path: Path) -> None:
@@ -159,6 +194,16 @@ def test_pause_blocks_new_orders_but_keeps_reconciliation(tmp_path: Path) -> Non
     assert broker.placed == []
     assert advice.calls == [0]
     assert status["paused"] is True
+
+
+def test_engine_submits_only_on_decision_valid_session(tmp_path: Path) -> None:
+    engine, _, broker, _ = make_engine(tmp_path)
+    engine.today = lambda: date(2026, 9, 1)
+
+    status = engine.refresh()
+
+    assert broker.placed == []
+    assert "DECISION_NOT_VALID_TODAY" in status["alerts"]
 
 
 def test_resume_requires_a_successful_reconciliation(tmp_path: Path) -> None:

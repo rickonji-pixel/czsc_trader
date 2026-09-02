@@ -66,6 +66,14 @@ class FakeQuoteContext:
         pass
 
 
+class FakeSysConfig:
+    calls = []
+
+    @classmethod
+    def enable_console_log(cls, enabled):
+        cls.calls.append(enabled)
+
+
 SDK = SimpleNamespace(
     RET_OK=0,
     TrdEnv=SimpleNamespace(SIMULATE="SIMULATE"),
@@ -74,6 +82,7 @@ SDK = SimpleNamespace(
     OrderType=SimpleNamespace(NORMAL="NORMAL"),
     TimeInForce=SimpleNamespace(DAY="DAY"),
     ModifyOrderOp=SimpleNamespace(CANCEL="CANCEL"),
+    SysConfig=FakeSysConfig,
 )
 
 
@@ -81,6 +90,7 @@ def gateway():
     from paper_trading_engine.futu_gateway import FutuGateway
 
     trade = FakeTradeContext()
+    FakeSysConfig.calls.clear()
     return FutuGateway(
         symbol="588080.SH",
         sdk=SDK,
@@ -102,6 +112,7 @@ def test_futu_snapshot_normalizes_account_position_order_and_quote_health() -> N
     assert snapshot.orders[0].channel_order_id == "123"
     assert snapshot.orders[0].cumulative_filled_quantity == 10_000
     assert snapshot.quote_health == "DEGRADED_QUOTE"
+    assert FakeSysConfig.calls == [False]
 
 
 def test_futu_place_order_hard_locks_parameters_and_disables_adjustment() -> None:

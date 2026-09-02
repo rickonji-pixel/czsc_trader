@@ -60,6 +60,19 @@ class PaperStore:
                 expires_at TEXT NOT NULL,
                 used_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS virtual_accounts (
+                account_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                baseline_version TEXT NOT NULL,
+                baseline_sha256 TEXT NOT NULL,
+                initial_cash TEXT NOT NULL,
+                cash TEXT NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 0,
+                cycle_target INTEGER,
+                paused INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """
         )
         self._connection.commit()
@@ -99,6 +112,59 @@ class PaperStore:
     def has_reconciled(self) -> bool:
         with self._lock:
             return self._setting("last_reconcile_at") is not None
+
+    def create_virtual_account(self, account_id, name, baseline_version, baseline_sha256, initial_cash):
+        from decimal import Decimal
+        cash = Decimal(initial_cash).quantize(Decimal("0.0001"))
+        if cash <= 0:
+            raise ValueError("initial cash must be positive")
+        now = _utc_now()
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,initial_cash,cash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)",
+                (account_id, name, baseline_version, baseline_sha256, str(cash), str(cash), now, now),
+            )
+        return self.virtual_account(account_id)
+
+    def virtual_account(self, account_id: str):
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+        if row is None:
+            raise KeyError(account_id)
+        return dict(row)
+
+    def virtual_accounts(self):
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT * FROM virtual_accounts ORDER BY created_at, account_id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def update_virtual_account(self, account_id: str, *, cash, quantity: int, cycle_target: int | None):
+        from decimal import Decimal
+        value = str(Decimal(cash).quantize(Decimal("0.0001")))
+        if quantity < 0 or quantity % 100 or (cycle_target is not None and cycle_target % 100):
+            raise ValueError("virtual quantities must use non-negative 100-share lots")
+        with self._lock, self._connection:
+            changed = self._connection.execute(
+                "UPDATE virtual_accounts SET cash=?, quantity=?, cycle_target=?, updated_at=? WHERE account_id=?",
+                (value, quantity, cycle_target, _utc_now(), account_id),
+            ).rowcount
+        if not changed:
+            raise KeyError(account_id)
+        return self.virtual_account(account_id)
+
+    def set_virtual_paused(self, account_id: str, paused: bool):
+        with self._lock, self._connection:
+            changed = self._connection.execute(
+                "UPDATE virtual_accounts SET paused=?, updated_at=? WHERE account_id=?",
+                (int(paused), _utc_now(), account_id),
+            ).rowcount
+        if not changed:
+            raise KeyError(account_id)
+        return self.virtual_account(account_id)
 
     def add_event(self, event_type: str, payload: dict[str, object]) -> None:
         with self._lock, self._connection:

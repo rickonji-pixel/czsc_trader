@@ -1,7 +1,7 @@
 # Paper Trading Engine
 
 PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader advice run`
-的 `advice.v2` JSON 契约取得策略决策，通过渠道适配器执行，并将运行状态和审计
+的 `advice.v3` JSON 契约取得完整基线决策，通过渠道适配器执行，并将运行状态和审计
 事件保存到 SQLite。PTE 不导入策略包，也不直接获取研究数据。
 
 ## 安装
@@ -32,7 +32,8 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 
 页面地址为 `http://127.0.0.1:8080`。订单和累计成交默认每 5 秒轮询，账户与持仓
 每 60 秒刷新，策略每 5 秒检查一次数据身份，只有完整收盘数据身份或实际持仓发生
-变化才重新调用 advice。运行库位于 `state/paper_trading/runtime.db`；运行数据位于
+变化才重新调用 advice。Futu渠道异常按5、15、30、60、300秒退避，虚拟账户继续
+独立运行。运行库位于 `state/paper_trading/runtime.db`；运行数据位于
 `state/paper_trading/data`，均不进入版本控制。重启会复用订单意图、渠道订单、暂停
 状态与审计事件。
 
@@ -50,11 +51,31 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 `czsc-trader advice run`，由项目侧按限价、执行费率和 100 份交易单位计算最大可买
 数量；卖出信号卖出全部已成交持仓。渠道不参与定价或改量。
 
-页面字段使用中文业务语义，英文枚举仍保留在 API、数据库和可展开的格式化诊断区。
+页面字段使用中文业务语义，英文枚举仍保留在 API、数据库和可展开的结构化诊断区。
 暂停、恢复和撤单操作都会立即显示成功或失败反馈。
 
 自动新单仅在决策的有效交易日，并处于 `09:30–11:30` 或 `13:00–14:57`
 （Asia/Shanghai）时提交。夜间、午休和集合竞价阶段继续观测与对账。
+
+## 虚拟账户
+
+PTE首次启动会幂等创建`baseline-143`，绑定完整基线`baseline_20260903`和100万元
+初始资金。每个虚拟账户拥有独立现金、持仓、成本、意图、订单、成交和日快照。
+19:00完整数据发布成功后，PTE先结算当日有效订单，再生成下一交易日决策；暂停只
+阻止新订单，已有订单仍结算。开盘改善按开盘价成交，盘中严格穿价按限价成交，
+等价触及记为不确定且不成交。
+
+```powershell
+.\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
+.\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
+  --account-id range-2 --name "Range候选2" `
+  --baseline baseline_20260903 --initial-cash 1000000
+.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id range-2
+.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id range-2
+```
+
+控制台优先展示最大回撤、卡玛比率和盈亏比，再展示累计收益；多账户比较采用共同
+观察区间。盈亏比仅统计已闭合买卖交易。
 
 ## Windows 服务
 
@@ -65,7 +86,8 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 .\.venv\Scripts\pte-watchdog.exe start --wait 30
 ```
 
-常用管理命令为 `status`、`stop --wait 30`、`restart --wait 30` 和 `remove`。唯一的
+服务状态使用`sc.exe query CZSC-PTE-Watchdog`查看；管理命令为
+`stop --wait 30`、`restart --wait 30`和`remove`，需管理员PowerShell。唯一的
 系统服务名为 `CZSC-PTE-Watchdog`，启动类型为自动。watchdog 通过现有 `pte serve`
 CLI 启动 PTE 子进程，每 10 秒检查进程和 8080 HTTP 状态；连续 3 次失败后重启，
 退避间隔为 5、30、60 秒。安装时会停止并删除旧的 `CZSC-PaperTrading` 服务。

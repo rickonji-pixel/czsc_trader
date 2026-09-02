@@ -6,11 +6,11 @@
 
 ## 当前交付状态
 
-- 主开发分支：`master`
+- 当前交付分支：`codex/pte-virtual-accounts`（合并后以`master`为准）
 - Python版本：3.12
-- 活动基线：`baseline_20260901`
-- 活动执行规则：`execution_policy_20260902`
-- Trader/PTE契约：`advice.v2`
+- 活动完整基线：`baseline_20260903`（候选143，内嵌唯一执行规则）
+- 历史执行规则：`execution_policy_20260902`仅用于旧实验复现，不进入正式运行选择
+- Trader/PTE契约：`advice.v3`
 - PTE HTTP端口：`127.0.0.1:8080`
 - Windows服务：`CZSC-PTE-Watchdog`
 - 当前模拟渠道：Futu中国市场模拟交易
@@ -32,11 +32,11 @@ data/raw（三频后复权策略行情 + 未复权执行价格 + manifests）
   ↓
 CZSC Trader
   ├─ baseline / backtest / archive
-  └─ advice run → advice.v2 JSON
+  └─ advice run → advice.v3 JSON（完整基线 + entry-cycle资金目标）
                       ↓ CLI 子进程
 CZSC PTE ── SQLite审计 ── 本机HTTP控制台
-  ↓ 渠道适配器
-Futu OpenD模拟账户
+  ├─ 独立虚拟账户账本
+  └─ 渠道适配器 → Futu OpenD模拟账户
 ```
 
 ### CZSC Trader
@@ -47,7 +47,7 @@ Futu OpenD模拟账户
 
 ### CZSC PTE
 
-独立包位于`packages/paper_trading_engine/`，通过CLI调用Trader并消费`advice.v2`。
+独立包位于`packages/paper_trading_engine/`，通过CLI调用Trader并消费`advice.v3`。
 它负责渠道账户对账、决策缓存、订单意图、提交与成交增量、SQLite审计、观测页面和
 运行调度。PTE不导入`czsc_trader.*`，因此策略包可以独立演化，只要保持CLI契约。
 
@@ -59,8 +59,8 @@ watchdog不包含交易业务代码。
 
 ## 核心契约与不变量
 
-1. `advice.v2`输入实际成交数量和账户可用现金；Trader拥有价格、费率与数量计算。
-2. PTE只接受`advice.v2`；`advice.v1`仅保留给显式固定仓位的兼容调用。
+1. `advice.v3`输入实际成交数量、账户可用现金和可选entry-cycle目标；Trader拥有价格、费率、分单与数量计算。
+2. PTE只接受`advice.v3`；正式运行只选择一个完整基线，不组合独立执行规则版本。
 3. 渠道自动调价关闭，Futu不得改写Trader给出的限价或数量。
 4. 委托受理不等于成交。只有渠道明确返回的累计成交增量才能更新持仓和审计记录。
 5. 未收到明确成交回报时按未成交处理，不修改持仓修订号。
@@ -70,6 +70,8 @@ watchdog不包含交易业务代码。
 8. 每个交易日19:00后发布完整收盘数据，失败后退避重试；盘中价格不改变日频信号。
 9. 普通文本身份先归一化LF；配置JSON使用语义哈希；原始行情CSV和二进制按字节哈希。
 10. PTE运行结果不自动构成策略样本外或实盘有效性证据。
+11. Futu渠道与每个虚拟账户独立失败；相同错误按5、15、30、60、300秒退避并聚合记录。
+12. 虚拟订单等价触价但未穿价不计成交；只有明确模型成交才能改变虚拟现金与持仓。
 
 ## 代码地图
 
@@ -79,10 +81,12 @@ watchdog不包含交易业务代码。
 | `src/czsc_trader/cli/main.py` | Trader CLI参数与输出边界 |
 | `src/czsc_trader/identity.py` | 可移植身份与哈希规则 |
 | `configs/rule_baselines/` | 冻结基线与活动注册表 |
-| `configs/execution_policies/` | 冻结执行规则与活动注册表 |
+| `configs/execution_policies/` | 历史执行规则档案；正式运行不解析 |
 | `packages/dataflows/` | Tushare适配、复权和多频发布 |
 | `packages/paper_trading_engine/src/paper_trading_engine/engine.py` | 对账、决策和订单状态机 |
 | `packages/paper_trading_engine/src/paper_trading_engine/store.py` | SQLite持久化与审计事件 |
+| `packages/paper_trading_engine/src/paper_trading_engine/virtual_engine.py` | 独立虚拟账户结算与决策 |
+| `packages/paper_trading_engine/src/paper_trading_engine/coordinator.py` | Futu渠道与虚拟账户故障隔离 |
 | `packages/paper_trading_engine/src/paper_trading_engine/futu_gateway.py` | Futu模拟渠道适配 |
 | `packages/paper_trading_engine/src/paper_trading_engine/scheduler.py` | 数据、账户、决策和订单轮询 |
 | `packages/paper_trading_engine/src/paper_trading_engine/dashboard.py` | 本机观测与干预页面 |
@@ -104,6 +108,19 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```
+
+恢复后先检查虚拟账户，再启动服务：
+
+```powershell
+.\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
+.\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
+  --account-id baseline-143 --name 候选143 `
+  --baseline baseline_20260903 --initial-cash 1000000
+.\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
+```
+
+账户创建具有不可变身份：相同ID、名称、完整基线SHA和初始资金可幂等复用，任一项
+不同都会停止。SQLite位于`state/paper_trading/runtime.db`且不随Git跨机同步。
 
 发布行情时将根目录`.env.example`复制为`.env`并填写`TUSHARE_TOKEN`；不要提交
 密钥。运行PTE前安装并启动Futu OpenD，确认模拟账户可访问。行情权限缺失时PTE允许以
@@ -150,7 +167,7 @@ Windows服务需要在每台机器上用管理员PowerShell重新注册：
 ```powershell
 .\.venv\Scripts\pte-watchdog.exe install-config --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte-watchdog.exe start --wait 30
-.\.venv\Scripts\pte-watchdog.exe status
+sc.exe query CZSC-PTE-Watchdog
 ```
 
 服务安装会写入绝对仓库路径，因此仓库移动后需要重新运行`install-config`。页面地址为

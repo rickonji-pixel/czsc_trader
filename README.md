@@ -8,7 +8,7 @@
 | CZSC PTE | `packages/paper_trading_engine/` | `pte`、`pte-watchdog` | 模拟账户对账、自动下单、审计、观测页面和进程保活 |
 
 `packages/dataflows/`是两个包共用的行情获取与发布依赖。Trader 通过
-`advice.v2` JSON 契约向 PTE 提供决策；PTE 不导入 Trader 的内部模块，券商渠道
+`advice.v3` JSON 契约向 PTE 提供决策；PTE 不导入 Trader 的内部模块，券商渠道
 不参与策略计算、定价或改量。
 
 研究现状见[研究交接](docs/RESEARCH_HANDOFF.md)，跨机开发与运行恢复见
@@ -64,9 +64,9 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
 ```powershell
 .\.venv\Scripts\czsc-trader.exe baseline list
 .\.venv\Scripts\czsc-trader.exe baseline show `
-  --version baseline_20260901 --symbol 588080.SH
+  --version baseline_20260903 --symbol 588080.SH
 .\.venv\Scripts\czsc-trader.exe baseline validate `
-  --version baseline_20260901 --symbol 588080.SH
+  --version baseline_20260903 --symbol 588080.SH
 ```
 
 未显式指定版本时，回测和 advice 使用
@@ -89,21 +89,22 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
 
 ### 生成交易决策
 
-按账户可用现金生成 `advice.v2`：
+按账户可用现金生成 `advice.v3`：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe advice run `
   --symbol 588080.SH --asset etf `
   --actual-quantity 0 --available-cash 1000000 `
+  --baseline baseline_20260903 `
   --format json
 ```
 
-Trader 使用项目冻结的执行规则计算限价、手续费空间和 100 份整数倍数量。输出包含
+Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续费空间和 100 份整数倍数量。输出包含
 确定性 `decision_id`、信号日期、有效交易日、目标/实际/差额数量及可提交 DAY 限价
 单。`advice run`不连接券商、不提交订单、不修改账户状态。
 
 兼容调用可用 `--actual-quantity`配合`--position-size`生成`advice.v1`；PTE 正式运行
-只接受`advice.v2`。未收到明确成交回报时，实际持仓数量保持不变。
+只接受`advice.v3`。未收到明确成交回报时，实际持仓数量保持不变。
 
 ## CZSC PTE 使用
 
@@ -135,6 +136,21 @@ Trader 使用项目冻结的执行规则计算限价、手续费空间和 100 �
 - 新单只在有效交易日的 `09:30–11:30`、`13:00–14:57`提交；
 - 暂停只阻止新订单，已有订单继续对账；撤单必须二次确认。
 
+首次启动会创建初始资金100万元的`baseline-143`虚拟账户。虚拟账户完全由本地账本
+模拟成交，与唯一Futu模拟账户相互隔离；Futu渠道异常不会阻断虚拟账户。账户管理命令：
+
+```powershell
+.\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
+.\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
+  --account-id range-2 --name "Range候选2" `
+  --baseline baseline_20260903 --initial-cash 1000000
+.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id range-2
+.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id range-2
+```
+
+虚拟订单在有效交易日的19:00数据发布成功后，先用完整日线按保守规则结算，再生成
+下一有效交易日决策。等价触及限价但未穿价记为“触价未穿价”，不计成交。
+
 ### Windows watchdog 服务
 
 在管理员 PowerShell 中执行：
@@ -149,7 +165,7 @@ Trader 使用项目冻结的执行规则计算限价、手续费空间和 100 �
 退避重启。
 
 ```powershell
-.\.venv\Scripts\pte-watchdog.exe status
+sc.exe query CZSC-PTE-Watchdog
 .\.venv\Scripts\pte-watchdog.exe restart --wait 30
 .\.venv\Scripts\pte-watchdog.exe stop --wait 30
 .\.venv\Scripts\pte-watchdog.exe remove

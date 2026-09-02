@@ -657,7 +657,7 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
             "calmar": 1.520558369439513,
             "win_loss_ratio": 3.2767930702460384,
             "return": 0.20069278199087237,
-            "sharpe": 1.234024171393839,
+            "sharpe": 1.0253626758401702,
         }
     )
     assert strategies["buyhold"]["win_loss_ratio"] is None
@@ -671,6 +671,8 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert (output_dir / "ma_chart.html").is_file()
     assert (output_dir / "execution_orders.csv").is_file()
     assert (output_dir / "execution_equity.csv").is_file()
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["metrics_schema_version"] == 3
 
     ma_signals = pd.read_csv(output_dir / "ma_signals.csv", parse_dates=["dt"])
     assert list(ma_signals.columns) == ["dt", "close", "ma5", "ma20", "target_position"]

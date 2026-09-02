@@ -28,6 +28,7 @@ from .factors import generate_factor_frame
 from .ma_charting import write_ma_chart
 from .moving_average import moving_average_signals
 from .output_paths import create_output_dir
+from .reporting.backtest_report import render_backtest_report
 from .strategy_metrics import strategy_comparison_metrics
 
 
@@ -282,69 +283,6 @@ def _execution_policy_results(
     return output
 
 
-def _report(
-    symbol: str,
-    baseline_version: str,
-    metrics: dict[str, object],
-    chart_files: list[str],
-) -> str:
-    def percent(value: object) -> str:
-        return "N/A" if value is None else f"{float(value):.2%}"
-
-    def ratio(value: object) -> str:
-        return "N/A" if value is None else f"{float(value):.3f}"
-
-    lines = [
-        f"# {symbol} 固定基线规则回测",
-        "",
-        f"- 规则基线：`{baseline_version}`",
-        "- 本次只应用冻结规则，未执行候选搜索或参数选优。",
-        "",
-        "## 策略比较",
-    ]
-    windows = metrics["windows"]
-    assert isinstance(windows, dict)
-    labels = {
-        "active_baseline": "活动基线·次日开盘",
-        "active_baseline_execution_policy": "活动基线·执行规则",
-        "buyhold": "BuyHold",
-        "ma5_ma20": "MA5/MA20",
-    }
-    for name, values in windows.items():
-        assert isinstance(values, dict)
-        lines.extend(
-            [
-                "",
-                f"## {name}",
-                "",
-                f"区间：{values['start']} 至 {values['end']}",
-                "",
-                "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |",
-                "| --- | ---: | ---: | ---: | ---: | ---: |",
-            ]
-        )
-        strategies = values["strategies"]
-        assert isinstance(strategies, dict)
-        for strategy_id in (
-            "active_baseline",
-            "active_baseline_execution_policy",
-            "buyhold",
-            "ma5_ma20",
-        ):
-            if strategy_id not in strategies:
-                continue
-            item = strategies[strategy_id]
-            assert isinstance(item, dict)
-            lines.append(
-                f"| {labels[strategy_id]} | {percent(item['max_drawdown'])} | "
-                f"{ratio(item['calmar'])} | {ratio(item['win_loss_ratio'])} | "
-                f"{percent(item['return'])} | {ratio(item['sharpe'])} |"
-            )
-    lines.extend(["", "## 交互式图表", ""])
-    lines.extend(f"- [{name}]({name})" for name in chart_files)
-    return "\n".join(lines) + "\n"
-
-
 def run_fixed_backtest(
     request: BacktestRequest,
     *,
@@ -534,7 +472,7 @@ def run_fixed_backtest(
             "asset_type": data.asset_type,
             "fee_rate_per_side": request.fee_rate,
             "initial_cash": request.init_cash,
-            "metrics_schema_version": 2,
+            "metrics_schema_version": 3,
             "comparison_strategies": {
                 "active_baseline": baseline.version,
                 "buyhold": {"initial_target": 1.0},
@@ -590,7 +528,10 @@ def run_fixed_backtest(
             },
         }
         _write_json(output_dir / "manifest.json", manifest)
-        _write_text(output_dir / "report.md", _report(data.symbol, baseline.version, metrics, chart_files))
+        _write_text(
+            output_dir / "report.md",
+            render_backtest_report(data.symbol, baseline.version, metrics, chart_files),
+        )
         return {
             "symbol": data.symbol,
             "baseline": baseline.version,

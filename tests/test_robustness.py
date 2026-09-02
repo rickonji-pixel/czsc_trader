@@ -133,4 +133,3 @@ def test_robustness_parameter_geometry_finds_grid_neighbors() -> None:
     assert (surface["manhattan_distance"] == 1.0).sum() == 4
     assert set(neighbors["manhattan_distance"]) == {1.0, 2.0}
     assert len(neighbors.loc[neighbors["manhattan_distance"].eq(1.0)]) == 4
-

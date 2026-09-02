@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import date
 
 from czsc_trader.data import load_market_data
-from czsc_trader.market_data_prep import prepare_market_data
 
 from .context import RepositoryContext
 from .errors import ValidationError
@@ -23,6 +22,8 @@ def prepare_data(
     context: RepositoryContext,
     request: PrepareDataCommand,
 ) -> CommandResult:
+    from czsc_trader.market_data_prep import prepare_market_data
+
     try:
         summary = prepare_market_data(
             request.symbol,

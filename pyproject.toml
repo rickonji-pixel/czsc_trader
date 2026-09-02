@@ -27,5 +27,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers --tb=short"
+addopts = "--strict-markers --tb=short -m 'not archive'"
+markers = ["archive: validates every immutable experiment archive"]
 

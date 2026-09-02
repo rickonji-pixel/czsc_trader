@@ -13,6 +13,8 @@
   "fee_rate": 0.0005,
   "warning_gap_q05": -0.006797902176638775,
   "entry_order_type": "limit",
+  "exit_limit_ratio": 0.2,
+  "exit_price_rounding": "nearest_half_up",
   "exit_primary_order_type": "limit_at_legal_lower_bound",
   "exit_continuous_fallback": "five_level_immediate_to_limit_with_protection"
 }

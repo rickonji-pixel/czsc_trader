@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 import sys
@@ -24,7 +25,12 @@ def _add_repository_root(parser: argparse.ArgumentParser) -> None:
 
 
 def _context(args: argparse.Namespace) -> RepositoryContext:
-    return RepositoryContext.discover(Path.cwd(), explicit_root=args.repo_root)
+    context = RepositoryContext.discover(Path.cwd(), explicit_root=args.repo_root)
+    data_dir = getattr(args, "data_dir", None)
+    if data_dir is not None:
+        resolved = data_dir.resolve() if data_dir.is_absolute() else (context.root / data_dir).resolve()
+        context = replace(context, raw_dir=resolved)
+    return context
 
 
 def _baseline_list(args: argparse.Namespace):
@@ -88,13 +94,33 @@ def _backtest_run(args: argparse.Namespace):
 def _advice_run(args: argparse.Namespace):
     from czsc_trader.application.advice_service import AdviceCommand, run_advice
 
+    using_cash = args.available_cash is not None
+    using_new = args.actual_quantity is not None or args.position_size is not None or using_cash
+    using_legacy = args.actual_position is not None or args.quantity is not None
+    if using_new and using_legacy:
+        raise UsageError("invalid_arguments", "new and legacy quantity arguments cannot be mixed")
+    if using_new:
+        if args.actual_quantity is None or (args.position_size is None) == (not using_cash):
+            raise UsageError(
+                "invalid_arguments", "use --actual-quantity with exactly one sizing argument"
+            )
+        actual_quantity = args.actual_quantity
+        position_size = args.position_size
+    else:
+        if args.actual_position is None or args.quantity is None:
+            raise UsageError(
+                "invalid_arguments", "provide --actual-quantity/--position-size"
+            )
+        actual_quantity = args.actual_position * args.quantity
+        position_size = args.quantity
     return run_advice(
         _context(args),
         AdviceCommand(
             symbol=args.symbol,
             asset_type=args.asset,
-            actual_position=args.actual_position,
-            quantity=args.quantity,
+            actual_quantity=actual_quantity,
+            position_size=position_size,
+            available_cash=args.available_cash,
             baseline=args.baseline,
         ),
     )
@@ -127,6 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
     data_prepare.add_argument("--asset", required=True, choices=("stock", "etf"))
     data_prepare.add_argument("--start", required=True, type=date.fromisoformat)
     data_prepare.add_argument("--end", required=True, type=date.fromisoformat)
+    data_prepare.add_argument("--data-dir", type=Path)
     _add_repository_root(data_prepare)
     data_prepare.set_defaults(
         command_handler=_data_prepare,
@@ -183,9 +210,13 @@ def build_parser() -> argparse.ArgumentParser:
     advice_run = advice_actions.add_parser("run")
     advice_run.add_argument("--symbol", required=True)
     advice_run.add_argument("--asset", required=True, choices=("stock", "etf"))
-    advice_run.add_argument("--actual-position", required=True, type=int, choices=(0, 1))
-    advice_run.add_argument("--quantity", required=True, type=int)
+    advice_run.add_argument("--actual-quantity", type=int)
+    advice_run.add_argument("--position-size", type=int)
+    advice_run.add_argument("--available-cash", type=float)
+    advice_run.add_argument("--actual-position", type=int, choices=(0, 1))
+    advice_run.add_argument("--quantity", type=int)
     advice_run.add_argument("--baseline")
+    advice_run.add_argument("--data-dir", type=Path)
     _add_repository_root(advice_run)
     advice_run.set_defaults(
         command_handler=_advice_run,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import date, timedelta
 
 import tushare as ts
 
@@ -45,3 +46,26 @@ def fetch_instrument_name(
     if not name:
         raise ValueError(f"Tushare returned an empty instrument name for {symbol}")
     return name
+
+
+def fetch_next_trading_session(
+    after: date,
+    *,
+    env_file: str | Path | None = None,
+    pro=None,
+) -> tuple[date, dict[str, str]]:
+    """Return the first open SSE session after a completed trading date."""
+    client = pro or get_tushare_pro(env_file)
+    start = after + timedelta(days=1)
+    end = after + timedelta(days=40)
+    frame = client.trade_cal(
+        exchange="SSE",
+        start_date=start.strftime("%Y%m%d"),
+        end_date=end.strftime("%Y%m%d"),
+        is_open="1",
+        fields="exchange,cal_date,is_open",
+    )
+    if frame is None or frame.empty:
+        raise ValueError(f"Tushare returned no open SSE session after {after}")
+    sessions = sorted(date.fromisoformat(str(value)) for value in frame["cal_date"])
+    return sessions[0], {"vendor": "tushare", "exchange": "SSE"}

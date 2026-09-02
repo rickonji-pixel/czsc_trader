@@ -135,6 +135,7 @@ def test_daily_advice_maps_target_and_actual_position_to_manual_action() -> None
     assert policy is not None
     common = {
         "signal_date": pd.Timestamp("2026-09-01"),
+        "valid_session": pd.Timestamp("2026-09-02"),
         "signal_close": 1.704,
         "execution_close": 1.688,
         "quantity": 50_000,
@@ -157,9 +158,125 @@ def test_daily_advice_maps_target_and_actual_position_to_manual_action() -> None
     assert (holding["state"], holding["action"]) == ("HOLDING", "HOLD")
     assert (exit_advice["state"], exit_advice["action"]) == ("PENDING_EXIT", "SELL")
     assert exit_advice["order"]["primary_order_type"] == "限价委托"
-    assert "券商显示的当日合法价格下限" in exit_advice["order"]["price_instruction"]
+    assert exit_advice["order"]["limit_price"] == pytest.approx(1.350)
 
     with pytest.raises(ValueError, match="100-share lots"):
         build_advice(target_position=1, actual_position=0, quantity=50_050, **{
             key: value for key, value in common.items() if key != "quantity"
         })
+
+
+def test_advice_v1_maps_share_delta_to_broker_ready_limit_orders() -> None:
+    from czsc_trader.application.advice_service import build_advice_v1
+    from czsc_trader.execution_policies import resolve_execution_policy
+
+    policy = resolve_execution_policy(
+        REPO_ROOT / "configs" / "execution_policies",
+        symbol="588080.SH",
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+        required=True,
+    )
+    assert policy is not None
+    common = {
+        "symbol": "588080.SH",
+        "signal_date": pd.Timestamp("2026-09-01"),
+        "valid_session": pd.Timestamp("2026-09-02"),
+        "signal_close": 1.7043736,
+        "execution_close": 1.688,
+        "position_size": 50_000,
+        "policy": policy,
+        "baseline_version": "baseline_20260901",
+        "baseline_sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+    }
+
+    entry = build_advice_v1(target_position=1, actual_quantity=20_000, **common)
+    exit_advice = build_advice_v1(target_position=0, actual_quantity=20_000, **common)
+    repeat = build_advice_v1(target_position=1, actual_quantity=20_000, **common)
+
+    assert entry["contract_version"] == "advice.v1"
+    assert entry["valid_session"] == "2026-09-02"
+    assert entry["actual_quantity"] == 20_000
+    assert entry["target_quantity"] == 50_000
+    assert entry["delta_quantity"] == 30_000
+    assert entry["order"] == {
+        "side": "BUY",
+        "quantity": 30_000,
+        "order_type": "LIMIT",
+        "limit_price": pytest.approx(1.688),
+        "time_in_force": "DAY",
+    }
+    assert repeat["decision_id"] == entry["decision_id"]
+    assert exit_advice["target_quantity"] == 0
+    assert exit_advice["delta_quantity"] == -20_000
+    assert exit_advice["order"] == {
+        "side": "SELL",
+        "quantity": 20_000,
+        "order_type": "LIMIT",
+        "limit_price": pytest.approx(1.350),
+        "time_in_force": "DAY",
+    }
+
+
+def test_advice_v1_uses_published_exchange_session_instead_of_weekday_offset() -> None:
+    from czsc_trader.application.advice_service import build_advice_v1
+    from czsc_trader.execution_policies import resolve_execution_policy
+
+    policy = resolve_execution_policy(
+        REPO_ROOT / "configs" / "execution_policies",
+        symbol="588080.SH",
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+        required=True,
+    )
+    result = build_advice_v1(
+        symbol="588080.SH",
+        signal_date=pd.Timestamp("2026-09-30"),
+        valid_session=pd.Timestamp("2026-10-09"),
+        signal_close=1.7,
+        execution_close=1.7,
+        target_position=0,
+        actual_quantity=0,
+        position_size=50_000,
+        policy=policy,
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+    )
+    assert result["valid_session"] == "2026-10-09"
+
+
+def test_advice_v1_rejects_invalid_account_quantities() -> None:
+    from czsc_trader.application.advice_service import validate_quantity_input
+
+    with pytest.raises(ValueError, match="actual quantity"):
+        validate_quantity_input(-100, 50_000)
+    with pytest.raises(ValueError, match="100-share lots"):
+        validate_quantity_input(50, 50_000)
+    with pytest.raises(ValueError, match="position size"):
+        validate_quantity_input(0, 0)
+
+
+def test_advice_v2_uses_all_fee_covered_cash_in_round_lots() -> None:
+    from czsc_trader.application.advice_service import build_advice_v2
+    from czsc_trader.execution_policies import resolve_execution_policy
+
+    policy = resolve_execution_policy(
+        REPO_ROOT / "configs" / "execution_policies", symbol="588080.SH",
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+        required=True,
+    )
+    result = build_advice_v2(
+        symbol="588080.SH", signal_date=pd.Timestamp("2026-09-01"),
+        valid_session=pd.Timestamp("2026-09-02"), signal_close=1.7043736,
+        execution_close=1.688, target_position=1, actual_quantity=0,
+        available_cash=1_000_000.0, policy=policy,
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+    )
+    expected = int(1_000_000 / (1.688 * 1.0005) // 100 * 100)
+    assert result["contract_version"] == "advice.v2"
+    assert result["order"]["quantity"] == expected
+    assert result["target_quantity"] == expected
+    assert result["estimated_order_cost"] <= 1_000_000
+    assert 0 <= result["unallocated_cash"] < 1.688 * 1.0005 * 100

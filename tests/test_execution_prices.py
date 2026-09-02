@@ -75,6 +75,10 @@ def test_prepare_market_data_publishes_unadjusted_execution_prices(tmp_path: Pat
         tmp_path,
         fetcher=fetcher,
         execution_fetcher=execution_fetcher,
+        calendar_fetcher=lambda after: (
+            date(2026, 9, 2),
+            {"vendor": "tushare", "exchange": "SSE"},
+        ),
         name_fetcher=lambda _symbol, _asset: "科创50ETF",
     )
 
@@ -82,6 +86,11 @@ def test_prepare_market_data_publishes_unadjusted_execution_prices(tmp_path: Pat
     prices = load_execution_prices(tmp_path, "588080.SH", "etf")
     assert prices.iloc[-1]["dt"] == pd.Timestamp(day)
     assert prices.iloc[-1]["close"] == pytest.approx(1.688)
+    manifest = json.loads(
+        (tmp_path / "588080_execution_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["next_trading_session"] == "2026-09-02"
+    assert manifest["calendar"] == {"vendor": "tushare", "exchange": "SSE"}
 
 
 def test_load_execution_prices_rejects_tampered_file(tmp_path: Path) -> None:
@@ -113,3 +122,20 @@ def test_load_execution_prices_rejects_tampered_file(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="SHA-256 differs"):
         load_execution_prices(tmp_path, "588080.SH", "etf")
+
+
+def test_tushare_calendar_returns_first_open_sse_session() -> None:
+    from dataflows.tushare_common import fetch_next_trading_session
+
+    class Pro:
+        def trade_cal(self, **kwargs):
+            assert kwargs["exchange"] == "SSE"
+            assert kwargs["is_open"] == "1"
+            return pd.DataFrame(
+                {"exchange": ["SSE", "SSE"], "cal_date": ["20261009", "20261008"], "is_open": [1, 1]}
+            )
+
+    next_session, metadata = fetch_next_trading_session(date(2026, 9, 30), pro=Pro())
+
+    assert next_session == date(2026, 10, 8)
+    assert metadata == {"vendor": "tushare", "exchange": "SSE"}

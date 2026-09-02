@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "symbol": "588080.SH",
   "name": "易方达上证科创板50成份ETF",
   "code": "588080",
@@ -8,6 +8,11 @@
   "adjustment": "none",
   "requested_start": "2020-01-01",
   "requested_end": "2026-09-01",
+  "next_trading_session": "2026-09-02",
+  "calendar": {
+    "vendor": "tushare",
+    "exchange": "SSE"
+  },
   "generated_at_utc": "2026-09-02T07:25:21.994083+00:00",
   "files": {
     "588080_execution_daily_2020.csv": {

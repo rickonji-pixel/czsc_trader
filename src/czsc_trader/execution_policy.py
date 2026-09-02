@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_FLOOR
+from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
 
 import numpy as np
 import pandas as pd
@@ -29,6 +29,18 @@ def floor_to_tick(price: float, tick: float = 0.001) -> float:
     if not tick_value.is_finite() or tick_value <= 0:
         raise ValueError("tick must be positive and finite")
     ticks = (price_value / tick_value).to_integral_value(rounding=ROUND_FLOOR)
+    return float(ticks * tick_value)
+
+
+def round_to_tick(price: float, tick: float = 0.001) -> float:
+    """Round a positive price to the nearest tick with half values rounded up."""
+    price_value = Decimal(str(price))
+    tick_value = Decimal(str(tick))
+    if not price_value.is_finite() or price_value <= 0:
+        raise ValueError("price must be positive and finite")
+    if not tick_value.is_finite() or tick_value <= 0:
+        raise ValueError("tick must be positive and finite")
+    ticks = (price_value / tick_value).to_integral_value(rounding=ROUND_HALF_UP)
     return float(ticks * tick_value)
 
 

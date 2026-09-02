@@ -9,6 +9,9 @@ __pycache__/
 # Local fixed-rule backtest outputs; formal research is tracked in experiments/.
 outputs/
 
+# Local paper-trading runtime and audit database.
+state/paper_trading/
+
 # Local credentials for optional Tushare dataflows.
 /.env
 

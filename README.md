@@ -102,18 +102,28 @@ BuyHold与MA5/MA20双均线策略。若活动执行规则与标的、活动基�
 ```powershell
 .\.venv\Scripts\czsc-trader.exe advice run `
   --symbol 588080.SH --asset etf `
-  --actual-position 1 --quantity 50000
+  --actual-quantity 20000 --position-size 50000
 ```
 
 命令读取最新完整收盘数据，使用后复权行情计算活动信号，并使用同日未复权
 收盘价和活动执行规则生成下一交易日建议。结果分别输出
-`signal_reference_price`和`execution_reference_price`。`--actual-position`必须明确传入0或1；`--quantity`必须为正数且符合
-100份整数倍。输出包含目标仓位、实际仓位、状态、动作、委托类型、买入最高
-价或卖出操作说明，以及两个冻结版本的身份。
+`signal_reference_price`和`execution_reference_price`。机器契约使用实际成交份数
+`--actual-quantity`与满仓份数`--position-size`计算数量差；二者必须符合100份整数倍。
+旧的`--actual-position/--quantity`参数暂时保留兼容。所有买卖委托价格均由项目侧
+冻结执行规则计算，渠道端不得自动调价。
+输出使用`advice.v1`，包含确定性决策ID、有效交易日、目标/实际/差额数量、
+可直接提交的DAY限价单，以及两个冻结版本的身份。
 
 该入口不连接券商、不自动下单、不改写账户状态。未收到明确成交回报时，
 继续使用原实际仓位再次运行。建议有效期为`NEXT_TRADING_SESSION`；盘中价格
 只作执行风险观察，不改变最近完整收盘后的策略信号。
+
+## 模拟交易运行引擎
+
+独立包位于`packages/paper_trading_engine`，通过上述`advice.v1` CLI契约取得决策，
+负责Futu模拟渠道、SQLite审计和本机观测页面。安装与运行说明见
+`packages/paper_trading_engine/README.md`。PTE与策略包并列，运行时不导入
+`czsc_trader.*`，渠道适配器不参与定价。
 
 ## 实验档案
 

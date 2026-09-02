@@ -1,7 +1,7 @@
 # Paper Trading Engine
 
 PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader advice run`
-的 `advice.v1` JSON 契约取得策略决策，通过渠道适配器执行，并将运行状态和审计
+的 `advice.v2` JSON 契约取得策略决策，通过渠道适配器执行，并将运行状态和审计
 事件保存到 SQLite。PTE 不导入策略包，也不直接获取研究数据。
 
 ## 安装
@@ -58,16 +58,21 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 
 ## Windows 服务
 
-先在管理员 PowerShell 中注册并启动：
+先在管理员 PowerShell 中注册并启动 watchdog：
 
 ```powershell
-.\.venv\Scripts\pte-service.exe install-config --repo-root D:\CodeBase\czsc_trader
-.\.venv\Scripts\pte-service.exe start --wait 30
+.\.venv\Scripts\pte-watchdog.exe install-config --repo-root D:\CodeBase\czsc_trader
+.\.venv\Scripts\pte-watchdog.exe start --wait 30
 ```
 
-常用管理命令为 `status`、`stop --wait 30`、`restart --wait 30` 和 `remove`。服务名为
-`CZSC-PaperTrading`，启动类型为自动；异常退出依次在 5、30、60 秒后重启。配置保存
-在 `state/paper_trading/service.json`，滚动日志位于 `state/paper_trading/logs/pte.log`。
+常用管理命令为 `status`、`stop --wait 30`、`restart --wait 30` 和 `remove`。唯一的
+系统服务名为 `CZSC-PTE-Watchdog`，启动类型为自动。watchdog 通过现有 `pte serve`
+CLI 启动 PTE 子进程，每 10 秒检查进程和 8080 HTTP 状态；连续 3 次失败后重启，
+退避间隔为 5、30、60 秒。安装时会停止并删除旧的 `CZSC-PaperTrading` 服务。
+
+配置保存在 `state/paper_trading/service.json`；watchdog 滚动日志位于
+`state/paper_trading/logs/watchdog.log`，PTE 输出位于
+`state/paper_trading/logs/pte.log`。
 
 ## 干预语义
 

@@ -12,7 +12,7 @@ dependencies = ["futu-api==10.10.7008", "pywin32>=308; platform_system == 'Windo
 
 [project.scripts]
 pte = "paper_trading_engine.cli:main"
-pte-service = "paper_trading_engine.windows_service:main"
+pte-watchdog = "paper_trading_engine.windows_service:main"
 
 [project.optional-dependencies]
 test = ["pytest>=8.0", "ruff>=0.12"]

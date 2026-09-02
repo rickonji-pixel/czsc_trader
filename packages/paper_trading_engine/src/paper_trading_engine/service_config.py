@@ -28,9 +28,23 @@ class ServiceConfig:
             "--port", str(self.port), "--data-refresh-time", self.data_refresh_time,
         ]
 
+    def pte_command(self) -> list[str]:
+        return [
+            str(self.repo_root / ".venv" / "Scripts" / "pte.exe"),
+            *self.serve_arguments(),
+        ]
+
+    @property
+    def health_url(self) -> str:
+        return f"http://{self.host}:{self.port}/api/status"
+
     @property
     def log_path(self) -> Path:
         return self.repo_root / "state" / "paper_trading" / "logs" / "pte.log"
+
+    @property
+    def watchdog_log_path(self) -> Path:
+        return self.repo_root / "state" / "paper_trading" / "logs" / "watchdog.log"
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

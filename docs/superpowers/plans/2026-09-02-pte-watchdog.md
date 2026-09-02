@@ -29,20 +29,20 @@
 - Consumes: `ServiceConfig.serve_arguments() -> list[str]`
 - Produces: `Watchdog.run(stop_event)`, `Watchdog.stop_child()` 和 `http_is_healthy(url, timeout) -> bool`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 覆盖正常启动、连续三次失败后重启、一次失败不重启、停止时回收子进程以及探活响应校验。
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/Scripts/python.exe -m pytest packages/paper_trading_engine/tests/test_watchdog.py -q`
 Expected: FAIL because `paper_trading_engine.watchdog` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 实现可注入 `process_factory`、`health_check` 和 `wait` 的同步运行循环；生产默认值使用 subprocess 与 urllib。
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/Scripts/python.exe -m pytest packages/paper_trading_engine/tests/test_watchdog.py -q`
 Expected: PASS.
@@ -59,20 +59,20 @@ Expected: PASS.
 - Consumes: `Watchdog` and persisted `ServiceConfig`
 - Produces: `PteWatchdogService` and `pte-watchdog` console command
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 断言新服务名、bootstrap 类、旧服务清理命令、PTE 子进程命令和日志路径。
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/Scripts/python.exe -m pytest packages/paper_trading_engine/tests/test_windows_service.py -q`
 Expected: FAIL on old service identity and direct engine hosting.
 
-- [ ] **Step 3: Implement SCM adapter**
+- [x] **Step 3: Implement SCM adapter**
 
 服务回调仅构造并运行 Watchdog；安装命令生成 bootstrap、持久化配置、迁移旧服务并设置 SCM 恢复策略。
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/Scripts/python.exe -m pytest packages/paper_trading_engine/tests/test_windows_service.py -q`
 Expected: PASS.
@@ -87,19 +87,19 @@ Expected: PASS.
 - Consumes: `pte-watchdog install-config`
 - Produces: 可复现安装与状态核验命令
 
-- [ ] **Step 1: Update operator documentation**
+- [x] **Step 1: Update operator documentation**
 
 记录安装、启动、停止、查询、日志位置以及旧服务迁移行为。
 
-- [ ] **Step 2: Run full automated verification**
+- [x] **Step 2: Run full automated verification**
 
 Run: `.venv/Scripts/python.exe -m pytest packages/paper_trading_engine/tests tests -q`
 Expected: all tests pass.
 
-- [ ] **Step 3: Install and verify the live service**
+- [x] **Step 3: Install and verify the live service**
 
 安装并启动 `CZSC-PTE-Watchdog`，核验服务为 Running/Auto、8080 状态页、暂停/恢复以及 PTE 子进程 PID。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 提交 watchdog 实现、测试、文档及执行证据，不合并 master、不推送远端。

@@ -46,7 +46,7 @@ refresh();setInterval(refresh,5000);
 
 
 def create_server(
-    operations: Operations, *, host: str = "127.0.0.1", port: int = 8765
+    operations: Operations, *, host: str = "127.0.0.1", port: int = 8080
 ) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         def _json(self, status: int, payload: dict[str, object]) -> None:

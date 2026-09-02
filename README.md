@@ -108,6 +108,120 @@ BuyHold与MA5/MA20双均线策略。若活动执行规则与标的、活动基�
 继续使用原实际仓位再次运行。建议有效期为`NEXT_TRADING_SESSION`；盘中价格
 只作执行风险观察，不改变最近完整收盘后的策略信号。
 
+## 跨机新会话交接
+
+新会话先阅读本README，并按需阅读[研究交接](docs/RESEARCH_HANDOFF.md)。
+仓库中的代码、行情清单、活动基线、活动执行规则和实验档案构成可移植的
+Git事实；实际账户、人工选择和成交回报保存在本地`state/<证券代码>/`账本中。
+
+### 1. 同步Git事实
+
+源机器记录并推送当前提交：
+
+```powershell
+git status --short --branch
+git rev-parse HEAD
+git remote get-url origin
+git push origin master
+```
+
+目标机器同步后核对相同提交：
+
+```powershell
+git pull --ff-only
+git status --short --branch
+git rev-parse HEAD
+```
+
+随后按“环境”一节安装依赖，并验证正式资源：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
+$baselineRegistry = Get-Content configs\rule_baselines\registry.json | ConvertFrom-Json
+$activeBaseline = $baselineRegistry.latest
+.\.venv\Scripts\czsc-trader.exe baseline show `
+  --version $activeBaseline --symbol 588080.SH
+.\.venv\Scripts\czsc-trader.exe baseline validate `
+  --version $activeBaseline --symbol 588080.SH
+Get-Content configs\execution_policies\registry.json
+.\.venv\Scripts\czsc-trader.exe archive validate --all
+```
+
+活动基线和活动执行规则均以各自的`registry.json`为准。正式建议输出会同时给出
+两个冻结版本及其SHA-256，可用于确认信号规则和执行规则来自同一组合。
+
+### 2. 安全迁移本地账户账本
+
+`state/`包含账户和成交信息，通过用户认可的安全渠道单独复制。源机器与目标
+机器分别运行以下命令，逐文件比较SHA-256：
+
+```powershell
+Get-ChildItem state\588080 -File | Get-FileHash -Algorithm SHA256
+```
+
+目标机器需要继续把账本排除在Git之外：
+
+```powershell
+$excludePath = ".git\info\exclude"
+if (-not (Select-String -LiteralPath $excludePath -Pattern '^/state/588080/$' -Quiet)) {
+  Add-Content -LiteralPath $excludePath -Value "/state/588080/"
+}
+git check-ignore -v state/588080/account.json `
+  state/588080/decisions.csv state/588080/fills.csv
+```
+
+三个文件的职责保持独立：
+
+- `account.json`：当前实际持仓、交易资金和账户修订号；
+- `decisions.csv`：日频建议与用户的`EXECUTE`、`PARTIAL`、`SKIP`选择；
+- `fills.csv`：用户明确确认的成交及追加式更正记录。
+
+成交回报至少包含交易日期、买卖方向、仓位类别、100份整数手数量和成交价。
+手续费未明确时记录毛额并标记待确认；收到手续费后再确认可用于恢复交易仓的
+净资金。成交价格更正通过`correction_of`追加新事件，原事件保留在审计链中。
+
+### 3. 从账本映射建议参数
+
+`advice run`保持无状态，因此新会话每次都从`account.json`读取实际账户，再显式
+传入参数。对于“核心仓长期持有、交易仓由基线控制”的分仓账户：
+
+- `--actual-position`表示交易仓状态：持有为`1`，空仓为`0`；
+- `--quantity`表示本次策略允许操作的交易仓份数，使用100份整数倍；
+- 核心仓不计入`--quantity`，并在最终决策单中单独说明；
+- 恢复交易仓时，数量同时受历史交易仓上限和已确认卖出净资金约束；
+- 手续费或净资金待确认期间，账户资金约束优先，恢复动作保持等待。
+
+示例：交易仓当前持有15,000份时运行：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe advice run `
+  --symbol 588080.SH --asset etf `
+  --actual-position 1 --quantity 15000
+```
+
+正式决策单还应补充数据截止日及验证状态、上一日和当日目标仓位、是否出现新
+信号、三个聚合因子、总分与阈值、核心仓和交易仓范围、信号新鲜度、开盘跳空
+及数据异常风险、理论与实际仓位差异，并明确建议的人工辅助属性。
+
+### 4. 新会话接手提示词
+
+以下内容可以直接提交给新的Codex会话：
+
+```text
+请在czsc-trader仓库内工作。先完整阅读README.md，并按需阅读
+docs/RESEARCH_HANDOFF.md。只读核对当前分支、HEAD、数据manifest和validation、
+活动信号基线registry、活动执行规则registry，以及state/588080下的account.json、
+decisions.csv和fills.csv。
+
+日频建议使用安装后的czsc-trader advice run正式入口。实际仓位和数量从账户
+账本显式传入；核心仓与交易仓分别说明。完整收盘数据生成下一交易日信号，
+盘中价格只用于执行风险观察。程序保持人工辅助，不连接券商。
+
+只有我提供明确成交回报后才能追加fills.csv并更新account.json。成交更正保留
+原事件并追加correction_of记录。未收到成交回报时，账户持仓和修订号保持不变。
+state/588080继续只保存在本地并排除在Git之外。
+```
+
 ## 实验档案
 
 ```powershell

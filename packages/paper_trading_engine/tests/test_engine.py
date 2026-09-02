@@ -316,3 +316,36 @@ def test_store_reopen_preserves_pause_and_intent(tmp_path: Path) -> None:
     reopened = PaperStore(tmp_path / "runtime.db")
     assert reopened.is_paused() is True
     assert reopened.get_intent("PTE-DEC-ONE") is not None
+
+
+def test_restart_retries_persisted_pending_intent_when_broker_has_no_order(tmp_path: Path) -> None:
+    from dataclasses import asdict
+    from paper_trading_engine.engine import OrderIntent
+
+    engine, store, broker, _ = make_engine(tmp_path)
+    intent = OrderIntent("PTE-DEC-ONE", "DEC-ONE", "588080.SH", "BUY", 50_000, 1.688)
+    store.save_intent(intent.intent_id, intent.decision_id, asdict(intent))
+
+    engine.refresh()
+
+    assert len(broker.placed) == 1
+    assert store.get_intent(intent.intent_id)["channel_order_id"] == "1001"
+
+
+def test_restart_binds_persisted_intent_to_broker_order_by_remark(tmp_path: Path) -> None:
+    from dataclasses import asdict
+    from paper_trading_engine.engine import BrokerOrder, OrderIntent
+
+    engine, store, broker, _ = make_engine(tmp_path)
+    intent = OrderIntent("PTE-DEC-ONE", "DEC-ONE", "588080.SH", "BUY", 50_000, 1.688)
+    store.save_intent(intent.intent_id, intent.decision_id, asdict(intent))
+    broker.current = replace(
+        broker.current,
+        orders=(BrokerOrder("existing", "588080.SH", "BUY", 50_000, 1.688,
+                            "SUBMITTED", 0, 0.0, intent.intent_id),),
+    )
+
+    engine.refresh()
+
+    assert broker.placed == []
+    assert store.get_intent(intent.intent_id)["channel_order_id"] == "existing"

@@ -273,9 +273,8 @@ class PaperTradingEngine:
         order: OrderSpec,
         snapshot: BrokerSnapshot,
     ) -> None:
-        if self.store.find_intent_by_decision(decision.decision_id) is not None:
-            return
         intent_id = f"PTE-{decision.decision_id}"
+        existing = self.store.find_intent_by_decision(decision.decision_id)
         matching = next((item for item in snapshot.orders if item.remark == intent_id), None)
         intent = OrderIntent(
             intent_id=intent_id,
@@ -285,11 +284,16 @@ class PaperTradingEngine:
             quantity=order.quantity,
             limit_price=order.limit_price,
         )
-        self.store.save_intent(intent_id, decision.decision_id, asdict(intent))
-        self.store.add_event("ORDER_INTENT_CREATED", asdict(intent))
         if matching is not None:
             self.store.bind_intent(intent_id, matching.channel_order_id, matching.status)
             return
+        if existing is not None:
+            if existing["channel_order_id"] is not None or existing["status"] != "PENDING_SUBMIT":
+                return
+            self.store.add_event("ORDER_INTENT_RECOVERED", asdict(intent))
+        else:
+            self.store.save_intent(intent_id, decision.decision_id, asdict(intent))
+            self.store.add_event("ORDER_INTENT_CREATED", asdict(intent))
         submitted = self.broker.place_order(intent)
         self._reconcile_order(submitted)
         self._orders = tuple(

@@ -93,7 +93,11 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         with urlopen(f"http://127.0.0.1:{server.server_port}/", timeout=3) as response:
             html = response.read().decode("utf-8")
         assert "Paper Trading Engine" in html
-        assert "暂停新订单" in html
+        assert 'role="switch"' in html
+        assert 'id="runSwitch"' in html
+        assert 'id="pauseButton"' not in html
+        assert 'id="resumeButton"' not in html
+        assert "自动运行" in html
         assert "/api/status" in html
         assert "恢复成功" in html
         assert "DEGRADED_QUOTE:'行情降级'" in html

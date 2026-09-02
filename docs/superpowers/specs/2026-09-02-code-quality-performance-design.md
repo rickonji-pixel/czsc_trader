@@ -87,7 +87,10 @@ volatility produces `None`. All four report rows call this helper from their
 independently funded equity series. `policy_metrics` no longer contains a
 second Sharpe implementation.
 
-The manifest metrics schema changes from version 2 to version 3. Return,
+The manifest metrics schema changes from legacy version 2 to version 4. Version
+4 adds `win_loss_ratio_status` with `VALID`, `NO_LOSSES`, `NO_WINS`, and
+`NO_CLOSED_TRADES`, so a missing numeric ratio retains its cause. Reports render
+these states as a number, `无亏损`, `无盈利`, or `无闭合交易`. Return,
 maximum drawdown, Calmar ratio, win/loss ratio, orders, positions, and equity
 remain byte-for-byte or numerically unchanged as appropriate. Existing frozen
 experiment artifacts remain immutable and retain their historical metrics.
@@ -179,8 +182,8 @@ Implementation is accepted when all of the following hold:
 
 1. identical equity series produce identical Sharpe values for every strategy
    path;
-2. the generated comparison report contains the unified values and manifest
-   schema version 3;
+2. the generated comparison report contains the unified values, explicit
+   win/loss availability labels, and manifest schema version 4;
 3. existing backtest return, drawdown, Calmar, win/loss, order, and equity
    assertions still pass;
 4. `czsc-trader --help` exposes the same five resources;

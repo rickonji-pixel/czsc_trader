@@ -132,11 +132,12 @@ Move `_report` without behavioral changes, rename it
 `render_backtest_report`, import it in `backtest_runner.py`, and set:
 
 ```python
-"metrics_schema_version": 3,
+"metrics_schema_version": 4,
 ```
 
 Update end-to-end expected Sharpe values to values produced by the unified
-formula, and assert the manifest schema is 3.
+formula. Assert the manifest schema is 4 and preserve unavailable win/loss
+reasons through `win_loss_ratio_status`.
 
 - [ ] **Step 4: Run report and end-to-end tests**
 

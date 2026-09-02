@@ -12,6 +12,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CLI = Path(sys.executable).with_name("czsc-trader.exe" if sys.platform == "win32" else "czsc-trader")
 STRATEGY_METRIC_KEYS = {"max_drawdown", "calmar", "win_loss_ratio", "return", "sharpe"}
+STRATEGY_METRIC_KEYS.add("win_loss_ratio_status")
 
 
 def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
@@ -60,16 +61,19 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert strategies["active_baseline"]["return"] == pytest.approx(
         0.7528525916956634
     )
-    assert strategies["ma5_ma20"] == pytest.approx(
-        {
-            "max_drawdown": -0.22945460734778733,
-            "calmar": 1.520558369439513,
-            "win_loss_ratio": 3.2767930702460384,
-            "return": 0.20069278199087237,
-            "sharpe": 1.0253626758401702,
-        }
+    expected_ma = {
+        "max_drawdown": -0.22945460734778733,
+        "calmar": 1.520558369439513,
+        "win_loss_ratio": 3.2767930702460384,
+        "return": 0.20069278199087237,
+        "sharpe": 1.0253626758401702,
+    }
+    assert {key: strategies["ma5_ma20"][key] for key in expected_ma} == pytest.approx(
+        expected_ma
     )
+    assert strategies["ma5_ma20"]["win_loss_ratio_status"] == "VALID"
     assert strategies["buyhold"]["win_loss_ratio"] is None
+    assert strategies["buyhold"]["win_loss_ratio_status"] == "NO_CLOSED_TRADES"
 
     assert (output_dir / "audit.json").is_file()
     assert (output_dir / "report.md").is_file()
@@ -81,7 +85,7 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert (output_dir / "execution_orders.csv").is_file()
     assert (output_dir / "execution_equity.csv").is_file()
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["metrics_schema_version"] == 3
+    assert manifest["metrics_schema_version"] == 4
 
     ma_signals = pd.read_csv(output_dir / "ma_signals.csv", parse_dates=["dt"])
     assert list(ma_signals.columns) == ["dt", "close", "ma5", "ma20", "target_position"]
@@ -108,6 +112,7 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert report.count("| 活动基线·执行规则 |") == 1
     assert report.count("| BuyHold |") == 1
     assert report.count("| MA5/MA20 |") == 1
+    assert "| BuyHold |" in report and "无闭合交易" in report
     assert "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |" in report
 
     ma_chart = (output_dir / "ma_chart.html").read_text(encoding="utf-8")

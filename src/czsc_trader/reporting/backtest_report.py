@@ -17,6 +17,17 @@ def render_backtest_report(
     def ratio(value: object) -> str:
         return "N/A" if value is None else f"{float(value):.3f}"
 
+    def win_loss(item: dict[str, object]) -> str:
+        status = item.get("win_loss_ratio_status")
+        labels = {
+            "NO_LOSSES": "无亏损",
+            "NO_WINS": "无盈利",
+            "NO_CLOSED_TRADES": "无闭合交易",
+        }
+        if status == "VALID":
+            return ratio(item.get("win_loss_ratio"))
+        return labels.get(str(status), "N/A")
+
     lines = [
         f"# {symbol} 固定基线规则回测",
         "",
@@ -64,7 +75,7 @@ def render_backtest_report(
                 raise TypeError("strategy metrics must be a mapping")
             lines.append(
                 f"| {labels[strategy_id]} | {percent(item['max_drawdown'])} | "
-                f"{ratio(item['calmar'])} | {ratio(item['win_loss_ratio'])} | "
+                f"{ratio(item['calmar'])} | {win_loss(item)} | "
                 f"{percent(item['return'])} | {ratio(item['sharpe'])} |"
             )
     lines.extend(["", "## 交互式图表", ""])

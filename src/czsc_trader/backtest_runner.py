@@ -220,7 +220,14 @@ def _strategy_metrics(
         values = policy_metrics(execution, init_cash)
         strategies["active_baseline_execution_policy"] = {
             key: values[key]
-            for key in ("max_drawdown", "calmar", "win_loss_ratio", "return", "sharpe")
+            for key in (
+                "max_drawdown",
+                "calmar",
+                "win_loss_ratio",
+                "win_loss_ratio_status",
+                "return",
+                "sharpe",
+            )
         }
     return {
         "start": str(active.metrics["start"]),
@@ -472,7 +479,7 @@ def run_fixed_backtest(
             "asset_type": data.asset_type,
             "fee_rate_per_side": request.fee_rate,
             "initial_cash": request.init_cash,
-            "metrics_schema_version": 3,
+            "metrics_schema_version": 4,
             "comparison_strategies": {
                 "active_baseline": baseline.version,
                 "buyhold": {"initial_target": 1.0},

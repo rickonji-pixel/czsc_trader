@@ -93,6 +93,12 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         with urlopen(f"http://127.0.0.1:{server.server_port}/", timeout=3) as response:
             html = response.read().decode("utf-8")
         assert "Paper Trading Engine" in html
+        assert 'aria-label="运行概览"' in html
+        assert 'aria-label="账户概览"' in html
+        assert 'aria-label="策略决策"' in html
+        assert 'id="decisionAction"' in html
+        assert 'id="lastUpdated"' in html
+        assert 'aria-live="polite"' in html
         assert 'role="switch"' in html
         assert 'id="runSwitch"' in html
         assert 'id="pauseButton"' not in html

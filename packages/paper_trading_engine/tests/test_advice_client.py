@@ -12,7 +12,7 @@ def payload(*, order: dict[str, object] | None = None) -> dict[str, object]:
         "status": "PASS",
         "command": "advice.run",
         "result": {
-            "contract_version": "advice.v1",
+            "contract_version": "advice.v2",
             "decision_id": "DEC-ABC123",
             "symbol": "588080.SH",
             "signal_date": "2026-09-01",
@@ -20,6 +20,10 @@ def payload(*, order: dict[str, object] | None = None) -> dict[str, object]:
             "actual_quantity": 0,
             "target_quantity": 0 if order is None else 50_000,
             "position_size": 50_000,
+            "available_cash": 1_000_000.0,
+            "fee_rate": 0.0005,
+            "estimated_order_cost": 0.0 if order is None else 84_442.2,
+            "unallocated_cash": 1_000_000.0 if order is None else 915_557.8,
             "delta_quantity": 0 if order is None else 50_000,
             "action": "WAIT" if order is None else "BUY",
             "baseline": {"version": "baseline_20260901", "sha256": "b" * 64},
@@ -57,7 +61,7 @@ def test_advice_decision_parses_wait_and_limit_order() -> None:
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
-        (lambda value: value["result"].update(contract_version="advice.v2"), "version"),
+        (lambda value: value["result"].update(contract_version="advice.v1"), "version"),
         (lambda value: value["result"]["order"].update(limit_price="1.688"), "price"),
         (lambda value: value["result"]["order"].update(quantity=50), "100-share"),
         (lambda value: value.update(status="FAIL"), "failed"),
@@ -95,11 +99,10 @@ def test_cli_advice_client_uses_shell_free_explicit_arguments(tmp_path: Path) ->
         data_dir=tmp_path / "runtime-data",
         symbol="588080.SH",
         asset="etf",
-        position_size=50_000,
         timeout_seconds=15,
         runner=runner,
     )
-    decision = client.get_decision(actual_quantity=0)
+    decision = client.get_decision(actual_quantity=0, available_cash=1_000_000.0)
 
     assert decision.decision_id == "DEC-ABC123"
     arguments, options = calls[0]
@@ -113,8 +116,8 @@ def test_cli_advice_client_uses_shell_free_explicit_arguments(tmp_path: Path) ->
         "etf",
         "--actual-quantity",
         "0",
-        "--position-size",
-        "50000",
+        "--available-cash",
+        "1000000.00",
         "--repo-root",
         str(tmp_path.resolve()),
         "--data-dir",
@@ -137,19 +140,18 @@ def test_cli_advice_client_rejects_process_failures_and_noisy_stdout(tmp_path: P
             data_dir=tmp_path / "runtime-data",
             symbol="588080.SH",
             asset="etf",
-            position_size=50_000,
             runner=runner,
         )
 
     with pytest.raises(AdviceClientError, match="exit code 5"):
-        make_client(lambda args, **kwargs: CompletedProcess(args, 5, "{}", "failed")).get_decision(0)
+        make_client(lambda args, **kwargs: CompletedProcess(args, 5, "{}", "failed")).get_decision(0, 1_000_000)
     with pytest.raises(AdviceClientError, match="single JSON"):
         make_client(
             lambda args, **kwargs: CompletedProcess(args, 0, "log\n" + json.dumps(payload()), "")
-        ).get_decision(0)
+        ).get_decision(0, 1_000_000)
 
     def timeout_runner(args, **kwargs):
         raise TimeoutExpired(args, kwargs["timeout"])
 
     with pytest.raises(AdviceClientError, match="timed out"):
-        make_client(timeout_runner).get_decision(0)
+        make_client(timeout_runner).get_decision(0, 1_000_000)

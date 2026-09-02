@@ -72,6 +72,10 @@ class AdviceDecision:
     execution_reference_price: float
     data_cutoff: date
     order: OrderSpec | None
+    available_cash: float = 0.0
+    fee_rate: float = 0.0
+    estimated_order_cost: float = 0.0
+    unallocated_cash: float = 0.0
 
     @classmethod
     def from_cli_payload(cls, payload: object) -> "AdviceDecision":
@@ -80,7 +84,7 @@ class AdviceDecision:
             raise AdviceContractError("advice command failed")
         value = _object(outer.get("result"), "result")
         version = str(value.get("contract_version", ""))
-        if version != "advice.v1":
+        if version != "advice.v2":
             raise AdviceContractError(f"unsupported advice contract version: {version}")
         try:
             signal_date = date.fromisoformat(str(value["signal_date"]))
@@ -92,7 +96,7 @@ class AdviceDecision:
         target = _integer(value.get("target_quantity"), "target quantity")
         size = _integer(value.get("position_size"), "position size")
         delta = _integer(value.get("delta_quantity"), "delta quantity")
-        if actual < 0 or target < 0 or size <= 0 or any(q % 100 for q in (actual, target, size)):
+        if actual < 0 or target < 0 or size < 0 or any(q % 100 for q in (actual, target, size)):
             raise AdviceContractError("advice quantities must use non-negative 100-share lots")
         if target - actual != delta:
             raise AdviceContractError("delta quantity does not match target minus actual")
@@ -124,4 +128,8 @@ class AdviceDecision:
             execution_reference_price=float(value["execution_reference_price"]),
             data_cutoff=data_cutoff,
             order=order,
+            available_cash=float(value["available_cash"]),
+            fee_rate=float(value["fee_rate"]),
+            estimated_order_cost=float(value["estimated_order_cost"]),
+            unallocated_cash=float(value["unallocated_cash"]),
         )

@@ -24,7 +24,6 @@ class CliAdviceClient:
         data_dir: Path,
         symbol: str,
         asset: str,
-        position_size: int,
         timeout_seconds: float = 60,
         runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     ) -> None:
@@ -33,11 +32,10 @@ class CliAdviceClient:
         self.data_dir = Path(data_dir).resolve()
         self.symbol = symbol.upper()
         self.asset = asset
-        self.position_size = int(position_size)
         self.timeout_seconds = float(timeout_seconds)
         self.runner = runner
 
-    def get_decision(self, actual_quantity: int) -> AdviceDecision:
+    def get_decision(self, actual_quantity: int, available_cash: float) -> AdviceDecision:
         arguments = [
             str(self.executable),
             "advice",
@@ -48,8 +46,8 @@ class CliAdviceClient:
             self.asset,
             "--actual-quantity",
             str(actual_quantity),
-            "--position-size",
-            str(self.position_size),
+            "--available-cash",
+            f"{available_cash:.2f}",
             "--repo-root",
             str(self.repo_root),
             "--data-dir",

@@ -28,6 +28,10 @@ def decision(order: OrderSpec | None = None) -> AdviceDecision:
         execution_reference_price=1.688,
         data_cutoff=date(2026, 9, 1),
         order=order,
+        available_cash=1_000_000.0,
+        fee_rate=0.0005,
+        estimated_order_cost=0.0,
+        unallocated_cash=1_000_000.0,
     )
 
 
@@ -40,7 +44,7 @@ class FakeAdvice:
     def data_identity(self) -> str:
         return self.identity
 
-    def get_decision(self, actual_quantity: int) -> AdviceDecision:
+    def get_decision(self, actual_quantity: int, available_cash: float) -> AdviceDecision:
         self.calls.append(actual_quantity)
         return replace(self.value, actual_quantity=actual_quantity)
 
@@ -149,7 +153,7 @@ def test_partial_fill_does_not_submit_again_while_original_order_is_active(tmp_p
     from paper_trading_engine.engine import BrokerPosition
 
     class QuantityAwareAdvice:
-        def get_decision(self, actual_quantity: int) -> AdviceDecision:
+        def get_decision(self, actual_quantity: int, available_cash: float) -> AdviceDecision:
             remaining = 50_000 - actual_quantity
             return replace(
                 decision(OrderSpec("BUY", remaining, "LIMIT", 1.688, "DAY")),

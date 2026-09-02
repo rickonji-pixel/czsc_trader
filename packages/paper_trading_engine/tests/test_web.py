@@ -98,6 +98,9 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         assert 'id="pauseButton"' not in html
         assert 'id="resumeButton"' not in html
         assert "自动运行" in html
+        assert "可部署现金" in html
+        assert "预计订单成本" in html
+        assert "预计剩余现金" in html
         assert "/api/status" in html
         assert "恢复成功" in html
         assert "DEGRADED_QUOTE:'行情降级'" in html

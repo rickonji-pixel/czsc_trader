@@ -254,3 +254,29 @@ def test_advice_v1_rejects_invalid_account_quantities() -> None:
         validate_quantity_input(50, 50_000)
     with pytest.raises(ValueError, match="position size"):
         validate_quantity_input(0, 0)
+
+
+def test_advice_v2_uses_all_fee_covered_cash_in_round_lots() -> None:
+    from czsc_trader.application.advice_service import build_advice_v2
+    from czsc_trader.execution_policies import resolve_execution_policy
+
+    policy = resolve_execution_policy(
+        REPO_ROOT / "configs" / "execution_policies", symbol="588080.SH",
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+        required=True,
+    )
+    result = build_advice_v2(
+        symbol="588080.SH", signal_date=pd.Timestamp("2026-09-01"),
+        valid_session=pd.Timestamp("2026-09-02"), signal_close=1.7043736,
+        execution_close=1.688, target_position=1, actual_quantity=0,
+        available_cash=1_000_000.0, policy=policy,
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+    )
+    expected = int(1_000_000 / (1.688 * 1.0005) // 100 * 100)
+    assert result["contract_version"] == "advice.v2"
+    assert result["order"]["quantity"] == expected
+    assert result["target_quantity"] == expected
+    assert result["estimated_order_cost"] <= 1_000_000
+    assert 0 <= result["unallocated_cash"] < 1.688 * 1.0005 * 100

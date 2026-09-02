@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal, ROUND_FLOOR
 from hashlib import sha256
 import json
 
@@ -25,7 +26,8 @@ class AdviceCommand:
     symbol: str
     asset_type: str
     actual_quantity: int
-    position_size: int
+    position_size: int | None = None
+    available_cash: float | None = None
     baseline: str | None = None
 
 
@@ -126,6 +128,70 @@ def build_advice_v1(
     }
 
 
+def build_advice_v2(
+    *, symbol: str, signal_date: pd.Timestamp, valid_session: pd.Timestamp,
+    signal_close: float, execution_close: float, target_position: int,
+    actual_quantity: int, available_cash: float, policy: ResolvedExecutionPolicy,
+    baseline_version: str, baseline_sha256: str,
+) -> dict[str, object]:
+    """Build a full-cash decision while keeping price and fees project-owned."""
+    if actual_quantity < 0 or actual_quantity % 100:
+        raise ValueError("actual quantity must use non-negative 100-share lots")
+    cash = Decimal(str(available_cash)).quantize(Decimal("0.01"))
+    if not cash.is_finite() or cash < 0:
+        raise ValueError("available cash must be non-negative and finite")
+    if target_position not in (0, 1):
+        raise ValueError("target position must be 0 or 1")
+    signal_day = pd.Timestamp(signal_date).normalize()
+    valid_day = pd.Timestamp(valid_session).normalize()
+    if valid_day <= signal_day:
+        raise ValueError("valid session must be after signal date")
+    fee = Decimal(str(policy.fee_rate))
+    order: dict[str, object] | None = None
+    estimated = Decimal("0")
+    if target_position:
+        price = floor_to_tick(float(execution_close) * (1 + policy.parameter), policy.tick)
+        unit_cost = Decimal(str(price)) * (Decimal("1") + fee)
+        lots = (cash / (unit_cost * 100)).to_integral_value(rounding=ROUND_FLOOR)
+        delta = int(lots) * 100
+        target = actual_quantity + delta
+        if delta:
+            order = {"side": "BUY", "quantity": delta, "order_type": "LIMIT",
+                     "limit_price": price, "time_in_force": "DAY"}
+            estimated = unit_cost * delta
+            action = "BUY"
+        else:
+            action = "HOLD" if actual_quantity else "WAIT"
+    else:
+        target = 0
+        delta = -actual_quantity
+        if actual_quantity:
+            price = round_to_tick(
+                float(execution_close) * (1 - policy.exit_limit_ratio), policy.tick
+            )
+            order = {"side": "SELL", "quantity": actual_quantity, "order_type": "LIMIT",
+                     "limit_price": price, "time_in_force": "DAY"}
+            action = "SELL"
+        else:
+            action = "WAIT"
+    identity = {
+        "contract_version": "advice.v2", "symbol": symbol.upper(),
+        "signal_date": str(signal_day.date()), "valid_session": str(valid_day.date()),
+        "actual_quantity": actual_quantity, "target_quantity": target,
+        "position_size": target, "available_cash": float(cash),
+        "baseline": {"version": baseline_version, "sha256": baseline_sha256},
+        "execution_policy": {"version": policy.version, "sha256": policy.sha256},
+        "order": order,
+    }
+    return {
+        **identity, "decision_id": _decision_id(identity), "delta_quantity": delta,
+        "target_position": target_position, "action": action,
+        "signal_reference_price": float(signal_close),
+        "execution_reference_price": float(execution_close),
+        "execution_price_adjustment": "none", "fee_rate": float(fee),
+        "estimated_order_cost": float(estimated.quantize(Decimal("0.01"))),
+        "unallocated_cash": float((cash - estimated).quantize(Decimal("0.01"))),
+    }
 def build_advice(
     *,
     signal_date: pd.Timestamp,
@@ -199,7 +265,9 @@ def build_advice(
 def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandResult:
     """Generate advice from the latest complete locally tracked close."""
     try:
-        validate_quantity_input(request.actual_quantity, request.position_size)
+        if request.available_cash is None:
+            assert request.position_size is not None
+            validate_quantity_input(request.actual_quantity, request.position_size)
     except ValueError as exc:
         raise UsageError("invalid_account_state", str(exc)) from exc
     try:
@@ -234,7 +302,7 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
             raise ValueError(
                 f"execution price must contain exactly one row for {signal_date.date()}"
             )
-        advice = build_advice_v1(
+        common = dict(
             symbol=data.symbol,
             signal_date=signal_date,
             valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
@@ -242,10 +310,14 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
             execution_close=float(execution_rows.iloc[0]["close"]),
             target_position=int(applied.target_position.loc[signal_date]),
             actual_quantity=request.actual_quantity,
-            position_size=request.position_size,
             policy=policy,
             baseline_version=baseline.version,
             baseline_sha256=baseline.sha256,
+        )
+        advice = (
+            build_advice_v2(available_cash=request.available_cash, **common)
+            if request.available_cash is not None
+            else build_advice_v1(position_size=request.position_size, **common)
         )
         result = {
             **advice,

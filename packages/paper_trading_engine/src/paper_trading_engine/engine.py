@@ -94,7 +94,7 @@ class OrderIntent:
 
 
 class AdviceClient(Protocol):
-    def get_decision(self, actual_quantity: int) -> AdviceDecision: ...
+    def get_decision(self, actual_quantity: int, available_cash: float) -> AdviceDecision: ...
 
 
 class BrokerGateway(Protocol):
@@ -125,7 +125,7 @@ class PaperTradingEngine:
         self._account_snapshot: BrokerSnapshot | None = None
         self._orders: tuple[BrokerOrder, ...] = ()
         self._decision: AdviceDecision | None = None
-        self._decision_key: tuple[str | None, int] | None = None
+        self._decision_key: tuple[str | None, int, float] | None = None
         self._alerts: list[str] = []
         self._lock = RLock()
 
@@ -203,15 +203,18 @@ class PaperTradingEngine:
         )
         identity_method = getattr(self.advice, "data_identity", None)
         identity = identity_method() if identity_method is not None else None
-        key = (identity, actual_quantity)
+        available_cash = round(self._account_snapshot.account.cash, 2)
+        key = (identity, actual_quantity, available_cash)
         if not force and self._decision is not None and key == self._decision_key:
             self._evaluate_submission()
             return self._save_status()
-        decision = self.advice.get_decision(actual_quantity)
+        decision = self.advice.get_decision(actual_quantity, available_cash)
         if decision.symbol != self.symbol:
             raise PaperTradingSafetyError("advice symbol differs from engine whitelist")
         if decision.actual_quantity != actual_quantity:
             raise PaperTradingSafetyError("advice actual quantity differs from broker reconciliation")
+        if round(decision.available_cash, 2) != available_cash:
+            raise PaperTradingSafetyError("advice available cash differs from broker reconciliation")
         self._decision = decision
         self._decision_key = key
         self._evaluate_submission()

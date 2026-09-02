@@ -21,30 +21,34 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 先执行单轮诊断：
 
 ```powershell
-.\.venv\Scripts\pte.exe once --repo-root D:\CodeBase\czsc_trader --position-size 50000
+.\.venv\Scripts\pte.exe once --repo-root D:\CodeBase\czsc_trader
 ```
 
 确认结果后启动持续服务：
 
 ```powershell
-.\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader --position-size 50000
+.\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
 ```
 
-页面地址为 `http://127.0.0.1:8765`。订单和累计成交默认每 5 秒轮询，账户与持仓
+页面地址为 `http://127.0.0.1:8080`。订单和累计成交默认每 5 秒轮询，账户与持仓
 每 60 秒刷新，策略每 5 秒检查一次数据身份，只有完整收盘数据身份或实际持仓发生
 变化才重新调用 advice。运行库位于 `state/paper_trading/runtime.db`；运行数据位于
 `state/paper_trading/data`，均不进入版本控制。重启会复用订单意图、渠道订单、暂停
 状态与审计事件。
 
-服务在每个自然日 16:15 后自动运行一次数据发布，发布失败会写入告警事件并按退避
+服务在每个自然日 19:00 后自动运行一次数据发布，发布失败会写入告警事件并按退避
 间隔重试。发布流程通过 Tushare 的 SSE 交易日历写入下一有效交易日，策略建议和
 自动提交均使用该日期，不按普通工作日推断。各频率和发布时间可分别调整：
 
 ```powershell
 .\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader `
-  --position-size 50000 --order-interval 5 --account-interval 60 `
-  --decision-interval 5 --data-refresh-time 16:15
+  --order-interval 5 --account-interval 60 `
+  --decision-interval 5 --data-refresh-time 19:00
 ```
+
+自动买入使用模拟账户已对账的全部可部署现金。PTE 将现金与实际持仓交给
+`czsc-trader advice run`，由项目侧按限价、执行费率和 100 份交易单位计算最大可买
+数量；卖出信号卖出全部已成交持仓。渠道不参与定价或改量。
 
 页面字段使用中文业务语义，英文枚举仍保留在 API、数据库和可展开的格式化诊断区。
 暂停、恢复和撤单操作都会立即显示成功或失败反馈。

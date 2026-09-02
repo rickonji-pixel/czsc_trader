@@ -48,7 +48,7 @@ class PteParser(argparse.ArgumentParser):
 
 def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--repo-root", required=True, type=Path)
-    parser.add_argument("--position-size", required=True, type=int)
+    parser.add_argument("--position-size", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--symbol", default="588080.SH")
     parser.add_argument("--asset", choices=("etf", "stock"), default="etf")
     parser.add_argument("--database", type=Path)
@@ -91,7 +91,6 @@ def build_engine(args: argparse.Namespace) -> PaperTradingEngine:
         data_dir=args.data_dir,
         symbol=args.symbol,
         asset=args.asset,
-        position_size=args.position_size,
     )
     return PaperTradingEngine(store, gateway, advice, symbol=args.symbol)
 

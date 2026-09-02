@@ -119,3 +119,14 @@
 - [x] Resolve the next open session from the Tushare SSE calendar during data publication.
 - [x] Persist that session in the execution-data manifest.
 - [x] Require advice generation to consume the persisted session instead of inferring weekdays.
+
+### Next-stage TODO
+
+- [ ] Publish complete-close data only after 19:00 each trading day and retain bounded
+  retry backoff after failures.
+- [ ] Change the default service port to 8080, probing availability before binding and
+  returning an explicit conflict error when occupied.
+- [ ] Register PTE as a Windows system service with boot startup, crash recovery, observable
+  logs, and an explicit stop path.
+- [ ] Derive the order position size from all available simulated-account cash while preserving
+  100-share lot and project-owned limit-price constraints.

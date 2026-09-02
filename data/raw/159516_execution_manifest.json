@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "symbol": "159516.SZ",
+  "name": "国泰中证半导体材料设备主题ETF",
+  "code": "159516",
+  "asset_type": "etf",
+  "vendor": "tushare",
+  "adjustment": "none",
+  "requested_start": "2025-01-01",
+  "requested_end": "2026-09-02",
+  "next_trading_session": "2026-09-03",
+  "calendar": {
+    "vendor": "tushare",
+    "exchange": "SSE"
+  },
+  "generated_at_utc": "2026-09-02T11:23:20.425016+00:00",
+  "files": {
+    "159516_execution_daily_2025.csv": {
+      "frequency": "daily",
+      "year": 2025,
+      "rows": 243,
+      "first": "2025-01-02T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "469eb933f8a0b40dc32b15476b4d4fdf358a213657f66612dee916ea1b75f7e6"
+    },
+    "159516_execution_daily_2026.csv": {
+      "frequency": "daily",
+      "year": 2026,
+      "rows": 162,
+      "first": "2026-01-05T00:00:00",
+      "last": "2026-09-02T00:00:00",
+      "sha256": "87bf283e6565c3cf2b34d8fd3a4335c2ab8a4844793947a7b61ca8dc1ede49b7"
+    }
+  },
+  "fetch_metadata": {
+    "vendor": "tushare",
+    "market": "a_share",
+    "vendor_symbol": "159516.SZ",
+    "period": "daily",
+    "asset_type": "etf",
+    "adjustment": "none"
+  }
+}

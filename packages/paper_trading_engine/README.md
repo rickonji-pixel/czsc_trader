@@ -53,6 +53,22 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 页面字段使用中文业务语义，英文枚举仍保留在 API、数据库和可展开的格式化诊断区。
 暂停、恢复和撤单操作都会立即显示成功或失败反馈。
 
+自动新单仅在决策的有效交易日，并处于 `09:30–11:30` 或 `13:00–14:57`
+（Asia/Shanghai）时提交。夜间、午休和集合竞价阶段继续观测与对账。
+
+## Windows 服务
+
+先在管理员 PowerShell 中注册并启动：
+
+```powershell
+.\.venv\Scripts\pte-service.exe install-config --repo-root D:\CodeBase\czsc_trader
+.\.venv\Scripts\pte-service.exe start --wait 30
+```
+
+常用管理命令为 `status`、`stop --wait 30`、`restart --wait 30` 和 `remove`。服务名为
+`CZSC-PaperTrading`，启动类型为自动；异常退出依次在 5、30、60 秒后重启。配置保存
+在 `state/paper_trading/service.json`，滚动日志位于 `state/paper_trading/logs/pte.log`。
+
 ## 干预语义
 
 - 暂停只阻止新订单，已有订单继续对账。

@@ -97,3 +97,13 @@
 - [ ] Refresh account and positions every 30 to 60 seconds.
 - [ ] Invoke `czsc-trader advice run` only after complete-close data identity changes.
 - [ ] Enter submission evaluation only for a newly observed `decision_id`.
+
+### Deferred UI and Intervention Corrections
+
+- [ ] Add a presentation-only Chinese label map for environment, health, run state,
+  decision action, order status, and alerts while preserving stable English contracts.
+- [ ] Replace raw account, decision, order, and event JSON blocks with semantic cards,
+  tables, and expandable formatted details.
+- [ ] Reproduce the inactive Resume button from a paused state and add an interaction
+  regression test covering request, response, engine state, refresh, and visible feedback.
+- [ ] Make Resume success and failure visible without relying on background polling.

@@ -317,14 +317,7 @@ def policy_metrics(
 ) -> dict[str, float | int | None]:
     """Return execution-service and portfolio metrics for one simulation."""
     equity = simulation.equity.astype(float)
-    daily_returns = equity.pct_change().dropna()
-    volatility = float(daily_returns.std(ddof=1)) if len(daily_returns) > 1 else float("nan")
-    sharpe = (
-        float(np.sqrt(252.0) * daily_returns.mean() / volatility)
-        if np.isfinite(volatility) and volatility > 0.0
-        else float("nan")
-    )
-    comparison = strategy_comparison_metrics(equity, simulation.orders, init_cash, sharpe)
+    comparison = strategy_comparison_metrics(equity, simulation.orders, init_cash)
     cycles = simulation.cycles
     cycle_count = int(len(cycles))
     if cycle_count:

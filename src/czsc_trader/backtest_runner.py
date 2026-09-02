@@ -206,13 +206,13 @@ def _strategy_metrics(
     )
     strategies = {
         "active_baseline": strategy_comparison_metrics(
-            active.equity, active.orders, init_cash, float(active.metrics["sharpe"])
+            active.equity, active.orders, init_cash
         ),
         "buyhold": strategy_comparison_metrics(
-            buyhold.equity, buyhold.orders, init_cash, float(buyhold.metrics["sharpe"])
+            buyhold.equity, buyhold.orders, init_cash
         ),
         "ma5_ma20": strategy_comparison_metrics(
-            ma.equity, ma.orders, init_cash, float(ma.metrics["sharpe"])
+            ma.equity, ma.orders, init_cash
         ),
     }
     if execution is not None:

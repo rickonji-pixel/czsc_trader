@@ -11,6 +11,7 @@ outputs/
 
 # Local paper-trading runtime and audit database.
 state/paper_trading/
+state/588080/README.md
 
 # Local credentials for optional Tushare dataflows.
 /.env

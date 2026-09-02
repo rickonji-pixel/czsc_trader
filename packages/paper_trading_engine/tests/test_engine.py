@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -117,6 +117,7 @@ def make_engine(tmp_path: Path, *, broker=None, advice=None):
         advice,
         symbol="588080.SH",
         today=lambda: date(2026, 9, 2),
+        now=lambda: datetime.fromisoformat("2026-09-02T09:30:00+08:00"),
     ), store, broker, advice
 
 
@@ -214,6 +215,19 @@ def test_engine_submits_only_on_decision_valid_session(tmp_path: Path) -> None:
 
     assert broker.placed == []
     assert "DECISION_NOT_VALID_TODAY" in status["alerts"]
+
+
+def test_engine_waits_until_submission_window_for_cached_decision(tmp_path: Path) -> None:
+    engine, _, broker, _ = make_engine(tmp_path)
+    engine.now = lambda: datetime.fromisoformat("2026-09-02T00:00:00+08:00")
+
+    status = engine.refresh()
+    assert broker.placed == []
+    assert "OUTSIDE_SUBMISSION_WINDOW" in status["alerts"]
+
+    engine.now = lambda: datetime.fromisoformat("2026-09-02T09:30:00+08:00")
+    engine.refresh_orders()
+    assert len(broker.placed) == 1
 
 
 def test_decision_recomputes_only_when_data_identity_or_quantity_changes(tmp_path: Path) -> None:

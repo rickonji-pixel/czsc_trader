@@ -16,7 +16,7 @@ class RuntimeScheduler:
         order_interval: float = 5,
         account_interval: float = 60,
         decision_interval: float = 5,
-        publish_time: str = "16:15",
+        publish_time: str = "19:00",
     ) -> None:
         self.engine = engine
         self.publisher = publisher

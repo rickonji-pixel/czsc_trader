@@ -82,3 +82,24 @@ def test_failed_data_publication_waits_before_retrying() -> None:
     assert publisher.calls == 1
     assert store.events[-1][0] == "DATA_PUBLICATION_FAILED"
     assert store.values["data_publication_error"] == "vendor unavailable"
+
+
+def test_default_publication_starts_at_1900_and_retries_after_five_minutes() -> None:
+    from paper_trading_engine.scheduler import RuntimeScheduler
+
+    class FailingPublisher:
+        def __init__(self):
+            self.calls = []
+
+        def publish(self, end_date):
+            self.calls.append(end_date)
+            raise RuntimeError("not ready")
+
+    engine, publisher, store = Engine(), FailingPublisher(), Store()
+    scheduler = RuntimeScheduler(engine, publisher, store)
+    scheduler.tick(datetime(2026, 9, 2, 18, 59, 59))
+    scheduler.tick(datetime(2026, 9, 2, 19, 0, 0))
+    scheduler.tick(datetime(2026, 9, 2, 19, 4, 59))
+    scheduler.tick(datetime(2026, 9, 2, 19, 5, 0))
+
+    assert publisher.calls == ["2026-09-02", "2026-09-02"]

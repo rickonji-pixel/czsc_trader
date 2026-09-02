@@ -12,6 +12,7 @@ from typing import Protocol
 
 from .contracts import AdviceDecision, OrderSpec
 from .store import PaperStore
+from .trading_window import is_submission_window, shanghai_now
 
 
 TERMINAL_ORDER_STATUSES = {
@@ -113,12 +114,14 @@ class PaperTradingEngine:
         *,
         symbol: str,
         today: Callable[[], date] = date.today,
+        now: Callable[[], datetime] = shanghai_now,
     ) -> None:
         self.store = store
         self.broker = broker
         self.advice = advice
         self.symbol = symbol.upper()
         self.today = today
+        self.now = now
         self._account_snapshot: BrokerSnapshot | None = None
         self._orders: tuple[BrokerOrder, ...] = ()
         self._decision: AdviceDecision | None = None
@@ -227,6 +230,8 @@ class PaperTradingEngine:
         if decision.order is not None and not self.store.is_paused():
             if decision.valid_session != self.today():
                 alerts.append("DECISION_NOT_VALID_TODAY")
+            elif not is_submission_window(self.now()):
+                alerts.append("OUTSIDE_SUBMISSION_WINDOW")
             elif active_orders:
                 alerts.append("ACTIVE_ORDER_BLOCKS_SUBMISSION")
             else:

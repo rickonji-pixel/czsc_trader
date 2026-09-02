@@ -6,6 +6,7 @@ import argparse
 from collections.abc import Callable, Sequence
 import json
 from pathlib import Path
+import socket
 import sys
 from threading import Event, Thread
 
@@ -16,6 +17,22 @@ from .futu_gateway import FutuGateway
 from .store import PaperStore
 from .scheduler import RuntimeScheduler
 from .web import create_server
+
+
+class PortUnavailableError(RuntimeError):
+    pass
+
+
+def probe_port(host: str, port: int) -> None:
+    candidate = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if sys.platform == "win32":
+            candidate.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        candidate.bind((host, int(port)))
+    except OSError as exc:
+        raise PortUnavailableError(f"{host}:{port} is already in use") from exc
+    finally:
+        candidate.close()
 
 
 class PteParser(argparse.ArgumentParser):
@@ -49,11 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
     serve = actions.add_parser("serve")
     _common(serve)
     serve.add_argument("--host", default="127.0.0.1")
-    serve.add_argument("--port", default=8765, type=int)
+    serve.add_argument("--port", default=8080, type=int)
     serve.add_argument("--order-interval", default=5.0, type=float)
     serve.add_argument("--account-interval", default=60.0, type=float)
     serve.add_argument("--decision-interval", default=5.0, type=float)
-    serve.add_argument("--data-refresh-time", default="16:15")
+    serve.add_argument("--data-refresh-time", default="19:00")
     serve.add_argument("--data-start", default="2020-01-01")
     return parser
 
@@ -102,6 +119,8 @@ def main(
     args = build_parser().parse_args(argv)
     engine = None
     try:
+        if args.action == "serve":
+            probe_port(args.host, args.port)
         engine = engine_factory(args)
         if args.action == "once":
             result = engine.refresh()

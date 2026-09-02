@@ -99,6 +99,7 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         assert "DEGRADED_QUOTE:'行情降级'" in html
         assert "DATA_PUBLICATION_FAILED:'完整收盘数据发布失败'" in html
         assert "RESUMED:'已恢复自动运行'" in html
+        assert "OUTSIDE_SUBMISSION_WINDOW:'当前不在自动发单时段'" in html
         assert 'id="account"' not in html
         assert 'id="decision"' not in html
         assert 'id="rawDetails"' in html

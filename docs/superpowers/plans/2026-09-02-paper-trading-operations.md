@@ -132,3 +132,10 @@
   100-share lot and project-owned limit-price constraints.
 - [ ] Replace the separate Pause and Resume buttons with one stateful run switch that immediately
   reflects the server-confirmed state and reports transition failures.
+- [ ] Gate automatic submission to the decision's valid SSE session and the conservative
+  continuous-auction windows 09:30–11:30 and 13:00–14:57 Asia/Shanghai.
+
+Execution is decomposed into:
+
+- `docs/superpowers/plans/2026-09-02-paper-trading-runtime-hardening.md`
+- `docs/superpowers/plans/2026-09-02-paper-trading-capital-sizing.md`

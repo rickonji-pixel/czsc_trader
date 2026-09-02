@@ -130,3 +130,5 @@
   logs, and an explicit stop path.
 - [ ] Derive the order position size from all available simulated-account cash while preserving
   100-share lot and project-owned limit-price constraints.
+- [ ] Replace the separate Pause and Resume buttons with one stateful run switch that immediately
+  reflects the server-confirmed state and reports transition failures.

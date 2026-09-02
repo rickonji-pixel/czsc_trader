@@ -35,6 +35,11 @@ class PaperStore:
                 event_type TEXT NOT NULL,
                 payload TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS operation_failures (
+                operation TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS intents (
                 intent_id TEXT PRIMARY KEY,
                 decision_id TEXT NOT NULL UNIQUE,
@@ -66,13 +71,23 @@ class PaperStore:
                 name TEXT NOT NULL,
                 baseline_version TEXT NOT NULL,
                 baseline_sha256 TEXT NOT NULL,
+                symbol TEXT NOT NULL DEFAULT '588080.SH',
                 initial_cash TEXT NOT NULL,
                 cash TEXT NOT NULL,
+                frozen_cash TEXT NOT NULL DEFAULT '0.0000',
+                total_assets TEXT NOT NULL DEFAULT '0.0000',
                 quantity INTEGER NOT NULL DEFAULT 0,
                 average_cost TEXT NOT NULL DEFAULT '0.0000',
                 realized_pnl TEXT NOT NULL DEFAULT '0.0000',
                 cycle_target INTEGER,
                 paused INTEGER NOT NULL DEFAULT 0,
+                is_futu_reference INTEGER NOT NULL DEFAULT 0,
+                observation_start TEXT,
+                last_settlement_session TEXT,
+                last_decision_id TEXT,
+                last_decision_payload TEXT,
+                health TEXT NOT NULL DEFAULT 'READY',
+                last_error TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -108,6 +123,8 @@ class PaperStore:
                 price TEXT NOT NULL,
                 fee TEXT NOT NULL,
                 realized_pnl TEXT NOT NULL DEFAULT '0.0000',
+                fill_sequence INTEGER NOT NULL DEFAULT 1,
+                source TEXT NOT NULL DEFAULT 'VIRTUAL_MODEL',
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS virtual_snapshots (
@@ -121,7 +138,22 @@ class PaperStore:
         )
         self._ensure_column("virtual_accounts", "average_cost", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
+        self._ensure_column("virtual_accounts", "symbol", "TEXT NOT NULL DEFAULT '588080.SH'")
+        self._ensure_column("virtual_accounts", "frozen_cash", "TEXT NOT NULL DEFAULT '0.0000'")
+        self._ensure_column("virtual_accounts", "total_assets", "TEXT NOT NULL DEFAULT '0.0000'")
+        self._ensure_column("virtual_accounts", "is_futu_reference", "INTEGER NOT NULL DEFAULT 0")
+        self._ensure_column("virtual_accounts", "observation_start", "TEXT")
+        self._ensure_column("virtual_accounts", "last_settlement_session", "TEXT")
+        self._ensure_column("virtual_accounts", "last_decision_id", "TEXT")
+        self._ensure_column("virtual_accounts", "last_decision_payload", "TEXT")
+        self._ensure_column("virtual_accounts", "health", "TEXT NOT NULL DEFAULT 'READY'")
+        self._ensure_column("virtual_accounts", "last_error", "TEXT")
         self._ensure_column("virtual_fills", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
+        self._ensure_column("virtual_fills", "fill_sequence", "INTEGER NOT NULL DEFAULT 1")
+        self._ensure_column("virtual_fills", "source", "TEXT NOT NULL DEFAULT 'VIRTUAL_MODEL'")
+        self._connection.execute(
+            "UPDATE virtual_accounts SET total_assets=initial_cash WHERE total_assets='0.0000' AND quantity=0"
+        )
         self._connection.commit()
 
     def _ensure_column(self, table: str, column: str, declaration: str) -> None:
@@ -165,7 +197,10 @@ class PaperStore:
         with self._lock:
             return self._setting("last_reconcile_at") is not None
 
-    def create_virtual_account(self, account_id, name, baseline_version, baseline_sha256, initial_cash):
+    def create_virtual_account(
+        self, account_id, name, baseline_version, baseline_sha256, initial_cash,
+        *, symbol="588080.SH", is_futu_reference=False,
+    ):
         from decimal import Decimal
         cash = Decimal(initial_cash).quantize(Decimal("0.0001"))
         if not cash.is_finite() or cash <= 0:
@@ -178,9 +213,24 @@ class PaperStore:
             raise ValueError("baseline sha256 must contain 64 hexadecimal characters")
         now = _utc_now()
         with self._lock, self._connection:
+            if is_futu_reference:
+                self._connection.execute("UPDATE virtual_accounts SET is_futu_reference=0")
             self._connection.execute(
-                "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,initial_cash,cash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)",
-                (account_id, name, baseline_version, baseline_sha256, str(cash), str(cash), now, now),
+                "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,symbol,initial_cash,cash,total_assets,is_futu_reference,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (account_id, name, baseline_version, baseline_sha256, symbol.upper(), str(cash), str(cash), str(cash), int(is_futu_reference), now, now),
+            )
+        return self.virtual_account(account_id)
+
+    def set_futu_reference(self, account_id: str):
+        with self._lock, self._connection:
+            if self._connection.execute(
+                "SELECT 1 FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone() is None:
+                raise KeyError(account_id)
+            self._connection.execute("UPDATE virtual_accounts SET is_futu_reference=0")
+            self._connection.execute(
+                "UPDATE virtual_accounts SET is_futu_reference=1,updated_at=? WHERE account_id=?",
+                (_utc_now(), account_id),
             )
         return self.virtual_account(account_id)
 
@@ -226,6 +276,27 @@ class PaperStore:
             raise KeyError(account_id)
         return self.virtual_account(account_id)
 
+    def save_virtual_decision(self, account_id: str, decision, cycle_target: int | None):
+        if cycle_target is not None and (cycle_target < 0 or cycle_target % 100):
+            raise ValueError("cycle target must use non-negative 100-share lots")
+        payload = json.dumps(decision, ensure_ascii=False, default=str)
+        with self._lock, self._connection:
+            changed = self._connection.execute(
+                "UPDATE virtual_accounts SET cycle_target=?,last_decision_id=?,last_decision_payload=?,health='OK',last_error=NULL,updated_at=? WHERE account_id=?",
+                (cycle_target, decision.get("decision_id"), payload, _utc_now(), account_id),
+            ).rowcount
+        if not changed:
+            raise KeyError(account_id)
+
+    def set_virtual_health(self, account_id: str, health: str, error: str | None = None):
+        with self._lock, self._connection:
+            changed = self._connection.execute(
+                "UPDATE virtual_accounts SET health=?,last_error=?,updated_at=? WHERE account_id=?",
+                (health, error, _utc_now(), account_id),
+            ).rowcount
+        if not changed:
+            raise KeyError(account_id)
+
     def save_virtual_order(self, account_id: str, decision_id: str, valid_session: str, order_id: str, payload: dict[str, object]):
         now = _utc_now()
         with self._lock, self._connection:
@@ -260,7 +331,10 @@ class PaperStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def settle_virtual_order(self, account_id: str, order_id: str, session: str, price, fee_rate):
+    def settle_virtual_order(
+        self, account_id: str, order_id: str, session: str, price, fee_rate,
+        diagnostics: dict[str, object] | None = None,
+    ):
         from decimal import Decimal
         with self._lock, self._connection:
             order = self._connection.execute(
@@ -301,12 +375,16 @@ class PaperStore:
                 raise ValueError("virtual account has insufficient cash")
             fill_id = f"VF-{order_id}"
             now = _utc_now()
+            order_payload = json.loads(order["payload"])
+            if diagnostics:
+                order_payload.update(diagnostics)
             self._connection.execute(
-                "INSERT INTO virtual_fills(fill_id,account_id,order_id,session,side,quantity,price,fee,realized_pnl,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                (fill_id, account_id, order_id, session, order["side"], quantity, str(Decimal(str(price)).quantize(Decimal('0.0001'))), str(fee), str(realized_fill), now),
+                "INSERT INTO virtual_fills(fill_id,account_id,order_id,session,side,quantity,price,fee,realized_pnl,fill_sequence,source,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (fill_id, account_id, order_id, session, order["side"], quantity, str(Decimal(str(price)).quantize(Decimal('0.0001'))), str(fee), str(realized_fill), 1, "VIRTUAL_MODEL", now),
             )
             self._connection.execute(
-                "UPDATE virtual_orders SET status='FILLED',updated_at=? WHERE order_id=?", (now, order_id)
+                "UPDATE virtual_orders SET status='FILLED',payload=?,updated_at=? WHERE order_id=?",
+                (json.dumps(order_payload, default=str), now, order_id),
             )
             self._connection.execute(
                 "UPDATE virtual_accounts SET cash=?,quantity=?,average_cost=?,realized_pnl=?,cycle_target=?,updated_at=? WHERE account_id=?",
@@ -314,11 +392,24 @@ class PaperStore:
             )
         return True
 
-    def set_virtual_order_status(self, order_id: str, status: str):
+    def set_virtual_order_status(self, order_id: str, status: str, diagnostics: dict[str, object] | None = None):
         with self._lock, self._connection:
-            self._connection.execute(
-                "UPDATE virtual_orders SET status=?,updated_at=? WHERE order_id=?", (status, _utc_now(), order_id)
-            )
+            if diagnostics:
+                row = self._connection.execute(
+                    "SELECT payload FROM virtual_orders WHERE order_id=?", (order_id,)
+                ).fetchone()
+                if row is None:
+                    raise KeyError(order_id)
+                payload = json.loads(row["payload"])
+                payload.update(diagnostics)
+                self._connection.execute(
+                    "UPDATE virtual_orders SET status=?,payload=?,updated_at=? WHERE order_id=?",
+                    (status, json.dumps(payload, default=str), _utc_now(), order_id),
+                )
+            else:
+                self._connection.execute(
+                    "UPDATE virtual_orders SET status=?,updated_at=? WHERE order_id=?", (status, _utc_now(), order_id)
+                )
 
     def save_virtual_snapshot(self, account_id: str, session: str, payload: dict[str, object]) -> None:
         with self._lock, self._connection:
@@ -326,6 +417,10 @@ class PaperStore:
                 "INSERT INTO virtual_snapshots(account_id,session,payload,created_at) VALUES(?,?,?,?) "
                 "ON CONFLICT(account_id,session) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at",
                 (account_id, session, json.dumps(payload, ensure_ascii=False, default=str), _utc_now()),
+            )
+            self._connection.execute(
+                "UPDATE virtual_accounts SET total_assets=?,observation_start=COALESCE(observation_start,?),last_settlement_session=?,health='OK',last_error=NULL,updated_at=? WHERE account_id=?",
+                (str(payload["total_assets"]), session, session, _utc_now(), account_id),
             )
 
     def virtual_snapshots(self, account_id: str):
@@ -354,6 +449,28 @@ class PaperStore:
                 "event_type": row["event_type"],
                 "payload": json.loads(row["payload"]),
             }
+            for row in rows
+        ]
+
+    def set_operation_failure(self, operation: str, payload: dict[str, object]) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT INTO operation_failures(operation,payload,updated_at) VALUES(?,?,?) "
+                "ON CONFLICT(operation) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at",
+                (operation, json.dumps(payload, ensure_ascii=False, default=str), _utc_now()),
+            )
+
+    def clear_operation_failure(self, operation: str) -> None:
+        with self._lock, self._connection:
+            self._connection.execute("DELETE FROM operation_failures WHERE operation=?", (operation,))
+
+    def operation_failures(self) -> list[dict[str, object]]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT operation,payload,updated_at FROM operation_failures ORDER BY operation"
+            ).fetchall()
+        return [
+            {"operation": row["operation"], **json.loads(row["payload"]), "updated_at": row["updated_at"]}
             for row in rows
         ]
 

@@ -14,10 +14,9 @@ import pandas as pd
 from .audit import audit_no_lookahead
 from .backtest import PeriodBacktestResult, run_backtest, run_period_backtests
 from .baseline_execution import apply_resolved_baseline
-from .baselines import resolve_baseline
+from .baselines import ExecutionSpec, resolve_baseline
 from .charting import write_period_chart
 from .data import load_market_data
-from .execution_policies import ResolvedExecutionPolicy
 from .execution_policy import (
     ExecutionSimulation,
     entry_limit_series,
@@ -218,7 +217,7 @@ def _strategy_metrics(
     }
     if execution is not None:
         values = policy_metrics(execution, init_cash)
-        strategies["active_baseline_execution_policy"] = {
+        strategies["active_baseline_execution"] = {
             key: values[key]
             for key in (
                 "max_drawdown",
@@ -236,24 +235,25 @@ def _strategy_metrics(
     }
 
 
-def _execution_policy_results(
+def _complete_baseline_execution_results(
     daily: pd.DataFrame,
     intraday: pd.DataFrame,
     target_position: pd.Series,
     periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]],
-    policy: ResolvedExecutionPolicy,
+    execution: ExecutionSpec,
     *,
     fee_rate: float,
     init_cash: float,
 ) -> dict[str, ExecutionSimulation]:
     """Run one independently funded execution simulation per requested window."""
     daily_dates = pd.DatetimeIndex(pd.to_datetime(daily["dt"]), name="dt")
+    if execution.entry_limit_family != "previous_close_ratio":
+        raise ValueError("unsupported complete-baseline entry limit family")
     limits = entry_limit_series(
         daily,
-        policy.family,
-        policy.parameter,
-        atr_window=policy.atr_window,
-        tick=policy.tick,
+        "fixed",
+        execution.entry_limit_parameter,
+        tick=execution.instrument.price_tick,
     )
     output: dict[str, ExecutionSimulation] = {}
     for name, (start, end) in periods.items():
@@ -275,6 +275,9 @@ def _execution_policy_results(
             limits.reindex(period_index),
             fee_rate=fee_rate,
             init_cash=init_cash,
+            diagnostic_quantity=execution.instrument.maximum_order_quantity,
+            lot_size=execution.instrument.lot_size,
+            fill_on_equal_touch=False,
         )
         execution_dates = pd.to_datetime(simulation.orders["execution_date"])
         orders = simulation.orders.loc[
@@ -308,7 +311,15 @@ def run_fixed_backtest(
             request.baseline,
             symbol=request.symbol,
         )
-        execution_policy = None
+        execution = baseline.execution
+        effective_fee_rate = (
+            execution.capital.fee_rate if execution is not None else float(request.fee_rate)
+        )
+        if execution is not None and abs(float(request.fee_rate) - effective_fee_rate) > 1e-12:
+            raise ValueError(
+                "backtest fee rate must equal the complete baseline fee rate "
+                f"({effective_fee_rate})"
+            )
         data = load_market_data(request.raw_dir, request.symbol, request.asset_type)
         if request.windows_path is not None:
             periods = _load_window_config(
@@ -364,16 +375,16 @@ def run_fixed_backtest(
             init_cash=request.init_cash,
         )
         execution_results = (
-            _execution_policy_results(
+            _complete_baseline_execution_results(
                 causal_data.daily,
                 causal_data.intraday,
                 applied.target_position,
                 periods,
-                execution_policy,
-                fee_rate=request.fee_rate,
+                execution,
+                fee_rate=effective_fee_rate,
                 init_cash=request.init_cash,
             )
-            if execution_policy is not None
+            if execution is not None
             else {}
         )
         order_pieces = [result.orders for result in results.values()]
@@ -472,9 +483,9 @@ def run_fixed_backtest(
             "run_at_utc": datetime.now(timezone.utc).isoformat(),
             "symbol": data.symbol,
             "asset_type": data.asset_type,
-            "fee_rate_per_side": request.fee_rate,
+            "fee_rate_per_side": effective_fee_rate,
             "initial_cash": request.init_cash,
-            "metrics_schema_version": 4,
+            "metrics_schema_version": 5,
             "comparison_strategies": {
                 "active_baseline": baseline.version,
                 "buyhold": {"initial_target": 1.0},
@@ -486,13 +497,13 @@ def run_fixed_backtest(
                 },
                 **(
                     {
-                        "active_baseline_execution_policy": {
-                            "version": execution_policy.version,
-                            "sha256": execution_policy.sha256,
-                            "execution": "daily_limit_policy",
+                        "active_baseline_execution": {
+                            "baseline_version": baseline.version,
+                            "baseline_sha256": baseline.sha256,
+                            "execution": "embedded_complete_baseline",
                         }
                     }
-                    if execution_policy is not None
+                    if execution is not None
                     else {}
                 ),
             },

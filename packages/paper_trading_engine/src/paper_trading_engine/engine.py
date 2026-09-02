@@ -392,6 +392,7 @@ class PaperTradingEngine:
             alerts.append("DATA_PUBLICATION_FAILED")
         latest["alerts"] = alerts
         latest["events"] = self.store.recent_events(50)
+        latest["scheduler_failures"] = self.store.operation_failures()
         return latest
 
     @synchronized

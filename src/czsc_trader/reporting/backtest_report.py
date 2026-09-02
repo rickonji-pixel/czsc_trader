@@ -41,7 +41,7 @@ def render_backtest_report(
         raise TypeError("metrics windows must be a mapping")
     labels = {
         "active_baseline": "活动基线·次日开盘",
-        "active_baseline_execution_policy": "活动基线·执行规则",
+        "active_baseline_execution": "完整基线·实际执行",
         "buyhold": "BuyHold",
         "ma5_ma20": "MA5/MA20",
     }
@@ -64,7 +64,7 @@ def render_backtest_report(
             raise TypeError("window strategies must be a mapping")
         for strategy_id in (
             "active_baseline",
-            "active_baseline_execution_policy",
+            "active_baseline_execution",
             "buyhold",
             "ma5_ma20",
         ):

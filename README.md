@@ -80,6 +80,10 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
   --start 2026-01-01 --end 2026-08-21
 ```
 
+回测会同时给出“活动基线·次日开盘”信号参照和“完整基线·实际执行”。后者直接
+使用完整基线内嵌的费率、100份整数手、0.001元委托价档位和保守成交规则，并生成
+`execution_orders*.csv`与`execution_equity*.csv`；不存在独立执行规则版本选择。
+
 普通结果写入被 Git 忽略的 `outputs/`。正式研究证据必须归档到
 `experiments/MMDD_EXXX/`，并可用以下命令校验：
 
@@ -143,13 +147,15 @@ Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续�
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
   --account-id range-2 --name "Range候选2" `
-  --baseline baseline_20260903 --initial-cash 1000000
+  --baseline baseline_20260903 --initial-cash 1000000 --futu-reference
 .\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id range-2
 .\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id range-2
 ```
 
 虚拟订单在有效交易日的19:00数据发布成功后，先用完整日线按保守规则结算，再生成
 下一有效交易日决策。等价触及限价但未穿价记为“触价未穿价”，不计成交。
+`--futu-reference`只切换页面中的Futu参照标记，不会复制订单；任一时刻最多一个
+虚拟账户带有该标记。
 
 ### Windows watchdog 服务
 

@@ -72,12 +72,15 @@ watchdog不包含交易业务代码。
 10. PTE运行结果不自动构成策略样本外或实盘有效性证据。
 11. Futu渠道与每个虚拟账户独立失败；相同错误按5、15、30、60、300秒退避并聚合记录。
 12. 虚拟订单等价触价但未穿价不计成交；只有明确模型成交才能改变虚拟现金与持仓。
+13. 正式回测直接执行完整基线内嵌规则并输出`active_baseline_execution`；请求费率必须
+    与完整基线费率一致，不能从外部形成另一套执行组合。
 
 ## 代码地图
 
 | 路径 | 责任 |
 | --- | --- |
-| `src/czsc_trader/application/advice_service.py` | advice.v1/v2决策组装与资金定仓 |
+| `src/czsc_trader/application/advice_service.py` | advice.v1/v2/v3决策组装与资金定仓 |
+| `src/czsc_trader/backtest_runner.py` | 信号参照回测与完整基线实际执行回测 |
 | `src/czsc_trader/cli/main.py` | Trader CLI参数与输出边界 |
 | `src/czsc_trader/identity.py` | 可移植身份与哈希规则 |
 | `configs/rule_baselines/` | 冻结基线与活动注册表 |
@@ -119,8 +122,11 @@ python -m venv .venv
 .\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
 ```
 
-账户创建具有不可变身份：相同ID、名称、完整基线SHA和初始资金可幂等复用，任一项
+账户创建具有不可变身份：相同ID、名称、标的、完整基线SHA和初始资金可幂等复用，任一项
 不同都会停止。SQLite位于`state/paper_trading/runtime.db`且不随Git跨机同步。
+
+创建或切换页面中的Futu参照账户时，在`account create`末尾增加`--futu-reference`；
+该标记不改变Futu渠道的决策或订单。
 
 发布行情时将根目录`.env.example`复制为`.env`并填写`TUSHARE_TOKEN`；不要提交
 密钥。运行PTE前安装并启动Futu OpenD，确认模拟账户可访问。行情权限缺失时PTE允许以

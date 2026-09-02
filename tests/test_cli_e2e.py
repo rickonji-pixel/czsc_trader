@@ -90,6 +90,7 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     strategies = full["strategies"]
     assert set(strategies) == {
         "active_baseline",
+        "active_baseline_execution",
         "buyhold",
         "ma5_ma20",
     }
@@ -118,10 +119,22 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert (output_dir / "ma_orders.csv").is_file()
     assert (output_dir / "ma_equity.csv").is_file()
     assert (output_dir / "ma_chart.html").is_file()
-    assert not (output_dir / "execution_orders.csv").exists()
-    assert not (output_dir / "execution_equity.csv").exists()
+    assert (output_dir / "execution_orders.csv").is_file()
+    assert (output_dir / "execution_equity.csv").is_file()
+    execution_orders = pd.read_csv(output_dir / "execution_orders.csv")
+    assert (execution_orders["size"] % 100 == 0).all()
+    buy_limits = execution_orders.loc[
+        execution_orders["side"] == "Buy", "entry_limit"
+    ]
+    assert (buy_limits * 1000 % 1 < 1e-9).all()
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["metrics_schema_version"] == 4
+    assert manifest["metrics_schema_version"] == 5
+    execution = manifest["comparison_strategies"]["active_baseline_execution"]
+    assert execution == {
+        "baseline_version": "baseline_20260903",
+        "baseline_sha256": manifest["baseline"]["sha256"],
+        "execution": "embedded_complete_baseline",
+    }
 
     ma_signals = pd.read_csv(output_dir / "ma_signals.csv", parse_dates=["dt"])
     assert list(ma_signals.columns) == ["dt", "close", "ma5", "ma20", "target_position"]

@@ -102,3 +102,21 @@ def test_account_create_list_pause_resume_without_broker(tmp_path: Path, capsys,
     assert documents[1]["result"]["paused"] == 1
     assert documents[2]["result"]["paused"] == 0
     assert documents[3]["result"][0]["account_id"] == "range-2"
+
+
+def test_build_engine_keeps_virtual_accounts_when_futu_initialization_fails(tmp_path: Path, monkeypatch) -> None:
+    from paper_trading_engine import cli
+
+    raw = tmp_path / "data" / "raw"
+    raw.mkdir(parents=True)
+    monkeypatch.setattr(cli, "seed_runtime_data", lambda *_: None)
+    monkeypatch.setattr(cli, "FutuGateway", lambda **_: (_ for _ in ()).throw(RuntimeError("SDK failed")))
+    args = cli.build_parser().parse_args(["once", "--repo-root", str(tmp_path)])
+
+    engine = cli.build_engine(args)
+    try:
+        status = engine.status()
+        assert status["channel"]["channel_error"] == "SDK failed"
+        assert status["virtual_accounts"][0]["account_id"] == "baseline-143"
+    finally:
+        engine.close()

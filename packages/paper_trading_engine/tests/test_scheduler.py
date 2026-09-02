@@ -30,6 +30,7 @@ class Store:
     def __init__(self):
         self.values = {}
         self.events = []
+        self.failures = {}
 
     def get_setting(self, key):
         return self.values.get(key)
@@ -39,6 +40,18 @@ class Store:
 
     def add_event(self, kind, payload):
         self.events.append((kind, payload))
+
+    def set_operation_failure(self, operation, payload):
+        self.failures[operation] = payload
+
+    def clear_operation_failure(self, operation):
+        self.failures.pop(operation, None)
+
+    def operation_failures(self):
+        return [
+            {"operation": operation, **payload}
+            for operation, payload in self.failures.items()
+        ]
 
 
 def test_scheduler_uses_distinct_order_account_decision_and_daily_publish_cadence() -> None:
@@ -127,3 +140,28 @@ def test_channel_failure_is_isolated_and_backed_off() -> None:
     assert engine.calls.count("orders") == 4
     assert [event[0] for event in store.events].count("SCHEDULER_OPERATION_FAILED") == 1
     assert scheduler._failures["account"]["count"] == 3
+    assert store.failures["account"]["failure_count"] == 3
+
+
+def test_scheduler_restores_persisted_backoff_and_emits_recovery() -> None:
+    from paper_trading_engine.scheduler import RuntimeScheduler
+
+    store = Store()
+    store.failures["account"] = {
+        "fingerprint": "RuntimeError:network down",
+        "failure_count": 2,
+        "first_at": "2026-09-02T10:00:00",
+        "last_at": "2026-09-02T10:00:05",
+        "next_retry": "2026-09-02T10:00:20",
+    }
+    engine = Engine()
+    scheduler = RuntimeScheduler(engine, Publisher(), store, account_interval=1)
+
+    scheduler.tick(datetime(2026, 9, 2, 10, 0, 19))
+    assert "account" not in engine.calls
+    scheduler.tick(datetime(2026, 9, 2, 10, 0, 20))
+
+    assert "account" in engine.calls
+    assert "account" not in store.failures
+    assert store.events[-1][0] == "SCHEDULER_OPERATION_RECOVERED"
+    assert store.events[-1][1]["failure_count"] == 2

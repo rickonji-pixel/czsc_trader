@@ -33,7 +33,7 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 页面地址为 `http://127.0.0.1:8080`。订单和累计成交默认每 5 秒轮询，账户与持仓
 每 60 秒刷新，策略每 5 秒检查一次数据身份，只有完整收盘数据身份或实际持仓发生
 变化才重新调用 advice。Futu渠道异常按5、15、30、60、300秒退避，虚拟账户继续
-独立运行。运行库位于 `state/paper_trading/runtime.db`；运行数据位于
+独立运行；失败计数和下次重试时间保存在运行库，PTE重启不会清空退避状态。运行库位于 `state/paper_trading/runtime.db`；运行数据位于
 `state/paper_trading/data`，均不进入版本控制。重启会复用订单意图、渠道订单、暂停
 状态与审计事件。
 
@@ -69,13 +69,14 @@ PTE首次启动会幂等创建`baseline-143`，绑定完整基线`baseline_20260
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
   --account-id range-2 --name "Range候选2" `
-  --baseline baseline_20260903 --initial-cash 1000000
+  --baseline baseline_20260903 --initial-cash 1000000 --futu-reference
 .\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id range-2
 .\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id range-2
 ```
 
 控制台优先展示最大回撤、卡玛比率和盈亏比，再展示累计收益；多账户比较采用共同
-观察区间。盈亏比仅统计已闭合买卖交易。
+观察区间。盈亏比仅统计已闭合买卖交易。`--futu-reference`用于切换唯一的Futu
+参照账户，只影响页面标记和比较，不会向Futu复制虚拟订单。
 
 ## Windows 服务
 

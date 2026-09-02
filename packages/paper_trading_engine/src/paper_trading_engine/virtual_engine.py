@@ -27,14 +27,23 @@ class VirtualAccountEngine:
                     order["side"], int(order["quantity"]), Decimal(order["limit_price"]),
                     Decimal(str(bar["open"])), Decimal(str(bar["high"])), Decimal(str(bar["low"])),
                 )
+                volume = Decimal(str(bar.get("volume", 0)))
+                diagnostics = {
+                    "fill_source": "VIRTUAL_MODEL",
+                    "diagnostic_participation": (
+                        str((Decimal(order["quantity"]) / volume).quantize(Decimal("0.00000001")))
+                        if volume > 0 else None
+                    ),
+                }
                 if outcome.status == "FILLED":
                     order_payload = json.loads(order["payload"])
                     self.store.settle_virtual_order(
                         account_id, order["order_id"], session.isoformat(), outcome.price,
                         Decimal(str(order_payload.get("fee_rate", "0.0005"))),
+                        diagnostics,
                     )
                 else:
-                    self.store.set_virtual_order_status(order["order_id"], outcome.status)
+                    self.store.set_virtual_order_status(order["order_id"], outcome.status, diagnostics)
             account = self.store.virtual_account(account_id)
         if not bool(account["paused"]):
             decision = self.advice.get_decision(
@@ -46,9 +55,8 @@ class VirtualAccountEngine:
                 "version": account["baseline_version"], "sha256": account["baseline_sha256"]
             }:
                 raise ValueError("advice baseline identity differs from virtual account")
-            self.store.update_virtual_account(
-                account_id, cash=Decimal(account["cash"]), quantity=int(account["quantity"]),
-                cycle_target=decision.cycle_target_quantity or None,
+            self.store.save_virtual_decision(
+                account_id, asdict(decision), decision.cycle_target_quantity or None,
             )
             for index, order in enumerate(decision.orders):
                 order_id = f"VO-{account_id}-{decision.decision_id}-{index}"
@@ -71,6 +79,8 @@ class VirtualAccountEngine:
 
     def status(self, account_id: str):
         account = self.store.virtual_account(account_id)
+        decision_payload = account.pop("last_decision_payload", None)
+        last_decision = json.loads(decision_payload) if decision_payload else None
         snapshots = self.store.virtual_snapshots(account_id)
         metrics = self._metrics(account, snapshots)
         return {
@@ -79,6 +89,7 @@ class VirtualAccountEngine:
             "fills": self.store.virtual_fills(account_id),
             "snapshots": snapshots,
             "metrics": metrics,
+            "last_decision": last_decision,
         }
 
     def metrics(self, account_id: str, start: str | None = None, end: str | None = None):
@@ -128,6 +139,7 @@ class VirtualAccountEngine:
             try:
                 results.append(self.refresh_account(account["account_id"], session, bar))
             except Exception as exc:
+                self.store.set_virtual_health(account["account_id"], "BLOCKED", str(exc))
                 self.store.add_event("VIRTUAL_ACCOUNT_FAILED", {"account_id": account["account_id"], "error": str(exc)})
         return results
 

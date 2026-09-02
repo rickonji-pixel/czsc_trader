@@ -21,7 +21,7 @@ from .store import PaperStore
 from .scheduler import RuntimeScheduler
 from .web import create_server
 from .virtual_engine import VirtualAccountEngine
-from .coordinator import PteCoordinator
+from .coordinator import PteCoordinator, UnavailableChannel
 
 
 class PortUnavailableError(RuntimeError):
@@ -90,6 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--name", required=True)
     create.add_argument("--baseline", required=True)
     create.add_argument("--initial-cash", required=True)
+    create.add_argument("--futu-reference", action="store_true")
     return parser
 
 
@@ -102,7 +103,6 @@ def _default_executable(repo_root: Path) -> Path:
 def build_engine(args: argparse.Namespace):
     seed_runtime_data(args.repo_root / "data" / "raw", args.data_dir, args.symbol)
     store = PaperStore(args.database)
-    gateway = FutuGateway(symbol=args.symbol, host=args.opend_host, port=args.opend_port)
     advice = CliAdviceClient(
         executable=args.advice_executable or _default_executable(args.repo_root),
         repo_root=args.repo_root,
@@ -110,24 +110,35 @@ def build_engine(args: argparse.Namespace):
         symbol=args.symbol,
         asset=args.asset,
     )
-    channel = PaperTradingEngine(store, gateway, advice, symbol=args.symbol)
+    try:
+        gateway = FutuGateway(symbol=args.symbol, host=args.opend_host, port=args.opend_port)
+    except Exception as exc:
+        store.add_event("CHANNEL_INITIALIZATION_FAILED", {"error": str(exc)})
+        channel = UnavailableChannel(store, args.symbol, exc)
+    else:
+        channel = PaperTradingEngine(store, gateway, advice, symbol=args.symbol)
     try:
         account = store.virtual_account("baseline-143")
     except KeyError:
         store.create_virtual_account(
             "baseline-143", "候选143", "baseline_20260903",
             "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
-            1_000_000,
+            1_000_000, is_futu_reference=True,
         )
     else:
         expected = (
             "候选143", "baseline_20260903",
             "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
-            "1000000.0000",
+            args.symbol.upper(), "1000000.0000",
         )
-        actual = (account["name"], account["baseline_version"], account["baseline_sha256"], account["initial_cash"])
+        actual = (
+            account["name"], account["baseline_version"], account["baseline_sha256"],
+            account["symbol"], account["initial_cash"],
+        )
         if actual != expected:
             raise ValueError("baseline-143 virtual account has a different immutable identity")
+        if not any(row["is_futu_reference"] for row in store.virtual_accounts()):
+            store.set_futu_reference("baseline-143")
     return PteCoordinator(channel, VirtualAccountEngine(store, advice))
 
 
@@ -175,13 +186,18 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
         except KeyError:
             pass
         if existing is not None:
-            if (existing["baseline_version"], existing["baseline_sha256"], existing["name"], existing["initial_cash"]) != (
-                identity["version"], identity["sha256"], args.name, str(Decimal(args.initial_cash).quantize(Decimal("0.0001")))
+            if (
+                existing["baseline_version"], existing["baseline_sha256"], existing["name"],
+                existing["symbol"], existing["initial_cash"],
+            ) != (
+                identity["version"], identity["sha256"], args.name, args.symbol.upper(),
+                str(Decimal(args.initial_cash).quantize(Decimal("0.0001"))),
             ):
                 raise ValueError("account id already exists with a different immutable identity")
-            return existing
+            return store.set_futu_reference(args.account_id) if args.futu_reference else existing
         return store.create_virtual_account(
             args.account_id, args.name, identity["version"], identity["sha256"], args.initial_cash,
+            symbol=args.symbol, is_futu_reference=args.futu_reference,
         )
     finally:
         store.close()

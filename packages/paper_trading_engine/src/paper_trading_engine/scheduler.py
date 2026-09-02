@@ -30,8 +30,26 @@ class RuntimeScheduler:
         self._last_order: datetime | None = None
         self._last_account: datetime | None = None
         self._last_decision: datetime | None = None
-        self._failures: dict[str, dict[str, object]] = {}
+        self._failures = self._restore_failures()
         self._retry_delays = (5, 15, 30, 60, 300)
+
+    def _restore_failures(self) -> dict[str, dict[str, object]]:
+        load = getattr(self.store, "operation_failures", None)
+        if load is None:
+            return {}
+        restored: dict[str, dict[str, object]] = {}
+        for item in load():
+            try:
+                restored[str(item["operation"])] = {
+                    "fingerprint": str(item["fingerprint"]),
+                    "count": int(item["failure_count"]),
+                    "first_at": datetime.fromisoformat(str(item["first_at"])),
+                    "last_at": datetime.fromisoformat(str(item["last_at"])),
+                    "next_retry": datetime.fromisoformat(str(item["next_retry"])),
+                }
+            except (KeyError, TypeError, ValueError):
+                continue
+        return restored
 
     def _guard(self, name: str, now: datetime, operation) -> bool:
         state = self._failures.get(name)
@@ -49,6 +67,13 @@ class RuntimeScheduler:
                 "fingerprint": fingerprint, "count": count, "first_at": first_at,
                 "last_at": now, "next_retry": now + timedelta(seconds=delay),
             }
+            persist = getattr(self.store, "set_operation_failure", None)
+            if persist is not None:
+                persist(name, {
+                    "error": str(exc), "fingerprint": fingerprint, "failure_count": count,
+                    "first_at": first_at.isoformat(), "last_at": now.isoformat(),
+                    "next_retry": (now + timedelta(seconds=delay)).isoformat(),
+                })
             if count == 1:
                 self.store.add_event(
                     "DATA_PUBLICATION_FAILED" if name == "publication" else "SCHEDULER_OPERATION_FAILED",
@@ -65,6 +90,9 @@ class RuntimeScheduler:
                      "failure_count": previous["count"], "first_at": previous["first_at"].isoformat(),
                      "last_at": previous["last_at"].isoformat()},
                 )
+            clear = getattr(self.store, "clear_operation_failure", None)
+            if clear is not None:
+                clear(name)
             return True
 
     @staticmethod

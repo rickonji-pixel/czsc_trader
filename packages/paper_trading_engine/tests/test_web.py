@@ -125,6 +125,9 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         assert "最大回撤" in html
         assert "卡玛比率" in html
         assert "盈亏比" in html
+        assert 'aria-label="虚拟账户详情"' in html
+        assert 'aria-label="虚拟账户比较"' in html
+        assert "Futu参考" in html
         assert "JSON.stringify(payload" not in html
     finally:
         server.shutdown()

@@ -18,7 +18,7 @@ def test_render_backtest_report_formats_all_comparison_rows() -> None:
             "win_loss_ratio": None,
             "win_loss_ratio_status": "NO_LOSSES",
         },
-        "active_baseline_execution_policy": strategy_metrics,
+        "active_baseline_execution": strategy_metrics,
         "buyhold": {
             **strategy_metrics,
             "win_loss_ratio": None,
@@ -47,11 +47,11 @@ def test_render_backtest_report_formats_all_comparison_rows() -> None:
     )
 
     assert "| 活动基线·次日开盘 |" in text
-    assert "| 活动基线·执行规则 |" in text
+    assert "| 完整基线·实际执行 |" in text
     assert "| BuyHold |" in text
     assert "| MA5/MA20 |" in text
     assert "| 活动基线·次日开盘 | -10.00% | 2.000 | 无亏损 |" in text
-    assert "| 活动基线·执行规则 | -10.00% | 2.000 | 3.000 |" in text
+    assert "| 完整基线·实际执行 | -10.00% | 2.000 | 3.000 |" in text
     assert "| BuyHold | -10.00% | 2.000 | 无闭合交易 |" in text
     assert "| MA5/MA20 | -10.00% | 2.000 | 无盈利 |" in text
     assert "[chart.html](chart.html)" in text

@@ -280,3 +280,45 @@ def test_advice_v2_uses_all_fee_covered_cash_in_round_lots() -> None:
     assert result["target_quantity"] == expected
     assert result["estimated_order_cost"] <= 1_000_000
     assert 0 <= result["unallocated_cash"] < 1.688 * 1.0005 * 100
+
+
+def test_advice_v3_keeps_one_target_for_the_entry_cycle() -> None:
+    from czsc_trader.application.advice_service import build_advice_v3
+    from czsc_trader.baselines import resolve_baseline
+
+    baseline = resolve_baseline(
+        REPO_ROOT / "configs" / "rule_baselines",
+        "baseline_20260903",
+        symbol="588080.SH",
+    )
+    first = build_advice_v3(
+        baseline=baseline,
+        signal_date=pd.Timestamp("2026-09-01"),
+        valid_session=pd.Timestamp("2026-09-02"),
+        signal_close=1.704,
+        execution_close=1.688,
+        target_position=1,
+        actual_quantity=0,
+        available_cash=1_000_000.0,
+        cycle_target_quantity=None,
+    )
+    target = first["cycle_target_quantity"]
+    retry = build_advice_v3(
+        baseline=baseline,
+        signal_date=pd.Timestamp("2026-09-02"),
+        valid_session=pd.Timestamp("2026-09-03"),
+        signal_close=1.67,
+        execution_close=1.65,
+        target_position=1,
+        actual_quantity=target,
+        available_cash=10_000.0,
+        cycle_target_quantity=target,
+    )
+
+    assert first["contract_version"] == "advice.v3"
+    assert "execution_policy" not in first
+    assert target % 100 == 0
+    assert retry["target_quantity"] == target
+    assert retry["delta_quantity"] == 0
+    assert retry["action"] == "HOLD"
+    assert retry["order"] is None

@@ -15,7 +15,7 @@ STRATEGY_METRIC_KEYS = {"max_drawdown", "calmar", "win_loss_ratio", "return", "s
 STRATEGY_METRIC_KEYS.add("win_loss_ratio_status")
 
 
-def test_installed_cli_publishes_advice_v1_quantity_contract() -> None:
+def test_installed_cli_publishes_advice_v3_complete_baseline_contract() -> None:
     completed = subprocess.run(
         [
             str(CLI),
@@ -27,8 +27,8 @@ def test_installed_cli_publishes_advice_v1_quantity_contract() -> None:
             "etf",
             "--actual-quantity",
             "0",
-            "--position-size",
-            "50000",
+            "--available-cash",
+            "1000000",
             "--repo-root",
             str(REPO_ROOT),
         ],
@@ -43,7 +43,9 @@ def test_installed_cli_publishes_advice_v1_quantity_contract() -> None:
     assert completed.stderr == ""
     payload = json.loads(completed.stdout)
     assert payload["status"] == "PASS"
-    assert payload["result"]["contract_version"] == "advice.v1"
+    assert payload["result"]["contract_version"] == "advice.v3"
+    assert payload["result"]["baseline"]["version"] == "baseline_20260903"
+    assert "execution_policy" not in payload["result"]
     assert payload["result"]["actual_quantity"] == 0
     assert payload["result"]["target_quantity"] == 0
     assert payload["result"]["delta_quantity"] == 0
@@ -83,12 +85,11 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     full = payload["result"]["windows"]["full"]
     assert output_dir.name.startswith("588080_")
     assert output_dir.name.endswith("_BT01")
-    assert payload["result"]["baseline"] == "baseline_20260901"
+    assert payload["result"]["baseline"] == "baseline_20260903"
     assert set(full) == {"start", "end", "strategies"}
     strategies = full["strategies"]
     assert set(strategies) == {
         "active_baseline",
-        "active_baseline_execution_policy",
         "buyhold",
         "ma5_ma20",
     }
@@ -117,8 +118,8 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     assert (output_dir / "ma_orders.csv").is_file()
     assert (output_dir / "ma_equity.csv").is_file()
     assert (output_dir / "ma_chart.html").is_file()
-    assert (output_dir / "execution_orders.csv").is_file()
-    assert (output_dir / "execution_equity.csv").is_file()
+    assert not (output_dir / "execution_orders.csv").exists()
+    assert not (output_dir / "execution_equity.csv").exists()
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["metrics_schema_version"] == 4
 
@@ -144,7 +145,7 @@ def test_installed_cli_runs_audited_backtest(tmp_path: Path) -> None:
     report = (output_dir / "report.md").read_text(encoding="utf-8")
     assert "## full" in report
     assert report.count("| 活动基线·次日开盘 |") == 1
-    assert report.count("| 活动基线·执行规则 |") == 1
+    assert "活动基线·执行规则" not in report
     assert report.count("| BuyHold |") == 1
     assert report.count("| MA5/MA20 |") == 1
     assert "| BuyHold |" in report and "无闭合交易" in report

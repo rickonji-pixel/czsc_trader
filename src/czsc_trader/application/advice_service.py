@@ -10,9 +10,9 @@ import json
 import pandas as pd
 
 from czsc_trader.baseline_execution import apply_resolved_baseline
-from czsc_trader.baselines import resolve_baseline
+from czsc_trader.baselines import ResolvedBaseline, resolve_baseline
 from czsc_trader.data import load_execution_manifest, load_execution_prices, load_market_data
-from czsc_trader.execution_policies import ResolvedExecutionPolicy, resolve_execution_policy
+from czsc_trader.execution_policies import ResolvedExecutionPolicy
 from czsc_trader.execution_policy import floor_to_tick, round_to_tick
 from czsc_trader.factors import generate_factor_frame
 
@@ -29,6 +29,7 @@ class AdviceCommand:
     position_size: int | None = None
     available_cash: float | None = None
     baseline: str | None = None
+    cycle_target_quantity: int | None = None
 
 
 def validate_quantity_input(actual_quantity: int, position_size: int) -> None:
@@ -192,6 +193,106 @@ def build_advice_v2(
         "estimated_order_cost": float(estimated.quantize(Decimal("0.01"))),
         "unallocated_cash": float((cash - estimated).quantize(Decimal("0.01"))),
     }
+
+
+def build_advice_v3(
+    *,
+    baseline: ResolvedBaseline,
+    signal_date: pd.Timestamp,
+    valid_session: pd.Timestamp,
+    signal_close: float,
+    execution_close: float,
+    target_position: int,
+    actual_quantity: int,
+    available_cash: float,
+    cycle_target_quantity: int | None,
+) -> dict[str, object]:
+    """Build an order from one complete baseline and a stable entry-cycle target."""
+    execution = baseline.execution
+    if execution is None:
+        raise ValueError("advice.v3 requires a complete baseline")
+    instrument = execution.instrument
+    if actual_quantity < 0 or actual_quantity % instrument.lot_size:
+        raise ValueError("actual quantity must use complete-baseline lots")
+    if cycle_target_quantity is not None and (
+        cycle_target_quantity < 0 or cycle_target_quantity % instrument.lot_size
+    ):
+        raise ValueError("cycle target quantity must use complete-baseline lots")
+    if target_position not in (0, 1):
+        raise ValueError("target position must be 0 or 1")
+    signal_day = pd.Timestamp(signal_date).normalize()
+    valid_day = pd.Timestamp(valid_session).normalize()
+    if valid_day <= signal_day:
+        raise ValueError("valid session must be after signal date")
+    cash = Decimal(str(available_cash)).quantize(Decimal("0.01"))
+    if not cash.is_finite() or cash < 0:
+        raise ValueError("available cash must be non-negative and finite")
+    fee = Decimal(str(execution.capital.fee_rate))
+    if target_position:
+        price = floor_to_tick(
+            float(execution_close) * (1 + execution.entry_limit_parameter),
+            instrument.price_tick,
+        )
+        if cycle_target_quantity is None:
+            unit_cost = Decimal(str(price)) * (Decimal("1") + fee)
+            lots = (cash / (unit_cost * instrument.lot_size)).to_integral_value(
+                rounding=ROUND_FLOOR
+            )
+            target = actual_quantity + int(lots) * instrument.lot_size
+        else:
+            target = cycle_target_quantity
+        delta = max(0, target - actual_quantity)
+        side = "BUY"
+        action = "BUY" if delta else ("HOLD" if actual_quantity else "WAIT")
+    else:
+        price = round_to_tick(
+            float(execution_close) * (1 - execution.exit_limit_ratio),
+            instrument.price_tick,
+        )
+        target = 0
+        delta = -actual_quantity
+        side = "SELL"
+        action = "SELL" if actual_quantity else "WAIT"
+    orders: list[dict[str, object]] = []
+    remaining = abs(delta)
+    while remaining:
+        quantity = min(remaining, instrument.maximum_order_quantity)
+        orders.append(
+            {
+                "side": side,
+                "quantity": quantity,
+                "order_type": "LIMIT",
+                "limit_price": price,
+                "time_in_force": "DAY",
+            }
+        )
+        remaining -= quantity
+    identity = {
+        "contract_version": "advice.v3",
+        "symbol": instrument.symbol,
+        "signal_date": str(signal_day.date()),
+        "valid_session": str(valid_day.date()),
+        "actual_quantity": actual_quantity,
+        "cycle_target_quantity": target if target_position else (0 if not actual_quantity else cycle_target_quantity),
+        "target_quantity": target,
+        "baseline": {"version": baseline.version, "sha256": baseline.sha256},
+        "orders": orders,
+    }
+    return {
+        **identity,
+        "decision_id": _decision_id(identity),
+        "delta_quantity": delta,
+        "target_position": target_position,
+        "action": action,
+        "signal_reference_price": float(signal_close),
+        "execution_reference_price": float(execution_close),
+        "execution_price_adjustment": "none",
+        "order": orders[0] if len(orders) == 1 else None,
+        "available_cash": float(cash),
+        "fee_rate": float(fee),
+    }
+
+
 def build_advice(
     *,
     signal_date: pd.Timestamp,
@@ -266,22 +367,15 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
     """Generate advice from the latest complete locally tracked close."""
     try:
         if request.available_cash is None:
-            assert request.position_size is not None
-            validate_quantity_input(request.actual_quantity, request.position_size)
+            raise ValueError("complete-baseline advice requires available cash")
     except ValueError as exc:
         raise UsageError("invalid_account_state", str(exc)) from exc
     try:
         baseline = resolve_baseline(
             context.baseline_root, request.baseline, symbol=request.symbol
         )
-        policy = resolve_execution_policy(
-            context.execution_policy_root,
-            symbol=request.symbol,
-            baseline_version=baseline.version,
-            baseline_sha256=baseline.sha256,
-            required=True,
-        )
-        assert policy is not None
+        if baseline.execution is None:
+            raise ValueError("selected baseline does not contain execution rules")
         data = load_market_data(context.raw_dir, request.symbol, request.asset_type)
         execution_prices = load_execution_prices(
             context.raw_dir, request.symbol, request.asset_type
@@ -302,22 +396,16 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
             raise ValueError(
                 f"execution price must contain exactly one row for {signal_date.date()}"
             )
-        common = dict(
-            symbol=data.symbol,
+        advice = build_advice_v3(
+            baseline=baseline,
             signal_date=signal_date,
             valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
             signal_close=float(close.loc[signal_date]),
             execution_close=float(execution_rows.iloc[0]["close"]),
             target_position=int(applied.target_position.loc[signal_date]),
             actual_quantity=request.actual_quantity,
-            policy=policy,
-            baseline_version=baseline.version,
-            baseline_sha256=baseline.sha256,
-        )
-        advice = (
-            build_advice_v2(available_cash=request.available_cash, **common)
-            if request.available_cash is not None
-            else build_advice_v1(position_size=request.position_size, **common)
+            available_cash=float(request.available_cash),
+            cycle_target_quantity=request.cycle_target_quantity,
         )
         result = {
             **advice,

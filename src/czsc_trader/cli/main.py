@@ -122,6 +122,7 @@ def _advice_run(args: argparse.Namespace):
             position_size=position_size,
             available_cash=args.available_cash,
             baseline=args.baseline,
+            cycle_target_quantity=args.cycle_target_quantity,
         ),
     )
 
@@ -216,6 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
     advice_run.add_argument("--actual-position", type=int, choices=(0, 1))
     advice_run.add_argument("--quantity", type=int)
     advice_run.add_argument("--baseline")
+    advice_run.add_argument("--cycle-target-quantity", type=int)
     advice_run.add_argument("--data-dir", type=Path)
     _add_repository_root(advice_run)
     advice_run.set_defaults(

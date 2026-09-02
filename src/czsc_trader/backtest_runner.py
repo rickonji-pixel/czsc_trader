@@ -17,7 +17,7 @@ from .baseline_execution import apply_resolved_baseline
 from .baselines import resolve_baseline
 from .charting import write_period_chart
 from .data import load_market_data
-from .execution_policies import ResolvedExecutionPolicy, resolve_execution_policy
+from .execution_policies import ResolvedExecutionPolicy
 from .execution_policy import (
     ExecutionSimulation,
     entry_limit_series,
@@ -308,12 +308,7 @@ def run_fixed_backtest(
             request.baseline,
             symbol=request.symbol,
         )
-        execution_policy = resolve_execution_policy(
-            request.execution_policy_root,
-            symbol=request.symbol,
-            baseline_version=baseline.version,
-            baseline_sha256=baseline.sha256,
-        )
+        execution_policy = None
         data = load_market_data(request.raw_dir, request.symbol, request.asset_type)
         if request.windows_path is not None:
             periods = _load_window_config(

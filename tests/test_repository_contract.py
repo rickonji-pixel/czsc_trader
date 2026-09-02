@@ -106,3 +106,12 @@ def test_active_execution_policy_is_frozen_ex02_winner() -> None:
         baseline_version="baseline_20260901",
         baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
     ) is None
+
+
+def test_production_services_do_not_resolve_independent_execution_policy() -> None:
+    for relative in (
+        "src/czsc_trader/application/advice_service.py",
+        "src/czsc_trader/backtest_runner.py",
+    ):
+        source = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        assert "resolve_execution_policy(" not in source

@@ -14,7 +14,6 @@ def test_virtual_accounts_are_isolated_and_persistent(tmp_path):
     assert store.virtual_account("a")["quantity"] == 50_000
     assert store.virtual_account("b")["quantity"] == 0
     store.close()
-
     reopened = PaperStore(path)
     assert reopened.virtual_account("a")["cash"] == "900000.0000"
     assert len(reopened.virtual_accounts()) == 2
@@ -114,3 +113,27 @@ def test_failed_virtual_settlement_rolls_back_order_and_balances(tmp_path):
     assert store.virtual_account("a")["cash"] == "1000.0000"
     assert store.virtual_orders("a")[0]["status"] == "PENDING"
     assert store.virtual_fills("a") == []
+
+
+def test_pristine_virtual_account_capital_migration_rejects_trading_history(tmp_path) -> None:
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "state.db")
+    store.create_virtual_account("clean", "空白", "baseline_a", "a" * 64, 1_000_000)
+    migrated = store.migrate_pristine_virtual_account_capital(
+        "clean", expected_initial_cash=1_000_000, new_initial_cash=100_000,
+    )
+    assert migrated["initial_cash"] == "100000.0000"
+    assert migrated["cash"] == "100000.0000"
+
+    store.create_virtual_account("used", "已使用", "baseline_b", "b" * 64, 1_000_000)
+    store.save_virtual_order(
+        "used", "decision-1", "2026-09-03", "order-1",
+        {"side": "BUY", "quantity": 100, "limit_price": 1.5},
+    )
+    with pytest.raises(ValueError, match="trading history"):
+        store.migrate_pristine_virtual_account_capital(
+            "used", expected_initial_cash=1_000_000, new_initial_cash=100_000,
+        )
+    assert store.virtual_account("used")["initial_cash"] == "1000000.0000"
+    store.close()

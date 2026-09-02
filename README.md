@@ -140,14 +140,14 @@ Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续�
 - 新单只在有效交易日的 `09:30–11:30`、`13:00–14:57`提交；
 - 暂停只阻止新订单，已有订单继续对账；撤单必须二次确认。
 
-首次启动会创建初始资金100万元的`baseline-143`虚拟账户。虚拟账户完全由本地账本
+首次启动会创建初始资金10万元的`baseline-143`虚拟账户。虚拟账户完全由本地账本
 模拟成交，与唯一Futu模拟账户相互隔离；Futu渠道异常不会阻断虚拟账户。账户管理命令：
 
 ```powershell
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
   --account-id range-2 --name "Range候选2" `
-  --baseline baseline_20260903 --initial-cash 1000000 --futu-reference
+  --baseline baseline_20260903 --futu-reference
 .\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id range-2
 .\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id range-2
 ```
@@ -155,7 +155,8 @@ Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续�
 虚拟订单在有效交易日的19:00数据发布成功后，先用完整日线按保守规则结算，再生成
 下一有效交易日决策。等价触及限价但未穿价记为“触价未穿价”，不计成交。
 `--futu-reference`只切换页面中的Futu参照标记，不会复制订单；任一时刻最多一个
-虚拟账户带有该标记。
+虚拟账户带有该标记。`account create`默认初始资金为10万元，需要其他金额时再显式
+传入`--initial-cash`。
 
 ### Windows watchdog 服务
 

@@ -74,14 +74,14 @@ def test_account_commands_parse_with_runtime_defaults(tmp_path: Path) -> None:
     create = build_parser().parse_args([
         "account", "create", "--repo-root", str(tmp_path),
         "--account-id", "range-2", "--name", "Range 2",
-        "--baseline", "baseline_20260903", "--initial-cash", "1000000",
+        "--baseline", "baseline_20260903",
     ])
     pause = build_parser().parse_args([
         "account", "pause", "--repo-root", str(tmp_path), "--account-id", "range-2",
     ])
 
     assert create.database == tmp_path.resolve() / "state" / "paper_trading" / "runtime.db"
-    assert create.initial_cash == "1000000"
+    assert create.initial_cash == "100000"
     assert pause.account_id == "range-2"
 
 
@@ -118,5 +118,38 @@ def test_build_engine_keeps_virtual_accounts_when_futu_initialization_fails(tmp_
         status = engine.status()
         assert status["channel"]["channel_error"] == "SDK failed"
         assert status["virtual_accounts"][0]["account_id"] == "baseline-143"
+        assert status["virtual_accounts"][0]["initial_cash"] == "100000.0000"
+        assert status["virtual_accounts"][0]["cash"] == "100000.0000"
+    finally:
+        engine.close()
+
+
+def test_build_engine_safely_migrates_pristine_baseline_account_to_default_capital(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    from paper_trading_engine import cli
+    from paper_trading_engine.store import PaperStore
+
+    database = tmp_path / "state" / "paper_trading" / "runtime.db"
+    store = PaperStore(database)
+    store.create_virtual_account(
+        "baseline-143", "候选143", "baseline_20260903",
+        "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
+        1_000_000, is_futu_reference=True,
+    )
+    store.close()
+    monkeypatch.setattr(cli, "seed_runtime_data", lambda *_: None)
+    monkeypatch.setattr(
+        cli, "FutuGateway",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("SDK failed")),
+    )
+    args = cli.build_parser().parse_args(["once", "--repo-root", str(tmp_path)])
+
+    engine = cli.build_engine(args)
+    try:
+        account = engine.status()["virtual_accounts"][0]
+        assert account["initial_cash"] == "100000.0000"
+        assert account["cash"] == "100000.0000"
+        assert account["total_assets"] == "100000.0000"
     finally:
         engine.close()

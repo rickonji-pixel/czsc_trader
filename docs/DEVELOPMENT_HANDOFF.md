@@ -118,12 +118,14 @@ python -m venv .venv
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
   --account-id baseline-143 --name 候选143 `
-  --baseline baseline_20260903 --initial-cash 1000000
+  --baseline baseline_20260903
 .\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
 ```
 
 账户创建具有不可变身份：相同ID、名称、标的、完整基线SHA和初始资金可幂等复用，任一项
 不同都会停止。SQLite位于`state/paper_trading/runtime.db`且不随Git跨机同步。
+虚拟账户默认初始资金为10万元；旧版自动创建的100万元`baseline-143`仅在零持仓且
+没有意图、订单、成交和快照时自动迁移，已有交易历史则拒绝静默改账。
 
 创建或切换页面中的Futu参照账户时，在`account create`末尾增加`--futu-reference`；
 该标记不改变Futu渠道的决策或订单。

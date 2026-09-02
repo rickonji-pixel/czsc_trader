@@ -28,6 +28,10 @@ class PortUnavailableError(RuntimeError):
     pass
 
 
+DEFAULT_VIRTUAL_INITIAL_CASH = Decimal("100000.0000")
+LEGACY_VIRTUAL_INITIAL_CASH = Decimal("1000000.0000")
+
+
 def probe_port(host: str, port: int) -> None:
     candidate = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -89,7 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--account-id", required=True)
     create.add_argument("--name", required=True)
     create.add_argument("--baseline", required=True)
-    create.add_argument("--initial-cash", required=True)
+    create.add_argument("--initial-cash", default="100000")
     create.add_argument("--futu-reference", action="store_true")
     return parser
 
@@ -123,13 +127,19 @@ def build_engine(args: argparse.Namespace):
         store.create_virtual_account(
             "baseline-143", "候选143", "baseline_20260903",
             "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
-            1_000_000, is_futu_reference=True,
+            DEFAULT_VIRTUAL_INITIAL_CASH, is_futu_reference=True,
         )
     else:
+        if Decimal(account["initial_cash"]) == LEGACY_VIRTUAL_INITIAL_CASH:
+            account = store.migrate_pristine_virtual_account_capital(
+                "baseline-143",
+                expected_initial_cash=LEGACY_VIRTUAL_INITIAL_CASH,
+                new_initial_cash=DEFAULT_VIRTUAL_INITIAL_CASH,
+            )
         expected = (
             "候选143", "baseline_20260903",
             "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
-            args.symbol.upper(), "1000000.0000",
+            args.symbol.upper(), str(DEFAULT_VIRTUAL_INITIAL_CASH),
         )
         actual = (
             account["name"], account["baseline_version"], account["baseline_sha256"],

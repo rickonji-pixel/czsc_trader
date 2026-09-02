@@ -234,6 +234,51 @@ class PaperStore:
             )
         return self.virtual_account(account_id)
 
+    def migrate_pristine_virtual_account_capital(
+        self, account_id: str, *, expected_initial_cash, new_initial_cash,
+    ):
+        """Change capital only when an account has never entered its trading lifecycle."""
+        from decimal import Decimal
+
+        expected = Decimal(expected_initial_cash).quantize(Decimal("0.0001"))
+        new_value = Decimal(new_initial_cash).quantize(Decimal("0.0001"))
+        if new_value <= 0 or not new_value.is_finite():
+            raise ValueError("new initial cash must be positive")
+        with self._lock, self._connection:
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+            if account is None:
+                raise KeyError(account_id)
+            current = Decimal(account["initial_cash"])
+            if current == new_value:
+                return dict(account)
+            history_count = sum(
+                int(self._connection.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE account_id=?", (account_id,)
+                ).fetchone()[0])
+                for table in (
+                    "virtual_intents", "virtual_orders", "virtual_fills", "virtual_snapshots",
+                )
+            )
+            pristine = (
+                current == expected
+                and Decimal(account["cash"]) == expected
+                and int(account["quantity"]) == 0
+                and Decimal(account["average_cost"]) == 0
+                and Decimal(account["realized_pnl"]) == 0
+                and history_count == 0
+            )
+            if not pristine:
+                raise ValueError("virtual account has trading history; capital migration refused")
+            now = _utc_now()
+            self._connection.execute(
+                "UPDATE virtual_accounts SET initial_cash=?,cash=?,total_assets=?,cycle_target=NULL,"
+                "last_decision_id=NULL,last_decision_payload=NULL,updated_at=? WHERE account_id=?",
+                (str(new_value), str(new_value), str(new_value), now, account_id),
+            )
+        return self.virtual_account(account_id)
+
     def virtual_account(self, account_id: str):
         with self._lock:
             row = self._connection.execute(

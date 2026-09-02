@@ -90,3 +90,10 @@
 - [x] Run `pte once` against Futu only when the current decision requires no order; never submit a diagnostic order.
 - [x] Start `pte serve`, query status, and inspect the page endpoint.
 - [x] Review the spec, diff, and commits before handoff.
+
+### Deferred Optimization: Split observation and decision schedules
+
+- [ ] Poll order status and cumulative fills about every 5 seconds.
+- [ ] Refresh account and positions every 30 to 60 seconds.
+- [ ] Invoke `czsc-trader advice run` only after complete-close data identity changes.
+- [ ] Enter submission evaluation only for a newly observed `decision_id`.

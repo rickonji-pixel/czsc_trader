@@ -1,35 +1,52 @@
-# czsc-trader
+# CZSC Trader / CZSC PTE
 
-面向A股股票与ETF的CZSC策略研究、固定基线回测和数据验证工具。
+本仓库包含两个并列运行包：
 
-## 环境
+| 包 | 目录 | 命令 | 职责 |
+| --- | --- | --- | --- |
+| CZSC Trader | `src/czsc_trader/` | `czsc-trader` | 行情验证、冻结基线、回测、研究归档和交易决策 |
+| CZSC PTE | `packages/paper_trading_engine/` | `pte`、`pte-watchdog` | 模拟账户对账、自动下单、审计、观测页面和进程保活 |
+
+`packages/dataflows/`是两个包共用的行情获取与发布依赖。Trader 通过
+`advice.v2` JSON 契约向 PTE 提供决策；PTE 不导入 Trader 的内部模块，券商渠道
+不参与策略计算、定价或改量。
+
+研究现状见[研究交接](docs/RESEARCH_HANDOFF.md)，跨机开发与运行恢复见
+[开发交接](docs/DEVELOPMENT_HANDOFF.md)。
+
+## 环境要求
+
+- Python 3.12
+- Tushare Token：仅在发布新行情时需要，将`.env.example`复制为`.env`并填写
+  `TUSHARE_TOKEN`
+- Futu OpenD：仅运行当前 Futu 模拟交易渠道时需要
+- Windows 管理员权限：仅安装、更新或删除 watchdog 系统服务时需要
+
+普通数据验证、回测和 advice 读取本地数据，不隐式联网。
+
+## 安装
+
+在仓库根目录执行：
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e packages\dataflows
-.\.venv\Scripts\python.exe -m pip install -e .[test]
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
+.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```
 
-根包依赖本仓库的 `czsc-dataflows`，行情发布时从 `.env` 读取
-Tushare凭据。普通验证和回测不会隐式联网。
-
-## 正式入口
+确认三个入口均可用：
 
 ```powershell
-.\.venv\Scripts\czsc-trader.exe data prepare --help
-.\.venv\Scripts\czsc-trader.exe data validate --help
-.\.venv\Scripts\czsc-trader.exe baseline list --help
-.\.venv\Scripts\czsc-trader.exe baseline show --help
-.\.venv\Scripts\czsc-trader.exe baseline validate --help
-.\.venv\Scripts\czsc-trader.exe backtest run --help
-.\.venv\Scripts\czsc-trader.exe advice run --help
-.\.venv\Scripts\czsc-trader.exe archive validate --help
+.\.venv\Scripts\czsc-trader.exe --help
+.\.venv\Scripts\pte.exe --help
+Get-Command .\.venv\Scripts\pte-watchdog.exe
 ```
 
-CLI只保留五类资源：`data`、`baseline`、`backtest`、`advice`、`archive`。
-历史实验执行与重放已退役；`experiments/`只保存不可变研究档案。
+## CZSC Trader 使用
 
-## 数据
+### 数据准备与验证
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data prepare `
@@ -39,36 +56,23 @@ CLI只保留五类资源：`data`、`baseline`、`backtest`、`advice`、`archiv
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
 ```
 
-A股股票与ETF统一使用Tushare后复权（`hfq`）行情计算策略。发布器同时生成
-并校验30分钟、日线和周线文件以及manifest、validation文件；另行发布带独立
-manifest的未复权日线，仅用于生成可交易委托价格。策略价格与执行价格必须按
-交易日期严格对齐，二者不得混用。
+策略统一使用 Tushare 后复权行情；交易委托价格使用同日未复权日线。发布器同时
+生成 30 分钟、日线、周线及身份清单，策略价格与执行价格按交易日严格对齐。
 
-当前Git跟踪数据：
-
-| 标的 | 名称 | 起始日 | 截止日 |
-| --- | --- | --- | --- |
-| 159352.SZ | 南方中证A500ETF | 2025-01-01 | 2026-09-01 |
-| 159516.SZ | 国泰中证半导体材料设备主题ETF | 2025-01-01 | 2026-09-01 |
-| 515050.SH | 华夏中证5G通信主题ETF | 2024-01-02 | 2026-09-01 |
-| 588080.SH | 易方达上证科创板50成份ETF | 2020-01-01 | 2026-09-01 |
-
-## 活动基线
-
-活动基线由 `configs/rule_baselines/registry.json` 决定。当前为
-`baseline_20260901`，策略类型 `czsc_regime_weight`，来源候选143。
+### 查看与验证活动基线
 
 ```powershell
+.\.venv\Scripts\czsc-trader.exe baseline list
 .\.venv\Scripts\czsc-trader.exe baseline show `
   --version baseline_20260901 --symbol 588080.SH
-
 .\.venv\Scripts\czsc-trader.exe baseline validate `
   --version baseline_20260901 --symbol 588080.SH
 ```
 
-未显式指定基线的回测默认使用注册表中的活动基线。
+未显式指定版本时，回测和 advice 使用
+`configs/rule_baselines/registry.json`中登记的活动基线。
 
-## 回测
+### 回测
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe backtest run `
@@ -76,83 +80,92 @@ manifest的未复权日线，仅用于生成可交易委托价格。策略价格
   --start 2026-01-01 --end 2026-08-21
 ```
 
-输出目录使用 `证券代码_MMDD_BTXX` 格式并写入 `outputs/`。该目录被
-Git忽略，只用于普通回测结果，不作为研究交接依据。
-
-每次回测会在相同现金、费率和窗口下执行活动基线的次日开盘理论口径、
-BuyHold与MA5/MA20双均线策略。若活动执行规则与标的、活动基线身份完全
-匹配，还会增加“活动基线·执行规则”一行，并输出`execution_orders*.csv`
-和`execution_equity*.csv`。双均线在日线收盘后计算，`MA5 > MA20`时目标仓位为
-100%，否则为空仓，并在下一交易日开盘执行。`report.md`按窗口逐行比较
-各策略的最大回撤、卡玛比率、盈亏比、收益率和夏普率；同时生成原有
-活动基线图及独立的 `ma_chart*.html`双均线日线图。盈亏比只统计已闭合的
-买入—卖出交易；只有盈利交易时显示“无亏损”，只有亏损交易时显示
-“无盈利”，没有闭合交易时显示“无闭合交易”。BuyHold不合成人为期末卖出，
-因此通常显示“无闭合交易”。机器结果通过`win_loss_ratio_status`保留相同语义。
-
-同一比较表中的夏普率统一由独立净值序列计算：包含首个交易日相对于初始
-资金的收益，按252个交易日年化，无风险收益率为0，并使用样本标准差。
-
-均线交叉按每日收盘时的离散数值确认，不使用图表连线在两个交易日之间的
-视觉交点：若交易日T收盘首次出现 `MA5 <= MA20`，T记为卖出信号日，并在
-下一交易日T+1开盘卖出；图表买卖标记位于实际成交日，而不是信号日。
-
-## 日频交易建议
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe advice run `
-  --symbol 588080.SH --asset etf `
-  --actual-quantity 20000 --position-size 50000
-```
-
-命令读取最新完整收盘数据，使用后复权行情计算活动信号，并使用同日未复权
-收盘价和活动执行规则生成下一交易日建议。结果分别输出
-`signal_reference_price`和`execution_reference_price`。机器契约使用实际成交份数
-`--actual-quantity`与满仓份数`--position-size`计算数量差；二者必须符合100份整数倍。
-旧的`--actual-position/--quantity`参数暂时保留兼容。所有买卖委托价格均由项目侧
-冻结执行规则计算，渠道端不得自动调价。
-输出使用`advice.v1`，包含确定性决策ID、有效交易日、目标/实际/差额数量、
-可直接提交的DAY限价单，以及两个冻结版本的身份。
-
-该入口不连接券商、不自动下单、不改写账户状态。未收到明确成交回报时，
-继续使用原实际仓位再次运行。建议有效期为`NEXT_TRADING_SESSION`；盘中价格
-只作执行风险观察，不改变最近完整收盘后的策略信号。
-
-## 模拟交易运行引擎
-
-独立包位于`packages/paper_trading_engine`，通过上述`advice.v1` CLI契约取得决策，
-负责Futu模拟渠道、SQLite审计和本机观测页面。安装与运行说明见
-`packages/paper_trading_engine/README.md`。PTE与策略包并列，运行时不导入
-`czsc_trader.*`，渠道适配器不参与定价。
-
-## 实验档案
+普通结果写入被 Git 忽略的 `outputs/`。正式研究证据必须归档到
+`experiments/MMDD_EXXX/`，并可用以下命令校验：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe archive validate --all
 ```
 
-`experiments/MMDD_EXXX/`保存每轮实验的目标、设计、执行、结论和制品。
-档案可校验但不再通过统一入口重新运行。
+### 生成交易决策
+
+按账户可用现金生成 `advice.v2`：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe advice run `
+  --symbol 588080.SH --asset etf `
+  --actual-quantity 0 --available-cash 1000000 `
+  --format json
+```
+
+Trader 使用项目冻结的执行规则计算限价、手续费空间和 100 份整数倍数量。输出包含
+确定性 `decision_id`、信号日期、有效交易日、目标/实际/差额数量及可提交 DAY 限价
+单。`advice run`不连接券商、不提交订单、不修改账户状态。
+
+兼容调用可用 `--actual-quantity`配合`--position-size`生成`advice.v1`；PTE 正式运行
+只接受`advice.v2`。未收到明确成交回报时，实际持仓数量保持不变。
+
+## CZSC PTE 使用
+
+### 前置检查
+
+启动本机 Futu OpenD，并确认存在中国市场模拟账户。实时行情权限可以缺失，此时页面
+显示“行情降级”，PTE 仍按 Trader 给出的价格和数量执行模拟委托，渠道自动调价关闭。
+
+先用 Trader 查看当前决策。确认模拟环境和订单风险后，可执行单轮运行：
+
+```powershell
+.\.venv\Scripts\pte.exe once --repo-root D:\CodeBase\czsc_trader
+```
+
+`pte once`是完整交易周期，在有效交易时段内可能提交模拟订单。
+
+### 前台持续运行
+
+```powershell
+.\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
+```
+
+观测与干预页面为 <http://127.0.0.1:8080>。默认行为：
+
+- 订单和成交约每 5 秒对账；账户与持仓每 60 秒刷新；
+- 每个交易日 19:00 后发布完整收盘数据，失败后退避重试；
+- 只有数据身份或实际持仓变化时重新生成决策；
+- 自动买入尽可能使用全部已对账可用现金，卖出清空已成交持仓；
+- 新单只在有效交易日的 `09:30–11:30`、`13:00–14:57`提交；
+- 暂停只阻止新订单，已有订单继续对账；撤单必须二次确认。
+
+### Windows watchdog 服务
+
+在管理员 PowerShell 中执行：
+
+```powershell
+.\.venv\Scripts\pte-watchdog.exe install-config --repo-root D:\CodeBase\czsc_trader
+.\.venv\Scripts\pte-watchdog.exe start --wait 30
+```
+
+系统服务名为`CZSC-PTE-Watchdog`，启动类型为自动。watchdog 通过 CLI 启动 PTE
+子进程，每 10 秒检查进程和 8080 HTTP 状态；连续 3 次失败后按 5、30、60 秒
+退避重启。
+
+```powershell
+.\.venv\Scripts\pte-watchdog.exe status
+.\.venv\Scripts\pte-watchdog.exe restart --wait 30
+.\.venv\Scripts\pte-watchdog.exe stop --wait 30
+.\.venv\Scripts\pte-watchdog.exe remove
+```
+
+本机运行数据库、发布数据和日志位于`state/paper_trading/`，均不纳入 Git。详细运行
+语义见[独立包说明](packages/paper_trading_engine/README.md)。
 
 ## 测试
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m pytest -q -m archive
-.\.venv\Scripts\python.exe -m ruff check src tests
+.\.venv\Scripts\python.exe -m pytest tests -q
+.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
+.\.venv\Scripts\python.exe -m pytest tests -q -m archive
+.\.venv\Scripts\python.exe -m ruff check `
+  src tests packages\paper_trading_engine\src packages\paper_trading_engine\tests
 ```
 
-默认测试包含单元、仓库契约及一条安装后CLI回测端到端链路；完整实验档案
-校验使用显式的`archive`标记运行，避免拖慢日常开发。所有测试均不联网。
-Ruff只属于开发测试依赖，不进入项目运行时依赖。
-
-## 换行与身份哈希
-
-仓库通过`.gitattributes`强制普通文本在所有平台使用LF，不受本机
-`core.autocrlf`影响。`data/raw/*.csv`保持原始发布字节，常见二进制文件
-明确按binary管理。
-
-身份校验分为三类：策略与规则JSON使用语义哈希，忽略格式、键顺序和换行；
-普通文本制品统一换行为LF后计算哈希；行情CSV和二进制制品计算原始字节
-哈希。新增身份校验必须复用`czsc_trader.identity`，不直接对普通文本调用
-`read_bytes()`计算SHA-256。
+默认测试不联网。完整实验档案校验使用显式`archive`标记，避免拖慢日常开发。

@@ -14,10 +14,12 @@
 - 研究数据：2020年至2025年
 - 项目测试数据：2026年，随 `data/raw` 持续补充
 - 当前行情截止：2026-09-01
-- 已冻结实验档案：46个，截止 `0901_EX21`
+- 已冻结实验档案：48个，截止 `0902_EX02`
 
-本项目的研究边界是样本内策略研究。2026年用于项目测试和候选比较，但不
-宣称独立样本外或实盘有效性；项目暂不引入实盘成交反馈。
+当前活动基线的选择样本截止到2026-08-28。2026年历史数据已经参与候选比较，
+因此不能整体视为独立样本外。模拟交易从2026-09-01收盘信号、2026-09-02首次
+执行开始形成前瞻运行记录；这部分记录用于观察策略、执行和系统可靠性，在积累出
+足够样本前不宣称样本外或实盘有效性。项目尚未引入真实资金成交反馈。
 
 ## 当前冠军策略
 
@@ -88,6 +90,7 @@ execution manifest校验。`data prepare`同时发布两种价格口径；`data 
 - `configs/rule_baselines/`：冻结基线与活动注册表
 - `experiments/`：不可变研究档案
 - `src/czsc_trader/`：数据、基线、回测和归档验证运行时
+- `packages/paper_trading_engine/`：独立模拟交易、对账、观测和干预运行时
 - `docs/superpowers/specs/`：正式设计文档
 - `docs/superpowers/plans/`：正式实现计划
 - `tests/test_cli_e2e.py`：唯一必要端到端测试
@@ -122,15 +125,31 @@ execution manifest校验。`data prepare`同时发布两种价格口径；`data 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe advice run `
   --symbol 588080.SH --asset etf `
-  --actual-position 1 --quantity 50000
+  --actual-quantity 0 --available-cash 1000000 `
+  --format json
 ```
 
-该命令只读取最新完整收盘数据，实际仓位必须显式输入。结果中的买入最高价
-为信号日收盘价向下对齐至0.001元；离场以完成卖出为优先。未收到明确成交
-回报时，实际仓位保持不变。运行时不读取或改写账户账本，也不连接券商。
+该命令输出`advice.v2`，只读取最新完整收盘数据，实际持仓和可用现金必须显式
+输入。买入数量由项目侧按冻结限价、单边费率和100份交易单位计算，尽可能使用
+全部可部署现金；离场目标为卖出全部已成交持仓。未收到明确成交回报时，实际
+持仓保持不变。运行时不读取或改写账户账本，也不连接券商。
 
 588080固定回测现在展示四种口径：活动基线·次日开盘、活动基线·执行规则、
 BuyHold和MA5/MA20。其他标的在没有匹配执行规则时继续展示原三种口径。
+
+## 模拟交易观察
+
+PTE通过CLI调用上述`advice.v2`，负责模拟账户对账、订单提交、成交增量记录、
+SQLite审计和本机观测页面。当前渠道为Futu模拟交易，PTE与Trader是同仓库并列包；
+PTE不导入`czsc_trader.*`，渠道不参与策略计算、定价或改量。
+
+模拟运行记录位于被Git忽略的`state/paper_trading/`。跨机恢复时不得把另一台机器
+的SQLite、日志、账户余额或订单状态当作已同步事实；新机器必须重新连接渠道并完成
+账户对账。若需要延续同一观察序列，应另行安全迁移运行库并核对渠道订单，不能仅靠
+Git恢复。
+
+模拟交易观察不会反向修改冻结基线或执行规则。后续研究引用模拟结果时，必须区分
+信号、订单意图、渠道受理和明确成交回报；没有成交回报时按未成交处理。
 
 ## 新设备恢复
 
@@ -142,6 +161,12 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e packages\dataflows
 .\.venv\Scripts\python.exe -m pip install -e .[test]
+```
+
+如需同时恢复模拟交易开发或运行环境，再安装PTE：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```
 
 确认安装入口：
@@ -201,6 +226,10 @@ BuyHold与MA5/MA20双均线策略。执行规则仅在标的与活动基线身�
 4. 不用未来数据反向改写同一实验的策略。
 5. 数据更新后先验证三频、复权和manifest，再开展研究或回测。
 6. 没有明确证据时，不宣称样本外、实盘或因果有效。
+7. 新实验先读取活动基线与活动执行规则注册表，再使用当日尚未占用的下一个
+   `MMDD_EXXX`编号；当前最后一个冻结档案为`0902_EX02`。
+8. PTE运行库和页面只作为前瞻观察材料，不替代`experiments/`中的研究设计、
+   机器证据与结论归档。
 
 ## 可移植身份约束
 

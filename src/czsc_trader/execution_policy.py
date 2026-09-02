@@ -240,20 +240,19 @@ def simulate_limit_policy(
                 )
                 if shares <= 0:
                     action = "entry_unfilled"
-                    continue
-                fees = shares * fill_price * float(fee_rate)
-                cash -= shares * fill_price + fees
-                if abs(cash) < 1e-8:
-                    cash = 0.0
-                actual_position = 1.0
-                action = "buy"
-                participation = (
-                    float(diagnostic_quantity) / touch_volume
-                    if touch_volume is not None and touch_volume > 0
-                    else np.nan
-                )
-                order_rows.append(
-                    {
+                else:
+                    fees = shares * fill_price * float(fee_rate)
+                    cash -= shares * fill_price + fees
+                    if abs(cash) < 1e-8:
+                        cash = 0.0
+                    actual_position = 1.0
+                    action = "buy"
+                    participation = (
+                        float(diagnostic_quantity) / touch_volume
+                        if touch_volume is not None and touch_volume > 0
+                        else np.nan
+                    )
+                    order_rows.append({
                         "signal_date": signal_date,
                         "execution_date": fill_timestamp,
                         "side": "Buy",
@@ -266,17 +265,14 @@ def simulate_limit_policy(
                         "open_improvement": open_price / fill_price - 1.0,
                         "touch_volume": touch_volume,
                         "diagnostic_participation": participation,
-                    }
-                )
-                if active_cycle is not None:
-                    active_cycle.update(
-                        {
+                    })
+                    if active_cycle is not None:
+                        active_cycle.update({
                             "filled": True,
                             "t1_filled": attempt_count == 1,
                             "fill_date": fill_timestamp,
                             "fill_price": fill_price,
-                        }
-                    )
+                        })
             else:
                 action = "entry_unfilled"
 

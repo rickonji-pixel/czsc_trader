@@ -1,0 +1,103 @@
+{
+  "status": "COMPLETE",
+  "experiment_id": "0903_EX01",
+  "cutoff": "2026-09-02",
+  "baseline": {
+    "version": "baseline_20260903",
+    "sha256": "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
+    "candidate_id": 143
+  },
+  "execution": {
+    "entry_family": "previous_close_ratio",
+    "entry_parameter": 0.0,
+    "lot_size": 100,
+    "fee_rate": 0.0005,
+    "touch_only": "uncertain_unfilled"
+  },
+  "legacy_fractional_equal_touch": {
+    "max_drawdown": -0.2393105946168207,
+    "calmar": 0.9476074346075404,
+    "win_loss_ratio": 5.333852706120072,
+    "win_loss_ratio_status": "VALID",
+    "return": 2.1329352155568038,
+    "sharpe": 0.9357209357009055,
+    "cycle_count": 70,
+    "t1_fill_rate": 0.9428571428571428,
+    "two_day_fill_rate": 1.0,
+    "final_fill_rate": 1.0,
+    "average_wait_sessions": 1.0571428571428572,
+    "longest_wait_sessions": 2,
+    "missed_cycles": 0,
+    "cap_p95": 0.0,
+    "cap_mean": -3.6876395537218095e-05,
+    "average_open_improvement": 0.0011838330781321522,
+    "worst_open_improvement": 0.0,
+    "average_diagnostic_participation": 0.0005803566328419732,
+    "maximum_diagnostic_participation": 0.002430116649487362,
+    "trade_count": 140
+  },
+  "reviewed_integer_strict_penetration": {
+    "max_drawdown": -0.23930043158137382,
+    "calmar": 0.9284965834912645,
+    "win_loss_ratio": 5.583681327279744,
+    "win_loss_ratio_status": "VALID",
+    "return": 2.068100727711914,
+    "sharpe": 0.9211868285289507,
+    "cycle_count": 70,
+    "t1_fill_rate": 0.9285714285714286,
+    "two_day_fill_rate": 1.0,
+    "final_fill_rate": 1.0,
+    "average_wait_sessions": 1.0714285714285714,
+    "longest_wait_sessions": 2,
+    "missed_cycles": 0,
+    "cap_p95": 0.0,
+    "cap_mean": -3.638471026338852e-05,
+    "average_open_improvement": 0.0011969519095857211,
+    "worst_open_improvement": 0.0,
+    "average_diagnostic_participation": 0.0005894961365912887,
+    "maximum_diagnostic_participation": 0.002430116649487362,
+    "trade_count": 140
+  },
+  "unconditional_next_open": {
+    "max_drawdown": -0.23072279847132016,
+    "calmar": 0.9321334574221574,
+    "win_loss_ratio": 5.070468801536233,
+    "win_loss_ratio_status": "VALID",
+    "return": 1.9694899816896903,
+    "sharpe": 0.8968328868554526
+  },
+  "invariants": {
+    "all_orders_100_share_lots": true,
+    "minimum_cash": 0.1972000002861023,
+    "cash_non_negative": true,
+    "uncertain_equal_touches": 1,
+    "reviewed_order_count": 140
+  },
+  "data_hashes": {
+    "588080_30m_2020.csv": "6e78055bf4715d52f7b33a4ebf5c5a8ca8fa0ad3198c0e8cb0b5b64d33f61c73",
+    "588080_30m_2021.csv": "4ea596d8000de0882e43c0098a57e8100b10f81350680344c5fb4444965e671c",
+    "588080_30m_2022.csv": "0af4f05731197d1da901a4c4fcd95c09e32cb70e4f15530a606868b9fbaa256c",
+    "588080_30m_2023.csv": "074cfab7a5da31c015be4e4ef99119c99c15a151e069ed044ac00ee0fd2f98d3",
+    "588080_30m_2024.csv": "35401ed5588db7bc2128d893106336774e540c30a2d0f9083d0ae84a2cc68e89",
+    "588080_30m_2025.csv": "714784236ca004e0b3c94f48b105ecdecb5f7915dec8776b37ee42f383974b5c",
+    "588080_30m_2026.csv": "ce6dc600590abf1fd812710669de4171898fbd319f7bda674899ef5e14cfbe67",
+    "588080_daily_2020.csv": "7de117f2cdbe656921e6e3fcd51dab366170c637d2122bbc71cc63e83e62a0f4",
+    "588080_daily_2021.csv": "24f2ace23811ca32e935236c605230eb00f8e74eacf5e88e8b670c3bccd006a4",
+    "588080_daily_2022.csv": "7c7b8c91eff9c9fa546359f4b5b87b6c14b74243a1e327761a309621d8bea18a",
+    "588080_daily_2023.csv": "ae964cfb3ec985c54daf112672b7044efe36773e05d8fc77d50b81b6def88bde",
+    "588080_daily_2024.csv": "51e90a0fb986522c42ce7b5bc1128efd74492beae2fa36af98a1b78ac2ed42c6",
+    "588080_daily_2025.csv": "832649fb5a38919bf53fc0a3d4be2b5bf6b0f58e79893d1fee33374511a78148",
+    "588080_daily_2026.csv": "907b1cfb083882b9d8bda4ee54dd61f2f86b92ad182e21d44de65cf3cb0bdaa7",
+    "588080_weekly_2020.csv": "d294f9a0f414ed34a1562bf25f99769add1d0ef90ece76edaa32fb576b00ca03",
+    "588080_weekly_2021.csv": "e89fc2024fa9f72fe52280dcc70e723a3089f6f78e9fdf87496d78f9e2128a22",
+    "588080_weekly_2022.csv": "d6d4dc2d680d9e95f7b10c0451edd5668981be0261f2ec9f6e5026e8e1440dbe",
+    "588080_weekly_2023.csv": "9083423822c1a801ae069acc821780d4c48bbc89e9d80a072311fe1fc11b2c18",
+    "588080_weekly_2024.csv": "2cdcef0d37b056cd77158121cd2cbae00fe9f5e4d9f6967cccef4949286f9d8d",
+    "588080_weekly_2025.csv": "cec128c49d8c1c0cad197efac4b295e8940d0dbfd1e3139abad02fce437bfa6b",
+    "588080_weekly_2026.csv": "67f90bc2e85f52798a25c85343c3968b149a7d923c543dabaeb438a07fe3a968"
+  },
+  "identity_hashes": {
+    "baseline_file": "1d1a1cb3217a24aee30befe6268b196c729c1f4aa2a8e1e0e5b3a3868b323a36",
+    "baseline_registry": "69a40567e56939f641a2353f0acd1da9279b865ce6e7dee8f85d98761b4b64b7"
+  }
+}

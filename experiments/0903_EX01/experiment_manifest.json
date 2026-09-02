@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0903_EX01",
+  "date": "2026-09-03",
+  "status": "COMPLETE",
+  "symbol": "588080.SH",
+  "baseline": {
+    "version": "baseline_20260903",
+    "sha256": "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
+    "candidate_id": 143
+  },
+  "visible_sample_end": "2026-09-02",
+  "files": {
+    "01_goal.md": {
+      "bytes": 414,
+      "sha256": "a70f6e11843aba05bc6d04c2f5ff5560da2d0691f3de20ba5dccedec0454528e"
+    },
+    "02_design.md": {
+      "bytes": 553,
+      "sha256": "69d564cc1fa8bb07ac457548f1b0c7c9e52cb59118e3bc6dd4b190db0b4f4103"
+    },
+    "03_execution.md": {
+      "bytes": 188,
+      "sha256": "2aee0950552d508534424f26f3f4e7504560592604428810267ed1b107d4bdae"
+    },
+    "04_conclusion.md": {
+      "bytes": 386,
+      "sha256": "cb33f6d83466589557393e4e4e2dfb2ab5e3034abab8eeda52d3b0d934f73afb"
+    },
+    "artifacts/execution_review.json": {
+      "bytes": 4728,
+      "sha256": "5ad2a792d497b90c566a9bacc9611d6f68eb5c5ee955ada92bd542d966e474f7"
+    },
+    "run_experiment.py": {
+      "bytes": 6578,
+      "sha256": "a63463518d8c187718ed8dd19231032f9d358658fece9008b1174d53826f22f9"
+    }
+  }
+}

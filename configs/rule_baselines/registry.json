@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "latest": "baseline_20260901",
+  "latest": "baseline_20260903",
   "baselines": {
     "baseline_20260823": {
       "file": "baseline_20260823.json",
@@ -37,7 +37,7 @@
       "sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
       "frozen_at_utc": "2026-09-01T00:00:00+00:00",
       "strategy": "czsc_regime_weight",
-      "status": "active",
+      "status": "archived",
       "scope": "generic",
       "required_frequencies": [
         "30m",
@@ -48,6 +48,25 @@
       "source_sha256": "711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
       "selection_sample_end": "2026-08-28",
       "forward_validation_start": ""
+    },
+    "baseline_20260903": {
+      "file": "baseline_20260903.json",
+      "sha256": "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
+      "frozen_at_utc": "2026-09-03T00:00:00+00:00",
+      "strategy": "czsc_regime_weight",
+      "status": "active",
+      "scope": "symbol",
+      "symbol": "588080.SH",
+      "required_frequencies": [
+        "30m",
+        "daily",
+        "weekly"
+      ],
+      "source_path": "configs/rule_baselines/baseline_20260903.json",
+      "source_sha256": "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
+      "selection_sample_end": "2026-08-28",
+      "execution_review_end": "2026-09-02",
+      "forward_validation_start": "2026-09-03"
     }
   }
 }

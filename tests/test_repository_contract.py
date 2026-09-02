@@ -54,19 +54,31 @@ def test_all_tracked_market_data_validates_through_latest_session() -> None:
         assert result["frequencies"] == ["30m", "daily", "weekly"]
 
 
-def test_active_baseline_is_candidate143() -> None:
+def test_active_baseline_is_complete_candidate143() -> None:
     result = show_baseline(
         RepositoryContext.discover(REPO_ROOT),
-        "baseline_20260901",
+        "baseline_20260903",
         symbol="588080.SH",
     )
 
     assert result.status == "PASS"
     payload = result.result
-    assert payload["version"] == "baseline_20260901"
+    assert payload["version"] == "baseline_20260903"
     assert payload["strategy"] == "czsc_regime_weight"
     assert payload["status"] == "active"
     assert payload["rule"]["candidate_id"] == 143
+    execution = payload["rule"]["execution"]
+    assert execution["instrument"] == {
+        "symbol": "588080.SH",
+        "market": "CN",
+        "asset_type": "etf",
+        "price_tick": 0.001,
+        "lot_size": 100,
+        "maximum_order_quantity": 1_000_000,
+        "price_limit_ratio": 0.2,
+    }
+    assert execution["capital"]["target_scope"] == "entry_cycle"
+    assert execution["virtual_fill"]["touch_only"] == "uncertain_unfilled"
 
 
 def test_active_execution_policy_is_frozen_ex02_winner() -> None:

@@ -37,6 +37,48 @@ class ResolvedBaseline:
     source_sha256: str = ""
     selection_sample_end: str = ""
     forward_validation_start: str = ""
+    execution: ExecutionSpec | None = None
+
+
+@dataclass(frozen=True)
+class InstrumentSpec:
+    symbol: str
+    market: str
+    asset_type: str
+    price_tick: float
+    lot_size: int
+    maximum_order_quantity: int
+    price_limit_ratio: float
+
+
+@dataclass(frozen=True)
+class CapitalSpec:
+    mode: str
+    fee_rate: float
+    target_scope: str
+
+
+@dataclass(frozen=True)
+class VirtualFillSpec:
+    buy_open: str
+    buy_intraday: str
+    touch_only: str
+    sell: str
+    liquidity_check: str
+
+
+@dataclass(frozen=True)
+class ExecutionSpec:
+    entry_order_type: str
+    entry_limit_family: str
+    entry_limit_parameter: float
+    entry_price_rounding: str
+    exit_order_type: str
+    exit_limit_ratio: float
+    exit_price_rounding: str
+    instrument: InstrumentSpec
+    capital: CapitalSpec
+    virtual_fill: VirtualFillSpec
 
 
 def _validate_version(version: str) -> None:
@@ -184,7 +226,8 @@ def _parse_regime_weight(
         raise ValueError("regime-weight ER definition is invalid")
     if payload.get("regime_labels") != ["trend", "range", "warmup"]:
         raise ValueError("regime-weight labels differ from frozen definition")
-    if str(payload.get("execution")) != "next_session_open":
+    execution_value = payload.get("execution")
+    if execution_value != "next_session_open" and not isinstance(execution_value, dict):
         raise ValueError("regime-weight execution differs from frozen definition")
     enter = float(payload["entry_threshold"])
     exit_ = float(payload["exit_threshold"])
@@ -205,6 +248,79 @@ def _parse_regime_weight(
         regime_weights,
         lookback,
         threshold,
+    )
+
+
+def _parse_execution(payload: dict[str, object], symbol: str | None) -> ExecutionSpec:
+    value = payload.get("execution")
+    if not isinstance(value, dict):
+        raise ValueError("active baseline must contain a complete execution object")
+    entry = value.get("entry")
+    exit_ = value.get("exit")
+    instrument = value.get("instrument")
+    capital = value.get("capital")
+    virtual_fill = value.get("virtual_fill")
+    if not all(isinstance(item, dict) for item in (entry, exit_, instrument, capital, virtual_fill)):
+        raise ValueError("complete execution sections are missing")
+    assert isinstance(entry, dict) and isinstance(exit_, dict)
+    assert isinstance(instrument, dict) and isinstance(capital, dict)
+    assert isinstance(virtual_fill, dict)
+    if entry.get("order_type") != "LIMIT" or entry.get("limit_family") != "previous_close_ratio":
+        raise ValueError("unsupported entry execution rule")
+    if entry.get("price_rounding") != "floor":
+        raise ValueError("unsupported entry price rounding")
+    if exit_.get("order_type") != "LIMIT" or exit_.get("price_rounding") != "nearest_half_up":
+        raise ValueError("unsupported exit execution rule")
+    item = InstrumentSpec(
+        symbol=str(instrument.get("symbol", "")).upper(),
+        market=str(instrument.get("market", "")),
+        asset_type=str(instrument.get("asset_type", "")),
+        price_tick=float(instrument.get("price_tick", 0)),
+        lot_size=int(instrument.get("lot_size", 0)),
+        maximum_order_quantity=int(instrument.get("maximum_order_quantity", 0)),
+        price_limit_ratio=float(instrument.get("price_limit_ratio", 0)),
+    )
+    if symbol is not None and item.symbol != str(symbol).upper():
+        raise ValueError("complete execution symbol differs from requested symbol")
+    if item.market != "CN" or item.asset_type != "etf":
+        raise ValueError("complete execution instrument is unsupported")
+    if item.price_tick <= 0 or item.lot_size != 100 or item.maximum_order_quantity <= 0:
+        raise ValueError("complete execution instrument limits are invalid")
+    cap = CapitalSpec(
+        mode=str(capital.get("mode", "")),
+        fee_rate=float(capital.get("fee_rate", -1)),
+        target_scope=str(capital.get("target_scope", "")),
+    )
+    if cap.mode != "full_available_cash" or cap.target_scope != "entry_cycle":
+        raise ValueError("complete baseline capital rule is unsupported")
+    if not 0 <= cap.fee_rate < 1:
+        raise ValueError("complete baseline fee rate is invalid")
+    fill = VirtualFillSpec(
+        buy_open=str(virtual_fill.get("buy_open", "")),
+        buy_intraday=str(virtual_fill.get("buy_intraday", "")),
+        touch_only=str(virtual_fill.get("touch_only", "")),
+        sell=str(virtual_fill.get("sell", "")),
+        liquidity_check=str(virtual_fill.get("liquidity_check", "")),
+    )
+    if fill != VirtualFillSpec(
+        "open_at_or_below_limit", "low_strictly_below_limit", "uncertain_unfilled",
+        "marketable_limit_at_open", "diagnostic_only",
+    ):
+        raise ValueError("complete baseline virtual fill rule is unsupported")
+    exit_ratio = float(exit_.get("limit_ratio", 0))
+    if exit_ratio != item.price_limit_ratio:
+        raise ValueError("baseline exit ratio differs from instrument price limit ratio")
+    return ExecutionSpec(
+        entry_order_type="LIMIT",
+        entry_limit_family="previous_close_ratio",
+        entry_limit_parameter=float(entry.get("limit_parameter", 0)),
+        entry_price_rounding="floor",
+        exit_order_type="LIMIT",
+        exit_limit_ratio=exit_ratio,
+        exit_price_rounding="nearest_half_up",
+        instrument=item,
+        capital=cap,
+        virtual_fill=fill,
     )
 
 
@@ -304,6 +420,7 @@ def resolve_baseline(
         ) = _parse_regime_weight(payload, base)
     else:
         raise ValueError(f"{selected_version}: unknown baseline strategy {strategy!r}")
+    execution = _parse_execution(payload, symbol) if status == "active" else None
     return ResolvedBaseline(
         version=selected_version,
         rule=rule,
@@ -322,6 +439,7 @@ def resolve_baseline(
         source_sha256=source_digest,
         selection_sample_end=str(entry.get("selection_sample_end", "")),
         forward_validation_start=str(entry.get("forward_validation_start", "")),
+        execution=execution,
     )
 
 

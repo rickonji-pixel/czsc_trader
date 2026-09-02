@@ -7,20 +7,7 @@ from pathlib import Path
 import sys
 import traceback
 
-from czsc_trader.application.baseline_service import (
-    list_baselines,
-    show_baseline,
-    validate_baseline,
-)
-from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
-from czsc_trader.application.archive_service import validate_archives
-from czsc_trader.application.advice_service import AdviceCommand, run_advice
 from czsc_trader.application.context import RepositoryContext
-from czsc_trader.application.data_service import (
-    PrepareDataCommand,
-    prepare_data,
-    validate_data,
-)
 from czsc_trader.application.errors import CommandError, InternalError, UsageError
 from .output import write_error, write_result
 
@@ -41,22 +28,32 @@ def _context(args: argparse.Namespace) -> RepositoryContext:
 
 
 def _baseline_list(args: argparse.Namespace):
+    from czsc_trader.application.baseline_service import list_baselines
+
     return list_baselines(_context(args))
 
 
 def _baseline_show(args: argparse.Namespace):
+    from czsc_trader.application.baseline_service import show_baseline
+
     return show_baseline(_context(args), args.version, symbol=args.symbol)
 
 
 def _baseline_validate(args: argparse.Namespace):
+    from czsc_trader.application.baseline_service import validate_baseline
+
     return validate_baseline(_context(args), args.version, symbol=args.symbol)
 
 
 def _data_validate(args: argparse.Namespace):
+    from czsc_trader.application.data_service import validate_data
+
     return validate_data(_context(args), args.symbol)
 
 
 def _data_prepare(args: argparse.Namespace):
+    from czsc_trader.application.data_service import PrepareDataCommand, prepare_data
+
     return prepare_data(
         _context(args),
         PrepareDataCommand(
@@ -69,6 +66,8 @@ def _data_prepare(args: argparse.Namespace):
 
 
 def _backtest_run(args: argparse.Namespace):
+    from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
+
     return run_backtest(
         _context(args),
         BacktestCommand(
@@ -87,6 +86,8 @@ def _backtest_run(args: argparse.Namespace):
 
 
 def _advice_run(args: argparse.Namespace):
+    from czsc_trader.application.advice_service import AdviceCommand, run_advice
+
     return run_advice(
         _context(args),
         AdviceCommand(
@@ -104,6 +105,8 @@ def _repository_path(context: RepositoryContext, value: Path) -> Path:
 
 
 def _archive_validate(args: argparse.Namespace):
+    from czsc_trader.application.archive_service import validate_archives
+
     context = _context(args)
     archive = _repository_path(context, args.archive) if args.archive else None
     return validate_archives(context, archive, all_archives=args.all)

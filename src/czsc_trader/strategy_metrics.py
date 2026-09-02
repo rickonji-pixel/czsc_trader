@@ -87,12 +87,37 @@ def _finite_or_none(value: float) -> float | None:
     return float(value) if np.isfinite(float(value)) else None
 
 
+def annualized_sharpe(
+    equity: pd.Series,
+    init_cash: float,
+    *,
+    annualization: float = 252.0,
+) -> float | None:
+    """Calculate one comparison Sharpe from independently funded equity."""
+    values = equity.astype(float)
+    if values.empty or not np.isfinite(values.to_numpy()).all():
+        raise ValueError("equity must be finite and non-empty")
+    if not np.isfinite(float(init_cash)) or float(init_cash) <= 0.0:
+        raise ValueError("initial cash must be positive and finite")
+    if not np.isfinite(float(annualization)) or float(annualization) <= 0.0:
+        raise ValueError("annualization must be positive and finite")
+    if len(values) < 2:
+        return None
+    prior = values.shift(1)
+    prior.iloc[0] = float(init_cash)
+    returns = values.div(prior).sub(1.0)
+    volatility = float(returns.std(ddof=1))
+    if not np.isfinite(volatility) or volatility <= 0.0:
+        return None
+    result = np.sqrt(float(annualization)) * float(returns.mean()) / volatility
+    return _finite_or_none(float(result))
+
+
 def strategy_comparison_metrics(
     equity: pd.Series,
     orders: pd.DataFrame,
     init_cash: float,
-    sharpe: float,
-) -> dict[str, float | None]:
+) -> dict[str, float | str | None]:
     """Return the five metrics shared by all comparison strategies."""
     values = equity.astype(float)
     if values.empty or not np.isfinite(values.to_numpy()).all():
@@ -114,15 +139,23 @@ def strategy_comparison_metrics(
     returns = ledger["net_return"].astype(float) if not ledger.empty else pd.Series(dtype=float)
     wins = returns.loc[returns.gt(0.0)]
     losses = returns.loc[returns.lt(0.0)]
-    win_loss_ratio = (
-        float(wins.mean() / abs(losses.mean()))
-        if not wins.empty and not losses.empty
-        else float("nan")
-    )
+    if ledger.empty:
+        win_loss_ratio = float("nan")
+        win_loss_ratio_status = "NO_CLOSED_TRADES"
+    elif wins.empty:
+        win_loss_ratio = float("nan")
+        win_loss_ratio_status = "NO_WINS"
+    elif losses.empty:
+        win_loss_ratio = float("nan")
+        win_loss_ratio_status = "NO_LOSSES"
+    else:
+        win_loss_ratio = float(wins.mean() / abs(losses.mean()))
+        win_loss_ratio_status = "VALID"
     return {
         "max_drawdown": _finite_or_none(max_drawdown),
         "calmar": _finite_or_none(calmar),
         "win_loss_ratio": _finite_or_none(win_loss_ratio),
+        "win_loss_ratio_status": win_loss_ratio_status,
         "return": _finite_or_none(total_return),
-        "sharpe": _finite_or_none(sharpe),
+        "sharpe": annualized_sharpe(values, init_cash),
     }

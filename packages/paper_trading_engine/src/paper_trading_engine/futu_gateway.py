@@ -84,6 +84,15 @@ class FutuGateway:
         return self._account_id
 
     def snapshot(self) -> BrokerSnapshot:
+        account = self.account_snapshot()
+        return BrokerSnapshot(
+            account.account,
+            account.positions,
+            self.order_snapshot(),
+            account.quote_health,
+        )
+
+    def account_snapshot(self) -> BrokerSnapshot:
         account_id = self._account()
         common = {
             "trd_env": self.sdk.TrdEnv.SIMULATE,
@@ -102,12 +111,6 @@ class FutuGateway:
                 self.trade_context.position_list_query(code=self.code, **common),
             )
         )
-        order_rows = _records(
-            self._ok(
-                "order_list_query",
-                self.trade_context.order_list_query(code=self.code, **common),
-            )
-        )
         quote_result, _ = self.quote_context.get_stock_quote([self.code])
         quote_health = "OK" if quote_result == self.sdk.RET_OK else "DEGRADED_QUOTE"
         return BrokerSnapshot(
@@ -122,9 +125,23 @@ class FutuGateway:
                 BrokerPosition(_project_symbol(str(row["code"])), int(row["qty"]))
                 for row in position_rows
             ),
-            orders=tuple(self._map_order(row) for row in order_rows),
+            orders=(),
             quote_health=quote_health,
         )
+
+    def order_snapshot(self) -> tuple[BrokerOrder, ...]:
+        rows = _records(
+            self._ok(
+                "order_list_query",
+                self.trade_context.order_list_query(
+                    code=self.code,
+                    trd_env=self.sdk.TrdEnv.SIMULATE,
+                    acc_id=self._account(),
+                    refresh_cache=True,
+                ),
+            )
+        )
+        return tuple(self._map_order(row) for row in rows)
 
     def _map_order(self, row: dict[str, Any]) -> BrokerOrder:
         return BrokerOrder(

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import subprocess
+from hashlib import sha256
 from typing import Callable
 
 from .contracts import AdviceContractError, AdviceDecision
@@ -20,6 +21,7 @@ class CliAdviceClient:
         *,
         executable: Path,
         repo_root: Path,
+        data_dir: Path,
         symbol: str,
         asset: str,
         position_size: int,
@@ -28,6 +30,7 @@ class CliAdviceClient:
     ) -> None:
         self.executable = Path(executable)
         self.repo_root = Path(repo_root).resolve()
+        self.data_dir = Path(data_dir).resolve()
         self.symbol = symbol.upper()
         self.asset = asset
         self.position_size = int(position_size)
@@ -49,6 +52,8 @@ class CliAdviceClient:
             str(self.position_size),
             "--repo-root",
             str(self.repo_root),
+            "--data-dir",
+            str(self.data_dir),
             "--format",
             "json",
         ]
@@ -77,3 +82,17 @@ class CliAdviceClient:
             return AdviceDecision.from_cli_payload(payload)
         except (json.JSONDecodeError, AdviceContractError, KeyError, TypeError, ValueError) as exc:
             raise AdviceClientError(f"invalid advice contract: {exc}") from exc
+
+    def data_identity(self) -> str:
+        code = self.symbol.split(".", 1)[0]
+        names = (
+            f"{code}_manifest.json",
+            f"{code}_validation.json",
+            f"{code}_execution_manifest.json",
+        )
+        digest = sha256()
+        for name in names:
+            path = self.data_dir / name
+            digest.update(name.encode("utf-8"))
+            digest.update(path.read_bytes())
+        return digest.hexdigest()

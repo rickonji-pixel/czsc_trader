@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 import sys
@@ -24,7 +25,12 @@ def _add_repository_root(parser: argparse.ArgumentParser) -> None:
 
 
 def _context(args: argparse.Namespace) -> RepositoryContext:
-    return RepositoryContext.discover(Path.cwd(), explicit_root=args.repo_root)
+    context = RepositoryContext.discover(Path.cwd(), explicit_root=args.repo_root)
+    data_dir = getattr(args, "data_dir", None)
+    if data_dir is not None:
+        resolved = data_dir.resolve() if data_dir.is_absolute() else (context.root / data_dir).resolve()
+        context = replace(context, raw_dir=resolved)
+    return context
 
 
 def _baseline_list(args: argparse.Namespace):
@@ -145,6 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
     data_prepare.add_argument("--asset", required=True, choices=("stock", "etf"))
     data_prepare.add_argument("--start", required=True, type=date.fromisoformat)
     data_prepare.add_argument("--end", required=True, type=date.fromisoformat)
+    data_prepare.add_argument("--data-dir", type=Path)
     _add_repository_root(data_prepare)
     data_prepare.set_defaults(
         command_handler=_data_prepare,
@@ -206,6 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     advice_run.add_argument("--actual-position", type=int, choices=(0, 1))
     advice_run.add_argument("--quantity", type=int)
     advice_run.add_argument("--baseline")
+    advice_run.add_argument("--data-dir", type=Path)
     _add_repository_root(advice_run)
     advice_run.set_defaults(
         command_handler=_advice_run,

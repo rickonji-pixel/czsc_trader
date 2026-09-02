@@ -9,17 +9,21 @@ class FakeTradeContext:
     def __init__(self):
         self.place_calls = []
         self.modify_calls = []
+        self.account_queries = 0
+        self.order_queries = 0
 
     def get_acc_list(self):
         return 0, [{"acc_id": 77, "trd_env": "SIMULATE", "trd_market": "CN"}]
 
     def accinfo_query(self, **kwargs):
+        self.account_queries += 1
         return 0, [{"cash": 900_000.0, "total_assets": 1_010_000.0, "frozen_cash": 10_000.0}]
 
     def position_list_query(self, **kwargs):
         return 0, [{"code": "SH.588080", "qty": 50_000}]
 
     def order_list_query(self, **kwargs):
+        self.order_queries += 1
         return 0, [
             {
                 "order_id": "123",
@@ -176,3 +180,13 @@ def test_futu_maps_sdk_failure_to_stable_gateway_error() -> None:
     futu.trade_context.get_acc_list = lambda: (-1, "OpenD disconnected")
     with pytest.raises(FutuGatewayError, match="get_acc_list"):
         futu.snapshot()
+
+
+def test_futu_order_poll_does_not_refresh_account() -> None:
+    futu, trade = gateway()
+
+    orders = futu.order_snapshot()
+
+    assert len(orders) == 1
+    assert trade.order_queries == 1
+    assert trade.account_queries == 0

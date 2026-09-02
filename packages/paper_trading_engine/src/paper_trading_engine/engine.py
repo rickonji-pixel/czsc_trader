@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
+from functools import wraps
 import secrets
+from threading import RLock
 from typing import Protocol
 
 from .contracts import AdviceDecision, OrderSpec
@@ -29,6 +31,17 @@ class PaperTradingSafetyError(RuntimeError):
 
 class PaperTradingStateError(RuntimeError):
     pass
+
+
+def synchronized(method):
+    """Serialize scheduler and operator actions through one engine lock."""
+
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapped
 
 
 @dataclass(frozen=True)
@@ -106,6 +119,19 @@ class PaperTradingEngine:
         self.advice = advice
         self.symbol = symbol.upper()
         self.today = today
+        self._account_snapshot: BrokerSnapshot | None = None
+        self._orders: tuple[BrokerOrder, ...] = ()
+        self._decision: AdviceDecision | None = None
+        self._decision_key: tuple[str | None, int] | None = None
+        self._alerts: list[str] = []
+        self._lock = RLock()
+
+    def _validate_orders(self, orders: tuple[BrokerOrder, ...]) -> None:
+        for order in orders:
+            if order.symbol != self.symbol:
+                continue
+            if order.quantity <= 0 or order.quantity % 100:
+                raise PaperTradingSafetyError("broker order must use positive 100-share lots")
 
     def _validate_snapshot(self, snapshot: BrokerSnapshot) -> None:
         if snapshot.account.environment != "SIMULATE":
@@ -115,11 +141,7 @@ class PaperTradingEngine:
         for position in snapshot.positions:
             if position.quantity < 0 or position.quantity % 100:
                 raise PaperTradingSafetyError("broker position must use non-negative 100-share lots")
-        for order in snapshot.orders:
-            if order.symbol != self.symbol:
-                continue
-            if order.quantity <= 0 or order.quantity % 100:
-                raise PaperTradingSafetyError("broker order must use positive 100-share lots")
+        self._validate_orders(snapshot.orders)
 
     def _reconcile_order(self, order: BrokerOrder) -> None:
         row = asdict(order)
@@ -137,24 +159,68 @@ class PaperTradingEngine:
                 },
             )
 
+    @synchronized
     def refresh(self) -> dict[str, object]:
-        snapshot = self.broker.snapshot()
+        self.refresh_account()
+        self.refresh_orders()
+        return self.refresh_decision_if_changed(force=True)
+
+    @synchronized
+    def refresh_account(self) -> dict[str, object]:
+        method = getattr(self.broker, "account_snapshot", None)
+        snapshot = method() if method is not None else self.broker.snapshot()
         self._validate_snapshot(snapshot)
-        for order in snapshot.orders:
+        self._account_snapshot = snapshot
+        self.store.mark_reconciled()
+        return self._save_status()
+
+    @synchronized
+    def refresh_orders(self) -> dict[str, object]:
+        method = getattr(self.broker, "order_snapshot", None)
+        if method is not None:
+            orders = tuple(method())
+        else:
+            orders = tuple(self.broker.snapshot().orders)
+        self._validate_orders(orders)
+        for order in orders:
             if order.symbol == self.symbol:
                 self._reconcile_order(order)
+        self._orders = orders
+        self._evaluate_submission()
+        return self._save_status()
+
+    @synchronized
+    def refresh_decision_if_changed(self, *, force: bool = False) -> dict[str, object]:
+        if self._account_snapshot is None:
+            raise PaperTradingStateError("account reconciliation required before advice")
         actual_quantity = sum(
-            position.quantity for position in snapshot.positions if position.symbol == self.symbol
+            position.quantity
+            for position in self._account_snapshot.positions
+            if position.symbol == self.symbol
         )
-        self.store.mark_reconciled()
+        identity_method = getattr(self.advice, "data_identity", None)
+        identity = identity_method() if identity_method is not None else None
+        key = (identity, actual_quantity)
+        if not force and self._decision is not None and key == self._decision_key:
+            self._evaluate_submission()
+            return self._save_status()
         decision = self.advice.get_decision(actual_quantity)
         if decision.symbol != self.symbol:
             raise PaperTradingSafetyError("advice symbol differs from engine whitelist")
         if decision.actual_quantity != actual_quantity:
             raise PaperTradingSafetyError("advice actual quantity differs from broker reconciliation")
+        self._decision = decision
+        self._decision_key = key
+        self._evaluate_submission()
+        return self._save_status()
+
+    def _evaluate_submission(self) -> None:
+        decision = self._decision
+        if decision is None:
+            return
         active_orders = [
             order
-            for order in snapshot.orders
+            for order in self._orders
             if order.symbol == self.symbol and order.status not in TERMINAL_ORDER_STATUSES
         ]
         alerts: list[str] = []
@@ -164,7 +230,23 @@ class PaperTradingEngine:
             elif active_orders:
                 alerts.append("ACTIVE_ORDER_BLOCKS_SUBMISSION")
             else:
+                assert self._account_snapshot is not None
+                snapshot = BrokerSnapshot(
+                    self._account_snapshot.account,
+                    self._account_snapshot.positions,
+                    self._orders,
+                    self._account_snapshot.quote_health,
+                )
                 self._submit_once(decision, decision.order, snapshot)
+        self._alerts = alerts
+
+    def _save_status(self) -> dict[str, object]:
+        if self._account_snapshot is None:
+            return self.status()
+        snapshot = self._account_snapshot
+        actual_quantity = sum(
+            position.quantity for position in snapshot.positions if position.symbol == self.symbol
+        )
         status = {
             "environment": snapshot.account.environment,
             "market": snapshot.account.market,
@@ -173,9 +255,9 @@ class PaperTradingEngine:
             "paused": self.store.is_paused(),
             "account": asdict(snapshot.account),
             "actual_quantity": actual_quantity,
-            "last_decision": asdict(decision),
+            "last_decision": None if self._decision is None else asdict(self._decision),
             "orders": self.store.orders(),
-            "alerts": alerts,
+            "alerts": self._alerts,
         }
         self.store.save_snapshot(status)
         return self.status()
@@ -205,17 +287,22 @@ class PaperTradingEngine:
             return
         submitted = self.broker.place_order(intent)
         self._reconcile_order(submitted)
+        self._orders = tuple(
+            item for item in self._orders if item.channel_order_id != submitted.channel_order_id
+        ) + (submitted,)
         self.store.bind_intent(intent_id, submitted.channel_order_id, submitted.status)
         self.store.add_event(
             "ORDER_SUBMITTED",
             {"intent_id": intent_id, "channel_order_id": submitted.channel_order_id},
         )
 
+    @synchronized
     def pause(self) -> dict[str, object]:
         self.store.set_paused(True)
         self.store.add_event("PAUSED", {})
         return self.status()
 
+    @synchronized
     def resume(self) -> dict[str, object]:
         if not self.store.has_reconciled():
             raise PaperTradingStateError("successful reconciliation required before resume")
@@ -223,6 +310,7 @@ class PaperTradingEngine:
         self.store.add_event("RESUMED", {})
         return self.status()
 
+    @synchronized
     def issue_cancel_token(self, channel_order_id: str) -> str:
         if not any(order["channel_order_id"] == channel_order_id for order in self.store.orders()):
             raise PaperTradingStateError("unknown channel order")
@@ -232,6 +320,7 @@ class PaperTradingEngine:
         self.store.add_event("CANCEL_TOKEN_ISSUED", {"channel_order_id": channel_order_id})
         return token
 
+    @synchronized
     def confirm_cancel(self, channel_order_id: str, token: str) -> dict[str, object]:
         now = datetime.now(timezone.utc).isoformat()
         result = self.store.consume_cancel_token(token, channel_order_id, now)
@@ -243,6 +332,7 @@ class PaperTradingEngine:
         self.store.add_event("CANCEL_REQUESTED", {"channel_order_id": channel_order_id})
         return self.status()
 
+    @synchronized
     def status(self) -> dict[str, object]:
         latest = self.store.latest_snapshot() or {
             "environment": "SIMULATE",
@@ -256,9 +346,17 @@ class PaperTradingEngine:
             "alerts": [],
         }
         latest["paused"] = self.store.is_paused()
+        alerts = list(latest.get("alerts", []))
+        if (
+            self.store.get_setting("data_publication_error")
+            and "DATA_PUBLICATION_FAILED" not in alerts
+        ):
+            alerts.append("DATA_PUBLICATION_FAILED")
+        latest["alerts"] = alerts
         latest["events"] = self.store.recent_events(50)
         return latest
 
+    @synchronized
     def close(self) -> None:
         try:
             close_broker = getattr(self.broker, "close", None)

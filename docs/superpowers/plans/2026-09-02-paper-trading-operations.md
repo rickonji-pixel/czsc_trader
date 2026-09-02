@@ -91,19 +91,31 @@
 - [x] Start `pte serve`, query status, and inspect the page endpoint.
 - [x] Review the spec, diff, and commits before handoff.
 
-### Deferred Optimization: Split observation and decision schedules
+### Task 7: Split observation and decision schedules
 
-- [ ] Poll order status and cumulative fills about every 5 seconds.
-- [ ] Refresh account and positions every 30 to 60 seconds.
-- [ ] Invoke `czsc-trader advice run` only after complete-close data identity changes.
-- [ ] Enter submission evaluation only for a newly observed `decision_id`.
+- [x] Poll order status and cumulative fills about every 5 seconds.
+- [x] Refresh account and positions every 30 to 60 seconds.
+- [x] Invoke `czsc-trader advice run` only after complete-close data identity or actual holdings change.
+- [x] Cache the observed decision and re-evaluate its eligibility without rerunning the daily strategy.
 
-### Deferred UI and Intervention Corrections
+### Task 8: Complete UI and intervention corrections
 
-- [ ] Add a presentation-only Chinese label map for environment, health, run state,
+- [x] Add a presentation-only Chinese label map for environment, health, run state,
   decision action, order status, and alerts while preserving stable English contracts.
-- [ ] Replace raw account, decision, order, and event JSON blocks with semantic cards,
+- [x] Replace raw account, decision, order, and event JSON blocks with semantic cards,
   tables, and expandable formatted details.
-- [ ] Reproduce the inactive Resume button from a paused state and add an interaction
+- [x] Reproduce the inactive Resume button from a paused state and add an interaction
   regression test covering request, response, engine state, refresh, and visible feedback.
-- [ ] Make Resume success and failure visible without relying on background polling.
+- [x] Make Resume success and failure visible without relying on background polling.
+
+### Task 9: Publish complete-close runtime data
+
+- [x] Keep mutable runtime data under ignored `state/paper_trading/data`.
+- [x] Publish data once after 16:15 and record successful publication by date.
+- [x] Record failures as audit alerts and retry with bounded backoff.
+
+### Task 10: Use the exchange trading calendar
+
+- [x] Resolve the next open session from the Tushare SSE calendar during data publication.
+- [x] Persist that session in the execution-data manifest.
+- [x] Require advice generation to consume the persisted session instead of inferring weekdays.

@@ -309,3 +309,24 @@ def load_execution_prices(
     result = pd.concat(frames, ignore_index=True).sort_values("dt").reset_index(drop=True)
     _validate_frame(result, "execution daily")
     return result
+
+
+def load_execution_manifest(
+    raw_dir: Path,
+    symbol: str = SYMBOL,
+    asset_type: str | None = None,
+) -> dict[str, object]:
+    """Load execution metadata including the published next exchange session."""
+    normalized_symbol, code = _symbol_parts(symbol)
+    manifest = _read_json_object(Path(raw_dir) / f"{code}_execution_manifest.json")
+    if manifest.get("symbol") != normalized_symbol:
+        raise ValueError("execution-price manifest symbol does not match request")
+    if asset_type is not None and manifest.get("asset_type") != str(asset_type).lower():
+        raise ValueError("execution-price manifest asset type does not match request")
+    try:
+        next_session = pd.Timestamp(str(manifest["next_trading_session"])).normalize()
+    except (KeyError, ValueError) as exc:
+        raise ValueError("execution-price manifest missing next trading session") from exc
+    manifest = manifest.copy()
+    manifest["next_trading_session"] = str(next_session.date())
+    return manifest

@@ -10,7 +10,7 @@ import pandas as pd
 
 from czsc_trader.baseline_execution import apply_resolved_baseline
 from czsc_trader.baselines import resolve_baseline
-from czsc_trader.data import load_execution_prices, load_market_data
+from czsc_trader.data import load_execution_manifest, load_execution_prices, load_market_data
 from czsc_trader.execution_policies import ResolvedExecutionPolicy, resolve_execution_policy
 from czsc_trader.execution_policy import floor_to_tick, round_to_tick
 from czsc_trader.factors import generate_factor_frame
@@ -53,6 +53,7 @@ def build_advice_v1(
     *,
     symbol: str,
     signal_date: pd.Timestamp,
+    valid_session: pd.Timestamp,
     signal_close: float,
     execution_close: float,
     target_position: int,
@@ -67,7 +68,9 @@ def build_advice_v1(
     if target_position not in (0, 1):
         raise ValueError("target position must be 0 or 1")
     signal_day = pd.Timestamp(signal_date).normalize()
-    valid_session = signal_day + pd.offsets.BDay(1)
+    valid_day = pd.Timestamp(valid_session).normalize()
+    if valid_day <= signal_day:
+        raise ValueError("valid session must be after signal date")
     target_quantity = position_size if target_position else 0
     delta_quantity = target_quantity - actual_quantity
     order: dict[str, object] | None = None
@@ -103,7 +106,7 @@ def build_advice_v1(
         "contract_version": "advice.v1",
         "symbol": symbol.upper(),
         "signal_date": str(signal_day.date()),
-        "valid_session": str(valid_session.date()),
+        "valid_session": str(valid_day.date()),
         "actual_quantity": actual_quantity,
         "target_quantity": target_quantity,
         "position_size": position_size,
@@ -126,6 +129,7 @@ def build_advice_v1(
 def build_advice(
     *,
     signal_date: pd.Timestamp,
+    valid_session: pd.Timestamp,
     signal_close: float,
     execution_close: float,
     target_position: int,
@@ -138,6 +142,7 @@ def build_advice(
     result = build_advice_v1(
         symbol=policy.symbol,
         signal_date=signal_date,
+        valid_session=valid_session,
         signal_close=signal_close,
         execution_close=execution_close,
         target_position=target_position,
@@ -213,6 +218,9 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
         execution_prices = load_execution_prices(
             context.raw_dir, request.symbol, request.asset_type
         )
+        execution_manifest = load_execution_manifest(
+            context.raw_dir, request.symbol, request.asset_type
+        )
         factor_result = generate_factor_frame(data)
         close = pd.Series(
             data.daily["close"].astype(float).to_numpy(),
@@ -229,6 +237,7 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
         advice = build_advice_v1(
             symbol=data.symbol,
             signal_date=signal_date,
+            valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
             signal_close=float(close.loc[signal_date]),
             execution_close=float(execution_rows.iloc[0]["close"]),
             target_position=int(applied.target_position.loc[signal_date]),

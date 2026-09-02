@@ -82,6 +82,10 @@ class PaperStore:
                 (key, value),
             )
 
+    def get_setting(self, key: str) -> str | None:
+        with self._lock:
+            return self._setting(key)
+
     def is_paused(self) -> bool:
         with self._lock:
             return self._setting("paused") == "1"

@@ -95,6 +95,38 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         assert "Paper Trading Engine" in html
         assert "暂停新订单" in html
         assert "/api/status" in html
+        assert "恢复成功" in html
+        assert "DEGRADED_QUOTE:'行情降级'" in html
+        assert "DATA_PUBLICATION_FAILED:'完整收盘数据发布失败'" in html
+        assert "RESUMED:'已恢复自动运行'" in html
+        assert 'id="account"' not in html
+        assert 'id="decision"' not in html
+        assert 'id="rawDetails"' in html
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_resume_failure_returns_visible_error_payload() -> None:
+    from paper_trading_engine.web import create_server
+
+    engine = FakeEngine()
+    engine.resume = lambda: (_ for _ in ()).throw(RuntimeError("对账尚未成功"))
+    server = create_server(engine, host="127.0.0.1", port=0)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        try:
+            request_json(
+                f"http://127.0.0.1:{server.server_port}/api/resume", "POST", {}
+            )
+        except HTTPError as exc:
+            assert exc.code == 409
+            body = json.loads(exc.read().decode("utf-8"))
+            assert body["error"] == "对账尚未成功"
+        else:
+            raise AssertionError("failed resume must return conflict")
     finally:
         server.shutdown()
         server.server_close()

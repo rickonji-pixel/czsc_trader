@@ -46,3 +46,7 @@ def test_pte_serve_defaults_to_localhost_and_runtime_database(tmp_path: Path) ->
     assert args.host == "127.0.0.1"
     assert args.port == 8765
     assert args.database == tmp_path.resolve() / "state" / "paper_trading" / "runtime.db"
+    assert args.data_dir == tmp_path.resolve() / "state" / "paper_trading" / "data"
+    assert args.order_interval == 5
+    assert args.account_interval == 60
+    assert args.data_refresh_time == "16:15"

@@ -25,6 +25,24 @@ def test_cli_exposes_only_supported_resources() -> None:
     assert "experiment" not in help_text
 
 
+def test_data_and_advice_accept_explicit_runtime_data_directory(tmp_path: Path) -> None:
+    parser = build_parser()
+    data = parser.parse_args(
+        [
+            "data", "prepare", "--symbol", "588080.SH", "--asset", "etf",
+            "--start", "2020-01-01", "--end", "2026-09-02", "--data-dir", str(tmp_path),
+        ]
+    )
+    advice = parser.parse_args(
+        [
+            "advice", "run", "--symbol", "588080.SH", "--asset", "etf",
+            "--actual-quantity", "0", "--position-size", "50000", "--data-dir", str(tmp_path),
+        ]
+    )
+    assert data.data_dir == tmp_path
+    assert advice.data_dir == tmp_path
+
+
 def test_all_tracked_market_data_validates_through_latest_session() -> None:
     context = RepositoryContext.discover(REPO_ROOT)
     for symbol in TRACKED_SYMBOLS:

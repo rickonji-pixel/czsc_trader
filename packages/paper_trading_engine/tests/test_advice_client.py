@@ -92,6 +92,7 @@ def test_cli_advice_client_uses_shell_free_explicit_arguments(tmp_path: Path) ->
     client = CliAdviceClient(
         executable=Path("C:/tools/czsc-trader.exe"),
         repo_root=tmp_path,
+        data_dir=tmp_path / "runtime-data",
         symbol="588080.SH",
         asset="etf",
         position_size=50_000,
@@ -116,6 +117,8 @@ def test_cli_advice_client_uses_shell_free_explicit_arguments(tmp_path: Path) ->
         "50000",
         "--repo-root",
         str(tmp_path.resolve()),
+        "--data-dir",
+        str((tmp_path / "runtime-data").resolve()),
         "--format",
         "json",
     ]
@@ -131,6 +134,7 @@ def test_cli_advice_client_rejects_process_failures_and_noisy_stdout(tmp_path: P
         return CliAdviceClient(
             executable=Path("czsc-trader"),
             repo_root=tmp_path,
+            data_dir=tmp_path / "runtime-data",
             symbol="588080.SH",
             asset="etf",
             position_size=50_000,

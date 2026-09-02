@@ -36,6 +36,7 @@ ExecutionPriceFetcher: TypeAlias = Callable[
     [str, str, date, date], tuple[pd.DataFrame, dict[str, str]]
 ]
 InstrumentNameFetcher: TypeAlias = Callable[[str, str], str]
+CalendarFetcher: TypeAlias = Callable[[date], tuple[date, dict[str, str]]]
 
 
 def _normalize_symbol(symbol: str) -> tuple[str, str]:
@@ -226,6 +227,14 @@ def _default_execution_price_fetcher(
     )
 
 
+def _default_calendar_fetcher(
+    after: date, *, env_file: str | Path | None = None
+) -> tuple[date, dict[str, str]]:
+    from dataflows.tushare_common import fetch_next_trading_session
+
+    return fetch_next_trading_session(after, env_file=env_file)
+
+
 def _csv_frame(frame: pd.DataFrame, period: str) -> pd.DataFrame:
     source = _normalize_frame(frame, period).rename(
         columns={
@@ -255,6 +264,7 @@ def prepare_market_data(
     fetcher: MarketFetcher | None = None,
     execution_fetcher: ExecutionPriceFetcher | None = None,
     name_fetcher: InstrumentNameFetcher | None = None,
+    calendar_fetcher: CalendarFetcher | None = None,
     env_file: str | Path | None = None,
 ) -> dict[str, object]:
     """Fetch and publish one fully validated flat market-data generation."""
@@ -295,6 +305,13 @@ def prepare_market_data(
         normalized_symbol, normalized_asset, start, end
     )
     execution_frame = _normalize_frame(execution_frame, "execution daily")
+    last_session = pd.Timestamp(execution_frame["Date"].max()).date()
+    effective_calendar_fetcher = calendar_fetcher or partial(
+        _default_calendar_fetcher, env_file=env_file
+    )
+    next_session, calendar_metadata = effective_calendar_fetcher(last_session)
+    if next_session <= last_session:
+        raise ValueError("next trading session must be after the latest complete close")
     if execution_metadata.get("vendor_symbol") != normalized_symbol:
         raise ValueError("execution daily: vendor symbol does not match request")
     if execution_metadata.get("asset_type") != normalized_asset:
@@ -394,7 +411,7 @@ def prepare_market_data(
         if adjustment is not None:
             manifest["adjustment"] = adjustment
         execution_manifest = {
-            "schema_version": 1,
+            "schema_version": 2,
             "symbol": normalized_symbol,
             "name": instrument_name,
             "code": code,
@@ -403,6 +420,8 @@ def prepare_market_data(
             "adjustment": "none",
             "requested_start": start.isoformat(),
             "requested_end": end.isoformat(),
+            "next_trading_session": next_session.isoformat(),
+            "calendar": calendar_metadata,
             "generated_at_utc": generated_at,
             "files": execution_records,
             "fetch_metadata": execution_metadata,

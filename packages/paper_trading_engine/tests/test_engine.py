@@ -35,6 +35,10 @@ class FakeAdvice:
     def __init__(self, value: AdviceDecision):
         self.value = value
         self.calls: list[int] = []
+        self.identity = "data-v1"
+
+    def data_identity(self) -> str:
+        return self.identity
 
     def get_decision(self, actual_quantity: int) -> AdviceDecision:
         self.calls.append(actual_quantity)
@@ -67,6 +71,12 @@ class FakeBroker:
 
     def snapshot(self):
         return self.current
+
+    def account_snapshot(self):
+        return replace(self.current, orders=())
+
+    def order_snapshot(self):
+        return self.current.orders
 
     def place_order(self, intent):
         from paper_trading_engine.engine import BrokerOrder
@@ -206,6 +216,46 @@ def test_engine_submits_only_on_decision_valid_session(tmp_path: Path) -> None:
     assert "DECISION_NOT_VALID_TODAY" in status["alerts"]
 
 
+def test_decision_recomputes_only_when_data_identity_or_quantity_changes(tmp_path: Path) -> None:
+    engine, _, _, advice = make_engine(tmp_path, advice=FakeAdvice(decision()))
+    engine.refresh_account()
+
+    engine.refresh_decision_if_changed()
+    engine.refresh_decision_if_changed()
+    advice.identity = "data-v2"
+    engine.refresh_decision_if_changed()
+
+    assert advice.calls == [0, 0]
+
+
+def test_order_poll_rejects_invalid_lot_before_reconciliation(tmp_path: Path) -> None:
+    from paper_trading_engine.engine import BrokerOrder, PaperTradingSafetyError
+
+    broker = FakeBroker()
+    broker.current = replace(
+        broker.current,
+        orders=(
+            BrokerOrder(
+                channel_order_id="bad-lot",
+                symbol="588080.SH",
+                side="BUY",
+                quantity=50,
+                limit_price=1.688,
+                status="SUBMITTED",
+                cumulative_filled_quantity=0,
+                average_fill_price=0.0,
+                remark="external",
+            ),
+        ),
+    )
+    engine, store, _, _ = make_engine(tmp_path, broker=broker, advice=FakeAdvice(decision()))
+    engine.refresh_account()
+
+    with pytest.raises(PaperTradingSafetyError, match="100-share lots"):
+        engine.refresh_orders()
+    assert store.orders() == []
+
+
 def test_resume_requires_a_successful_reconciliation(tmp_path: Path) -> None:
     from paper_trading_engine.engine import PaperTradingStateError
 
@@ -216,6 +266,14 @@ def test_resume_requires_a_successful_reconciliation(tmp_path: Path) -> None:
     engine.refresh()
     engine.resume()
     assert engine.status()["paused"] is False
+
+
+def test_status_surfaces_active_data_publication_alert(tmp_path: Path) -> None:
+    engine, store, _, _ = make_engine(tmp_path, advice=FakeAdvice(decision()))
+    engine.refresh()
+    store.set_setting("data_publication_error", "vendor unavailable")
+
+    assert "DATA_PUBLICATION_FAILED" in engine.status()["alerts"]
 
 
 def test_cancel_token_is_bound_and_single_use(tmp_path: Path) -> None:

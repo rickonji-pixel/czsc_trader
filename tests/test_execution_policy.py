@@ -135,6 +135,7 @@ def test_daily_advice_maps_target_and_actual_position_to_manual_action() -> None
     assert policy is not None
     common = {
         "signal_date": pd.Timestamp("2026-09-01"),
+        "valid_session": pd.Timestamp("2026-09-02"),
         "signal_close": 1.704,
         "execution_close": 1.688,
         "quantity": 50_000,
@@ -180,6 +181,7 @@ def test_advice_v1_maps_share_delta_to_broker_ready_limit_orders() -> None:
     common = {
         "symbol": "588080.SH",
         "signal_date": pd.Timestamp("2026-09-01"),
+        "valid_session": pd.Timestamp("2026-09-02"),
         "signal_close": 1.7043736,
         "execution_close": 1.688,
         "position_size": 50_000,
@@ -214,6 +216,33 @@ def test_advice_v1_maps_share_delta_to_broker_ready_limit_orders() -> None:
         "limit_price": pytest.approx(1.350),
         "time_in_force": "DAY",
     }
+
+
+def test_advice_v1_uses_published_exchange_session_instead_of_weekday_offset() -> None:
+    from czsc_trader.application.advice_service import build_advice_v1
+    from czsc_trader.execution_policies import resolve_execution_policy
+
+    policy = resolve_execution_policy(
+        REPO_ROOT / "configs" / "execution_policies",
+        symbol="588080.SH",
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+        required=True,
+    )
+    result = build_advice_v1(
+        symbol="588080.SH",
+        signal_date=pd.Timestamp("2026-09-30"),
+        valid_session=pd.Timestamp("2026-10-09"),
+        signal_close=1.7,
+        execution_close=1.7,
+        target_position=0,
+        actual_quantity=0,
+        position_size=50_000,
+        policy=policy,
+        baseline_version="baseline_20260901",
+        baseline_sha256="711254af3fe951cc0eb32c81121ef52233a0cf2577f46b14683b2f3e6b961993",
+    )
+    assert result["valid_session"] == "2026-10-09"
 
 
 def test_advice_v1_rejects_invalid_account_quantities() -> None:

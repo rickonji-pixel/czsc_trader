@@ -8,6 +8,7 @@ import pytest
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.candidate_evaluation import (
     CandidateEvaluationContext,
+    _behavior_key,
     _evaluate_candidate_payloads_reference,
     evaluate_candidate_payloads,
     prepare_evaluation_workspace,
@@ -25,6 +26,15 @@ def test_candidate_context_defaults_to_one_worker():
         (("full", (dates[0], dates[1])),),
     )
     assert context.workers == 1
+
+
+def test_behavior_key_includes_target_execution_tier_scenario_and_fee():
+    target = pd.Series([0.0, 1.0])
+    base = _behavior_key(target, "execution-a", "SCREENING", "standard", 0.0005)
+    assert _behavior_key(pd.Series([0.0, 0.0]), "execution-a", "SCREENING", "standard", 0.0005) != base
+    assert _behavior_key(target, "execution-b", "SCREENING", "standard", 0.0005) != base
+    assert _behavior_key(target, "execution-a", "FORMAL", "standard", 0.0005) != base
+    assert _behavior_key(target, "execution-a", "STRESS", "fee_x2", 0.001) != base
 
 
 def test_candidate_runner_loads_market_and_factors_once(monkeypatch, tmp_path):
@@ -127,8 +137,8 @@ def test_public_runner_matches_reference_path(monkeypatch, tmp_path):
     assert [item.to_dict() for item in optimized] == [item.to_dict() for item in reference]
 
 
-def test_regime_candidates_share_normalization_and_regime_classification(monkeypatch, tmp_path):
-    calls = {"normalize": 0, "regime": 0}
+def test_regime_candidates_share_normalization_regime_and_realized_behavior(monkeypatch, tmp_path):
+    calls = {"normalize": 0, "regime": 0, "backtest": 0, "audit": 0}
     dates = pd.date_range("2020-01-01", periods=6, freq="D")
     daily = pd.DataFrame({"dt": dates, "open": range(10, 16), "close": range(10, 16)})
     market = SimpleNamespace(daily=daily, intraday=pd.DataFrame(), truncate=lambda cutoff: market)
@@ -173,9 +183,13 @@ def test_regime_candidates_share_normalization_and_regime_classification(monkeyp
     orders = pd.DataFrame(columns=["signal_date", "execution_date", "side", "size", "price", "fees"])
     result = SimpleNamespace(equity=equity, orders=orders, factor_events=pd.DataFrame())
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.run_period_backtests", lambda *args, **kwargs: {"full": result},
+        "czsc_trader.candidate_evaluation.run_period_backtests",
+        lambda *args, **kwargs: calls.__setitem__("backtest", calls["backtest"] + 1) or {"full": result},
     )
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.audit_no_lookahead", lambda *args: None)
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.audit_no_lookahead",
+        lambda *args: calls.__setitem__("audit", calls["audit"] + 1),
+    )
     monkeypatch.setattr("czsc_trader.candidate_evaluation.range_cycle_objectives", lambda *args: ())
     repository = SimpleNamespace(raw_dir=tmp_path, baseline_root=tmp_path)
     context = CandidateEvaluationContext(
@@ -192,7 +206,7 @@ def test_regime_candidates_share_normalization_and_regime_classification(monkeyp
         for candidate_id in ("a", "b")
     )
     evaluate_candidate_payloads(context, protocol, payloads, ("a", "b"), "SCREENING")
-    assert calls == {"normalize": 1, "regime": 1}
+    assert calls == {"normalize": 1, "regime": 1, "backtest": 1, "audit": 2}
 
 
 @pytest.mark.archive
@@ -203,7 +217,7 @@ def test_real_regime_candidates_match_reference_path():
     protocol = EvaluationProtocol.from_dict(
         json.loads((experiment / "evaluation_protocol.json").read_text(encoding="utf-8"))
     )
-    selected_ids = ("S001-v1", "R0539")
+    selected_ids = ("S001-v1", "R0539", "R0495", "R1289")
     selected = tuple(
         item for item in manifest["candidates"] if item["candidate_id"] in selected_ids
     )

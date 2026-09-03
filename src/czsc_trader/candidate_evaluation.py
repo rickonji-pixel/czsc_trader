@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import hashlib
+import json
 from typing import Any
 
 import numpy as np
@@ -10,7 +12,7 @@ import pandas as pd
 from strategy_evaluator import EvaluationProtocol, MetricObservation, MetricStatus
 
 from .audit import audit_no_lookahead
-from .backtest import run_period_backtests
+from .backtest import _attach_factor_provenance, run_period_backtests
 from .backtest_runner import _complete_baseline_execution_results
 from .baseline_execution import apply_resolved_baseline
 from .baselines import resolve_strategy_payload
@@ -93,6 +95,51 @@ def _observation(candidate_id: str, window: str, tier: str, scenario: str, equit
         pf, pf_status, closed_trades, turnover, cost_drag,
         (("net_cagr", net_cagr), ("total_return", total_return), (f"{window}_return", total_return), *extra_objectives),
     )
+
+
+def _behavior_key(
+    target: pd.Series,
+    execution_policy_hash: str,
+    tier: str,
+    scenario: str,
+    fee_rate: float,
+) -> str:
+    digest = hashlib.sha256(np.ascontiguousarray(target.astype(float).to_numpy()).tobytes())
+    digest.update(json.dumps(
+        [execution_policy_hash, tier, scenario, fee_rate],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _candidate_period_results(
+    results: dict[str, Any],
+    applied: Any,
+    factor_output: pd.DataFrame,
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+    base_columns = ["signal_date", "execution_date", "side", "size", "price", "fees"]
+    for window, result in results.items():
+        if result.orders.empty:
+            output[window] = result
+            continue
+        start = pd.Timestamp(result.metrics["start"])
+        prior = applied.target_position.index[applied.target_position.index < start]
+        if prior.empty:
+            raise ValueError(f"{window}: no prior signal available before period start")
+        signal_date = prior[-1]
+        orders, events = _attach_factor_provenance(
+            window,
+            result.orders.loc[:, base_columns],
+            applied.events,
+            factor_output,
+            start,
+            signal_date,
+            float(applied.target_position.loc[signal_date]),
+        )
+        output[window] = replace(result, orders=orders, factor_events=events)
+    return output
 
 
 def _evaluate_candidate_payloads_reference(
@@ -221,62 +268,91 @@ def evaluate_candidate_payloads(
         )
         regimes_by_candidate[candidate_id] = regimes
 
-    output: list[MetricObservation] = []
+    factor_outputs: dict[str, pd.DataFrame] = {}
     for candidate_id in candidate_ids:
-        baseline = resolved[candidate_id]
         applied = applied_by_candidate[candidate_id]
-        regimes = regimes_by_candidate[candidate_id]
         factor_output = workspace.factor_frame.copy()
         factor_output.insert(0, "target_position", applied.target_position)
         factor_output.insert(1, "factor_score", applied.scores)
-        for scenario in scenarios:
-            if scenario != "standard" and tier != "STRESS":
-                raise ValueError("non-standard scenarios require STRESS tier")
-            if scenario == "standard":
-                fee_rate = context.fee_rate
-            elif scenario.startswith("fee_x"):
-                fee_rate = context.fee_rate * float(scenario.removeprefix("fee_x"))
-            else:
-                raise ValueError(f"unsupported stress scenario: {scenario}")
+        factor_outputs[candidate_id] = factor_output
+
+    observations: dict[tuple[str, str, str], MetricObservation] = {}
+    for scenario in scenarios:
+        if scenario != "standard" and tier != "STRESS":
+            raise ValueError("non-standard scenarios require STRESS tier")
+        if scenario == "standard":
+            fee_rate = context.fee_rate
+        elif scenario.startswith("fee_x"):
+            fee_rate = context.fee_rate * float(scenario.removeprefix("fee_x"))
+        else:
+            raise ValueError(f"unsupported stress scenario: {scenario}")
+        groups: dict[str, list[str]] = {}
+        for candidate_id in candidate_ids:
+            key = _behavior_key(
+                applied_by_candidate[candidate_id].target_position,
+                str(selected[candidate_id].get("execution_policy_hash", "")),
+                tier,
+                scenario,
+                fee_rate,
+            )
+            groups.setdefault(key, []).append(candidate_id)
+        for members in groups.values():
+            representative = members[0]
+            representative_applied = applied_by_candidate[representative]
             results = run_period_backtests(
                 workspace.data.daily,
-                applied.target_position,
+                representative_applied.target_position,
                 workspace.periods,
                 fee_rate=fee_rate,
                 init_cash=context.init_cash,
-                factor_events=applied.events,
-                factor_frame=factor_output,
+                factor_events=representative_applied.events,
+                factor_frame=factor_outputs[representative],
             )
-            for result in results.values():
-                audit_no_lookahead(
-                    result.orders, result.factor_events, applied.target_position, factor_output,
-                )
             execution_results = {}
-            if tier in {"FORMAL", "STRESS"} and baseline.execution is not None:
+            representative_baseline = resolved[representative]
+            if tier in {"FORMAL", "STRESS"} and representative_baseline.execution is not None:
                 execution_results = _complete_baseline_execution_results(
                     workspace.data.daily,
                     workspace.data.intraday,
-                    applied.target_position,
+                    representative_applied.target_position,
                     workspace.periods,
-                    baseline.execution,
+                    representative_baseline.execution,
                     fee_rate=fee_rate,
                     init_cash=context.init_cash,
                 )
-            for window, result in results.items():
-                effective = execution_results.get(window, result)
-                extra = () if regimes is None else range_cycle_objectives(
-                    effective.orders,
-                    regimes,
-                    pd.DatetimeIndex(pd.to_datetime(workspace.data.daily["dt"])),
+            for candidate_id in members:
+                applied = applied_by_candidate[candidate_id]
+                candidate_results = _candidate_period_results(
+                    results, applied, factor_outputs[candidate_id],
                 )
-                output.append(_observation(
-                    candidate_id,
-                    window,
-                    tier,
-                    scenario,
-                    effective.equity,
-                    effective.orders,
-                    context.init_cash,
-                    extra,
-                ))
-    return tuple(output)
+                for result in candidate_results.values():
+                    audit_no_lookahead(
+                        result.orders,
+                        result.factor_events,
+                        applied.target_position,
+                        factor_outputs[candidate_id],
+                    )
+                regimes = regimes_by_candidate[candidate_id]
+                for window, result in candidate_results.items():
+                    effective = execution_results.get(window, result)
+                    extra = () if regimes is None else range_cycle_objectives(
+                        effective.orders,
+                        regimes,
+                        pd.DatetimeIndex(pd.to_datetime(workspace.data.daily["dt"])),
+                    )
+                    observations[(candidate_id, scenario, window)] = _observation(
+                        candidate_id,
+                        window,
+                        tier,
+                        scenario,
+                        effective.equity,
+                        effective.orders,
+                        context.init_cash,
+                        extra,
+                    )
+    return tuple(
+        observations[(candidate_id, scenario, window)]
+        for candidate_id in candidate_ids
+        for scenario in scenarios
+        for window in workspace.periods
+    )

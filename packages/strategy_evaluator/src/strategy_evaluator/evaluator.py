@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from statistics import median
 
-from .models import CandidateDescriptor, CandidateProfile, EvaluationProtocol, MetricObservation, RankingResult, ShortlistResult
+from .models import CandidateDescriptor, CandidateProfile, Decision, EvaluationProtocol, EvaluationResult, HealthEvidence, HealthStatus, MetricObservation, RankingResult, ShortlistResult
 from .noninferiority import compare_observation
 from .pareto import pareto_layers
 from .standards import resolve_margins
@@ -101,3 +101,18 @@ def rank_candidates(
         if len(tied) == 1:
             champion = best.candidate_id
     return RankingResult(protocol.incumbent_id, ordered, champion, tied)
+
+
+def finalize_evaluation(ranking: RankingResult, health: HealthEvidence | None, experiment_id: str = "") -> EvaluationResult:
+    if ranking.champion_id is None:
+        decision = Decision.INSUFFICIENT_EVIDENCE if len(ranking.tied_champion_ids) > 1 else Decision.KEEP_INCUMBENT
+        code = "CHAMPION_TIE" if len(ranking.tied_champion_ids) > 1 else "NO_ELIGIBLE_CHALLENGER"
+        return EvaluationResult(experiment_id, ranking.incumbent_id, decision, None, (code,), ranking)
+    if health is None or health.candidate_id != ranking.champion_id:
+        return EvaluationResult(experiment_id, ranking.incumbent_id, Decision.INSUFFICIENT_EVIDENCE, None, ("MISSING_HEALTH_EVIDENCE",), ranking, health)
+    statuses = (health.execution_audit, health.reproducibility, health.neighborhood, health.stress, health.ledger)
+    if HealthStatus.INSUFFICIENT in statuses:
+        return EvaluationResult(experiment_id, ranking.incumbent_id, Decision.INSUFFICIENT_EVIDENCE, None, ("INCOMPLETE_HEALTH_CHECK",), ranking, health)
+    if HealthStatus.FAIL in statuses:
+        return EvaluationResult(experiment_id, ranking.incumbent_id, Decision.KEEP_INCUMBENT, None, ("HEALTH_CHECK_FAILED",), ranking, health)
+    return EvaluationResult(experiment_id, ranking.incumbent_id, Decision.RECOMMEND_FREEZE, ranking.champion_id, ("NONINFERIOR", "TARGET_ACHIEVED", "HEALTH_CHECK_PASSED"), ranking, health)

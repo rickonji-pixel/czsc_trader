@@ -8,6 +8,12 @@ from strategy_evaluator import (
     ShortlistResult,
     rank_candidates,
     screen_candidates,
+    CandidateProfile,
+    HealthEvidence,
+    HealthStatus,
+    RankingResult,
+    Decision,
+    finalize_evaluation,
 )
 from test_models import PROTOCOL
 
@@ -45,3 +51,23 @@ def test_screening_deduplicates_behavior_and_preserves_incumbent():
     result = screen_candidates(protocol, candidates, observations)
     assert result.candidate_ids == ("c1",)
     assert result.rejected_ids == ("c2",)
+
+
+def winner_ranking():
+    profile = CandidateProfile("c1", True, True, (("net_cagr", 1.0), ("max_drawdown", 1.0), ("calmar", 1.0), ("profit_factor", 1.0)), 1, 1.0)
+    return RankingResult("S001-v1", (profile,), "c1", ("c1",))
+
+
+def health(status):
+    return HealthEvidence("c1", status, status, status, status, status)
+
+
+def test_only_a_unique_healthy_champion_recommends_freeze():
+    result = finalize_evaluation(winner_ranking(), health(HealthStatus.PASS), "EX")
+    assert result.decision is Decision.RECOMMEND_FREEZE
+    assert result.recommended_candidate_id == "c1"
+
+
+def test_failed_health_keeps_incumbent_and_missing_health_is_insufficient():
+    assert finalize_evaluation(winner_ranking(), health(HealthStatus.FAIL)).decision is Decision.KEEP_INCUMBENT
+    assert finalize_evaluation(winner_ranking(), health(HealthStatus.INSUFFICIENT)).decision is Decision.INSUFFICIENT_EVIDENCE

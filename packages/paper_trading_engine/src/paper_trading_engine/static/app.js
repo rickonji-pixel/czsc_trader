@@ -14,6 +14,7 @@ export class ScopedLoader {
 
 export const actionsForRoute = route => route.page==='channel'?['pause','resume','cancel']:route.page==='account'?['pause','resume']:[];
 export const comparisonQuery = ids => ids.map(id=>`account_id=${encodeURIComponent(id)}`).join('&');
+export const snapshotFingerprint = value => JSON.stringify(value,(key,item)=>key==='as_of'?undefined:item);
 
 const esc = value => String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = value => value==null?'—':Number(value).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -21,7 +22,7 @@ const pct = value => value==null?'—':`${(Number(value)*100).toFixed(2)}%`;
 const shortHash = value => value?String(value).slice(0,10):'—';
 const actionLabel = value => ({BUY:'买入',SELL:'卖出',WAIT:'等待'}[value]||value||'等待');
 const statusLabel = value => ({READY:'就绪',OK:'正常',BLOCKED:'阻塞',SUBMITTED:'已提交',FILLED_ALL:'全部成交',PENDING:'待执行'}[value]||value||'—');
-const state = {accounts:[],loader:new ScopedLoader(),lastSuccess:null};
+const state = {accounts:[],loader:new ScopedLoader(),lastSuccess:null,renderedScope:null,fingerprint:null};
 
 async function getJson(url, options={}) {
   const response=await fetch(url,options);let payload={};
@@ -47,7 +48,42 @@ async function cancelOrder(order,binding){if(!confirm(`确认申请撤销Futu订
 function renderComparison(s){document.querySelector('#app').innerHTML=`<section class="panel hero"><div><div class="eyebrow">只读评估</div><h1>虚拟账户比较</h1><div class="subtle">共同观察区间 ${esc(s.common_window?.start)} 至 ${esc(s.common_window?.end)}</div></div></section><section class="panel section"><div class="section-head"><h2>参与账户</h2><span class="badge">无交易干预</span></div><div class="comparison-select">${state.accounts.map(a=>`<label><input type="checkbox" value="${esc(a.account_id)}" ${s.accounts.some(x=>x.account_id===a.account_id)?'checked':''}> ${esc(a.name)} · ${esc(a.release_id)}</label>`).join('')}</div></section><section class="panel section"><div class="section-head"><h2>核心指标</h2><span class="badge">OPC优先级</span></div>${rowsTable([['账户',r=>r.account_id],['策略发布',r=>r.release_id],['累计收益',r=>pct(r.metrics.total_return)],['最大回撤',r=>pct(r.metrics.maximum_drawdown)],['卡玛比率',r=>r.metrics.calmar_ratio==null?'不可用':Number(r.metrics.calmar_ratio).toFixed(3)],['盈亏比',r=>r.metrics.win_loss_ratio==null?'不可用':Number(r.metrics.win_loss_ratio).toFixed(3)]],s.accounts)}</section>`;document.querySelectorAll('.comparison-select input').forEach(el=>el.onchange=()=>{const ids=[...document.querySelectorAll('.comparison-select input:checked')].map(x=>x.value);navigate(`/comparison${ids.length?'?'+comparisonQuery(ids):''}`);});}
 
 async function loadAccounts(){const payload=await getJson('/api/virtual-accounts');state.accounts=payload.accounts||[];return payload;}
-async function loadRoute(){const route=parseRoute(location.pathname);setNav(route.page);try{const accountIndex=await loadAccounts();if(route.page==='account'&&!route.accountId){const preferred=localStorage.getItem('pte.lastAccountId');const valid=state.accounts.some(a=>a.account_id===preferred);const id=valid?preferred:accountIndex.default_account_id;if(id){navigate(`/accounts/${encodeURIComponent(id)}`,true);return;}throw new Error('尚无虚拟账户');}const scope=route.page==='account'?route.accountId:route.page;const request=state.loader.begin(scope);document.querySelector('#app').innerHTML='<div class="loading">正在加载当前作用域…</div>';let snapshot;if(route.page==='account')snapshot=await getJson(`/api/virtual-accounts/${encodeURIComponent(route.accountId)}/snapshot`,{signal:request.signal});else if(route.page==='channel')snapshot=await getJson('/api/channels/futu/snapshot',{signal:request.signal});else{const ids=new URLSearchParams(location.search).getAll('account_id');snapshot=await getJson(`/api/comparison${ids.length?'?'+comparisonQuery(ids):''}`,{signal:request.signal});}if(!state.loader.accept(request,scope))return;if(route.page==='account'&&snapshot.scope.account_id!==route.accountId)throw new Error('服务端账户作用域不一致');state.lastSuccess=new Date();if(route.page==='account'){localStorage.setItem('pte.lastAccountId',route.accountId);renderAccount(snapshot);}else if(route.page==='channel')renderChannel(snapshot);else renderComparison(snapshot);}catch(error){if(error.name==='AbortError')return;document.querySelector('#app').innerHTML=`<div class="error"><strong>当前作用域加载失败</strong><div>${esc(error.message)}</div><div class="subtle">最后成功 ${state.lastSuccess?state.lastSuccess.toLocaleString():'无'}</div></div>`;}}
-function navigate(url,replace=false){history[replace?'replaceState':'pushState']({},'',url);loadRoute();}
-function boot(){document.querySelectorAll('a[href^="/"]').forEach(a=>a.onclick=e=>{e.preventDefault();navigate(a.getAttribute('href'));});window.addEventListener('popstate',loadRoute);refreshSystem();loadRoute();setInterval(refreshSystem,10000);setInterval(loadRoute,5000);}
+async function loadRoute({showLoading=true,forceRender=false}={}){
+  const route=parseRoute(location.pathname);setNav(route.page);
+  let scope=route.page==='account'?route.accountId:`${route.page}${location.search}`;
+  try{
+    const accountIndex=await loadAccounts();
+    if(route.page==='account'&&!route.accountId){
+      const preferred=localStorage.getItem('pte.lastAccountId');
+      const valid=state.accounts.some(a=>a.account_id===preferred);
+      const id=valid?preferred:accountIndex.default_account_id;
+      if(id){navigate(`/accounts/${encodeURIComponent(id)}`,true);return;}
+      throw new Error('尚无虚拟账户');
+    }
+    scope=route.page==='account'?route.accountId:`${route.page}${location.search}`;
+    const request=state.loader.begin(scope);
+    if(showLoading)document.querySelector('#app').innerHTML='<div class="loading">正在加载当前作用域…</div>';
+    let snapshot;
+    if(route.page==='account')snapshot=await getJson(`/api/virtual-accounts/${encodeURIComponent(route.accountId)}/snapshot`,{signal:request.signal});
+    else if(route.page==='channel')snapshot=await getJson('/api/channels/futu/snapshot',{signal:request.signal});
+    else{const ids=new URLSearchParams(location.search).getAll('account_id');snapshot=await getJson(`/api/comparison${ids.length?'?'+comparisonQuery(ids):''}`,{signal:request.signal});}
+    if(!state.loader.accept(request,scope))return;
+    if(route.page==='account'&&snapshot.scope.account_id!==route.accountId)throw new Error('服务端账户作用域不一致');
+    const fingerprint=snapshotFingerprint({accounts:state.accounts,snapshot});
+    if(forceRender||scope!==state.renderedScope||fingerprint!==state.fingerprint){
+      if(route.page==='account'){localStorage.setItem('pte.lastAccountId',route.accountId);renderAccount(snapshot);}
+      else if(route.page==='channel')renderChannel(snapshot);else renderComparison(snapshot);
+      state.renderedScope=scope;state.fingerprint=fingerprint;
+    }
+    state.lastSuccess=new Date();
+    const warning=document.querySelector('#pollWarning');warning.hidden=true;warning.textContent='';
+  }catch(error){
+    if(error.name==='AbortError')return;
+    const message=`刷新失败：${error.message} · 继续显示最后成功数据`;
+    const warning=document.querySelector('#pollWarning');warning.hidden=false;warning.textContent=message;
+    if(showLoading||state.renderedScope!==scope)document.querySelector('#app').innerHTML=`<div class="error"><strong>当前作用域加载失败</strong><div>${esc(error.message)}</div><div class="subtle">最后成功 ${state.lastSuccess?state.lastSuccess.toLocaleString():'无'}</div></div>`;
+  }
+}
+function navigate(url,replace=false){history[replace?'replaceState':'pushState']({},'',url);loadRoute({showLoading:true,forceRender:true});}
+function boot(){document.querySelectorAll('a[href^="/"]').forEach(a=>a.onclick=e=>{e.preventDefault();navigate(a.getAttribute('href'));});window.addEventListener('popstate',()=>loadRoute({showLoading:true,forceRender:true}));refreshSystem();loadRoute({showLoading:true,forceRender:true});setInterval(refreshSystem,10000);setInterval(()=>loadRoute({showLoading:false}),5000);}
 if(typeof document!=='undefined')boot();

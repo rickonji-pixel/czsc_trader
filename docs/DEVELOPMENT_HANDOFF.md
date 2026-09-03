@@ -6,7 +6,7 @@
 
 ## 当前交付状态
 
-- 当前交付分支：`master`
+- 当前开发分支：`codex/pte-console-v2`（完成后待用户授权合并`master`）
 - Python版本：3.12
 - 正式策略：`S001 / 综合基线策略 / v2`，资格`PAPER_READY`
 - 历史基线别名：`baseline_20260903`（候选143，内嵌唯一执行规则）
@@ -102,6 +102,15 @@ Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执�
 它负责渠道账户对账、决策缓存、订单意图、提交与成交增量、SQLite审计、观测页面和
 运行调度。PTE不导入`czsc_trader.*`或`strategy_manager`，只消费机器契约。
 
+Console v2采用三个资源级页面：`/accounts/{account_id}`是虚拟账户主从工作区，
+`/channels/futu`是唯一Futu模拟渠道，`/comparison`是只读共同区间比较。前端只消费
+`/api/system/status`、账户快照、渠道快照和比较接口；兼容`/api/status`仅供watchdog。
+当前账户由URL唯一确定，旧请求会被取消且迟到响应在渲染前再次校验账户身份。
+
+Futu执行策略保存在SQLite设置`futu_strategy_binding`，通过`pte channel bind-strategy`
+显式切换。命令经Trader校验资格、版本和发布哈希，并记录actor、reason及新旧绑定；
+存在活动渠道订单时拒绝切换。策略冻结只创建虚拟账户，不自动改变Futu绑定。
+
 ### Watchdog
 
 `pte-watchdog`是唯一注册到Windows SCM的服务。它只负责启动`pte serve`子进程、
@@ -156,8 +165,8 @@ Trader会验证证据包的来源哈希，并复制到`configs/strategies/S001/e
     与完整基线费率一致，不能从外部形成另一套执行组合。
 14. SM资格与PTE运行状态相互独立；资格变化不自动启停进程或账户。
 15. 研究、模拟盘和未来实盘绩效按阶段并列，不拼接为一条收益曲线。
-16. 控制台的主视图作用域是浏览器当前选择的虚拟账户；账户、决策、模型订单、模型
-    成交和账户开关必须同步切换。Futu账户与渠道订单固定在独立渠道监控区。
+16. 控制台URL决定资源作用域；虚拟账户、Futu渠道和账户比较使用独立页面与API。
+17. Futu策略绑定必须显式、持久化且可审计；无绑定或决策身份不一致时继续对账并停止新单。
 
 ## 代码地图
 
@@ -180,7 +189,9 @@ Trader会验证证据包的来源哈希，并复制到`configs/strategies/S001/e
 | `packages/paper_trading_engine/src/paper_trading_engine/coordinator.py` | Futu渠道与虚拟账户故障隔离 |
 | `packages/paper_trading_engine/src/paper_trading_engine/futu_gateway.py` | Futu模拟渠道适配 |
 | `packages/paper_trading_engine/src/paper_trading_engine/scheduler.py` | 数据、账户、决策和订单轮询 |
-| `packages/paper_trading_engine/src/paper_trading_engine/dashboard.py` | 本机观测与干预页面 |
+| `packages/paper_trading_engine/src/paper_trading_engine/web_api.py` | 系统、账户、渠道和比较资源快照 |
+| `packages/paper_trading_engine/src/paper_trading_engine/channel_binding.py` | Futu策略显式绑定与迁移审计 |
+| `packages/paper_trading_engine/src/paper_trading_engine/static/` | 无构建链的Console v2页面、路由和样式 |
 | `packages/paper_trading_engine/src/paper_trading_engine/watchdog.py` | PTE子进程和HTTP探活 |
 | `packages/paper_trading_engine/src/paper_trading_engine/windows_service.py` | Windows SCM薄适配层 |
 | `experiments/` | 不可变研究档案；不能用`outputs/`替代 |

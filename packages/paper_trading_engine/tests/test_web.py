@@ -130,6 +130,9 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         assert "Futu参考" in html
         assert "JSON.stringify(payload" not in html
         assert "a.strategy_name_snapshot+' · '+a.strategy_version" in html
+        assert "selectedAccountName',a.strategy_name_snapshot+' · '+a.strategy_version" in html
+        assert "['账户ID',a.account_id]" not in html
+        assert "[a.name,pct(m.maximum_drawdown)" not in html
         assert "title.textContent=a.name" not in html
     finally:
         server.shutdown()

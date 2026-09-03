@@ -61,6 +61,15 @@ from .neighborhood import (
     NeighborhoodRow,
     audit_parameter_neighborhood,
 )
+from .engineering_audit import (
+    StressAudit,
+    StressComparison,
+    audit_execution,
+    audit_reproducibility,
+    audit_stress_results,
+    audit_trial_ledger,
+    required_stress_scenarios,
+)
 
 __version__ = "0.1.0"
 
@@ -83,4 +92,6 @@ __all__ = [
     "audit_pairwise_bootstrap", "paired_stationary_bootstrap", "performance_metrics",
     "NeighborhoodAudit", "NeighborhoodMetric", "NeighborhoodRow",
     "audit_parameter_neighborhood",
+    "StressAudit", "StressComparison", "audit_execution", "audit_reproducibility",
+    "audit_stress_results", "audit_trial_ledger", "required_stress_scenarios",
 ]

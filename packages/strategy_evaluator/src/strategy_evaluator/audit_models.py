@@ -119,15 +119,16 @@ class ExecutionOrder(Record):
     size: float
     fees: float
     event_id: str = ""
+    is_initial: bool = False
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> ExecutionOrder:
         required = {"signal_date", "execution_date", "side", "price", "size", "fees"}
-        _exact(data, required, {"event_id"})
+        _exact(data, required, {"event_id", "is_initial"})
         return cls(
             str(data["signal_date"]), str(data["execution_date"]), str(data["side"]),
             float(data["price"]), float(data["size"]), float(data["fees"]),
-            str(data.get("event_id", "")),
+            str(data.get("event_id", "")), bool(data.get("is_initial", False)),
         )
 
 
@@ -160,12 +161,14 @@ class ExecutionEvidence(Record):
     events: tuple[FactorEvent, ...]
     orders: tuple[ExecutionOrder, ...]
     content_hash: str
+    window_count: int = 1
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> ExecutionEvidence:
         _exact(
             data,
             {"dates", "target_positions", "factor_scores", "events", "orders", "content_hash"},
+            {"window_count"},
         )
         return cls(
             tuple(map(str, data["dates"])),
@@ -174,6 +177,7 @@ class ExecutionEvidence(Record):
             tuple(FactorEvent.from_dict(value) for value in data["events"]),
             tuple(ExecutionOrder.from_dict(value) for value in data["orders"]),
             str(data["content_hash"]),
+            int(data.get("window_count", 1)),
         )
 
 

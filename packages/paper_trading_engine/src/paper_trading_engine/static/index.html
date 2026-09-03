@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PTE · 模拟交易控制台</title><link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="system-bar">
+    <a class="brand" href="/accounts/" aria-label="PTE首页"><span>PTE</span><strong>模拟交易控制台</strong></a>
+    <nav aria-label="一级导航"><a data-nav="account" href="/accounts/">虚拟账户</a><a data-nav="channel" href="/channels/futu">Futu渠道</a><a data-nav="comparison" href="/comparison">账户比较</a></nav>
+    <div id="systemStatus" class="system-status" aria-live="polite">系统状态加载中</div>
+  </header>
+  <div id="pollWarning" class="alert" style="max-width:1500px;margin:10px auto -10px" hidden></div>
+  <main id="app" aria-live="polite"><div class="loading">正在加载控制台…</div></main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/static/app.js"></script>
+</body></html>

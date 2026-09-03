@@ -16,6 +16,10 @@ class VirtualAccountEngine:
     def __init__(self, store: PaperStore, advice) -> None:
         self.store = store
         self.advice = advice
+        self._draining = False
+
+    def begin_shutdown(self) -> None:
+        self._draining = True
 
     def refresh_account(self, account_id: str, session: date, bar: dict[str, object] | None):
         account = self.store.virtual_account(account_id)
@@ -45,7 +49,7 @@ class VirtualAccountEngine:
                 else:
                     self.store.set_virtual_order_status(order["order_id"], outcome.status, diagnostics)
             account = self.store.virtual_account(account_id)
-        if not bool(account["paused"]):
+        if not bool(account["paused"]) and not self._draining:
             decision = self.advice.get_decision(
                 int(account["quantity"]), float(account["cash"]),
                 cycle_target_quantity=account["cycle_target"],

@@ -11,6 +11,7 @@ from threading import RLock
 from typing import Protocol
 
 from .contracts import AdviceDecision, OrderSpec
+from .channel_binding import load_channel_binding
 from .store import PaperStore
 from .trading_window import is_submission_window, shanghai_now
 
@@ -96,7 +97,8 @@ class OrderIntent:
 class AdviceClient(Protocol):
     def get_decision(
         self, actual_quantity: int, available_cash: float,
-        cycle_target_quantity: int | None = None, baseline: str | None = None,
+        cycle_target_quantity: int | None = None, strategy_id: str | None = None,
+        strategy_version: str | None = None, baseline: str | None = None,
     ) -> AdviceDecision: ...
 
 
@@ -117,6 +119,10 @@ class PaperTradingEngine:
         *,
         symbol: str,
         baseline: str = "baseline_20260903",
+        strategy_id: str | None = None,
+        strategy_version: str | None = None,
+        release_hash: str | None = None,
+        binding_required: bool = False,
         today: Callable[[], date] = date.today,
         now: Callable[[], datetime] = shanghai_now,
     ) -> None:
@@ -125,6 +131,10 @@ class PaperTradingEngine:
         self.advice = advice
         self.symbol = symbol.upper()
         self.baseline = baseline
+        self.strategy_id = strategy_id
+        self.strategy_version = strategy_version
+        self.release_hash = release_hash
+        self.binding_required = binding_required
         self.today = today
         self.now = now
         self._account_snapshot: BrokerSnapshot | None = None
@@ -132,6 +142,7 @@ class PaperTradingEngine:
         self._decision: AdviceDecision | None = None
         self._decision_key: tuple[str | None, int, float, int | None] | None = None
         self._alerts: list[str] = []
+        self._draining = False
         self._lock = RLock()
 
     def _validate_orders(self, orders: tuple[BrokerOrder, ...]) -> None:
@@ -201,6 +212,17 @@ class PaperTradingEngine:
     def refresh_decision_if_changed(self, *, force: bool = False) -> dict[str, object]:
         if self._account_snapshot is None:
             raise PaperTradingStateError("account reconciliation required before advice")
+        if self.binding_required:
+            binding = load_channel_binding(self.store)
+            if binding is not None:
+                new_identity = (binding.strategy_id, binding.strategy_version, binding.release_hash)
+                old_identity = (self.strategy_id, self.strategy_version, self.release_hash)
+                if new_identity != old_identity:
+                    self.strategy_id, self.strategy_version, self.release_hash = new_identity
+                    self._decision = None
+                    self._decision_key = None
+        if self.binding_required and self.strategy_id is None:
+            raise PaperTradingStateError("Futu渠道尚未绑定策略，已阻止生成决策和新订单")
         actual_quantity = sum(
             position.quantity
             for position in self._account_snapshot.positions
@@ -215,10 +237,23 @@ class PaperTradingEngine:
         if not force and self._decision is not None and key == self._decision_key:
             self._evaluate_submission()
             return self._save_status()
-        decision = self.advice.get_decision(
-            actual_quantity, available_cash,
-            cycle_target_quantity=cycle_target, baseline=self.baseline,
-        )
+        advice_kwargs = {"cycle_target_quantity": cycle_target}
+        if self.strategy_id is not None:
+            advice_kwargs.update({
+                "strategy_id": self.strategy_id,
+                "strategy_version": self.strategy_version,
+            })
+        else:
+            advice_kwargs["baseline"] = self.baseline
+        decision = self.advice.get_decision(actual_quantity, available_cash, **advice_kwargs)
+        if self.strategy_id is not None:
+            actual_binding = (
+                decision.strategy.get("strategy_id"), decision.strategy.get("version"),
+                decision.strategy.get("release_hash"),
+            )
+            expected_binding = (self.strategy_id, self.strategy_version, self.release_hash)
+            if actual_binding != expected_binding:
+                raise PaperTradingSafetyError("策略决策身份与Futu渠道绑定不一致")
         if decision.symbol != self.symbol:
             raise PaperTradingSafetyError("advice symbol differs from engine whitelist")
         if decision.actual_quantity != actual_quantity:
@@ -237,6 +272,9 @@ class PaperTradingEngine:
     def _evaluate_submission(self) -> None:
         decision = self._decision
         if decision is None:
+            return
+        if self._draining:
+            self._alerts = ["RESTART_IN_PROGRESS"]
             return
         active_orders = [
             order
@@ -339,6 +377,11 @@ class PaperTradingEngine:
         self.store.set_paused(True)
         self.store.add_event("PAUSED", {})
         return self.status()
+
+    @synchronized
+    def begin_shutdown(self) -> None:
+        self._draining = True
+        self._alerts = ["RESTART_IN_PROGRESS"]
 
     @synchronized
     def resume(self) -> dict[str, object]:

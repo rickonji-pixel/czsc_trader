@@ -105,6 +105,13 @@ class Watchdog:
             return
         return_code = self.child.poll()
         if return_code is not None:
+            if return_code == 0:
+                self.child = None
+                self.consecutive_failures = 0
+                self.restart_index = 0
+                self.logger.info("PTE requested a clean restart")
+                self.start_child()
+                return
             self._restart_child(f"process exited with code {return_code}")
             return
         if self.health_check(self.health_url, 3.0):

@@ -5,6 +5,8 @@ __pycache__/
 .worktrees/
 *.py[cod]
 *.egg-info/
+packages/*/build/
+packages/*/dist/
 
 # Local fixed-rule backtest outputs; formal research is tracked in experiments/.
 outputs/

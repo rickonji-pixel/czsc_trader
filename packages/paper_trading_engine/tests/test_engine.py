@@ -57,7 +57,50 @@ class FakeAdvice:
         strategy_version: str | None = None, baseline: str | None = None,
     ) -> AdviceDecision:
         self.calls.append(actual_quantity)
+        self.strategy_request = (strategy_id, strategy_version, baseline)
         return replace(self.value, actual_quantity=actual_quantity)
+
+
+def test_channel_engine_uses_and_enforces_explicit_binding(tmp_path: Path):
+    from paper_trading_engine.engine import PaperTradingEngine, PaperTradingSafetyError
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "bound.db")
+    broker = FakeBroker()
+    broker.store = store
+    advice = FakeAdvice(decision())
+    engine = PaperTradingEngine(
+        store, broker, advice, symbol="588080.SH",
+        strategy_id="S001", strategy_version="v2", release_hash="c" * 64,
+    )
+    engine.refresh_account()
+
+    with pytest.raises(PaperTradingSafetyError, match="绑定"):
+        engine.refresh_decision_if_changed(force=True)
+    assert advice.strategy_request == ("S001", "v2", None)
+    engine.close()
+
+
+def test_channel_engine_loads_a_binding_created_after_process_start(tmp_path: Path):
+    from paper_trading_engine.channel_binding import bind_channel_strategy
+    from paper_trading_engine.engine import PaperTradingEngine
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "late-binding.db")
+    broker = FakeBroker()
+    broker.store = store
+    advice = FakeAdvice(decision())
+    engine = PaperTradingEngine(store, broker, advice, symbol="588080.SH", binding_required=True)
+    engine.refresh_account()
+    bind_channel_strategy(store, {
+        "strategy_id": "S001", "version": "v1", "release_id": "S001-v1",
+        "release_hash": "b" * 64, "qualification": "PAPER_READY",
+    }, "tomxiao", "运行中绑定", [])
+
+    engine.refresh_decision_if_changed(force=True)
+
+    assert advice.strategy_request == ("S001", "v1", None)
+    engine.close()
 
 
 def broker_values():

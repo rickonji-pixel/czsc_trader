@@ -30,12 +30,21 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 .\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
 ```
 
-页面地址为 `http://127.0.0.1:8080`。订单和累计成交默认每 5 秒轮询，账户与持仓
+页面入口为 `http://127.0.0.1:8080`，控制台按资源分成三个页面：
+
+- `/accounts/{account_id}`：虚拟账户工作区，账户、决策、模型订单、模型成交、绩效和开关统一归属该账户。
+- `/channels/futu`：Futu模拟渠道，展示实际账户、显式绑定策略、渠道决策、订单、成交和撤单。
+- `/comparison`：多个虚拟账户在共同观察区间内的只读比较。
+
+订单和累计成交默认每 5 秒轮询，账户与持仓
 每 60 秒刷新，策略每 5 秒检查一次数据身份，只有完整收盘数据身份或实际持仓发生
 变化才重新调用 advice。Futu渠道异常按5、15、30、60、300秒退避，虚拟账户继续
 独立运行；失败计数和下次重试时间保存在运行库，PTE重启不会清空退避状态。运行库位于 `state/paper_trading/runtime.db`；运行数据位于
 `state/paper_trading/data`，均不进入版本控制。重启会复用订单意图、渠道订单、暂停
 状态与审计事件。
+
+控制台的5秒轮询采用静默刷新：时间戳变化不会重建页面，业务状态发生变化时才更新
+工作区；轮询失败会继续保留最后成功数据并显示过期提示。
 
 服务在每个自然日 19:00 后自动运行一次数据发布，发布失败会写入告警事件并按退避
 间隔重试。发布流程通过 Tushare 的 SSE 交易日历写入下一有效交易日，策略建议和
@@ -75,9 +84,9 @@ PTE首次启动会幂等创建绑定`S001 / 综合基线策略 / v1`和10万元�
 .\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
 ```
 
-控制台以当前选中的虚拟账户为统一作用域，账户概览、最新策略决策、模型订单、
-模型成交、账户详情和暂停开关同步切换，并在浏览器内记住所选账户。Futu账户、
-渠道订单和撤单操作集中在独立的“Futu渠道监控”区域。多账户比较采用共同观察区间，
+控制台以URL中的虚拟账户为统一作用域，账户概览、最新策略决策、模型订单、
+模型成交、账户详情和暂停开关同步切换，并在浏览器内记住下次入口偏好。Futu账户、
+渠道订单和撤单操作集中在独立的Futu渠道页。多账户比较采用共同观察区间，
 盈亏比仅统计已闭合买卖交易。`--futu-reference`用于切换唯一的Futu
 参照账户，只影响页面标记和比较，不会向Futu复制虚拟订单。每个新账户默认初始资金
 为10万元；可通过`--initial-cash`显式覆盖。Futu渠道账户的100万元不受此默认值影响。
@@ -93,6 +102,21 @@ PTE首次启动会幂等创建绑定`S001 / 综合基线策略 / v1`和10万元�
 
 证据包包含发布身份、统计口径和可复核的净值/闭合交易输入；PTE不直接写
 `configs/strategies/`。
+
+## Futu渠道策略绑定
+
+冻结策略只创建独立虚拟账户。Futu模拟账户执行哪个正式策略，必须由操作者显式绑定：
+
+```powershell
+.\.venv\Scripts\pte.exe channel bind-strategy --repo-root D:\CodeBase\czsc_trader `
+  --channel futu --strategy S001 --strategy-version v2 `
+  --actor tomxiao --reason "人工确认切换Futu模拟执行策略"
+```
+
+PTE通过Trader CLI校验策略资格和发布哈希，随后把绑定写入SQLite并记录操作者、原因、
+旧绑定和新绑定。相同发布重复绑定保持幂等；存在活动渠道订单时拒绝切换。首次升级
+Console v2会从最近一次Futu渠道决策迁移绑定；无完整历史决策时保持未绑定，渠道继续
+对账，同时阻止生成新决策和提交新单。
 
 ## Windows 服务
 
@@ -112,6 +136,18 @@ CLI 启动 PTE 子进程，每 10 秒检查进程和 8080 HTTP 状态；连续 3
 配置保存在 `state/paper_trading/service.json`；watchdog 滚动日志位于
 `state/paper_trading/logs/watchdog.log`，PTE 输出位于
 `state/paper_trading/logs/pte.log`。
+
+日常发布代码后无需管理员权限重启Windows服务。运行以下命令，CLI会通过带本地令牌的
+控制接口要求PTE停止新调度、等待当前操作结束并正常退出；watchdog识别退出码0后跳过
+故障退避并拉起新进程，命令等待新的运行实例恢复健康：
+
+```powershell
+.\.venv\Scripts\pte.exe control restart --repo-root D:\CodeBase\czsc_trader
+```
+
+首次升级到支持该能力的版本仍需重启一次`CZSC-PTE-Watchdog`，以便运行进程生成控制
+令牌。控制接口只接受`127.0.0.1`请求和`X-PTE-Control-Token`，令牌保存在不受Git跟踪
+的运行库中；首版仅支持重启，不提供停止命令。
 
 ## 干预语义
 

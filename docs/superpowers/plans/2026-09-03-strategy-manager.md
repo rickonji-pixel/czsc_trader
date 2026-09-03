@@ -529,15 +529,15 @@ git commit -m "feat: exchange strategy performance evidence"
 - Consumes: all prior tasks.
 - Produces: cross-machine operating instructions and final repository/runtime verification evidence.
 
-- [ ] **Step 1: Update user and handoff documentation**
+- [x] **Step 1: Update user and handoff documentation**
 
 Document `S001 / 综合基线策略 / v1`, qualification semantics, Trader commands, PTE account creation, performance evidence flow, historical aliases, and the rule that runtime state remains outside SM.
 
-- [ ] **Step 2: Add final architecture contract tests**
+- [x] **Step 2: Add final architecture contract tests**
 
 Assert Strategy Manager has no forbidden imports, PTE has no `strategy_manager` import, production advice is v4, the active strategy registry is the production source, and all historical experiment archives remain unchanged.
 
-- [ ] **Step 3: Run the complete automated verification**
+- [x] **Step 3: Run the complete automated verification**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests -q
@@ -551,11 +551,14 @@ git diff --check
 
 Expected: every command exits zero.
 
-- [ ] **Step 4: Perform isolated runtime smoke test**
+- [x] **Step 4: Perform isolated runtime smoke test**
 
 Start PTE on port 18080 with a new temporary database. Verify `/api/status` reports `advice.v4`, `S001`, `综合基线策略`, `v1`, `PAPER_READY`, 100,000 virtual cash, no duplicate order/fill after two refreshes, and no raw internal IDs on the main page.
 
 - [ ] **Step 5: Cut over the formal local runtime**
+
+Blocked on this machine session: Windows rejected service-control access with error 5.
+The running 8080 child remains on `advice.v3`; an elevated watchdog restart is still required.
 
 Allow the watchdog to relaunch the PTE child or restart it through the existing service command when administrator access is available. Verify port 8080 returns the same strategy identity, keeps existing ledger balances and holdings, and reports zero current scheduler failures.
 

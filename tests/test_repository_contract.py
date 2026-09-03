@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import ast
+import json
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -115,3 +119,69 @@ def test_production_services_do_not_resolve_independent_execution_policy() -> No
     ):
         source = (REPO_ROOT / relative).read_text(encoding="utf-8")
         assert "resolve_execution_policy(" not in source
+
+
+def _import_roots(path: Path) -> set[str]:
+    roots: set[str] = set()
+    for source_path in path.rglob("*.py"):
+        tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                roots.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                roots.add(node.module.split(".", 1)[0])
+    return roots
+
+
+def test_strategy_manager_and_pte_keep_their_dependency_direction() -> None:
+    strategy_imports = _import_roots(
+        REPO_ROOT / "packages" / "strategy_manager" / "src" / "strategy_manager"
+    )
+    pte_imports = _import_roots(
+        REPO_ROOT / "packages" / "paper_trading_engine" / "src" / "paper_trading_engine"
+    )
+
+    assert strategy_imports.isdisjoint(
+        {"czsc_trader", "paper_trading_engine", "futu", "pandas", "numpy", "vectorbt"}
+    )
+    assert "strategy_manager" not in pte_imports
+
+
+def test_strategy_manager_package_imports_outside_checkout(tmp_path: Path) -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from strategy_manager import StrategyRegistry; print(StrategyRegistry.__name__)",
+        ],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert completed.stdout.strip() == "StrategyRegistry"
+
+
+def test_production_advice_uses_active_strategy_registry_and_v4_contract() -> None:
+    registry = json.loads(
+        (REPO_ROOT / "configs" / "strategies" / "registry.json").read_text(encoding="utf-8")
+    )
+    assert registry == {
+        "schema_version": 1,
+        "strategies": [
+            {
+                "aliases": ["baseline_20260903"],
+                "path": "S001",
+                "strategy_id": "S001",
+            }
+        ],
+    }
+
+    source = (
+        REPO_ROOT / "src" / "czsc_trader" / "application" / "advice_service.py"
+    ).read_text(encoding="utf-8")
+    assert "StrategyRegistry(context.strategy_root)" in source
+    assert '"contract_version": "advice.v4"' in source

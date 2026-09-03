@@ -6,11 +6,15 @@
 
 ## 当前状态
 
-- 活动完整基线：`baseline_20260903`
+- 正式策略：`S001 / 综合基线策略 / v1`
+- 当前资格：`PAPER_READY`
+- 历史基线别名：`baseline_20260903`
+- 正式发布哈希：`ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62`
 - 策略类型：`czsc_regime_weight`
 - 信号来源：`experiments/0901_EX20`候选143
 - 执行复审：`experiments/0903_EX01`
 - 基线注册表：`configs/rule_baselines/registry.json`
+- 策略注册表：`configs/strategies/registry.json`
 - 研究标的：`588080.SH`
 - 研究数据：2020年至2025年
 - 项目测试数据：2026年，随 `data/raw` 持续补充
@@ -23,9 +27,11 @@
 执行开始形成前瞻运行记录；这部分记录用于观察策略、执行和系统可靠性，在积累出
 足够样本前不宣称样本外或实盘有效性。项目尚未引入真实资金成交反馈。
 
-## 当前冠军策略
+## 当前正式策略及研究来源
 
-`baseline_20260903`的信号部分来自`baseline_20260901`，后者是从 `baseline_20260826`演化出的regime条件权重
+正式运行身份是`S001-v1`；“候选143”“冠军策略”和`baseline_20260903`分别是
+研究来源称呼和历史兼容别名，不再承担正式命名。`S001-v1`的信号部分来自
+`baseline_20260901`，后者是从 `baseline_20260826`演化出的regime条件权重
 策略。它保留相同的12个因子、计分阈值和状态机，使用滞后日线收盘价计算
 60日效率比，将市场划分为trend、range和warmup，再选取对应的冻结权重。
 
@@ -90,9 +96,11 @@ execution manifest校验。`data prepare`同时发布两种价格口径；`data 
 - `data/raw/`：Git跟踪的正式行情数据
 - `configs/backtest_windows/`：回测窗口
 - `configs/rule_baselines/`：冻结基线与活动注册表
+- `configs/strategies/`：正式策略身份、不可变版本、资格事件和绩效证据
 - `experiments/`：不可变研究档案
 - `src/czsc_trader/`：数据、基线、回测和归档验证运行时
 - `packages/paper_trading_engine/`：独立模拟交易、对账、观测和干预运行时
+- `packages/strategy_manager/`：Trader隐藏调用的策略治理领域包
 - `docs/superpowers/specs/`：正式设计文档
 - `docs/superpowers/plans/`：正式实现计划
 - `tests/test_cli_e2e.py`：唯一必要端到端测试
@@ -210,11 +218,11 @@ PASS/FAIL，也不修改活动基线。
 .\.venv\Scripts\czsc-trader.exe advice run `
   --symbol 588080.SH --asset etf `
   --actual-quantity 0 --available-cash 1000000 `
-  --baseline baseline_20260903 `
+  --strategy S001 --strategy-version v1 `
   --format json
 ```
 
-该命令输出`advice.v3`，只读取最新完整收盘数据，实际持仓和可用现金必须显式
+该命令输出`advice.v4`，只读取最新完整收盘数据，实际持仓和可用现金必须显式
 输入。买入数量由项目侧按冻结限价、单边费率和100份交易单位计算，尽可能使用
 全部可部署现金；`cycle_target_quantity`在同一入场周期保持固定，避免价格改善后
 重复扩大目标；离场目标为卖出全部已成交持仓。未收到明确成交回报时，实际
@@ -225,9 +233,9 @@ PASS/FAIL，也不修改活动基线。
 
 ## 模拟交易观察
 
-PTE通过CLI调用上述`advice.v3`，负责模拟账户对账、订单提交、成交增量记录、
+PTE通过CLI调用上述`advice.v4`，负责模拟账户对账、订单提交、成交增量记录、
 SQLite审计和本机观测页面。它同时维护相互隔离的本地虚拟账户；首个账户
-`baseline-143`绑定完整基线和100万元初始资金。当前外部渠道为Futu模拟交易，
+`baseline-143`作为内部账户ID绑定`S001-v1`和10万元初始资金。当前外部渠道为Futu模拟交易，
 PTE与Trader是同仓库并列包；
 PTE不导入`czsc_trader.*`，渠道不参与策略计算、定价或改量。
 
@@ -252,6 +260,7 @@ git pull --ff-only origin master
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e packages\dataflows
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
 .\.venv\Scripts\python.exe -m pip install -e .[test]
 ```
 
@@ -267,7 +276,7 @@ python -m venv .venv
 .\.venv\Scripts\czsc-trader.exe --help
 ```
 
-只应出现 `data`、`baseline`、`backtest`、`advice`、`archive` 五类资源。
+应出现 `data`、`baseline`、`strategy`、`backtest`、`advice`、`archive` 六类资源。
 
 ## 最小验证
 
@@ -281,6 +290,8 @@ python -m venv .venv
 
 .\.venv\Scripts\czsc-trader.exe baseline validate `
   --version baseline_20260903 --symbol 588080.SH
+
+.\.venv\Scripts\czsc-trader.exe strategy validate --all
 
 .\.venv\Scripts\czsc-trader.exe archive validate --all
 ```
@@ -312,13 +323,14 @@ BuyHold与MA5/MA20双均线策略。完整基线自身包含执行语义；历�
 
 ## 后续研究约束
 
-1. 先读取活动完整基线注册表，再定义挑战对象；新候选必须冻结为完整基线后进入观察。
+1. 先读取`configs/strategies/registry.json`确定正式挑战对象；新候选胜出后创建下一策略
+   版本，经人工冻结进入`PAPER_READY`，再创建独立模拟账户观察。
 2. 每轮实验仍使用 `MMDD_EXXX`目录，并保存目标、设计、执行、结论和制品。
 3. `outputs/`不能替代实验档案。
 4. 不用未来数据反向改写同一实验的策略。
 5. 数据更新后先验证三频、复权和manifest，再开展研究或回测。
 6. 没有明确证据时，不宣称样本外、实盘或因果有效。
-7. 新实验先读取活动完整基线注册表，再使用当日尚未占用的下一个
+7. 新实验先读取正式策略版本及其历史来源，再使用当日尚未占用的下一个
    `MMDD_EXXX`编号；当前最后一个冻结档案为`0903_EX01`。独立执行规则注册表只服务历史复现。
 8. PTE运行库和页面只作为前瞻观察材料，不替代`experiments/`中的研究设计、
    机器证据与结论归档。

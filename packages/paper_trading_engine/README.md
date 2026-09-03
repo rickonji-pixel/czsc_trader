@@ -1,8 +1,8 @@
 # Paper Trading Engine
 
 PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader advice run`
-的 `advice.v3` JSON 契约取得完整基线决策，通过渠道适配器执行，并将运行状态和审计
-事件保存到 SQLite。PTE 不导入策略包，也不直接获取研究数据。
+的 `advice.v4` JSON 契约取得正式策略版本决策，通过渠道适配器执行，并将运行状态和审计
+事件保存到 SQLite。PTE 不导入 Trader 或 Strategy Manager，也不直接获取研究数据。
 
 ## 安装
 
@@ -59,8 +59,9 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader
 
 ## 虚拟账户
 
-PTE首次启动会幂等创建`baseline-143`，绑定完整基线`baseline_20260903`和10万元
-初始资金。每个虚拟账户拥有独立现金、持仓、成本、意图、订单、成交和日快照。
+PTE首次启动会幂等创建绑定`S001 / 综合基线策略 / v1`和10万元初始资金的账户；
+`baseline-143`只保留为内部兼容账户ID。每个虚拟账户拥有独立现金、持仓、成本、
+意图、订单、成交和日快照。
 19:00完整数据发布成功后，PTE先结算当日有效订单，再生成下一交易日决策；暂停只
 阻止新订单，已有订单仍结算。开盘改善按开盘价成交，盘中严格穿价按限价成交，
 等价触及记为不确定且不成交。
@@ -68,16 +69,28 @@ PTE首次启动会幂等创建`baseline-143`，绑定完整基线`baseline_20260
 ```powershell
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
-  --account-id range-2 --name "Range候选2" `
-  --baseline baseline_20260903 --futu-reference
-.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id range-2
-.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id range-2
+  --account-id s001-shadow --name "S001影子账户" `
+  --strategy S001 --strategy-version v1 --futu-reference
+.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
+.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
 ```
 
 控制台优先展示最大回撤、卡玛比率和盈亏比，再展示累计收益；多账户比较采用共同
 观察区间。盈亏比仅统计已闭合买卖交易。`--futu-reference`用于切换唯一的Futu
 参照账户，只影响页面标记和比较，不会向Futu复制虚拟订单。每个新账户默认初始资金
 为10万元；可通过`--initial-cash`显式覆盖。Futu渠道账户的100万元不受此默认值影响。
+
+模拟盘里程碑证据通过以下命令导出，随后交给Trader登记：
+
+```powershell
+.\.venv\Scripts\pte.exe performance export --repo-root D:\CodeBase\czsc_trader `
+  --account-id s001-shadow --recorded-by tomxiao `
+  --start 2026-09-03 --end 2026-12-03 --output state\paper-forward.json
+.\.venv\Scripts\czsc-trader.exe strategy evidence add --input state\paper-forward.json
+```
+
+证据包包含发布身份、统计口径和可复核的净值/闭合交易输入；PTE不直接写
+`configs/strategies/`。
 
 ## Windows 服务
 

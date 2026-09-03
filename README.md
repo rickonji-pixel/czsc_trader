@@ -1,14 +1,15 @@
 # CZSC Trader / CZSC PTE
 
-本仓库包含两个并列运行包：
+本仓库包含两个面向用户的并列运行包，以及一个由 Trader 隐藏调用的策略管理包：
 
 | 包 | 目录 | 命令 | 职责 |
 | --- | --- | --- | --- |
-| CZSC Trader | `src/czsc_trader/` | `czsc-trader` | 行情验证、冻结基线、回测、研究归档和交易决策 |
+| CZSC Trader | `src/czsc_trader/` | `czsc-trader` | 行情验证、策略管理、回测、研究归档和交易决策 |
 | CZSC PTE | `packages/paper_trading_engine/` | `pte`、`pte-watchdog` | 模拟账户对账、自动下单、审计、观测页面和进程保活 |
+| Strategy Manager | `packages/strategy_manager/` | 通过`czsc-trader strategy`使用 | 策略身份、不可变版本、资格、审计和绩效证据 |
 
-`packages/dataflows/`是两个包共用的行情获取与发布依赖。Trader 通过
-`advice.v3` JSON 契约向 PTE 提供决策；PTE 不导入 Trader 的内部模块，券商渠道
+`packages/dataflows/`是行情获取与发布依赖。Trader 通过
+`advice.v4` JSON 契约向 PTE 提供决策；PTE 不导入 Trader 或 Strategy Manager，券商渠道
 不参与策略计算、定价或改量。
 
 研究现状见[研究交接](docs/RESEARCH_HANDOFF.md)，跨机开发与运行恢复见
@@ -37,7 +38,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```
 
-确认三个入口均可用：
+确认三个命令入口均可用：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe --help
@@ -60,7 +61,23 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
 策略统一使用 Tushare 后复权行情；交易委托价格使用同日未复权日线。发布器同时
 生成 30 分钟、日线、周线及身份清单，策略价格与执行价格按交易日严格对齐。
 
-### 查看与验证活动基线
+### 查看正式策略
+
+当前正式身份为`S001 / 综合基线策略 / v1`，资格为`PAPER_READY`：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe strategy list
+.\.venv\Scripts\czsc-trader.exe strategy show --strategy S001 --version v1
+.\.venv\Scripts\czsc-trader.exe strategy history --strategy S001
+.\.venv\Scripts\czsc-trader.exe strategy performance --strategy S001 --version v1
+.\.venv\Scripts\czsc-trader.exe strategy validate --all
+```
+
+`RESEARCH`表示版本仍可修改；冻结后进入`PAPER_READY`并可创建模拟账户；人工晋升到
+`LIVE_READY`后才具备实盘部署资格；`RETIRED`禁止创建新运行实例。资格变化只改变
+治理权限，不直接启动、暂停或停止PTE。
+
+### 查看历史基线
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe baseline list
@@ -70,8 +87,8 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
   --version baseline_20260903 --symbol 588080.SH
 ```
 
-未显式指定版本时，回测和 advice 使用
-`configs/rule_baselines/registry.json`中登记的活动基线。
+`baseline_20260903`是`S001-v1`的只读历史别名。旧基线继续用于历史回测和审计，
+新冻结版本统一登记到`configs/strategies/`。
 
 ### 回测
 
@@ -94,13 +111,13 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
 
 ### 生成交易决策
 
-按账户可用现金生成 `advice.v3`：
+按账户可用现金生成 `advice.v4`：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe advice run `
   --symbol 588080.SH --asset etf `
   --actual-quantity 0 --available-cash 1000000 `
-  --baseline baseline_20260903 `
+  --strategy S001 --strategy-version v1 `
   --format json
 ```
 
@@ -108,8 +125,9 @@ Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续�
 确定性 `decision_id`、信号日期、有效交易日、目标/实际/差额数量及可提交 DAY 限价
 单。`advice run`不连接券商、不提交订单、不修改账户状态。
 
-兼容调用可用 `--actual-quantity`配合`--position-size`生成`advice.v1`；PTE 正式运行
-只接受`advice.v3`。未收到明确成交回报时，实际持仓数量保持不变。
+`--baseline baseline_20260903`暂时保留为输入别名，并解析到同一个`S001-v1`；新输出
+始终为`advice.v4`。兼容调用可用 `--actual-quantity`配合`--position-size`生成
+`advice.v1`；PTE正式运行只接受`advice.v4`。未收到明确成交回报时，实际持仓数量保持不变。
 
 ## CZSC PTE 使用
 
@@ -141,16 +159,17 @@ Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续�
 - 新单只在有效交易日的 `09:30–11:30`、`13:00–14:57`提交；
 - 暂停只阻止新订单，已有订单继续对账；撤单必须二次确认。
 
-首次启动会创建初始资金10万元的`baseline-143`虚拟账户。虚拟账户完全由本地账本
+首次启动会创建初始资金10万元、绑定`S001-v1`的虚拟账户；`baseline-143`仅作为
+兼容保留的内部账户ID。虚拟账户完全由本地账本
 模拟成交，与唯一Futu模拟账户相互隔离；Futu渠道异常不会阻断虚拟账户。账户管理命令：
 
 ```powershell
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
-  --account-id range-2 --name "Range候选2" `
-  --baseline baseline_20260903 --futu-reference
-.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id range-2
-.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id range-2
+  --account-id s001-shadow --name "S001影子账户" `
+  --strategy S001 --strategy-version v1 --futu-reference
+.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
+.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
 ```
 
 虚拟订单在有效交易日的19:00数据发布成功后，先用完整日线按保守规则结算，再生成
@@ -158,6 +177,19 @@ Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续�
 `--futu-reference`只切换页面中的Futu参照标记，不会复制订单；任一时刻最多一个
 虚拟账户带有该标记。`account create`默认初始资金为10万元，需要其他金额时再显式
 传入`--initial-cash`。
+
+需要登记模拟盘里程碑时，先由PTE导出自包含证据包，再由Trader写入策略注册表：
+
+```powershell
+.\.venv\Scripts\pte.exe performance export --repo-root D:\CodeBase\czsc_trader `
+  --account-id s001-shadow --recorded-by tomxiao `
+  --start 2026-09-03 --end 2026-12-03 --output state\paper-forward.json
+.\.venv\Scripts\czsc-trader.exe strategy evidence add `
+  --input state\paper-forward.json
+.\.venv\Scripts\czsc-trader.exe strategy performance --strategy S001 --version v1
+```
+
+日常净值仍保存在SQLite；只有人工复核、晋升或降级所需的里程碑证据进入Git。
 
 ### Windows watchdog 服务
 

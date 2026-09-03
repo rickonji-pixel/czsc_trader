@@ -6,7 +6,7 @@
 
 ## 当前交付状态
 
-- 当前交付分支：`codex/strategy-manager`（合并后以`master`为准）
+- 当前交付分支：`codex/strategy-evaluator`（合并后以`master`为准）
 - Python版本：3.12
 - 正式策略：`S001 / 综合基线策略 / v1`，资格`PAPER_READY`
 - 历史基线别名：`baseline_20260903`（候选143，内嵌唯一执行规则）
@@ -33,6 +33,7 @@ data/raw（三频后复权策略行情 + 未复权执行价格 + manifests）
   ↓
 CZSC Trader
   ├─ strategy → Strategy Manager（身份、版本、资格、证据）
+  ├─ strategy evaluate → Strategy Evaluator（筛选、排名、体检、建议）
   ├─ baseline / backtest / archive
   └─ advice run → advice.v4 JSON（策略发布身份 + entry-cycle资金目标）
                       ↓ CLI 子进程
@@ -53,6 +54,26 @@ CZSC PTE ── SQLite审计 ── 本机HTTP控制台
 `configs/strategies/`。它负责稳定策略ID、不可变版本、`RESEARCH -> PAPER_READY ->
 LIVE_READY -> RETIRED`资格、追加式审计和分阶段绩效证据。它没有CLI、服务、页面、
 SQLite或运行状态；用户统一通过Trader的`strategy`资源操作。
+
+### Strategy Evaluator
+
+独立包位于`packages/strategy_evaluator/`，只依赖Python标准库。它拥有不可变评估契约、
+`opc-v1`默认边界、非劣判断、最差窗口画像、Pareto分层、最终判定和一页摘要。它不读
+仓库、不执行回测、不写文件，也不改变SM或PTE状态。生产依赖方向固定为
+`czsc_trader -> strategy_evaluator`；SM和PTE均不得导入它。
+
+Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执行模拟；
+`application/evaluation_service.py`负责实验输入、防覆盖哈希、原子产物、人工接受、SM
+冻结与PTE CLI注册。评估命令和接受命令分别为：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe strategy evaluate --experiment 0903_EXXX
+.\.venv\Scripts\czsc-trader.exe strategy accept-evaluation `
+  --experiment 0903_EXXX --actor tomxiao --reason "确认冻结并进入模拟盘"
+```
+
+接受日志位于实验根目录`evaluation_acceptance.json`。`PAPER_ACTIVATION_PENDING`表示SM
+已经冻结、仅PTE账户注册待重试；重复命令不得创建第二个版本。默认虚拟资金为10万元。
 
 ### CZSC PTE
 
@@ -153,6 +174,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```

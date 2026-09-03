@@ -101,6 +101,7 @@ execution manifest校验。`data prepare`同时发布两种价格口径；`data 
 - `src/czsc_trader/`：数据、基线、回测和归档验证运行时
 - `packages/paper_trading_engine/`：独立模拟交易、对账、观测和干预运行时
 - `packages/strategy_manager/`：Trader隐藏调用的策略治理领域包
+- `packages/strategy_evaluator/`：Trader隐藏调用的候选评估领域包
 - `docs/superpowers/specs/`：正式设计文档
 - `docs/superpowers/plans/`：正式实现计划
 - `tests/test_cli_e2e.py`：唯一必要端到端测试
@@ -108,6 +109,18 @@ execution manifest校验。`data prepare`同时发布两种价格口径；`data 
 
 通用历史实验运行器和`experiment run/replay`入口已退役。Git历史、正式设计、
 实现计划和实验档案共同保留研究过程与结论；新研究按当轮目标引入最小实现。
+
+### 新候选的统一评估流程
+
+后续策略优化统一使用Strategy Evaluator，不在单次实验中复制排名算法。研究者只需
+明确研究目标并产出完整候选payload和试验台账；Trader执行两阶段回测、四指标非劣
+筛选、多窗口最差值和Pareto排名，再完成冠军体检并生成一页报告。四项核心指标为净
+年化收益、最大回撤、卡玛比率和盈亏因子，收益率不单独决定冠军。
+
+每轮只有一个在位策略；只有唯一、非劣、达到研究目标且体检通过的冠军会得到
+`RECOMMEND_FREEZE`。最终冻结仍需人工执行`strategy accept-evaluation`。研发数据池
+可继续反复研究，冻结后的模拟盘记录作为前瞻证据单独积累。历史实验只读，不补写
+新评估产物。
 
 ### 研究代码的组织边界
 

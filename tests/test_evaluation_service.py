@@ -4,6 +4,8 @@ import shutil
 from types import SimpleNamespace
 import csv
 
+import pytest
+
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.evaluation_service import accept_evaluation, evaluate_experiment
 from strategy_evaluator import MetricObservation, MetricStatus
@@ -74,6 +76,40 @@ def test_evaluate_experiment_writes_complete_atomic_result(tmp_path):
         assert (artifacts / name).is_file()
     repeated = evaluate_experiment(context, "0903_TEST", runner=fake_runner)
     assert repeated.result == result.result
+
+
+def test_evaluation_rejects_nonpositive_workers(tmp_path):
+    experiment = write_bundle(tmp_path)
+    manifest_path = experiment / "candidate_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["evaluation_workers"] = 0
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
+    with pytest.raises(ValueError, match="evaluation_workers"):
+        evaluate_experiment(context, "0903_TEST", runner=fake_runner)
+
+
+def test_reuse_requires_explicit_sources(tmp_path):
+    experiment = write_bundle(tmp_path)
+    manifest_path = experiment / "candidate_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["reuse_experiment_artifacts"] = True
+    manifest["reuse_source_experiments"] = []
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
+    with pytest.raises(ValueError, match="reuse_source_experiments"):
+        evaluate_experiment(context, "0903_TEST", runner=fake_runner)
+
+
+def test_reuse_sources_require_reuse_to_be_enabled(tmp_path):
+    experiment = write_bundle(tmp_path)
+    manifest_path = experiment / "candidate_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["reuse_source_experiments"] = ["0903_SOURCE"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
+    with pytest.raises(ValueError, match="reuse_experiment_artifacts"):
+        evaluate_experiment(context, "0903_TEST", runner=fake_runner)
 
 
 def test_screening_audit_records_every_candidate_outcome(tmp_path):

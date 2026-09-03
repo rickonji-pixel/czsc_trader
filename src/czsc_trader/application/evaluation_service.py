@@ -99,6 +99,27 @@ def _trial(value: dict[str, Any]) -> TrialRecord:
     return TrialRecord.from_dict(value)
 
 
+def _execution_settings(manifest: dict[str, Any]) -> tuple[int, bool, tuple[str, ...]]:
+    workers = manifest.get("evaluation_workers", 1)
+    if type(workers) is not int or workers <= 0:
+        raise ValueError("evaluation_workers must be a positive integer")
+    reuse = manifest.get("reuse_experiment_artifacts", False)
+    if type(reuse) is not bool:
+        raise ValueError("reuse_experiment_artifacts must be a boolean")
+    raw_sources = manifest.get("reuse_source_experiments", [])
+    if not isinstance(raw_sources, list) or any(
+        not isinstance(item, str) or not item or Path(item).name != item
+        for item in raw_sources
+    ):
+        raise ValueError("reuse_source_experiments must contain direct experiment names")
+    sources = tuple(raw_sources)
+    if reuse and not sources:
+        raise ValueError("reuse_source_experiments is required when reuse is enabled")
+    if sources and not reuse:
+        raise ValueError("reuse_experiment_artifacts must be enabled when reuse sources are set")
+    return workers, reuse, sources
+
+
 def _csv_text(rows: list[dict[str, Any]]) -> str:
     if not rows:
         return ""
@@ -241,6 +262,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     if manifest_path.parent != experiment or not manifest_path.is_file():
         raise ValueError("candidate manifest must be a direct experiment child")
     manifest = _read_object(manifest_path)
+    workers, _, _ = _execution_settings(manifest)
     raw_candidates = manifest.get("candidates")
     raw_trials = manifest.get("trials")
     if not isinstance(raw_candidates, list) or not isinstance(raw_trials, list):
@@ -269,6 +291,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     run_context = CandidateEvaluationContext(
         context, str(manifest["symbol"]), str(manifest.get("asset_type", "etf")), periods,
         float(manifest.get("fee_rate", 0.0005)), float(manifest.get("init_cash", 1_000_000.0)),
+        workers,
     )
     preliminary = screen_candidates(protocol, candidates, ())
     screening_ids = (protocol.incumbent_id, *preliminary.candidate_ids)

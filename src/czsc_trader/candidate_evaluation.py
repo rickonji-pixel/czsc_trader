@@ -20,6 +20,8 @@ from .range_diagnostics import range_cycle_objectives
 from .regime_weight import classify_regimes, lagged_efficiency_ratio
 from .strategy_metrics import closed_trade_ledger
 
+METRIC_SEMANTICS_VERSION = "candidate-metrics-v1"
+
 
 @dataclass(frozen=True)
 class CandidateEvaluationContext:
@@ -29,6 +31,7 @@ class CandidateEvaluationContext:
     periods: tuple[tuple[str, tuple[pd.Timestamp, pd.Timestamp]], ...]
     fee_rate: float = 0.0005
     init_cash: float = 1_000_000.0
+    workers: int = 1
 
 
 def _profit_factor(orders: pd.DataFrame) -> tuple[float | None, MetricStatus, int]:

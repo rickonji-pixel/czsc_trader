@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -6,6 +7,17 @@ from czsc_trader.application.context import RepositoryContext
 from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
 from czsc_trader.range_diagnostics import range_cycle_objectives
 from strategy_evaluator import EvaluationProtocol
+
+
+def test_candidate_context_defaults_to_one_worker():
+    dates = pd.date_range("2026-01-01", periods=2, freq="D")
+    context = CandidateEvaluationContext(
+        SimpleNamespace(raw_dir=Path("raw"), baseline_root=Path("baselines")),
+        "588080.SH",
+        "etf",
+        (("full", (dates[0], dates[1])),),
+    )
+    assert context.workers == 1
 
 
 def test_candidate_runner_loads_market_and_factors_once(monkeypatch, tmp_path):

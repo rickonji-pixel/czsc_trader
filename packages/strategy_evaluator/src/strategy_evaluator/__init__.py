@@ -36,6 +36,17 @@ from .evaluator import finalize_evaluation, rank_candidates, screen_candidates
 from .noninferiority import compare_observation
 from .pareto import pareto_layers
 from .reporting import render_summary
+from .search_bias import (
+    CscvSplit,
+    DsrBundle,
+    DsrEstimate,
+    SearchBiasResult,
+    annualized_sharpe,
+    calculate_dsr_bundle,
+    cscv_pbo,
+    deflated_sharpe_ratio,
+    effective_trial_count,
+)
 
 __version__ = "0.1.0"
 
@@ -51,4 +62,7 @@ __all__ = [
     "OPC_V3", "resolve_margins", "validate_protocol",
     "compare_observation", "pareto_layers", "rank_candidates", "screen_candidates",
     "finalize_evaluation", "render_summary",
+    "CscvSplit", "DsrBundle", "DsrEstimate", "SearchBiasResult",
+    "annualized_sharpe", "calculate_dsr_bundle", "cscv_pbo",
+    "deflated_sharpe_ratio", "effective_trial_count",
 ]

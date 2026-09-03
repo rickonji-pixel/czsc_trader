@@ -2,28 +2,19 @@
 
 from __future__ import annotations
 
-from itertools import combinations
-
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
+from strategy_evaluator import (
+    ReturnMatrixEvidence,
+    annualized_sharpe as _se_annualized_sharpe,
+    cscv_pbo as _se_cscv_pbo,
+    deflated_sharpe_ratio as _se_deflated_sharpe_ratio,
+)
 
 
 def annualized_sharpe(returns: np.ndarray | pd.Series) -> float:
     """Return the zero-risk-rate annualized Sharpe for daily returns."""
-    values = np.asarray(returns, dtype=float)
-    values = values[np.isfinite(values)]
-    if values.size < 2:
-        return float("nan")
-    volatility = float(np.std(values, ddof=1))
-    if volatility <= 0.0:
-        mean = float(np.mean(values))
-        if mean > 0.0:
-            return float("inf")
-        if mean < 0.0:
-            return float("-inf")
-        return 0.0
-    return float(np.sqrt(252.0) * np.mean(values) / volatility)
+    return _se_annualized_sharpe(np.asarray(returns, dtype=float))
 
 
 def contiguous_blocks(length: int, block_count: int) -> tuple[np.ndarray, ...]:
@@ -43,76 +34,30 @@ def candidate_sharpes(frame: pd.DataFrame) -> pd.Series:
     return sharpes.replace([np.inf, -np.inf], np.nan)
 
 
-def _candidate_identity_key(value: object) -> tuple[int, int | str]:
-    text = str(value)
-    try:
-        return 0, int(text)
-    except ValueError:
-        return 1, text
-
-
 def cscv_pbo(
     returns: pd.DataFrame, block_count: int = 10
 ) -> tuple[pd.DataFrame, dict[str, float | int]]:
-    """Run combinatorially symmetric cross-validation on candidate returns."""
-    if returns.empty or returns.shape[1] < 2:
-        raise ValueError("CSCV requires at least two candidates and one row")
+    """Compatibility adapter for the SE-owned CSCV implementation."""
     matrix = returns.astype(float)
-    if not np.isfinite(matrix.to_numpy()).all():
-        raise ValueError("candidate returns must all be finite")
-    blocks = contiguous_blocks(len(matrix), block_count)
-    half = block_count // 2
-    records: list[dict[str, object]] = []
-    columns = list(map(str, matrix.columns))
-    matrix.columns = columns
-    candidate_count = len(columns)
-    lower_clip = 0.5 / candidate_count
-    upper_clip = 1.0 - lower_clip
-    for split_id, training_blocks in enumerate(combinations(range(block_count), half)):
-        training_set = set(training_blocks)
-        validation_blocks = tuple(index for index in range(block_count) if index not in training_set)
-        training_rows = np.concatenate([blocks[index] for index in training_blocks])
-        validation_rows = np.concatenate([blocks[index] for index in validation_blocks])
-        training_sharpes = candidate_sharpes(matrix.iloc[training_rows])
-        if training_sharpes.notna().sum() < 2:
-            raise ValueError(f"split {split_id} has fewer than two finite training sharpes")
-        selected = str(
-            sorted(
-                training_sharpes.dropna().items(),
-                key=lambda item: (-float(item[1]), _candidate_identity_key(item[0])),
-            )[0][0]
-        )
-        validation_sharpes = candidate_sharpes(matrix.iloc[validation_rows])
-        selected_validation = float(validation_sharpes.loc[selected])
-        finite_validation = validation_sharpes.dropna().sort_values(ascending=False, kind="stable")
-        if len(finite_validation) < 2 or selected not in finite_validation.index:
-            raise ValueError(f"split {split_id} has invalid validation sharpes")
-        rank = int(np.flatnonzero(finite_validation.index.to_numpy() == selected)[0]) + 1
-        percentile = float((len(finite_validation) - rank) / (len(finite_validation) - 1))
-        clipped = float(np.clip(percentile, lower_clip, upper_clip))
-        records.append(
-            {
-                "split_id": split_id,
-                "training_blocks": ",".join(map(str, training_blocks)),
-                "validation_blocks": ",".join(map(str, validation_blocks)),
-                "selected_candidate": selected,
-                "training_sharpe": float(training_sharpes.loc[selected]),
-                "validation_sharpe": selected_validation,
-                "validation_rank": rank,
-                "validation_candidate_count": int(len(finite_validation)),
-                "validation_percentile": percentile,
-                "logit": float(np.log(clipped / (1.0 - clipped))),
-            }
-        )
+    evidence = ReturnMatrixEvidence(
+        tuple(map(str, matrix.index)), tuple(map(str, matrix.columns)),
+        tuple(tuple(float(value) for value in row) for row in matrix.to_numpy()), "0" * 64,
+    )
+    result = _se_cscv_pbo(evidence, block_count)
+    records = []
+    for item in result.splits:
+        row = item.to_dict()
+        row["training_blocks"] = ",".join(map(str, item.training_blocks))
+        row["validation_blocks"] = ",".join(map(str, item.validation_blocks))
+        records.append(row)
     details = pd.DataFrame.from_records(records)
-    pbo = float(details["logit"].lt(0.0).mean())
     summary: dict[str, float | int] = {
-        "block_count": int(block_count),
-        "split_count": int(len(details)),
-        "candidate_count": int(candidate_count),
-        "pbo": pbo,
-        "median_validation_percentile": float(details["validation_percentile"].median()),
-        "median_logit": float(details["logit"].median()),
+        "block_count": result.block_count,
+        "split_count": len(result.splits),
+        "candidate_count": result.candidate_count,
+        "pbo": result.pbo,
+        "median_validation_percentile": result.median_validation_percentile,
+        "median_logit": result.median_logit,
     }
     return details, summary
 
@@ -120,49 +65,15 @@ def cscv_pbo(
 def deflated_sharpe_ratio(
     selected_returns: pd.Series, trial_sharpes: pd.Series
 ) -> dict[str, float | int]:
-    """Compute the multiple-trial Deflated Sharpe probability."""
-    values = selected_returns.astype(float).replace([np.inf, -np.inf], np.nan).dropna()
-    trials = trial_sharpes.astype(float).replace([np.inf, -np.inf], np.nan).dropna()
-    if len(values) < 3 or len(trials) < 2:
-        raise ValueError("DSR requires at least three returns and two finite trial sharpes")
-    trial_std = float(trials.std(ddof=1))
-    if not np.isfinite(trial_std) or trial_std <= 0.0:
-        raise ValueError("trial sharpes must have positive finite dispersion")
-    euler_gamma = 0.5772156649015329
-    trial_count = len(trials)
-    expected_standard_max = (
-        (1.0 - euler_gamma) * norm.ppf(1.0 - 1.0 / trial_count)
-        + euler_gamma * norm.ppf(1.0 - 1.0 / (trial_count * np.e))
-    )
-    expected_max = float(trial_std * expected_standard_max)
-    observed = annualized_sharpe(values.to_numpy())
-    daily_observed = observed / np.sqrt(252.0)
-    daily_benchmark = expected_max / np.sqrt(252.0)
-    skew = float(values.skew())
-    pearson_kurtosis = float(values.kurt() + 3.0)
-    variance_adjustment = float(
-        1.0
-        - skew * daily_observed
-        + ((pearson_kurtosis - 1.0) / 4.0) * daily_observed**2
-    )
-    if not np.isfinite(variance_adjustment) or variance_adjustment <= 0.0:
-        raise ValueError("DSR variance adjustment must be positive and finite")
-    statistic = float(
-        (daily_observed - daily_benchmark)
-        * np.sqrt(len(values) - 1.0)
-        / np.sqrt(variance_adjustment)
+    """Compatibility adapter for the SE-owned DSR implementation."""
+    result = _se_deflated_sharpe_ratio(
+        selected_returns.to_numpy(dtype=float), trial_sharpes.to_numpy(dtype=float),
+        float(len(trial_sharpes)),
     )
     return {
-        "observations": int(len(values)),
-        "trial_count": int(trial_count),
-        "observed_sharpe": float(observed),
-        "trial_sharpe_mean": float(trials.mean()),
-        "trial_sharpe_std": trial_std,
-        "expected_max_sharpe": expected_max,
-        "skew": skew,
-        "pearson_kurtosis": pearson_kurtosis,
-        "test_statistic": statistic,
-        "dsr_probability": float(norm.cdf(statistic)),
+        **result.to_dict(),
+        "trial_count": int(result.trial_count),
+        "dsr_probability": result.probability,
     }
 
 

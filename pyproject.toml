@@ -29,9 +29,8 @@ test = ["pytest>=8.0", "ruff>=0.12"]
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "--strict-markers --tb=short -m 'not archive'"
-markers = ["archive: validates every immutable experiment archive"]
+testpaths = ["tests/functional"]
+addopts = "--tb=short"
 
 [tool.ruff]
 target-version = "py312"

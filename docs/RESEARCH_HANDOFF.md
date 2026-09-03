@@ -104,7 +104,7 @@ execution manifest校验。`data prepare`同时发布两种价格口径；`data 
 - `packages/strategy_evaluator/`：Trader隐藏调用的候选评估领域包
 - `docs/superpowers/specs/`：正式设计文档
 - `docs/superpowers/plans/`：正式实现计划
-- `tests/test_cli_e2e.py`：唯一必要端到端测试
+- `tests/functional/`：Trader的8个完整功能测试场景
 - `outputs/`：被忽略的普通回测输出
 
 通用历史实验运行器和`experiment run/replay`入口已退役。Git历史、正式设计、
@@ -344,7 +344,7 @@ python -m venv .venv
 ## 最小验证
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_cli_e2e.py -q
+.\.venv\Scripts\python.exe -m pytest -q
 
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 159352.SZ
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 159516.SZ
@@ -358,6 +358,9 @@ python -m venv .venv
 
 .\.venv\Scripts\czsc-trader.exe archive validate --all
 ```
+
+pytest只验证Trader当前公开能力，不重跑历史候选全集。全部不可变研究档案通过
+`archive validate --all`操作命令独立校验；临时TDD用例在行为进入FT-T01至FT-T08后删除。
 
 固定回测回归：
 

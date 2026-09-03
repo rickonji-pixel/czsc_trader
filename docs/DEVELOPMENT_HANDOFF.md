@@ -251,23 +251,30 @@ Futu页面通过“订单与虚拟账户”列表展示逐笔归属，不单独�
 ## 最小开发验证
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_cli_e2e.py -q
+.\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
+.\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
+node --test packages\paper_trading_engine\tests\js\console_state.test.mjs
 .\.venv\Scripts\python.exe -m ruff check `
-  src tests packages\strategy_manager packages\paper_trading_engine\src packages\paper_trading_engine\tests
+  src tests packages\strategy_manager packages\strategy_evaluator `
+  packages\paper_trading_engine\src packages\paper_trading_engine\tests
 ```
 
 完整验证：
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests -q
+.\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
+.\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
-.\.venv\Scripts\python.exe -m pytest tests -q -m archive
+node --test packages\paper_trading_engine\tests\js\console_state.test.mjs
+.\.venv\Scripts\czsc-trader.exe archive validate --all --repo-root .
 ```
 
-默认测试不联网。`archive`测试会校验全部不可变实验档案，耗时高于日常测试。
+Trader默认回归只收集FT-T01至FT-T08八个完整功能场景，不联网，也不重算历史候选
+全集。完整不可变实验档案通过`archive validate --all`独立校验。TDD阶段产生的临时聚焦
+用例，在行为进入对应功能场景后删除。
 
 ## PTE启动与服务恢复
 

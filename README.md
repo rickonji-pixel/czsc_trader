@@ -262,12 +262,17 @@ sc.exe query CZSC-PTE-Watchdog
 ## 测试
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests -q
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
-.\.venv\Scripts\python.exe -m pytest tests -q -m archive
+node --test packages\paper_trading_engine\tests\js\console_state.test.mjs
+.\.venv\Scripts\czsc-trader.exe archive validate --all --repo-root .
 .\.venv\Scripts\python.exe -m ruff check `
-  src tests packages\paper_trading_engine\src packages\paper_trading_engine\tests
+  src tests packages\strategy_manager packages\strategy_evaluator `
+  packages\paper_trading_engine\src packages\paper_trading_engine\tests
 ```
 
-默认测试不联网。完整实验档案校验使用显式`archive`标记，避免拖慢日常开发。
+Trader默认测试由8个完整功能场景组成，不联网、不读取运行中的PTE，也不重算历史候选
+全集。完整实验档案校验使用`archive validate --all`独立执行。TDD阶段产生的临时聚焦
+用例，在相应行为进入FT-T01至FT-T08后删除。

@@ -140,3 +140,19 @@ def test_robust_pareto_profiles_rank_candidates_across_windows() -> None:
         2: {"first_front_count": 0, "mean_pareto_layer": 2.0, "worst_pareto_layer": 2},
     }
     assert select_robust_seeds(profiles, limit=2) == [1, 0]
+
+
+def test_dirichlet_weight_candidates_enforce_minimum_factor_weight() -> None:
+    from czsc_trader.range_platform import dirichlet_weight_candidates
+
+    candidates = dirichlet_weight_candidates(
+        {"deployable": pd.Series({"f1": 0.6, "f2": 0.3, "f3": 0.1})},
+        samples_per_anchor=20,
+        concentrations={"deployable": 30.0},
+        seed=7,
+        minimum_weight=0.1,
+    )
+
+    weights = candidates[["f1", "f2", "f3"]]
+    assert weights.ge(0.1 - 1e-12).all().all()
+    np.testing.assert_allclose(weights.sum(axis=1), 1.0, rtol=0.0, atol=1e-12)

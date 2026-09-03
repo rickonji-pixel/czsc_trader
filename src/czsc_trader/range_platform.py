@@ -17,6 +17,7 @@ def dirichlet_weight_candidates(
     samples_per_anchor: int,
     concentrations: Mapping[str, float],
     seed: int,
+    minimum_weight: float = 0.0,
 ) -> pd.DataFrame:
     """Generate deterministic positive simplex candidates around named anchors."""
     if not anchors or set(anchors) != set(concentrations):
@@ -25,8 +26,11 @@ def dirichlet_weight_candidates(
         raise ValueError("samples_per_anchor must be a non-negative integer")
     first = next(iter(anchors.values()))
     factors = list(first.index)
+    floor = float(minimum_weight)
     if not factors or len(factors) != len(set(factors)):
         raise ValueError("anchors must contain the same positive factor weights")
+    if not np.isfinite(floor) or floor < 0.0 or floor * len(factors) >= 1.0:
+        raise ValueError("minimum weight must be finite and leave positive simplex mass")
     normalized: dict[str, np.ndarray] = {}
     for name, anchor in anchors.items():
         values = anchor.reindex(factors).to_numpy(dtype=float)
@@ -37,14 +41,25 @@ def dirichlet_weight_candidates(
             or (values <= 0.0).any()
             or not np.isfinite(concentration)
             or concentration <= 0.0
+            or (values < floor - 1e-12).any()
         ):
             raise ValueError("anchors must contain the same positive factor weights")
         normalized[name] = values / values.sum()
     rng = np.random.default_rng(int(seed))
     rows: list[dict[str, object]] = []
     for name, anchor in normalized.items():
+        if floor == 0.0:
+            samples = rng.dirichlet(anchor * float(concentrations[name]), samples_per_anchor)
+        else:
+            residual = (anchor - floor) / (1.0 - floor * len(factors))
+            residual = np.maximum(residual, np.finfo(float).eps)
+            residual = residual / residual.sum()
+            draws = rng.dirichlet(
+                residual * float(concentrations[name]), samples_per_anchor
+            )
+            samples = floor + (1.0 - floor * len(factors)) * draws
         for sample_index, values in enumerate(
-            [anchor, *rng.dirichlet(anchor * float(concentrations[name]), samples_per_anchor)]
+            [anchor, *samples]
         ):
             rows.append(
                 {

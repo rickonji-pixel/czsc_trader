@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0903_EX03",
+  "status": "PRE_REGISTERED",
+  "source_experiment": {
+    "experiment_id": "0903_EX02",
+    "manifest_sha256": "3323525dae97d23fd1125e705dd258e4634e7ac6b4953100baba550f59e83e37"
+  },
+  "minimum_factor_weight": 0.005,
+  "source_seed_count": 12,
+  "samples_per_seed": 31,
+  "local_concentration": 400.0,
+  "seed": 20260905,
+  "new_candidate_count": 372,
+  "formal_shortlist_count": 24,
+  "core_metrics": ["max_drawdown", "calmar", "win_loss_ratio"],
+  "comparison_tolerance": 1e-12,
+  "return_used_for_selection": false,
+  "hard_pass_gate": false,
+  "automatic_promotion": false
+}

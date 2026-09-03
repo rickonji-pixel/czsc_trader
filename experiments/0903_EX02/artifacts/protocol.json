@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0903_EX02",
+  "status": "PRE_REGISTERED",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "strategy_release": {
+    "strategy_id": "S001",
+    "version": "v1",
+    "release_hash": "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
+    "legacy_baseline": "baseline_20260903",
+    "legacy_baseline_sha256": "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331"
+  },
+  "development_end": "2026-09-02",
+  "development_windows": {
+    "full_2021_2026": ["2021-01-01", "2026-09-02"],
+    "rolling_2021_2023": ["2021-01-01", "2023-12-31"],
+    "rolling_2022_2024": ["2022-01-01", "2024-12-31"],
+    "rolling_2023_2025": ["2023-01-01", "2025-12-31"],
+    "rolling_2024_2026": ["2024-01-01", "2026-09-02"]
+  },
+  "stage1": {
+    "anchors": ["control", "balanced", "high_structure"],
+    "samples_per_anchor": 255,
+    "concentrations": {
+      "control": 120.0,
+      "balanced": 12.0,
+      "high_structure": 80.0
+    },
+    "high_structure_group_shares": {
+      "structure": 0.6,
+      "trend": 0.175,
+      "volume_position": 0.225
+    },
+    "seed": 20260903
+  },
+  "stage1_candidate_count": 768,
+  "stage1_seed_count": 12,
+  "stage2": {
+    "samples_per_seed": 31,
+    "concentration": 400.0,
+    "seed": 20260904
+  },
+  "stage2_candidate_count": 372,
+  "formal_shortlist_count": 24,
+  "core_metrics": ["max_drawdown", "calmar", "win_loss_ratio"],
+  "fee_rate": 0.0005,
+  "init_cash": 1000000.0,
+  "comparison_tolerance": 1e-12,
+  "return_used_for_selection": false,
+  "hard_pass_gate": false,
+  "automatic_promotion": false
+}

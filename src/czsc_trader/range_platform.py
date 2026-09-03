@@ -11,6 +11,68 @@ import pandas as pd
 GROUP_NAMES = ("structure", "trend", "volume_position")
 
 
+def dirichlet_weight_candidates(
+    anchors: Mapping[str, pd.Series],
+    *,
+    samples_per_anchor: int,
+    concentrations: Mapping[str, float],
+    seed: int,
+    minimum_weight: float = 0.0,
+) -> pd.DataFrame:
+    """Generate deterministic positive simplex candidates around named anchors."""
+    if not anchors or set(anchors) != set(concentrations):
+        raise ValueError("anchors and concentrations must contain the same names")
+    if not isinstance(samples_per_anchor, int) or samples_per_anchor < 0:
+        raise ValueError("samples_per_anchor must be a non-negative integer")
+    first = next(iter(anchors.values()))
+    factors = list(first.index)
+    floor = float(minimum_weight)
+    if not factors or len(factors) != len(set(factors)):
+        raise ValueError("anchors must contain the same positive factor weights")
+    if not np.isfinite(floor) or floor < 0.0 or floor * len(factors) >= 1.0:
+        raise ValueError("minimum weight must be finite and leave positive simplex mass")
+    normalized: dict[str, np.ndarray] = {}
+    for name, anchor in anchors.items():
+        values = anchor.reindex(factors).to_numpy(dtype=float)
+        concentration = float(concentrations[name])
+        if (
+            list(anchor.index) != factors
+            or not np.isfinite(values).all()
+            or (values <= 0.0).any()
+            or not np.isfinite(concentration)
+            or concentration <= 0.0
+            or (values < floor - 1e-12).any()
+        ):
+            raise ValueError("anchors must contain the same positive factor weights")
+        normalized[name] = values / values.sum()
+    rng = np.random.default_rng(int(seed))
+    rows: list[dict[str, object]] = []
+    for name, anchor in normalized.items():
+        if floor == 0.0:
+            samples = rng.dirichlet(anchor * float(concentrations[name]), samples_per_anchor)
+        else:
+            residual = (anchor - floor) / (1.0 - floor * len(factors))
+            residual = np.maximum(residual, np.finfo(float).eps)
+            residual = residual / residual.sum()
+            draws = rng.dirichlet(
+                residual * float(concentrations[name]), samples_per_anchor
+            )
+            samples = floor + (1.0 - floor * len(factors)) * draws
+        for sample_index, values in enumerate(
+            [anchor, *samples]
+        ):
+            rows.append(
+                {
+                    "candidate_id": len(rows),
+                    "anchor_name": name,
+                    "sample_index": sample_index,
+                    "is_anchor": sample_index == 0,
+                    **dict(zip(factors, values, strict=True)),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def project_group_shares(
     base_weights: pd.Series,
     groups: Mapping[str, Sequence[str]],
@@ -86,6 +148,61 @@ def pareto_layers(
         remaining = [position for position in remaining if position not in front_set]
         layer += 1
     return pd.Series(assigned, dtype=int, name="pareto_layer").sort_index()
+
+
+def robust_pareto_profiles(
+    period_metrics: pd.DataFrame,
+    metrics: Sequence[str],
+    *,
+    tolerance: float = 1e-12,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Attach per-window Pareto layers and summarize cross-window robustness."""
+    required = {"candidate_id", "period", *map(str, metrics)}
+    if not required <= set(period_metrics.columns):
+        raise ValueError(
+            f"period metrics missing columns: {sorted(required - set(period_metrics.columns))}"
+        )
+    if period_metrics.duplicated(["period", "candidate_id"]).any():
+        raise ValueError("each period and candidate pair must be unique")
+    pieces: list[pd.DataFrame] = []
+    for _, frame in period_metrics.groupby("period", sort=False):
+        selected = frame.copy()
+        layers = pareto_layers(selected, metrics, tolerance=tolerance)
+        selected["pareto_layer"] = selected["candidate_id"].astype(int).map(layers)
+        pieces.append(selected)
+    layered = pd.concat(pieces).sort_index()
+    profiles = (
+        layered.groupby("candidate_id", sort=True)["pareto_layer"]
+        .agg(
+            first_front_count=lambda values: int(values.eq(1).sum()),
+            mean_pareto_layer="mean",
+            worst_pareto_layer="max",
+        )
+        .reset_index()
+    )
+    profiles["candidate_id"] = profiles["candidate_id"].astype(int)
+    profiles["worst_pareto_layer"] = profiles["worst_pareto_layer"].astype(int)
+    return layered, profiles
+
+
+def select_robust_seeds(profiles: pd.DataFrame, *, limit: int) -> list[int]:
+    """Select deterministic cross-window seeds without using return as a tie-break."""
+    required = {
+        "candidate_id",
+        "first_front_count",
+        "mean_pareto_layer",
+        "worst_pareto_layer",
+    }
+    if not required <= set(profiles.columns):
+        raise ValueError(f"profiles missing columns: {sorted(required - set(profiles.columns))}")
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("seed limit must be a positive integer")
+    ranked = profiles.sort_values(
+        ["first_front_count", "worst_pareto_layer", "mean_pareto_layer", "candidate_id"],
+        ascending=[False, True, True, True],
+        kind="stable",
+    )
+    return ranked.head(limit)["candidate_id"].astype(int).tolist()
 
 
 def simplex_components(

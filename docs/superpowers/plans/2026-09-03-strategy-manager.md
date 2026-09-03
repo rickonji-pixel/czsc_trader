@@ -468,6 +468,8 @@ git commit -m "feat: bind PTE accounts to strategy releases"
 
 ### Task 7: Cross-stage performance evidence
 
+**Status:** Complete
+
 **Files:**
 - Modify: `packages/paper_trading_engine/src/paper_trading_engine/cli.py`
 - Create: `packages/paper_trading_engine/src/paper_trading_engine/performance_export.py`

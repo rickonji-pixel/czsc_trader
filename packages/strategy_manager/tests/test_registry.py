@@ -11,7 +11,7 @@ from strategy_manager import (
     StrategyVersion,
 )
 
-from conftest import make_evidence, seed_research_registry
+from .conftest import make_evidence, seed_research_registry
 
 
 def test_create_and_resolve_strategy_version(tmp_path, strategy, research_version):

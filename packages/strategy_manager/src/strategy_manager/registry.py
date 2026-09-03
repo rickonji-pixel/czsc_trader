@@ -275,11 +275,20 @@ class StrategyRegistry:
             raise RegistryError(f"evidence_id already exists: {model.evidence_id}")
         if source_file is not None:
             source = Path(source_file)
-            if canonical_sha256(json.loads(source.read_text(encoding="utf-8"))) != model.source_hash:
+            document = json.loads(source.read_text(encoding="utf-8"))
+            source_payload = document.get("source") if isinstance(document, dict) else None
+            if not isinstance(source_payload, dict):
+                raise RegistryError("source evidence bundle is missing its source object")
+            if canonical_sha256(source_payload) != model.source_hash:
                 raise RegistryError("source evidence hash mismatch")
             destination = self._strategy_dir(model.strategy_id) / "evidence" / f"{model.evidence_id}.json"
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, destination)
+            if destination.exists() and destination.read_bytes() != source.read_bytes():
+                raise RegistryError(f"evidence artifact already exists: {model.evidence_id}")
+            if not destination.exists():
+                temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
+                shutil.copyfile(source, temporary)
+                temporary.replace(destination)
         self._append_jsonl(
             self._strategy_dir(model.strategy_id) / "evidence.jsonl", model.to_dict()
         )

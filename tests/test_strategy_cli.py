@@ -139,3 +139,87 @@ def test_legacy_baseline_list_identifies_the_formal_strategy(capsys):
     assert active["strategy_id"] == "S001"
     assert active["strategy_version"] == "v1"
     assert len(active["release_hash"]) == 64
+
+
+def test_strategy_evidence_import_copies_verified_bundle_and_groups_phase(
+    tmp_path, capsys
+):
+    repo = _temporary_repo(tmp_path)
+    source = repo / "paper-forward.json"
+    source_payload = {
+        "schema_version": 1,
+        "account": {"account_id": "s001-forward"},
+        "snapshots": [
+            {"session": "2026-09-03", "total_assets": "100000.0000"},
+            {"session": "2026-09-04", "total_assets": "101000.0000"},
+        ],
+        "closed_trade_pnl": [1000.0],
+    }
+    from strategy_manager import canonical_sha256
+
+    evidence = {
+        "schema_version": 1,
+        "evidence_id": "EVD-PTE-S001-V1-TEST",
+        "strategy_id": "S001",
+        "version": "v1",
+        "release_hash": "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
+        "phase": "PAPER_FORWARD",
+        "period_start": "2026-09-03",
+        "period_end": "2026-09-04",
+        "data_identity": {"account_id": "s001-forward"},
+        "initial_capital": 100000.0,
+        "fee_rate": 0.0005,
+        "maximum_drawdown": 0.0,
+        "calmar_ratio": 2.0,
+        "win_loss_ratio": None,
+        "win_loss_ratio_status": "NO_LOSSES",
+        "total_return": 0.01,
+        "sharpe_ratio": None,
+        "closed_trades": 1,
+        "source_path": "pte://virtual-account/s001-forward",
+        "source_hash": canonical_sha256(source_payload),
+        "recorded_at": "2026-09-04T19:00:00+08:00",
+        "recorded_by": "tester",
+    }
+    source.write_text(
+        json.dumps(
+            {"bundle_schema_version": 1, "evidence": evidence, "source": source_payload},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    assert main(
+        [
+            "strategy",
+            "evidence",
+            "add",
+            "--input",
+            str(source),
+            "--repo-root",
+            str(repo),
+        ]
+    ) == 0
+    imported = _payload(capsys)
+    copied = repo / "configs" / "strategies" / "S001" / "evidence" / (
+        evidence["evidence_id"] + ".json"
+    )
+    assert imported["result"]["evidence_id"] == evidence["evidence_id"]
+    assert json.loads(copied.read_text(encoding="utf-8"))["source"] == source_payload
+
+    assert main(
+        [
+            "strategy",
+            "performance",
+            "--strategy",
+            "S001",
+            "--version",
+            "v1",
+            "--repo-root",
+            str(repo),
+        ]
+    ) == 0
+    performance = _payload(capsys)
+    assert len(performance["result"]["phases"]["RESEARCH_BACKTEST"]) == 1
+    assert len(performance["result"]["phases"]["PAPER_FORWARD"]) == 1
+    assert performance["result"]["phases"]["LIVE"] == []

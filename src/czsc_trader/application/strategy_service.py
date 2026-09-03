@@ -221,8 +221,14 @@ def add_strategy_evidence(context: RepositoryContext, input_path: Path) -> Comma
     registry = _registry(context)
 
     def operation() -> dict[str, Any]:
-        evidence = PerformanceEvidence.from_dict(_read_object(context, input_path))
-        return registry.record_evidence(evidence).to_dict()
+        resolved = input_path if input_path.is_absolute() else context.root / input_path
+        document = _read_object(context, input_path)
+        raw_evidence = document.get("evidence", document)
+        if not isinstance(raw_evidence, dict):
+            raise ValueError("evidence bundle must contain an evidence object")
+        evidence = PerformanceEvidence.from_dict(raw_evidence)
+        source_file = resolved if "source" in document else None
+        return registry.record_evidence(evidence, source_file=source_file).to_dict()
 
     result = _domain_call("strategy.evidence.add", operation)
     return CommandResult(status="PASS", command="strategy.evidence.add", result=result)

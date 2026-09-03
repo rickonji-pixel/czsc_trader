@@ -6,7 +6,7 @@ from strategy_manager import (
     Qualification,
 )
 
-from conftest import make_evidence, seed_research_registry
+from .conftest import make_evidence, seed_research_registry
 
 
 def _paper_registry(tmp_path, strategy, research_version):

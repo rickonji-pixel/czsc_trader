@@ -107,6 +107,15 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--strategy-version")
     create.add_argument("--initial-cash", default="100000")
     create.add_argument("--futu-reference", action="store_true")
+    performance = actions.add_parser("performance")
+    performance_actions = performance.add_subparsers(dest="performance_action", required=True)
+    export = performance_actions.add_parser("export")
+    _common(export)
+    export.add_argument("--account-id", required=True)
+    export.add_argument("--output", type=Path, required=True)
+    export.add_argument("--recorded-by", required=True)
+    export.add_argument("--start")
+    export.add_argument("--end")
     return parser
 
 
@@ -266,6 +275,23 @@ def main(
     args = build_parser().parse_args(argv)
     engine = None
     try:
+        if args.action == "performance":
+            from .performance_export import export_performance
+
+            store = PaperStore(args.database)
+            try:
+                result = export_performance(
+                    store,
+                    args.account_id,
+                    args.output,
+                    recorded_by=args.recorded_by,
+                    start=args.start,
+                    end=args.end,
+                )
+            finally:
+                store.close()
+            _write({"status": "PASS", "command": "pte.performance.export", "result": result})
+            return 0
         if args.action == "account":
             result = _run_account_command(args)
             _write({"status": "PASS", "command": f"pte.account.{args.account_action}", "result": result})

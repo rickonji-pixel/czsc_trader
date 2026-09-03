@@ -7,6 +7,7 @@ import hashlib
 import json
 from typing import Any
 
+from joblib import Parallel, delayed, parallel_config
 import numpy as np
 import pandas as pd
 from strategy_evaluator import EvaluationProtocol, MetricObservation, MetricStatus
@@ -45,6 +46,20 @@ class EvaluationWorkspace:
     periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]]
 
 
+@dataclass(frozen=True)
+class BehaviorTask:
+    key: str
+    target_position: pd.Series
+    execution: Any
+
+
+@dataclass(frozen=True)
+class BehaviorResult:
+    key: str
+    period_results: dict[str, Any]
+    execution_results: dict[str, Any]
+
+
 def prepare_evaluation_workspace(
     context: CandidateEvaluationContext,
     protocol: EvaluationProtocol,
@@ -59,6 +74,78 @@ def prepare_evaluation_workspace(
         name="close",
     )
     return EvaluationWorkspace(data, factors.frame, daily_close, dict(context.periods))
+
+
+def _contiguous_chunks(items: tuple[Any, ...], workers: int) -> tuple[tuple[Any, ...], ...]:
+    if not items:
+        return ()
+    count = min(max(int(workers), 1), len(items))
+    quotient, remainder = divmod(len(items), count)
+    chunks: list[tuple[Any, ...]] = []
+    start = 0
+    for index in range(count):
+        size = quotient + (1 if index < remainder else 0)
+        chunks.append(items[start : start + size])
+        start += size
+    return tuple(chunks)
+
+
+def _run_behavior_chunk(
+    workspace: EvaluationWorkspace,
+    chunk: tuple[BehaviorTask, ...],
+    tier: str,
+    fee_rate: float,
+    init_cash: float,
+) -> tuple[BehaviorResult, ...]:
+    output: list[BehaviorResult] = []
+    for task in chunk:
+        results = run_period_backtests(
+            workspace.data.daily,
+            task.target_position,
+            workspace.periods,
+            fee_rate=fee_rate,
+            init_cash=init_cash,
+        )
+        results = {
+            name: replace(result, portfolio=None)
+            for name, result in results.items()
+        }
+        execution_results = {}
+        if tier in {"FORMAL", "STRESS"} and task.execution is not None:
+            execution_results = _complete_baseline_execution_results(
+                workspace.data.daily,
+                workspace.data.intraday,
+                task.target_position,
+                workspace.periods,
+                task.execution,
+                fee_rate=fee_rate,
+                init_cash=init_cash,
+            )
+        output.append(BehaviorResult(task.key, results, execution_results))
+    return tuple(output)
+
+
+def _evaluate_behavior_tasks(
+    workspace: EvaluationWorkspace,
+    tasks: tuple[BehaviorTask, ...],
+    tier: str,
+    fee_rate: float,
+    init_cash: float,
+    workers: int,
+) -> tuple[BehaviorResult, ...]:
+    chunks = _contiguous_chunks(tasks, workers)
+    if workers == 1 or len(tasks) < 32:
+        return tuple(
+            item
+            for chunk in chunks
+            for item in _run_behavior_chunk(workspace, chunk, tier, fee_rate, init_cash)
+        )
+    with parallel_config(backend="loky", inner_max_num_threads=1):
+        pieces = Parallel(n_jobs=min(workers, len(chunks)), max_nbytes="1M", mmap_mode="r")(
+            delayed(_run_behavior_chunk)(workspace, chunk, tier, fee_rate, init_cash)
+            for chunk in chunks
+        )
+    return tuple(item for piece in pieces for item in piece)
 
 
 def _profit_factor(orders: pd.DataFrame) -> tuple[float | None, MetricStatus, int]:
@@ -296,30 +383,24 @@ def evaluate_candidate_payloads(
                 fee_rate,
             )
             groups.setdefault(key, []).append(candidate_id)
-        for members in groups.values():
-            representative = members[0]
-            representative_applied = applied_by_candidate[representative]
-            results = run_period_backtests(
-                workspace.data.daily,
-                representative_applied.target_position,
-                workspace.periods,
-                fee_rate=fee_rate,
-                init_cash=context.init_cash,
-                factor_events=representative_applied.events,
-                factor_frame=factor_outputs[representative],
+        tasks = tuple(
+            BehaviorTask(
+                key,
+                applied_by_candidate[members[0]].target_position,
+                resolved[members[0]].execution,
             )
-            execution_results = {}
-            representative_baseline = resolved[representative]
-            if tier in {"FORMAL", "STRESS"} and representative_baseline.execution is not None:
-                execution_results = _complete_baseline_execution_results(
-                    workspace.data.daily,
-                    workspace.data.intraday,
-                    representative_applied.target_position,
-                    workspace.periods,
-                    representative_baseline.execution,
-                    fee_rate=fee_rate,
-                    init_cash=context.init_cash,
-                )
+            for key, members in groups.items()
+        )
+        behavior_results = {
+            item.key: item
+            for item in _evaluate_behavior_tasks(
+                workspace, tasks, tier, fee_rate, context.init_cash, context.workers,
+            )
+        }
+        for key, members in groups.items():
+            transaction = behavior_results[key]
+            results = transaction.period_results
+            execution_results = transaction.execution_results
             for candidate_id in members:
                 applied = applied_by_candidate[candidate_id]
                 candidate_results = _candidate_period_results(

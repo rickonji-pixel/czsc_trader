@@ -6,9 +6,11 @@ import pandas as pd
 import pytest
 
 from czsc_trader.application.context import RepositoryContext
+from czsc_trader.backtest import PeriodBacktestResult
 from czsc_trader.candidate_evaluation import (
     CandidateEvaluationContext,
     _behavior_key,
+    _contiguous_chunks,
     _evaluate_candidate_payloads_reference,
     evaluate_candidate_payloads,
     prepare_evaluation_workspace,
@@ -37,6 +39,16 @@ def test_behavior_key_includes_target_execution_tier_scenario_and_fee():
     assert _behavior_key(target, "execution-a", "STRESS", "fee_x2", 0.001) != base
 
 
+def test_contiguous_chunks_are_balanced_and_ordered():
+    assert _contiguous_chunks(tuple(range(10)), 3) == (
+        (0, 1, 2, 3),
+        (4, 5, 6),
+        (7, 8, 9),
+    )
+    assert _contiguous_chunks((1, 2), 8) == ((1,), (2,))
+    assert _contiguous_chunks((), 4) == ()
+
+
 def test_candidate_runner_loads_market_and_factors_once(monkeypatch, tmp_path):
     calls = {"market": 0, "factors": 0}
     dates = pd.date_range("2020-01-01", periods=6, freq="D")
@@ -50,7 +62,7 @@ def test_candidate_runner_loads_market_and_factors_once(monkeypatch, tmp_path):
     monkeypatch.setattr("czsc_trader.candidate_evaluation.apply_resolved_baseline", lambda *a, **k: SimpleNamespace(target_position=target, events=pd.DataFrame(), scores=target))
     equity = pd.Series([100, 100, 102], index=dates[-3:])
     orders = pd.DataFrame(columns=["signal_date", "execution_date", "side", "size", "price", "fees"])
-    result = SimpleNamespace(equity=equity, orders=orders, factor_events=pd.DataFrame())
+    result = PeriodBacktestResult(None, equity, orders, {}, pd.DataFrame())
     monkeypatch.setattr("czsc_trader.candidate_evaluation.run_period_backtests", lambda *a, **k: {"full": result})
     repo = RepositoryContext.discover(tmp_path, explicit_root=tmp_path) if False else SimpleNamespace(raw_dir=tmp_path, baseline_root=tmp_path)
     context = CandidateEvaluationContext(repo, "588080.SH", "etf", (("full", (dates[-3], dates[-1])),), 0.0005, 100.0)
@@ -117,7 +129,7 @@ def test_public_runner_matches_reference_path(monkeypatch, tmp_path):
     )
     equity = pd.Series([100, 100, 102, 102, 102], index=dates[1:])
     orders = pd.DataFrame(columns=["signal_date", "execution_date", "side", "size", "price", "fees"])
-    result = SimpleNamespace(equity=equity, orders=orders, factor_events=pd.DataFrame())
+    result = PeriodBacktestResult(None, equity, orders, {}, pd.DataFrame())
     monkeypatch.setattr(
         "czsc_trader.candidate_evaluation.run_period_backtests", lambda *args, **kwargs: {"full": result},
     )
@@ -181,7 +193,7 @@ def test_regime_candidates_share_normalization_regime_and_realized_behavior(monk
     )
     equity = pd.Series([100, 101, 102, 101, 103], index=dates[1:])
     orders = pd.DataFrame(columns=["signal_date", "execution_date", "side", "size", "price", "fees"])
-    result = SimpleNamespace(equity=equity, orders=orders, factor_events=pd.DataFrame())
+    result = PeriodBacktestResult(None, equity, orders, {}, pd.DataFrame())
     monkeypatch.setattr(
         "czsc_trader.candidate_evaluation.run_period_backtests",
         lambda *args, **kwargs: calls.__setitem__("backtest", calls["backtest"] + 1) or {"full": result},
@@ -240,6 +252,36 @@ def test_real_regime_candidates_match_reference_path():
         context, protocol, selected, selected_ids, "SCREENING",
     )
     assert [item.to_dict() for item in optimized] == [item.to_dict() for item in reference]
+
+
+@pytest.mark.archive
+def test_parallel_regime_candidates_match_reference_path():
+    root = Path(__file__).resolve().parents[1]
+    experiment = root / "experiments" / "0903_EX04"
+    manifest = json.loads((experiment / "candidate_manifest.json").read_text(encoding="utf-8"))
+    protocol = EvaluationProtocol.from_dict(
+        json.loads((experiment / "evaluation_protocol.json").read_text(encoding="utf-8"))
+    )
+    selected = tuple(manifest["candidates"][:32])
+    selected_ids = tuple(item["candidate_id"] for item in selected)
+    full = manifest["windows"]["full"]
+    periods = (("full", (pd.Timestamp(full["start"]), pd.Timestamp(full["end"]))),)
+    repository = RepositoryContext.discover(root, explicit_root=root)
+    parallel_context = CandidateEvaluationContext(
+        repository, manifest["symbol"], manifest["asset_type"], periods,
+        manifest["fee_rate"], manifest["init_cash"], 2,
+    )
+    reference_context = CandidateEvaluationContext(
+        repository, manifest["symbol"], manifest["asset_type"], periods,
+        manifest["fee_rate"], manifest["init_cash"], 1,
+    )
+    parallel = evaluate_candidate_payloads(
+        parallel_context, protocol, selected, selected_ids, "SCREENING",
+    )
+    reference = _evaluate_candidate_payloads_reference(
+        reference_context, protocol, selected, selected_ids, "SCREENING",
+    )
+    assert [item.to_dict() for item in parallel] == [item.to_dict() for item in reference]
 
 
 def test_range_cycle_objectives_use_closed_range_to_range_trades():

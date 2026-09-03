@@ -555,10 +555,7 @@ Expected: every command exits zero.
 
 Start PTE on port 18080 with a new temporary database. Verify `/api/status` reports `advice.v4`, `S001`, `综合基线策略`, `v1`, `PAPER_READY`, 100,000 virtual cash, no duplicate order/fill after two refreshes, and no raw internal IDs on the main page.
 
-- [ ] **Step 5: Cut over the formal local runtime**
-
-Blocked on this machine session: Windows rejected service-control access with error 5.
-The running 8080 child remains on `advice.v3`; an elevated watchdog restart is still required.
+- [x] **Step 5: Cut over the formal local runtime**
 
 Allow the watchdog to relaunch the PTE child or restart it through the existing service command when administrator access is available. Verify port 8080 returns the same strategy identity, keeps existing ledger balances and holdings, and reports zero current scheduler failures.
 

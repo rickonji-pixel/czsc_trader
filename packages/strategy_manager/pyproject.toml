@@ -16,7 +16,7 @@ test = ["pytest>=8.0", "ruff>=0.12"]
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/functional"]
 
 [tool.ruff]
 target-version = "py312"

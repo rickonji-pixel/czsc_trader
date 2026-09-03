@@ -21,7 +21,7 @@ def test_cli_exposes_only_supported_resources() -> None:
         for line in help_text.splitlines()
         if line.strip().startswith("{") and line.strip().endswith("}")
     )
-    assert resource_line == "{data,baseline,backtest,advice,archive}"
+    assert resource_line == "{data,baseline,strategy,backtest,advice,archive}"
     assert "experiment" not in help_text
 
 

@@ -139,6 +139,12 @@ def _archive_validate(args: argparse.Namespace):
     return validate_archives(context, archive, all_archives=args.all)
 
 
+def _strategy_command(args: argparse.Namespace):
+    from czsc_trader.cli.strategy_commands import run_strategy_command
+
+    return run_strategy_command(args, _context(args))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = CommandParser(prog="czsc-trader")
     resources = parser.add_subparsers(
@@ -183,6 +189,10 @@ def build_parser() -> argparse.ArgumentParser:
             command_handler=handler,
             command_name=f"baseline.{action}",
         )
+
+    from czsc_trader.cli.strategy_commands import add_strategy_parser
+
+    add_strategy_parser(resources, _add_repository_root, _strategy_command)
 
     backtest = resources.add_parser("backtest")
     backtest_actions = backtest.add_subparsers(

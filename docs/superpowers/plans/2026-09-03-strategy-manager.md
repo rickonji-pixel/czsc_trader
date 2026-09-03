@@ -272,6 +272,8 @@ git commit -m "feat: register comprehensive baseline as S001-v1"
 
 ### Task 4: Trader strategy façade and management commands
 
+**Status:** Complete
+
 **Files:**
 - Create: `src/czsc_trader/application/strategy_service.py`
 - Create: `src/czsc_trader/cli/strategy_commands.py`

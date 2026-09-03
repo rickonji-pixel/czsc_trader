@@ -24,6 +24,23 @@ def _metadata(resolved: ResolvedBaseline) -> dict[str, object]:
     }
 
 
+def _strategy_identity(context: RepositoryContext, version: str) -> dict[str, object]:
+    from strategy_manager import StrategyManagerError, StrategyRegistry
+
+    try:
+        registry = StrategyRegistry(context.strategy_root)
+        release = registry.resolve_strategy(version)
+        strategy = registry.get_strategy(release.strategy_id)
+        return {
+            "strategy_id": release.strategy_id,
+            "strategy_name": strategy.name,
+            "strategy_version": release.version,
+            "release_hash": release.release_hash,
+        }
+    except StrategyManagerError:
+        return {}
+
+
 def list_baselines(context: RepositoryContext) -> CommandResult:
     path = context.baseline_root / "registry.json"
     try:
@@ -36,6 +53,7 @@ def list_baselines(context: RepositoryContext) -> CommandResult:
                 "strategy": entry.get("strategy", "czsc_fixed_rule"),
                 "scope": entry.get("scope", "generic"),
                 "symbol": entry.get("symbol"),
+                **_strategy_identity(context, version),
             }
             for version, entry in sorted(baselines.items())
         ]
@@ -78,7 +96,11 @@ def show_baseline(
     return CommandResult(
         status="PASS",
         command="baseline.show",
-        result={**_metadata(resolved), "rule": resolved.rule_payload},
+        result={
+            **_metadata(resolved),
+            **_strategy_identity(context, version),
+            "rule": resolved.rule_payload,
+        },
     )
 
 
@@ -92,5 +114,5 @@ def validate_baseline(
     return CommandResult(
         status="PASS",
         command="baseline.validate",
-        result=_metadata(resolved),
+        result={**_metadata(resolved), **_strategy_identity(context, version)},
     )

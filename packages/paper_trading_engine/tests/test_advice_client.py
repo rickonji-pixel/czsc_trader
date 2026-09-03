@@ -12,7 +12,7 @@ def payload(*, order: dict[str, object] | None = None) -> dict[str, object]:
         "status": "PASS",
         "command": "advice.run",
         "result": {
-            "contract_version": "advice.v3",
+            "contract_version": "advice.v4",
             "decision_id": "DEC-ABC123",
             "symbol": "588080.SH",
             "signal_date": "2026-09-01",
@@ -26,7 +26,14 @@ def payload(*, order: dict[str, object] | None = None) -> dict[str, object]:
             "unallocated_cash": 1_000_000.0 if order is None else 915_557.8,
             "delta_quantity": 0 if order is None else 50_000,
             "action": "WAIT" if order is None else "BUY",
-            "baseline": {"version": "baseline_20260903", "sha256": "b" * 64},
+            "strategy": {
+                "strategy_id": "S001",
+                "name": "综合基线策略",
+                "version": "v1",
+                "release_id": "S001-v1",
+                "release_hash": "b" * 64,
+                "qualification": "PAPER_READY",
+            },
             "signal_reference_price": 1.7043736,
             "execution_reference_price": 1.688,
             "data_cutoff": "2026-09-01",
@@ -61,7 +68,9 @@ def test_advice_decision_parses_wait_and_limit_order() -> None:
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
-        (lambda value: value["result"].update(contract_version="advice.v1"), "version"),
+        (lambda value: value["result"].update(contract_version="advice.v3"), "version"),
+        (lambda value: value["result"]["strategy"].update(strategy_id="baseline-143"), "strategy"),
+        (lambda value: value["result"]["strategy"].update(release_hash="bad"), "hash"),
         (lambda value: value["result"]["order"].update(limit_price="1.688"), "price"),
         (lambda value: value["result"]["order"].update(quantity=50), "100-share"),
         (lambda value: value.update(status="FAIL"), "failed"),
@@ -104,7 +113,7 @@ def test_cli_advice_client_uses_shell_free_explicit_arguments(tmp_path: Path) ->
     )
     decision = client.get_decision(
         actual_quantity=0, available_cash=1_000_000.0,
-        cycle_target_quantity=50_000, baseline="baseline_20260903",
+        cycle_target_quantity=50_000, strategy_id="S001", strategy_version="v1",
     )
 
     assert decision.decision_id == "DEC-ABC123"
@@ -123,8 +132,10 @@ def test_cli_advice_client_uses_shell_free_explicit_arguments(tmp_path: Path) ->
         "1000000.00",
         "--cycle-target-quantity",
         "50000",
-        "--baseline",
-        "baseline_20260903",
+        "--strategy",
+        "S001",
+        "--strategy-version",
+        "v1",
         "--repo-root",
         str(tmp_path.resolve()),
         "--data-dir",

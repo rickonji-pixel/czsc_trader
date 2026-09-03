@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 import math
+import re
 from typing import Any
 
 
@@ -66,7 +67,7 @@ class AdviceDecision:
     cycle_target_quantity: int
     delta_quantity: int
     action: str
-    baseline: dict[str, str]
+    strategy: dict[str, str]
     signal_reference_price: float
     execution_reference_price: float
     data_cutoff: date
@@ -84,7 +85,7 @@ class AdviceDecision:
             raise AdviceContractError("advice command failed")
         value = _object(outer.get("result"), "result")
         version = str(value.get("contract_version", ""))
-        if version != "advice.v3":
+        if version != "advice.v4":
             raise AdviceContractError(f"unsupported advice contract version: {version}")
         try:
             signal_date = date.fromisoformat(str(value["signal_date"]))
@@ -115,7 +116,32 @@ class AdviceDecision:
                 raise AdviceContractError("order does not match action and quantity delta")
         if (len(orders) == 1 and order != orders[0]) or (len(orders) != 1 and order is not None):
             raise AdviceContractError("order shortcut does not match orders")
-        baseline = _object(value.get("baseline"), "baseline")
+        strategy = _object(value.get("strategy"), "strategy")
+        expected_strategy_fields = {
+            "strategy_id",
+            "name",
+            "version",
+            "release_id",
+            "release_hash",
+            "qualification",
+        }
+        if set(strategy) != expected_strategy_fields:
+            raise AdviceContractError("strategy identity fields are incomplete")
+        strategy_id = str(strategy["strategy_id"])
+        strategy_version = str(strategy["version"])
+        release_hash = str(strategy["release_hash"])
+        if re.fullmatch(r"S[0-9]{3}", strategy_id) is None:
+            raise AdviceContractError("strategy id has invalid format")
+        if re.fullmatch(r"v[1-9][0-9]*", strategy_version) is None:
+            raise AdviceContractError("strategy version has invalid format")
+        if strategy["release_id"] != f"{strategy_id}-{strategy_version}":
+            raise AdviceContractError("strategy release id is inconsistent")
+        if re.fullmatch(r"[0-9a-f]{64}", release_hash) is None:
+            raise AdviceContractError("strategy release hash has invalid format")
+        if strategy["qualification"] not in {"PAPER_READY", "LIVE_READY"}:
+            raise AdviceContractError("strategy qualification does not permit paper trading")
+        if not str(strategy["name"]).strip():
+            raise AdviceContractError("strategy name is required")
         return cls(
             contract_version=version,
             decision_id=str(value.get("decision_id", "")),
@@ -127,7 +153,7 @@ class AdviceDecision:
             cycle_target_quantity=cycle_target,
             delta_quantity=delta,
             action=action,
-            baseline={"version": str(baseline.get("version", "")), "sha256": str(baseline.get("sha256", ""))},
+            strategy={key: str(strategy[key]) for key in expected_strategy_fields},
             signal_reference_price=float(value["signal_reference_price"]),
             execution_reference_price=float(value["execution_reference_price"]),
             data_cutoff=data_cutoff,

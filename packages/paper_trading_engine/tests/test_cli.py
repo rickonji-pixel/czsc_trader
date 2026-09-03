@@ -74,7 +74,7 @@ def test_account_commands_parse_with_runtime_defaults(tmp_path: Path) -> None:
     create = build_parser().parse_args([
         "account", "create", "--repo-root", str(tmp_path),
         "--account-id", "range-2", "--name", "Range 2",
-        "--baseline", "baseline_20260903",
+        "--strategy", "S001", "--strategy-version", "v1",
     ])
     pause = build_parser().parse_args([
         "account", "pause", "--repo-root", str(tmp_path), "--account-id", "range-2",
@@ -88,17 +88,20 @@ def test_account_commands_parse_with_runtime_defaults(tmp_path: Path) -> None:
 def test_account_create_list_pause_resume_without_broker(tmp_path: Path, capsys, monkeypatch) -> None:
     from paper_trading_engine import cli
 
-    monkeypatch.setattr(cli, "_validate_baseline", lambda *args: {
-        "version": "baseline_20260903", "sha256": "a" * 64,
+    monkeypatch.setattr(cli, "_validate_strategy", lambda *args: {
+        "strategy_id": "S001", "name": "综合基线策略", "version": "v1",
+        "release_id": "S001-v1", "release_hash": "a" * 64,
+        "qualification": "PAPER_READY", "strategy_payload": {},
     })
     base = ["--repo-root", str(tmp_path)]
     assert cli.main(["account", "create", *base, "--account-id", "range-2", "--name", "Range 2",
-                     "--baseline", "baseline_20260903", "--initial-cash", "1000000"]) == 0
+                     "--strategy", "S001", "--strategy-version", "v1",
+                     "--initial-cash", "1000000"]) == 0
     assert cli.main(["account", "pause", *base, "--account-id", "range-2"]) == 0
     assert cli.main(["account", "resume", *base, "--account-id", "range-2"]) == 0
     assert cli.main(["account", "list", *base]) == 0
     documents = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
-    assert documents[0]["result"]["baseline_sha256"] == "a" * 64
+    assert documents[0]["result"]["release_hash"] == "a" * 64
     assert documents[1]["result"]["paused"] == 1
     assert documents[2]["result"]["paused"] == 0
     assert documents[3]["result"][0]["account_id"] == "range-2"

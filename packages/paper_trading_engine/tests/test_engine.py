@@ -12,7 +12,7 @@ from paper_trading_engine.contracts import AdviceDecision, OrderSpec
 def decision(order: OrderSpec | None = None) -> AdviceDecision:
     quantity = 0 if order is None else order.quantity
     return AdviceDecision(
-        contract_version="advice.v3",
+        contract_version="advice.v4",
         decision_id="DEC-ONE",
         symbol="588080.SH",
         signal_date=date(2026, 9, 1),
@@ -22,7 +22,14 @@ def decision(order: OrderSpec | None = None) -> AdviceDecision:
         cycle_target_quantity=quantity,
         delta_quantity=quantity,
         action="WAIT" if order is None else "BUY",
-        baseline={"version": "baseline_20260903", "sha256": "b" * 64},
+        strategy={
+            "strategy_id": "S001",
+            "name": "综合基线策略",
+            "version": "v1",
+            "release_id": "S001-v1",
+            "release_hash": "b" * 64,
+            "qualification": "PAPER_READY",
+        },
         signal_reference_price=1.704,
         execution_reference_price=1.688,
         data_cutoff=date(2026, 9, 1),
@@ -46,7 +53,8 @@ class FakeAdvice:
 
     def get_decision(
         self, actual_quantity: int, available_cash: float,
-        cycle_target_quantity: int | None = None, baseline: str | None = None,
+        cycle_target_quantity: int | None = None, strategy_id: str | None = None,
+        strategy_version: str | None = None, baseline: str | None = None,
     ) -> AdviceDecision:
         self.calls.append(actual_quantity)
         return replace(self.value, actual_quantity=actual_quantity)
@@ -187,7 +195,8 @@ def test_partial_fill_does_not_submit_again_while_original_order_is_active(tmp_p
     class QuantityAwareAdvice:
         def get_decision(
             self, actual_quantity: int, available_cash: float,
-            cycle_target_quantity: int | None = None, baseline: str | None = None,
+            cycle_target_quantity: int | None = None, strategy_id: str | None = None,
+            strategy_version: str | None = None, baseline: str | None = None,
         ) -> AdviceDecision:
             remaining = 50_000 - actual_quantity
             return replace(

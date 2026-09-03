@@ -71,6 +71,11 @@ class PaperStore:
                 name TEXT NOT NULL,
                 baseline_version TEXT NOT NULL,
                 baseline_sha256 TEXT NOT NULL,
+                strategy_id TEXT,
+                strategy_name_snapshot TEXT,
+                strategy_version TEXT,
+                release_hash TEXT,
+                qualification_snapshot TEXT,
                 symbol TEXT NOT NULL DEFAULT '588080.SH',
                 initial_cash TEXT NOT NULL,
                 cash TEXT NOT NULL,
@@ -148,11 +153,25 @@ class PaperStore:
         self._ensure_column("virtual_accounts", "last_decision_payload", "TEXT")
         self._ensure_column("virtual_accounts", "health", "TEXT NOT NULL DEFAULT 'READY'")
         self._ensure_column("virtual_accounts", "last_error", "TEXT")
+        self._ensure_column("virtual_accounts", "strategy_id", "TEXT")
+        self._ensure_column("virtual_accounts", "strategy_name_snapshot", "TEXT")
+        self._ensure_column("virtual_accounts", "strategy_version", "TEXT")
+        self._ensure_column("virtual_accounts", "release_hash", "TEXT")
+        self._ensure_column("virtual_accounts", "qualification_snapshot", "TEXT")
         self._ensure_column("virtual_fills", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_fills", "fill_sequence", "INTEGER NOT NULL DEFAULT 1")
         self._ensure_column("virtual_fills", "source", "TEXT NOT NULL DEFAULT 'VIRTUAL_MODEL'")
         self._connection.execute(
             "UPDATE virtual_accounts SET total_assets=initial_cash WHERE total_assets='0.0000' AND quantity=0"
+        )
+        self._connection.execute(
+            "UPDATE virtual_accounts SET strategy_id='S001',strategy_name_snapshot='综合基线策略',"
+            "strategy_version='v1',release_hash=?,qualification_snapshot='PAPER_READY' "
+            "WHERE strategy_id IS NULL AND baseline_version='baseline_20260903' AND baseline_sha256=?",
+            (
+                "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
+                "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
+            ),
         )
         self._connection.commit()
 
@@ -199,7 +218,9 @@ class PaperStore:
 
     def create_virtual_account(
         self, account_id, name, baseline_version, baseline_sha256, initial_cash,
-        *, symbol="588080.SH", is_futu_reference=False,
+        *, symbol="588080.SH", is_futu_reference=False, strategy_id=None,
+        strategy_name_snapshot=None, strategy_version=None, release_hash=None,
+        qualification_snapshot=None,
     ):
         from decimal import Decimal
         cash = Decimal(initial_cash).quantize(Decimal("0.0001"))
@@ -211,13 +232,39 @@ class PaperStore:
             raise ValueError("account name and baseline version are required")
         if re.fullmatch(r"[0-9a-f]{64}", str(baseline_sha256).lower()) is None:
             raise ValueError("baseline sha256 must contain 64 hexadecimal characters")
+        strategy_values = (
+            strategy_id,
+            strategy_name_snapshot,
+            strategy_version,
+            release_hash,
+            qualification_snapshot,
+        )
+        if any(value is not None for value in strategy_values):
+            if any(value is None for value in strategy_values):
+                raise ValueError("formal strategy identity must be complete")
+            if re.fullmatch(r"S[0-9]{3}", str(strategy_id)) is None:
+                raise ValueError("strategy id has invalid format")
+            if re.fullmatch(r"v[1-9][0-9]*", str(strategy_version)) is None:
+                raise ValueError("strategy version has invalid format")
+            if re.fullmatch(r"[0-9a-f]{64}", str(release_hash)) is None:
+                raise ValueError("strategy release hash has invalid format")
+            if qualification_snapshot not in {"PAPER_READY", "LIVE_READY"}:
+                raise ValueError("strategy qualification does not permit paper trading")
         now = _utc_now()
         with self._lock, self._connection:
             if is_futu_reference:
                 self._connection.execute("UPDATE virtual_accounts SET is_futu_reference=0")
             self._connection.execute(
-                "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,symbol,initial_cash,cash,total_assets,is_futu_reference,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                (account_id, name, baseline_version, baseline_sha256, symbol.upper(), str(cash), str(cash), str(cash), int(is_futu_reference), now, now),
+                "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,"
+                "strategy_id,strategy_name_snapshot,strategy_version,release_hash,"
+                "qualification_snapshot,symbol,initial_cash,cash,total_assets,is_futu_reference,"
+                "created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    account_id, name, baseline_version, baseline_sha256, strategy_id,
+                    strategy_name_snapshot, strategy_version, release_hash,
+                    qualification_snapshot, symbol.upper(), str(cash), str(cash), str(cash),
+                    int(is_futu_reference), now, now,
+                ),
             )
         return self.virtual_account(account_id)
 

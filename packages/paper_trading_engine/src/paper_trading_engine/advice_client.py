@@ -40,6 +40,8 @@ class CliAdviceClient:
         actual_quantity: int,
         available_cash: float,
         cycle_target_quantity: int | None = None,
+        strategy_id: str | None = None,
+        strategy_version: str | None = None,
         baseline: str | None = None,
     ) -> AdviceDecision:
         arguments = [
@@ -57,7 +59,11 @@ class CliAdviceClient:
         ]
         if cycle_target_quantity is not None:
             arguments.extend(["--cycle-target-quantity", str(cycle_target_quantity)])
-        if baseline is not None:
+        if strategy_id is not None:
+            arguments.extend(["--strategy", strategy_id])
+            if strategy_version is not None:
+                arguments.extend(["--strategy-version", strategy_version])
+        elif baseline is not None:
             arguments.extend(["--baseline", baseline])
         arguments.extend(
             [

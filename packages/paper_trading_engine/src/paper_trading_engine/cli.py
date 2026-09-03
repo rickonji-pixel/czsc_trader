@@ -30,6 +30,15 @@ class PortUnavailableError(RuntimeError):
 
 DEFAULT_VIRTUAL_INITIAL_CASH = Decimal("100000.0000")
 LEGACY_VIRTUAL_INITIAL_CASH = Decimal("1000000.0000")
+CURRENT_STRATEGY_ID = "S001"
+CURRENT_STRATEGY_NAME = "综合基线策略"
+CURRENT_STRATEGY_VERSION = "v1"
+CURRENT_RELEASE_HASH = "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62"
+CURRENT_QUALIFICATION = "PAPER_READY"
+CURRENT_LEGACY_BASELINE = "baseline_20260903"
+CURRENT_LEGACY_BASELINE_HASH = (
+    "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331"
+)
 
 
 def probe_port(host: str, port: int) -> None:
@@ -92,7 +101,10 @@ def build_parser() -> argparse.ArgumentParser:
     _common(create)
     create.add_argument("--account-id", required=True)
     create.add_argument("--name", required=True)
-    create.add_argument("--baseline", required=True)
+    identity = create.add_mutually_exclusive_group(required=True)
+    identity.add_argument("--strategy")
+    identity.add_argument("--baseline")
+    create.add_argument("--strategy-version")
     create.add_argument("--initial-cash", default="100000")
     create.add_argument("--futu-reference", action="store_true")
     return parser
@@ -125,9 +137,14 @@ def build_engine(args: argparse.Namespace):
         account = store.virtual_account("baseline-143")
     except KeyError:
         store.create_virtual_account(
-            "baseline-143", "候选143", "baseline_20260903",
-            "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
-            DEFAULT_VIRTUAL_INITIAL_CASH, is_futu_reference=True,
+            "baseline-143", "候选143", CURRENT_LEGACY_BASELINE,
+            CURRENT_LEGACY_BASELINE_HASH, DEFAULT_VIRTUAL_INITIAL_CASH,
+            strategy_id=CURRENT_STRATEGY_ID,
+            strategy_name_snapshot=CURRENT_STRATEGY_NAME,
+            strategy_version=CURRENT_STRATEGY_VERSION,
+            release_hash=CURRENT_RELEASE_HASH,
+            qualification_snapshot=CURRENT_QUALIFICATION,
+            is_futu_reference=True,
         )
     else:
         if Decimal(account["initial_cash"]) == LEGACY_VIRTUAL_INITIAL_CASH:
@@ -137,12 +154,16 @@ def build_engine(args: argparse.Namespace):
                 new_initial_cash=DEFAULT_VIRTUAL_INITIAL_CASH,
             )
         expected = (
-            "候选143", "baseline_20260903",
-            "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
+            "候选143", CURRENT_LEGACY_BASELINE, CURRENT_LEGACY_BASELINE_HASH,
+            CURRENT_STRATEGY_ID, CURRENT_STRATEGY_NAME, CURRENT_STRATEGY_VERSION,
+            CURRENT_RELEASE_HASH, CURRENT_QUALIFICATION,
             args.symbol.upper(), str(DEFAULT_VIRTUAL_INITIAL_CASH),
         )
         actual = (
             account["name"], account["baseline_version"], account["baseline_sha256"],
+            account["strategy_id"], account["strategy_name_snapshot"],
+            account["strategy_version"], account["release_hash"],
+            account["qualification_snapshot"],
             account["symbol"], account["initial_cash"],
         )
         if actual != expected:
@@ -163,20 +184,29 @@ def build_publisher(args: argparse.Namespace) -> CliDataPublisher:
     )
 
 
-def _validate_baseline(args: argparse.Namespace) -> dict[str, object]:
+def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
     executable = args.advice_executable or _default_executable(args.repo_root)
+    reference = args.strategy or args.baseline
+    command = [
+        str(executable), "strategy", "show", "--repo-root", str(args.repo_root),
+        "--strategy", reference,
+    ]
+    if args.strategy_version:
+        command.extend(["--version", args.strategy_version])
     completed = subprocess.run(
-        [str(executable), "baseline", "validate", "--repo-root", str(args.repo_root),
-         "--version", args.baseline, "--symbol", args.symbol],
+        command,
         check=False, capture_output=True, text=True, encoding="utf-8",
     )
     try:
         payload = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(completed.stderr.strip() or "baseline validation returned invalid JSON") from exc
+        raise RuntimeError(completed.stderr.strip() or "strategy validation returned invalid JSON") from exc
     if completed.returncode or payload.get("status") != "PASS":
         error = payload.get("error", {})
-        raise RuntimeError(error.get("message") or "baseline validation failed")
+        raise RuntimeError(error.get("message") or "strategy validation failed")
+    qualification = payload["result"].get("qualification")
+    if qualification not in {"PAPER_READY", "LIVE_READY"}:
+        raise RuntimeError(f"strategy qualification cannot enter paper trading: {qualification}")
     return payload["result"]
 
 
@@ -189,7 +219,10 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             return store.set_virtual_paused(args.account_id, True)
         if args.account_action == "resume":
             return store.set_virtual_paused(args.account_id, False)
-        identity = _validate_baseline(args)
+        identity = _validate_strategy(args)
+        legacy = identity["strategy_payload"].get("legacy_identity", {})
+        baseline_version = legacy.get("version", identity["release_id"])
+        baseline_hash = legacy.get("sha256", identity["release_hash"])
         existing = None
         try:
             existing = store.virtual_account(args.account_id)
@@ -197,17 +230,25 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             pass
         if existing is not None:
             if (
-                existing["baseline_version"], existing["baseline_sha256"], existing["name"],
+                existing["strategy_id"], existing["strategy_version"],
+                existing["release_hash"], existing["name"],
                 existing["symbol"], existing["initial_cash"],
             ) != (
-                identity["version"], identity["sha256"], args.name, args.symbol.upper(),
+                identity["strategy_id"], identity["version"], identity["release_hash"],
+                args.name, args.symbol.upper(),
                 str(Decimal(args.initial_cash).quantize(Decimal("0.0001"))),
             ):
                 raise ValueError("account id already exists with a different immutable identity")
             return store.set_futu_reference(args.account_id) if args.futu_reference else existing
         return store.create_virtual_account(
-            args.account_id, args.name, identity["version"], identity["sha256"], args.initial_cash,
-            symbol=args.symbol, is_futu_reference=args.futu_reference,
+            args.account_id, args.name, baseline_version, baseline_hash, args.initial_cash,
+            strategy_id=identity["strategy_id"],
+            strategy_name_snapshot=identity["name"],
+            strategy_version=identity["version"],
+            release_hash=identity["release_hash"],
+            qualification_snapshot=identity["qualification"],
+            symbol=args.symbol,
+            is_futu_reference=args.futu_reference,
         )
     finally:
         store.close()

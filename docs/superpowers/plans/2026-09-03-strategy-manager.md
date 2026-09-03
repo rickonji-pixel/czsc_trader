@@ -398,6 +398,8 @@ git commit -m "feat: publish formal strategy identity in advice v4"
 
 ### Task 6: Bind PTE virtual accounts to strategy versions
 
+**Status:** Complete
+
 **Files:**
 - Modify: `packages/paper_trading_engine/src/paper_trading_engine/contracts.py`
 - Modify: `packages/paper_trading_engine/src/paper_trading_engine/advice_client.py`

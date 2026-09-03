@@ -49,12 +49,20 @@ class VirtualAccountEngine:
             decision = self.advice.get_decision(
                 int(account["quantity"]), float(account["cash"]),
                 cycle_target_quantity=account["cycle_target"],
-                baseline=account["baseline_version"],
+                strategy_id=account["strategy_id"],
+                strategy_version=account["strategy_version"],
             )
-            if decision.baseline != {
-                "version": account["baseline_version"], "sha256": account["baseline_sha256"]
-            }:
-                raise ValueError("advice baseline identity differs from virtual account")
+            expected_identity = {
+                "strategy_id": account["strategy_id"],
+                "version": account["strategy_version"],
+                "release_hash": account["release_hash"],
+            }
+            actual_identity = {
+                key: decision.strategy[key]
+                for key in ("strategy_id", "version", "release_hash")
+            }
+            if actual_identity != expected_identity:
+                raise ValueError("advice strategy release differs from virtual account")
             self.store.save_virtual_decision(
                 account_id, asdict(decision), decision.cycle_target_quantity or None,
             )

@@ -10,6 +10,11 @@ class VirtualAccount:
     name: str
     baseline_version: str
     baseline_sha256: str
+    strategy_id: str
+    strategy_name_snapshot: str
+    strategy_version: str
+    release_hash: str
+    qualification_snapshot: str
     symbol: str
     initial_cash: Decimal
     cash: Decimal

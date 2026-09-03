@@ -7,7 +7,10 @@ name = "czsc-strategy-evaluator"
 version = "0.1.0"
 description = "Deterministic OPC strategy challenger evaluation domain package"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "numpy>=2.4.6",
+    "scipy>=1.17",
+]
 
 [project.optional-dependencies]
 test = ["pytest>=8.0", "ruff>=0.12"]

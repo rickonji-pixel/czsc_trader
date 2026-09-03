@@ -15,7 +15,22 @@ from .models import (
     TrialRecord,
     ValidationError,
 )
-from .standards import OPC_V1, OPC_V2, EvaluationStandard, MarginSet, resolve_margins
+from .audit_models import (
+    AuditFinding,
+    AuditIdentity,
+    AuditStatus,
+    ChampionAuditRequest,
+    ChampionAuditResult,
+    ExecutionEvidence,
+    ExecutionOrder,
+    FactorEvent,
+    ParameterPoint,
+    ReturnMatrixEvidence,
+    RiskLabel,
+    StressScenario,
+    StressScenarioResult,
+)
+from .standards import OPC_V1, OPC_V2, OPC_V3, EvaluationStandard, MarginSet, resolve_margins
 from .validation import validate_protocol
 from .evaluator import finalize_evaluation, rank_candidates, screen_candidates
 from .noninferiority import compare_observation
@@ -29,7 +44,11 @@ __all__ = [
     "EvaluationResult", "HealthEvidence", "HealthStatus", "MetricComparison",
     "MetricObservation", "MetricStatus", "RankingResult", "ShortlistResult",
     "TargetRequirement", "TrialRecord", "ValidationError",
-    "EvaluationStandard", "MarginSet", "OPC_V1", "OPC_V2", "resolve_margins", "validate_protocol",
+    "AuditFinding", "AuditIdentity", "AuditStatus", "ChampionAuditRequest",
+    "ChampionAuditResult", "ExecutionEvidence", "ExecutionOrder", "FactorEvent",
+    "ParameterPoint", "ReturnMatrixEvidence", "RiskLabel", "StressScenario",
+    "StressScenarioResult", "EvaluationStandard", "MarginSet", "OPC_V1", "OPC_V2",
+    "OPC_V3", "resolve_margins", "validate_protocol",
     "compare_observation", "pareto_layers", "rank_candidates", "screen_candidates",
     "finalize_evaluation", "render_summary",
 ]

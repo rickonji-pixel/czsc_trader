@@ -17,6 +17,9 @@ from .models import (
 )
 from .standards import OPC_V1, EvaluationStandard, MarginSet, resolve_margins
 from .validation import validate_protocol
+from .evaluator import rank_candidates, screen_candidates
+from .noninferiority import compare_observation
+from .pareto import pareto_layers
 
 __version__ = "0.1.0"
 
@@ -26,4 +29,5 @@ __all__ = [
     "MetricObservation", "MetricStatus", "RankingResult", "ShortlistResult",
     "TargetRequirement", "TrialRecord", "ValidationError",
     "EvaluationStandard", "MarginSet", "OPC_V1", "resolve_margins", "validate_protocol",
+    "compare_observation", "pareto_layers", "rank_candidates", "screen_candidates",
 ]

@@ -12,7 +12,7 @@ from czsc_trader.data import load_execution_prices
 from czsc_trader.execution_policy import floor_to_tick, simulate_limit_policy
 from czsc_trader import market_data_prep
 
-from conftest import invoke_main, vendor_frame
+from functional_support import invoke_main, vendor_frame
 
 
 def test_ft_t01_data_prepare_validate_and_tamper_detection(

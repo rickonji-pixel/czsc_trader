@@ -4,7 +4,7 @@ from pathlib import Path
 
 from czsc_trader.experiment_archive import build_experiment_manifest
 
-from conftest import invoke_main, invoke_main_failure
+from functional_support import invoke_main, invoke_main_failure
 
 
 def test_ft_t07_archive_validation_is_portable_and_detects_tampering(

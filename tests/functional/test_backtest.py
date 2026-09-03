@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from conftest import invoke_main
+from functional_support import invoke_main
 
 
 METRIC_KEYS = {
@@ -97,4 +97,3 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     report = (output_dir / "report.md").read_text(encoding="utf-8")
     assert "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |" in report
     assert "无闭合交易" in report
-

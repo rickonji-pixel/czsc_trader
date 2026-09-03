@@ -5,7 +5,7 @@ from pathlib import Path
 
 from strategy_manager import StrategyRegistry
 
-from conftest import invoke_main
+from functional_support import invoke_main
 
 
 def _write_json(path: Path, payload: dict) -> Path:

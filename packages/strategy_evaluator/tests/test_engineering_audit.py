@@ -48,6 +48,20 @@ def test_reproducibility_checks_values_status_and_windows() -> None:
     assert audit_reproducibility(formal, formal[:1]).status is AuditStatus.INSUFFICIENT
 
 
+def test_reproducibility_treats_objective_values_as_an_order_independent_mapping() -> None:
+    from strategy_evaluator import AuditStatus, audit_reproducibility
+
+    formal = observations()
+    expected = replace(
+        formal[0], objective_values=(("net_cagr", 0.10), ("total_return", 0.10)),
+    )
+    repeated = replace(
+        formal[0], objective_values=(("total_return", 0.10), ("net_cagr", 0.10)),
+    )
+
+    assert audit_reproducibility((expected,), (repeated,)).status is AuditStatus.PASS
+
+
 def test_trial_ledger_checks_hashes_coverage_and_champion_eligibility() -> None:
     from strategy_evaluator import (
         AuditStatus, CandidateDescriptor, CandidateProfile, TrialRecord, audit_trial_ledger,

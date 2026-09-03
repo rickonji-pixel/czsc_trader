@@ -57,13 +57,16 @@ SQLite或运行状态；用户统一通过Trader的`strategy`资源操作。
 
 ### Strategy Evaluator
 
-独立包位于`packages/strategy_evaluator/`，只依赖Python标准库。它拥有不可变评估契约、
-版本化的`opc-v1`与`opc-v2`边界、非劣判断、最差窗口画像、Pareto分层、最终判定和一页
-摘要。v2仅将“负卡玛基线必须跨零”调整为“不得低于基线”，其余规则保持一致。它不读
-仓库、不执行回测、不写文件，也不改变SM或PTE状态。生产依赖方向固定为
+独立包位于`packages/strategy_evaluator/`，依赖NumPy和SciPy。它拥有不可变评估契约、
+版本化的`opc-v1`、`opc-v2`和`opc-v3`边界、非劣判断、最差窗口画像、Pareto分层、完整
+临时冠军审计、最终判定和一页摘要。v3把既有执行、重复性、账本和压力审计，与PBO、
+DSR、配对平稳区块Bootstrap及真实候选邻域检验统一内聚到SE。统计结论只产生
+`FAVORABLE/MIXED/WEAK`风险标签，不设数值自动否决。它不读仓库、不执行回测、不写
+文件，也不改变SM或PTE状态。生产依赖方向固定为
 `czsc_trader -> strategy_evaluator`；SM和PTE均不得导入它。
 
 Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执行模拟；
+`application/evaluation_evidence.py`构建不可变收益、参数、成交、因子和压力事实；
 `application/evaluation_service.py`负责实验输入、防覆盖哈希、原子产物、人工接受、SM
 冻结与PTE CLI注册。每次评价同时保存快速阶段全部指标、逐项非劣比较和每个候选的筛除
 去向；最终结果绑定三项筛选审计文件的内容哈希，重复读取会验证完整性。评估命令和接受
@@ -84,6 +87,11 @@ Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执�
 0903_EX05实测：固定64候选相对旧参考5.14倍；1,187项候选池冷启动114.33秒；复用EX04
 并补算正式与压力缺口后总运行23.08秒；结果落盘后的幂等复核5.33秒。EX05建议冻结
 R1102，但尚未执行人工接受。
+
+当前开发分支为`codex/se-statistical-audit`。`0903_EX06`复用EX05完全相同的1,187项候选，
+按OPC-v3重新产生R1102为唯一临时冠军；完整审计`PASS`、统计风险`MIXED`，端到端运行
+125.17秒，达到5分钟目标。PBO与配对Bootstrap偏正面，DSR中性，真实候选邻域偏弱。
+证据位于`statistical_audit.json`、收益矩阵CSV、Bootstrap/邻域/压力CSV和评估报告。
 
 接受日志位于实验根目录`evaluation_acceptance.json`。`PAPER_ACTIVATION_PENDING`表示SM
 已经冻结、仅PTE账户注册待重试；重复命令不得创建第二个版本。默认虚拟资金为10万元。

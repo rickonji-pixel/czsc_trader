@@ -139,7 +139,7 @@ def audit_reproducibility(
         "net_cagr", "total_return", "max_drawdown", "calmar", "profit_factor",
         "turnover", "cost_drag",
     )
-    exact = ("calmar_status", "profit_factor_status", "closed_trades", "objective_values")
+    exact = ("calmar_status", "profit_factor_status", "closed_trades")
     for key, left in expected.items():
         right = actual[key]
         for name in numeric:
@@ -151,6 +151,13 @@ def audit_reproducibility(
                 return _finding("reproducibility", AuditStatus.FAIL, "RECOMPUTE_VALUE_MISMATCH")
         if any(getattr(left, name) != getattr(right, name) for name in exact):
             return _finding("reproducibility", AuditStatus.FAIL, "RECOMPUTE_STATUS_MISMATCH")
+        left_objectives = dict(left.objective_values)
+        right_objectives = dict(right.objective_values)
+        if set(left_objectives) != set(right_objectives) or any(
+            abs(left_objectives[name] - right_objectives[name]) > tolerance
+            for name in left_objectives
+        ):
+            return _finding("reproducibility", AuditStatus.FAIL, "RECOMPUTE_VALUE_MISMATCH")
     return _finding("reproducibility", AuditStatus.PASS, observations_checked=len(expected))
 
 

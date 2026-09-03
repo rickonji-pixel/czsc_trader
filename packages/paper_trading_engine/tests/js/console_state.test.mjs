@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ScopedLoader, actionsForRoute, chooseAccountId, comparisonQuery, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ScopedLoader, actionsForRoute, channelOrderAccountLabel, chooseAccountId, comparisonQuery, formatBeijingTime, navigationOptions, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('routes preserve the complete resource identity', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -49,4 +49,19 @@ test('a stale account URL falls back to the current default account', () => {
   const accounts = [{account_id: 's001-v1'}, {account_id: 's001-v2'}];
   assert.equal(chooseAccountId('baseline-143', accounts, 's001-v1'), 's001-v1');
   assert.equal(chooseAccountId('s001-v2', accounts, 's001-v1'), 's001-v2');
+});
+
+test('account navigation preserves the current page after initial render', () => {
+  assert.deepEqual(navigationOptions(null), {showLoading: true, forceRender: false});
+  assert.deepEqual(navigationOptions('s001-v1'), {showLoading: false, forceRender: false});
+});
+
+test('Futu order ownership never guesses missing historical attribution', () => {
+  assert.equal(channelOrderAccountLabel({virtual_account_id: 's001-v2'}), 's001-v2');
+  assert.equal(channelOrderAccountLabel({}), '历史未记录');
+});
+
+test('UTC timestamps are rendered in Beijing time', () => {
+  assert.equal(formatBeijingTime('2026-09-03T11:00:11.806715+00:00'), '2026-09-03 19:00:11');
+  assert.equal(formatBeijingTime(null), '—');
 });

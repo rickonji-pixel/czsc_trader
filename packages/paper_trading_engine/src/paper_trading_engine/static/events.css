@@ -41,6 +41,7 @@
 .event details { margin-top: 8px; color: var(--muted); font-size: 12px; }
 .event summary { cursor: pointer; }
 .event pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0 0; padding: 10px; border-radius: 8px; background: #07101d; color: #b9c9dc; }
+.layout > .sidebar { height: auto; align-self: stretch; }
 @media (max-width: 900px) {
   .system-status { display: block; width: 100%; text-align: left; }
 }

@@ -351,7 +351,9 @@ class PaperTradingEngine:
             quantity=order.quantity,
             limit_price=order.limit_price,
         )
+        intent_payload = {**asdict(intent), **self._virtual_account_audit(decision)}
         if matching is not None:
+            self.store.save_intent(intent_id, decision_key, intent_payload)
             self.store.bind_intent(intent_id, matching.channel_order_id, matching.status)
             return
         if existing is not None:
@@ -359,8 +361,10 @@ class PaperTradingEngine:
                 return
             self.store.add_event("ORDER_INTENT_RECOVERED", asdict(intent))
         else:
-            self.store.save_intent(intent_id, decision_key, asdict(intent))
-            self.store.add_event("ORDER_INTENT_CREATED", asdict(intent))
+            self.store.save_intent(intent_id, decision_key, intent_payload)
+            self.store.add_event("ORDER_INTENT_CREATED", intent_payload)
+        if existing is not None:
+            self.store.save_intent(intent_id, decision_key, intent_payload)
         submitted = self.broker.place_order(intent)
         self._reconcile_order(submitted)
         self._orders = tuple(
@@ -371,6 +375,36 @@ class PaperTradingEngine:
             "ORDER_SUBMITTED",
             {"intent_id": intent_id, "channel_order_id": submitted.channel_order_id},
         )
+
+    def _virtual_account_audit(self, decision: AdviceDecision) -> dict[str, object]:
+        if not self.binding_required:
+            return {
+                "virtual_account_id": None,
+                "strategy_release_id": decision.strategy.get("release_id"),
+                "release_hash": decision.strategy.get("release_hash"),
+            }
+        matches = [
+            account for account in self.store.virtual_accounts()
+            if (
+                account.get("strategy_id"), account.get("strategy_version"),
+                account.get("release_hash"),
+            ) == (
+                decision.strategy.get("strategy_id"), decision.strategy.get("version"),
+                decision.strategy.get("release_hash"),
+            )
+        ]
+        preferred = [account for account in matches if account.get("is_futu_reference")]
+        if len(preferred) == 1:
+            account = preferred[0]
+        elif len(matches) == 1:
+            account = matches[0]
+        else:
+            raise PaperTradingSafetyError("Futu订单无法唯一关联虚拟账户，已阻止提交")
+        return {
+            "virtual_account_id": account["account_id"],
+            "strategy_release_id": decision.strategy.get("release_id"),
+            "release_hash": decision.strategy.get("release_hash"),
+        }
 
     @synchronized
     def pause(self) -> dict[str, object]:

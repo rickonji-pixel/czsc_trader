@@ -203,6 +203,57 @@ def test_engine_persists_intent_before_submit_and_is_idempotent(tmp_path: Path) 
     assert second["orders"][0]["channel_order_id"] == "1001"
 
 
+def test_bound_submission_persists_virtual_account_audit_identity(tmp_path: Path) -> None:
+    from paper_trading_engine.channel_binding import bind_channel_strategy
+    from paper_trading_engine.engine import PaperTradingEngine
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "bound-order.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "S001-v1", "b" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", is_futu_reference=True,
+    )
+    bind_channel_strategy(store, decision().strategy, "tomxiao", "测试绑定", [])
+    broker = FakeBroker()
+    broker.store = store
+    engine = PaperTradingEngine(
+        store, broker, FakeAdvice(decision(OrderSpec("BUY", 50_000, "LIMIT", 1.688, "DAY"))),
+        symbol="588080.SH", binding_required=True,
+        today=lambda: date(2026, 9, 2),
+        now=lambda: datetime.fromisoformat("2026-09-02T09:30:00+08:00"),
+    )
+
+    result = engine.refresh()
+
+    order = result["orders"][0]
+    assert order["virtual_account_id"] == "s001-v1"
+    assert order["strategy_release_id"] == "S001-v1"
+    assert order["decision_id"] == "DEC-ONE"
+    assert order["intent_id"] == "PTE-DEC-ONE"
+    assert order["created_at"]
+    engine.close()
+
+
+def test_broker_order_without_persisted_attribution_remains_unattributed(tmp_path: Path) -> None:
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "historical-order.db")
+    store.upsert_order({
+        "channel_order_id": "old-1", "symbol": "588080.SH", "side": "BUY",
+        "quantity": 100, "limit_price": 1.5, "status": "FILLED_ALL",
+        "cumulative_filled_quantity": 100, "average_fill_price": 1.5, "remark": "manual",
+    })
+
+    order = store.orders()[0]
+
+    assert order["virtual_account_id"] is None
+    assert order["strategy_release_id"] is None
+    assert order["decision_id"] is None
+    store.close()
+
+
 def test_split_orders_submit_one_slice_at_a_time(tmp_path: Path) -> None:
     from paper_trading_engine.engine import BrokerOrder
 

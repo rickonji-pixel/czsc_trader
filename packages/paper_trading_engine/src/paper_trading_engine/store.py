@@ -53,6 +53,7 @@ class PaperStore:
                 channel_order_id TEXT PRIMARY KEY,
                 payload TEXT NOT NULL,
                 cumulative_filled_quantity INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS snapshots (
@@ -161,6 +162,10 @@ class PaperStore:
         self._ensure_column("virtual_fills", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_fills", "fill_sequence", "INTEGER NOT NULL DEFAULT 1")
         self._ensure_column("virtual_fills", "source", "TEXT NOT NULL DEFAULT 'VIRTUAL_MODEL'")
+        self._ensure_column("orders", "created_at", "TEXT")
+        self._connection.execute(
+            "UPDATE orders SET created_at=updated_at WHERE created_at IS NULL"
+        )
         self._connection.execute(
             "UPDATE virtual_accounts SET total_assets=initial_cash WHERE total_assets='0.0000' AND quantity=0"
         )
@@ -642,7 +647,9 @@ class PaperStore:
             self._connection.execute(
                 "INSERT OR IGNORE INTO intents"
                 "(intent_id, decision_id, payload, status, created_at, updated_at) "
-                "VALUES(?, ?, ?, 'PENDING_SUBMIT', ?, ?)",
+                "VALUES(?, ?, ?, 'PENDING_SUBMIT', ?, ?) "
+                "ON CONFLICT(intent_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at "
+                "WHERE intents.status='PENDING_SUBMIT' AND intents.channel_order_id IS NULL",
                 (intent_id, decision_id, json.dumps(payload, default=str), now, now),
             )
 
@@ -691,20 +698,36 @@ class PaperStore:
             if cumulative < previous:
                 raise ValueError("cumulative filled quantity cannot decrease")
             self._connection.execute(
-                "INSERT INTO orders(channel_order_id, payload, cumulative_filled_quantity, updated_at) "
-                "VALUES(?, ?, ?, ?) ON CONFLICT(channel_order_id) DO UPDATE SET "
+                "INSERT INTO orders(channel_order_id, payload, cumulative_filled_quantity, created_at, updated_at) "
+                "VALUES(?, ?, ?, ?, ?) ON CONFLICT(channel_order_id) DO UPDATE SET "
                 "payload=excluded.payload, cumulative_filled_quantity=excluded.cumulative_filled_quantity, "
                 "updated_at=excluded.updated_at",
-                (channel_order_id, json.dumps(order, default=str), cumulative, _utc_now()),
+                (channel_order_id, json.dumps(order, default=str), cumulative, _utc_now(), _utc_now()),
             )
         return cumulative - previous
 
     def orders(self) -> list[dict[str, Any]]:
         with self._lock:
             rows = self._connection.execute(
-                "SELECT payload FROM orders ORDER BY updated_at DESC"
+                "SELECT o.payload,o.created_at,o.updated_at,i.intent_id,i.decision_id,"
+                "i.payload AS intent_payload FROM orders o LEFT JOIN intents i "
+                "ON i.channel_order_id=o.channel_order_id ORDER BY o.updated_at DESC"
             ).fetchall()
-        return [json.loads(row["payload"]) for row in rows]
+        result = []
+        for row in rows:
+            order = json.loads(row["payload"])
+            audit = json.loads(row["intent_payload"]) if row["intent_payload"] else {}
+            order.update({
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+                "intent_id": row["intent_id"],
+                "decision_id": row["decision_id"],
+                "virtual_account_id": audit.get("virtual_account_id"),
+                "strategy_release_id": audit.get("strategy_release_id"),
+                "release_hash": audit.get("release_hash"),
+            })
+            result.append(order)
+        return result
 
     def save_snapshot(self, payload: dict[str, object]) -> None:
         with self._lock, self._connection:

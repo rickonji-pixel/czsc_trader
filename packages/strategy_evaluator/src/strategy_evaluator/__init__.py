@@ -55,6 +55,12 @@ from .bootstrap import (
     paired_stationary_bootstrap,
     performance_metrics,
 )
+from .neighborhood import (
+    NeighborhoodAudit,
+    NeighborhoodMetric,
+    NeighborhoodRow,
+    audit_parameter_neighborhood,
+)
 
 __version__ = "0.1.0"
 
@@ -75,4 +81,6 @@ __all__ = [
     "deflated_sharpe_ratio", "effective_trial_count",
     "BootstrapComparison", "BootstrapMetric", "PerformanceMetrics",
     "audit_pairwise_bootstrap", "paired_stationary_bootstrap", "performance_metrics",
+    "NeighborhoodAudit", "NeighborhoodMetric", "NeighborhoodRow",
+    "audit_parameter_neighborhood",
 ]

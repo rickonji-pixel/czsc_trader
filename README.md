@@ -32,6 +32,7 @@
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```

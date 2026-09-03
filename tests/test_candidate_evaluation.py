@@ -200,7 +200,12 @@ def test_regime_candidates_share_normalization_regime_and_realized_behavior(monk
     )
     monkeypatch.setattr(
         "czsc_trader.candidate_evaluation.audit_no_lookahead",
+        lambda *args: (_ for _ in ()).throw(AssertionError("slow audit path used")),
+    )
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.audit_candidate_evaluation",
         lambda *args: calls.__setitem__("audit", calls["audit"] + 1),
+        raising=False,
     )
     monkeypatch.setattr("czsc_trader.candidate_evaluation.range_cycle_objectives", lambda *args: ())
     repository = SimpleNamespace(raw_dir=tmp_path, baseline_root=tmp_path)

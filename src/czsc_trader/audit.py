@@ -6,6 +6,88 @@ import numpy as np
 import pandas as pd
 
 
+def audit_candidate_evaluation(
+    period_results: dict[str, object],
+    target_position: pd.Series,
+    factor_events: pd.DataFrame,
+    scores: pd.Series,
+) -> dict[str, int | str]:
+    """Audit evaluation orders once per candidate without building provenance frames."""
+    target = target_position.astype(float)
+    if target.isna().any() or not np.isfinite(target).all() or not target.between(0.0, 1.0).all():
+        raise AssertionError("target_position contains values outside [0, 1]")
+    index = pd.DatetimeIndex(pd.to_datetime(target.index), name="dt")
+    if not index.is_monotonic_increasing or index.has_duplicates:
+        raise AssertionError("target_position index must be unique and increasing")
+    if not target.index.equals(scores.index):
+        raise AssertionError("factor scores differ from target index")
+    target_values = target.to_numpy()
+    score_values = scores.astype(float).to_numpy()
+    locations = {timestamp: location for location, timestamp in enumerate(index)}
+
+    event_map: dict[tuple[pd.Timestamp, str], list[dict[str, object]]] = {}
+    for event in factor_events.to_dict("records"):
+        key = (pd.Timestamp(event["signal_date"]), str(event["event_type"]))
+        event_map.setdefault(key, []).append(event)
+
+    orders_checked = 0
+    expected_by_side = {"Buy": ("Entry", "Increase"), "Sell": ("Reduce", "Exit")}
+    for result in period_results.values():
+        orders = result.orders
+        if orders.empty:
+            continue
+        period_start = pd.Timestamp(result.metrics["start"])
+        for order in orders.itertuples(index=False):
+            orders_checked += 1
+            signal_date = pd.Timestamp(order.signal_date)
+            execution_date = pd.Timestamp(order.execution_date)
+            side = str(order.side)
+            location = locations.get(signal_date, -1)
+            if location < 0 or location + 1 >= len(index):
+                raise AssertionError("order signal date has no next trading date")
+            if not signal_date < execution_date or execution_date != index[location + 1]:
+                raise AssertionError("every order must execute on the next trading date")
+            before = 0.0 if location == 0 else float(target_values[location - 1])
+            after = float(target_values[location])
+            initial = execution_date == period_start and signal_date < period_start and side == "Buy"
+            if initial:
+                if after <= 0.0:
+                    raise AssertionError("initial entry does not match an active factor target")
+                continue
+            expected_types = expected_by_side.get(side, ())
+            matches = [
+                event
+                for event_type in expected_types
+                for event in event_map.get((signal_date, event_type), ())
+            ]
+            if len(matches) != 1:
+                raise AssertionError("order must reference exactly one factor event")
+            event = matches[0]
+            event_type = str(event["event_type"])
+            valid_transition = (
+                (event_type == "Entry" and before == 0.0 and after > 0.0)
+                or (event_type == "Exit" and before > 0.0 and after == 0.0)
+                or (event_type == "Reduce" and before > after > 0.0)
+                or (event_type == "Increase" and 0.0 < before < after)
+            )
+            if not valid_transition:
+                raise AssertionError("factor event does not match target transition")
+            if (
+                abs(float(event["before_position"]) - before) > 1e-12
+                or abs(float(event["after_position"]) - after) > 1e-12
+            ):
+                raise AssertionError("factor event positions differ from target transition")
+            if "factor_score" in event:
+                if abs(float(event["factor_score"]) - float(score_values[location])) > 1e-12:
+                    raise AssertionError("factor event score differs from candidate score")
+    return {
+        "status": "PASS",
+        "windows_checked": len(period_results),
+        "orders_checked": orders_checked,
+        "positions_checked": len(target),
+    }
+
+
 def audit_no_lookahead(
     orders: pd.DataFrame,
     factor_events: pd.DataFrame,

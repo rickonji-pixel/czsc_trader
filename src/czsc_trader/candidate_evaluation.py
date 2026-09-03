@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 from strategy_evaluator import EvaluationProtocol, MetricObservation, MetricStatus
 
-from .audit import audit_no_lookahead
-from .backtest import _attach_factor_provenance, run_period_backtests
+from .audit import audit_candidate_evaluation, audit_no_lookahead
+from .backtest import run_period_backtests
 from .backtest_runner import _complete_baseline_execution_results
 from .baseline_execution import apply_resolved_baseline
 from .baselines import resolve_strategy_payload
@@ -47,17 +47,25 @@ class EvaluationWorkspace:
 
 
 @dataclass(frozen=True)
+class BehaviorMember:
+    candidate_id: str
+    target_position: pd.Series
+    scores: pd.Series
+    events: pd.DataFrame
+    regimes: pd.Series | None
+
+
+@dataclass(frozen=True)
 class BehaviorTask:
     key: str
-    target_position: pd.Series
+    members: tuple[BehaviorMember, ...]
     execution: Any
 
 
 @dataclass(frozen=True)
 class BehaviorResult:
     key: str
-    period_results: dict[str, Any]
-    execution_results: dict[str, Any]
+    observations: tuple[MetricObservation, ...]
 
 
 def prepare_evaluation_workspace(
@@ -94,14 +102,17 @@ def _run_behavior_chunk(
     workspace: EvaluationWorkspace,
     chunk: tuple[BehaviorTask, ...],
     tier: str,
+    scenario: str,
     fee_rate: float,
     init_cash: float,
 ) -> tuple[BehaviorResult, ...]:
     output: list[BehaviorResult] = []
+    daily_dates = pd.DatetimeIndex(pd.to_datetime(workspace.data.daily["dt"]))
     for task in chunk:
+        representative = task.members[0]
         results = run_period_backtests(
             workspace.data.daily,
-            task.target_position,
+            representative.target_position,
             workspace.periods,
             fee_rate=fee_rate,
             init_cash=init_cash,
@@ -115,13 +126,33 @@ def _run_behavior_chunk(
             execution_results = _complete_baseline_execution_results(
                 workspace.data.daily,
                 workspace.data.intraday,
-                task.target_position,
+                representative.target_position,
                 workspace.periods,
                 task.execution,
                 fee_rate=fee_rate,
                 init_cash=init_cash,
             )
-        output.append(BehaviorResult(task.key, results, execution_results))
+        observations: list[MetricObservation] = []
+        for member in task.members:
+            audit_candidate_evaluation(
+                results, member.target_position, member.events, member.scores,
+            )
+            for window, result in results.items():
+                effective = execution_results.get(window, result)
+                extra = () if member.regimes is None else range_cycle_objectives(
+                    effective.orders, member.regimes, daily_dates,
+                )
+                observations.append(_observation(
+                    member.candidate_id,
+                    window,
+                    tier,
+                    scenario,
+                    effective.equity,
+                    effective.orders,
+                    init_cash,
+                    extra,
+                ))
+        output.append(BehaviorResult(task.key, tuple(observations)))
     return tuple(output)
 
 
@@ -129,6 +160,7 @@ def _evaluate_behavior_tasks(
     workspace: EvaluationWorkspace,
     tasks: tuple[BehaviorTask, ...],
     tier: str,
+    scenario: str,
     fee_rate: float,
     init_cash: float,
     workers: int,
@@ -138,11 +170,15 @@ def _evaluate_behavior_tasks(
         return tuple(
             item
             for chunk in chunks
-            for item in _run_behavior_chunk(workspace, chunk, tier, fee_rate, init_cash)
+            for item in _run_behavior_chunk(
+                workspace, chunk, tier, scenario, fee_rate, init_cash,
+            )
         )
     with parallel_config(backend="loky", inner_max_num_threads=1):
         pieces = Parallel(n_jobs=min(workers, len(chunks)), max_nbytes="1M", mmap_mode="r")(
-            delayed(_run_behavior_chunk)(workspace, chunk, tier, fee_rate, init_cash)
+            delayed(_run_behavior_chunk)(
+                workspace, chunk, tier, scenario, fee_rate, init_cash,
+            )
             for chunk in chunks
         )
     return tuple(item for piece in pieces for item in piece)
@@ -198,35 +234,6 @@ def _behavior_key(
         separators=(",", ":"),
     ).encode("utf-8"))
     return digest.hexdigest()
-
-
-def _candidate_period_results(
-    results: dict[str, Any],
-    applied: Any,
-    factor_output: pd.DataFrame,
-) -> dict[str, Any]:
-    output: dict[str, Any] = {}
-    base_columns = ["signal_date", "execution_date", "side", "size", "price", "fees"]
-    for window, result in results.items():
-        if result.orders.empty:
-            output[window] = result
-            continue
-        start = pd.Timestamp(result.metrics["start"])
-        prior = applied.target_position.index[applied.target_position.index < start]
-        if prior.empty:
-            raise ValueError(f"{window}: no prior signal available before period start")
-        signal_date = prior[-1]
-        orders, events = _attach_factor_provenance(
-            window,
-            result.orders.loc[:, base_columns],
-            applied.events,
-            factor_output,
-            start,
-            signal_date,
-            float(applied.target_position.loc[signal_date]),
-        )
-        output[window] = replace(result, orders=orders, factor_events=events)
-    return output
 
 
 def _evaluate_candidate_payloads_reference(
@@ -355,14 +362,6 @@ def evaluate_candidate_payloads(
         )
         regimes_by_candidate[candidate_id] = regimes
 
-    factor_outputs: dict[str, pd.DataFrame] = {}
-    for candidate_id in candidate_ids:
-        applied = applied_by_candidate[candidate_id]
-        factor_output = workspace.factor_frame.copy()
-        factor_output.insert(0, "target_position", applied.target_position)
-        factor_output.insert(1, "factor_score", applied.scores)
-        factor_outputs[candidate_id] = factor_output
-
     observations: dict[tuple[str, str, str], MetricObservation] = {}
     for scenario in scenarios:
         if scenario != "standard" and tier != "STRESS":
@@ -386,51 +385,28 @@ def evaluate_candidate_payloads(
         tasks = tuple(
             BehaviorTask(
                 key,
-                applied_by_candidate[members[0]].target_position,
+                tuple(
+                    BehaviorMember(
+                        candidate_id,
+                        applied_by_candidate[candidate_id].target_position,
+                        applied_by_candidate[candidate_id].scores,
+                        applied_by_candidate[candidate_id].events,
+                        regimes_by_candidate[candidate_id],
+                    )
+                    for candidate_id in members
+                ),
                 resolved[members[0]].execution,
             )
             for key, members in groups.items()
         )
-        behavior_results = {
-            item.key: item
-            for item in _evaluate_behavior_tasks(
-                workspace, tasks, tier, fee_rate, context.init_cash, context.workers,
-            )
-        }
-        for key, members in groups.items():
-            transaction = behavior_results[key]
-            results = transaction.period_results
-            execution_results = transaction.execution_results
-            for candidate_id in members:
-                applied = applied_by_candidate[candidate_id]
-                candidate_results = _candidate_period_results(
-                    results, applied, factor_outputs[candidate_id],
-                )
-                for result in candidate_results.values():
-                    audit_no_lookahead(
-                        result.orders,
-                        result.factor_events,
-                        applied.target_position,
-                        factor_outputs[candidate_id],
-                    )
-                regimes = regimes_by_candidate[candidate_id]
-                for window, result in candidate_results.items():
-                    effective = execution_results.get(window, result)
-                    extra = () if regimes is None else range_cycle_objectives(
-                        effective.orders,
-                        regimes,
-                        pd.DatetimeIndex(pd.to_datetime(workspace.data.daily["dt"])),
-                    )
-                    observations[(candidate_id, scenario, window)] = _observation(
-                        candidate_id,
-                        window,
-                        tier,
-                        scenario,
-                        effective.equity,
-                        effective.orders,
-                        context.init_cash,
-                        extra,
-                    )
+        behavior_results = _evaluate_behavior_tasks(
+            workspace, tasks, tier, scenario, fee_rate, context.init_cash, context.workers,
+        )
+        for result in behavior_results:
+            for observation in result.observations:
+                observations[
+                    (observation.candidate_id, observation.scenario_id, observation.window_id)
+                ] = observation
     return tuple(
         observations[(candidate_id, scenario, window)]
         for candidate_id in candidate_ids

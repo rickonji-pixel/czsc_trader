@@ -1,12 +1,13 @@
 # CZSC Trader / CZSC PTE
 
-本仓库包含两个面向用户的并列运行包，以及一个由 Trader 隐藏调用的策略管理包：
+本仓库包含两个面向用户的并列运行包，以及两个由 Trader 隐藏调用的领域包：
 
 | 包 | 目录 | 命令 | 职责 |
 | --- | --- | --- | --- |
 | CZSC Trader | `src/czsc_trader/` | `czsc-trader` | 行情验证、策略管理、回测、研究归档和交易决策 |
 | CZSC PTE | `packages/paper_trading_engine/` | `pte`、`pte-watchdog` | 模拟账户对账、自动下单、审计、观测页面和进程保活 |
 | Strategy Manager | `packages/strategy_manager/` | 通过`czsc-trader strategy`使用 | 策略身份、不可变版本、资格、审计和绩效证据 |
+| Strategy Evaluator | `packages/strategy_evaluator/` | 通过`czsc-trader strategy`使用 | 候选筛选、非劣判断、Pareto排名、冠军体检和冻结建议 |
 
 `packages/dataflows/`是行情获取与发布依赖。Trader 通过
 `advice.v4` JSON 契约向 PTE 提供决策；PTE 不导入 Trader 或 Strategy Manager，券商渠道
@@ -34,6 +35,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```
@@ -76,6 +78,43 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
 `RESEARCH`表示版本仍可修改；冻结后进入`PAPER_READY`并可创建模拟账户；人工晋升到
 `LIVE_READY`后才具备实盘部署资格；`RETIRED`禁止创建新运行实例。资格变化只改变
 治理权限，不直接启动、暂停或停止PTE。
+
+### 评估候选并接受冠军
+
+新研究在`experiments/MMDD_EXXX/`准备不可变的`evaluation_protocol.json`和
+`candidate_manifest.json`。清单必须包含完整可执行策略payload、统一窗口和完整试验
+台账。Trader统一运行候选并生成一页结论：
+
+```text
+experiments/MMDD_EXXX/
+├─ evaluation_protocol.json   # 目标、截止日、在位策略、窗口、收紧边界
+└─ candidate_manifest.json    # symbol、成本、资金、windows、candidates、trials
+```
+
+每个`candidates[]`至少提供`candidate_id`、候选/行为/执行规则哈希、`is_incumbent`和
+完整`strategy_payload`；可能成为冠军的候选还需`strategy_id`与`strategy_name`。
+`trials[]`覆盖全部尝试，包括早期失败和行为重复项。`target_requirements`使用窗口派生的
+`<window_id>_return`、`total_return`或`net_cagr`作为首版目标字段。
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe strategy evaluate --experiment 0903_EXXX
+```
+
+结论只有`RECOMMEND_FREEZE`（建议冻结）、`KEEP_INCUMBENT`（保留在位策略）和
+`INSUFFICIENT_EVIDENCE`（证据不足）。决策采用净年化收益、最大回撤、卡玛比率和
+盈亏因子四项核心指标，同时检查多窗口最差表现、Pareto关系、复现性、邻域和加倍成本
+压力。实验只能收紧`opc-v1`默认边界，不能放宽。
+
+评估不会自动改变策略状态。人工确认后运行：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe strategy accept-evaluation `
+  --experiment 0903_EXXX --actor tomxiao --reason "确认冻结并进入模拟盘"
+```
+
+该命令幂等创建并冻结SM版本，再创建默认10万元PTE虚拟账户。PTE暂时不可用时记录
+`PAPER_ACTIVATION_PENDING`；修复运行环境后重复同一命令即可继续注册。已完成实验受
+输入哈希保护，历史实验档案不会被重写。
 
 ### 查看历史基线
 
@@ -218,6 +257,7 @@ sc.exe query CZSC-PTE-Watchdog
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests -q
+.\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
 .\.venv\Scripts\python.exe -m pytest tests -q -m archive
 .\.venv\Scripts\python.exe -m ruff check `

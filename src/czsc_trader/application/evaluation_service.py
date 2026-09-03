@@ -32,6 +32,12 @@ from strategy_evaluator import (
 )
 
 from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
+from czsc_trader.evaluation_artifacts import (
+    EvaluationIdentity,
+    ReuseLedgerRow,
+    load_reusable_observations,
+)
+from czsc_trader.identity import canonical_json_sha256
 
 from .context import RepositoryContext
 from .results import CommandResult
@@ -118,6 +124,111 @@ def _execution_settings(manifest: dict[str, Any]) -> tuple[int, bool, tuple[str,
     if sources and not reuse:
         raise ValueError("reuse_experiment_artifacts must be enabled when reuse sources are set")
     return workers, reuse, sources
+
+
+def _requested_identities(
+    protocol: EvaluationProtocol,
+    manifest: dict[str, Any],
+    candidates: dict[str, dict[str, object]],
+    candidate_ids: tuple[str, ...],
+    tier: str,
+    scenarios: tuple[str, ...],
+) -> tuple[EvaluationIdentity, ...]:
+    source_files = manifest.get("source_files")
+    if not isinstance(source_files, dict):
+        raise ValueError("artifact reuse requires candidate manifest source_files")
+    windows = manifest.get("windows")
+    if not isinstance(windows, dict):
+        raise ValueError("candidate manifest requires windows")
+    base_fee = float(manifest.get("fee_rate", 0.0005))
+    semantics = str(manifest.get("metric_semantics_version", "candidate-metrics-v1"))
+    data_identity = canonical_json_sha256(source_files)
+    identities: list[EvaluationIdentity] = []
+    for candidate_id in candidate_ids:
+        candidate = candidates[candidate_id]
+        for scenario in scenarios:
+            fee_rate = base_fee if scenario == "standard" else base_fee * float(scenario.removeprefix("fee_x"))
+            for window_id, value in windows.items():
+                if not isinstance(value, dict):
+                    continue
+                identities.append(EvaluationIdentity(
+                    candidate_id=candidate_id,
+                    candidate_hash=str(candidate.get("strategy_hash", candidate.get("candidate_hash", ""))),
+                    execution_policy_hash=str(candidate["execution_policy_hash"]),
+                    data_identity=data_identity,
+                    development_cutoff=str(protocol.development_cutoff),
+                    window_id=str(window_id),
+                    window_start=str(value["start"]),
+                    window_end=str(value["end"]),
+                    tier=tier,
+                    scenario_id=scenario,
+                    fee_rate=fee_rate,
+                    metric_semantics_version=semantics,
+                ))
+    return tuple(identities)
+
+
+def _run_with_reuse(
+    runner: Runner,
+    run_context: CandidateEvaluationContext,
+    protocol: EvaluationProtocol,
+    payloads: tuple[dict[str, object], ...],
+    candidate_ids: tuple[str, ...],
+    tier: str,
+    scenarios: tuple[str, ...],
+    manifest: dict[str, Any],
+    source_ids: tuple[str, ...],
+    ledger: list[ReuseLedgerRow],
+    diagnostics: list[str],
+) -> tuple[MetricObservation, ...]:
+    by_candidate = {str(item["candidate_id"]): item for item in payloads}
+    identities = _requested_identities(
+        protocol, manifest, by_candidate, candidate_ids, tier, scenarios,
+    )
+    reused = load_reusable_observations(
+        run_context.repository.experiments_root, source_ids, identities,
+    )
+    diagnostics.extend(reused.diagnostics)
+    hit_keys = {item.evaluation_key for item in reused.ledger}
+    identities_by_candidate = {
+        candidate_id: tuple(item for item in identities if item.candidate_id == candidate_id)
+        for candidate_id in candidate_ids
+    }
+    reusable_ids = {
+        candidate_id
+        for candidate_id, values in identities_by_candidate.items()
+        if values and all(item.key in hit_keys for item in values)
+    }
+    reused_observations = tuple(
+        item for item in reused.observations if item.candidate_id in reusable_ids
+    )
+    ledger.extend(
+        item for item in reused.ledger if item.candidate_id in reusable_ids
+    )
+    missing_ids = tuple(item for item in candidate_ids if item not in reusable_ids)
+    computed = runner(
+        run_context, protocol, payloads, missing_ids, tier, scenarios,
+    ) if missing_ids else ()
+    identity_by_coordinates = {
+        (item.candidate_id, item.window_id, item.scenario_id, item.tier): item
+        for item in identities
+    }
+    for item in computed:
+        identity = identity_by_coordinates[
+            (item.candidate_id, item.window_id, item.scenario_id, item.measurement_tier)
+        ]
+        ledger.append(ReuseLedgerRow(
+            identity.key, item.candidate_id, item.window_id, item.scenario_id,
+            item.measurement_tier, "COMPUTED",
+        ))
+    observations = {
+        (item.candidate_id, item.window_id, item.scenario_id, item.measurement_tier): item
+        for item in (*reused_observations, *computed)
+    }
+    return tuple(
+        observations[(item.candidate_id, item.window_id, item.scenario_id, item.tier)]
+        for item in identities
+    )
 
 
 def _csv_text(rows: list[dict[str, Any]]) -> str:
@@ -262,7 +373,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     if manifest_path.parent != experiment or not manifest_path.is_file():
         raise ValueError("candidate manifest must be a direct experiment child")
     manifest = _read_object(manifest_path)
-    workers, _, _ = _execution_settings(manifest)
+    workers, reuse, reuse_sources = _execution_settings(manifest)
     raw_candidates = manifest.get("candidates")
     raw_trials = manifest.get("trials")
     if not isinstance(raw_candidates, list) or not isinstance(raw_trials, list):
@@ -293,14 +404,31 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         float(manifest.get("fee_rate", 0.0005)), float(manifest.get("init_cash", 1_000_000.0)),
         workers,
     )
+    reuse_ledger: list[ReuseLedgerRow] = []
+    reuse_diagnostics: list[str] = []
+
+    def run_tier(
+        candidate_ids: tuple[str, ...],
+        tier: str,
+        scenarios: tuple[str, ...] = ("standard",),
+        *,
+        allow_reuse: bool = True,
+    ) -> tuple[MetricObservation, ...]:
+        if not reuse or not allow_reuse:
+            return runner(run_context, protocol, payloads, candidate_ids, tier, scenarios)
+        return _run_with_reuse(
+            runner, run_context, protocol, payloads, candidate_ids, tier, scenarios,
+            manifest, reuse_sources, reuse_ledger, reuse_diagnostics,
+        )
+
     preliminary = screen_candidates(protocol, candidates, ())
     screening_ids = (protocol.incumbent_id, *preliminary.candidate_ids)
-    screening = runner(run_context, protocol, payloads, screening_ids, "SCREENING")
+    screening = run_tier(screening_ids, "SCREENING")
     validate_protocol(protocol, candidates, screening, trials)
     shortlist = screen_candidates(protocol, candidates, screening)
     screening_comparisons, screening_decisions = _screening_audit(protocol, candidates, screening, shortlist)
     formal_ids = (protocol.incumbent_id, *shortlist.candidate_ids)
-    formal = runner(run_context, protocol, payloads, formal_ids, "FORMAL")
+    formal = run_tier(formal_ids, "FORMAL")
     validate_protocol(protocol, candidates, formal, trials)
     ranking = rank_candidates(protocol, shortlist, formal, candidates)
     health = None
@@ -308,9 +436,9 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     repeated: tuple[MetricObservation, ...] = ()
     if ranking.champion_id:
         pair = (protocol.incumbent_id, ranking.champion_id)
-        stress = runner(run_context, protocol, payloads, pair, "STRESS", ("fee_x2",))
+        stress = run_tier(pair, "STRESS", ("fee_x2",))
         validate_protocol(protocol, candidates, stress, trials)
-        repeated = runner(run_context, protocol, payloads, (ranking.champion_id,), "FORMAL")
+        repeated = run_tier((ranking.champion_id,), "FORMAL", allow_reuse=False)
         health = _health(protocol, ranking, formal, stress, repeated, candidates)
     result = finalize_evaluation(ranking, health, experiment_id)
     result_document = {**result.to_dict(), "input_hash": input_hash}

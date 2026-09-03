@@ -8,11 +8,12 @@ import pytest
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.evaluation_service import accept_evaluation, evaluate_experiment
+from czsc_trader.experiment_archive import build_experiment_manifest
 from strategy_evaluator import MetricObservation, MetricStatus
 
 
 def write_bundle(root):
-    (root / "src" / "czsc_trader").mkdir(parents=True)
+    (root / "src" / "czsc_trader").mkdir(parents=True, exist_ok=True)
     (root / "pyproject.toml").write_text("[project]\nname='x'\nversion='0.1'\n", encoding="utf-8")
     experiment = root / "experiments" / "0903_TEST"
     experiment.mkdir(parents=True)
@@ -110,6 +111,43 @@ def test_reuse_sources_require_reuse_to_be_enabled(tmp_path):
     context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
     with pytest.raises(ValueError, match="reuse_experiment_artifacts"):
         evaluate_experiment(context, "0903_TEST", runner=fake_runner)
+
+
+def test_evaluation_reuses_complete_candidate_tiers_and_computes_missing_tiers(tmp_path):
+    source = write_bundle(tmp_path)
+    source.rename(source.with_name("0903_SOURCE"))
+    source = source.with_name("0903_SOURCE")
+    protocol_path = source / "evaluation_protocol.json"
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    protocol["experiment_id"] = "0903_SOURCE"
+    protocol_path.write_text(json.dumps(protocol), encoding="utf-8")
+    manifest_path = source / "candidate_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["source_files"] = {"daily": {"sha256": "shared-data"}}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    for name in ("01_goal.md", "02_design.md", "03_execution.md", "04_conclusion.md"):
+        (source / name).write_text(f"# {name}\n", encoding="utf-8")
+    context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
+    evaluate_experiment(context, "0903_SOURCE", runner=fake_runner)
+    build_experiment_manifest(source, {"experiment_id": "0903_SOURCE", "status": "COMPLETE"})
+
+    target = write_bundle(tmp_path)
+    target_manifest_path = target / "candidate_manifest.json"
+    target_manifest = json.loads(target_manifest_path.read_text(encoding="utf-8"))
+    target_manifest["source_files"] = {"daily": {"sha256": "shared-data"}}
+    target_manifest["reuse_experiment_artifacts"] = True
+    target_manifest["reuse_source_experiments"] = ["0903_SOURCE"]
+    target_manifest_path.write_text(json.dumps(target_manifest), encoding="utf-8")
+    calls = []
+
+    def tracking_runner(*args, **kwargs):
+        calls.append((args[4], args[3]))
+        return fake_runner(*args, **kwargs)
+
+    evaluate_experiment(context, "0903_TEST", runner=tracking_runner)
+    assert not [call for call in calls if call[0] == "SCREENING"]
+    assert [call for call in calls if call[0] == "FORMAL"] == [("FORMAL", ("c1",))]
+    assert [call for call in calls if call[0] == "STRESS"] == [("STRESS", ("S001-v1", "c1"))]
 
 
 def test_screening_audit_records_every_candidate_outcome(tmp_path):

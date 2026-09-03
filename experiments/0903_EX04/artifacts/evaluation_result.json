@@ -165,5 +165,10 @@
   },
   "health": null,
   "input_hash": "8a3b7a6003b3a691897055cadbfc1b0f38502f236646d7af7dd713b6f702618d",
-  "decision_hash": "fae38c9f8e2d068ff49b19af85f53f9e0c15d6e982d3043a488b44d638ebca10"
+  "audit_artifacts": {
+    "screening_metrics.csv": "44db6edfc26747df27485bda0cbae5f0e7ebe36cfee62e54bb355009ff130ad3",
+    "screening_noninferiority.csv": "9b14938635eeb24734d62cbc1c2d0d3be465a0ba05e1146d6af60053d24b16ab",
+    "screening_decisions.csv": "a3de143d5460c2a6984b15cb9c5c0775e79e00167baa5edb7752b7dead7bec4b"
+  },
+  "decision_hash": "22440e08108f9d02969083efd42baa5f0cef88dccc555f5670e3b5a8a305c63b"
 }

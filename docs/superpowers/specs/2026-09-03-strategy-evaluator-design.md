@@ -377,6 +377,9 @@ Trader写入：
 ```text
 evaluation_protocol.json
 trial_ledger.csv
+screening_metrics.csv
+screening_noninferiority.csv
+screening_decisions.csv
 formal_metrics.csv
 noninferiority.csv
 pareto_profiles.csv
@@ -385,7 +388,10 @@ evaluation_result.json
 evaluation_report.md
 ```
 
-详细产物进入实验`artifacts/`，历史实验不补写。
+`screening_decisions.csv`为每个挑战者记录行为去重、快速非劣淘汰、正式入围或名额截断，
+并保存逐项失败原因；两类`noninferiority.csv`都必须包含`candidate_id`。最终结果保存三项
+筛选审计文件的内容哈希，幂等读取时重新验证。详细产物进入实验`artifacts/`，本契约生效
+前的历史实验不补写。
 
 ## 13. 失败与恢复
 

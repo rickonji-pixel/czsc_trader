@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
-import subprocess
 
 import pandas as pd
 from strategy_manager import StrategyRegistry, canonical_sha256
@@ -28,6 +27,7 @@ SOURCE_PATHS = (
     REPO_ROOT / "experiments" / "0903_EX03" / "artifacts" / "corrective_candidates.csv",
 )
 WEIGHT_PREFIX = "weight__"
+PREPARED_FROM_COMMIT = "5d8b4fbb178b91f6d25d8f89e4e7fa81d98d43eb"
 
 
 def candidate_payload(source: dict[str, object], candidate_id: str, range_weights: dict[str, float]) -> dict[str, object]:
@@ -44,10 +44,6 @@ def candidate_payload(source: dict[str, object], candidate_id: str, range_weight
     rule["experiment"] = "0903_EX04"
     rule["research_end"] = "2026-09-02"
     return payload
-
-
-def _git_head() -> str:
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True, encoding="utf-8").strip()
 
 
 def _source_candidates() -> pd.DataFrame:
@@ -128,7 +124,7 @@ def prepare_manifest() -> dict[str, object]:
             "behavior_hash": behavior_hash, "status": "COMPLETED",
         })
     manifest = {
-        "schema_version": 1, "experiment_id": "0903_EX04", "prepared_from_commit": _git_head(),
+        "schema_version": 1, "experiment_id": "0903_EX04", "prepared_from_commit": PREPARED_FROM_COMMIT,
         "source_files": {path.relative_to(REPO_ROOT).as_posix(): normalized_text_sha256(path) for path in SOURCE_PATHS},
         "symbol": "588080.SH", "asset_type": "etf", "fee_rate": 0.0005, "init_cash": 1_000_000.0,
         "forward_start": "2026-09-03",

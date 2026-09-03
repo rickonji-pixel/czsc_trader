@@ -37,6 +37,11 @@ from .context import RepositoryContext
 from .results import CommandResult
 
 Runner = Callable[..., tuple[MetricObservation, ...]]
+SCREENING_AUDIT_FILES = (
+    "screening_metrics.csv",
+    "screening_noninferiority.csv",
+    "screening_decisions.csv",
+)
 
 
 def _read_object(path: Path) -> dict[str, Any]:
@@ -49,6 +54,25 @@ def _read_object(path: Path) -> dict[str, Any]:
 def _canonical_hash(*values: object) -> str:
     raw = json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _text_hash(value: str) -> str:
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _validate_screening_audit(artifact_dir: Path, result: dict[str, Any]) -> None:
+    hashes = result.get("audit_artifacts")
+    if not isinstance(hashes, dict):
+        raise ValueError("completed evaluation is missing screening audit hashes")
+    for name in SCREENING_AUDIT_FILES:
+        path = artifact_dir / name
+        if not path.is_file():
+            raise ValueError(f"completed evaluation is missing screening audit: {name}")
+        expected = hashes.get(name)
+        actual = _text_hash(path.read_text(encoding="utf-8"))
+        if expected != actual:
+            raise ValueError(f"completed evaluation screening audit hash mismatch: {name}")
 
 
 def _experiment_path(context: RepositoryContext, experiment_id: str) -> Path:
@@ -87,6 +111,82 @@ def _csv_text(rows: list[dict[str, Any]]) -> str:
     return buffer.getvalue()
 
 
+def _applicable_comparisons(
+    protocol: EvaluationProtocol,
+    challenger: MetricObservation,
+    incumbent: MetricObservation,
+    margins,
+):
+    values = compare_observation(challenger, incumbent, margins)
+    if challenger.window_id != "full" and challenger.window_id not in protocol.target_windows:
+        values = tuple(item for item in values if item.metric != "profit_factor")
+    return values
+
+
+def _screening_audit(
+    protocol: EvaluationProtocol,
+    candidates: tuple[CandidateDescriptor, ...],
+    screening: tuple[MetricObservation, ...],
+    shortlist,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    representatives: dict[str, CandidateDescriptor] = {}
+    duplicate_of: dict[str, str] = {}
+    challengers = sorted((item for item in candidates if not item.is_incumbent), key=lambda item: item.candidate_id)
+    for item in challengers:
+        behavior = item.behavior_hash or item.candidate_hash
+        representative = representatives.get(behavior)
+        if representative is None:
+            representatives[behavior] = item
+        else:
+            duplicate_of[item.candidate_id] = representative.candidate_id
+
+    by_key = {
+        (item.candidate_id, item.window_id): item
+        for item in screening
+        if item.scenario_id == "standard"
+    }
+    selected = set(shortlist.candidate_ids)
+    margins = resolve_margins(protocol)
+    comparison_rows: list[dict[str, Any]] = []
+    decisions: list[dict[str, Any]] = []
+    for item in challengers:
+        duplicate = duplicate_of.get(item.candidate_id)
+        if duplicate is not None:
+            decisions.append({
+                "candidate_id": item.candidate_id,
+                "outcome": "BEHAVIOR_DEDUPLICATED",
+                "representative_candidate_id": duplicate,
+                "failed_count": 0,
+                "reason_codes": "BEHAVIOR_DEDUPLICATED",
+            })
+            continue
+        failures: list[str] = []
+        for window in protocol.decision_windows:
+            challenger = by_key.get((item.candidate_id, window))
+            incumbent = by_key.get((protocol.incumbent_id, window))
+            if challenger is None or incumbent is None:
+                failures.append(f"MISSING_WINDOW_{window.upper()}")
+                continue
+            for comparison in _applicable_comparisons(protocol, challenger, incumbent, margins):
+                comparison_rows.append({"candidate_id": item.candidate_id, **comparison.to_dict()})
+                if not comparison.passed:
+                    failures.append(comparison.reason_code)
+        if item.candidate_id in selected:
+            outcome = "SHORTLISTED"
+        elif failures:
+            outcome = "SCREENING_NONINFERIORITY"
+        else:
+            outcome = "SHORTLIST_LIMIT"
+        decisions.append({
+            "candidate_id": item.candidate_id,
+            "outcome": outcome,
+            "representative_candidate_id": "",
+            "failed_count": len(failures),
+            "reason_codes": ";".join(dict.fromkeys(failures)),
+        })
+    return comparison_rows, decisions
+
+
 def _health(
     protocol: EvaluationProtocol,
     ranking,
@@ -106,9 +206,9 @@ def _health(
         for window in protocol.decision_windows:
             challenger = stress_by_key.get((champion, window, scenario))
             incumbent = stress_by_key.get((protocol.incumbent_id, window, scenario))
-            comparisons = () if challenger is None or incumbent is None else compare_observation(challenger, incumbent, margins)
-            if window != "full" and window not in protocol.target_windows:
-                comparisons = tuple(item for item in comparisons if item.metric != "profit_factor")
+            comparisons = () if challenger is None or incumbent is None else _applicable_comparisons(
+                protocol, challenger, incumbent, margins,
+            )
             if not comparisons or not all(item.passed for item in comparisons):
                 stress_ok = False
     champion_descriptor = next(item for item in candidates if item.candidate_id == champion)
@@ -159,6 +259,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         if stored_hash != _canonical_hash(existing):
             raise ValueError("completed evaluation decision hash mismatch")
         existing["decision_hash"] = stored_hash
+        _validate_screening_audit(artifact_dir, existing)
         return CommandResult("PASS", "strategy.evaluate", existing, {"directory": str(artifact_dir)})
 
     windows_raw = manifest.get("windows")
@@ -174,6 +275,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     screening = runner(run_context, protocol, payloads, screening_ids, "SCREENING")
     validate_protocol(protocol, candidates, screening, trials)
     shortlist = screen_candidates(protocol, candidates, screening)
+    screening_comparisons, screening_decisions = _screening_audit(protocol, candidates, screening, shortlist)
     formal_ids = (protocol.incumbent_id, *shortlist.candidate_ids)
     formal = runner(run_context, protocol, payloads, formal_ids, "FORMAL")
     validate_protocol(protocol, candidates, formal, trials)
@@ -189,7 +291,6 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         health = _health(protocol, ranking, formal, stress, repeated, candidates)
     result = finalize_evaluation(ranking, health, experiment_id)
     result_document = {**result.to_dict(), "input_hash": input_hash}
-    result_document["decision_hash"] = _canonical_hash(result_document)
 
     comparisons = []
     by_key = {(x.candidate_id, x.window_id): x for x in formal}
@@ -198,24 +299,33 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         for window in protocol.decision_windows:
             left, right = by_key.get((candidate_id, window)), by_key.get((protocol.incumbent_id, window))
             if left and right:
-                values = compare_observation(left, right, margins)
-                if window != "full" and window not in protocol.target_windows:
-                    values = tuple(item for item in values if item.metric != "profit_factor")
-                comparisons.extend(item.to_dict() for item in values)
+                values = _applicable_comparisons(protocol, left, right, margins)
+                comparisons.extend({"candidate_id": candidate_id, **item.to_dict()} for item in values)
     documents = {
-        "evaluation_result.json": json.dumps(result_document, ensure_ascii=False, indent=2) + "\n",
-        "evaluation_report.md": render_summary(result),
+        "screening_metrics.csv": _csv_text([item.to_dict() for item in screening]),
+        "screening_noninferiority.csv": _csv_text(screening_comparisons),
+        "screening_decisions.csv": _csv_text(screening_decisions),
         "formal_metrics.csv": _csv_text([item.to_dict() for item in formal]),
         "noninferiority.csv": _csv_text(comparisons),
         "pareto_profiles.csv": _csv_text([item.to_dict() for item in ranking.profiles]),
         "health_check.json": json.dumps(health.to_dict() if health else None, ensure_ascii=False, indent=2) + "\n",
         "trial_ledger.csv": _csv_text([item.to_dict() for item in trials]),
     }
+    result_document["audit_artifacts"] = {
+        name: _text_hash(documents[name])
+        for name in SCREENING_AUDIT_FILES
+    }
+    result_document["decision_hash"] = _canonical_hash(result_document)
+    documents = {
+        "evaluation_result.json": json.dumps(result_document, ensure_ascii=False, indent=2) + "\n",
+        "evaluation_report.md": render_summary(result),
+        **documents,
+    }
     artifact_dir.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=".evaluation-", dir=experiment))
     try:
         for name, text in documents.items():
-            (temporary / name).write_text(text, encoding="utf-8")
+            (temporary / name).write_text(text, encoding="utf-8", newline="\n")
         commit_order = [name for name in documents if name != "evaluation_result.json"]
         commit_order.append("evaluation_result.json")
         for name in commit_order:

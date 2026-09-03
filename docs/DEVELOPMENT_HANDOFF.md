@@ -64,7 +64,9 @@ SQLite或运行状态；用户统一通过Trader的`strategy`资源操作。
 
 Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执行模拟；
 `application/evaluation_service.py`负责实验输入、防覆盖哈希、原子产物、人工接受、SM
-冻结与PTE CLI注册。评估命令和接受命令分别为：
+冻结与PTE CLI注册。每次评价同时保存快速阶段全部指标、逐项非劣比较和每个候选的筛除
+去向；最终结果绑定三项筛选审计文件的内容哈希，重复读取会验证完整性。评估命令和接受
+命令分别为：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe strategy evaluate --experiment 0903_EXXX

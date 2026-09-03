@@ -33,3 +33,8 @@ def test_candidate_payload_changes_only_range_research_identity():
     assert result["rule"]["execution"] == source["rule"]["execution"]
     assert "legacy_identity" not in result
     assert result["research_source"]["experiment_id"] == "0903_EX04"
+
+
+def test_candidate_bundle_provenance_is_pinned_to_creation_commit():
+    module = load_experiment()
+    assert module.PREPARED_FROM_COMMIT == "5d8b4fbb178b91f6d25d8f89e4e7fa81d98d43eb"

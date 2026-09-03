@@ -11,6 +11,53 @@ import pandas as pd
 GROUP_NAMES = ("structure", "trend", "volume_position")
 
 
+def dirichlet_weight_candidates(
+    anchors: Mapping[str, pd.Series],
+    *,
+    samples_per_anchor: int,
+    concentrations: Mapping[str, float],
+    seed: int,
+) -> pd.DataFrame:
+    """Generate deterministic positive simplex candidates around named anchors."""
+    if not anchors or set(anchors) != set(concentrations):
+        raise ValueError("anchors and concentrations must contain the same names")
+    if not isinstance(samples_per_anchor, int) or samples_per_anchor < 0:
+        raise ValueError("samples_per_anchor must be a non-negative integer")
+    first = next(iter(anchors.values()))
+    factors = list(first.index)
+    if not factors or len(factors) != len(set(factors)):
+        raise ValueError("anchors must contain the same positive factor weights")
+    normalized: dict[str, np.ndarray] = {}
+    for name, anchor in anchors.items():
+        values = anchor.reindex(factors).to_numpy(dtype=float)
+        concentration = float(concentrations[name])
+        if (
+            list(anchor.index) != factors
+            or not np.isfinite(values).all()
+            or (values <= 0.0).any()
+            or not np.isfinite(concentration)
+            or concentration <= 0.0
+        ):
+            raise ValueError("anchors must contain the same positive factor weights")
+        normalized[name] = values / values.sum()
+    rng = np.random.default_rng(int(seed))
+    rows: list[dict[str, object]] = []
+    for name, anchor in normalized.items():
+        for sample_index, values in enumerate(
+            [anchor, *rng.dirichlet(anchor * float(concentrations[name]), samples_per_anchor)]
+        ):
+            rows.append(
+                {
+                    "candidate_id": len(rows),
+                    "anchor_name": name,
+                    "sample_index": sample_index,
+                    "is_anchor": sample_index == 0,
+                    **dict(zip(factors, values, strict=True)),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def project_group_shares(
     base_weights: pd.Series,
     groups: Mapping[str, Sequence[str]],

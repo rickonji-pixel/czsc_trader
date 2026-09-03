@@ -61,3 +61,56 @@ def test_simplex_components_connects_one_step_neighbors() -> None:
     components = simplex_components(candidates, [0, 1, 2, 3], step=0.025)
 
     assert components == [[0, 1, 2], [3]]
+
+
+def test_dirichlet_weight_candidates_are_reproducible_and_include_anchors() -> None:
+    from czsc_trader.range_platform import dirichlet_weight_candidates
+
+    anchors = {
+        "control": pd.Series({"f1": 0.6, "f2": 0.3, "f3": 0.1}),
+        "balanced": pd.Series({"f1": 1 / 3, "f2": 1 / 3, "f3": 1 / 3}),
+    }
+
+    first = dirichlet_weight_candidates(
+        anchors,
+        samples_per_anchor=3,
+        concentrations={"control": 40.0, "balanced": 10.0},
+        seed=20260903,
+    )
+    second = dirichlet_weight_candidates(
+        anchors,
+        samples_per_anchor=3,
+        concentrations={"control": 40.0, "balanced": 10.0},
+        seed=20260903,
+    )
+
+    pd.testing.assert_frame_equal(first, second)
+    assert first["candidate_id"].tolist() == list(range(8))
+    assert first.groupby("anchor_name")["is_anchor"].sum().to_dict() == {
+        "balanced": 1,
+        "control": 1,
+    }
+    weights = first[["f1", "f2", "f3"]]
+    np.testing.assert_allclose(weights.sum(axis=1), 1.0, rtol=0.0, atol=1e-12)
+    assert weights.gt(0.0).all().all()
+    np.testing.assert_allclose(
+        first.loc[first["anchor_name"].eq("control") & first["is_anchor"], ["f1", "f2", "f3"]],
+        [[0.6, 0.3, 0.1]],
+    )
+
+
+def test_dirichlet_weight_candidates_reject_invalid_anchor_identity() -> None:
+    from czsc_trader.range_platform import dirichlet_weight_candidates
+
+    anchors = {
+        "left": pd.Series({"f1": 0.5, "f2": 0.5}),
+        "right": pd.Series({"f2": 0.5, "f3": 0.5}),
+    }
+
+    with np.testing.assert_raises_regex(ValueError, "same positive factor weights"):
+        dirichlet_weight_candidates(
+            anchors,
+            samples_per_anchor=1,
+            concentrations={"left": 10.0, "right": 10.0},
+            seed=1,
+        )

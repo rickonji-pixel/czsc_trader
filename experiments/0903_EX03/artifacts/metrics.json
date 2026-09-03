@@ -1,0 +1,82 @@
+{
+  "status": "COMPLETE",
+  "experiment_id": "0903_EX03",
+  "execution_commit": "4680f1d33fee539c79927164e168ac8a334f198a",
+  "source_experiment": {
+    "experiment_id": "0903_EX02",
+    "manifest_sha256": "3323525dae97d23fd1125e705dd258e4634e7ac6b4953100baba550f59e83e37"
+  },
+  "strategy_release": {
+    "strategy_id": "S001",
+    "version": "v1",
+    "release_hash": "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
+    "legacy_baseline": "baseline_20260903",
+    "legacy_baseline_sha256": "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331"
+  },
+  "development_end": "2026-09-02",
+  "minimum_factor_weight": 0.005,
+  "source_deployable_count": 815,
+  "source_seed_ids": [
+    984,
+    36,
+    977,
+    923,
+    495,
+    1077,
+    985,
+    960,
+    965,
+    758,
+    936,
+    1010
+  ],
+  "new_candidate_count": 372,
+  "formal_shortlist_count": 24,
+  "formal_shortlist_ids": [
+    1239,
+    1298,
+    1264,
+    1265,
+    1250,
+    1479,
+    1319,
+    1455,
+    1485,
+    1420,
+    36,
+    1157,
+    1500,
+    1245,
+    1010,
+    977,
+    1205,
+    1259,
+    1273,
+    1036,
+    1278,
+    1401,
+    1236,
+    0
+  ],
+  "control_candidate_id": 0,
+  "best_challenger_id": 1010,
+  "best_challenger_minimum_weight": 0.0147429948555159,
+  "window_count": 5,
+  "core_metrics": [
+    "max_drawdown",
+    "calmar",
+    "win_loss_ratio"
+  ],
+  "return_used_for_selection": false,
+  "automatic_promotion": false,
+  "execution_audit": {
+    "minimum_cash": 0.032949999324046075,
+    "cash_non_negative": true,
+    "all_orders_in_lots": true,
+    "fill_on_equal_touch": false,
+    "lot_size": 100,
+    "entry_limit_family": "previous_close_ratio",
+    "entry_limit_parameter": 0.0
+  },
+  "elapsed_seconds": 308.6359287999949
+}

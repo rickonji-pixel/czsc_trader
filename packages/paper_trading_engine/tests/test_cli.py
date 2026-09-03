@@ -208,7 +208,8 @@ def test_build_engine_keeps_virtual_accounts_when_futu_initialization_fails(tmp_
     try:
         status = engine.status()
         assert status["channel"]["channel_error"] == "SDK failed"
-        assert status["virtual_accounts"][0]["account_id"] == "baseline-143"
+        assert status["virtual_accounts"][0]["account_id"] == "s001-v1"
+        assert status["virtual_accounts"][0]["name"] == "S001-v1模拟账户"
         assert status["virtual_accounts"][0]["initial_cash"] == "100000.0000"
         assert status["virtual_accounts"][0]["cash"] == "100000.0000"
     finally:
@@ -239,6 +240,8 @@ def test_build_engine_safely_migrates_pristine_baseline_account_to_default_capit
     engine = cli.build_engine(args)
     try:
         account = engine.status()["virtual_accounts"][0]
+        assert account["account_id"] == "s001-v1"
+        assert account["name"] == "S001-v1模拟账户"
         assert account["initial_cash"] == "100000.0000"
         assert account["cash"] == "100000.0000"
         assert account["total_assets"] == "100000.0000"

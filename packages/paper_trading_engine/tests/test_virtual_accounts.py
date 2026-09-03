@@ -80,6 +80,64 @@ def test_existing_baseline_143_account_gains_formal_strategy_identity_without_le
     reopened.close()
 
 
+def test_virtual_account_identity_migration_preserves_ledger_and_audit(tmp_path):
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "runtime.db")
+    create_account(store, "baseline-143", "候选143")
+    store.save_virtual_decision(
+        "baseline-143", {"decision_id": "DEC-1", "account_id": "baseline-143"}, 100,
+    )
+    store.save_virtual_order(
+        "baseline-143", "DEC-1", "2026-09-03", "ORDER-1",
+        {"account_id": "baseline-143", "side": "BUY", "quantity": 100, "limit_price": 1.5},
+    )
+    store.save_virtual_snapshot(
+        "baseline-143", "2026-09-03",
+        {"account_id": "baseline-143", "total_assets": "1000000.0000"},
+    )
+    store.add_event("VIRTUAL_ACCOUNT_FAILED", {
+        "account_id": "baseline-143", "error": "test",
+    })
+
+    migrated = store.rename_virtual_account(
+        "baseline-143", "s001-v1", "S001-v1模拟账户",
+    )
+
+    assert migrated["account_id"] == "s001-v1"
+    assert migrated["name"] == "S001-v1模拟账户"
+    with pytest.raises(KeyError):
+        store.virtual_account("baseline-143")
+    assert store.virtual_orders("s001-v1")[0]["account_id"] == "s001-v1"
+    assert store.virtual_intents("s001-v1")[0]["account_id"] == "s001-v1"
+    assert store.virtual_snapshots("s001-v1")[0]["account_id"] == "s001-v1"
+    events = store.recent_events(10)
+    assert events[0]["event_type"] == "VIRTUAL_ACCOUNT_RENAMED"
+    assert events[0]["payload"] == {
+        "old_account_id": "baseline-143", "account_id": "s001-v1",
+        "name": "S001-v1模拟账户",
+    }
+    failed = next(item for item in events if item["event_type"] == "VIRTUAL_ACCOUNT_FAILED")
+    assert failed["payload"]["account_id"] == "s001-v1"
+    store.close()
+
+
+def test_virtual_account_identity_migration_can_standardize_name_idempotently(tmp_path):
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "runtime.db")
+    create_account(store, "s001-v2", "综合基线策略")
+
+    first = store.rename_virtual_account("s001-v2", "s001-v2", "S001-v2模拟账户")
+    second = store.rename_virtual_account("s001-v2", "s001-v2", "S001-v2模拟账户")
+
+    assert first["name"] == second["name"] == "S001-v2模拟账户"
+    assert [event["event_type"] for event in store.recent_events(10)].count(
+        "VIRTUAL_ACCOUNT_RENAMED"
+    ) == 1
+    store.close()
+
+
 def test_virtual_fill_requires_strict_penetration():
     from paper_trading_engine.virtual_fill import settle_limit_order
 

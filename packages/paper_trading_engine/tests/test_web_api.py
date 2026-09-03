@@ -105,3 +105,20 @@ def test_comparison_is_read_only_and_uses_requested_accounts(api):
     assert result["priority_metrics"] == [
         "maximum_drawdown", "calmar_ratio", "win_loss_ratio", "total_return",
     ]
+
+
+def test_system_status_exposes_recent_system_events_only(api):
+    api.store.add_event("DATA_PUBLICATION_FAILED", {
+        "operation": "publication", "error": "Tushare unavailable",
+    })
+    api.store.add_event("DATA_PUBLISHED", {"date": "2026-09-04"})
+    api.store.add_event("VIRTUAL_ACCOUNT_FAILED", {
+        "account_id": "alpha", "error": "account error",
+    })
+
+    result = api.system_status()
+
+    assert [item["event_type"] for item in result["events"]] == [
+        "DATA_PUBLISHED", "DATA_PUBLICATION_FAILED",
+    ]
+    assert result["events"][1]["payload"]["error"] == "Tushare unavailable"

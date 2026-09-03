@@ -44,6 +44,8 @@ CURRENT_LEGACY_BASELINE = "baseline_20260903"
 CURRENT_LEGACY_BASELINE_HASH = (
     "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331"
 )
+DEFAULT_VIRTUAL_ACCOUNT_ID = "s001-v1"
+DEFAULT_VIRTUAL_ACCOUNT_NAME = "S001-v1模拟账户"
 
 
 def probe_port(host: str, port: int) -> None:
@@ -171,10 +173,18 @@ def build_engine(args: argparse.Namespace):
             binding_required=True,
         )
     try:
-        account = store.virtual_account("baseline-143")
+        store.virtual_account("baseline-143")
     except KeyError:
-        store.create_virtual_account(
-            "baseline-143", "候选143", CURRENT_LEGACY_BASELINE,
+        pass
+    else:
+        store.rename_virtual_account(
+            "baseline-143", DEFAULT_VIRTUAL_ACCOUNT_ID, DEFAULT_VIRTUAL_ACCOUNT_NAME,
+        )
+    try:
+        account = store.virtual_account(DEFAULT_VIRTUAL_ACCOUNT_ID)
+    except KeyError:
+        account = store.create_virtual_account(
+            DEFAULT_VIRTUAL_ACCOUNT_ID, DEFAULT_VIRTUAL_ACCOUNT_NAME, CURRENT_LEGACY_BASELINE,
             CURRENT_LEGACY_BASELINE_HASH, DEFAULT_VIRTUAL_INITIAL_CASH,
             strategy_id=CURRENT_STRATEGY_ID,
             strategy_name_snapshot=CURRENT_STRATEGY_NAME,
@@ -186,12 +196,12 @@ def build_engine(args: argparse.Namespace):
     else:
         if Decimal(account["initial_cash"]) == LEGACY_VIRTUAL_INITIAL_CASH:
             account = store.migrate_pristine_virtual_account_capital(
-                "baseline-143",
+                DEFAULT_VIRTUAL_ACCOUNT_ID,
                 expected_initial_cash=LEGACY_VIRTUAL_INITIAL_CASH,
                 new_initial_cash=DEFAULT_VIRTUAL_INITIAL_CASH,
             )
         expected = (
-            "候选143", CURRENT_LEGACY_BASELINE, CURRENT_LEGACY_BASELINE_HASH,
+            DEFAULT_VIRTUAL_ACCOUNT_NAME, CURRENT_LEGACY_BASELINE, CURRENT_LEGACY_BASELINE_HASH,
             CURRENT_STRATEGY_ID, CURRENT_STRATEGY_NAME, CURRENT_STRATEGY_VERSION,
             CURRENT_RELEASE_HASH, CURRENT_QUALIFICATION,
             args.symbol.upper(), str(DEFAULT_VIRTUAL_INITIAL_CASH),
@@ -204,9 +214,13 @@ def build_engine(args: argparse.Namespace):
             account["symbol"], account["initial_cash"],
         )
         if actual != expected:
-            raise ValueError("baseline-143 virtual account has a different immutable identity")
+            raise ValueError(f"{DEFAULT_VIRTUAL_ACCOUNT_ID} virtual account has a different immutable identity")
         if not any(row["is_futu_reference"] for row in store.virtual_accounts()):
-            store.set_futu_reference("baseline-143")
+            store.set_futu_reference(DEFAULT_VIRTUAL_ACCOUNT_ID)
+    try:
+        store.rename_virtual_account("s001-v2", "s001-v2", "S001-v2模拟账户")
+    except KeyError:
+        pass
     return PteCoordinator(channel, VirtualAccountEngine(store, advice))
 
 

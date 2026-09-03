@@ -7,6 +7,15 @@ from datetime import datetime, timezone
 from .channel_binding import load_channel_binding
 
 
+SYSTEM_EVENT_TYPES = {
+    "DATA_PUBLICATION_FAILED",
+    "DATA_PUBLISHED",
+    "SCHEDULER_OPERATION_FAILED",
+    "SCHEDULER_OPERATION_RECOVERED",
+    "SCHEDULER_CYCLE_FAILED",
+}
+
+
 class ResourceNotFound(KeyError):
     pass
 
@@ -35,6 +44,10 @@ class PteWebApi:
             "scheduler_failures": failures,
             "futu_connection": "UNAVAILABLE" if "CHANNEL_UNAVAILABLE" in channel.get("alerts", []) else "CONNECTED",
             "alerts": alerts,
+            "events": [
+                event for event in self.store.recent_events(200)
+                if event["event_type"] in SYSTEM_EVENT_TYPES
+            ],
         }
 
     def virtual_accounts(self) -> dict[str, object]:

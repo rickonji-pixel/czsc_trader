@@ -268,6 +268,76 @@ class PaperStore:
             )
         return self.virtual_account(account_id)
 
+    def rename_virtual_account(self, old_account_id: str, account_id: str, name: str):
+        """Atomically migrate a runtime account identity without losing its ledger."""
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", str(account_id)) is None:
+            raise ValueError("account id must use 1-64 letters, digits, dots, underscores or hyphens")
+        if not str(name).strip():
+            raise ValueError("account name is required")
+
+        def replace_account_id(value):
+            if isinstance(value, dict):
+                return {
+                    key: (account_id if key == "account_id" and item == old_account_id
+                          else replace_account_id(item))
+                    for key, item in value.items()
+                }
+            if isinstance(value, list):
+                return [replace_account_id(item) for item in value]
+            return value
+
+        now = _utc_now()
+        with self._lock, self._connection:
+            source = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (old_account_id,)
+            ).fetchone()
+            if source is None:
+                raise KeyError(old_account_id)
+            if old_account_id != account_id and self._connection.execute(
+                "SELECT 1 FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone() is not None:
+                raise ValueError(f"virtual account already exists: {account_id}")
+            if old_account_id == account_id and source["name"] == name:
+                return dict(source)
+
+            for table in ("virtual_intents", "virtual_orders", "virtual_fills", "virtual_snapshots"):
+                self._connection.execute(
+                    f"UPDATE {table} SET account_id=? WHERE account_id=?",
+                    (account_id, old_account_id),
+                )
+            self._connection.execute(
+                "UPDATE virtual_accounts SET account_id=?,name=?,updated_at=? WHERE account_id=?",
+                (account_id, name, now, old_account_id),
+            )
+
+            payload_columns = (
+                ("virtual_accounts", "account_id", "last_decision_payload"),
+                ("virtual_intents", "intent_id", "payload"),
+                ("virtual_orders", "order_id", "payload"),
+                ("virtual_snapshots", "rowid", "payload"),
+                ("events", "id", "payload"),
+            )
+            for table, key_column, payload_column in payload_columns:
+                rows = self._connection.execute(
+                    f"SELECT {key_column}, {payload_column} FROM {table} "
+                    f"WHERE {payload_column} IS NOT NULL"
+                ).fetchall()
+                for row in rows:
+                    payload = json.loads(row[payload_column])
+                    replaced = replace_account_id(payload)
+                    if replaced != payload:
+                        self._connection.execute(
+                            f"UPDATE {table} SET {payload_column}=? WHERE {key_column}=?",
+                            (json.dumps(replaced, ensure_ascii=False, default=str), row[key_column]),
+                        )
+            self._connection.execute(
+                "INSERT INTO events(created_at,event_type,payload) VALUES(?,?,?)",
+                (now, "VIRTUAL_ACCOUNT_RENAMED", json.dumps({
+                    "old_account_id": old_account_id, "account_id": account_id, "name": name,
+                }, ensure_ascii=False)),
+            )
+        return self.virtual_account(account_id)
+
     def set_futu_reference(self, account_id: str):
         with self._lock, self._connection:
             if self._connection.execute(

@@ -126,6 +126,15 @@ def test_dashboard_is_served_with_operations_controls() -> None:
         assert 'href="/comparison"' in html
         assert 'src="/static/app.js"' in html
         assert 'href="/static/styles.css"' in html
+        with urlopen(f"http://127.0.0.1:{server.server_port}/static/app.js", timeout=3) as response:
+            script = response.read().decode("utf-8")
+        assert "最新决策" in script
+        assert ">订单<" in script
+        assert ">成交<" in script
+        assert "最新策略决策" not in script
+        assert "模型订单" not in script
+        assert "模型成交" not in script
+        assert "系统事件" in html
     finally:
         server.shutdown()
         server.server_close()

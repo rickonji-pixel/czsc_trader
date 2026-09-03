@@ -17,6 +17,7 @@ REQUIRED_DOCUMENTS = (
     "04_conclusion.md",
 )
 MANIFEST_NAME = "experiment_manifest.json"
+GOVERNANCE_SIDECARS = {"evaluation_acceptance.json"}
 TEXT_SUFFIXES = {".csv", ".html", ".json", ".md", ".py", ".txt"}
 
 
@@ -51,6 +52,7 @@ def _is_managed_file(experiment_dir: Path, path: Path) -> bool:
     return (
         path.is_file()
         and path.name != MANIFEST_NAME
+        and path.name not in GOVERNANCE_SIDECARS
         and "__pycache__" not in relative.parts
         and path.suffix.lower() != ".pyc"
         and (not relative.parts or relative.parts[0] != "runtime")

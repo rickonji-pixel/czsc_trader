@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0903_EX06",
+  "evaluation_input_hash": "b1d6802ffcd1fcb86b318952e1979a33cd11769f7fdb0784a989e918487c7b06",
+  "candidate_id": "R1102",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "release_id": "S001-v2",
+  "release_hash": "146490c8a4ee75f307d3d59453efaebc8fea671c726c023c96449706c40b944e",
+  "sm_state": "PAPER_READY",
+  "activation_state": "PAPER_ACTIVE",
+  "actor": "tomxiao",
+  "reason": "确认冻结R1102并加入PTE模拟盘",
+  "accepted_at": "2026-09-03T22:03:47.424043+08:00",
+  "activated_at": "2026-09-03T22:03:51.995459+08:00"
+}

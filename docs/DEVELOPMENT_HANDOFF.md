@@ -6,9 +6,9 @@
 
 ## 当前交付状态
 
-- 当前交付分支：`codex/range-optimization-v2`（合并后以`master`为准）
+- 当前交付分支：`master`
 - Python版本：3.12
-- 正式策略：`S001 / 综合基线策略 / v1`，资格`PAPER_READY`
+- 正式策略：`S001 / 综合基线策略 / v2`，资格`PAPER_READY`
 - 历史基线别名：`baseline_20260903`（候选143，内嵌唯一执行规则）
 - 历史执行规则：`execution_policy_20260902`仅用于旧实验复现，不进入正式运行选择
 - Trader/PTE契约：`advice.v4`
@@ -85,13 +85,13 @@ Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执�
 `artifact_reuse.csv`记录每条指标的`REUSED/COMPUTED`状态，冠军重复性检查始终现场计算。
 
 0903_EX05实测：固定64候选相对旧参考5.14倍；1,187项候选池冷启动114.33秒；复用EX04
-并补算正式与压力缺口后总运行23.08秒；结果落盘后的幂等复核5.33秒。EX05建议冻结
-R1102，但尚未执行人工接受。
+并补算正式与压力缺口后总运行23.08秒；结果落盘后的幂等复核5.33秒。
 
-当前开发分支为`codex/se-statistical-audit`。`0903_EX06`复用EX05完全相同的1,187项候选，
-按OPC-v3重新产生R1102为唯一临时冠军；完整审计`PASS`、统计风险`MIXED`，端到端运行
+`0903_EX06`复用EX05完全相同的1,187项候选，按OPC-v3重新产生R1102为唯一临时冠军；
+完整审计`PASS`、统计风险`MIXED`，端到端运行
 125.17秒，达到5分钟目标。PBO与配对Bootstrap偏正面，DSR中性，真实候选邻域偏弱。
-证据位于`statistical_audit.json`、收益矩阵CSV、Bootstrap/邻域/压力CSV和评估报告。
+用户已于2026-09-03人工接受，R1102冻结为`S001-v2`并注册PTE账户`s001-v2`，初始资金
+10万元。证据位于`statistical_audit.json`、收益矩阵CSV、Bootstrap/邻域/压力CSV和评估报告。
 
 接受日志位于实验根目录`evaluation_acceptance.json`。`PAPER_ACTIVATION_PENDING`表示SM
 已经冻结、仅PTE账户注册待重试；重复命令不得创建第二个版本。默认虚拟资金为10万元。
@@ -114,9 +114,9 @@ watchdog不包含交易业务代码。
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe strategy list
-.\.venv\Scripts\czsc-trader.exe strategy show --strategy S001 --version v1
+.\.venv\Scripts\czsc-trader.exe strategy show --strategy S001 --version v2
 .\.venv\Scripts\czsc-trader.exe strategy history --strategy S001
-.\.venv\Scripts\czsc-trader.exe strategy performance --strategy S001 --version v1
+.\.venv\Scripts\czsc-trader.exe strategy performance --strategy S001 --version v2
 .\.venv\Scripts\czsc-trader.exe strategy validate --all
 ```
 
@@ -205,8 +205,8 @@ python -m venv .venv
 ```powershell
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
-  --account-id s001-shadow --name S001影子账户 `
-  --strategy S001 --strategy-version v1
+  --account-id s001-v2 --name S001-v2模拟账户 `
+  --strategy S001 --strategy-version v2
 .\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
 ```
 
@@ -251,7 +251,7 @@ python -m venv .venv
 .\.venv\Scripts\czsc-trader.exe advice run `
   --symbol 588080.SH --asset etf `
   --actual-quantity 0 --available-cash 1000000 `
-  --strategy S001 --strategy-version v1 `
+  --strategy S001 --strategy-version v2 `
   --format json
 ```
 

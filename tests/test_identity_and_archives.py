@@ -80,6 +80,28 @@ def test_experiment_archive_ignores_runtime_python_cache(tmp_path: Path) -> None
     validate_experiment_archive(tmp_path)
 
 
+def test_experiment_archive_allows_post_archive_acceptance_journal(tmp_path: Path) -> None:
+    from czsc_trader.experiment_archive import (
+        build_experiment_manifest,
+        validate_experiment_archive,
+    )
+
+    for name in ("01_goal.md", "02_design.md", "03_execution.md", "04_conclusion.md"):
+        (tmp_path / name).write_text("document\n", encoding="utf-8")
+    (tmp_path / "run_experiment.py").write_text("print('research')\n", encoding="utf-8")
+    build_experiment_manifest(tmp_path, {"experiment_id": "test"})
+
+    (tmp_path / "evaluation_acceptance.json").write_text(
+        '{"status":"PAPER_ACTIVE"}\n',
+        encoding="utf-8",
+    )
+    validate_experiment_archive(tmp_path)
+
+    (tmp_path / "undeclared.json").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="undeclared.json"):
+        validate_experiment_archive(tmp_path)
+
+
 def test_repository_eol_contract_is_lf_with_raw_and_binary_exceptions() -> None:
     completed = subprocess.run(
         [

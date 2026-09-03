@@ -224,6 +224,10 @@ def test_accept_freezes_once_and_retries_only_pending_pte(tmp_path):
     experiment = write_bundle(tmp_path)
     repository_root = Path(__file__).resolve().parents[1]
     shutil.copytree(repository_root / "configs" / "strategies", tmp_path / "configs" / "strategies")
+    versions_dir = tmp_path / "configs" / "strategies" / "S001" / "versions"
+    existing_versions = len(list(versions_dir.glob("v*.json")))
+    expected_version = f"v{existing_versions + 1}"
+    expected_release = f"S001-{expected_version}"
     context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
     evaluate_experiment(context, "0903_TEST", runner=fake_runner)
 
@@ -242,8 +246,11 @@ def test_accept_freezes_once_and_retries_only_pending_pte(tmp_path):
     assert second.result["activation_state"] == "PAPER_ACTIVE"
     assert third.result == second.result
     assert len(calls) == 2
-    assert (tmp_path / "configs" / "strategies" / "S001" / "versions" / "v2.json").is_file()
-    assert json.loads((experiment / "evaluation_acceptance.json").read_text(encoding="utf-8"))["release_id"] == "S001-v2"
+    assert (versions_dir / f"{expected_version}.json").is_file()
+    acceptance = json.loads(
+        (experiment / "evaluation_acceptance.json").read_text(encoding="utf-8")
+    )
+    assert acceptance["release_id"] == expected_release
 
 
 def test_accept_rejects_non_freeze_decision(tmp_path):

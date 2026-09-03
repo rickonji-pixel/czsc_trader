@@ -352,3 +352,44 @@ def test_advice_v3_keeps_one_target_for_the_entry_cycle() -> None:
     assert retry["delta_quantity"] == 0
     assert retry["action"] == "HOLD"
     assert retry["order"] is None
+
+
+def test_advice_v4_uses_release_identity_without_mutable_display_fields() -> None:
+    from czsc_trader.application.advice_service import build_advice_v4
+    from czsc_trader.baselines import resolve_baseline
+
+    baseline = resolve_baseline(
+        REPO_ROOT / "configs" / "rule_baselines",
+        "baseline_20260903",
+        symbol="588080.SH",
+    )
+    identity = {
+        "strategy_id": "S001",
+        "name": "综合基线策略",
+        "version": "v1",
+        "release_id": "S001-v1",
+        "release_hash": "a" * 64,
+        "qualification": "PAPER_READY",
+    }
+    common = {
+        "baseline": baseline,
+        "signal_date": pd.Timestamp("2026-09-01"),
+        "valid_session": pd.Timestamp("2026-09-02"),
+        "signal_close": 1.704,
+        "execution_close": 1.688,
+        "target_position": 1,
+        "actual_quantity": 0,
+        "available_cash": 100_000.0,
+        "cycle_target_quantity": None,
+    }
+
+    first = build_advice_v4(strategy=identity, **common)
+    renamed = build_advice_v4(
+        strategy={**identity, "name": "新展示名称", "qualification": "LIVE_READY"},
+        **common,
+    )
+
+    assert first["contract_version"] == "advice.v4"
+    assert first["strategy"] == identity
+    assert "baseline" not in first
+    assert first["decision_id"] == renamed["decision_id"]

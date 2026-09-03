@@ -10,7 +10,7 @@ import json
 import pandas as pd
 
 from czsc_trader.baseline_execution import apply_resolved_baseline
-from czsc_trader.baselines import ResolvedBaseline, resolve_baseline
+from czsc_trader.baselines import ResolvedBaseline, resolve_strategy_payload
 from czsc_trader.data import load_execution_manifest, load_execution_prices, load_market_data
 from czsc_trader.execution_policies import ResolvedExecutionPolicy
 from czsc_trader.execution_policy import floor_to_tick, round_to_tick
@@ -29,6 +29,8 @@ class AdviceCommand:
     position_size: int | None = None
     available_cash: float | None = None
     baseline: str | None = None
+    strategy: str | None = None
+    strategy_version: str | None = None
     cycle_target_quantity: int | None = None
 
 
@@ -293,6 +295,69 @@ def build_advice_v3(
     }
 
 
+def build_advice_v4(
+    *,
+    strategy: dict[str, object],
+    baseline: ResolvedBaseline,
+    signal_date: pd.Timestamp,
+    valid_session: pd.Timestamp,
+    signal_close: float,
+    execution_close: float,
+    target_position: int,
+    actual_quantity: int,
+    available_cash: float,
+    cycle_target_quantity: int | None,
+) -> dict[str, object]:
+    """Build a complete-baseline order carrying the formal strategy release identity."""
+    required = {
+        "strategy_id",
+        "name",
+        "version",
+        "release_id",
+        "release_hash",
+        "qualification",
+    }
+    if set(strategy) != required:
+        raise ValueError("advice.v4 strategy identity fields are incomplete")
+    legacy = build_advice_v3(
+        baseline=baseline,
+        signal_date=signal_date,
+        valid_session=valid_session,
+        signal_close=signal_close,
+        execution_close=execution_close,
+        target_position=target_position,
+        actual_quantity=actual_quantity,
+        available_cash=available_cash,
+        cycle_target_quantity=cycle_target_quantity,
+    )
+    immutable_strategy = {
+        "strategy_id": strategy["strategy_id"],
+        "version": strategy["version"],
+        "release_hash": strategy["release_hash"],
+    }
+    decision_identity = {
+        "contract_version": "advice.v4",
+        "symbol": legacy["symbol"],
+        "signal_date": legacy["signal_date"],
+        "valid_session": legacy["valid_session"],
+        "actual_quantity": legacy["actual_quantity"],
+        "cycle_target_quantity": legacy["cycle_target_quantity"],
+        "target_quantity": legacy["target_quantity"],
+        "strategy": immutable_strategy,
+        "orders": legacy["orders"],
+    }
+    display = dict(legacy)
+    display.pop("contract_version")
+    display.pop("baseline")
+    display.pop("decision_id")
+    return {
+        **display,
+        "contract_version": "advice.v4",
+        "strategy": dict(strategy),
+        "decision_id": _decision_id(decision_identity),
+    }
+
+
 def build_advice(
     *,
     signal_date: pd.Timestamp,
@@ -371,11 +436,34 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
     except ValueError as exc:
         raise UsageError("invalid_account_state", str(exc)) from exc
     try:
-        baseline = resolve_baseline(
-            context.baseline_root, request.baseline, symbol=request.symbol
+        from strategy_manager import StrategyRegistry
+
+        if request.strategy and request.baseline:
+            raise ValueError("use either strategy or legacy baseline, not both")
+        registry = StrategyRegistry(context.strategy_root)
+        reference = request.strategy or request.baseline or "S001"
+        release = registry.resolve_strategy(reference, request.strategy_version)
+        registry.assert_deployable(release.strategy_id, release.version, "PAPER")
+        strategy = registry.get_strategy(release.strategy_id)
+        if release.release_hash is None:
+            raise ValueError("deployable strategy version must have a release hash")
+        baseline = resolve_strategy_payload(
+            context.baseline_root,
+            release.strategy_payload,
+            release_id=release.release_id,
+            release_hash=release.release_hash,
+            symbol=request.symbol,
         )
-        if baseline.execution is None:
-            raise ValueError("selected baseline does not contain execution rules")
+        strategy_identity = {
+            "strategy_id": strategy.strategy_id,
+            "name": strategy.name,
+            "version": release.version,
+            "release_id": release.release_id,
+            "release_hash": release.release_hash,
+            "qualification": registry.current_qualification(
+                release.strategy_id, release.version
+            ).value,
+        }
         data = load_market_data(context.raw_dir, request.symbol, request.asset_type)
         execution_prices = load_execution_prices(
             context.raw_dir, request.symbol, request.asset_type
@@ -396,7 +484,8 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
             raise ValueError(
                 f"execution price must contain exactly one row for {signal_date.date()}"
             )
-        advice = build_advice_v3(
+        advice = build_advice_v4(
+            strategy=strategy_identity,
             baseline=baseline,
             signal_date=signal_date,
             valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
@@ -420,6 +509,11 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
         raise ExecutionError(
             "advice_failed",
             str(exc),
-            context={"symbol": request.symbol, "baseline": request.baseline},
+            context={
+                "symbol": request.symbol,
+                "strategy": request.strategy,
+                "strategy_version": request.strategy_version,
+                "legacy_baseline": request.baseline,
+            },
         ) from exc
     return CommandResult(status="PASS", command="advice.run", result=result)

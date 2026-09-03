@@ -330,6 +330,8 @@ git commit -m "feat: expose strategy management through trader"
 
 ### Task 5: Publish advice.v4 strategy contract
 
+**Status:** Complete
+
 **Files:**
 - Modify: `src/czsc_trader/application/advice_service.py`
 - Modify: `src/czsc_trader/cli/main.py`

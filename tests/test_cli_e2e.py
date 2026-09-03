@@ -15,7 +15,7 @@ STRATEGY_METRIC_KEYS = {"max_drawdown", "calmar", "win_loss_ratio", "return", "s
 STRATEGY_METRIC_KEYS.add("win_loss_ratio_status")
 
 
-def test_installed_cli_publishes_advice_v3_complete_baseline_contract() -> None:
+def test_installed_cli_publishes_advice_v4_strategy_contract() -> None:
     completed = subprocess.run(
         [
             str(CLI),
@@ -29,6 +29,10 @@ def test_installed_cli_publishes_advice_v3_complete_baseline_contract() -> None:
             "0",
             "--available-cash",
             "1000000",
+            "--strategy",
+            "S001",
+            "--strategy-version",
+            "v1",
             "--repo-root",
             str(REPO_ROOT),
         ],
@@ -43,8 +47,12 @@ def test_installed_cli_publishes_advice_v3_complete_baseline_contract() -> None:
     assert completed.stderr == ""
     payload = json.loads(completed.stdout)
     assert payload["status"] == "PASS"
-    assert payload["result"]["contract_version"] == "advice.v3"
-    assert payload["result"]["baseline"]["version"] == "baseline_20260903"
+    assert payload["result"]["contract_version"] == "advice.v4"
+    assert payload["result"]["strategy"]["strategy_id"] == "S001"
+    assert payload["result"]["strategy"]["name"] == "综合基线策略"
+    assert payload["result"]["strategy"]["version"] == "v1"
+    assert payload["result"]["strategy"]["qualification"] == "PAPER_READY"
+    assert "baseline" not in payload["result"]
     assert "execution_policy" not in payload["result"]
     assert payload["result"]["actual_quantity"] == 0
     assert payload["result"]["target_quantity"] == 0

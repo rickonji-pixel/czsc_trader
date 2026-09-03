@@ -443,6 +443,68 @@ def resolve_baseline(
     )
 
 
+def resolve_strategy_payload(
+    baseline_root: Path,
+    strategy_payload: dict[str, object],
+    *,
+    release_id: str,
+    release_hash: str,
+    symbol: str,
+) -> ResolvedBaseline:
+    """Parse a frozen Strategy Manager payload without creating another baseline."""
+    rule_payload = strategy_payload.get("rule")
+    if not isinstance(rule_payload, dict):
+        raise ValueError("strategy payload must contain a complete rule object")
+    factor_names: tuple[str, ...] = ()
+    factor_weights: tuple[float, ...] = ()
+    regime_factor_weights: dict[str, tuple[float, ...]] = {}
+    er_lookback = 0
+    er_threshold = 0.0
+    if "er_lookback" in rule_payload:
+        parent = rule_payload.get("baseline")
+        if not isinstance(parent, dict):
+            raise ValueError("regime strategy parent baseline is missing")
+        base = resolve_baseline(Path(baseline_root), str(parent.get("version", "")))
+        (
+            rule,
+            factor_names,
+            factor_weights,
+            regime_factor_weights,
+            er_lookback,
+            er_threshold,
+        ) = _parse_regime_weight(rule_payload, base)
+        strategy_kind = "czsc_regime_weight"
+    elif "factor_names" in rule_payload:
+        champion = rule_payload.get("champion")
+        if not isinstance(champion, dict):
+            raise ValueError("four-layer strategy champion is missing")
+        base = resolve_baseline(Path(baseline_root), str(champion.get("version", "")))
+        rule, factor_names, factor_weights = _parse_four_layer(rule_payload, base)
+        strategy_kind = "czsc_four_layer"
+    else:
+        rule = _parse_rule(rule_payload)
+        strategy_kind = "czsc_fixed_rule"
+    execution = _parse_execution(rule_payload, symbol)
+    return ResolvedBaseline(
+        version=release_id,
+        rule=rule,
+        rule_payload=rule_payload,
+        sha256=release_hash,
+        strategy=strategy_kind,
+        status="active",
+        scope="symbol",
+        symbol=symbol,
+        factor_names=factor_names,
+        factor_weights=factor_weights,
+        regime_factor_weights=regime_factor_weights,
+        er_lookback=er_lookback,
+        er_threshold=er_threshold,
+        selection_sample_end="",
+        forward_validation_start="",
+        execution=execution,
+    )
+
+
 def promote_baseline(
     root: Path,
     selected_rule: Path,

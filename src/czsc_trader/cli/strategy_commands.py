@@ -17,7 +17,7 @@ from czsc_trader.application.strategy_service import (
     transition_strategy_version,
     validate_strategies,
 )
-from czsc_trader.application.evaluation_service import evaluate_experiment
+from czsc_trader.application.evaluation_service import accept_evaluation, evaluate_experiment
 
 
 def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
@@ -63,6 +63,8 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
         return add_strategy_evidence(context, args.input)
     if action == "evaluate":
         return evaluate_experiment(context, args.experiment)
+    if action == "accept-evaluation":
+        return accept_evaluation(context, args.experiment, args.actor, args.reason)
     raise ValueError(f"unknown strategy action: {action}")
 
 
@@ -161,3 +163,9 @@ def add_strategy_parser(
     evaluate.add_argument("--experiment", required=True)
     add_common(evaluate)
     evaluate.set_defaults(command_handler=handler, command_name="strategy.evaluate")
+
+    accept = actions.add_parser("accept-evaluation")
+    accept.add_argument("--experiment", required=True)
+    _audit(accept)
+    add_common(accept)
+    accept.set_defaults(command_handler=handler, command_name="strategy.accept-evaluation")

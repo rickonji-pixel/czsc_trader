@@ -233,3 +233,12 @@ def test_strategy_evaluate_dispatches_experiment(monkeypatch, capsys):
     )
     assert main(["strategy", "evaluate", "--experiment", "0903_TEST", "--repo-root", str(REPO_ROOT)]) == 0
     assert _payload(capsys)["result"]["experiment"] == "0903_TEST"
+
+
+def test_strategy_accept_evaluation_dispatches_audited_acceptance(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "czsc_trader.cli.strategy_commands.accept_evaluation",
+        lambda context, experiment, actor, reason: CommandResult("PASS", "strategy.accept-evaluation", {"experiment": experiment, "actor": actor, "reason": reason}),
+    )
+    assert main(["strategy", "accept-evaluation", "--experiment", "0903_TEST", "--actor", "tester", "--reason", "reviewed", "--repo-root", str(REPO_ROOT)]) == 0
+    assert _payload(capsys)["result"] == {"experiment": "0903_TEST", "actor": "tester", "reason": "reviewed"}

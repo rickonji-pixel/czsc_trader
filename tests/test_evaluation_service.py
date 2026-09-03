@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
+import shutil
+from types import SimpleNamespace
 
 from czsc_trader.application.context import RepositoryContext
-from czsc_trader.application.evaluation_service import evaluate_experiment
+from czsc_trader.application.evaluation_service import accept_evaluation, evaluate_experiment
 from strategy_evaluator import MetricObservation, MetricStatus
 
 
@@ -24,7 +26,7 @@ def write_bundle(root):
         "windows": {"full": {"start": "2021-01-04", "end": "2026-09-02"}},
         "candidates": [
             {"candidate_id": "S001-v1", "strategy_hash": "a" * 64, "execution_policy_hash": "b" * 64, "behavior_hash": "h0", "is_incumbent": True, "strategy_payload": {"rule": {"enter": 1}}},
-            {"candidate_id": "c1", "strategy_hash": "c" * 64, "execution_policy_hash": "b" * 64, "behavior_hash": "h1", "is_incumbent": False, "strategy_payload": {"rule": {"enter": 2}}},
+            {"candidate_id": "c1", "strategy_id": "S001", "strategy_name": "综合基线策略", "strategy_hash": "c" * 64, "execution_policy_hash": "b" * 64, "behavior_hash": "h1", "is_incumbent": False, "strategy_payload": {"rule": {"enter": 2}}},
         ],
         "trials": [
             {"trial_id": "t0", "candidate_id": "S001-v1", "strategy_hash": "a" * 64, "behavior_hash": "h0", "status": "COMPLETED"},
@@ -72,3 +74,43 @@ def test_strategy_evaluator_dependency_direction_is_one_way():
     root = Path(__file__).resolve().parents[1]
     forbidden = (root / "packages" / "strategy_manager", root / "packages" / "paper_trading_engine")
     assert not [path for directory in forbidden for path in directory.rglob("*.py") if "strategy_evaluator" in path.read_text(encoding="utf-8")]
+
+
+def test_accept_freezes_once_and_retries_only_pending_pte(tmp_path):
+    experiment = write_bundle(tmp_path)
+    repository_root = Path(__file__).resolve().parents[1]
+    shutil.copytree(repository_root / "configs" / "strategies", tmp_path / "configs" / "strategies")
+    context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
+    evaluate_experiment(context, "0903_TEST", runner=fake_runner)
+
+    calls = []
+
+    def pte_runner(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            return SimpleNamespace(returncode=1, stdout="", stderr="temporarily unavailable")
+        return SimpleNamespace(returncode=0, stdout=json.dumps({"status": "PASS"}), stderr="")
+
+    first = accept_evaluation(context, "0903_TEST", "tester", "reviewed", pte_runner=pte_runner)
+    second = accept_evaluation(context, "0903_TEST", "tester", "reviewed", pte_runner=pte_runner)
+    third = accept_evaluation(context, "0903_TEST", "tester", "reviewed", pte_runner=pte_runner)
+    assert first.result["activation_state"] == "PAPER_ACTIVATION_PENDING"
+    assert second.result["activation_state"] == "PAPER_ACTIVE"
+    assert third.result == second.result
+    assert len(calls) == 2
+    assert (tmp_path / "configs" / "strategies" / "S001" / "versions" / "v2.json").is_file()
+    assert json.loads((experiment / "evaluation_acceptance.json").read_text(encoding="utf-8"))["release_id"] == "S001-v2"
+
+
+def test_accept_rejects_non_freeze_decision(tmp_path):
+    experiment = write_bundle(tmp_path)
+    artifacts = experiment / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "evaluation_result.json").write_text(json.dumps({"decision": "KEEP_INCUMBENT", "input_hash": "x"}), encoding="utf-8")
+    context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
+    try:
+        accept_evaluation(context, "0903_TEST", "tester", "reviewed")
+    except ValueError as exc:
+        assert "RECOMMEND_FREEZE" in str(exc)
+    else:
+        raise AssertionError("non-freeze result accepted")

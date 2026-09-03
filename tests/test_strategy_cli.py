@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 from czsc_trader.cli.main import main
+from czsc_trader.application.results import CommandResult
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -223,3 +224,12 @@ def test_strategy_evidence_import_copies_verified_bundle_and_groups_phase(
     assert len(performance["result"]["phases"]["RESEARCH_BACKTEST"]) == 1
     assert len(performance["result"]["phases"]["PAPER_FORWARD"]) == 1
     assert performance["result"]["phases"]["LIVE"] == []
+
+
+def test_strategy_evaluate_dispatches_experiment(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "czsc_trader.cli.strategy_commands.evaluate_experiment",
+        lambda context, experiment: CommandResult("PASS", "strategy.evaluate", {"experiment": experiment}),
+    )
+    assert main(["strategy", "evaluate", "--experiment", "0903_TEST", "--repo-root", str(REPO_ROOT)]) == 0
+    assert _payload(capsys)["result"]["experiment"] == "0903_TEST"

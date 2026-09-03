@@ -23,13 +23,14 @@ class EvaluationStandard:
 
 OPC_V1 = EvaluationStandard("opc-v1", MarginSet())
 OPC_V2 = EvaluationStandard("opc-v2", replace(MarginSet(), negative_calmar_requires_positive=False))
+OPC_V3 = EvaluationStandard("opc-v3", OPC_V2.margins)
 
 _HIGHER_IS_TIGHTER = {"net_cagr_retention", "calmar_retention", "profit_factor_retention", "profit_factor_floor", "minimum_closed_trades"}
 _LOWER_IS_TIGHTER = {"max_drawdown_absolute", "max_drawdown_relative"}
 
 
 def resolve_margins(protocol: EvaluationProtocol) -> MarginSet:
-    standards = {item.version: item for item in (OPC_V1, OPC_V2)}
+    standards = {item.version: item for item in (OPC_V1, OPC_V2, OPC_V3)}
     standard = standards.get(protocol.standard_version)
     if standard is None:
         raise ValidationError(f"unsupported standard: {protocol.standard_version}", "UNSUPPORTED_STANDARD")

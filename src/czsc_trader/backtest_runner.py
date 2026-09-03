@@ -244,6 +244,7 @@ def _complete_baseline_execution_results(
     *,
     fee_rate: float,
     init_cash: float,
+    slippage_bp: int = 0,
 ) -> dict[str, ExecutionSimulation]:
     """Run one independently funded execution simulation per requested window."""
     daily_dates = pd.DatetimeIndex(pd.to_datetime(daily["dt"]), name="dt")
@@ -278,6 +279,7 @@ def _complete_baseline_execution_results(
             diagnostic_quantity=execution.instrument.maximum_order_quantity,
             lot_size=execution.instrument.lot_size,
             fill_on_equal_touch=False,
+            slippage_bp=slippage_bp,
         )
         execution_dates = pd.to_datetime(simulation.orders["execution_date"])
         orders = simulation.orders.loc[

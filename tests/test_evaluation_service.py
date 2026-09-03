@@ -258,3 +258,78 @@ def test_accept_rejects_non_freeze_decision(tmp_path):
         assert "RECOMMEND_FREEZE" in str(exc)
     else:
         raise AssertionError("non-freeze result accepted")
+
+
+def test_opc_v3_service_persists_se_champion_audit(tmp_path, monkeypatch):
+    from strategy_evaluator import (
+        AuditIdentity, AuditStatus, ChampionAuditResult, ReturnMatrixEvidence, RiskLabel,
+    )
+
+    experiment = write_bundle(tmp_path)
+    protocol_path = experiment / "evaluation_protocol.json"
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    protocol["standard_version"] = "opc-v3"
+    protocol_path.write_text(json.dumps(protocol), encoding="utf-8")
+    identity = AuditIdentity(
+        "0903_TEST", "a" * 64, "2026-09-02", "b" * 64, "b" * 64,
+        "opc-v3", "champion-audit-v1", 7,
+    )
+    audit = ChampionAuditResult(
+        identity, "c1", AuditStatus.PASS, RiskLabel.MIXED, (), (),
+        direction_flags=(("bootstrap", "MIXED"),),
+    )
+    matrix = ReturnMatrixEvidence(
+        ("2026-09-01", "2026-09-02"), ("c1", "c2"),
+        ((0.01, 0.0), (-0.01, 0.01)), "d" * 64,
+    )
+    sentinel = SimpleNamespace(search_returns=matrix, comparison_returns=matrix)
+    monkeypatch.setattr(
+        "czsc_trader.application.evaluation_service.build_champion_audit_request",
+        lambda **kwargs: sentinel,
+    )
+    monkeypatch.setattr(
+        "czsc_trader.application.evaluation_service.audit_provisional_champion",
+        lambda request: audit if request is sentinel else (_ for _ in ()).throw(AssertionError()),
+    )
+
+    result = evaluate_experiment(
+        RepositoryContext.discover(tmp_path, explicit_root=tmp_path),
+        "0903_TEST", runner=fake_runner,
+    )
+
+    assert result.result["decision"] == "RECOMMEND_FREEZE"
+    assert result.result["standard_version"] == "opc-v3"
+    stored = json.loads(
+        (experiment / "artifacts" / "statistical_audit.json").read_text(encoding="utf-8")
+    )
+    assert stored["status"] == "PASS"
+    assert stored["risk_label"] == "MIXED"
+    assert (experiment / "artifacts" / "candidate_returns.csv").is_file()
+    assert (experiment / "artifacts" / "comparison_returns.csv").is_file()
+    audit_path = experiment / "artifacts" / "statistical_audit.json"
+    audit_path.write_text(audit_path.read_text(encoding="utf-8") + "tampered\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="audit artifact hash mismatch"):
+        evaluate_experiment(
+            RepositoryContext.discover(tmp_path, explicit_root=tmp_path),
+            "0903_TEST", runner=fake_runner,
+        )
+
+
+def test_accept_rejects_opc_v3_result_without_complete_audit(tmp_path):
+    experiment = write_bundle(tmp_path)
+    protocol_path = experiment / "evaluation_protocol.json"
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    protocol["standard_version"] = "opc-v3"
+    protocol_path.write_text(json.dumps(protocol), encoding="utf-8")
+    artifacts = experiment / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "evaluation_result.json").write_text(
+        json.dumps({
+            "decision": "RECOMMEND_FREEZE", "recommended_candidate_id": "c1",
+            "standard_version": "opc-v3", "audit": {"status": "INSUFFICIENT"},
+        }), encoding="utf-8",
+    )
+    context = RepositoryContext.discover(tmp_path, explicit_root=tmp_path)
+
+    with pytest.raises(ValueError, match="complete champion audit"):
+        accept_evaluation(context, "0903_TEST", "tester", "reviewed")

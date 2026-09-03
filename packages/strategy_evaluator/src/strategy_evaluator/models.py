@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
+
+if TYPE_CHECKING:
+    from .audit_models import ChampionAuditResult
 
 
 class ValidationError(ValueError):
@@ -260,3 +263,4 @@ class EvaluationResult(Record):
     reason_codes: tuple[str, ...]
     ranking: RankingResult
     health: HealthEvidence | None = None
+    audit: ChampionAuditResult | None = None

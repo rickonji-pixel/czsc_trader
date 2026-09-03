@@ -14,6 +14,7 @@ from czsc_trader.candidate_evaluation import (
     _evaluate_candidate_payloads_reference,
     evaluate_candidate_payloads,
     prepare_evaluation_workspace,
+    _scenario_settings,
 )
 from czsc_trader.range_diagnostics import range_cycle_objectives
 from strategy_evaluator import EvaluationProtocol
@@ -37,6 +38,14 @@ def test_behavior_key_includes_target_execution_tier_scenario_and_fee():
     assert _behavior_key(target, "execution-b", "SCREENING", "standard", 0.0005) != base
     assert _behavior_key(target, "execution-a", "FORMAL", "standard", 0.0005) != base
     assert _behavior_key(target, "execution-a", "STRESS", "fee_x2", 0.001) != base
+
+
+def test_stress_scenario_settings_keep_fee_and_slippage_separate():
+    assert _scenario_settings("standard", 0.0005) == (0.0005, 0)
+    assert _scenario_settings("fee_x2", 0.0005) == (0.001, 0)
+    assert _scenario_settings("slippage_30bp", 0.0005) == (0.0005, 30)
+    with pytest.raises(ValueError, match="unsupported stress scenario"):
+        _scenario_settings("unknown", 0.0005)
 
 
 def test_contiguous_chunks_are_balanced_and_ordered():

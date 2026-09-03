@@ -81,7 +81,7 @@ def test_robustness_deflated_sharpe_increases_with_selected_sharpe() -> None:
     )
     formula = deflated_sharpe_ratio(high, identical_trials)
     assert formula["expected_max_sharpe"] == pytest.approx(
-        identical_trials.std(ddof=1) * expected_standard_max
+        identical_trials.mean() + identical_trials.std(ddof=1) * expected_standard_max
     )
 
     low_result = deflated_sharpe_ratio(low, trials)

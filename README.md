@@ -7,11 +7,14 @@
 | CZSC Trader | `src/czsc_trader/` | `czsc-trader` | 行情验证、策略管理、回测、研究归档和交易决策 |
 | CZSC PTE | `packages/paper_trading_engine/` | `pte`、`pte-watchdog` | 模拟账户对账、自动下单、审计、观测页面和进程保活 |
 | Strategy Manager | `packages/strategy_manager/` | 通过`czsc-trader strategy`使用 | 策略身份、不可变版本、资格、审计和绩效证据 |
-| Strategy Evaluator | `packages/strategy_evaluator/` | 通过`czsc-trader strategy`使用 | 候选筛选、非劣判断、Pareto排名、冠军体检和冻结建议 |
+| Strategy Evaluator | `packages/strategy_evaluator/` | 由Trader内部调用 | 候选筛选、Pareto排名、完整冠军审计和冻结建议 |
 
 `packages/dataflows/`是行情获取与发布依赖。Trader 通过
 `advice.v4` JSON 契约向 PTE 提供决策；PTE 不导入 Trader 或 Strategy Manager，券商渠道
 不参与策略计算、定价或改量。
+
+候选评估使用`opc-v3`时，完整体检均由Strategy Evaluator判定；Trader负责行情、回测、
+事实证据和归档。统计风险标签供人工冻结决策使用，不自动改变SM或PTE状态。
 
 研究现状见[研究交接](docs/RESEARCH_HANDOFF.md)，跨机开发与运行恢复见
 [开发交接](docs/DEVELOPMENT_HANDOFF.md)。

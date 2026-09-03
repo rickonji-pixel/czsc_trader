@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from statistics import median
 
+from .audit_models import AuditStatus, ChampionAuditResult
 from .models import CandidateDescriptor, CandidateProfile, Decision, EvaluationProtocol, EvaluationResult, HealthEvidence, HealthStatus, MetricObservation, RankingResult, ShortlistResult
 from .noninferiority import compare_observation
 from .pareto import pareto_layers
@@ -152,11 +153,42 @@ def rank_candidates(
     return RankingResult(protocol.incumbent_id, ordered, champion, tied)
 
 
-def finalize_evaluation(ranking: RankingResult, health: HealthEvidence | None, experiment_id: str = "") -> EvaluationResult:
+def finalize_evaluation(
+    ranking: RankingResult,
+    health: HealthEvidence | None,
+    experiment_id: str = "",
+    *,
+    audit: ChampionAuditResult | None = None,
+    standard_version: str = "opc-v1",
+) -> EvaluationResult:
     if ranking.champion_id is None:
         decision = Decision.INSUFFICIENT_EVIDENCE if len(ranking.tied_champion_ids) > 1 else Decision.KEEP_INCUMBENT
         code = "CHAMPION_TIE" if len(ranking.tied_champion_ids) > 1 else "NO_ELIGIBLE_CHALLENGER"
         return EvaluationResult(experiment_id, ranking.incumbent_id, decision, None, (code,), ranking)
+    if standard_version == "opc-v3":
+        if audit is None or audit.candidate_id != ranking.champion_id:
+            return EvaluationResult(
+                experiment_id, ranking.incumbent_id, Decision.INSUFFICIENT_EVIDENCE,
+                None, ("MISSING_CHAMPION_AUDIT",), ranking, audit=audit,
+            )
+        if audit.status is AuditStatus.INSUFFICIENT:
+            return EvaluationResult(
+                experiment_id, ranking.incumbent_id, Decision.INSUFFICIENT_EVIDENCE,
+                None, ("INCOMPLETE_CHAMPION_AUDIT", *audit.reason_codes), ranking,
+                audit=audit,
+            )
+        if audit.status is AuditStatus.FAIL:
+            return EvaluationResult(
+                experiment_id, ranking.incumbent_id, Decision.KEEP_INCUMBENT,
+                None, ("CHAMPION_AUDIT_FAILED", *audit.reason_codes), ranking,
+                audit=audit,
+            )
+        return EvaluationResult(
+            experiment_id, ranking.incumbent_id, Decision.RECOMMEND_FREEZE,
+            ranking.champion_id,
+            ("NONINFERIOR", "TARGET_ACHIEVED", "CHAMPION_AUDIT_COMPLETE"),
+            ranking, audit=audit,
+        )
     if health is None or health.candidate_id != ranking.champion_id:
         return EvaluationResult(experiment_id, ranking.incumbent_id, Decision.INSUFFICIENT_EVIDENCE, None, ("MISSING_HEALTH_EVIDENCE",), ranking, health)
     statuses = (health.execution_audit, health.reproducibility, health.neighborhood, health.stress, health.ledger)

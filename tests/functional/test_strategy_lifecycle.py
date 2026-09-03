@@ -1,0 +1,259 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from strategy_manager import StrategyRegistry
+
+from conftest import invoke_main
+
+
+def _write_json(path: Path, payload: dict) -> Path:
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def _evidence(
+    evidence_id: str,
+    phase: str,
+    *,
+    release_hash: str,
+) -> dict:
+    return {
+        "schema_version": 1,
+        "evidence_id": evidence_id,
+        "strategy_id": "S900",
+        "version": "v1",
+        "release_hash": release_hash,
+        "phase": phase,
+        "period_start": "2021-01-01",
+        "period_end": "2026-09-04",
+        "data_identity": {"symbol": "588080.SH", "fixture": "functional"},
+        "initial_capital": 100000.0,
+        "fee_rate": 0.0005,
+        "maximum_drawdown": -0.10,
+        "calmar_ratio": 1.5,
+        "win_loss_ratio": 1.3,
+        "win_loss_ratio_status": "VALID",
+        "total_return": 0.25,
+        "sharpe_ratio": 0.8,
+        "closed_trades": 12,
+        "source_path": "functional://S900",
+        "source_hash": "b" * 64,
+        "recorded_at": "2026-09-04T19:00:00+08:00",
+        "recorded_by": "tester",
+    }
+
+
+def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
+    functional_repo: Path, capsys
+) -> None:
+    strategy_input = _write_json(
+        functional_repo / "strategy.json",
+        {
+            "schema_version": 1,
+            "strategy_id": "S900",
+            "name": "功能测试策略",
+            "objective": "验证完整策略治理链路",
+            "responsibility": "生成目标仓位",
+            "scope": ["588080.SH"],
+            "created_at": "2026-09-04T10:00:00+08:00",
+            "created_by": "tester",
+        },
+    )
+    version_input = _write_json(
+        functional_repo / "version.json",
+        {
+            "schema_version": 1,
+            "strategy_id": "S900",
+            "version": "v1",
+            "release_id": "S900-v1",
+            "parent_version": None,
+            "change_summary": "首个功能测试版本",
+            "source_experiment": "experiments/0904_TEST",
+            "source_candidate": "functional-winner",
+            "selection_data_cutoff": "2026-09-02",
+            "forward_start": "2026-09-05",
+            "strategy_payload": {"symbol": "588080.SH", "target": "position"},
+            "release_hash": None,
+        },
+    )
+    research_path = _write_json(
+        functional_repo / "research-evidence.json",
+        _evidence(
+            "EVD-S900-RESEARCH",
+            "RESEARCH_BACKTEST",
+            release_hash="a" * 64,
+        ),
+    )
+    root = ["--repo-root", str(functional_repo)]
+    audit = ["--actor", "tester", "--reason", "functional lifecycle"]
+
+    created = invoke_main(
+        ["strategy", "create", "--input", str(strategy_input), *audit, *root],
+        capsys,
+    )
+    versioned = invoke_main(
+        [
+            "strategy",
+            "version",
+            "create",
+            "--input",
+            str(version_input),
+            *audit,
+            *root,
+        ],
+        capsys,
+    )
+    frozen = invoke_main(
+        [
+            "strategy",
+            "freeze",
+            "--strategy",
+            "S900",
+            "--version",
+            "v1",
+            "--evidence",
+            str(research_path),
+            *audit,
+            *root,
+        ],
+        capsys,
+    )
+    release_hash = frozen["result"]["version"]["release_hash"]
+    paper_path = _write_json(
+        functional_repo / "paper-evidence.json",
+        _evidence(
+            "EVD-S900-PAPER",
+            "PAPER_FORWARD",
+            release_hash=release_hash,
+        ),
+    )
+    invoke_main(
+        ["strategy", "evidence", "add", "--input", str(paper_path), *root],
+        capsys,
+    )
+    promoted = invoke_main(
+        [
+            "strategy",
+            "promote",
+            "--strategy",
+            "S900",
+            "--version",
+            "v1",
+            "--evidence",
+            "EVD-S900-PAPER",
+            *audit,
+            *root,
+        ],
+        capsys,
+    )
+    downgraded = invoke_main(
+        [
+            "strategy",
+            "downgrade",
+            "--strategy",
+            "S900",
+            "--version",
+            "v1",
+            "--evidence",
+            "EVD-S900-PAPER",
+            *audit,
+            *root,
+        ],
+        capsys,
+    )
+    retired = invoke_main(
+        [
+            "strategy",
+            "retire",
+            "--strategy",
+            "S900",
+            "--version",
+            "v1",
+            *audit,
+            *root,
+        ],
+        capsys,
+    )
+
+    shown = invoke_main(
+        ["strategy", "show", "--strategy", "S900", "--version", "v1", *root],
+        capsys,
+    )
+    listed = invoke_main(["strategy", "list", *root], capsys)
+    validated = invoke_main(["strategy", "validate", *root], capsys)
+    history = invoke_main(
+        ["strategy", "history", "--strategy", "S900", *root], capsys
+    )
+    performance = invoke_main(
+        [
+            "strategy",
+            "performance",
+            "--strategy",
+            "S900",
+            "--version",
+            "v1",
+            *root,
+        ],
+        capsys,
+    )
+    baseline_list = invoke_main(["baseline", "list", *root], capsys)
+    baseline_show = invoke_main(
+        [
+            "baseline",
+            "show",
+            "--version",
+            "baseline_20260903",
+            "--symbol",
+            "588080.SH",
+            *root,
+        ],
+        capsys,
+    )
+    baseline_validate = invoke_main(
+        [
+            "baseline",
+            "validate",
+            "--version",
+            "baseline_20260903",
+            "--symbol",
+            "588080.SH",
+            *root,
+        ],
+        capsys,
+    )
+
+    assert created["result"]["strategy_id"] == "S900"
+    assert versioned["result"]["version"]["release_id"] == "S900-v1"
+    assert len(release_hash) == 64
+    assert promoted["result"]["to_state"] == "LIVE_READY"
+    assert downgraded["result"]["to_state"] == "PAPER_READY"
+    assert retired["result"]["to_state"] == "RETIRED"
+    assert shown["result"]["qualification"] == "RETIRED"
+    assert shown["result"]["release_hash"] == release_hash
+    assert any(row["strategy_id"] == "S900" for row in listed["result"]["strategies"])
+    assert validated["result"]["strategies"] == len(
+        listed["result"]["strategies"]
+    )
+    assert [event["event_type"] for event in history["result"]["events"]] == [
+        "VERSION_CREATED",
+        "VERSION_FROZEN",
+        "VERSION_PROMOTED",
+        "VERSION_DOWNGRADED",
+        "VERSION_RETIRED",
+    ]
+    assert len(performance["result"]["phases"]["RESEARCH_BACKTEST"]) == 1
+    assert len(performance["result"]["phases"]["PAPER_FORWARD"]) == 1
+    assert performance["result"]["phases"]["LIVE"] == []
+    active_release = StrategyRegistry(
+        functional_repo / "configs" / "strategies"
+    ).resolve_strategy("baseline_20260903")
+    active_baseline = next(
+        row
+        for row in baseline_list["result"]["baselines"]
+        if row["version"] == "baseline_20260903"
+    )
+    assert active_baseline["strategy_version"] == active_release.version
+    assert baseline_show["result"]["strategy_version"] == active_release.version
+    assert baseline_validate["result"]["strategy_version"] == active_release.version

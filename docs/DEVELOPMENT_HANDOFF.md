@@ -58,7 +58,8 @@ SQLite或运行状态；用户统一通过Trader的`strategy`资源操作。
 ### Strategy Evaluator
 
 独立包位于`packages/strategy_evaluator/`，只依赖Python标准库。它拥有不可变评估契约、
-`opc-v1`默认边界、非劣判断、最差窗口画像、Pareto分层、最终判定和一页摘要。它不读
+版本化的`opc-v1`与`opc-v2`边界、非劣判断、最差窗口画像、Pareto分层、最终判定和一页
+摘要。v2仅将“负卡玛基线必须跨零”调整为“不得低于基线”，其余规则保持一致。它不读
 仓库、不执行回测、不写文件，也不改变SM或PTE状态。生产依赖方向固定为
 `czsc_trader -> strategy_evaluator`；SM和PTE均不得导入它。
 

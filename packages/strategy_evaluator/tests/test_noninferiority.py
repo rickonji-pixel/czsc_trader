@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from strategy_evaluator import MarginSet, MetricObservation, MetricStatus, compare_observation
+from strategy_evaluator import OPC_V1, OPC_V2, MarginSet, MetricObservation, MetricStatus, compare_observation
 
 
 def obs(**changes):
@@ -27,3 +27,13 @@ def test_low_sample_profit_factor_cannot_prove_superiority():
     item = comparison(compare_observation(obs(profit_factor=9, closed_trades=4, profit_factor_status=MetricStatus.LOW_SAMPLE), obs(), MarginSet()), "profit_factor")
     assert item.comparable is False
     assert item.passed is False
+
+
+def test_v2_accepts_improved_negative_calmar_while_v1_requires_positive():
+    candidate = obs(calmar=-0.05)
+    incumbent = obs(calmar=-0.10)
+    v1 = comparison(compare_observation(candidate, incumbent, OPC_V1.margins), "calmar")
+    v2 = comparison(compare_observation(candidate, incumbent, OPC_V2.margins), "calmar")
+    assert v1.passed is False
+    assert v2.passed is True
+    assert v2.normalized_score > 0

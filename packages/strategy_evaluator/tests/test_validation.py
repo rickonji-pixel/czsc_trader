@@ -41,6 +41,13 @@ def test_protocol_can_tighten_but_cannot_loosen_defaults():
     assert error.value.code == "MARGIN_LOOSENED"
 
 
+def test_protocol_accepts_opc_v2_standard():
+    protocol, candidates, observations, trials = inputs()
+    raw = protocol.to_dict()
+    raw["standard_version"] = "opc-v2"
+    validate_protocol(EvaluationProtocol.from_dict(raw), candidates, observations, trials)
+
+
 def test_validation_requires_one_incumbent_and_complete_trial_ledger():
     protocol, candidates, observations, trials = inputs()
     no_incumbent = tuple(CandidateDescriptor(c.candidate_id, c.candidate_hash, c.execution_policy_hash, False, c.behavior_hash) for c in candidates)

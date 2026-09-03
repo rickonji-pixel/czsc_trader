@@ -28,7 +28,14 @@ def compare_observation(candidate: MetricObservation, incumbent: MetricObservati
     drawdown = _comparison("max_drawdown", candidate.max_drawdown, incumbent.max_drawdown, -allowed_magnitude, window)
 
     calmar_comparable = candidate.calmar_status is MetricStatus.VALID and incumbent.calmar_status is MetricStatus.VALID
-    calmar_threshold = None if incumbent.calmar is None else (incumbent.calmar * margins.calmar_retention if incumbent.calmar > 0 else 0.0)
+    if incumbent.calmar is None:
+        calmar_threshold = None
+    elif incumbent.calmar > 0:
+        calmar_threshold = incumbent.calmar * margins.calmar_retention
+    elif margins.negative_calmar_requires_positive:
+        calmar_threshold = 0.0
+    else:
+        calmar_threshold = incumbent.calmar
     calmar = _comparison("calmar", candidate.calmar, incumbent.calmar, calmar_threshold, window, calmar_comparable)
 
     pf_comparable = (

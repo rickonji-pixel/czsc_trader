@@ -114,3 +114,29 @@ def test_dirichlet_weight_candidates_reject_invalid_anchor_identity() -> None:
             concentrations={"left": 10.0, "right": 10.0},
             seed=1,
         )
+
+
+def test_robust_pareto_profiles_rank_candidates_across_windows() -> None:
+    from czsc_trader.range_platform import robust_pareto_profiles, select_robust_seeds
+
+    metrics = pd.DataFrame(
+        {
+            "candidate_id": [0, 1, 2, 0, 1, 2],
+            "period": ["early"] * 3 + ["late"] * 3,
+            "max_drawdown": [-0.10, -0.20, -0.30, -0.30, -0.10, -0.20],
+            "calmar": [1.0, 2.0, 0.5, 0.5, 2.0, 1.0],
+            "win_loss_ratio": [2.0, 2.0, 0.5, 0.5, 2.0, 1.0],
+        }
+    )
+
+    period_metrics, profiles = robust_pareto_profiles(
+        metrics, ("max_drawdown", "calmar", "win_loss_ratio")
+    )
+
+    assert period_metrics["pareto_layer"].tolist() == [1, 1, 2, 3, 1, 2]
+    assert profiles.set_index("candidate_id").to_dict("index") == {
+        0: {"first_front_count": 1, "mean_pareto_layer": 2.0, "worst_pareto_layer": 3},
+        1: {"first_front_count": 2, "mean_pareto_layer": 1.0, "worst_pareto_layer": 1},
+        2: {"first_front_count": 0, "mean_pareto_layer": 2.0, "worst_pareto_layer": 2},
+    }
+    assert select_robust_seeds(profiles, limit=2) == [1, 0]

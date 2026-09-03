@@ -135,6 +135,61 @@ def pareto_layers(
     return pd.Series(assigned, dtype=int, name="pareto_layer").sort_index()
 
 
+def robust_pareto_profiles(
+    period_metrics: pd.DataFrame,
+    metrics: Sequence[str],
+    *,
+    tolerance: float = 1e-12,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Attach per-window Pareto layers and summarize cross-window robustness."""
+    required = {"candidate_id", "period", *map(str, metrics)}
+    if not required <= set(period_metrics.columns):
+        raise ValueError(
+            f"period metrics missing columns: {sorted(required - set(period_metrics.columns))}"
+        )
+    if period_metrics.duplicated(["period", "candidate_id"]).any():
+        raise ValueError("each period and candidate pair must be unique")
+    pieces: list[pd.DataFrame] = []
+    for _, frame in period_metrics.groupby("period", sort=False):
+        selected = frame.copy()
+        layers = pareto_layers(selected, metrics, tolerance=tolerance)
+        selected["pareto_layer"] = selected["candidate_id"].astype(int).map(layers)
+        pieces.append(selected)
+    layered = pd.concat(pieces).sort_index()
+    profiles = (
+        layered.groupby("candidate_id", sort=True)["pareto_layer"]
+        .agg(
+            first_front_count=lambda values: int(values.eq(1).sum()),
+            mean_pareto_layer="mean",
+            worst_pareto_layer="max",
+        )
+        .reset_index()
+    )
+    profiles["candidate_id"] = profiles["candidate_id"].astype(int)
+    profiles["worst_pareto_layer"] = profiles["worst_pareto_layer"].astype(int)
+    return layered, profiles
+
+
+def select_robust_seeds(profiles: pd.DataFrame, *, limit: int) -> list[int]:
+    """Select deterministic cross-window seeds without using return as a tie-break."""
+    required = {
+        "candidate_id",
+        "first_front_count",
+        "mean_pareto_layer",
+        "worst_pareto_layer",
+    }
+    if not required <= set(profiles.columns):
+        raise ValueError(f"profiles missing columns: {sorted(required - set(profiles.columns))}")
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("seed limit must be a positive integer")
+    ranked = profiles.sort_values(
+        ["first_front_count", "worst_pareto_layer", "mean_pareto_layer", "candidate_id"],
+        ascending=[False, True, True, True],
+        kind="stable",
+    )
+    return ranked.head(limit)["candidate_id"].astype(int).tolist()
+
+
 def simplex_components(
     candidates: pd.DataFrame,
     member_ids: Sequence[int],

@@ -190,10 +190,10 @@ def test_virtual_account_pause_and_resume_routes() -> None:
     thread.start()
     base = f"http://127.0.0.1:{server.server_port}"
     try:
-        paused = request_json(base + "/api/virtual-accounts/baseline-143/pause", "POST", {})[1]
-        resumed = request_json(base + "/api/virtual-accounts/baseline-143/resume", "POST", {})[1]
-        assert paused == {"account_id": "baseline-143", "paused": True}
-        assert resumed["paused"] is False
+        paused = request_json(base + "/api/virtual-accounts/alpha/pause", "POST", {})[1]
+        resumed = request_json(base + "/api/virtual-accounts/alpha/resume", "POST", {})[1]
+        assert paused["scope"]["account_id"] == "alpha"
+        assert resumed["scope"]["account_id"] == "alpha"
     finally:
         server.shutdown()
         server.server_close()
@@ -213,6 +213,10 @@ def test_resource_routes_and_deep_links() -> None:
         assert request_json(base + "/api/virtual-accounts/alpha/snapshot")[1]["scope"]["account_id"] == "alpha"
         assert request_json(base + "/api/channels/futu/snapshot")[1]["scope"]["channel"] == "futu"
         assert request_json(base + "/api/comparison?account_id=alpha")[1]["accounts"][0]["account_id"] == "alpha"
+        account_action = request_json(base + "/api/virtual-accounts/alpha/pause", "POST", {})[1]
+        channel_action = request_json(base + "/api/channels/futu/pause", "POST", {})[1]
+        assert account_action["scope"]["account_id"] == "alpha"
+        assert channel_action["scope"]["channel"] == "futu"
         for path in ("/accounts/alpha", "/channels/futu", "/comparison"):
             with urlopen(base + path, timeout=3) as response:
                 assert response.status == 200

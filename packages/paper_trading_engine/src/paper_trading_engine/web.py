@@ -88,8 +88,12 @@ def create_server(operations: Operations, *, host: str = "127.0.0.1", port: int 
                 parts = path.strip("/").split("/")
                 if path in {"/api/pause", "/api/channels/futu/pause"}:
                     result = operations.pause()
+                    if path.startswith("/api/channels/"):
+                        result = api.channel_snapshot("futu")
                 elif path in {"/api/resume", "/api/channels/futu/resume"}:
                     result = operations.resume()
+                    if path.startswith("/api/channels/"):
+                        result = api.channel_snapshot("futu")
                 elif path in {"/api/cancel-token", "/api/channels/futu/cancel-token"}:
                     result = {"token": operations.issue_cancel_token(str(body["channel_order_id"]))}
                 elif path in {"/api/cancel", "/api/channels/futu/cancel"}:
@@ -103,6 +107,7 @@ def create_server(operations: Operations, *, host: str = "127.0.0.1", port: int 
                     else:
                         self._json(404, {"error": "not found"})
                         return
+                    result = api.virtual_account_snapshot(account_id)
                 else:
                     self._json(404, {"error": "not found"})
                     return

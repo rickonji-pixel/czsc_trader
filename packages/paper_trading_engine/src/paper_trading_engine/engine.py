@@ -11,6 +11,7 @@ from threading import RLock
 from typing import Protocol
 
 from .contracts import AdviceDecision, OrderSpec
+from .channel_binding import load_channel_binding
 from .store import PaperStore
 from .trading_window import is_submission_window, shanghai_now
 
@@ -210,6 +211,15 @@ class PaperTradingEngine:
     def refresh_decision_if_changed(self, *, force: bool = False) -> dict[str, object]:
         if self._account_snapshot is None:
             raise PaperTradingStateError("account reconciliation required before advice")
+        if self.binding_required:
+            binding = load_channel_binding(self.store)
+            if binding is not None:
+                new_identity = (binding.strategy_id, binding.strategy_version, binding.release_hash)
+                old_identity = (self.strategy_id, self.strategy_version, self.release_hash)
+                if new_identity != old_identity:
+                    self.strategy_id, self.strategy_version, self.release_hash = new_identity
+                    self._decision = None
+                    self._decision_key = None
         if self.binding_required and self.strategy_id is None:
             raise PaperTradingStateError("Futu渠道尚未绑定策略，已阻止生成决策和新订单")
         actual_quantity = sum(

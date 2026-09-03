@@ -1,36 +1,45 @@
-"""Local-only HTTP operations console."""
+"""Local-only HTTP server for the resource-scoped PTE console."""
 
 from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.resources import files
 import json
-from urllib.parse import unquote, urlparse
+import mimetypes
+from urllib.parse import parse_qs, unquote, urlparse
 from typing import Protocol
 
-from .dashboard import DASHBOARD
+from .web_api import PteWebApi, ResourceNotFound
 
 
 class Operations(Protocol):
     def status(self) -> dict[str, object]: ...
-    def pause(self) -> dict[str, object]: ...
-    def resume(self) -> dict[str, object]: ...
-    def issue_cancel_token(self, channel_order_id: str) -> str: ...
-    def confirm_cancel(self, channel_order_id: str, token: str) -> dict[str, object]: ...
-    def pause_virtual(self, account_id: str) -> dict[str, object]: ...
-    def resume_virtual(self, account_id: str) -> dict[str, object]: ...
 
 
-def create_server(
-    operations: Operations, *, host: str = "127.0.0.1", port: int = 8080
-) -> ThreadingHTTPServer:
+def create_server(operations: Operations, *, host: str = "127.0.0.1", port: int = 8080):
+    api = operations if hasattr(operations, "system_status") else PteWebApi(operations)
+    static_root = files("paper_trading_engine").joinpath("static")
+
     class Handler(BaseHTTPRequestHandler):
-        def _json(self, status: int, payload: dict[str, object]) -> None:
-            body = json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
+        def _send(self, status: int, body: bytes, content_type: str) -> None:
             self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
+
+        def _json(self, status: int, payload: object) -> None:
+            self._send(status, json.dumps(payload, ensure_ascii=False, default=str).encode(),
+                       "application/json; charset=utf-8")
+
+        def _resource(self, name: str) -> None:
+            resource = static_root.joinpath(name)
+            if not resource.is_file():
+                self._json(404, {"error": "not found"})
+                return
+            content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+            self._send(200, resource.read_bytes(), f"{content_type}; charset=utf-8")
 
         def _body(self) -> dict[str, object]:
             length = int(self.headers.get("Content-Length", "0"))
@@ -42,17 +51,32 @@ def create_server(
             return value
 
         def do_GET(self) -> None:
-            if self.path == "/":
-                body = DASHBOARD.encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            elif self.path == "/api/status":
-                self._json(200, operations.status())
-            else:
-                self._json(404, {"error": "not found"})
+            parsed = urlparse(self.path)
+            path = parsed.path
+            try:
+                if path == "/api/status":
+                    self._json(200, operations.status())
+                elif path == "/api/system/status":
+                    self._json(200, api.system_status())
+                elif path == "/api/virtual-accounts":
+                    self._json(200, api.virtual_accounts())
+                elif path.startswith("/api/virtual-accounts/") and path.endswith("/snapshot"):
+                    account_id = unquote(path[len("/api/virtual-accounts/"):-len("/snapshot")].strip("/"))
+                    self._json(200, api.virtual_account_snapshot(account_id))
+                elif path == "/api/channels/futu/snapshot":
+                    self._json(200, api.channel_snapshot("futu"))
+                elif path == "/api/comparison":
+                    self._json(200, api.comparison(parse_qs(parsed.query).get("account_id", [])))
+                elif path.startswith("/static/"):
+                    self._resource(path.removeprefix("/static/"))
+                elif path == "/" or path == "/comparison" or path.startswith("/accounts/") or path == "/channels/futu":
+                    self._resource("index.html")
+                else:
+                    self._json(404, {"error": "not found"})
+            except ResourceNotFound as exc:
+                self._json(404, {"error": f"unknown resource: {exc.args[0]}"})
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
 
         def do_POST(self) -> None:
             if self.headers.get_content_type() != "application/json":
@@ -60,17 +84,17 @@ def create_server(
                 return
             try:
                 body = self._body()
-                if self.path == "/api/pause":
+                path = urlparse(self.path).path
+                parts = path.strip("/").split("/")
+                if path in {"/api/pause", "/api/channels/futu/pause"}:
                     result = operations.pause()
-                elif self.path == "/api/resume":
+                elif path in {"/api/resume", "/api/channels/futu/resume"}:
                     result = operations.resume()
-                elif self.path == "/api/cancel-token":
+                elif path in {"/api/cancel-token", "/api/channels/futu/cancel-token"}:
                     result = {"token": operations.issue_cancel_token(str(body["channel_order_id"]))}
-                elif self.path == "/api/cancel":
-                    result = operations.confirm_cancel(
-                        str(body["channel_order_id"]), str(body["token"])
-                    )
-                elif (parts := urlparse(self.path).path.strip("/").split("/"))[:2] == ["api", "virtual-accounts"] and len(parts) == 4:
+                elif path in {"/api/cancel", "/api/channels/futu/cancel"}:
+                    result = operations.confirm_cancel(str(body["channel_order_id"]), str(body["token"]))
+                elif parts[:2] == ["api", "virtual-accounts"] and len(parts) == 4:
                     account_id = unquote(parts[2])
                     if parts[3] == "pause":
                         result = operations.pause_virtual(account_id)

@@ -214,6 +214,8 @@ git commit -m "feat: persist strategy lifecycle and evidence"
 
 ### Task 3: Register current strategy as S001-v1
 
+**Status:** Complete
+
 **Files:**
 - Create: `configs/strategies/registry.json`
 - Create: `configs/strategies/S001/strategy.json`

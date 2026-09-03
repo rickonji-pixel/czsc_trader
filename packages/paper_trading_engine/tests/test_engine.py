@@ -57,7 +57,28 @@ class FakeAdvice:
         strategy_version: str | None = None, baseline: str | None = None,
     ) -> AdviceDecision:
         self.calls.append(actual_quantity)
+        self.strategy_request = (strategy_id, strategy_version, baseline)
         return replace(self.value, actual_quantity=actual_quantity)
+
+
+def test_channel_engine_uses_and_enforces_explicit_binding(tmp_path: Path):
+    from paper_trading_engine.engine import PaperTradingEngine, PaperTradingSafetyError
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "bound.db")
+    broker = FakeBroker()
+    broker.store = store
+    advice = FakeAdvice(decision())
+    engine = PaperTradingEngine(
+        store, broker, advice, symbol="588080.SH",
+        strategy_id="S001", strategy_version="v2", release_hash="c" * 64,
+    )
+    engine.refresh_account()
+
+    with pytest.raises(PaperTradingSafetyError, match="绑定"):
+        engine.refresh_decision_if_changed(force=True)
+    assert advice.strategy_request == ("S001", "v2", None)
+    engine.close()
 
 
 def broker_values():

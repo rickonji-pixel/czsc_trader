@@ -22,6 +22,7 @@ from .scheduler import RuntimeScheduler
 from .web import create_server
 from .virtual_engine import VirtualAccountEngine
 from .coordinator import PteCoordinator, UnavailableChannel
+from .channel_binding import bind_channel_strategy, migrate_channel_binding
 
 
 class PortUnavailableError(RuntimeError):
@@ -116,6 +117,15 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--recorded-by", required=True)
     export.add_argument("--start")
     export.add_argument("--end")
+    channel = actions.add_parser("channel")
+    channel_actions = channel.add_subparsers(dest="channel_action", required=True)
+    bind = channel_actions.add_parser("bind-strategy")
+    _common(bind)
+    bind.add_argument("--channel", choices=("futu",), required=True)
+    bind.add_argument("--strategy", required=True)
+    bind.add_argument("--strategy-version", required=True)
+    bind.add_argument("--actor", required=True)
+    bind.add_argument("--reason", required=True)
     return parser
 
 
@@ -141,7 +151,14 @@ def build_engine(args: argparse.Namespace):
         store.add_event("CHANNEL_INITIALIZATION_FAILED", {"error": str(exc)})
         channel = UnavailableChannel(store, args.symbol, exc)
     else:
-        channel = PaperTradingEngine(store, gateway, advice, symbol=args.symbol)
+        binding = migrate_channel_binding(store)
+        channel = PaperTradingEngine(
+            store, gateway, advice, symbol=args.symbol,
+            strategy_id=None if binding is None else binding.strategy_id,
+            strategy_version=None if binding is None else binding.strategy_version,
+            release_hash=None if binding is None else binding.release_hash,
+            binding_required=True,
+        )
     try:
         account = store.virtual_account("baseline-143")
     except KeyError:
@@ -195,7 +212,7 @@ def build_publisher(args: argparse.Namespace) -> CliDataPublisher:
 
 def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
     executable = args.advice_executable or _default_executable(args.repo_root)
-    reference = args.strategy or args.baseline
+    reference = getattr(args, "strategy", None) or getattr(args, "baseline", None)
     command = [
         str(executable), "strategy", "show", "--repo-root", str(args.repo_root),
         "--strategy", reference,
@@ -217,6 +234,18 @@ def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
     if qualification not in {"PAPER_READY", "LIVE_READY"}:
         raise RuntimeError(f"strategy qualification cannot enter paper trading: {qualification}")
     return payload["result"]
+
+
+def _run_channel_command(args: argparse.Namespace) -> dict[str, object]:
+    identity = _validate_strategy(args)
+    store = PaperStore(args.database)
+    try:
+        binding = bind_channel_strategy(
+            store, identity, args.actor, args.reason, store.orders(),
+        )
+        return binding.to_dict()
+    finally:
+        store.close()
 
 
 def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[dict[str, object]]:
@@ -295,6 +324,10 @@ def main(
         if args.action == "account":
             result = _run_account_command(args)
             _write({"status": "PASS", "command": f"pte.account.{args.account_action}", "result": result})
+            return 0
+        if args.action == "channel":
+            result = _run_channel_command(args)
+            _write({"status": "PASS", "command": "pte.channel.bind-strategy", "result": result})
             return 0
         if args.action == "serve":
             probe_port(args.host, args.port)

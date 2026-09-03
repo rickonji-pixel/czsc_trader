@@ -107,6 +107,32 @@ def test_account_create_list_pause_resume_without_broker(tmp_path: Path, capsys,
     assert documents[3]["result"][0]["account_id"] == "range-2"
 
 
+def test_channel_bind_strategy_persists_validated_release(tmp_path: Path, capsys, monkeypatch) -> None:
+    from paper_trading_engine import cli
+    from paper_trading_engine.channel_binding import load_channel_binding
+    from paper_trading_engine.store import PaperStore
+
+    monkeypatch.setattr(cli, "_validate_strategy", lambda *args: {
+        "strategy_id": "S001", "name": "综合基线策略", "version": "v2",
+        "release_id": "S001-v2", "release_hash": "b" * 64,
+        "qualification": "PAPER_READY", "strategy_payload": {},
+    })
+    code = cli.main([
+        "channel", "bind-strategy", "--repo-root", str(tmp_path), "--channel", "futu",
+        "--strategy", "S001", "--strategy-version", "v2", "--actor", "tomxiao",
+        "--reason", "人工确认切换",
+    ])
+
+    assert code == 0
+    document = json.loads(capsys.readouterr().out)
+    assert document["result"]["release_id"] == "S001-v2"
+    store = PaperStore(tmp_path / "state" / "paper_trading" / "runtime.db")
+    try:
+        assert load_channel_binding(store).bound_by == "tomxiao"
+    finally:
+        store.close()
+
+
 def test_build_engine_keeps_virtual_accounts_when_futu_initialization_fails(tmp_path: Path, monkeypatch) -> None:
     from paper_trading_engine import cli
 

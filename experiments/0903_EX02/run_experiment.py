@@ -73,6 +73,13 @@ def nearest_neighborhood(
     ).head(member_count).reset_index(drop=True)
 
 
+def execution_limit_family(execution: object) -> str:
+    """Map the frozen business identity to the execution simulator family."""
+    if execution.entry_limit_family != "previous_close_ratio":
+        raise ValueError("unsupported complete-strategy entry limit family")
+    return "fixed"
+
+
 def _clean(value: object) -> object:
     if isinstance(value, dict):
         return {str(key): _clean(item) for key, item in value.items()}
@@ -376,7 +383,7 @@ def _formal_evaluate(
     daily = context["daily"]
     entry_limits = entry_limit_series(
         daily,
-        execution.entry_limit_family,
+        execution_limit_family(execution),
         execution.entry_limit_parameter,
         tick=execution.instrument.price_tick,
     )

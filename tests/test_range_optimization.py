@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -56,3 +57,11 @@ def test_nearest_neighborhood_uses_factor_l1_distance() -> None:
     np.testing.assert_allclose(
         neighborhood["weight_l1_distance"], [0.0, 0.02, 0.1], rtol=0.0, atol=1e-12
     )
+
+
+def test_execution_limit_family_maps_frozen_business_identity() -> None:
+    runner = _load_runner()
+
+    execution = SimpleNamespace(entry_limit_family="previous_close_ratio")
+
+    assert runner.execution_limit_family(execution) == "fixed"

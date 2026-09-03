@@ -173,6 +173,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     shortlist = screen_candidates(protocol, candidates, screening)
     formal_ids = (protocol.incumbent_id, *shortlist.candidate_ids)
     formal = runner(run_context, protocol, payloads, formal_ids, "FORMAL")
+    validate_protocol(protocol, candidates, formal, trials)
     ranking = rank_candidates(protocol, shortlist, formal, candidates)
     health = None
     stress: tuple[MetricObservation, ...] = ()
@@ -180,6 +181,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     if ranking.champion_id:
         pair = (protocol.incumbent_id, ranking.champion_id)
         stress = runner(run_context, protocol, payloads, pair, "STRESS", ("fee_x2",))
+        validate_protocol(protocol, candidates, stress, trials)
         repeated = runner(run_context, protocol, payloads, (ranking.champion_id,), "FORMAL")
         health = _health(protocol, ranking, formal, stress, repeated, candidates)
     result = finalize_evaluation(ranking, health, experiment_id)

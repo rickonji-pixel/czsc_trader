@@ -27,6 +27,8 @@
 
 ### Task 1: Strategy Manager domain package
 
+**Status:** Complete (`338631a`)
+
 **Files:**
 - Create: `packages/strategy_manager/pyproject.toml`
 - Create: `packages/strategy_manager/src/strategy_manager/__init__.py`
@@ -118,6 +120,8 @@ git commit -m "feat: add strategy manager domain models"
 ```
 
 ### Task 2: Git registry, lifecycle, and evidence persistence
+
+**Status:** Complete
 
 **Files:**
 - Create: `packages/strategy_manager/src/strategy_manager/registry.py`

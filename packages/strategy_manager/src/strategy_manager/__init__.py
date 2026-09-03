@@ -17,6 +17,7 @@ from .models import (
     StrategyVersion,
     canonical_sha256,
 )
+from .registry import StrategyRegistry
 
 __all__ = [
     "EvidencePhase",
@@ -28,6 +29,7 @@ __all__ = [
     "Qualification",
     "RegistryError",
     "Strategy",
+    "StrategyRegistry",
     "StrategyManagerError",
     "StrategyVersion",
     "ValidationError",

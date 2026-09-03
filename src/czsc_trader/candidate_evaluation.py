@@ -16,6 +16,8 @@ from .baseline_execution import apply_resolved_baseline
 from .baselines import resolve_strategy_payload
 from .data import load_market_data
 from .factors import generate_factor_frame
+from .range_diagnostics import range_cycle_objectives
+from .regime_weight import classify_regimes, lagged_efficiency_ratio
 from .strategy_metrics import closed_trade_ledger
 
 
@@ -43,7 +45,7 @@ def _profit_factor(orders: pd.DataFrame) -> tuple[float | None, MetricStatus, in
     return float(wins.sum() / abs(losses.sum())), MetricStatus.VALID, count
 
 
-def _observation(candidate_id: str, window: str, tier: str, scenario: str, equity: pd.Series, orders: pd.DataFrame, init_cash: float) -> MetricObservation:
+def _observation(candidate_id: str, window: str, tier: str, scenario: str, equity: pd.Series, orders: pd.DataFrame, init_cash: float, extra_objectives: tuple[tuple[str, float], ...] = ()) -> MetricObservation:
     total_return = float(equity.iloc[-1] / init_cash - 1.0)
     net_cagr = float((equity.iloc[-1] / init_cash) ** (252.0 / len(equity)) - 1.0)
     max_drawdown = float(equity.div(equity.cummax()).sub(1.0).min())
@@ -61,7 +63,7 @@ def _observation(candidate_id: str, window: str, tier: str, scenario: str, equit
         candidate_id, window, scenario, tier, net_cagr, total_return, max_drawdown,
         calmar, MetricStatus.VALID if calmar is not None and np.isfinite(calmar) else MetricStatus.UNAVAILABLE,
         pf, pf_status, closed_trades, turnover, cost_drag,
-        (("net_cagr", net_cagr), ("total_return", total_return), (f"{window}_return", total_return)),
+        (("net_cagr", net_cagr), ("total_return", total_return), (f"{window}_return", total_return), *extra_objectives),
     )
 
 
@@ -92,6 +94,12 @@ def evaluate_candidate_payloads(
             release_id=candidate_id, release_hash=str(item.get("strategy_hash", item.get("candidate_hash", ""))), symbol=context.symbol,
         )
         applied = apply_resolved_baseline(factors.frame, baseline, daily_close=daily_close)
+        regimes = None
+        if baseline.strategy == "czsc_regime_weight":
+            regimes = classify_regimes(
+                lagged_efficiency_ratio(daily_close.reindex(applied.target_position.index), baseline.er_lookback),
+                baseline.er_threshold,
+            )
         factor_output = factors.frame.copy()
         factor_output.insert(0, "target_position", applied.target_position)
         factor_output.insert(1, "factor_score", applied.scores)
@@ -118,5 +126,8 @@ def evaluate_candidate_payloads(
                 )
             for window, result in results.items():
                 effective = execution_results.get(window, result)
-                output.append(_observation(candidate_id, window, tier, scenario, effective.equity, effective.orders, context.init_cash))
+                extra = () if regimes is None else range_cycle_objectives(
+                    effective.orders, regimes, pd.DatetimeIndex(pd.to_datetime(data.daily["dt"])),
+                )
+                output.append(_observation(candidate_id, window, tier, scenario, effective.equity, effective.orders, context.init_cash, extra))
     return tuple(output)

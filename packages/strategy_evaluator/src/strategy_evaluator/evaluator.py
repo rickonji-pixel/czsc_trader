@@ -8,6 +8,13 @@ from .pareto import pareto_layers
 from .standards import resolve_margins
 
 
+def _protocol_comparisons(protocol, candidate, incumbent, margins):
+    comparisons = compare_observation(candidate, incumbent, margins)
+    if candidate.window_id == "full" or candidate.window_id in protocol.target_windows:
+        return comparisons
+    return tuple(item for item in comparisons if item.metric != "profit_factor")
+
+
 def screen_candidates(protocol: EvaluationProtocol, candidates: tuple[CandidateDescriptor, ...], observations: tuple[MetricObservation, ...]) -> ShortlistResult:
     representatives: dict[str, CandidateDescriptor] = {}
     rejected: list[str] = []
@@ -31,8 +38,9 @@ def screen_candidates(protocol: EvaluationProtocol, candidates: tuple[CandidateD
                 incumbent = by_key.get((protocol.incumbent_id, window))
                 if candidate is None or incumbent is None:
                     continue
-                comparisons.extend(compare_observation(candidate, incumbent, margins))
-            if len(comparisons) != 4 * len(protocol.decision_windows) or any(not value.passed for value in comparisons):
+                comparisons.extend(_protocol_comparisons(protocol, candidate, incumbent, margins))
+            expected = sum(4 if window == "full" or window in protocol.target_windows else 3 for window in protocol.decision_windows)
+            if len(comparisons) != expected or any(not value.passed for value in comparisons):
                 rejected.append(item.candidate_id)
                 reason_codes.append("SCREENING_NONINFERIORITY")
                 continue
@@ -118,7 +126,7 @@ def rank_candidates(
             if candidate is None or incumbent is None:
                 reasons.append(f"MISSING_WINDOW_{window.upper()}")
                 continue
-            comparisons.extend(compare_observation(candidate, incumbent, margins))
+            comparisons.extend(_protocol_comparisons(protocol, candidate, incumbent, margins))
         for item in comparisons:
             if not item.passed:
                 reasons.append(item.reason_code)

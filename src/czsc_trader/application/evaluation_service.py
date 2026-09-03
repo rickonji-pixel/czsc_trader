@@ -106,7 +106,10 @@ def _health(
         for window in protocol.decision_windows:
             challenger = stress_by_key.get((champion, window, scenario))
             incumbent = stress_by_key.get((protocol.incumbent_id, window, scenario))
-            if challenger is None or incumbent is None or not all(item.passed for item in compare_observation(challenger, incumbent, margins)):
+            comparisons = () if challenger is None or incumbent is None else compare_observation(challenger, incumbent, margins)
+            if window != "full" and window not in protocol.target_windows:
+                comparisons = tuple(item for item in comparisons if item.metric != "profit_factor")
+            if not comparisons or not all(item.passed for item in comparisons):
                 stress_ok = False
     champion_descriptor = next(item for item in candidates if item.candidate_id == champion)
     robust_ids = {item.candidate_id for item in ranking.profiles if item.eligible}
@@ -195,7 +198,10 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         for window in protocol.decision_windows:
             left, right = by_key.get((candidate_id, window)), by_key.get((protocol.incumbent_id, window))
             if left and right:
-                comparisons.extend(item.to_dict() for item in compare_observation(left, right, margins))
+                values = compare_observation(left, right, margins)
+                if window != "full" and window not in protocol.target_windows:
+                    values = tuple(item for item in values if item.metric != "profit_factor")
+                comparisons.extend(item.to_dict() for item in values)
     documents = {
         "evaluation_result.json": json.dumps(result_document, ensure_ascii=False, indent=2) + "\n",
         "evaluation_report.md": render_summary(result),

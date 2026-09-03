@@ -255,7 +255,7 @@ Futu页面通过“订单与虚拟账户”列表展示逐笔归属，不单独�
 .\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
-node --test packages\paper_trading_engine\tests\js\console_state.test.mjs
+node --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
 .\.venv\Scripts\python.exe -m ruff check `
   src tests packages\strategy_manager packages\strategy_evaluator `
   packages\paper_trading_engine\src packages\paper_trading_engine\tests
@@ -268,13 +268,14 @@ node --test packages\paper_trading_engine\tests\js\console_state.test.mjs
 .\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
-node --test packages\paper_trading_engine\tests\js\console_state.test.mjs
+node --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
 .\.venv\Scripts\czsc-trader.exe archive validate --all --repo-root .
 ```
 
-Trader默认回归只收集FT-T01至FT-T08八个完整功能场景，不联网，也不重算历史候选
-全集。完整不可变实验档案通过`archive validate --all`独立校验。TDD阶段产生的临时聚焦
-用例，在行为进入对应功能场景后删除。
+默认回归只收集Trader 8个、SM 2个、SE 3个、PTE 7个Python完整功能场景，以及
+PTE 1个前端功能场景。不联网，也不重算历史候选全集。完整不可变实验档案通过
+`archive validate --all`独立校验。TDD阶段产生的临时聚焦用例，在行为进入对应功能
+场景后删除。
 
 ## PTE启动与服务恢复
 

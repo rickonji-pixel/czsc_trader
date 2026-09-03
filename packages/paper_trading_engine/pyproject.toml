@@ -24,7 +24,7 @@ where = ["src"]
 paper_trading_engine = ["static/*.html", "static/*.js", "static/*.css"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/functional"]
 
 [tool.ruff]
 target-version = "py312"

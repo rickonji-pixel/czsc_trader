@@ -292,3 +292,25 @@ class ChampionAuditResult(Record):
     risk_label: RiskLabel | None
     findings: tuple[AuditFinding, ...]
     reason_codes: tuple[str, ...]
+    search_bias: Any | None = None
+    dsr: Any | None = None
+    bootstrap: tuple[Any, ...] = ()
+    neighborhood: Any | None = None
+    stress: Any | None = None
+    direction_flags: tuple[tuple[str, str], ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "identity": self.identity.to_dict(),
+            "candidate_id": self.candidate_id,
+            "status": self.status.value,
+            "risk_label": None if self.risk_label is None else self.risk_label.value,
+            "findings": [item.to_dict() for item in self.findings],
+            "reason_codes": list(self.reason_codes),
+            "search_bias": _json_value(self.search_bias),
+            "dsr": _json_value(self.dsr),
+            "bootstrap": [_json_value(item) for item in self.bootstrap],
+            "neighborhood": _json_value(self.neighborhood),
+            "stress": _json_value(self.stress),
+            "direction_flags": dict(self.direction_flags),
+        }

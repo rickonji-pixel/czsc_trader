@@ -70,6 +70,13 @@ from .engineering_audit import (
     audit_trial_ledger,
     required_stress_scenarios,
 )
+from .champion_audit import (
+    audit_provisional_champion,
+    hash_audit_data,
+    hash_candidate_pool,
+    hash_execution_evidence,
+    hash_return_matrix,
+)
 
 __version__ = "0.1.0"
 
@@ -94,4 +101,6 @@ __all__ = [
     "audit_parameter_neighborhood",
     "StressAudit", "StressComparison", "audit_execution", "audit_reproducibility",
     "audit_stress_results", "audit_trial_ledger", "required_stress_scenarios",
+    "audit_provisional_champion", "hash_audit_data", "hash_candidate_pool",
+    "hash_execution_evidence", "hash_return_matrix",
 ]

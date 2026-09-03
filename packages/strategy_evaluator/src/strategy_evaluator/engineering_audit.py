@@ -12,7 +12,19 @@ from .audit_models import (
     StressScenario,
     StressScenarioResult,
 )
-from .models import CandidateDescriptor, CandidateProfile, MetricObservation, Record, TrialRecord
+from .models import (
+    CandidateDescriptor,
+    CandidateProfile,
+    EvaluationProtocol,
+    HealthEvidence,
+    HealthStatus,
+    MetricObservation,
+    RankingResult,
+    Record,
+    TrialRecord,
+)
+from .noninferiority import compare_observation
+from .standards import resolve_margins
 
 
 @dataclass(frozen=True)
@@ -228,3 +240,53 @@ def audit_stress_results(
                     stress_advantage, shrinkage,
                 ))
     return StressAudit(AuditStatus.PASS, tuple(rows))
+
+
+def legacy_health_evidence(
+    protocol: EvaluationProtocol,
+    ranking: RankingResult,
+    formal: tuple[MetricObservation, ...],
+    stress: tuple[MetricObservation, ...],
+    repeated: tuple[MetricObservation, ...],
+    candidates: tuple[CandidateDescriptor, ...],
+) -> HealthEvidence | None:
+    """Preserve OPC-v1/v2 health semantics inside SE during migration."""
+    champion = ranking.champion_id
+    if champion is None:
+        return None
+    expected = tuple(item for item in formal if item.candidate_id == champion)
+    reproducibility = audit_reproducibility(expected, repeated)
+    margins = resolve_margins(protocol)
+    stress_by_key = {
+        (item.candidate_id, item.window_id, item.scenario_id): item for item in stress
+    }
+    stress_ok = bool(stress)
+    for scenario in {item.scenario_id for item in stress}:
+        for window in protocol.decision_windows:
+            challenger = stress_by_key.get((champion, window, scenario))
+            incumbent = stress_by_key.get((protocol.incumbent_id, window, scenario))
+            comparisons = () if challenger is None or incumbent is None else compare_observation(
+                challenger, incumbent, margins,
+            )
+            if window != "full" and window not in protocol.target_windows:
+                comparisons = tuple(item for item in comparisons if item.metric != "profit_factor")
+            if not comparisons or not all(item.passed for item in comparisons):
+                stress_ok = False
+    champion_descriptor = next(item for item in candidates if item.candidate_id == champion)
+    robust_ids = {item.candidate_id for item in ranking.profiles if item.eligible}
+    neighbor_count = sum(
+        item.candidate_id not in {champion, protocol.incumbent_id}
+        and item.candidate_id in robust_ids
+        and bool(champion_descriptor.parameter_group)
+        and item.parameter_group == champion_descriptor.parameter_group
+        and item.family == champion_descriptor.family
+        for item in candidates
+    )
+    return HealthEvidence(
+        champion,
+        HealthStatus.PASS,
+        HealthStatus(reproducibility.status.value),
+        HealthStatus.PASS if neighbor_count else HealthStatus.INSUFFICIENT,
+        HealthStatus.PASS if stress_ok else HealthStatus.FAIL,
+        HealthStatus.PASS,
+    )

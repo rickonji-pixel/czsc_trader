@@ -109,7 +109,7 @@ def complete_request(*, champion_edge: float = 0.0002, execution_invalid: bool =
     )
     return ChampionAuditRequest(
         identity, "R1102", "S001-v1", ("R0539",), search, comparison,
-        parameters, execution, formal, formal, candidates, trials, profiles, stress,
+        parameters, execution, formal, (formal[1],), candidates, trials, profiles, stress,
         100, (21, 10, 42),
     )
 

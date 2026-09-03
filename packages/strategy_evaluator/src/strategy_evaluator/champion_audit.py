@@ -133,7 +133,11 @@ def audit_provisional_champion(request: ChampionAuditRequest) -> ChampionAuditRe
 
     execution = audit_execution(request.execution)
     reproducibility = audit_reproducibility(
-        request.formal_observations, request.repeated_observations,
+        tuple(
+            item for item in request.formal_observations
+            if item.candidate_id == request.champion_id
+        ),
+        request.repeated_observations,
     )
     ledger = audit_trial_ledger(
         request.champion_id, request.candidates, request.trials, request.profiles,

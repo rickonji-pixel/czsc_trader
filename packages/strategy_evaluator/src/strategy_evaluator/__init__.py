@@ -68,6 +68,7 @@ from .engineering_audit import (
     audit_reproducibility,
     audit_stress_results,
     audit_trial_ledger,
+    legacy_health_evidence,
     required_stress_scenarios,
 )
 from .champion_audit import (
@@ -101,6 +102,7 @@ __all__ = [
     "audit_parameter_neighborhood",
     "StressAudit", "StressComparison", "audit_execution", "audit_reproducibility",
     "audit_stress_results", "audit_trial_ledger", "required_stress_scenarios",
+    "legacy_health_evidence",
     "audit_provisional_champion", "hash_audit_data", "hash_candidate_pool",
     "hash_execution_evidence", "hash_return_matrix",
 ]

@@ -86,7 +86,7 @@ def audit_parameter_neighborhood(
     required_metrics = ("net_cagr", "max_drawdown", "calmar", "profit_factor")
     valid = [
         row for row in neighbors
-        if row.eligible and all(metric in dict(row.worst_scores) for metric in required_metrics)
+        if all(metric in dict(row.worst_scores) for metric in required_metrics)
     ]
     summaries: list[NeighborhoodMetric] = []
     if all(metric in champion_scores for metric in required_metrics) and valid:

@@ -149,6 +149,7 @@ def simulate_limit_policy(
     diagnostic_quantity: int = 50_000,
     lot_size: int | None = None,
     fill_on_equal_touch: bool = True,
+    slippage_bp: int = 0,
 ) -> ExecutionSimulation:
     """Simulate pre-open daily entry limits and priority next-open exits."""
     prices = _daily_prices(daily)
@@ -169,6 +170,9 @@ def simulate_limit_policy(
         raise ValueError("diagnostic quantity must be positive")
     if lot_size is not None and int(lot_size) <= 0:
         raise ValueError("lot size must be positive")
+    if int(slippage_bp) < 0:
+        raise ValueError("slippage_bp must be non-negative")
+    slippage = float(slippage_bp) / 10_000.0
 
     cash = float(init_cash)
     shares = 0.0
@@ -232,6 +236,7 @@ def simulate_limit_policy(
                 trigger = "intraday_limit"
                 touch_volume = float(touches.iloc[0]["vol"])
             if fill_price is not None and fill_timestamp is not None and trigger is not None:
+                fill_price *= 1.0 + slippage
                 affordable = cash / (fill_price * (1.0 + float(fee_rate)))
                 shares = (
                     affordable
@@ -277,7 +282,7 @@ def simulate_limit_policy(
                 action = "entry_unfilled"
 
         if desired == 0.0 and actual_position == 1.0:
-            exit_price = float(row["open"])
+            exit_price = float(row["open"]) * (1.0 - slippage)
             proceeds = shares * exit_price
             fees = proceeds * float(fee_rate)
             cash += proceeds - fees

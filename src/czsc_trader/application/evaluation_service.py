@@ -19,20 +19,26 @@ from strategy_manager import Strategy, StrategyManagerError, StrategyRegistry, S
 from strategy_evaluator import (
     CandidateDescriptor,
     EvaluationProtocol,
-    HealthEvidence,
-    HealthStatus,
     MetricObservation,
     TrialRecord,
+    audit_provisional_champion,
     compare_observation,
     finalize_evaluation,
+    legacy_health_evidence,
     rank_candidates,
     render_summary,
+    required_stress_scenarios,
     resolve_margins,
     screen_candidates,
     validate_protocol,
 )
 
-from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
+from czsc_trader.application.evaluation_evidence import build_champion_audit_request
+from czsc_trader.candidate_evaluation import (
+    CandidateEvaluationContext,
+    _scenario_settings,
+    evaluate_candidate_payloads,
+)
 from czsc_trader.evaluation_artifacts import (
     EvaluationIdentity,
     ReuseLedgerRow,
@@ -152,7 +158,7 @@ def _requested_identities(
     for candidate_id in candidate_ids:
         candidate = candidates[candidate_id]
         for scenario in scenarios:
-            fee_rate = base_fee if scenario == "standard" else base_fee * float(scenario.removeprefix("fee_x"))
+            fee_rate, _ = _scenario_settings(scenario, base_fee)
             for window_id, value in windows.items():
                 if not isinstance(value, dict):
                     continue
@@ -248,6 +254,13 @@ def _csv_text(rows: list[dict[str, Any]]) -> str:
     return buffer.getvalue()
 
 
+def _return_matrix_csv(evidence) -> str:
+    return _csv_text([
+        {"date": date_value, **dict(zip(evidence.candidate_ids, row, strict=True))}
+        for date_value, row in zip(evidence.dates, evidence.returns, strict=True)
+    ])
+
+
 def _applicable_comparisons(
     protocol: EvaluationProtocol,
     challenger: MetricObservation,
@@ -322,50 +335,6 @@ def _screening_audit(
             "reason_codes": ";".join(dict.fromkeys(failures)),
         })
     return comparison_rows, decisions
-
-
-def _health(
-    protocol: EvaluationProtocol,
-    ranking,
-    formal: tuple[MetricObservation, ...],
-    stress: tuple[MetricObservation, ...],
-    repeated: tuple[MetricObservation, ...],
-    candidates: tuple[CandidateDescriptor, ...],
-) -> HealthEvidence | None:
-    champion = ranking.champion_id
-    if champion is None:
-        return None
-    reproducibility = HealthStatus.PASS if [x.to_dict() for x in repeated] == [x.to_dict() for x in formal if x.candidate_id == champion] else HealthStatus.FAIL
-    margins = resolve_margins(protocol)
-    stress_by_key = {(x.candidate_id, x.window_id, x.scenario_id): x for x in stress}
-    stress_ok = True
-    for scenario in {x.scenario_id for x in stress}:
-        for window in protocol.decision_windows:
-            challenger = stress_by_key.get((champion, window, scenario))
-            incumbent = stress_by_key.get((protocol.incumbent_id, window, scenario))
-            comparisons = () if challenger is None or incumbent is None else _applicable_comparisons(
-                protocol, challenger, incumbent, margins,
-            )
-            if not comparisons or not all(item.passed for item in comparisons):
-                stress_ok = False
-    champion_descriptor = next(item for item in candidates if item.candidate_id == champion)
-    robust_ids = {item.candidate_id for item in ranking.profiles if item.eligible}
-    neighbor_count = sum(
-        item.candidate_id not in {champion, protocol.incumbent_id}
-        and item.candidate_id in robust_ids
-        and bool(champion_descriptor.parameter_group)
-        and item.parameter_group == champion_descriptor.parameter_group
-        and item.family == champion_descriptor.family
-        for item in candidates
-    )
-    return HealthEvidence(
-        champion,
-        HealthStatus.PASS,
-        reproducibility,
-        HealthStatus.PASS if neighbor_count else HealthStatus.INSUFFICIENT,
-        HealthStatus.PASS if stress and stress_ok else HealthStatus.FAIL,
-        HealthStatus.PASS,
-    )
 
 
 def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runner: Runner = evaluate_candidate_payloads) -> CommandResult:
@@ -449,6 +418,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     screening_ids = (protocol.incumbent_id, *preliminary.candidate_ids)
     screening = run_tier(screening_ids, "SCREENING")
     validate_protocol(protocol, candidates, screening, trials)
+    screening_ranking = rank_candidates(protocol, preliminary, screening, candidates)
     shortlist = screen_candidates(protocol, candidates, screening)
     screening_comparisons, screening_decisions = _screening_audit(protocol, candidates, screening, shortlist)
     formal_ids = (protocol.incumbent_id, *shortlist.candidate_ids)
@@ -456,15 +426,36 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     validate_protocol(protocol, candidates, formal, trials)
     ranking = rank_candidates(protocol, shortlist, formal, candidates)
     health = None
+    champion_audit = None
+    audit_request = None
     stress: tuple[MetricObservation, ...] = ()
     repeated: tuple[MetricObservation, ...] = ()
     if ranking.champion_id:
         pair = (protocol.incumbent_id, ranking.champion_id)
-        stress = run_tier(pair, "STRESS", ("fee_x2",))
+        scenarios = (
+            tuple(item.scenario_id for item in required_stress_scenarios())
+            if protocol.standard_version == "opc-v3" else ("fee_x2",)
+        )
+        stress = run_tier(pair, "STRESS", scenarios)
         validate_protocol(protocol, candidates, stress, trials)
         repeated = run_tier((ranking.champion_id,), "FORMAL", allow_reuse=False)
-        health = _health(protocol, ranking, formal, stress, repeated, candidates)
-    result = finalize_evaluation(ranking, health, experiment_id)
+        if protocol.standard_version == "opc-v3":
+            audit_request = build_champion_audit_request(
+                run_context=run_context, protocol=protocol, manifest=manifest,
+                payloads=payloads, candidates=candidates, trials=trials, ranking=ranking,
+                screening_profiles=screening_ranking.profiles, formal=formal,
+                repeated=repeated, stress=stress,
+                search_candidate_ids=preliminary.candidate_ids,
+            )
+            champion_audit = audit_provisional_champion(audit_request)
+        else:
+            health = legacy_health_evidence(
+                protocol, ranking, formal, stress, repeated, candidates,
+            )
+    result = finalize_evaluation(
+        ranking, health, experiment_id, audit=champion_audit,
+        standard_version=protocol.standard_version,
+    )
     metric_rows = [
         item.to_dict()
         for collection in (screening, formal, stress, repeated)
@@ -472,6 +463,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     ]
     result_document = {
         **result.to_dict(),
+        "standard_version": protocol.standard_version,
         "input_hash": input_hash,
         "canonical_metric_hash": _canonical_hash(metric_rows),
     }
@@ -497,6 +489,26 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         "health_check.json": json.dumps(health.to_dict() if health else None, ensure_ascii=False, indent=2) + "\n",
         "trial_ledger.csv": _csv_text([item.to_dict() for item in trials]),
     }
+    if champion_audit is not None:
+        documents.update({
+            "statistical_audit.json": json.dumps(
+                champion_audit.to_dict(), ensure_ascii=False, indent=2,
+            ) + "\n",
+            "cscv_splits.csv": _csv_text([
+                item.to_dict() for item in champion_audit.search_bias.splits
+            ]) if champion_audit.search_bias is not None else "",
+            "bootstrap_comparisons.csv": _csv_text([
+                item.to_dict() for item in champion_audit.bootstrap
+            ]),
+            "parameter_neighborhood.csv": _csv_text([
+                item.to_dict() for item in champion_audit.neighborhood.neighbors
+            ]) if champion_audit.neighborhood is not None else "",
+            "execution_stress.csv": _csv_text([
+                item.to_dict() for item in champion_audit.stress.comparisons
+            ]) if champion_audit.stress is not None else "",
+            "candidate_returns.csv": _return_matrix_csv(audit_request.search_returns),
+            "comparison_returns.csv": _return_matrix_csv(audit_request.comparison_returns),
+        })
     if reuse:
         documents["artifact_reuse.csv"] = _csv_text([asdict(item) for item in reuse_ledger])
     result_document["audit_artifacts"] = {
@@ -507,6 +519,13 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         result_document["audit_artifacts"]["artifact_reuse.csv"] = _text_hash(
             documents["artifact_reuse.csv"]
         )
+    if champion_audit is not None:
+        for name in (
+            "statistical_audit.json", "cscv_splits.csv", "bootstrap_comparisons.csv",
+            "parameter_neighborhood.csv", "execution_stress.csv", "candidate_returns.csv",
+            "comparison_returns.csv",
+        ):
+            result_document["audit_artifacts"][name] = _text_hash(documents[name])
     result_document["decision_hash"] = _canonical_hash(result_document)
     documents = {
         "evaluation_result.json": json.dumps(result_document, ensure_ascii=False, indent=2) + "\n",
@@ -658,6 +677,10 @@ def accept_evaluation(
     result = _read_object(experiment / "artifacts" / "evaluation_result.json")
     if result.get("decision") != "RECOMMEND_FREEZE" or not result.get("recommended_candidate_id"):
         raise ValueError("evaluation decision must be RECOMMEND_FREEZE")
+    if result.get("standard_version") == "opc-v3":
+        audit = result.get("audit")
+        if not isinstance(audit, dict) or audit.get("status") != "PASS":
+            raise ValueError("OPC-v3 acceptance requires a complete champion audit")
     if not actor.strip() or not reason.strip():
         raise ValueError("actor and reason are required")
     manifest, winner = _winning_payload(experiment, result)

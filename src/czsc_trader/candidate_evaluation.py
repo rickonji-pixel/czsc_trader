@@ -68,6 +68,16 @@ class BehaviorResult:
     observations: tuple[MetricObservation, ...]
 
 
+def _scenario_settings(scenario: str, base_fee_rate: float) -> tuple[float, int]:
+    if scenario == "standard":
+        return base_fee_rate, 0
+    if scenario.startswith("fee_x"):
+        return base_fee_rate * float(scenario.removeprefix("fee_x")), 0
+    if scenario.startswith("slippage_") and scenario.endswith("bp"):
+        return base_fee_rate, int(scenario.removeprefix("slippage_").removesuffix("bp"))
+    raise ValueError(f"unsupported stress scenario: {scenario}")
+
+
 def prepare_evaluation_workspace(
     context: CandidateEvaluationContext,
     protocol: EvaluationProtocol,
@@ -105,6 +115,7 @@ def _run_behavior_chunk(
     scenario: str,
     fee_rate: float,
     init_cash: float,
+    slippage_bp: int = 0,
 ) -> tuple[BehaviorResult, ...]:
     output: list[BehaviorResult] = []
     daily_dates = pd.DatetimeIndex(pd.to_datetime(workspace.data.daily["dt"]))
@@ -131,6 +142,7 @@ def _run_behavior_chunk(
                 task.execution,
                 fee_rate=fee_rate,
                 init_cash=init_cash,
+                slippage_bp=slippage_bp,
             )
         observations: list[MetricObservation] = []
         for member in task.members:
@@ -164,6 +176,7 @@ def _evaluate_behavior_tasks(
     fee_rate: float,
     init_cash: float,
     workers: int,
+    slippage_bp: int = 0,
 ) -> tuple[BehaviorResult, ...]:
     chunks = _contiguous_chunks(tasks, workers)
     if workers == 1 or len(tasks) < 32:
@@ -171,13 +184,13 @@ def _evaluate_behavior_tasks(
             item
             for chunk in chunks
             for item in _run_behavior_chunk(
-                workspace, chunk, tier, scenario, fee_rate, init_cash,
+                workspace, chunk, tier, scenario, fee_rate, init_cash, slippage_bp,
             )
         )
     with parallel_config(backend="loky", inner_max_num_threads=1):
         pieces = Parallel(n_jobs=min(workers, len(chunks)), max_nbytes="1M", mmap_mode="r")(
             delayed(_run_behavior_chunk)(
-                workspace, chunk, tier, scenario, fee_rate, init_cash,
+                workspace, chunk, tier, scenario, fee_rate, init_cash, slippage_bp,
             )
             for chunk in chunks
         )
@@ -275,12 +288,7 @@ def _evaluate_candidate_payloads_reference(
         for scenario in scenarios:
             if scenario != "standard" and tier != "STRESS":
                 raise ValueError("non-standard scenarios require STRESS tier")
-            if scenario == "standard":
-                fee_rate = context.fee_rate
-            elif scenario.startswith("fee_x"):
-                fee_rate = context.fee_rate * float(scenario.removeprefix("fee_x"))
-            else:
-                raise ValueError(f"unsupported stress scenario: {scenario}")
+            fee_rate, slippage_bp = _scenario_settings(scenario, context.fee_rate)
             results = run_period_backtests(
                 data.daily, applied.target_position, periods, fee_rate=fee_rate, init_cash=context.init_cash,
                 factor_events=applied.events, factor_frame=factor_output,
@@ -292,6 +300,7 @@ def _evaluate_candidate_payloads_reference(
                 execution_results = _complete_baseline_execution_results(
                     data.daily, data.intraday, applied.target_position, periods, baseline.execution,
                     fee_rate=fee_rate, init_cash=context.init_cash,
+                    slippage_bp=slippage_bp,
                 )
             for window, result in results.items():
                 effective = execution_results.get(window, result)
@@ -366,12 +375,7 @@ def evaluate_candidate_payloads(
     for scenario in scenarios:
         if scenario != "standard" and tier != "STRESS":
             raise ValueError("non-standard scenarios require STRESS tier")
-        if scenario == "standard":
-            fee_rate = context.fee_rate
-        elif scenario.startswith("fee_x"):
-            fee_rate = context.fee_rate * float(scenario.removeprefix("fee_x"))
-        else:
-            raise ValueError(f"unsupported stress scenario: {scenario}")
+        fee_rate, slippage_bp = _scenario_settings(scenario, context.fee_rate)
         groups: dict[str, list[str]] = {}
         for candidate_id in candidate_ids:
             key = _behavior_key(
@@ -401,6 +405,7 @@ def evaluate_candidate_payloads(
         )
         behavior_results = _evaluate_behavior_tasks(
             workspace, tasks, tier, scenario, fee_rate, context.init_cash, context.workers,
+            slippage_bp,
         )
         for result in behavior_results:
             for observation in result.observations:

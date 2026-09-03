@@ -93,6 +93,34 @@ def test_execution_policy_uses_round_lots_and_requires_price_penetration() -> No
     assert result.daily_state.iloc[-1]["cash"] >= 0
 
 
+def test_execution_policy_applies_adverse_slippage_to_actual_fill_prices() -> None:
+    from czsc_trader.execution_policy import simulate_limit_policy
+
+    dates = pd.bdate_range("2026-01-05", periods=4)
+    daily = pd.DataFrame({
+        "dt": dates,
+        "open": [10.0, 10.0, 10.0, 11.0],
+        "high": [10.2, 10.2, 10.6, 11.2],
+        "low": [9.8, 9.8, 9.8, 10.8],
+        "close": [10.0, 10.0, 10.5, 11.0],
+    })
+    intraday = pd.DataFrame({
+        "dt": [pd.Timestamp(f"{day.date()} 10:00") for day in dates],
+        "low": [9.8, 9.8, 9.8, 10.8],
+        "vol": [1_000_000.0] * 4,
+    })
+    target = pd.Series([0.0, 1.0, 0.0, 0.0], index=dates)
+    limits = pd.Series([10.0] * 4, index=dates)
+
+    result = simulate_limit_policy(
+        daily, intraday, target, limits, slippage_bp=100,
+    )
+
+    assert result.orders["side"].tolist() == ["Buy", "Sell"]
+    assert result.orders.iloc[0]["price"] == pytest.approx(10.1)
+    assert result.orders.iloc[1]["price"] == pytest.approx(10.89)
+
+
 def test_execution_policy_selector_enforces_service_level_then_price() -> None:
     from czsc_trader.execution_policy import select_execution_candidate
 

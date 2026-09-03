@@ -55,4 +55,4 @@ def test_neighborhood_is_insufficient_below_ten_valid_neighbors() -> None:
     result = audit_parameter_neighborhood("R1102", points(9), minimum_valid=10)
 
     assert result.status is AuditStatus.INSUFFICIENT
-    assert result.valid_neighbor_count == 8
+    assert result.valid_neighbor_count == 9

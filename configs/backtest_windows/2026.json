@@ -10,8 +10,8 @@
       "end": "2026-06-30"
     },
     "2026FULL": {
-      "start": "first_available_in_year",
-      "end": "last_available_in_year",
+      "start": "2026-01-01",
+      "end": "2026-09-02",
       "year": 2026
     }
   }

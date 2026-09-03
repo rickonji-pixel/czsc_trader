@@ -104,7 +104,7 @@ class PteCoordinator:
             "symbol": channel.get("symbol"),
             "channel": channel,
             "virtual_accounts": accounts,
-            "selected_account": accounts[0] if accounts else None,
+            "default_account_id": accounts[0]["account_id"] if accounts else None,
             "comparison": {
                 "common_start": common_start,
                 "common_end": common_end,

@@ -20,7 +20,7 @@ def test_candidate_runner_loads_market_and_factors_once(monkeypatch, tmp_path):
     monkeypatch.setattr("czsc_trader.candidate_evaluation.apply_resolved_baseline", lambda *a, **k: SimpleNamespace(target_position=target, events=pd.DataFrame(), scores=target))
     equity = pd.Series([100, 100, 102], index=dates[-3:])
     orders = pd.DataFrame(columns=["signal_date", "execution_date", "side", "size", "price", "fees"])
-    result = SimpleNamespace(equity=equity, orders=orders)
+    result = SimpleNamespace(equity=equity, orders=orders, factor_events=pd.DataFrame())
     monkeypatch.setattr("czsc_trader.candidate_evaluation.run_period_backtests", lambda *a, **k: {"full": result})
     repo = RepositoryContext.discover(tmp_path, explicit_root=tmp_path) if False else SimpleNamespace(raw_dir=tmp_path, baseline_root=tmp_path)
     context = CandidateEvaluationContext(repo, "588080.SH", "etf", (("full", (dates[-3], dates[-1])),), 0.0005, 100.0)

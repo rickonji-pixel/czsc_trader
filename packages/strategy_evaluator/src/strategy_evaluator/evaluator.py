@@ -9,18 +9,59 @@ from .standards import resolve_margins
 
 
 def screen_candidates(protocol: EvaluationProtocol, candidates: tuple[CandidateDescriptor, ...], observations: tuple[MetricObservation, ...]) -> ShortlistResult:
-    del observations
     representatives: dict[str, CandidateDescriptor] = {}
     rejected: list[str] = []
+    reason_codes: list[str] = []
     for item in sorted((c for c in candidates if not c.is_incumbent), key=lambda x: x.candidate_id):
-        behavior = item.behavior_hash or item.strategy_hash
+        behavior = item.behavior_hash or item.candidate_hash
         if behavior in representatives:
             rejected.append(item.candidate_id)
+            reason_codes.append("BEHAVIOR_DEDUPLICATED")
         else:
             representatives[behavior] = item
-    selected = tuple(item.candidate_id for item in representatives.values())[: protocol.shortlist_limit]
-    rejected.extend(item.candidate_id for item in list(representatives.values())[protocol.shortlist_limit :])
-    return ShortlistResult(selected, tuple(sorted(rejected)), ("BEHAVIOR_DEDUPLICATED",) if rejected else ())
+    ranked: list[tuple[float, CandidateDescriptor]] = []
+    screening_profiles: list[CandidateProfile] = []
+    if observations:
+        margins = resolve_margins(protocol)
+        by_key = {(item.candidate_id, item.window_id): item for item in observations if item.scenario_id == "standard"}
+        for item in representatives.values():
+            comparisons = []
+            for window in protocol.decision_windows:
+                candidate = by_key.get((item.candidate_id, window))
+                incumbent = by_key.get((protocol.incumbent_id, window))
+                if candidate is None or incumbent is None:
+                    continue
+                comparisons.extend(compare_observation(candidate, incumbent, margins))
+            if len(comparisons) != 4 * len(protocol.decision_windows) or any(not value.passed for value in comparisons):
+                rejected.append(item.candidate_id)
+                reason_codes.append("SCREENING_NONINFERIORITY")
+                continue
+            worst = tuple(
+                (metric, min(value.normalized_score for value in comparisons if value.metric == metric and value.normalized_score is not None))
+                for metric in ("net_cagr", "max_drawdown", "calmar", "profit_factor")
+            )
+            score = median(value for _, value in worst)
+            ranked.append((score, item))
+            screening_profiles.append(CandidateProfile(item.candidate_id, True, True, worst, median_score=score, parameter_distance=item.parameter_distance))
+    else:
+        ranked = [(0.0, item) for item in representatives.values()]
+    ranked.sort(key=lambda pair: (-pair[0], pair[1].parameter_distance, pair[1].candidate_id))
+    if observations:
+        layered = pareto_layers(tuple(screening_profiles))
+        first_front = {item.candidate_id for item in layered if item.pareto_layer == 1}
+        front = [item for _, item in ranked if item.candidate_id in first_front]
+        remainder = [item for _, item in ranked if item.candidate_id not in first_front]
+        capacity = max(0, protocol.shortlist_limit - len(front))
+        chosen = [*front, *remainder[:capacity]]
+        dropped = remainder[capacity:]
+    else:
+        chosen = [item for _, item in ranked]
+        dropped = []
+    selected = tuple(item.candidate_id for item in chosen)
+    rejected.extend(item.candidate_id for item in dropped)
+    if dropped:
+        reason_codes.append("SHORTLIST_LIMIT")
+    return ShortlistResult(selected, tuple(sorted(set(rejected))), tuple(dict.fromkeys(reason_codes)))
 
 
 def _target_achieved(protocol: EvaluationProtocol, candidate_id: str, by_key: dict[tuple[str, str], MetricObservation]) -> bool:

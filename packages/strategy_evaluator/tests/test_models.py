@@ -75,3 +75,22 @@ def test_models_reject_unknown_fields_and_mutable_nested_values():
         EvaluationProtocol.from_dict({**PROTOCOL, "surprise": True})
     with pytest.raises(ValidationError, match="objective_values"):
         MetricObservation.from_dict({**OBSERVATION, "objective_values": [1, 2]})
+
+
+def test_empty_sequences_serialize_as_arrays_and_mapping_pairs_as_objects():
+    from strategy_evaluator import ShortlistResult
+
+    payload = ShortlistResult((), (), ()).to_dict()
+    assert payload == {"candidate_ids": [], "rejected_ids": [], "reason_codes": []}
+
+
+def test_candidate_descriptor_uses_research_audit_fields():
+    from strategy_evaluator import CandidateDescriptor
+
+    value = {
+        "candidate_id": "c1", "candidate_hash": "a" * 64, "execution_policy_hash": "b" * 64,
+        "is_incumbent": False, "behavior_hash": "c" * 64, "parameter_distance": 0.1,
+        "family": "range", "generation_stage": "search", "parent_candidate_id": "S001-v1",
+        "parameter_group": "range_weights",
+    }
+    assert CandidateDescriptor.from_dict(value).to_dict() == value

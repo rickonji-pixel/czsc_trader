@@ -65,6 +65,9 @@ def _descriptor(value: dict[str, Any]) -> CandidateDescriptor:
         str(value["candidate_id"]), str(value.get("strategy_hash", value.get("candidate_hash", ""))),
         str(value["execution_policy_hash"]), bool(value.get("is_incumbent", False)),
         str(value.get("behavior_hash", "")), float(value.get("parameter_distance", 0.0)),
+        str(value.get("family", "")), str(value.get("generation_stage", "")),
+        None if value.get("parent_candidate_id") is None else str(value["parent_candidate_id"]),
+        str(value.get("parameter_group", "")),
     )
 
 
@@ -105,7 +108,16 @@ def _health(
             incumbent = stress_by_key.get((protocol.incumbent_id, window, scenario))
             if challenger is None or incumbent is None or not all(item.passed for item in compare_observation(challenger, incumbent, margins)):
                 stress_ok = False
-    neighbor_count = sum(item.candidate_id != champion for item in candidates)
+    champion_descriptor = next(item for item in candidates if item.candidate_id == champion)
+    robust_ids = {item.candidate_id for item in ranking.profiles if item.eligible}
+    neighbor_count = sum(
+        item.candidate_id not in {champion, protocol.incumbent_id}
+        and item.candidate_id in robust_ids
+        and bool(champion_descriptor.parameter_group)
+        and item.parameter_group == champion_descriptor.parameter_group
+        and item.family == champion_descriptor.family
+        for item in candidates
+    )
     return HealthEvidence(
         champion,
         HealthStatus.PASS,
@@ -140,6 +152,10 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         existing = _read_object(result_path)
         if existing.get("input_hash") != input_hash:
             raise ValueError("completed evaluation has a different input hash")
+        stored_hash = existing.pop("decision_hash", None)
+        if stored_hash != _canonical_hash(existing):
+            raise ValueError("completed evaluation decision hash mismatch")
+        existing["decision_hash"] = stored_hash
         return CommandResult("PASS", "strategy.evaluate", existing, {"directory": str(artifact_dir)})
 
     windows_raw = manifest.get("windows")
@@ -168,6 +184,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         health = _health(protocol, ranking, formal, stress, repeated, candidates)
     result = finalize_evaluation(ranking, health, experiment_id)
     result_document = {**result.to_dict(), "input_hash": input_hash}
+    result_document["decision_hash"] = _canonical_hash(result_document)
 
     comparisons = []
     by_key = {(x.candidate_id, x.window_id): x for x in formal}
@@ -191,7 +208,9 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     try:
         for name, text in documents.items():
             (temporary / name).write_text(text, encoding="utf-8")
-        for name in documents:
+        commit_order = [name for name in documents if name != "evaluation_result.json"]
+        commit_order.append("evaluation_result.json")
+        for name in commit_order:
             (temporary / name).replace(artifact_dir / name)
     finally:
         shutil.rmtree(temporary, ignore_errors=True)
@@ -205,8 +224,15 @@ def _atomic_json(path: Path, value: object) -> None:
 
 
 def _winning_payload(experiment: Path, result: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    protocol = EvaluationProtocol.from_dict(_read_object(experiment / "evaluation_protocol.json"))
+    protocol_raw = _read_object(experiment / "evaluation_protocol.json")
+    protocol = EvaluationProtocol.from_dict(protocol_raw)
     manifest = _read_object(experiment / protocol.candidate_manifest)
+    if result.get("input_hash") != _canonical_hash(protocol_raw, manifest):
+        raise ValueError("evaluation input hash mismatch")
+    integrity = dict(result)
+    stored_hash = integrity.pop("decision_hash", None)
+    if stored_hash != _canonical_hash(integrity):
+        raise ValueError("evaluation decision hash mismatch")
     winner = result.get("recommended_candidate_id")
     candidates = manifest.get("candidates", [])
     match = next((item for item in candidates if isinstance(item, dict) and item.get("candidate_id") == winner), None)
@@ -264,6 +290,9 @@ def _ensure_frozen(
         )
     candidate_id = str(winner["candidate_id"])
     version = _find_source_version(registry, strategy_id, experiment_id, candidate_id)
+    expected_payload = winner.get("strategy_payload")
+    if version is not None and version.strategy_payload != expected_payload:
+        raise ValueError("existing source version payload does not match the winning candidate")
     if version is None:
         version_count = len(list((context.strategy_root / strategy_id / "versions").glob("v*.json")))
         version_name = f"v{version_count + 1}"
@@ -346,15 +375,21 @@ def accept_evaluation(
         "--strategy", str(journal["strategy_id"]), "--strategy-version", str(journal["strategy_version"]),
         "--symbol", str(manifest["symbol"]), "--initial-cash", "100000",
     ]
-    completed = pte_runner(command, check=False, capture_output=True, text=True, encoding="utf-8")
+    try:
+        completed = pte_runner(command, check=False, capture_output=True, text=True, encoding="utf-8")
+        return_code = completed.returncode
+        pte_error = (completed.stderr or completed.stdout or "PTE account registration failed").strip()
+    except OSError as exc:
+        return_code = 1
+        pte_error = str(exc)
     warnings: tuple[str, ...] = ()
-    if completed.returncode == 0:
+    if return_code == 0:
         journal["activation_state"] = "PAPER_ACTIVE"
         journal["activated_at"] = datetime.now().astimezone().isoformat()
         journal.pop("pte_error", None)
     else:
         journal["activation_state"] = "PAPER_ACTIVATION_PENDING"
-        journal["pte_error"] = (completed.stderr or completed.stdout or "PTE account registration failed").strip()
+        journal["pte_error"] = pte_error
         warnings = ("SM 已冻结；PTE 注册待重试",)
     _atomic_json(journal_path, journal)
     return CommandResult("PASS", "strategy.accept-evaluation", journal, warnings=warnings)

@@ -43,7 +43,7 @@ def test_protocol_can_tighten_but_cannot_loosen_defaults():
 
 def test_validation_requires_one_incumbent_and_complete_trial_ledger():
     protocol, candidates, observations, trials = inputs()
-    no_incumbent = tuple(CandidateDescriptor(c.candidate_id, c.strategy_hash, c.execution_policy_hash, False, c.behavior_hash) for c in candidates)
+    no_incumbent = tuple(CandidateDescriptor(c.candidate_id, c.candidate_hash, c.execution_policy_hash, False, c.behavior_hash) for c in candidates)
     with pytest.raises(ValidationError, match="exactly one incumbent"):
         validate_protocol(protocol, no_incumbent, observations, trials)
     with pytest.raises(ValidationError, match="trial ledger"):
@@ -57,4 +57,13 @@ def test_validation_rejects_execution_hash_mismatch_and_invalid_metrics():
         validate_protocol(protocol, (candidates[0], bad), observations, trials)
     invalid = MetricObservation.from_dict({**OBSERVATION, "candidate_id": "c1", "max_drawdown": 0.1})
     with pytest.raises(ValidationError, match="max_drawdown"):
-        validate_protocol(protocol, candidates, observations + (invalid,), trials)
+        validate_protocol(protocol, candidates, (*observations[:2], invalid, *observations[3:]), trials)
+
+
+def test_validation_rejects_duplicate_observations_and_trial_hash_mismatch():
+    protocol, candidates, observations, trials = inputs()
+    with pytest.raises(ValidationError, match="duplicate observation"):
+        validate_protocol(protocol, candidates, observations + (observations[0],), trials)
+    bad_trials = (trials[0], TrialRecord("t1", "c1", "f" * 64, "h2", "COMPLETED"))
+    with pytest.raises(ValidationError, match="trial hash"):
+        validate_protocol(protocol, candidates, observations, bad_trials)

@@ -26,11 +26,13 @@ def write_bundle(root):
         "windows": {"full": {"start": "2021-01-04", "end": "2026-09-02"}},
         "candidates": [
             {"candidate_id": "S001-v1", "strategy_hash": "a" * 64, "execution_policy_hash": "b" * 64, "behavior_hash": "h0", "is_incumbent": True, "strategy_payload": {"rule": {"enter": 1}}},
-            {"candidate_id": "c1", "strategy_id": "S001", "strategy_name": "综合基线策略", "strategy_hash": "c" * 64, "execution_policy_hash": "b" * 64, "behavior_hash": "h1", "is_incumbent": False, "strategy_payload": {"rule": {"enter": 2}}},
+            {"candidate_id": "c1", "strategy_id": "S001", "strategy_name": "综合基线策略", "strategy_hash": "c" * 64, "execution_policy_hash": "b" * 64, "behavior_hash": "h1", "family": "range", "parameter_group": "weights", "is_incumbent": False, "strategy_payload": {"rule": {"enter": 2}}},
+            {"candidate_id": "c2", "strategy_id": "S001", "strategy_name": "综合基线策略", "strategy_hash": "d" * 64, "execution_policy_hash": "b" * 64, "behavior_hash": "h2", "family": "range", "parameter_group": "weights", "parameter_distance": 0.1, "is_incumbent": False, "strategy_payload": {"rule": {"enter": 3}}},
         ],
         "trials": [
             {"trial_id": "t0", "candidate_id": "S001-v1", "strategy_hash": "a" * 64, "behavior_hash": "h0", "status": "COMPLETED"},
             {"trial_id": "t1", "candidate_id": "c1", "strategy_hash": "c" * 64, "behavior_hash": "h1", "status": "COMPLETED"},
+            {"trial_id": "t2", "candidate_id": "c2", "strategy_hash": "d" * 64, "behavior_hash": "h2", "status": "COMPLETED"},
         ],
     }
     (experiment / "evaluation_protocol.json").write_text(json.dumps(protocol), encoding="utf-8")

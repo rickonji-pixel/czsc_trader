@@ -53,6 +53,39 @@ def test_screening_deduplicates_behavior_and_preserves_incumbent():
     assert result.rejected_ids == ("c2",)
 
 
+def test_screening_rejects_materially_inferior_candidate():
+    protocol = EvaluationProtocol.from_dict(PROTOCOL)
+    candidates = (
+        CandidateDescriptor("S001-v1", "a", "b" * 64, True, "h0"),
+        CandidateDescriptor("bad", "c", "b" * 64, False, "h1"),
+    )
+    observations = (
+        observation("S001-v1", "full"), observation("S001-v1", "2026_ytd"),
+        observation("bad", "full", net_cagr=-0.2), observation("bad", "2026_ytd", net_cagr=-0.2),
+    )
+    result = screen_candidates(protocol, candidates, observations)
+    assert result.candidate_ids == ()
+    assert result.rejected_ids == ("bad",)
+    assert "SCREENING_NONINFERIORITY" in result.reason_codes
+
+
+def test_screening_keeps_complete_first_pareto_front_beyond_soft_limit():
+    raw = {**PROTOCOL, "shortlist_limit": 1}
+    protocol = EvaluationProtocol.from_dict(raw)
+    candidates = (
+        CandidateDescriptor("S001-v1", "a", "b" * 64, True, "h0"),
+        CandidateDescriptor("growth", "c", "b" * 64, False, "h1"),
+        CandidateDescriptor("defense", "d", "b" * 64, False, "h2"),
+    )
+    observations = tuple(
+        [observation("S001-v1", window) for window in ("full", "2026_ytd")]
+        + [observation("growth", window, net_cagr=0.12) for window in ("full", "2026_ytd")]
+        + [observation("defense", window, max_drawdown=-0.08) for window in ("full", "2026_ytd")]
+    )
+    result = screen_candidates(protocol, candidates, observations)
+    assert set(result.candidate_ids) == {"growth", "defense"}
+
+
 def winner_ranking():
     profile = CandidateProfile("c1", True, True, (("net_cagr", 1.0), ("max_drawdown", 1.0), ("calmar", 1.0), ("profit_factor", 1.0)), 1, 1.0)
     return RankingResult("S001-v1", (profile,), "c1", ("c1",))

@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from strategy_evaluator import EvaluationProtocol, MetricObservation, MetricStatus
 
+from .audit import audit_no_lookahead
 from .backtest import run_period_backtests
 from .backtest_runner import _complete_baseline_execution_results
 from .baseline_execution import apply_resolved_baseline
@@ -91,6 +92,9 @@ def evaluate_candidate_payloads(
             release_id=candidate_id, release_hash=str(item.get("strategy_hash", item.get("candidate_hash", ""))), symbol=context.symbol,
         )
         applied = apply_resolved_baseline(factors.frame, baseline, daily_close=daily_close)
+        factor_output = factors.frame.copy()
+        factor_output.insert(0, "target_position", applied.target_position)
+        factor_output.insert(1, "factor_score", applied.scores)
         for scenario in scenarios:
             if scenario != "standard" and tier != "STRESS":
                 raise ValueError("non-standard scenarios require STRESS tier")
@@ -100,7 +104,12 @@ def evaluate_candidate_payloads(
                 fee_rate = context.fee_rate * float(scenario.removeprefix("fee_x"))
             else:
                 raise ValueError(f"unsupported stress scenario: {scenario}")
-            results = run_period_backtests(data.daily, applied.target_position, periods, fee_rate=fee_rate, init_cash=context.init_cash)
+            results = run_period_backtests(
+                data.daily, applied.target_position, periods, fee_rate=fee_rate, init_cash=context.init_cash,
+                factor_events=applied.events, factor_frame=factor_output,
+            )
+            for result in results.values():
+                audit_no_lookahead(result.orders, result.factor_events, applied.target_position, factor_output)
             execution_results = {}
             if tier in {"FORMAL", "STRESS"} and baseline.execution is not None:
                 execution_results = _complete_baseline_execution_results(

@@ -58,17 +58,23 @@ def _json_value(value: Any) -> Any:
     if isinstance(value, Enum):
         return value.value
     if is_dataclass(value):
-        return {field.name: _json_value(getattr(value, field.name)) for field in fields(value)}
+        return value.to_dict() if isinstance(value, Record) else {field.name: _json_value(getattr(value, field.name)) for field in fields(value)}
     if isinstance(value, tuple):
-        if all(isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str) for item in value):
-            return {key: _json_value(item) for key, item in value}
         return [_json_value(item) for item in value]
     return value
 
 
 class Record:
     def to_dict(self) -> dict[str, Any]:
-        return {field.name: _json_value(getattr(self, field.name)) for field in fields(self)}
+        mapping_fields = {"tightened_margins", "objective_values", "worst_scores"}
+        result = {}
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if field.name in mapping_fields:
+                result[field.name] = {key: _json_value(item) for key, item in value}
+            else:
+                result[field.name] = _json_value(value)
+        return result
 
 
 @dataclass(frozen=True)
@@ -117,16 +123,29 @@ class EvaluationProtocol(Record):
 @dataclass(frozen=True)
 class CandidateDescriptor(Record):
     candidate_id: str
-    strategy_hash: str
+    candidate_hash: str
     execution_policy_hash: str
     is_incumbent: bool = False
     behavior_hash: str = ""
     parameter_distance: float = 0.0
+    family: str = ""
+    generation_stage: str = ""
+    parent_candidate_id: str | None = None
+    parameter_group: str = ""
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> CandidateDescriptor:
-        _exact(data, {"candidate_id", "strategy_hash", "execution_policy_hash"}, {"is_incumbent", "behavior_hash", "parameter_distance"})
-        return cls(str(data["candidate_id"]), str(data["strategy_hash"]), str(data["execution_policy_hash"]), bool(data.get("is_incumbent", False)), str(data.get("behavior_hash", "")), float(data.get("parameter_distance", 0.0)))
+        _exact(
+            data,
+            {"candidate_id", "candidate_hash", "execution_policy_hash"},
+            {"is_incumbent", "behavior_hash", "parameter_distance", "family", "generation_stage", "parent_candidate_id", "parameter_group"},
+        )
+        parent = data.get("parent_candidate_id")
+        return cls(
+            str(data["candidate_id"]), str(data["candidate_hash"]), str(data["execution_policy_hash"]),
+            bool(data.get("is_incumbent", False)), str(data.get("behavior_hash", "")), float(data.get("parameter_distance", 0.0)),
+            str(data.get("family", "")), str(data.get("generation_stage", "")), None if parent is None else str(parent), str(data.get("parameter_group", "")),
+        )
 
 
 @dataclass(frozen=True)

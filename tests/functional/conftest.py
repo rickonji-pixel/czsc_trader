@@ -24,7 +24,18 @@ def functional_repo(tmp_path: Path) -> Path:
     raw_dir.mkdir(parents=True)
     for source in (REPO_ROOT / "data" / "raw").glob("588080*"):
         shutil.copy2(source, raw_dir / source.name)
-    (root / "experiments").mkdir()
+    for relative in (
+        Path("0824_EX04/artifacts/frozen_challenger.json"),
+        Path("0901_EX20/artifacts/frozen_challenger.json"),
+        Path("0902_EX02/artifacts/frozen_execution_policy.json"),
+        Path("0903_EX06/artifacts/frozen_challenger.json"),
+    ):
+        source = REPO_ROOT / "experiments" / relative
+        if source.is_file():
+            destination = root / "experiments" / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+    (root / "experiments").mkdir(exist_ok=True)
     (root / "outputs").mkdir()
     return root
 
@@ -53,8 +64,8 @@ def invoke_main(arguments: list[str], capsys) -> dict:
     output = capsys.readouterr()
     assert output.err == ""
     payload = json.loads(output.out)
-    assert exit_code == 0
-    assert payload["status"] == "PASS"
+    assert exit_code == 0, payload
+    assert payload["status"] == "PASS", payload
     return payload
 
 

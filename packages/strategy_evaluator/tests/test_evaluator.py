@@ -40,6 +40,22 @@ def test_bad_ytd_eliminates_strong_long_term_candidate():
     assert "NONINFERIORITY_NET_CAGR_2026_YTD" in challenger.reason_codes
 
 
+def test_low_sample_profit_factor_is_ignored_outside_full_or_target_windows():
+    raw = {**PROTOCOL, "target_requirements": [], "target_windows": ["full"]}
+    protocol = EvaluationProtocol.from_dict(raw)
+    candidates = (
+        CandidateDescriptor("S001-v1", "a", "b" * 64, True, "h0"),
+        CandidateDescriptor("c1", "c", "b" * 64, False, "h1"),
+    )
+    low_sample = {"closed_trades": 4, "profit_factor_status": MetricStatus.LOW_SAMPLE}
+    observations = (
+        observation("S001-v1", "full"), observation("c1", "full"),
+        observation("S001-v1", "2026_ytd", **low_sample), observation("c1", "2026_ytd", **low_sample),
+    )
+    ranking = rank_candidates(protocol, ShortlistResult(("c1",), ()), observations, candidates)
+    assert ranking.profiles[0].eligible is True
+
+
 def test_screening_deduplicates_behavior_and_preserves_incumbent():
     protocol = EvaluationProtocol.from_dict(PROTOCOL)
     candidates = (

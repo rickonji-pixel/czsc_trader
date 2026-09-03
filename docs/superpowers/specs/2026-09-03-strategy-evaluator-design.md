@@ -243,6 +243,15 @@ reason_codes
 
 统一默认值只能通过新的`standard_version`修改，单个实验只能收紧。
 
+#### OPC-v2
+
+`opc-v1`保持不可变，用于复现既有实验。`opc-v2`只调整负卡玛基线的判断：基线卡玛
+大于零时仍要求候选保留至少90%；基线卡玛小于等于零时，候选不得低于基线，无须在
+一次迭代中直接跨过零线。尚未转正的窗口作为风险诊断展示，不再单独构成非劣否决。
+
+OPC-v2的净CAGR、最大回撤、Profit Factor、决策窗口、目标改善、Pareto排名和冠军体检
+全部沿用OPC-v1。新实验必须在协议中显式声明版本，历史实验不得改写版本后覆盖结论。
+
 ### 8.3 决策窗口
 
 首版强制一个全开发期窗口、每个数据完整的自然年度、截止日所在年度的YTD，以及至少
@@ -377,6 +386,9 @@ Trader写入：
 ```text
 evaluation_protocol.json
 trial_ledger.csv
+screening_metrics.csv
+screening_noninferiority.csv
+screening_decisions.csv
 formal_metrics.csv
 noninferiority.csv
 pareto_profiles.csv
@@ -385,7 +397,10 @@ evaluation_result.json
 evaluation_report.md
 ```
 
-详细产物进入实验`artifacts/`，历史实验不补写。
+`screening_decisions.csv`为每个挑战者记录行为去重、快速非劣淘汰、正式入围或名额截断，
+并保存逐项失败原因；两类`noninferiority.csv`都必须包含`candidate_id`。最终结果保存三项
+筛选审计文件的内容哈希，幂等读取时重新验证。详细产物进入实验`artifacts/`，本契约生效
+前的历史实验不补写。
 
 ## 13. 失败与恢复
 

@@ -1,0 +1,174 @@
+{
+  "experiment_id": "0903_EX04",
+  "incumbent_id": "S001-v1",
+  "decision": "KEEP_INCUMBENT",
+  "recommended_candidate_id": null,
+  "reason_codes": [
+    "NO_ELIGIBLE_CHALLENGER"
+  ],
+  "ranking": {
+    "incumbent_id": "S001-v1",
+    "profiles": [
+      {
+        "candidate_id": "R0539",
+        "eligible": false,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 0.9436848687956669,
+          "max_drawdown": -0.000375592012895651,
+          "calmar": 0.4819749359507976,
+          "profit_factor": 1.2766102899536182
+        },
+        "pareto_layer": null,
+        "median_score": 0.7128299023732323,
+        "turnover": 191.18317724186,
+        "parameter_distance": 0.6819160929481258,
+        "reason_codes": [
+          "NONINFERIORITY_CALMAR_2021",
+          "NONINFERIORITY_CALMAR_2023"
+        ]
+      },
+      {
+        "candidate_id": "R1297",
+        "eligible": false,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 0.16261071540452238,
+          "max_drawdown": -0.6045933240274807,
+          "calmar": 0.16250736896545845,
+          "profit_factor": 1.9950512907001254
+        },
+        "pareto_layer": null,
+        "median_score": 0.1625590421849904,
+        "turnover": 189.30053232609998,
+        "parameter_distance": 0.7802772858560009,
+        "reason_codes": [
+          "NONINFERIORITY_CALMAR_2023"
+        ]
+      },
+      {
+        "candidate_id": "R1091",
+        "eligible": false,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 0.11543969958939157,
+          "max_drawdown": -0.14450048126549161,
+          "calmar": 0.11486983994088786,
+          "profit_factor": 1.1411450104794605
+        },
+        "pareto_layer": null,
+        "median_score": 0.11515476976513972,
+        "turnover": 175.76851272646,
+        "parameter_distance": 0.6790624130939785,
+        "reason_codes": [
+          "NONINFERIORITY_CALMAR_2021",
+          "NONINFERIORITY_CALMAR_2023"
+        ]
+      },
+      {
+        "candidate_id": "R1353",
+        "eligible": false,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -0.6329359728394673,
+          "max_drawdown": -6.779589282586216e-05,
+          "calmar": -0.6330312291411,
+          "profit_factor": 2.426506918277238
+        },
+        "pareto_layer": null,
+        "median_score": -0.3165018843661466,
+        "turnover": 190.21917754722003,
+        "parameter_distance": 0.6432204435844342,
+        "reason_codes": [
+          "NONINFERIORITY_CALMAR_2023"
+        ]
+      },
+      {
+        "candidate_id": "R0512",
+        "eligible": false,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -1.390966249784409,
+          "max_drawdown": -0.00015571145963594394,
+          "calmar": -1.3911673238696722,
+          "profit_factor": 1.0511098183777434
+        },
+        "pareto_layer": null,
+        "median_score": -0.6955609806220225,
+        "turnover": 190.26754357499,
+        "parameter_distance": 0.6500915572781362,
+        "reason_codes": [
+          "NONINFERIORITY_CALMAR_2023",
+          "NONINFERIORITY_NET_CAGR_2026_YTD",
+          "NONINFERIORITY_CALMAR_2026_YTD"
+        ]
+      },
+      {
+        "candidate_id": "R1351",
+        "eligible": false,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -0.9759306235396733,
+          "max_drawdown": -0.5909737910315797,
+          "calmar": -0.9761413912690005,
+          "profit_factor": 0.7540584851948793
+        },
+        "pareto_layer": null,
+        "median_score": -0.7834522072856265,
+        "turnover": 209.01003479027997,
+        "parameter_distance": 0.6878382235839096,
+        "reason_codes": [
+          "NONINFERIORITY_CALMAR_2023"
+        ]
+      },
+      {
+        "candidate_id": "R1312",
+        "eligible": false,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -1.1210179487051097,
+          "max_drawdown": -0.6045933240274807,
+          "calmar": -1.1212253277497075,
+          "profit_factor": 1.670741433535445
+        },
+        "pareto_layer": null,
+        "median_score": -0.8628056363662953,
+        "turnover": 198.80291371648002,
+        "parameter_distance": 0.7612204460321221,
+        "reason_codes": [
+          "NONINFERIORITY_CALMAR_2023",
+          "NONINFERIORITY_NET_CAGR_2026_YTD",
+          "NONINFERIORITY_CALMAR_2026_YTD"
+        ]
+      },
+      {
+        "candidate_id": "R1101",
+        "eligible": false,
+        "target_achieved": false,
+        "worst_scores": {
+          "net_cagr": -0.2979113071743085,
+          "max_drawdown": -0.000375592012895651,
+          "calmar": -0.2984578804342395,
+          "profit_factor": 0.6268224234086952
+        },
+        "pareto_layer": null,
+        "median_score": -0.1491434495936021,
+        "turnover": 213.31640368267,
+        "parameter_distance": 0.6508289082961194,
+        "reason_codes": [
+          "NONINFERIORITY_CALMAR_2023"
+        ]
+      }
+    ],
+    "champion_id": null,
+    "tied_champion_ids": []
+  },
+  "health": null,
+  "input_hash": "8a3b7a6003b3a691897055cadbfc1b0f38502f236646d7af7dd713b6f702618d",
+  "audit_artifacts": {
+    "screening_metrics.csv": "44db6edfc26747df27485bda0cbae5f0e7ebe36cfee62e54bb355009ff130ad3",
+    "screening_noninferiority.csv": "9b14938635eeb24734d62cbc1c2d0d3be465a0ba05e1146d6af60053d24b16ab",
+    "screening_decisions.csv": "a3de143d5460c2a6984b15cb9c5c0775e79e00167baa5edb7752b7dead7bec4b"
+  },
+  "decision_hash": "22440e08108f9d02969083efd42baa5f0cef88dccc555f5670e3b5a8a305c63b"
+}

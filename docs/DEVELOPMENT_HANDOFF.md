@@ -6,7 +6,7 @@
 
 ## 当前交付状态
 
-- 当前交付分支：`codex/strategy-evaluator`（合并后以`master`为准）
+- 当前交付分支：`codex/range-optimization-v2`（合并后以`master`为准）
 - Python版本：3.12
 - 正式策略：`S001 / 综合基线策略 / v1`，资格`PAPER_READY`
 - 历史基线别名：`baseline_20260903`（候选143，内嵌唯一执行规则）
@@ -58,19 +58,32 @@ SQLite或运行状态；用户统一通过Trader的`strategy`资源操作。
 ### Strategy Evaluator
 
 独立包位于`packages/strategy_evaluator/`，只依赖Python标准库。它拥有不可变评估契约、
-`opc-v1`默认边界、非劣判断、最差窗口画像、Pareto分层、最终判定和一页摘要。它不读
+版本化的`opc-v1`与`opc-v2`边界、非劣判断、最差窗口画像、Pareto分层、最终判定和一页
+摘要。v2仅将“负卡玛基线必须跨零”调整为“不得低于基线”，其余规则保持一致。它不读
 仓库、不执行回测、不写文件，也不改变SM或PTE状态。生产依赖方向固定为
 `czsc_trader -> strategy_evaluator`；SM和PTE均不得导入它。
 
 Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执行模拟；
 `application/evaluation_service.py`负责实验输入、防覆盖哈希、原子产物、人工接受、SM
-冻结与PTE CLI注册。评估命令和接受命令分别为：
+冻结与PTE CLI注册。每次评价同时保存快速阶段全部指标、逐项非劣比较和每个候选的筛除
+去向；最终结果绑定三项筛选审计文件的内容哈希，重复读取会验证完整性。评估命令和接受
+命令分别为：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe strategy evaluate --experiment 0903_EXXX
 .\.venv\Scripts\czsc-trader.exe strategy accept-evaluation `
   --experiment 0903_EXXX --actor tomxiao --reason "确认冻结并进入模拟盘"
 ```
+
+候选评价器支持算法与多核组合加速：共同因子和regime只计算一次，实际目标仓位相同的
+候选共享交易模拟，审计与权益校验使用等价数组路径，唯一行为块通过joblib/loky并行。
+`evaluation_workers`缺失时保持1；正式基准在本机选择8。历史指标复用只接受清单中
+`reuse_source_experiments`明确声明且完整通过归档哈希校验的实验，不使用`state`缓存。
+`artifact_reuse.csv`记录每条指标的`REUSED/COMPUTED`状态，冠军重复性检查始终现场计算。
+
+0903_EX05实测：固定64候选相对旧参考5.14倍；1,187项候选池冷启动114.33秒；复用EX04
+并补算正式与压力缺口后总运行23.08秒；结果落盘后的幂等复核5.33秒。EX05建议冻结
+R1102，但尚未执行人工接受。
 
 接受日志位于实验根目录`evaluation_acceptance.json`。`PAPER_ACTIVATION_PENDING`表示SM
 已经冻结、仅PTE账户注册待重试；重复命令不得创建第二个版本。默认虚拟资金为10万元。

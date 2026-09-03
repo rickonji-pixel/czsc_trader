@@ -12,6 +12,7 @@ class MarginSet:
     profit_factor_retention: float = 0.85
     profit_factor_floor: float = 1.0
     minimum_closed_trades: int = 10
+    negative_calmar_requires_positive: bool = True
 
 
 @dataclass(frozen=True)
@@ -21,15 +22,18 @@ class EvaluationStandard:
 
 
 OPC_V1 = EvaluationStandard("opc-v1", MarginSet())
+OPC_V2 = EvaluationStandard("opc-v2", replace(MarginSet(), negative_calmar_requires_positive=False))
 
 _HIGHER_IS_TIGHTER = {"net_cagr_retention", "calmar_retention", "profit_factor_retention", "profit_factor_floor", "minimum_closed_trades"}
 _LOWER_IS_TIGHTER = {"max_drawdown_absolute", "max_drawdown_relative"}
 
 
 def resolve_margins(protocol: EvaluationProtocol) -> MarginSet:
-    if protocol.standard_version != OPC_V1.version:
+    standards = {item.version: item for item in (OPC_V1, OPC_V2)}
+    standard = standards.get(protocol.standard_version)
+    if standard is None:
         raise ValidationError(f"unsupported standard: {protocol.standard_version}", "UNSUPPORTED_STANDARD")
-    defaults = OPC_V1.margins
+    defaults = standard.margins
     changes: dict[str, float | int] = {}
     for name, raw_value in protocol.tightened_margins:
         if name not in _HIGHER_IS_TIGHTER | _LOWER_IS_TIGHTER:

@@ -51,10 +51,15 @@ def _independent_equity(
     cash = float(init_cash)
     shares = 0.0
     previous_target = 0.0
-    values: list[float] = []
-    for date, row in prices.iterrows():
-        desired = float(execution_target.loc[date])
-        open_price = float(row["open"])
+    values = np.empty(len(prices), dtype=float)
+    targets = execution_target.reindex(prices.index).astype(float).to_numpy()
+    opens = prices["open"].astype(float).to_numpy()
+    closes = prices["close"].astype(float).to_numpy()
+    for index, (desired_value, open_value, close_value) in enumerate(
+        zip(targets, opens, closes, strict=True)
+    ):
+        desired = float(desired_value)
+        open_price = float(open_value)
         if desired != previous_target:
             portfolio_value = cash + shares * open_price
             current_asset_value = shares * open_price
@@ -71,7 +76,7 @@ def _independent_equity(
                 cash += sold * open_price * (1.0 - fee_rate)
                 shares -= sold
             previous_target = desired
-        values.append(cash + shares * float(row["close"]))
+        values[index] = cash + shares * float(close_value)
     return pd.Series(values, index=prices.index, name="independent_equity")
 
 

@@ -21,6 +21,8 @@ def apply_resolved_baseline(
     baseline: ResolvedBaseline,
     *,
     daily_close: pd.Series | None = None,
+    normalized_factors: pd.DataFrame | None = None,
+    regimes: pd.Series | None = None,
 ) -> AppliedRule:
     """Execute one already-frozen baseline without candidate generation."""
     if baseline.strategy == "czsc_fixed_rule":
@@ -33,8 +35,13 @@ def apply_resolved_baseline(
     missing = sorted(set(names) - set(map(str, factor_frame.columns)))
     if missing:
         raise ValueError(f"missing frozen factors: {missing}")
-    raw = factor_frame.loc[:, list(names)]
-    factors = normalized_signal_factors(raw)
+    if normalized_factors is None:
+        raw = factor_frame.loc[:, list(names)]
+        factors = normalized_signal_factors(raw)
+    else:
+        factors = normalized_factors
+        if list(factors.columns) != list(names) or not factors.index.equals(factor_frame.index):
+            raise ValueError("prepared normalized factors differ from frozen factor identities")
     weights = pd.Series(baseline.factor_weights, index=names, name="weight", dtype=float)
     validate_fixed_factor_weights(weights, names, minimum_absolute_weight=0.005)
     if baseline.strategy == "czsc_four_layer":
@@ -47,10 +54,13 @@ def apply_resolved_baseline(
         close = close.reindex(factors.index)
         if close.isna().any():
             raise ValueError("regime-weight daily close prices do not align to factors")
-        regimes = classify_regimes(
-            lagged_efficiency_ratio(close, baseline.er_lookback),
-            baseline.er_threshold,
-        )
+        if regimes is None:
+            regimes = classify_regimes(
+                lagged_efficiency_ratio(close, baseline.er_lookback),
+                baseline.er_threshold,
+            )
+        elif not regimes.index.equals(factors.index):
+            raise ValueError("prepared regimes do not align to factors")
         regime_weights = {
             label: pd.Series(values, index=names, name="weight", dtype=float)
             for label, values in baseline.regime_factor_weights.items()

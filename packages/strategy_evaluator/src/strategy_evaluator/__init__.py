@@ -47,6 +47,14 @@ from .search_bias import (
     deflated_sharpe_ratio,
     effective_trial_count,
 )
+from .bootstrap import (
+    BootstrapComparison,
+    BootstrapMetric,
+    PerformanceMetrics,
+    audit_pairwise_bootstrap,
+    paired_stationary_bootstrap,
+    performance_metrics,
+)
 
 __version__ = "0.1.0"
 
@@ -65,4 +73,6 @@ __all__ = [
     "CscvSplit", "DsrBundle", "DsrEstimate", "SearchBiasResult",
     "annualized_sharpe", "calculate_dsr_bundle", "cscv_pbo",
     "deflated_sharpe_ratio", "effective_trial_count",
+    "BootstrapComparison", "BootstrapMetric", "PerformanceMetrics",
+    "audit_pairwise_bootstrap", "paired_stationary_bootstrap", "performance_metrics",
 ]

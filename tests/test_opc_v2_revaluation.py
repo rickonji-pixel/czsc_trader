@@ -29,4 +29,4 @@ def test_revaluation_preserves_candidate_identity_and_relabels_trials():
     assert result["candidates"] == source["candidates"]
     assert result["trials"][0]["trial_id"] == "EX05-S001-v1"
     assert result["source_experiment"]["experiment_id"] == "0903_EX04"
-    assert result["prepared_from_commit"] == module.PREPARED_FROM_COMMIT
+    assert result["prepared_from_commit"] == "9e7037ca5e6abd35f22a8368178541d4d423900b"

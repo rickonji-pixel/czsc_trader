@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 SOURCE_MANIFEST = REPO_ROOT / "experiments" / "0903_EX04" / "candidate_manifest.json"
 MANIFEST_PATH = EXPERIMENT_DIR / "candidate_manifest.json"
-PREPARED_FROM_COMMIT = "3e81242a24a6b6410719f58c7da9572094ed72c7"
+PREPARED_FROM_COMMIT = "9e7037ca5e6abd35f22a8368178541d4d423900b"
 SOURCE_MANIFEST_SHA256 = "e448a53677b66aaab101019b5ba5ee84f975b694797329b9c1f9fdbdaf9f6762"
 
 

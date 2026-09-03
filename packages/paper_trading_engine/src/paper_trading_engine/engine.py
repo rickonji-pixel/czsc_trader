@@ -142,6 +142,7 @@ class PaperTradingEngine:
         self._decision: AdviceDecision | None = None
         self._decision_key: tuple[str | None, int, float, int | None] | None = None
         self._alerts: list[str] = []
+        self._draining = False
         self._lock = RLock()
 
     def _validate_orders(self, orders: tuple[BrokerOrder, ...]) -> None:
@@ -272,6 +273,9 @@ class PaperTradingEngine:
         decision = self._decision
         if decision is None:
             return
+        if self._draining:
+            self._alerts = ["RESTART_IN_PROGRESS"]
+            return
         active_orders = [
             order
             for order in self._orders
@@ -373,6 +377,11 @@ class PaperTradingEngine:
         self.store.set_paused(True)
         self.store.add_event("PAUSED", {})
         return self.status()
+
+    @synchronized
+    def begin_shutdown(self) -> None:
+        self._draining = True
+        self._alerts = ["RESTART_IN_PROGRESS"]
 
     @synchronized
     def resume(self) -> dict[str, object]:

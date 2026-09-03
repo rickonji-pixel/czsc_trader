@@ -9,9 +9,13 @@ from datetime import date
 import json
 from pathlib import Path
 import socket
+import secrets
 import subprocess
 import sys
 from threading import Event, Thread
+import time
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 from .advice_client import CliAdviceClient
 from .data_publisher import CliDataPublisher, seed_runtime_data
@@ -126,6 +130,13 @@ def build_parser() -> argparse.ArgumentParser:
     bind.add_argument("--strategy-version", required=True)
     bind.add_argument("--actor", required=True)
     bind.add_argument("--reason", required=True)
+    control = actions.add_parser("control")
+    control_actions = control.add_subparsers(dest="control_action", required=True)
+    restart = control_actions.add_parser("restart")
+    _common(restart)
+    restart.add_argument("--host", default="127.0.0.1")
+    restart.add_argument("--port", default=8080, type=int)
+    restart.add_argument("--wait", default=30.0, type=float)
     return parser
 
 
@@ -248,6 +259,58 @@ def _run_channel_command(args: argparse.Namespace) -> dict[str, object]:
         store.close()
 
 
+def _read_json(url: str, *, request: Request | None = None, timeout: float = 3.0):
+    with urlopen(request or url, timeout=timeout) as response:  # noqa: S310 - localhost only
+        return response.status, json.loads(response.read().decode("utf-8"))
+
+
+def _ensure_control_token(store: PaperStore) -> str:
+    token = store.get_setting("control_token")
+    if token:
+        return token
+    token = secrets.token_urlsafe(32)
+    store.set_setting("control_token", token)
+    return token
+
+
+def _restart_running_pte(args: argparse.Namespace) -> dict[str, object]:
+    if args.host != "127.0.0.1":
+        raise ValueError("PTE control host must be 127.0.0.1")
+    store = PaperStore(args.database)
+    try:
+        token = store.get_setting("control_token")
+    finally:
+        store.close()
+    if not token:
+        raise RuntimeError("PTE control token is unavailable; perform one bootstrap service restart")
+    base = f"http://{args.host}:{args.port}"
+    _, current = _read_json(base + "/api/system/status")
+    old_instance = current.get("instance_id")
+    if not old_instance:
+        raise RuntimeError("running PTE does not support graceful restart; perform one bootstrap restart")
+    request = Request(
+        base + "/api/system/restart", data=b"{}", method="POST",
+        headers={"Content-Type": "application/json", "X-PTE-Control-Token": token},
+    )
+    status, accepted = _read_json(request.full_url, request=request)
+    if status != 202 or accepted.get("instance_id") != old_instance:
+        raise RuntimeError("PTE restart request was not accepted")
+    deadline = time.monotonic() + max(1.0, args.wait)
+    while time.monotonic() < deadline:
+        time.sleep(0.25)
+        try:
+            _, latest = _read_json(base + "/api/system/status", timeout=1.0)
+        except (OSError, URLError, ValueError, json.JSONDecodeError):
+            continue
+        new_instance = latest.get("instance_id")
+        if new_instance and new_instance != old_instance:
+            return {
+                "status": "READY", "old_instance_id": old_instance,
+                "new_instance_id": new_instance,
+            }
+    raise RuntimeError(f"PTE did not become healthy within {args.wait:g} seconds")
+
+
 def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[dict[str, object]]:
     store = PaperStore(args.database)
     try:
@@ -329,6 +392,10 @@ def main(
             result = _run_channel_command(args)
             _write({"status": "PASS", "command": "pte.channel.bind-strategy", "result": result})
             return 0
+        if args.action == "control":
+            result = _restart_running_pte(args)
+            _write({"status": "PASS", "command": "pte.control.restart", "result": result})
+            return 0
         if args.action == "serve":
             probe_port(args.host, args.port)
         engine = engine_factory(args)
@@ -342,9 +409,21 @@ def main(
             result = engine.refresh()
             _write({"status": "PASS", "command": "pte.once", "result": result})
             return 0
-        engine.refresh()
-        server = create_server(engine, host=args.host, port=args.port)
         stopped = Event()
+        control_token = _ensure_control_token(engine.store)
+        server_holder = {}
+
+        def graceful_restart():
+            engine.begin_shutdown()
+            stopped.set()
+            server_holder["server"].shutdown()
+
+        engine.refresh()
+        server = create_server(
+            engine, host=args.host, port=args.port, control_token=control_token,
+            restart_callback=graceful_restart,
+        )
+        server_holder["server"] = server
         scheduler = RuntimeScheduler(
             engine,
             build_publisher(args),
@@ -364,8 +443,8 @@ def main(
             server.serve_forever()
         finally:
             stopped.set()
+            worker.join(timeout=30.0)
             server.server_close()
-            worker.join(timeout=max(1.0, args.order_interval + 1.0))
         return 0
     except KeyboardInterrupt:
         return 130

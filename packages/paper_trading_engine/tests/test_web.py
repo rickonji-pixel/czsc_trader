@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
-from threading import Thread
+from threading import Event, Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+
+import pytest
 
 
 class FakeEngine:
@@ -226,6 +228,43 @@ def test_resource_routes_and_deep_links() -> None:
             assert exc.code == 404
         else:
             raise AssertionError("unknown account must return 404")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_restart_endpoint_requires_token_and_returns_instance_identity() -> None:
+    from paper_trading_engine.web import create_server
+
+    requested = Event()
+    server = create_server(
+        FakeEngine(), host="127.0.0.1", port=0, control_token="secret-token",
+        restart_callback=requested.set, instance_id="instance-old",
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        status = request_json(base + "/api/system/status")[1]
+        assert status["instance_id"] == "instance-old"
+        rejected = Request(
+            base + "/api/system/restart", data=b"{}", method="POST",
+            headers={"Content-Type": "application/json", "X-PTE-Control-Token": "wrong"},
+        )
+        with pytest.raises(HTTPError) as error:
+            urlopen(rejected, timeout=3)
+        assert error.value.code == 403
+        assert requested.is_set() is False
+        accepted = Request(
+            base + "/api/system/restart", data=b"{}", method="POST",
+            headers={"Content-Type": "application/json", "X-PTE-Control-Token": "secret-token"},
+        )
+        with urlopen(accepted, timeout=3) as response:
+            payload = json.loads(response.read())
+            assert response.status == 202
+        assert payload == {"status": "RESTART_ACCEPTED", "instance_id": "instance-old"}
+        assert requested.wait(1)
     finally:
         server.shutdown()
         server.server_close()

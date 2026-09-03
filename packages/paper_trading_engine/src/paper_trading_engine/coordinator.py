@@ -41,6 +41,9 @@ class UnavailableChannel:
     def close(self):
         self.store.close()
 
+    def begin_shutdown(self):
+        return None
+
 
 class PteCoordinator:
     def __init__(self, channel, virtual) -> None:
@@ -125,4 +128,8 @@ class PteCoordinator:
     def confirm_cancel(self, channel_order_id, token): return self.channel.confirm_cancel(channel_order_id, token)
     def pause_virtual(self, account_id): return self.store.set_virtual_paused(account_id, True)
     def resume_virtual(self, account_id): return self.store.set_virtual_paused(account_id, False)
+    def begin_shutdown(self):
+        self.store.add_event("PTE_RESTART_REQUESTED", {"channel": "futu"})
+        self.channel.begin_shutdown()
+        self.virtual.begin_shutdown()
     def close(self): return self.channel.close()

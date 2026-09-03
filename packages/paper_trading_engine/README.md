@@ -134,6 +134,18 @@ CLI 启动 PTE 子进程，每 10 秒检查进程和 8080 HTTP 状态；连续 3
 `state/paper_trading/logs/watchdog.log`，PTE 输出位于
 `state/paper_trading/logs/pte.log`。
 
+日常发布代码后无需管理员权限重启Windows服务。运行以下命令，CLI会通过带本地令牌的
+控制接口要求PTE停止新调度、等待当前操作结束并正常退出；watchdog识别退出码0后跳过
+故障退避并拉起新进程，命令等待新的运行实例恢复健康：
+
+```powershell
+.\.venv\Scripts\pte.exe control restart --repo-root D:\CodeBase\czsc_trader
+```
+
+首次升级到支持该能力的版本仍需重启一次`CZSC-PTE-Watchdog`，以便运行进程生成控制
+令牌。控制接口只接受`127.0.0.1`请求和`X-PTE-Control-Token`，令牌保存在不受Git跟踪
+的运行库中；首版仅支持重启，不提供停止命令。
+
 ## 干预语义
 
 - 暂停只阻止新订单，已有订单继续对账。

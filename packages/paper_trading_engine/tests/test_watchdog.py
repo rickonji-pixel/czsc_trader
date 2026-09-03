@@ -90,6 +90,25 @@ def test_exited_child_is_restarted_without_waiting_for_http_threshold(tmp_path: 
     assert delays == [5.0]
 
 
+def test_clean_child_exit_is_restarted_immediately(tmp_path: Path) -> None:
+    from paper_trading_engine.watchdog import Watchdog
+
+    processes = [FakeProcess(return_code=0), FakeProcess()]
+    delays: list[float] = []
+    watchdog = Watchdog(
+        command=["pte", "serve"], working_directory=tmp_path,
+        health_url="http://127.0.0.1:8080/api/status",
+        process_factory=lambda *_: processes.pop(0),
+        health_check=lambda *_: True, sleep=delays.append,
+    )
+
+    old = watchdog.start_child()
+    watchdog.check_once()
+
+    assert watchdog.child is not old
+    assert delays == []
+
+
 def test_stop_child_terminates_running_process(tmp_path: Path) -> None:
     from paper_trading_engine.watchdog import Watchdog
 

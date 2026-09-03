@@ -117,6 +117,11 @@ Futu执行策略保存在SQLite设置`futu_strategy_binding`，通过`pte channe
 每10秒检查进程和`/api/status`，以及在连续3次失败后按5、30、60秒退避重启。
 watchdog不包含交易业务代码。
 
+PTE提供`pte control restart --repo-root <repo>`作为日常无管理员权限的优雅重启入口。
+CLI从运行库读取控制令牌，请求本机`POST /api/system/restart`，并等待`instance_id`变化；
+PTE先将渠道和虚拟账户置为排空态、停止调度、等待当前周期结束，再以退出码0结束。
+watchdog对退出码0跳过故障退避并拉起新子进程。首版不提供停止且不重拉的控制命令。
+
 ### 策略治理操作
 
 只读检查：

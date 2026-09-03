@@ -133,6 +133,68 @@ def test_channel_bind_strategy_persists_validated_release(tmp_path: Path, capsys
         store.close()
 
 
+def test_control_restart_uses_runtime_database_without_starting_engine(tmp_path: Path, capsys, monkeypatch) -> None:
+    from paper_trading_engine import cli
+
+    calls = []
+    monkeypatch.setattr(cli, "_restart_running_pte", lambda args: calls.append(args) or {
+        "old_instance_id": "old", "new_instance_id": "new", "status": "READY",
+    })
+
+    code = cli.main([
+        "control", "restart", "--repo-root", str(tmp_path), "--wait", "12",
+    ])
+
+    assert code == 0
+    assert calls[0].database == tmp_path.resolve() / "state" / "paper_trading" / "runtime.db"
+    assert calls[0].wait == 12
+    assert json.loads(capsys.readouterr().out)["command"] == "pte.control.restart"
+
+
+def test_control_token_is_stable_and_persisted(tmp_path: Path) -> None:
+    from paper_trading_engine.cli import _ensure_control_token
+    from paper_trading_engine.store import PaperStore
+
+    store = PaperStore(tmp_path / "runtime.db")
+    try:
+        first = _ensure_control_token(store)
+        second = _ensure_control_token(store)
+        assert second == first
+        assert len(first) >= 32
+        assert store.get_setting("control_token") == first
+    finally:
+        store.close()
+
+
+def test_restart_waits_for_a_different_healthy_instance(tmp_path: Path, monkeypatch) -> None:
+    from paper_trading_engine import cli
+    from paper_trading_engine.store import PaperStore
+
+    args = cli.build_parser().parse_args([
+        "control", "restart", "--repo-root", str(tmp_path), "--wait", "2",
+    ])
+    store = PaperStore(args.database)
+    store.set_setting("control_token", "secret-token")
+    store.close()
+    calls = []
+
+    def read_json(url, *, request=None, timeout=3.0):
+        calls.append((url, request, timeout))
+        if request is not None:
+            assert request.get_header("X-pte-control-token") == "secret-token"
+            return 202, {"status": "RESTART_ACCEPTED", "instance_id": "old"}
+        if len(calls) == 1:
+            return 200, {"instance_id": "old"}
+        return 200, {"instance_id": "new", "runtime": "RUNNING"}
+
+    monkeypatch.setattr(cli, "_read_json", read_json)
+    monkeypatch.setattr(cli.time, "sleep", lambda _: None)
+
+    assert cli._restart_running_pte(args) == {
+        "status": "READY", "old_instance_id": "old", "new_instance_id": "new",
+    }
+
+
 def test_build_engine_keeps_virtual_accounts_when_futu_initialization_fails(tmp_path: Path, monkeypatch) -> None:
     from paper_trading_engine import cli
 

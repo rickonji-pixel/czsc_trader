@@ -6,8 +6,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 import json
 import mimetypes
+import secrets
+from threading import Thread
 from urllib.parse import parse_qs, unquote, urlparse
 from typing import Protocol
+from uuid import uuid4
 
 from .web_api import PteWebApi, ResourceNotFound
 
@@ -16,9 +19,13 @@ class Operations(Protocol):
     def status(self) -> dict[str, object]: ...
 
 
-def create_server(operations: Operations, *, host: str = "127.0.0.1", port: int = 8080):
+def create_server(
+    operations: Operations, *, host: str = "127.0.0.1", port: int = 8080,
+    control_token: str | None = None, restart_callback=None, instance_id: str | None = None,
+):
     api = operations if hasattr(operations, "system_status") else PteWebApi(operations)
     static_root = files("paper_trading_engine").joinpath("static")
+    runtime_instance_id = instance_id or uuid4().hex
 
     class Handler(BaseHTTPRequestHandler):
         def _send(self, status: int, body: bytes, content_type: str) -> None:
@@ -57,7 +64,7 @@ def create_server(operations: Operations, *, host: str = "127.0.0.1", port: int 
                 if path == "/api/status":
                     self._json(200, operations.status())
                 elif path == "/api/system/status":
-                    self._json(200, api.system_status())
+                    self._json(200, {**api.system_status(), "instance_id": runtime_instance_id})
                 elif path == "/api/virtual-accounts":
                     self._json(200, api.virtual_accounts())
                 elif path.startswith("/api/virtual-accounts/") and path.endswith("/snapshot"):
@@ -86,6 +93,17 @@ def create_server(operations: Operations, *, host: str = "127.0.0.1", port: int 
                 body = self._body()
                 path = urlparse(self.path).path
                 parts = path.strip("/").split("/")
+                if path == "/api/system/restart":
+                    supplied = self.headers.get("X-PTE-Control-Token", "")
+                    if control_token is None or not secrets.compare_digest(supplied, control_token):
+                        self._json(403, {"error": "invalid PTE control token"})
+                        return
+                    if restart_callback is None:
+                        self._json(409, {"error": "restart control is unavailable"})
+                        return
+                    self._json(202, {"status": "RESTART_ACCEPTED", "instance_id": runtime_instance_id})
+                    Thread(target=restart_callback, name="pte-graceful-restart", daemon=True).start()
+                    return
                 if path in {"/api/pause", "/api/channels/futu/pause"}:
                     result = operations.pause()
                     if path.startswith("/api/channels/"):

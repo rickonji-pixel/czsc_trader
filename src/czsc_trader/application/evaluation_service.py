@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
+from dataclasses import asdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -71,14 +72,18 @@ def _validate_screening_audit(artifact_dir: Path, result: dict[str, Any]) -> Non
     hashes = result.get("audit_artifacts")
     if not isinstance(hashes, dict):
         raise ValueError("completed evaluation is missing screening audit hashes")
-    for name in SCREENING_AUDIT_FILES:
+    missing_required = [name for name in SCREENING_AUDIT_FILES if name not in hashes]
+    if missing_required:
+        raise ValueError(f"completed evaluation is missing screening audit hashes: {missing_required}")
+    for name, expected in hashes.items():
+        if not isinstance(name, str) or Path(name).name != name:
+            raise ValueError("completed evaluation contains invalid audit artifact name")
         path = artifact_dir / name
         if not path.is_file():
             raise ValueError(f"completed evaluation is missing screening audit: {name}")
-        expected = hashes.get(name)
         actual = _text_hash(path.read_text(encoding="utf-8"))
         if expected != actual:
-            raise ValueError(f"completed evaluation screening audit hash mismatch: {name}")
+            raise ValueError(f"completed evaluation audit artifact hash mismatch: {name}")
 
 
 def _experiment_path(context: RepositoryContext, experiment_id: str) -> Path:
@@ -414,8 +419,27 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         *,
         allow_reuse: bool = True,
     ) -> tuple[MetricObservation, ...]:
-        if not reuse or not allow_reuse:
+        if not reuse:
             return runner(run_context, protocol, payloads, candidate_ids, tier, scenarios)
+        if not allow_reuse:
+            computed = runner(run_context, protocol, payloads, candidate_ids, tier, scenarios)
+            by_candidate = {str(item["candidate_id"]): item for item in payloads}
+            identities = _requested_identities(
+                protocol, manifest, by_candidate, candidate_ids, tier, scenarios,
+            )
+            identity_by_coordinates = {
+                (item.candidate_id, item.window_id, item.scenario_id, item.tier): item
+                for item in identities
+            }
+            for item in computed:
+                identity = identity_by_coordinates[
+                    (item.candidate_id, item.window_id, item.scenario_id, item.measurement_tier)
+                ]
+                reuse_ledger.append(ReuseLedgerRow(
+                    identity.key, item.candidate_id, item.window_id, item.scenario_id,
+                    item.measurement_tier, "COMPUTED",
+                ))
+            return computed
         return _run_with_reuse(
             runner, run_context, protocol, payloads, candidate_ids, tier, scenarios,
             manifest, reuse_sources, reuse_ledger, reuse_diagnostics,
@@ -441,7 +465,18 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         repeated = run_tier((ranking.champion_id,), "FORMAL", allow_reuse=False)
         health = _health(protocol, ranking, formal, stress, repeated, candidates)
     result = finalize_evaluation(ranking, health, experiment_id)
-    result_document = {**result.to_dict(), "input_hash": input_hash}
+    metric_rows = [
+        item.to_dict()
+        for collection in (screening, formal, stress, repeated)
+        for item in collection
+    ]
+    result_document = {
+        **result.to_dict(),
+        "input_hash": input_hash,
+        "canonical_metric_hash": _canonical_hash(metric_rows),
+    }
+    if reuse:
+        result_document["artifact_reuse_diagnostics"] = reuse_diagnostics
 
     comparisons = []
     by_key = {(x.candidate_id, x.window_id): x for x in formal}
@@ -462,10 +497,16 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         "health_check.json": json.dumps(health.to_dict() if health else None, ensure_ascii=False, indent=2) + "\n",
         "trial_ledger.csv": _csv_text([item.to_dict() for item in trials]),
     }
+    if reuse:
+        documents["artifact_reuse.csv"] = _csv_text([asdict(item) for item in reuse_ledger])
     result_document["audit_artifacts"] = {
         name: _text_hash(documents[name])
         for name in SCREENING_AUDIT_FILES
     }
+    if reuse:
+        result_document["audit_artifacts"]["artifact_reuse.csv"] = _text_hash(
+            documents["artifact_reuse.csv"]
+        )
     result_document["decision_hash"] = _canonical_hash(result_document)
     documents = {
         "evaluation_result.json": json.dumps(result_document, ensure_ascii=False, indent=2) + "\n",

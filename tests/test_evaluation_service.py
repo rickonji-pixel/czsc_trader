@@ -144,10 +144,19 @@ def test_evaluation_reuses_complete_candidate_tiers_and_computes_missing_tiers(t
         calls.append((args[4], args[3]))
         return fake_runner(*args, **kwargs)
 
-    evaluate_experiment(context, "0903_TEST", runner=tracking_runner)
+    result = evaluate_experiment(context, "0903_TEST", runner=tracking_runner)
     assert not [call for call in calls if call[0] == "SCREENING"]
     assert [call for call in calls if call[0] == "FORMAL"] == [("FORMAL", ("c1",))]
     assert [call for call in calls if call[0] == "STRESS"] == [("STRESS", ("S001-v1", "c1"))]
+    reuse_path = target / "artifacts" / "artifact_reuse.csv"
+    with reuse_path.open(encoding="utf-8", newline="") as stream:
+        reuse_rows = list(csv.DictReader(stream))
+    assert {row["status"] for row in reuse_rows} == {"REUSED", "COMPUTED"}
+    assert any(row["source_experiment"] == "0903_SOURCE" for row in reuse_rows)
+    assert "canonical_metric_hash" in result.result
+    reuse_path.write_text(reuse_path.read_text(encoding="utf-8") + "tampered\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="audit.*hash mismatch"):
+        evaluate_experiment(context, "0903_TEST", runner=tracking_runner)
 
 
 def test_screening_audit_records_every_candidate_outcome(tmp_path):

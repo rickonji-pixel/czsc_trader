@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "standard_version": "opc-v2",
+  "experiment_id": "0903_EX05",
+  "research_objective": "使用相对非劣负卡玛规则重新评价EX04的range候选全集",
+  "development_cutoff": "2026-09-02",
+  "incumbent_id": "S001-v1",
+  "incumbent_hash": "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
+  "decision_windows": ["full", "2021", "2022", "2023", "2024", "2025", "2026_ytd"],
+  "target_windows": ["full"],
+  "execution_policy_hash": "06f22e8739b20b5e5132f8c8fdef5ddee1147fb6b296d1919f6ea150f3395775",
+  "tightened_margins": {},
+  "shortlist_limit": 12,
+  "target_requirements": [
+    {
+      "metric": "range_return",
+      "direction": "maximize",
+      "minimum_improvement": 0.01
+    }
+  ],
+  "candidate_manifest": "candidate_manifest.json"
+}
+

@@ -20,7 +20,7 @@
 - `evaluation_workers` defaults to `1`; `reuse_experiment_artifacts` defaults to `false`; `reuse_source_experiments` defaults to an empty list.
 - Keep `METRIC_SEMANTICS_VERSION = "candidate-metrics-v1"` unchanged unless metric meaning changes.
 - Cold 1,187-candidate screening must complete in at most 300 seconds; a fully reused evaluation must complete in at most 60 seconds.
-- Relative to the optimized single-process path, at least one multi-process configuration must reach 3.0x on the fixed benchmark.
+- Relative to the existing serial reference path, at least one combined algorithmic and multi-process configuration must reach 3.0x on the fixed benchmark.
 
 ---
 
@@ -443,7 +443,7 @@ Select the 64 non-incumbents at indices `floor(k * (N - 1) / 63)` after sorting 
 
 Run: `.\.venv\Scripts\python.exe experiments\0903_EX05\benchmark_evaluation.py`
 
-Expected: all optimized outputs exactly equal the reference; at least one multi-process configuration reaches 3.0x relative to optimized one-process. Choose the fastest valid configuration, preferring fewer workers when elapsed times differ by less than 5%.
+Expected: all optimized outputs exactly equal the reference; at least one multi-process configuration reaches 3.0x end-to-end relative to the existing serial reference. Report the additional speedup relative to optimized one-process for diagnosis. Choose the fastest valid configuration, preferring fewer workers when elapsed times differ by less than 5%.
 
 - [ ] **Step 4: Run the cold full-scale gate**
 

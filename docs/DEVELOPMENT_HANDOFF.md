@@ -6,7 +6,7 @@
 
 ## 当前交付状态
 
-- 当前交付分支：`codex/strategy-evaluator`（合并后以`master`为准）
+- 当前交付分支：`codex/range-optimization-v2`（合并后以`master`为准）
 - Python版本：3.12
 - 正式策略：`S001 / 综合基线策略 / v1`，资格`PAPER_READY`
 - 历史基线别名：`baseline_20260903`（候选143，内嵌唯一执行规则）
@@ -74,6 +74,16 @@ Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执�
 .\.venv\Scripts\czsc-trader.exe strategy accept-evaluation `
   --experiment 0903_EXXX --actor tomxiao --reason "确认冻结并进入模拟盘"
 ```
+
+候选评价器支持算法与多核组合加速：共同因子和regime只计算一次，实际目标仓位相同的
+候选共享交易模拟，审计与权益校验使用等价数组路径，唯一行为块通过joblib/loky并行。
+`evaluation_workers`缺失时保持1；正式基准在本机选择8。历史指标复用只接受清单中
+`reuse_source_experiments`明确声明且完整通过归档哈希校验的实验，不使用`state`缓存。
+`artifact_reuse.csv`记录每条指标的`REUSED/COMPUTED`状态，冠军重复性检查始终现场计算。
+
+0903_EX05实测：固定64候选相对旧参考5.14倍；1,187项候选池冷启动114.33秒；复用EX04
+并补算正式与压力缺口后总运行23.08秒；结果落盘后的幂等复核5.33秒。EX05建议冻结
+R1102，但尚未执行人工接受。
 
 接受日志位于实验根目录`evaluation_acceptance.json`。`PAPER_ACTIVATION_PENDING`表示SM
 已经冻结、仅PTE账户注册待重试；重复命令不得创建第二个版本。默认虚拟资金为10万元。

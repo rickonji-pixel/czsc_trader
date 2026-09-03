@@ -1,0 +1,234 @@
+{
+  "experiment_id": "0903_EX05",
+  "incumbent_id": "S001-v1",
+  "decision": "RECOMMEND_FREEZE",
+  "recommended_candidate_id": "R1102",
+  "reason_codes": [
+    "NONINFERIOR",
+    "TARGET_ACHIEVED",
+    "HEALTH_CHECK_PASSED"
+  ],
+  "ranking": {
+    "incumbent_id": "S001-v1",
+    "profiles": [
+      {
+        "candidate_id": "R1102",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 1.002469707934521,
+          "max_drawdown": -0.015627295901859968,
+          "calmar": 1.248989427807988,
+          "profit_factor": 1.0729422150081864
+        },
+        "pareto_layer": 1,
+        "median_score": 1.0377059614713537,
+        "turnover": 200.31766685123,
+        "parameter_distance": 0.7971992629139941,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R0539",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 0.9436848687956669,
+          "max_drawdown": -0.000375592012895651,
+          "calmar": 0.9430683494353748,
+          "profit_factor": 1.2766102899536182
+        },
+        "pareto_layer": 1,
+        "median_score": 0.9433766091155209,
+        "turnover": 191.18317724186,
+        "parameter_distance": 0.6819160929481258,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R1319",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 0.41446081528071604,
+          "max_drawdown": -6.779589282586216e-05,
+          "calmar": 0.31195109475797866,
+          "profit_factor": 2.4973262662305524
+        },
+        "pareto_layer": 1,
+        "median_score": 0.3632059550193474,
+        "turnover": 174.79111978721005,
+        "parameter_distance": 0.7282571812956894,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R1077",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 0.16261071540452238,
+          "max_drawdown": -6.779589282586216e-05,
+          "calmar": 0.16250736896545845,
+          "profit_factor": 2.2169814222562176
+        },
+        "pareto_layer": 2,
+        "median_score": 0.1625590421849904,
+        "turnover": 178.36342433809,
+        "parameter_distance": 0.7257662307092049,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R1353",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -0.6329359728394673,
+          "max_drawdown": -6.779589282586216e-05,
+          "calmar": -0.6330312291411,
+          "profit_factor": 2.426506918277238
+        },
+        "pareto_layer": 2,
+        "median_score": -0.3165018843661466,
+        "turnover": 190.21917754722003,
+        "parameter_distance": 0.6432204435844342,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R1297",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 0.16261071540452238,
+          "max_drawdown": -0.6045933240274807,
+          "calmar": 0.16250736896545845,
+          "profit_factor": 1.9950512907001254
+        },
+        "pareto_layer": 3,
+        "median_score": 0.1625590421849904,
+        "turnover": 189.30053232609998,
+        "parameter_distance": 0.7802772858560009,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R1091",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": 0.11543969958939157,
+          "max_drawdown": -0.14450048126549161,
+          "calmar": 0.11486983994088786,
+          "profit_factor": 1.1411450104794605
+        },
+        "pareto_layer": 3,
+        "median_score": 0.11515476976513972,
+        "turnover": 175.76851272646,
+        "parameter_distance": 0.6790624130939785,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R0004",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -0.2979113071743085,
+          "max_drawdown": -0.4814467381707539,
+          "calmar": -0.2984578804342395,
+          "profit_factor": 0.2467301578430245
+        },
+        "pareto_layer": 4,
+        "median_score": -0.298184593804274,
+        "turnover": 174.49177251844,
+        "parameter_distance": 0.27032365861440866,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R1327",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -0.48385989750722863,
+          "max_drawdown": -0.3524680815331029,
+          "calmar": -0.4839566698052893,
+          "profit_factor": 0.8181961968626345
+        },
+        "pareto_layer": 4,
+        "median_score": -0.41816398952016576,
+        "turnover": 191.93040705722,
+        "parameter_distance": 0.6946112233890342,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R1351",
+        "eligible": true,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -0.9759306235396733,
+          "max_drawdown": -0.5909737910315797,
+          "calmar": -0.9761413912690005,
+          "profit_factor": 0.7540584851948793
+        },
+        "pareto_layer": 5,
+        "median_score": -0.7834522072856265,
+        "turnover": 209.01003479027997,
+        "parameter_distance": 0.6878382235839096,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R1101",
+        "eligible": true,
+        "target_achieved": false,
+        "worst_scores": {
+          "net_cagr": -0.2979113071743085,
+          "max_drawdown": -0.000375592012895651,
+          "calmar": -0.2984578804342395,
+          "profit_factor": 0.6268224234086952
+        },
+        "pareto_layer": null,
+        "median_score": -0.1491434495936021,
+        "turnover": 213.31640368267,
+        "parameter_distance": 0.6508289082961194,
+        "reason_codes": []
+      },
+      {
+        "candidate_id": "R0512",
+        "eligible": false,
+        "target_achieved": true,
+        "worst_scores": {
+          "net_cagr": -1.390966249784409,
+          "max_drawdown": -0.00015571145963594394,
+          "calmar": -1.3911673238696722,
+          "profit_factor": 1.0511098183777434
+        },
+        "pareto_layer": null,
+        "median_score": -0.6955609806220225,
+        "turnover": 190.26754357499,
+        "parameter_distance": 0.6500915572781362,
+        "reason_codes": [
+          "NONINFERIORITY_NET_CAGR_2026_YTD",
+          "NONINFERIORITY_CALMAR_2026_YTD"
+        ]
+      }
+    ],
+    "champion_id": "R1102",
+    "tied_champion_ids": [
+      "R1102"
+    ]
+  },
+  "health": {
+    "candidate_id": "R1102",
+    "execution_audit": "PASS",
+    "reproducibility": "PASS",
+    "neighborhood": "PASS",
+    "stress": "PASS",
+    "ledger": "PASS",
+    "notes": []
+  },
+  "input_hash": "322bc100d169be1faca27ce7bd3070c4b8c6fb388206efd3d175488a5a2965e7",
+  "canonical_metric_hash": "cf68b7ad42c95d03ecfadd6590ea18794767bb42a0b0f5520be698903635b417",
+  "artifact_reuse_diagnostics": [],
+  "audit_artifacts": {
+    "screening_metrics.csv": "664d7818d9dd832ab7f1188b9b4495fac809e6aebae8256e116338cf269c5b01",
+    "screening_noninferiority.csv": "1bcc7edad53d1cee2bd678dfe789794f62669077213059dc852fce34fbb8fa99",
+    "screening_decisions.csv": "a1cbb9907f1e65f29f744d769994c3898698b58cd4a590b036a364833e22cc5a",
+    "artifact_reuse.csv": "61a432e9b3f4e95ba55a97669c51c8e25c920dbb8cd3e6186b636964360ed3e0"
+  },
+  "decision_hash": "2813a3f6f823d143f21b88fa76cfcbd02648b7530122dd3f31c010f787f671b4"
+}

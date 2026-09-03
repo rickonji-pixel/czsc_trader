@@ -17,6 +17,7 @@ SOURCE_MANIFEST = REPO_ROOT / "experiments" / "0903_EX04" / "candidate_manifest.
 MANIFEST_PATH = EXPERIMENT_DIR / "candidate_manifest.json"
 PREPARED_FROM_COMMIT = "9e7037ca5e6abd35f22a8368178541d4d423900b"
 SOURCE_MANIFEST_SHA256 = "e448a53677b66aaab101019b5ba5ee84f975b694797329b9c1f9fdbdaf9f6762"
+SELECTED_WORKERS = 8
 
 
 def candidate_manifest_from_source(source: dict[str, object]) -> dict[str, object]:
@@ -27,6 +28,10 @@ def candidate_manifest_from_source(source: dict[str, object]) -> dict[str, objec
         "experiment_id": "0903_EX04",
         "candidate_manifest_sha256": SOURCE_MANIFEST_SHA256,
     }
+    manifest["evaluation_workers"] = SELECTED_WORKERS
+    manifest["reuse_experiment_artifacts"] = True
+    manifest["reuse_source_experiments"] = ["0903_EX04"]
+    manifest["metric_semantics_version"] = "candidate-metrics-v1"
     trials = manifest.get("trials")
     if not isinstance(trials, list):
         raise ValueError("EX04 candidate manifest has no trial ledger")

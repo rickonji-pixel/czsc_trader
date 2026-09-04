@@ -18,7 +18,7 @@ class RuntimeScheduler:
         order_interval: float = 5,
         account_interval: float = 60,
         decision_interval: float = 5,
-        publish_time: str = "19:00",
+        publish_time: str = "20:30",
         audit: AuditRecorder | None = None,
     ) -> None:
         self.engine = engine

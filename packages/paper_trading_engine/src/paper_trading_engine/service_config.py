@@ -14,7 +14,7 @@ class ServiceConfig:
     port: int = 8080
     opend_host: str = "127.0.0.1"
     opend_port: int = 11111
-    data_refresh_time: str = "19:00"
+    data_refresh_time: str = "20:30"
 
     def __post_init__(self) -> None:
         if not self.repo_root.is_absolute():

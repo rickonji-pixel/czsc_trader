@@ -97,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--order-interval", default=5.0, type=float)
     serve.add_argument("--account-interval", default=60.0, type=float)
     serve.add_argument("--decision-interval", default=5.0, type=float)
-    serve.add_argument("--data-refresh-time", default="19:00")
+    serve.add_argument("--data-refresh-time", default="20:30")
     serve.add_argument("--data-start", default="2020-01-01")
     account = actions.add_parser("account")
     account_actions = account.add_subparsers(dest="account_action", required=True)

@@ -41,10 +41,12 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
 
     engine, publisher, store = Engine(), Publisher(), Store()
     scheduler = RuntimeScheduler(engine, publisher, store, audit=AuditRecorder(store))
+    scheduler.tick(datetime(2026, 9, 2, 20, 29, 59))
+    assert publisher.calls == 0
     for value in (
-        datetime(2026, 9, 2, 18, 59, 59), datetime(2026, 9, 2, 19, 0, 0),
-        datetime(2026, 9, 2, 19, 0, 4), datetime(2026, 9, 2, 19, 0, 5),
-        datetime(2026, 9, 2, 19, 0, 19), datetime(2026, 9, 2, 19, 0, 20),
+        datetime(2026, 9, 2, 20, 30, 0),
+        datetime(2026, 9, 2, 20, 30, 4), datetime(2026, 9, 2, 20, 30, 5),
+        datetime(2026, 9, 2, 20, 30, 19), datetime(2026, 9, 2, 20, 30, 20),
     ):
         scheduler.tick(value)
     assert publisher.calls == 3

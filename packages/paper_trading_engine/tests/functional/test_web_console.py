@@ -97,6 +97,7 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         with urlopen(base + "/", timeout=3) as response:
             html = response.read().decode()
         assert "模拟交易控制台" in html and "审计事件" in html
+        assert html.index("Futu渠道") < html.index("审计事件") < html.index("账户比较")
         with urlopen(base + "/audit-events", timeout=3) as response:
             assert response.status == 200
         assert request_json(base + "/api/system/status")[1]["instance_id"] == "old"

@@ -33,7 +33,7 @@
 - Produces: `AuditRecorder.record(event_type: str, *, source: str, outcome: AuditOutcome | str = "SUCCESS", severity: AuditSeverity | str | None = None, correlation_id: str | None = None, actor_type: str = "ENGINE", actor_id: str | None = None, account_id: str | None = None, strategy_id: str | None = None, strategy_version: str | None = None, release_hash: str | None = None, symbol: str | None = None, channel: str | None = None, decision_id: str | None = None, order_id: str | None = None, details: dict[str, object] | None = None) -> dict[str, object]`.
 - Consumes: a store exposing `append_audit_event(AuditEvent)`.
 
-- [ ] **Step 1: Extend FT-PTE07 with failing contract assertions**
+- [x] **Step 1: Extend FT-PTE07 with failing contract assertions**
 
 Add assertions that a catalog event resolves its category/default severity, an unknown event is rejected, `OTHER` requires `classification_reason`, models are immutable, and nested keys matching `token`, `password`, `secret`, or `credential` are replaced with `"[REDACTED]"`.
 
@@ -44,19 +44,19 @@ with pytest.raises(AuditContractError):
     recorder.record("UNKNOWN", source="engine")
 ```
 
-- [ ] **Step 2: Run FT-PTE07 and confirm the audit imports fail**
+- [x] **Step 2: Run FT-PTE07 and confirm the audit imports fail**
 
 Run: `.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests\functional\test_performance_evidence.py -q`
 
-- [ ] **Step 3: Implement immutable models, complete catalog, validation, UUID generation, and recursive redaction**
+- [x] **Step 3: Implement immutable models, complete catalog, validation, UUID generation, and recursive redaction**
 
 Use `@dataclass(frozen=True)` and string enums. The catalog contains every type in design section 5. `AuditEvent.to_dict()` returns JSON-compatible values and exposes stored `payload` as `details`.
 
-- [ ] **Step 4: Run FT-PTE07 and Ruff**
+- [x] **Step 4: Run FT-PTE07 and Ruff**
 
 Run the test above and `.\.venv\Scripts\python.exe -m ruff check packages\paper_trading_engine\src\paper_trading_engine\audit.py`.
 
-- [ ] **Step 5: Commit the contract**
+- [x] **Step 5: Commit the contract**
 
 ```powershell
 git add packages/paper_trading_engine/src/paper_trading_engine/audit.py packages/paper_trading_engine/tests/functional/test_performance_evidence.py

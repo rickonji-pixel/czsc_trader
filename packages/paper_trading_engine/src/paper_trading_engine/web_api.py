@@ -163,7 +163,7 @@ class PteWebApi:
                 if broker else None
             ),
             "orders": status.get("orders", []), "fills": self.store.account_fills(),
-            "paused": status.get("paused"), "quote_health": status.get("quote_health"),
+            "paused": status.get("paused"),
             "reconciliation_status": status.get("reconciliation_status"),
             "connection_error": status.get("channel_error"), "alerts": status.get("alerts", []),
             "scheduler_failures": status.get("scheduler_failures", []), "events": events,

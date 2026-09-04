@@ -51,7 +51,6 @@ def broker_snapshot(*, orders=(), quantity=0) -> BrokerSnapshot:
         BrokerAccount("SIMULATE", "CN", 1_000_000, 1_000_000, 0),
         positions,
         tuple(orders),
-        "DEGRADED_QUOTE",
     )
 
 

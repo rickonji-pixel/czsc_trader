@@ -266,7 +266,6 @@ class FutuExecution:
                 row["quantity"] for row in positions if row["symbol"] == self.symbol
             ),
             "orders": self.store.account_orders(),
-            "quote_health": None if self._snapshot is None else self._snapshot.quote_health,
             "paused": self.store.is_paused(),
             "reconciliation_status": reconciliation,
             "alerts": (["CHANNEL_RECONCILIATION_BLOCKED"] if reconciliation == "BLOCKED" else []),

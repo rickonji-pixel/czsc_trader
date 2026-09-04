@@ -49,7 +49,6 @@ class FutuGateway:
         port: int = 11111,
         sdk: object | None = None,
         trade_context: object | None = None,
-        quote_context: object | None = None,
         audit: AuditRecorder | None = None,
     ) -> None:
         if sdk is None:
@@ -63,10 +62,8 @@ class FutuGateway:
         self.trade_context = trade_context or sdk.OpenSecTradeContext(
             filter_trdmarket=sdk.TrdMarket.CN, host=host, port=port
         )
-        self.quote_context = quote_context or sdk.OpenQuoteContext(host=host, port=port)
         self._account_id: int | None = None
         self.audit = audit
-        self._dependency_health: str | None = None
 
     def _audit_mutation(
         self, operation: str, started: float, *, correlation_id: str,
@@ -85,23 +82,6 @@ class FutuGateway:
                 "duration_ms": round((time.perf_counter() - started) * 1000, 3),
                 **({"error_type": type(error).__name__, "error": str(error)} if error else {}),
             },
-        )
-
-    def _audit_health(self, health: str) -> None:
-        previous = self._dependency_health
-        self._dependency_health = health
-        if self.audit is None or previous == health:
-            return
-        if health == "OK" and previous is not None:
-            event_type, outcome = "DEPENDENCY_RECOVERED", "SUCCESS"
-        elif health != "OK":
-            event_type, outcome = "DEPENDENCY_DEGRADED", "FAILURE"
-        else:
-            return
-        self.audit.record(
-            event_type, source="futu_gateway", outcome=outcome,
-            actor_type="EXTERNAL", actor_id="futu", channel="futu", symbol=self.symbol,
-            details={"service": "futu.quote", "old_status": previous, "new_status": health},
         )
 
     def _ok(self, operation: str, result: tuple[object, object]) -> object:
@@ -131,7 +111,6 @@ class FutuGateway:
             account.account,
             account.positions,
             self.order_snapshot(),
-            account.quote_health,
         )
 
     def account_snapshot(self) -> BrokerSnapshot:
@@ -153,9 +132,6 @@ class FutuGateway:
                 self.trade_context.position_list_query(**common),
             )
         )
-        quote_result, _ = self.quote_context.get_stock_quote([self.code])
-        quote_health = "OK" if quote_result == self.sdk.RET_OK else "DEGRADED_QUOTE"
-        self._audit_health(quote_health)
         return BrokerSnapshot(
             account=BrokerAccount(
                 environment="SIMULATE",
@@ -169,7 +145,6 @@ class FutuGateway:
                 for row in position_rows
             ),
             orders=(),
-            quote_health=quote_health,
         )
 
     def order_snapshot(self) -> tuple[BrokerOrder, ...]:
@@ -267,5 +242,4 @@ class FutuGateway:
         )
 
     def close(self) -> None:
-        self.quote_context.close()
         self.trade_context.close()

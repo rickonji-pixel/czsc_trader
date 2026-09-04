@@ -59,4 +59,3 @@ class BrokerSnapshot:
     account: BrokerAccount
     positions: tuple[BrokerPosition, ...]
     orders: tuple[BrokerOrder, ...]
-    quote_health: str

@@ -85,6 +85,13 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         audit_api.audit_events({"event_type": "UNKNOWN_EVENT"})
     with pytest.raises(ValueError, match="between 1 and 200"):
         audit_api.audit_events({"limit": "0"})
+    channel_api = PteWebApi(SimpleNamespace(
+        store=store, virtual=None,
+        channel=SimpleNamespace(status=lambda: {
+            "account": None, "orders": [], "quote_health": "DEGRADED_QUOTE",
+        }),
+    ))
+    assert "quote_health" not in channel_api.channel_snapshot("futu")
     store.close()
 
     requested, engine = Event(), FakeEngine()

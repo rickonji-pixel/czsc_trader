@@ -68,10 +68,6 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
         def close(self):
             pass
 
-    class QuoteContext:
-        def get_stock_quote(self, code_list): return -1, "no entitlement"
-        def close(self): pass
-
     sdk = SimpleNamespace(
         RET_OK=0, TrdEnv=SimpleNamespace(SIMULATE="SIMULATE"),
         TrdMarket=SimpleNamespace(CN="CN"), TrdSide=SimpleNamespace(BUY="BUY", SELL="SELL"),
@@ -82,9 +78,11 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     audit_store = PaperStore(tmp_path / "gateway.db")
     trade = TradeContext()
     gateway = FutuGateway(
-        symbol="588080.SH", sdk=sdk, trade_context=trade, quote_context=QuoteContext(),
+        symbol="588080.SH", sdk=sdk, trade_context=trade,
         audit=AuditRecorder(audit_store),
     )
+    snapshot = gateway.account_snapshot()
+    assert snapshot.account.environment == "SIMULATE"
     gateway.place_order(OrderIntent("PTE-s001-v1-X", "DEC-X", "588080.SH", "BUY", 1000, 1.68))
     assert trade.place_calls[0]["trd_env"] == "SIMULATE"
     assert trade.place_calls[0]["adjust_limit"] == 0

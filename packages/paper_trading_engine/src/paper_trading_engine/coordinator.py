@@ -16,7 +16,7 @@ class UnavailableExecution:
         return {
             "environment": "SIMULATE", "market": "CN", "symbol": self.symbol,
             "account": None, "positions": [], "orders": self.store.account_orders(),
-            "quote_health": "UNKNOWN", "paused": self.store.is_paused(),
+            "paused": self.store.is_paused(),
             "reconciliation_status": "UNAVAILABLE", "alerts": ["CHANNEL_UNAVAILABLE"],
             "scheduler_failures": self.store.operation_failures(),
         }

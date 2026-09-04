@@ -262,9 +262,9 @@ Futu页面通过“承载账户”“订单”“成交”三个列表展示共�
 展示该账户自己的策略发布、最新决策、订单、成交和绩效。策略事件归属账户，Futu调用
 与渠道对账事件归属渠道，交易事件同时携带账户和渠道作用域。
 
-发布行情时将根目录`.env.example`复制为`.env`并填写`TUSHARE_TOKEN`；不要提交
-密钥。运行PTE前安装并启动Futu OpenD，确认模拟账户可访问。行情权限缺失时PTE允许以
-`DEGRADED_QUOTE`运行，委托仍严格使用Trader输出。
+发布收盘数据时将根目录`.env.example`复制为`.env`并填写`TUSHARE_TOKEN`；不要提交
+密钥。运行PTE前安装并启动Futu OpenD，确认模拟交易账户可访问。PTE只连接Futu交易
+接口，不创建行情连接，也不探测或维护Futu行情权限状态；委托价格严格来自Trader输出。
 
 ## 最小开发验证
 
@@ -377,5 +377,5 @@ Get-Content state\paper_trading\logs\pte.log -Tail 100
 - 当前机器已验证watchdog开机启动配置、PTE父子进程、HTTP探活和服务重启；直接强杀
   LocalSystem所属PTE子进程的演练被Windows权限拒绝，进程退出和HTTP连续失败恢复
   由自动化测试覆盖。
-- 实时行情权限不是当前自动提交的前提；页面会明确显示行情降级状态。
+- PTE不使用Futu行情接口；数据发布和决策依赖Trader的数据链路，渠道只负责交易与回报。
 - 观测页面只监听localhost，不提供远程访问、用户认证或多账户管理。

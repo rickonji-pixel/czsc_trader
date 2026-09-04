@@ -1,4 +1,5 @@
 from collections import deque
+import json
 from pathlib import Path
 
 import pytest
@@ -33,7 +34,13 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
     config = ServiceConfig(repo_root=tmp_path.resolve())
     path = tmp_path / "service.json"
     config.save(path)
-    assert ServiceConfig.load(path).serve_arguments()[-4:] == ["--port", "8080", "--data-refresh-time", "20:30"]
+    assert ServiceConfig.load(path).serve_arguments() == [
+        "serve", "--repo-root", str(tmp_path.resolve()),
+        "--host", "127.0.0.1", "--port", "8080",
+    ]
+    assert set(json.loads(path.read_text()).keys()) == {
+        "repo_root", "host", "port",
+    }
     assert config.health_url == "http://127.0.0.1:8080/api/status"
     with pytest.raises(ValueError, match="localhost"):
         ServiceConfig(repo_root=tmp_path.resolve(), host="0.0.0.0")

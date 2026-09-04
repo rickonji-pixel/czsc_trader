@@ -168,7 +168,7 @@ def test_ft_t02_advice_covers_entry_retry_hold_exit_and_fill_rules(
     functional_repo: Path,
 ) -> None:
     baseline = resolve_baseline(
-        functional_repo / "configs" / "rule_baselines",
+        functional_repo / "strategies" / "dependencies" / "legacy_rule_baselines",
         "baseline_20260903",
         symbol="588080.SH",
     )

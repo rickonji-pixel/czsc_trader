@@ -5,6 +5,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from czsc_trader.application.context import RepositoryContext
+from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
+from czsc_trader.backtesting.execution_replay import replay_account
+from czsc_trader.backtesting.signal_replay import replay_signals
+
 from functional_support import invoke_main
 
 
@@ -16,6 +21,30 @@ METRIC_KEYS = {
     "return",
     "sharpe",
 }
+
+
+def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
+    functional_repo: Path,
+) -> None:
+    context = RepositoryContext.discover(functional_repo)
+    snapshot = resolve_registered_strategy(context, "S001", "v1")
+    data = load_replay_data(
+        context, "backtest", "588080.SH", "etf", pd.Timestamp("2026-09-02").date()
+    )
+    signals = replay_signals(
+        snapshot,
+        data,
+        pd.Timestamp("2026-01-01").date(),
+        pd.Timestamp("2026-09-02").date(),
+    )
+    result = replay_account(signals, data, 100_000)
+
+    assert result.identity.reference == "S001-v1"
+    assert result.account_daily.iloc[0]["cash_before"] == 100_000
+    assert result.orders["quantity"].mod(100).eq(0).all()
+    assert set(result.fills["trigger"]) <= {"OPEN", "INTRADAY_LIMIT"}
+    assert result.decisions["signal_date"].max() <= pd.Timestamp("2026-09-02")
+    assert result.account_daily["equity"].gt(0).all()
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(

@@ -277,9 +277,9 @@ def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
     assert len(performance["result"]["phases"]["RESEARCH_BACKTEST"]) == 1
     assert len(performance["result"]["phases"]["PAPER_FORWARD"]) == 1
     assert performance["result"]["phases"]["LIVE"] == []
-    active_release = StrategyRegistry(
-        functional_repo / "configs" / "strategies"
-    ).resolve_strategy("baseline_20260903")
+    active_release = StrategyRegistry(functional_repo / "strategies").resolve_strategy(
+        "baseline_20260903"
+    )
     active_baseline = next(
         row
         for row in baseline_list["result"]["baselines"]

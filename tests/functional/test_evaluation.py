@@ -259,7 +259,7 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
             returncode=0, stdout=json.dumps({"status": "PASS"}), stderr=""
         )
 
-    versions_dir = functional_repo / "configs" / "strategies" / "S001" / "versions"
+    versions_dir = functional_repo / "strategies" / "S001" / "versions"
     versions_before = set(versions_dir.glob("v*.json"))
     first = accept_evaluation(
         context,

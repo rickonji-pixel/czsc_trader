@@ -77,7 +77,12 @@ def _resolve(
     symbol: str | None,
 ) -> ResolvedBaseline:
     try:
-        return resolve_baseline(context.baseline_root, version, symbol=symbol)
+        return resolve_baseline(
+            context.baseline_root,
+            version,
+            symbol=symbol,
+            repository_root=context.root,
+        )
     except (OSError, ValueError) as exc:
         raise ValidationError(
             "baseline_validation_failed",

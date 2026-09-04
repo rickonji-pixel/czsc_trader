@@ -1,6 +1,9 @@
 """Deterministic strategy replay contracts."""
 
 from .models import StrategyIdentity, StrategySnapshot
+from .execution_replay import replay_account
+from .result import BacktestResult
+from .signal_replay import SignalReplay, replay_signals
 from .datasets import DatasetName, ReplayData, load_replay_data
 from .strategy_source import resolve_candidate_snapshot, resolve_registered_strategy
 
@@ -10,6 +13,10 @@ __all__ = [
     "DatasetName",
     "ReplayData",
     "load_replay_data",
+    "BacktestResult",
+    "SignalReplay",
+    "replay_account",
+    "replay_signals",
     "resolve_candidate_snapshot",
     "resolve_registered_strategy",
 ]

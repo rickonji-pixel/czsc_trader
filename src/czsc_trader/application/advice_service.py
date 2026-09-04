@@ -423,11 +423,12 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
         if release.release_hash is None:
             raise ValueError("deployable strategy version must have a release hash")
         baseline = resolve_strategy_payload(
-            context.baseline_root,
+            context.strategy_dependency_root,
             release.strategy_payload,
             release_id=release.release_id,
             release_hash=release.release_hash,
             symbol=request.symbol,
+            repository_root=context.root,
         )
         strategy_identity = {
             "strategy_id": strategy.strategy_id,

@@ -103,6 +103,16 @@ def _load_json_object(path: Path) -> dict[str, object]:
     return payload
 
 
+def _repository_root(baseline_root: Path, explicit: Path | None) -> Path:
+    if explicit is not None:
+        return Path(explicit).resolve()
+    resolved = Path(baseline_root).resolve()
+    return next(
+        (parent for parent in (resolved, *resolved.parents) if (parent / "pyproject.toml").is_file()),
+        resolved.parent.parent,
+    )
+
+
 def _parse_rule(payload: dict[str, object]) -> Rule:
     required = {
         "weights",
@@ -382,7 +392,7 @@ def resolve_baseline(
     elif strategy == "czsc_four_layer":
         if not source_path or not source_digest:
             raise ValueError(f"{selected_version}: four-layer source identity is missing")
-        source_root = Path(repository_root).resolve() if repository_root else root.resolve().parent.parent
+        source_root = _repository_root(root, repository_root)
         source = source_root / source_path
         if not source.is_file():
             raise ValueError(f"{selected_version}: missing four-layer source {source}")
@@ -402,7 +412,7 @@ def resolve_baseline(
     elif strategy == "czsc_regime_weight":
         if not source_path or not source_digest:
             raise ValueError(f"{selected_version}: regime-weight source identity is missing")
-        source_root = Path(repository_root).resolve() if repository_root else root.resolve().parent.parent
+        source_root = _repository_root(root, repository_root)
         source = source_root / source_path
         if not source.is_file():
             raise ValueError(f"{selected_version}: missing regime-weight source {source}")

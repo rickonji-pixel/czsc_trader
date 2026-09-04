@@ -62,7 +62,7 @@
         "daily",
         "weekly"
       ],
-      "source_path": "configs/rule_baselines/baseline_20260903.json",
+      "source_path": "strategies/dependencies/legacy_rule_baselines/baseline_20260903.json",
       "source_sha256": "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
       "selection_sample_end": "2026-08-28",
       "execution_review_end": "2026-09-02",

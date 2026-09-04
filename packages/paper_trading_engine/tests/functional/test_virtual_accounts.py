@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
@@ -53,6 +53,8 @@ def test_ft_pte01_virtual_accounts_are_isolated_persistent_and_conservative(tmp_
                 },
             )
 
+    pre_audit_decision = Advice().get_decision(0, 100_000)
+    store.save_virtual_decision("r1102-v1", asdict(pre_audit_decision), None)
     virtual = VirtualAccountEngine(store, Advice())
     virtual.refresh_account("r1102-v1", date(2026, 9, 2), None)
     virtual.refresh_account("r1102-v1", date(2026, 9, 2), None)

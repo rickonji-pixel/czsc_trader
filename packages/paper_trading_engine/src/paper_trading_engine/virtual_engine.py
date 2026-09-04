@@ -69,7 +69,10 @@ class VirtualAccountEngine:
             }
             if actual_identity != expected_identity:
                 raise ValueError("advice strategy release differs from virtual account")
-            if account.get("last_decision_id") != decision.decision_id:
+            if not self.store.has_audit_event(
+                "DECISION_GENERATED", account_id=account_id,
+                decision_id=decision.decision_id, channel="virtual",
+            ):
                 scope = {
                     "account_id": account_id, "strategy_id": account["strategy_id"],
                     "strategy_version": account["strategy_version"],

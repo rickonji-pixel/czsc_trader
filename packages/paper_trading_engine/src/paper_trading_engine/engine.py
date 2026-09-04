@@ -206,7 +206,9 @@ class PaperTradingEngine:
         }
 
     def _audit_decision(self, decision: AdviceDecision) -> None:
-        if self.store.get_setting("last_audited_decision_id") == decision.decision_id:
+        if self.store.has_audit_event(
+            "DECISION_GENERATED", decision_id=decision.decision_id, channel="futu",
+        ):
             return
         scope = self._strategy_scope(decision)
         self.audit.record(

@@ -887,6 +887,23 @@ class PaperStore:
             ).fetchall()
         return [self._audit_row(row) for row in rows]
 
+    def has_audit_event(
+        self, event_type: str, *, account_id: str | None = None,
+        decision_id: str | None = None, channel: str | None = None,
+    ) -> bool:
+        filters = {"event_type": event_type, "account_id": account_id,
+                   "decision_id": decision_id, "channel": channel}
+        clauses, values = [], []
+        for column, value in filters.items():
+            if value is not None:
+                clauses.append(f"{column}=?")
+                values.append(str(value))
+        with self._lock:
+            row = self._connection.execute(
+                f"SELECT 1 FROM events WHERE {' AND '.join(clauses)} LIMIT 1", values,
+            ).fetchone()
+        return row is not None
+
     def recent_events(self, limit: int = 100) -> list[dict[str, Any]]:
         return self.query_audit_events(limit=limit)
 

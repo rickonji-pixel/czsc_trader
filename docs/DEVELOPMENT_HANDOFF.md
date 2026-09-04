@@ -132,7 +132,9 @@ sc.exe query CZSC-PTE-Watchdog
 ```
 
 日常代码更新后通过`.\.venv\Scripts\pte.exe control restart --repo-root .`请求PTE和平退出，
-WDG会拉起新实例。仓库移动后重新执行`install-config`以更新绝对路径。
+WDG会拉起新实例。该操作不重启WDG；只有WDG自身升级、仓库路径或监听地址变化时才维护
+系统服务。`Start-Service`与`Stop-Service CZSC-PTE-Watchdog`会分别启动和停止WDG及其
+PTE子进程。仓库移动后重新执行`install-config`以更新绝对路径。
 
 ## 本地状态与跨机边界
 

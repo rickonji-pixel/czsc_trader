@@ -204,7 +204,8 @@ PTE 以虚拟账户为业务中心。每个虚拟账户绑定一个不可变策�
 Futu 渠道承载多个虚拟账户，并把它们的订单统一提交到底层中国市场模拟账户。渠道只
 负责执行、回报和对账，不绑定策略、不生成决策。内部 OHLC 模拟成交渠道已经移除。
 
-启动 Futu OpenD 并确认存在唯一中国市场模拟账户后运行：
+启动 Futu OpenD 并确认存在唯一中国市场模拟账户。开发调试或单次诊断时，可以直接在
+前台运行 PTE；`serve` 通过 `Ctrl+C` 结束：
 
 ```powershell
 .\.venv\Scripts\pte.exe once --repo-root D:\CodeBase\czsc_trader
@@ -264,7 +265,7 @@ Futu 渠道承载多个虚拟账户，并把它们的订单统一提交到底层
 
 ### Windows watchdog 服务
 
-在管理员 PowerShell 中执行：
+正式运行由 WDG 托管 PTE。首次安装时，在管理员 PowerShell 中执行：
 
 ```powershell
 .\.venv\Scripts\pte-watchdog.exe install-config --repo-root D:\CodeBase\czsc_trader
@@ -275,12 +276,26 @@ Futu 渠道承载多个虚拟账户，并把它们的订单统一提交到底层
 子进程，每 10 秒检查进程和 8080 HTTP 状态；连续 3 次失败后按 5、30、60 秒
 退避重启。
 
+日常发布 PTE 代码或修改 PTE 业务配置后，只需执行 peaceful restart。PTE 完成当前
+请求并正常退出，WDG 随即拉起新实例；该操作不重启 WDG，也不需要管理员权限：
+
 ```powershell
-sc.exe query CZSC-PTE-Watchdog
-.\.venv\Scripts\pte-watchdog.exe restart --wait 30
-.\.venv\Scripts\pte-watchdog.exe stop --wait 30
+.\.venv\Scripts\pte.exe control restart --repo-root D:\CodeBase\czsc_trader --wait 30
+Invoke-RestMethod http://127.0.0.1:8080/api/status
+```
+
+WDG 自身升级、仓库路径或监听地址变更时，才在管理员 PowerShell 中维护系统服务：
+
+```powershell
+Get-Service CZSC-PTE-Watchdog
+Start-Service CZSC-PTE-Watchdog       # 同时启动 PTE
+Stop-Service CZSC-PTE-Watchdog        # 同时停止 PTE
+Restart-Service CZSC-PTE-Watchdog     # 同时重启 WDG 和 PTE
 .\.venv\Scripts\pte-watchdog.exe remove
 ```
+
+停止 WDG 后，WDG 不再保活 PTE；启动 WDG 时会重新启动 PTE。生产环境不要另行运行
+`pte serve`，以免产生第二个实例或占用 8080 端口。
 
 本机运行数据库、发布数据和日志位于`state/paper_trading/`，均不纳入 Git。详细运行
 语义见[独立包说明](packages/paper_trading_engine/README.md)。

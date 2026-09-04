@@ -19,13 +19,16 @@ PTE 是与 `czsc_trader` 并列的模拟交易运行包。PTE 通过 `czsc-trade
 - PTE 独占底层 Futu 模拟账户；无法归属的活动订单或不一致持仓会阻止新单。
 - 内部 OHLC 模拟成交渠道已经移除；只有 Futu 累计成交回报能够改变账户持仓。
 
-## 安装与启动
+## 安装与前台运行
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 .\.venv\Scripts\pte.exe once --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
 ```
+
+`once`执行一轮后退出；`serve`用于开发调试并通过`Ctrl+C`结束。正式运行使用下文的
+WDG系统服务托管PTE，避免同时启动第二个`serve`实例。
 
 运行前启动 Futu OpenD，并确保只有一个中国市场模拟交易账户。PTE 只连接 Futu 交易
 接口，不创建行情连接，也不探测或维护 Futu 行情权限状态；委托价格严格来自 Trader
@@ -100,7 +103,7 @@ TDR只在内存中绘制，不读取PTE或Trader行情目录，也不保存前�
 PTE 日常状态位于 `state/paper_trading/runtime.db`，行情副本和日志也位于
 `state/paper_trading/`，均不进入 Git。跨机延续模拟盘需迁移整个运行目录。
 
-## Windows watchdog
+## PTE与Windows watchdog启停
 
 在管理员 PowerShell 中首次注册：
 
@@ -110,11 +113,24 @@ PTE 日常状态位于 `state/paper_trading/runtime.db`，行情副本和日志�
 ```
 
 服务名为 `CZSC-PTE-Watchdog`。日常发布代码后可使用 PTE 的本地控制接口优雅重启，
-无需重启系统服务：
+无需重启系统服务或管理员权限：
 
 ```powershell
-.\.venv\Scripts\pte.exe control restart --repo-root D:\CodeBase\czsc_trader
+.\.venv\Scripts\pte.exe control restart --repo-root D:\CodeBase\czsc_trader --wait 30
+Invoke-RestMethod http://127.0.0.1:8080/api/status
 ```
+
+只有WDG自身升级、仓库路径或监听地址变化时，才在管理员PowerShell中维护系统服务：
+
+```powershell
+Get-Service CZSC-PTE-Watchdog
+Start-Service CZSC-PTE-Watchdog       # 同时启动PTE
+Stop-Service CZSC-PTE-Watchdog        # 同时停止PTE
+Restart-Service CZSC-PTE-Watchdog     # 同时重启WDG和PTE
+.\.venv\Scripts\pte-watchdog.exe remove
+```
+
+WDG停止后不再保活PTE；WDG启动时会重新启动PTE。
 
 ## 最小回归
 

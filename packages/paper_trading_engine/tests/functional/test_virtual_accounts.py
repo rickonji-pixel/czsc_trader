@@ -11,7 +11,7 @@ def create_account(store, account_id, version, marker):
         account_id, f"{account_id}模拟账户", "legacy", marker * 64, 100_000,
         strategy_id="S001", strategy_name_snapshot="综合基线策略",
         strategy_version=version, release_hash=marker * 64,
-        qualification_snapshot="PAPER_READY",
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
     )
 
 
@@ -20,6 +20,7 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     create_account(store, "s001-v1", "v1", "a")
     create_account(store, "s001-v2", "v2", "b")
     assert {row["channel_id"] for row in store.virtual_accounts()} == {"futu"}
+    assert {row["selection_data_cutoff"] for row in store.virtual_accounts()} == {"2026-09-02"}
     assert len(store.query_audit_events(event_type="ACCOUNT_STRATEGY_BOUND")) == 2
     assert len(store.query_audit_events(event_type="ACCOUNT_CHANNEL_BOUND", channel="futu")) == 2
     tables = {row[0] for row in store._connection.execute(
@@ -78,3 +79,33 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     assert migrated.get_setting("account_execution_schema") == "account_execution.v1"
     assert migrated.query_audit_events(event_type="ACCOUNT_EXECUTION_MIGRATED")
     migrated.close()
+
+
+def test_ft_pte02_selection_cutoff_is_required_immutable_and_safely_backfilled(tmp_path):
+    store = PaperStore(tmp_path / "cutoff.db")
+    columns = {
+        row[1] for row in store._connection.execute("PRAGMA table_info(virtual_accounts)")
+    }
+    assert "selection_data_cutoff" in columns
+
+    with pytest.raises(ValueError, match="selection_data_cutoff"):
+        store.create_virtual_account(
+            "missing", "缺少截止日", "legacy", "c" * 64, 100_000,
+            strategy_id="S001", strategy_name_snapshot="综合基线策略",
+            strategy_version="v1", release_hash="c" * 64,
+            qualification_snapshot="PAPER_READY", selection_data_cutoff="",
+        )
+
+    account = create_account(store, "s001-v1", "v1", "a")
+    assert account["selection_data_cutoff"] == "2026-09-02"
+    with store._connection:
+        store._connection.execute(
+            "UPDATE virtual_accounts SET selection_data_cutoff=NULL WHERE account_id='s001-v1'"
+        )
+    assert store.backfill_account_selection_cutoff("s001-v1", "x" * 64, "2026-08-28") is False
+    assert store.virtual_account("s001-v1")["selection_data_cutoff"] is None
+    assert store.backfill_account_selection_cutoff("s001-v1", "a" * 64, "2026-08-28") is True
+    assert store.virtual_account("s001-v1")["selection_data_cutoff"] == "2026-08-28"
+    assert store.backfill_account_selection_cutoff("s001-v1", "a" * 64, "2026-09-01") is False
+    assert store.virtual_account("s001-v1")["selection_data_cutoff"] == "2026-08-28"
+    store.close()

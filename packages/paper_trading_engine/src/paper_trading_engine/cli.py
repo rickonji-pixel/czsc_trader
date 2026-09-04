@@ -39,6 +39,7 @@ CURRENT_STRATEGY_ID = "S001"
 CURRENT_STRATEGY_NAME = "综合基线策略"
 CURRENT_STRATEGY_VERSION = "v1"
 CURRENT_RELEASE_HASH = "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62"
+CURRENT_SELECTION_DATA_CUTOFF = "2026-08-28"
 CURRENT_QUALIFICATION = "PAPER_READY"
 CURRENT_LEGACY_BASELINE = "baseline_20260903"
 CURRENT_LEGACY_BASELINE_HASH = (
@@ -182,6 +183,7 @@ def build_engine(args: argparse.Namespace):
             strategy_version=CURRENT_STRATEGY_VERSION,
             release_hash=CURRENT_RELEASE_HASH,
             qualification_snapshot=CURRENT_QUALIFICATION,
+            selection_data_cutoff=CURRENT_SELECTION_DATA_CUTOFF,
         )
     else:
         if Decimal(account["initial_cash"]) == LEGACY_VIRTUAL_INITIAL_CASH:
@@ -190,18 +192,26 @@ def build_engine(args: argparse.Namespace):
                 expected_initial_cash=LEGACY_VIRTUAL_INITIAL_CASH,
                 new_initial_cash=DEFAULT_VIRTUAL_INITIAL_CASH,
             )
+        if account.get("selection_data_cutoff") is None:
+            store.backfill_account_selection_cutoff(
+                DEFAULT_VIRTUAL_ACCOUNT_ID,
+                CURRENT_RELEASE_HASH,
+                CURRENT_SELECTION_DATA_CUTOFF,
+            )
+            account = store.virtual_account(DEFAULT_VIRTUAL_ACCOUNT_ID)
         expected = (
             DEFAULT_VIRTUAL_ACCOUNT_NAME, CURRENT_LEGACY_BASELINE, CURRENT_LEGACY_BASELINE_HASH,
             CURRENT_STRATEGY_ID, CURRENT_STRATEGY_NAME, CURRENT_STRATEGY_VERSION,
             CURRENT_RELEASE_HASH, CURRENT_QUALIFICATION,
             args.symbol.upper(), str(DEFAULT_VIRTUAL_INITIAL_CASH),
+            CURRENT_SELECTION_DATA_CUTOFF,
         )
         actual = (
             account["name"], account["baseline_version"], account["baseline_sha256"],
             account["strategy_id"], account["strategy_name_snapshot"],
             account["strategy_version"], account["release_hash"],
             account["qualification_snapshot"],
-            account["symbol"], account["initial_cash"],
+            account["symbol"], account["initial_cash"], account["selection_data_cutoff"],
         )
         if actual != expected:
             raise ValueError(f"{DEFAULT_VIRTUAL_ACCOUNT_ID} virtual account has a different immutable identity")
@@ -209,6 +219,12 @@ def build_engine(args: argparse.Namespace):
         store.rename_virtual_account("s001-v2", "s001-v2", "S001-v2模拟账户")
     except KeyError:
         pass
+    _backfill_selection_cutoffs(
+        store,
+        audit,
+        args.advice_executable or _default_executable(args.repo_root),
+        args.repo_root,
+    )
     return PteCoordinator(AccountEngine(store, advice, audit=audit), execution, audit=audit)
 
 
@@ -226,15 +242,15 @@ def build_publisher(
     )
 
 
-def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
-    executable = args.advice_executable or _default_executable(args.repo_root)
-    reference = getattr(args, "strategy", None) or getattr(args, "baseline", None)
+def _strategy_show(
+    executable: Path, repo_root: Path, reference: str, version: str | None = None,
+) -> dict[str, object]:
     command = [
-        str(executable), "strategy", "show", "--repo-root", str(args.repo_root),
+        str(executable), "strategy", "show", "--repo-root", str(repo_root),
         "--strategy", reference,
     ]
-    if args.strategy_version:
-        command.extend(["--version", args.strategy_version])
+    if version:
+        command.extend(["--version", version])
     completed = subprocess.run(
         command,
         check=False, capture_output=True, text=True, encoding="utf-8",
@@ -249,7 +265,60 @@ def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
     qualification = payload["result"].get("qualification")
     if qualification not in {"PAPER_READY", "LIVE_READY"}:
         raise RuntimeError(f"strategy qualification cannot enter paper trading: {qualification}")
+    if not payload["result"].get("selection_data_cutoff"):
+        raise RuntimeError("strategy release has no selection_data_cutoff")
     return payload["result"]
+
+
+def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
+    return _strategy_show(
+        args.advice_executable or _default_executable(args.repo_root),
+        args.repo_root,
+        getattr(args, "strategy", None) or getattr(args, "baseline", None),
+        args.strategy_version,
+    )
+
+
+def _backfill_selection_cutoffs(
+    store: PaperStore, audit: AuditRecorder, executable: Path, repo_root: Path,
+) -> None:
+    for account in store.virtual_accounts():
+        if account.get("selection_data_cutoff"):
+            continue
+        try:
+            identity = _strategy_show(
+                executable,
+                repo_root,
+                str(account["strategy_id"]),
+                str(account["strategy_version"]),
+            )
+            if identity["release_hash"] != account["release_hash"]:
+                raise RuntimeError("stored release hash does not match strategy registry")
+            if not store.backfill_account_selection_cutoff(
+                account["account_id"],
+                account["release_hash"],
+                identity["selection_data_cutoff"],
+            ):
+                raise RuntimeError("selection cutoff backfill was not applied")
+            store.set_setting(f"selection_cutoff_error:{account['account_id']}", "")
+        except Exception as exc:
+            fingerprint = str(exc)
+            key = f"selection_cutoff_error:{account['account_id']}"
+            if store.get_setting(key) == fingerprint:
+                continue
+            audit.record(
+                "ACCOUNT_CHART_GENERATION_FAILED",
+                source="cli",
+                outcome="FAILURE",
+                actor_type="ENGINE",
+                account_id=account["account_id"],
+                strategy_id=account.get("strategy_id"),
+                strategy_version=account.get("strategy_version"),
+                release_hash=account.get("release_hash"),
+                symbol=account.get("symbol"),
+                details={"operation": "selection_cutoff_backfill", "error": fingerprint},
+            )
+            store.set_setting(key, fingerprint)
 
 
 def _read_json(url: str, *, request: Request | None = None, timeout: float = 3.0):
@@ -336,10 +405,12 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
                 existing["strategy_id"], existing["strategy_version"],
                 existing["release_hash"], existing["name"],
                 existing["symbol"], existing["initial_cash"],
+                existing["selection_data_cutoff"],
             ) != (
                 identity["strategy_id"], identity["version"], identity["release_hash"],
                 args.name, args.symbol.upper(),
                 str(Decimal(args.initial_cash).quantize(Decimal("0.0001"))),
+                identity["selection_data_cutoff"],
             ):
                 raise ValueError("account id already exists with a different immutable identity")
             return existing
@@ -350,6 +421,7 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             strategy_version=identity["version"],
             release_hash=identity["release_hash"],
             qualification_snapshot=identity["qualification"],
+            selection_data_cutoff=identity["selection_data_cutoff"],
             symbol=args.symbol,
         )
     finally:

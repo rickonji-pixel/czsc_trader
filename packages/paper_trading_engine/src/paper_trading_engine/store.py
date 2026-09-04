@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -161,6 +161,7 @@ class PaperStore:
                 strategy_name_snapshot TEXT,
                 strategy_version TEXT,
                 release_hash TEXT,
+                selection_data_cutoff TEXT,
                 qualification_snapshot TEXT,
                 symbol TEXT NOT NULL DEFAULT '588080.SH',
                 initial_cash TEXT NOT NULL,
@@ -202,6 +203,7 @@ class PaperStore:
         self._ensure_column("virtual_accounts", "strategy_name_snapshot", "TEXT")
         self._ensure_column("virtual_accounts", "strategy_version", "TEXT")
         self._ensure_column("virtual_accounts", "release_hash", "TEXT")
+        self._ensure_column("virtual_accounts", "selection_data_cutoff", "TEXT")
         self._ensure_column("virtual_accounts", "qualification_snapshot", "TEXT")
         self._ensure_column("virtual_accounts", "channel_id", "TEXT NOT NULL DEFAULT 'futu'")
         self._ensure_column("virtual_accounts", "status", "TEXT NOT NULL DEFAULT 'RUNNING'")
@@ -465,7 +467,7 @@ class PaperStore:
         self, account_id, name, baseline_version, baseline_sha256, initial_cash,
         *, symbol="588080.SH", strategy_id=None,
         strategy_name_snapshot=None, strategy_version=None, release_hash=None,
-        qualification_snapshot=None,
+        qualification_snapshot=None, selection_data_cutoff=None,
     ):
         from decimal import Decimal
         cash = Decimal(initial_cash).quantize(Decimal("0.0001"))
@@ -495,17 +497,23 @@ class PaperStore:
                 raise ValueError("strategy release hash has invalid format")
             if qualification_snapshot not in {"PAPER_READY", "LIVE_READY"}:
                 raise ValueError("strategy qualification does not permit paper trading")
+        try:
+            selection_data_cutoff = date.fromisoformat(
+                str(selection_data_cutoff)
+            ).isoformat()
+        except (TypeError, ValueError) as exc:
+            raise ValueError("selection_data_cutoff must be a nonempty ISO date") from exc
         now = _utc_now()
         with self._lock, self._connection:
             self._connection.execute(
                 "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,"
                 "strategy_id,strategy_name_snapshot,strategy_version,release_hash,"
-                "qualification_snapshot,symbol,initial_cash,cash,total_assets,channel_id,status,"
-                "created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "selection_data_cutoff,qualification_snapshot,symbol,initial_cash,cash,total_assets,"
+                "channel_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     account_id, name, baseline_version, baseline_sha256, strategy_id,
                     strategy_name_snapshot, strategy_version, release_hash,
-                    qualification_snapshot, symbol.upper(), str(cash), str(cash), str(cash),
+                    selection_data_cutoff, qualification_snapshot, symbol.upper(), str(cash), str(cash), str(cash),
                     "futu", "RUNNING", now, now,
                 ),
             )
@@ -528,6 +536,22 @@ class PaperStore:
                 details={"channel_id": "futu"},
             ))
         return self.virtual_account(account_id)
+
+    def backfill_account_selection_cutoff(
+        self, account_id: str, release_hash: str, selection_data_cutoff: str,
+    ) -> bool:
+        """Fill a legacy account cutoff once, only for an identical strategy release."""
+        try:
+            cutoff = date.fromisoformat(str(selection_data_cutoff)).isoformat()
+        except (TypeError, ValueError) as exc:
+            raise ValueError("selection_data_cutoff must be a nonempty ISO date") from exc
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
+                "UPDATE virtual_accounts SET selection_data_cutoff=?,updated_at=? "
+                "WHERE account_id=? AND release_hash=? AND selection_data_cutoff IS NULL",
+                (cutoff, _utc_now(), account_id, release_hash),
+            )
+        return cursor.rowcount == 1
 
     def rename_virtual_account(self, old_account_id: str, account_id: str, name: str):
         """Atomically migrate a runtime account identity without losing its ledger."""

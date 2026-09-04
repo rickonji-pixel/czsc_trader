@@ -46,6 +46,7 @@ def test_ft_pte07_performance_evidence_is_self_contained_and_release_bound(tmp_p
         "s001-forward", "S001-v1模拟账户", "baseline", "a" * 64, 100_000,
         strategy_id="S001", strategy_name_snapshot="综合基线策略", strategy_version="v1",
         release_hash="b" * 64, qualification_snapshot="PAPER_READY",
+        selection_data_cutoff="2026-09-02",
     )
     for index, (session, side, price) in enumerate((("2026-09-03", "BUY", "1.0"), ("2026-09-04", "SELL", "1.1"))):
         order_id = f"ORDER-{side}"

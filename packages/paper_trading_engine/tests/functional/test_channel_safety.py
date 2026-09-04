@@ -19,7 +19,7 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
             account_id, f"{account_id}模拟账户", "legacy", marker * 64, 100_000,
             strategy_id="S001", strategy_name_snapshot="综合基线策略",
             strategy_version=version, release_hash=marker * 64,
-            qualification_snapshot="PAPER_READY",
+            qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
         )
     intent = store.create_account_intent(
         account_id="s001-v2", decision_id="DEC-2", order_sequence=0,
@@ -97,7 +97,7 @@ def test_ft_pte03_failed_or_cancelled_buy_releases_reserved_cash(tmp_path):
         "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
         strategy_id="S001", strategy_name_snapshot="综合基线策略",
         strategy_version="v1", release_hash="a" * 64,
-        qualification_snapshot="PAPER_READY",
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
     )
     intent = store.create_account_intent(
         account_id="s001-v1", decision_id="DEC-FAIL", order_sequence=0,
@@ -141,7 +141,7 @@ def test_ft_pte03_channel_and_account_pause_block_pending_submission(tmp_path):
         "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
         strategy_id="S001", strategy_name_snapshot="综合基线策略",
         strategy_version="v1", release_hash="a" * 64,
-        qualification_snapshot="PAPER_READY",
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
     )
     store.create_account_intent(
         account_id="s001-v1", decision_id="DEC-PAUSE", order_sequence=0,
@@ -171,7 +171,7 @@ def test_ft_pte03_uncertain_submission_keeps_reservation_and_blocks_account(tmp_
         "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
         strategy_id="S001", strategy_name_snapshot="综合基线策略",
         strategy_version="v1", release_hash="a" * 64,
-        qualification_snapshot="PAPER_READY",
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
     )
     intent = store.create_account_intent(
         account_id="s001-v1", decision_id="DEC-UNCERTAIN", order_sequence=0,

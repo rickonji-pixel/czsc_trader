@@ -19,7 +19,7 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
         "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
         strategy_id="S001", strategy_name_snapshot="综合基线策略",
         strategy_version="v1", release_hash="b" * 64,
-        qualification_snapshot="PAPER_READY",
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
     )
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
     accounts = AccountEngine(store, advice)

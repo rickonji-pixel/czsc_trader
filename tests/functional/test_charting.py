@@ -179,6 +179,13 @@ def test_ft_t05_observation_chart_is_pure_account_scoped_html(monkeypatch) -> No
     assert "\\u76ee\\u6807\\u6301\\u4ed3" in html
     assert "\\u5b9e\\u9645\\u6301\\u4ed3" in html
     assert '"hoverinfo":"skip"' in html
+    assert '"height":540' in html
+    assert '"paper_bgcolor":"#07101d"' in html
+    assert '"plot_bgcolor":"#0e1928"' in html
+    assert observation_chart.CHART_TOTAL_HEIGHT == 540
+    assert observation_chart.CHART_KLINE_HEIGHT == 320
+    assert observation_chart.CHART_POSITION_HEIGHT == 90
+    assert "html,body{margin:0;width:100%;height:100%;overflow:hidden" in html
 
 
 def test_ft_t06_observation_chart_rejects_invalid_identity_and_dates() -> None:

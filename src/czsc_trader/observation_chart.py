@@ -19,6 +19,12 @@ from czsc_trader.charting import (
 
 
 CONTRACT_VERSION = "account_observation.v1"
+CHART_TOTAL_HEIGHT = 540
+CHART_KLINE_HEIGHT = 320
+CHART_POSITION_HEIGHT = 90
+CHART_VERTICAL_GAP = 10
+CHART_TOP_MARGIN = 85
+CHART_BOTTOM_MARGIN = 35
 ALLOWED_TOP_LEVEL = {
     "contract_version",
     "account",
@@ -197,8 +203,10 @@ def render_observation_html(payload: object) -> str:
         rows=2,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.04,
-        row_heights=[0.72, 0.28],
+        vertical_spacing=CHART_VERTICAL_GAP / (
+            CHART_KLINE_HEIGHT + CHART_POSITION_HEIGHT + CHART_VERTICAL_GAP
+        ),
+        row_heights=[CHART_KLINE_HEIGHT, CHART_POSITION_HEIGHT],
     )
     figure.add_trace(
         go.Candlestick(
@@ -384,17 +392,36 @@ def render_observation_html(payload: object) -> str:
         )
     figure.update_layout(
         title=f"{account['release_id']} 前瞻观察",
-        height=760,
-        template="plotly_white",
+        height=CHART_TOTAL_HEIGHT,
+        template="plotly_dark",
+        paper_bgcolor="#07101d",
+        plot_bgcolor="#0e1928",
+        font={"color": "#eef5ff"},
         hovermode="x unified",
         hoversubplots="axis",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
-        margin={"l": 60, "r": 30, "t": 90, "b": 45},
+        margin={
+            "l": 60,
+            "r": 30,
+            "t": CHART_TOP_MARGIN,
+            "b": CHART_BOTTOM_MARGIN,
+        },
         xaxis_rangeslider_visible=False,
     )
     figure.update_xaxes(
-        rangebreaks=[{"values": _missing_calendar_dates(prices.index), "dvalue": 86_400_000}]
+        rangebreaks=[{"values": _missing_calendar_dates(prices.index), "dvalue": 86_400_000}],
+        gridcolor="#23344b",
+        zerolinecolor="#23344b",
     )
-    figure.update_yaxes(title_text="后复权价格", row=1, col=1)
-    figure.update_yaxes(title_text="持仓数量", row=2, col=1)
-    return figure.to_html(full_html=True, include_plotlyjs=True)
+    figure.update_yaxes(
+        title_text="后复权价格", gridcolor="#23344b", zerolinecolor="#23344b", row=1, col=1
+    )
+    figure.update_yaxes(
+        title_text="持仓数量", gridcolor="#23344b", zerolinecolor="#23344b", row=2, col=1
+    )
+    html = figure.to_html(full_html=True, include_plotlyjs=True)
+    embedded_style = (
+        "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;"
+        "background:#07101d}.plotly-graph-div{overflow:hidden}</style>"
+    )
+    return html.replace("</head>", f"{embedded_style}</head>", 1)

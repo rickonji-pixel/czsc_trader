@@ -14,7 +14,7 @@
 
 - PTE owns and stores all forward market data; TDR must not read or persist it.
 - The renderer contract is `account_observation.v1`, JSON on stdin and self-contained HTML on stdout.
-- The default context is exactly 180 complete trading sessions before `selection_data_cutoff`, plus every available later daily bar.
+- The default context is exactly 60 complete trading sessions before `selection_data_cutoff`, plus every available later daily bar.
 - New virtual accounts require an immutable ISO `selection_data_cutoff`; migrated accounts may remain nullable only until safe hash-matched backfill.
 - Renderer limits are 5 MiB input, 20 MiB output, and 30 seconds.
 - Chart generation is read-only and must not change scheduler failures, account health, pause state, decisions, orders, fills, or reconciliation.
@@ -178,7 +178,7 @@ git commit -m "feat: bind selection cutoff to virtual accounts"
 
 - [ ] **Step 1: Write failing service tests with a fake renderer**
 
-Build a temporary runtime manifest/daily CSV and seeded account ledger. Inject a fake runner that captures `input` and returns `CompletedProcess(..., returncode=0, stdout="<!doctype html>...", stderr="")`. Assert the request contains exactly 180 pre-cutoff sessions plus all later bars, only the selected account facts, `adjustment == "hfq"`, and a SHA-256 manifest identity. Assert a second call reuses the cache without a second runner call; changing a decision changes the fingerprint and regenerates.
+Build a temporary runtime manifest/daily CSV and seeded account ledger. Inject a fake runner that captures `input` and returns `CompletedProcess(..., returncode=0, stdout="<!doctype html>...", stderr="")`. Assert the request contains exactly 60 pre-cutoff sessions plus all later bars, only the selected account facts, `adjustment == "hfq"`, and a SHA-256 manifest identity. Assert a second call reuses the cache without a second runner call; changing a decision changes the fingerprint and regenerates.
 
 Also assert timeout, nonzero exit, oversized input/output, malformed HTML, missing cutoff, missing bars, and unsafe account IDs produce `UNAVAILABLE`/`EMPTY` without mutating scheduler or account state. Assert repeated identical failure emits one failure event and subsequent success emits one recovery event.
 
@@ -196,12 +196,12 @@ Create `account_chart.py` with:
 class AccountChartService:
     def __init__(self, store, data_dir: Path, cache_dir: Path,
                  trader_executable: str = "czsc-trader", runner=subprocess.run,
-                 timeout_seconds: int = 30, context_sessions: int = 180): ...
+                 timeout_seconds: int = 30, context_sessions: int = 60): ...
     def status(self, account_id: str) -> dict[str, object]: ...
     def chart_path(self, account_id: str) -> Path: ...
 ```
 
-Read and hash the manifest bytes, select only the listed daily HFQ files for the account symbol, parse them in memory, de-duplicate/sort, and slice `<= cutoff` to the last 180 plus every `> cutoff`. Normalize ledger rows into the request and exclude every observation fact on or before the cutoff. Serialize with deterministic separators and `sort_keys=True`; reject input larger than `5 * 1024 * 1024` bytes.
+Read and hash the manifest bytes, select only the listed daily HFQ files for the account symbol, parse them in memory, de-duplicate/sort, and slice `<= cutoff` to the last 60 plus every `> cutoff`. Normalize ledger rows into the request and exclude every observation fact on or before the cutoff. Serialize with deterministic separators and `sort_keys=True`; reject input larger than `5 * 1024 * 1024` bytes.
 
 - [ ] **Step 4: Implement per-account generation, atomic cache, and isolated audit**
 
@@ -271,7 +271,7 @@ Add `PteWebApi.virtual_account_chart(account_id)` delegating to the chart servic
 
 - [ ] **Step 4: Add the chart card and stable iframe lifecycle**
 
-Insert “前瞻观察” after “最新决策” in `renderAccount`. Render a scoped skeleton immediately, then request `/api/virtual-accounts/${encodeURIComponent(accountId)}/chart`. Before applying a response, verify the route still selects that account and the loader token remains current. For `READY`, set the iframe URL only when account or fingerprint changes; for `EMPTY` and `UNAVAILABLE`, render the supplied message and a retry button. Add the fixed governance copy and identity badge, plus responsive 760px iframe styling. Account polling must leave the iframe DOM node untouched when the fingerprint is unchanged.
+Insert “前瞻观察” after “最新决策” in `renderAccount`. Render a scoped skeleton immediately, then request `/api/virtual-accounts/${encodeURIComponent(accountId)}/chart`. Before applying a response, verify the route still selects that account and the loader token remains current. For `READY`, set the iframe URL only when account or fingerprint changes; for `EMPTY` and `UNAVAILABLE`, render the supplied message and a retry button. Add the fixed governance copy and identity badge, plus a scrollbar-free 540px iframe matching the 320px K-line and 90px position plots. Account polling must leave the iframe DOM node untouched when the fingerprint is unchanged.
 
 - [ ] **Step 5: Run focused tests and commit**
 
@@ -295,7 +295,7 @@ git commit -m "feat: show forward chart on account console"
 - Modify: `docs/RESEARCH_HANDOFF.md`
 
 **Interfaces:**
-- Documents: account chart purpose, 180-session context, strategy-bound cutoff, PTE/TDR ownership, cache recovery, and data-pollution interpretation.
+- Documents: account chart purpose, 60-session context, strategy-bound cutoff, PTE/TDR ownership, cache recovery, and data-pollution interpretation.
 
 - [ ] **Step 1: Update operator and handoff documentation**
 

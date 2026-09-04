@@ -106,7 +106,7 @@ function applyAccountChart(status){
   }
   const current={account_id:status.scope.account_id,fingerprint:status.fingerprint};
   if(chartShouldReload(state.chart,status)||!document.querySelector('#accountChartFrame')){
-    host.innerHTML=`<iframe id="accountChartFrame" data-account-id="${esc(status.scope.account_id)}" title="${esc(status.scope.release_id)}前瞻观察图" src="${esc(status.chart_url)}"></iframe>`;
+    host.innerHTML=`<iframe id="accountChartFrame" data-account-id="${esc(status.scope.account_id)}" title="${esc(status.scope.release_id)}前瞻观察图" src="${esc(status.chart_url)}" scrolling="no"></iframe>`;
   }
   state.chart=current;
 }

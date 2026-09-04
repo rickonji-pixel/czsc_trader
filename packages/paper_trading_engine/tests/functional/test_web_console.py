@@ -47,7 +47,7 @@ class FakeEngine:
         return {
             "scope": {"account_id": "alpha", "release_id": "S001-v1"},
             "status": "READY", "selection_data_cutoff": "2026-08-28",
-            "context_sessions": 180,
+            "context_sessions": 60,
             "chart_url": "/charts/alpha/observation.html?v=fingerprint-1",
             "fingerprint": "fingerprint-1", "message": None,
         }
@@ -124,6 +124,9 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         with urlopen(base + "/", timeout=3) as response:
             html = response.read().decode()
         assert "模拟交易控制台" in html and "审计事件" in html
+        with urlopen(base + "/static/app.js", timeout=3) as response:
+            app_js = response.read().decode()
+        assert 'scrolling="no"' in app_js
         assert html.index("Futu渠道") < html.index("审计事件") < html.index("账户比较")
         with urlopen(base + "/audit-events", timeout=3) as response:
             assert response.status == 200

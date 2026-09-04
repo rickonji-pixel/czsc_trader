@@ -111,8 +111,9 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path):
     assert first["scope"] == {"account_id": "s001-v2", "release_id": "S001-v2"}
     assert service.chart_path("s001-v2").read_text(encoding="utf-8") == "<html>chart</html>"
     request = json.loads(calls[0][1]["input"])
-    assert len(request["market_data"]["bars"]) == 182
-    assert request["market_data"]["bars"][0]["date"] == dates[5].date().isoformat()
+    assert len(request["market_data"]["bars"]) == 62
+    assert request["context_sessions"] == 60
+    assert request["market_data"]["bars"][0]["date"] == dates[125].date().isoformat()
     assert request["market_data"]["bars"][-1]["date"] == "2026-09-04"
     assert {row["account_id"] for row in request["decisions"]} == {"s001-v2"}
     assert calls[0][0] == ["czsc-trader", "chart", "observation", "--format", "html"]

@@ -32,7 +32,7 @@ class AccountChartService:
         trader_executable: str | Path = "czsc-trader",
         runner: Callable[..., Any] = subprocess.run,
         timeout_seconds: int = 30,
-        context_sessions: int = 180,
+        context_sessions: int = 60,
         audit: AuditRecorder | None = None,
     ) -> None:
         self.store = store

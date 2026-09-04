@@ -401,7 +401,7 @@ def render_observation_html(payload: object) -> str:
         hoversubplots="axis",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
         margin={
-            "l": 60,
+            "l": 80,
             "r": 30,
             "t": CHART_TOP_MARGIN,
             "b": CHART_BOTTOM_MARGIN,
@@ -414,11 +414,25 @@ def render_observation_html(payload: object) -> str:
         zerolinecolor="#23344b",
     )
     figure.update_yaxes(
-        title_text="后复权价格", gridcolor="#23344b", zerolinecolor="#23344b", row=1, col=1
+        gridcolor="#23344b", zerolinecolor="#23344b", row=1, col=1
     )
     figure.update_yaxes(
-        title_text="持仓数量", gridcolor="#23344b", zerolinecolor="#23344b", row=2, col=1
+        gridcolor="#23344b", zerolinecolor="#23344b", row=2, col=1
     )
+    for text, axis in (("后复权价格", figure.layout.yaxis), ("持仓数量", figure.layout.yaxis2)):
+        domain = axis.domain
+        figure.add_annotation(
+            text=text,
+            x=-0.065,
+            y=(domain[0] + domain[1]) / 2,
+            xref="paper",
+            yref="paper",
+            textangle=-90,
+            showarrow=False,
+            xanchor="center",
+            yanchor="middle",
+            font={"color": "#eef5ff", "size": 14},
+        )
     html = figure.to_html(full_html=True, include_plotlyjs=True)
     embedded_style = (
         "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;"

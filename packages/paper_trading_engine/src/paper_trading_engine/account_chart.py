@@ -20,6 +20,7 @@ from .audit import AuditRecorder
 ACCOUNT_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 INPUT_LIMIT = 5 * 1024 * 1024
 OUTPUT_LIMIT = 20 * 1024 * 1024
+CACHE_RENDER_REVISION = "aligned-y-titles-v1"
 
 
 class AccountChartService:
@@ -272,7 +273,8 @@ class AccountChartService:
             )
             if len(encoded.encode("utf-8")) > INPUT_LIMIT:
                 raise ValueError("account observation input exceeds 5 MiB")
-            fingerprint = self._sha256(encoded.encode("utf-8"))
+            cache_key = f"{CACHE_RENDER_REVISION}\n{encoded}".encode("utf-8")
+            fingerprint = self._sha256(cache_key)
         except KeyError:
             raise
         except Exception as exc:

@@ -53,7 +53,8 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     store.close()
 
 
-def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path):
+def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, monkeypatch):
+    from paper_trading_engine import account_chart
     from paper_trading_engine.account_chart import AccountChartService
 
     store = PaperStore(tmp_path / "chart.db")
@@ -121,6 +122,11 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path):
     second = service.status("s001-v2")
     assert second["fingerprint"] == first["fingerprint"]
     assert len(calls) == 1
+
+    monkeypatch.setattr(account_chart, "CACHE_RENDER_REVISION", "next-layout")
+    refreshed = service.status("s001-v2")
+    assert refreshed["fingerprint"] != first["fingerprint"]
+    assert len(calls) == 2
     store.close()
 
     legacy = tmp_path / "unsafe-legacy.db"

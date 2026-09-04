@@ -187,6 +187,30 @@ def test_ft_t05_observation_chart_is_pure_account_scoped_html(monkeypatch) -> No
     assert observation_chart.CHART_POSITION_HEIGHT == 90
     assert "html,body{margin:0;width:100%;height:100%;overflow:hidden" in html
 
+    plot_call = html.rindex("Plotly.newPlot(") + len("Plotly.newPlot(")
+    decoder = json.JSONDecoder()
+    cursor = plot_call
+    while html[cursor].isspace():
+        cursor += 1
+    _, cursor = decoder.raw_decode(html, cursor)
+    cursor = html.index(",", cursor) + 1
+    while html[cursor].isspace():
+        cursor += 1
+    _, cursor = decoder.raw_decode(html, cursor)
+    cursor = html.index(",", cursor) + 1
+    while html[cursor].isspace():
+        cursor += 1
+    layout, _ = decoder.raw_decode(html, cursor)
+    y_titles = {
+        item["text"]: item
+        for item in layout["annotations"]
+        if item.get("text") in {"后复权价格", "持仓数量"}
+    }
+    assert set(y_titles) == {"后复权价格", "持仓数量"}
+    assert y_titles["后复权价格"]["x"] == y_titles["持仓数量"]["x"]
+    assert y_titles["后复权价格"]["xref"] == "paper"
+    assert y_titles["持仓数量"]["xref"] == "paper"
+
 
 def test_ft_t06_observation_chart_rejects_invalid_identity_and_dates() -> None:
     from czsc_trader.observation_chart import validate_observation

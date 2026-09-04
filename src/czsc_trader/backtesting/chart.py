@@ -66,9 +66,9 @@ def _fill_markers(
     figure: go.Figure,
     dated: pd.DataFrame,
 ) -> None:
-    for side, name, color, symbol in (
-        ("BUY", "买入成交", "#ef4444", "triangle-up"),
-        ("SELL", "卖出成交", "#22c55e", "triangle-down"),
+    for side, name, color, symbol, angle in (
+        ("BUY", "买入成交", "#ef4444", "triangle-down", 180),
+        ("SELL", "卖出成交", "#22c55e", "triangle-down", 0),
     ):
         selected = dated.loc[dated["side"].eq(side)] if not dated.empty else dated
         dates = selected["date"].tolist() if "date" in selected else []
@@ -83,6 +83,9 @@ def _fill_markers(
                     "symbol": symbol,
                     "size": 10,
                     "line": {"width": 1},
+                    "angle": angle,
+                    "angleref": "up",
+                    "standoff": 8,
                 },
                 hoverinfo="skip",
             ),
@@ -95,9 +98,9 @@ def _signal_markers(
     figure: go.Figure,
     dated: pd.DataFrame,
 ) -> None:
-    for target, name, color, symbol in (
-        (1, "买入信号", "#ef4444", "triangle-up-open"),
-        (0, "卖出信号", "#22c55e", "triangle-down-open"),
+    for target, name, color, symbol, angle in (
+        (1, "买入信号", "#ef4444", "triangle-down-open", 180),
+        (0, "卖出信号", "#22c55e", "triangle-down-open", 0),
     ):
         selected = dated.loc[dated["target_position"].eq(target)]
         dates = selected["date"].tolist()
@@ -112,6 +115,9 @@ def _signal_markers(
                     "symbol": symbol,
                     "size": 10,
                     "line": {"width": 1},
+                    "angle": angle,
+                    "angleref": "up",
+                    "standoff": 8,
                 },
                 hoverinfo="skip",
             ),
@@ -124,15 +130,31 @@ def _paired_event_markers(
     decisions: pd.DataFrame,
     fills: pd.DataFrame,
     prices: pd.DataFrame,
+    pens: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     signals = _dated_signal_events(decisions, prices).copy()
     executions = _dated_fills(fills, prices).copy()
+    pen_curve = pd.Series(index=prices.index, dtype=float)
+    if not pens.empty:
+        points = pens.copy()
+        points["dt"] = pd.to_datetime(points["dt"]).dt.normalize()
+        points = points.loc[points["dt"].isin(prices.index)].drop_duplicates("dt", keep="last")
+        pen_curve.loc[points["dt"]] = points["price"].astype(float).to_numpy()
+        pen_curve = pen_curve.interpolate(method="linear", limit_area="inside")
+
+    def outside_value(date: pd.Timestamp, side: str) -> float:
+        column = "low" if side == "BUY" else "high"
+        values = [float(prices.loc[date, column])]
+        if pd.notna(pen_curve.get(date)):
+            values.append(float(pen_curve.loc[date]))
+        return min(values) if side == "BUY" else max(values)
+
     signals["marker_y"] = [
-        float(prices.loc[row.date, "low" if int(row.target_position) == 1 else "high"])
+        outside_value(row.date, "BUY" if int(row.target_position) == 1 else "SELL")
         for row in signals.itertuples()
     ]
     executions["marker_y"] = [
-        float(prices.loc[row.date, "low" if str(row.side).upper() == "BUY" else "high"])
+        outside_value(row.date, str(row.side).upper())
         for row in executions.itertuples()
     ]
     if signals.empty or executions.empty:
@@ -145,7 +167,9 @@ def _paired_event_markers(
         side = str(grouped_fills.iloc[0]["side"]).upper()
         column = "low" if side == "BUY" else "high"
         dates = signals.loc[signal_indexes, "date"].tolist() + grouped_fills["date"].tolist()
-        values = [float(prices.loc[date, column]) for date in dates]
+        start, end = min(dates), max(dates)
+        values = prices.loc[start:end, column].astype(float).tolist()
+        values.extend(pen_curve.loc[start:end].dropna().astype(float).tolist())
         shared_y = min(values) if side == "BUY" else max(values)
         signals.loc[signal_indexes, "marker_y"] = shared_y
         executions.loc[grouped_fills.index, "marker_y"] = shared_y
@@ -212,7 +236,12 @@ def render_backtest_chart_html(
         row=1,
         col=1,
     )
-    signals, executions = _paired_event_markers(result.decisions, result.fills, prices)
+    signals, executions = _paired_event_markers(
+        result.decisions,
+        result.fills,
+        prices,
+        pens,
+    )
     _signal_markers(figure, signals)
     _fill_markers(figure, executions)
 

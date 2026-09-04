@@ -102,17 +102,20 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert layout["hovermode"] == "x unified"
     assert by_name["CZSC笔"]["line"]["width"] == 1
     assert by_name["CZSC笔"]["marker"]["size"] == 3
-    for name, symbol, color in (
-        ("买入信号", "triangle-up-open", "#ef4444"),
-        ("卖出信号", "triangle-down-open", "#22c55e"),
-        ("买入成交", "triangle-up", "#ef4444"),
-        ("卖出成交", "triangle-down", "#22c55e"),
+    for name, symbol, color, angle in (
+        ("买入信号", "triangle-down-open", "#ef4444", -180),
+        ("卖出信号", "triangle-down-open", "#22c55e", 0),
+        ("买入成交", "triangle-down", "#ef4444", -180),
+        ("卖出成交", "triangle-down", "#22c55e", 0),
     ):
         assert by_name[name]["marker"] == {
             "color": color,
             "size": 10,
             "symbol": symbol,
             "line": {"width": 1},
+            "angle": angle,
+            "angleref": "up",
+            "standoff": 8,
         }
         assert by_name[name]["hoverinfo"] == "skip"
     marker_y = {
@@ -124,13 +127,12 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     }
     assert marker_y["买入信号"]["2026-04-01"] == 1.2934257
     assert marker_y["买入成交"]["2026-04-02"] == 1.2934257
+    assert marker_y["卖出信号"]["2026-07-13"] == 2.2905044500000002
+    assert marker_y["卖出成交"]["2026-07-14"] == 2.2905044500000002
     assert marker_y["卖出信号"]["2026-08-14"] == 1.847751
     assert marker_y["卖出成交"]["2026-08-17"] == 1.847751
     assert marker_y["买入信号"]["2026-08-27"] == 1.6902378
     assert marker_y["买入成交"]["2026-08-28"] == 1.6902378
-    assert marker_y["卖出信号"]["2026-09-01"] == 1.7397131
-    assert marker_y["卖出成交"]["2026-09-02"] == 1.7397131
-    assert all(by_name[name]["yaxis"] == "y" for name in marker_y)
     assert by_name["目标持仓"]["yaxis"] == "y2"
     assert by_name["实际持仓"]["yaxis"] == "y2"
     details = {

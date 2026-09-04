@@ -116,8 +116,8 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         "equity"
     ] > 0
     report = (summary.output_dir / "report.md").read_text(encoding="utf-8")
-    assert "计算窗口：2020-11-16—2026-09-02" in report
-    assert "回测窗口：2026-01-05—2026-09-02，共162个交易日" in report
+    assert "- 计算窗口：2020-11-16—2026-09-02" in report
+    assert "- 回测窗口：2026-01-05—2026-09-02，共162个交易日" in report
     assert "| S001-v1 |" in report
     assert "| BuyHold |" in report
     assert "| MA5/MA20 |" in report

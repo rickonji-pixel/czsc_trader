@@ -35,9 +35,9 @@ def render_report(
         "",
         "本报告由 TDR Backtest v2 基于确定性账户回放生成。成交均为虚拟成交。",
         "主策略使用冻结执行规则；BuyHold与MA5/MA20使用独立资金按次日开盘成交。",
-        f"计算窗口：{calculation_start.isoformat()}—{calculation_end.isoformat()}",
+        f"- 计算窗口：{calculation_start.isoformat()}—{calculation_end.isoformat()}",
         (
-            f"回测窗口：{evaluation_start.isoformat()}—{evaluation_end.isoformat()}，"
+            f"- 回测窗口：{evaluation_start.isoformat()}—{evaluation_end.isoformat()}，"
             f"共{int(trading_days)}个交易日"
         ),
         "",

@@ -125,6 +125,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         }
         for name in ("买入信号", "卖出信号", "买入成交", "卖出成交")
     }
+    assert marker_y["买入成交"]["2026-01-06"] == 1.3954054
     assert marker_y["买入信号"]["2026-04-01"] == 1.2934257
     assert marker_y["买入成交"]["2026-04-02"] == 1.2934257
     assert marker_y["卖出信号"]["2026-07-13"] == 2.2905044500000002

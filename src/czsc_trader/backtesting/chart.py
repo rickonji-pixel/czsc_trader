@@ -162,16 +162,17 @@ def _paired_event_markers(
 
     for decision_id, grouped_fills in executions.groupby("decision_id"):
         signal_indexes = signals.index[signals["decision_id"].eq(decision_id)]
-        if signal_indexes.empty:
-            continue
         side = str(grouped_fills.iloc[0]["side"]).upper()
         column = "low" if side == "BUY" else "high"
-        dates = signals.loc[signal_indexes, "date"].tolist() + grouped_fills["date"].tolist()
+        signal_dates = pd.to_datetime(grouped_fills["signal_date"]).dt.normalize()
+        dates = signal_dates.loc[signal_dates.isin(prices.index)].tolist()
+        dates.extend(grouped_fills["date"].tolist())
         start, end = min(dates), max(dates)
         values = prices.loc[start:end, column].astype(float).tolist()
         values.extend(pen_curve.loc[start:end].dropna().astype(float).tolist())
         shared_y = min(values) if side == "BUY" else max(values)
-        signals.loc[signal_indexes, "marker_y"] = shared_y
+        if not signal_indexes.empty:
+            signals.loc[signal_indexes, "marker_y"] = shared_y
         executions.loc[grouped_fills.index, "marker_y"] = shared_y
     return signals, executions
 

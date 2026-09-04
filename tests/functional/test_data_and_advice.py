@@ -10,9 +10,11 @@ from czsc_trader import market_data_prep
 from czsc_trader.application.advice_service import build_advice_v4
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.backtesting.datasets import load_replay_data
+from czsc_trader.backtesting.strategy_source import resolve_registered_strategy
 from czsc_trader.baselines import resolve_baseline
 from czsc_trader.data import load_execution_prices
 from czsc_trader.execution_policy import floor_to_tick, simulate_limit_policy
+from czsc_trader.execution_intent import decide_order_intent
 
 from functional_support import invoke_main, vendor_frame
 
@@ -44,6 +46,25 @@ def test_replay_dataset_is_explicit_cutoff_aligned_and_deterministic(
     )
     assert first.fingerprint == repeated.fingerprint
     assert len(first.fingerprint) == 64
+
+
+def test_shared_order_intent_uses_unadjusted_close_and_full_cash(
+    functional_repo: Path,
+) -> None:
+    context = RepositoryContext.discover(functional_repo)
+    snapshot = resolve_registered_strategy(context, "S001", "v1")
+    intent = decide_order_intent(
+        target_position=1,
+        actual_quantity=0,
+        cycle_target_quantity=None,
+        available_cash=1_000_000,
+        execution_close=1.430,
+        execution_spec=snapshot.resolved_rule.execution,
+    )
+
+    assert intent.limit_price == 1.430
+    assert intent.target_quantity == 698_900
+    assert sum(order.quantity for order in intent.orders) == 698_900
 
 
 def test_ft_t01_data_prepare_validate_and_tamper_detection(

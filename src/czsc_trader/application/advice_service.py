@@ -15,6 +15,7 @@ from czsc_trader.data import load_execution_manifest, load_execution_prices, loa
 from czsc_trader.execution_policies import ResolvedExecutionPolicy
 from czsc_trader.execution_policy import floor_to_tick, round_to_tick
 from czsc_trader.factors import generate_factor_frame
+from czsc_trader.execution_intent import decide_order_intent
 
 from .context import RepositoryContext
 from .errors import ExecutionError, UsageError
@@ -214,14 +215,6 @@ def build_advice_v3(
     if execution is None:
         raise ValueError("advice.v3 requires a complete baseline")
     instrument = execution.instrument
-    if actual_quantity < 0 or actual_quantity % instrument.lot_size:
-        raise ValueError("actual quantity must use complete-baseline lots")
-    if cycle_target_quantity is not None and (
-        cycle_target_quantity < 0 or cycle_target_quantity % instrument.lot_size
-    ):
-        raise ValueError("cycle target quantity must use complete-baseline lots")
-    if target_position not in (0, 1):
-        raise ValueError("target position must be 0 or 1")
     signal_day = pd.Timestamp(signal_date).normalize()
     valid_day = pd.Timestamp(valid_session).normalize()
     if valid_day <= signal_day:
@@ -230,52 +223,34 @@ def build_advice_v3(
     if not cash.is_finite() or cash < 0:
         raise ValueError("available cash must be non-negative and finite")
     fee = Decimal(str(execution.capital.fee_rate))
-    if target_position:
-        price = floor_to_tick(
-            float(execution_close) * (1 + execution.entry_limit_parameter),
-            instrument.price_tick,
-        )
-        if cycle_target_quantity is None:
-            unit_cost = Decimal(str(price)) * (Decimal("1") + fee)
-            lots = (cash / (unit_cost * instrument.lot_size)).to_integral_value(
-                rounding=ROUND_FLOOR
-            )
-            target = actual_quantity + int(lots) * instrument.lot_size
-        else:
-            target = cycle_target_quantity
-        delta = max(0, target - actual_quantity)
-        side = "BUY"
-        action = "BUY" if delta else ("HOLD" if actual_quantity else "WAIT")
-    else:
-        price = round_to_tick(
-            float(execution_close) * (1 - execution.exit_limit_ratio),
-            instrument.price_tick,
-        )
-        target = 0
-        delta = -actual_quantity
-        side = "SELL"
-        action = "SELL" if actual_quantity else "WAIT"
-    orders: list[dict[str, object]] = []
-    remaining = abs(delta)
-    while remaining:
-        quantity = min(remaining, instrument.maximum_order_quantity)
-        orders.append(
-            {
-                "side": side,
-                "quantity": quantity,
-                "order_type": "LIMIT",
-                "limit_price": price,
-                "time_in_force": "DAY",
-            }
-        )
-        remaining -= quantity
+    intent = decide_order_intent(
+        target_position=target_position,
+        actual_quantity=actual_quantity,
+        cycle_target_quantity=cycle_target_quantity,
+        available_cash=float(cash),
+        execution_close=execution_close,
+        execution_spec=execution,
+    )
+    target = intent.target_quantity
+    delta = intent.delta_quantity
+    action = intent.action
+    orders = [
+        {
+            "side": order.side,
+            "quantity": order.quantity,
+            "order_type": "LIMIT",
+            "limit_price": order.limit_price,
+            "time_in_force": "DAY",
+        }
+        for order in intent.orders
+    ]
     identity = {
         "contract_version": "advice.v3",
         "symbol": instrument.symbol,
         "signal_date": str(signal_day.date()),
         "valid_session": str(valid_day.date()),
         "actual_quantity": actual_quantity,
-        "cycle_target_quantity": target if target_position else (0 if not actual_quantity else cycle_target_quantity),
+        "cycle_target_quantity": intent.cycle_target_quantity,
         "target_quantity": target,
         "baseline": {"version": baseline.version, "sha256": baseline.sha256},
         "orders": orders,

@@ -64,10 +64,8 @@ def _daily_hover_text(
 
 def _fill_markers(
     figure: go.Figure,
-    fills: pd.DataFrame,
-    prices: pd.DataFrame,
+    dated: pd.DataFrame,
 ) -> None:
-    dated = _dated_fills(fills, prices)
     for side, name, color, symbol in (
         ("BUY", "买入成交", "#ef4444", "triangle-up"),
         ("SELL", "卖出成交", "#22c55e", "triangle-down"),
@@ -77,7 +75,7 @@ def _fill_markers(
         figure.add_trace(
             go.Scatter(
                 x=dates,
-                y=[0] * len(dates),
+                y=selected.get("marker_y", pd.Series(dtype=float)).tolist(),
                 mode="markers",
                 name=name,
                 marker={
@@ -88,17 +86,15 @@ def _fill_markers(
                 },
                 hoverinfo="skip",
             ),
-            row=2,
+            row=1,
             col=1,
         )
 
 
 def _signal_markers(
     figure: go.Figure,
-    decisions: pd.DataFrame,
-    prices: pd.DataFrame,
+    dated: pd.DataFrame,
 ) -> None:
-    dated = _dated_signal_events(decisions, prices)
     for target, name, color, symbol in (
         (1, "买入信号", "#ef4444", "triangle-up-open"),
         (0, "卖出信号", "#22c55e", "triangle-down-open"),
@@ -108,7 +104,7 @@ def _signal_markers(
         figure.add_trace(
             go.Scatter(
                 x=dates,
-                y=[1] * len(dates),
+                y=selected["marker_y"].tolist(),
                 mode="markers",
                 name=name,
                 marker={
@@ -119,9 +115,41 @@ def _signal_markers(
                 },
                 hoverinfo="skip",
             ),
-            row=2,
+            row=1,
             col=1,
         )
+
+
+def _paired_event_markers(
+    decisions: pd.DataFrame,
+    fills: pd.DataFrame,
+    prices: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    signals = _dated_signal_events(decisions, prices).copy()
+    executions = _dated_fills(fills, prices).copy()
+    signals["marker_y"] = [
+        float(prices.loc[row.date, "low" if int(row.target_position) == 1 else "high"])
+        for row in signals.itertuples()
+    ]
+    executions["marker_y"] = [
+        float(prices.loc[row.date, "low" if str(row.side).upper() == "BUY" else "high"])
+        for row in executions.itertuples()
+    ]
+    if signals.empty or executions.empty:
+        return signals, executions
+
+    for decision_id, grouped_fills in executions.groupby("decision_id"):
+        signal_indexes = signals.index[signals["decision_id"].eq(decision_id)]
+        if signal_indexes.empty:
+            continue
+        side = str(grouped_fills.iloc[0]["side"]).upper()
+        column = "low" if side == "BUY" else "high"
+        dates = signals.loc[signal_indexes, "date"].tolist() + grouped_fills["date"].tolist()
+        values = [float(prices.loc[date, column]) for date in dates]
+        shared_y = min(values) if side == "BUY" else max(values)
+        signals.loc[signal_indexes, "marker_y"] = shared_y
+        executions.loc[grouped_fills.index, "marker_y"] = shared_y
+    return signals, executions
 
 
 def render_backtest_chart_html(
@@ -134,11 +162,11 @@ def render_backtest_chart_html(
         signal_replay.evaluation_start : signal_replay.evaluation_end
     ]
     figure = make_subplots(
-        rows=3,
+        rows=2,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.025,
-        row_heights=[0.68, 0.10, 0.22],
+        vertical_spacing=0.035,
+        row_heights=[0.76, 0.24],
     )
     figure.add_trace(
         go.Candlestick(
@@ -184,8 +212,9 @@ def render_backtest_chart_html(
         row=1,
         col=1,
     )
-    _signal_markers(figure, result.decisions, prices)
-    _fill_markers(figure, result.fills, prices)
+    signals, executions = _paired_event_markers(result.decisions, result.fills, prices)
+    _signal_markers(figure, signals)
+    _fill_markers(figure, executions)
 
     account = result.account_daily.set_index("date").loc[prices.index]
     figure.add_trace(
@@ -197,7 +226,7 @@ def render_backtest_chart_html(
             name="目标持仓",
             line={"color": "#bef264", "width": 2},
         ),
-        row=3,
+        row=2,
         col=1,
     )
     figure.add_trace(
@@ -209,7 +238,7 @@ def render_backtest_chart_html(
             name="实际持仓",
             line={"color": "#e879f9", "width": 2},
         ),
-        row=3,
+        row=2,
         col=1,
     )
     figure.update_layout(
@@ -235,17 +264,7 @@ def render_backtest_chart_html(
     )
     figure.update_yaxes(gridcolor="#23344b", zerolinecolor="#23344b")
     figure.update_yaxes(title_text="后复权价格", row=1, col=1)
-    figure.update_yaxes(
-        title_text="事件",
-        range=[-0.5, 1.5],
-        tickvals=[0, 1],
-        ticktext=["成交", "信号"],
-        showgrid=False,
-        zeroline=False,
-        row=2,
-        col=1,
-    )
-    figure.update_yaxes(title_text="持仓状态", range=[-0.1, 1.1], row=3, col=1)
+    figure.update_yaxes(title_text="持仓状态", range=[-0.1, 1.1], row=2, col=1)
     html = figure.to_html(full_html=True, include_plotlyjs=True)
     style = (
         "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;"

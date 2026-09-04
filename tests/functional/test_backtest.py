@@ -115,20 +115,24 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
             "line": {"width": 1},
         }
         assert by_name[name]["hoverinfo"] == "skip"
-    assert layout["yaxis2"]["tickvals"] == [0, 1]
-    assert layout["yaxis2"]["ticktext"] == ["成交", "信号"]
-    for name, lane in (
-        ("买入信号", 1),
-        ("卖出信号", 1),
-        ("买入成交", 0),
-        ("卖出成交", 0),
-    ):
-        trace = by_name[name]
-        assert trace["x"]
-        assert set(trace["y"]) == {lane}
-        assert trace["yaxis"] == "y2"
-    assert by_name["目标持仓"]["yaxis"] == "y3"
-    assert by_name["实际持仓"]["yaxis"] == "y3"
+    marker_y = {
+        name: {
+            str(pd.Timestamp(day).date()): y
+            for day, y in zip(by_name[name]["x"], by_name[name]["y"], strict=True)
+        }
+        for name in ("买入信号", "卖出信号", "买入成交", "卖出成交")
+    }
+    assert marker_y["买入信号"]["2026-04-01"] == 1.2934257
+    assert marker_y["买入成交"]["2026-04-02"] == 1.2934257
+    assert marker_y["卖出信号"]["2026-08-14"] == 1.847751
+    assert marker_y["卖出成交"]["2026-08-17"] == 1.847751
+    assert marker_y["买入信号"]["2026-08-27"] == 1.6902378
+    assert marker_y["买入成交"]["2026-08-28"] == 1.6902378
+    assert marker_y["卖出信号"]["2026-09-01"] == 1.7397131
+    assert marker_y["卖出成交"]["2026-09-02"] == 1.7397131
+    assert all(by_name[name]["yaxis"] == "y" for name in marker_y)
+    assert by_name["目标持仓"]["yaxis"] == "y2"
+    assert by_name["实际持仓"]["yaxis"] == "y2"
     details = {
         str(pd.Timestamp(day).date()): text
         for day, text in zip(

@@ -283,7 +283,7 @@ node --test packages\paper_trading_engine\tests\functional\console_state.test.mj
   packages\paper_trading_engine\src packages\paper_trading_engine\tests
 ```
 
-默认回归由Trader 11个、SM 2个、SE 3个、PTE 12个Python完整功能场景，以及PTE
+默认回归由Trader 15个、SM 2个、SE 3个、PTE 12个Python完整功能场景，以及PTE
 1个前端功能场景组成。不联网、不读取运行中的PTE，也不重算历史候选全集。完整实验
 档案校验使用`archive validate --all`独立执行。TDD阶段产生的临时聚焦用例，在相应
 行为进入功能场景后删除。

@@ -9,7 +9,7 @@ from czsc_trader.cli.main import build_parser
 
 
 EXPECTED_ACTIONS = {
-    "data": {"prepare", "validate"},
+    "data": {"prepare", "validate", "update-backtest"},
     "baseline": {"list", "show", "validate"},
     "strategy": {
         "list",

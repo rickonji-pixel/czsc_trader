@@ -83,6 +83,12 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
     if len(decisions) != len(evidence.decisions):
         reasons.append("DUPLICATE_DECISION_ID")
     fills_by_order = {str(row["order_id"]): row for row in evidence.fills}
+    accounts = {str(row["date"])[:10]: row for row in evidence.account_daily}
+    if any(
+        len(value) != 64 or any(char not in "0123456789abcdef" for char in value.lower())
+        for value in (evidence.strategy_hash, evidence.data_hash)
+    ):
+        reasons.append("INVALID_EVIDENCE_IDENTITY")
     if len(fills_by_order) != len(evidence.fills):
         reasons.append("DUPLICATE_ORDER_FILL")
     order_ids: set[str] = set()
@@ -122,6 +128,21 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
             reasons.append("UNFILLED_ORDER_HAS_FILL")
             continue
         if fill is None:
+            if order["side"] == "SELL":
+                reasons.append("MISSED_PRIORITY_EXIT")
+            else:
+                bars = intraday_by_day.get(str(order["execution_date"])[:10], [])
+                eligible_price = (
+                    float(execution["open"]) <= expected_limit + tolerance
+                    or any(float(bar["low"]) < expected_limit for bar in bars)
+                )
+                account = accounts.get(str(order["execution_date"])[:10])
+                affordable = account is not None and (
+                    quantity * expected_limit * (1 + fee_rate)
+                    <= float(account["cash_before"]) + tolerance
+                )
+                if eligible_price and affordable:
+                    reasons.append("MISSED_ELIGIBLE_FILL")
             continue
         if int(fill["quantity"]) != quantity or str(fill["side"]) != str(order["side"]):
             reasons.append("FILL_ORDER_MISMATCH")

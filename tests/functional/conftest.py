@@ -17,7 +17,6 @@ def functional_repo(tmp_path: Path) -> Path:
         "[project]\nname='czsc-trader-functional-test'\nversion='0.1.0'\n",
         encoding="utf-8",
     )
-    shutil.copytree(REPO_ROOT / "configs", root / "configs")
     shutil.copytree(REPO_ROOT / "strategies", root / "strategies")
     raw_dir = root / "data" / "raw"
     raw_dir.mkdir(parents=True)

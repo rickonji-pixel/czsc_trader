@@ -39,8 +39,8 @@ git rev-list --left-right --count origin/master...master
 ## 总体架构
 
 ```text
-Tushare → dataflows → data/raw
-                         ↓
+Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测）
+                                      ↓
                         TDR
               ┌──────────┼──────────┐
               ↓          ↓          ↓
@@ -88,6 +88,10 @@ Tushare → dataflows → data/raw
 10. PTE运行结果默认属于观察证据，只有经人工确认登记的里程碑快照进入SM治理链路。
 11. PTE拥有前瞻行情及观察图缓存。TDR的`chart observation`只消费PTE通过stdin传入的
     有限数据，在内存绘制并由stdout返回HTML，不主动读取或保存行情。
+12. TDR Backtest v2每次只接受一个不可变策略快照、一个标的、明确起止日和初始现金。
+    信号使用后复权数据，执行和估值使用不复权数据；结果发布前必须通过SE独立回放审计。
+13. `data/raw/`是受控研究池，`data/backtest/`独立维护。普通回测不会更新数据，也不
+    判定数据污染；研究数据边界由受控研究工作流负责。
 
 ## 新机器恢复
 
@@ -200,6 +204,16 @@ Get-Content state\paper_trading\logs\pte.log -Tail 100
 - 分支内可以自主提交；合并`master`和推送远端前取得用户确认。
 - 修改研究口径时同步`docs/RESEARCH_HANDOFF.md`和实验档案。
 - 修改运行边界、契约或安装方式时同步本文及对应包`README.md`。
+
+## TDR Backtest v2维护边界
+
+- 正式策略从`strategies/`解析；S001旧版本所需历史字节仅保存在
+  `strategies/dependencies/legacy_rule_baselines/`。
+- 研究候选通过`resolve_candidate_snapshot`进入同一个回放核心，生命周期资格不会阻止
+  研究回测；只有PTE部署检查`PAPER_READY`。
+- SE拥有回放证据审计，TDR只负责生成事实与适配证据。PTE的券商成交继续以渠道回报为准。
+- `configs/`、命名回测窗口和外置执行规则版本已退出当前生产契约。多窗口由SE或实验脚本
+  使用明确日期分别编排。
 
 ## 详细资料入口
 

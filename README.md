@@ -27,7 +27,8 @@
 - Futu OpenD：仅运行当前 Futu 模拟交易渠道时需要
 - Windows 管理员权限：仅安装、更新或删除 watchdog 系统服务时需要
 
-普通数据验证、回测和 advice 读取本地数据，不隐式联网。
+普通数据验证、回测和 advice 读取本地数据，不隐式联网。`data/raw/`是受控研究池，
+`data/backtest/`是独立更新的普通回测数据集。
 
 ## 安装
 
@@ -61,6 +62,9 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
   --start 2020-01-01 --end 2026-09-01
 
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
+
+.\.venv\Scripts\czsc-trader.exe data update-backtest `
+  --symbol 588080.SH --asset etf --through 2026-09-04
 ```
 
 策略统一使用 Tushare 后复权行情；交易委托价格使用同日未复权日线。发布器同时
@@ -68,7 +72,7 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
 
 ### 查看正式策略
 
-当前正式身份为`S001 / 综合基线策略 / v1`，资格为`PAPER_READY`：
+当前正式身份为`S001 / 综合基线策略`，`v1`和`v2`均为`PAPER_READY`：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe strategy list
@@ -129,20 +133,27 @@ experiments/MMDD_EXXX/
   --version baseline_20260903 --symbol 588080.SH
 ```
 
-`baseline_20260903`是`S001-v1`的只读历史别名。旧基线继续用于历史回测和审计，
-新冻结版本统一登记到`configs/strategies/`。
+`baseline_20260903`是`S001-v1`的只读历史别名。旧基线仅作为S001既有发布的不可变
+依赖保存在`strategies/dependencies/legacy_rule_baselines/`；新版本统一登记到`strategies/`。
 
 ### 回测
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe backtest run `
+  --strategy S001 --strategy-version v1 --dataset backtest `
   --symbol 588080.SH --asset etf `
-  --start 2026-01-01 --end 2026-08-21
+  --start 2026-01-01 --end 2026-09-02 --init-cash 100000
 ```
 
-回测会同时给出“活动基线·次日开盘”信号参照和“完整基线·实际执行”。后者直接
-使用完整基线内嵌的费率、100份整数手、0.001元委托价档位和保守成交规则，并生成
-`execution_orders*.csv`与`execution_equity*.csv`；不存在独立执行规则版本选择。
+Backtest v2每次只回放一个不可变策略快照、一个标的和一个明确日期区间。账户从指定现金
+和零持仓开始；信号使用后复权行情，委托、成交、数量和估值使用不复权行情。T日完整收盘
+决策在T+1执行；买入开盘价不高于限价时按开盘成交，盘中最低价严格低于限价时按限价
+成交，相等触价保持未成交；卖出按下一交易日开盘成交。未成交委托同样进入审计证据。
+
+每次运行生成`manifest.json`、`decisions.csv`、`orders.csv`、`fills.csv`、
+`account_daily.csv`、`trades.csv`、`metrics.json`、`audit.json`、`report.md`和
+`chart.html`。SE独立复算订单、成交、费用和账户账本，审计未通过时不发布结果目录。
+回测命令从不隐式更新数据；需要新行情时先显式执行`data update-backtest`。
 
 普通结果写入被 Git 忽略的 `outputs/`。正式研究证据必须归档到
 `experiments/MMDD_EXXX/`，并可用以下命令校验：

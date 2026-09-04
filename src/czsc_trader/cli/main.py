@@ -77,6 +77,18 @@ def _data_prepare(args: argparse.Namespace):
     )
 
 
+def _data_update_backtest(args: argparse.Namespace):
+    from czsc_trader.application.data_service import (
+        UpdateBacktestDataCommand,
+        update_backtest_data,
+    )
+
+    return update_backtest_data(
+        _context(args),
+        UpdateBacktestDataCommand(args.symbol, args.asset, args.through),
+    )
+
+
 def _backtest_run(args: argparse.Namespace):
     from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
 
@@ -183,6 +195,15 @@ def build_parser() -> argparse.ArgumentParser:
     data_validate.add_argument("--symbol", required=True)
     _add_repository_root(data_validate)
     data_validate.set_defaults(command_handler=_data_validate, command_name="data.validate")
+    data_update = data_actions.add_parser("update-backtest")
+    data_update.add_argument("--symbol", required=True)
+    data_update.add_argument("--asset", required=True, choices=("stock", "etf"))
+    data_update.add_argument("--through", required=True, type=date.fromisoformat)
+    _add_repository_root(data_update)
+    data_update.set_defaults(
+        command_handler=_data_update_backtest,
+        command_name="data.update-backtest",
+    )
 
     baseline = resources.add_parser("baseline")
     baseline_actions = baseline.add_subparsers(

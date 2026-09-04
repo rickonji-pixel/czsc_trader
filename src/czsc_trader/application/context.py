@@ -21,7 +21,6 @@ class RepositoryContext:
     baseline_root: Path
     strategy_root: Path
     strategy_dependency_root: Path
-    execution_policy_root: Path
     experiments_root: Path
     outputs_root: Path
 
@@ -51,7 +50,6 @@ class RepositoryContext:
             strategy_dependency_root=(
                 root / "strategies" / "dependencies" / "legacy_rule_baselines"
             ),
-            execution_policy_root=root / "configs" / "execution_policies",
             experiments_root=root / "experiments",
             outputs_root=root / "outputs",
         )

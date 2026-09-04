@@ -13,11 +13,11 @@ import pandas as pd
 from strategy_evaluator import EvaluationProtocol, MetricObservation, MetricStatus
 
 from .audit import audit_candidate_evaluation, audit_no_lookahead
-from .backtest import run_period_backtests
-from .backtest_runner import _complete_baseline_execution_results
+from .research_backtest import run_period_backtests
 from .baseline_execution import apply_resolved_baseline
-from .baselines import resolve_strategy_payload
-from .data import load_market_data
+from .baselines import ExecutionSpec, resolve_strategy_payload
+from .backtesting.datasets import load_replay_data
+from .execution_policy import ExecutionSimulation, entry_limit_series, simulate_limit_policy
 from .factors import generate_factor_frame
 from .four_layer import normalized_signal_factors
 from .range_diagnostics import range_cycle_objectives
@@ -41,6 +41,8 @@ class CandidateEvaluationContext:
 @dataclass(frozen=True)
 class EvaluationWorkspace:
     data: Any
+    execution_daily: pd.DataFrame
+    execution_intraday: pd.DataFrame
     factor_frame: pd.DataFrame
     daily_close: pd.Series
     periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]]
@@ -82,16 +84,87 @@ def prepare_evaluation_workspace(
     context: CandidateEvaluationContext,
     protocol: EvaluationProtocol,
 ) -> EvaluationWorkspace:
-    data = load_market_data(
-        context.repository.raw_dir, context.symbol, context.asset_type,
-    ).truncate(protocol.development_cutoff)
+    replay_data = load_replay_data(
+        context.repository,
+        "research",
+        context.symbol,
+        context.asset_type,
+        protocol.development_cutoff,
+    )
+    data = replay_data.adjusted
     factors = generate_factor_frame(data)
     daily_close = pd.Series(
         data.daily["close"].astype(float).to_numpy(),
         index=pd.DatetimeIndex(pd.to_datetime(data.daily["dt"]), name="dt"),
         name="close",
     )
-    return EvaluationWorkspace(data, factors.frame, daily_close, dict(context.periods))
+    return EvaluationWorkspace(
+        data,
+        replay_data.execution_daily,
+        replay_data.execution_intraday,
+        factors.frame,
+        daily_close,
+        dict(context.periods),
+    )
+
+
+def complete_execution_results(
+    daily: pd.DataFrame,
+    intraday: pd.DataFrame,
+    target_position: pd.Series,
+    periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]],
+    execution: ExecutionSpec,
+    *,
+    fee_rate: float,
+    init_cash: float,
+    slippage_bp: int = 0,
+) -> dict[str, ExecutionSimulation]:
+    """Run research windows with unadjusted execution-price semantics."""
+    daily_dates = pd.DatetimeIndex(pd.to_datetime(daily["dt"]), name="dt")
+    limits = entry_limit_series(
+        daily,
+        "fixed",
+        execution.entry_limit_parameter,
+        tick=execution.instrument.price_tick,
+    )
+    output: dict[str, ExecutionSimulation] = {}
+    for name, (start, end) in periods.items():
+        prior = daily_dates[daily_dates < start]
+        if prior.empty:
+            raise ValueError(f"execution-policy window {name} has no prior signal session")
+        simulation_start = prior[-1]
+        period_daily = daily.loc[
+            pd.Series(daily_dates, index=daily.index).between(simulation_start, end)
+        ].copy()
+        intraday_dates = pd.to_datetime(intraday["dt"]).dt.normalize()
+        period_intraday = intraday.loc[
+            intraday_dates.between(simulation_start.normalize(), end.normalize())
+        ].copy()
+        period_index = pd.DatetimeIndex(pd.to_datetime(period_daily["dt"]), name="dt")
+        simulation = simulate_limit_policy(
+            period_daily,
+            period_intraday,
+            target_position.reindex(period_index),
+            limits.reindex(period_index),
+            fee_rate=fee_rate,
+            init_cash=init_cash,
+            diagnostic_quantity=execution.instrument.maximum_order_quantity,
+            lot_size=execution.instrument.lot_size,
+            fill_on_equal_touch=False,
+            slippage_bp=slippage_bp,
+        )
+        execution_dates = pd.to_datetime(simulation.orders["execution_date"])
+        orders = simulation.orders.loc[
+            execution_dates.dt.normalize().between(start.normalize(), end.normalize())
+        ].copy().reset_index(drop=True)
+        output[name] = ExecutionSimulation(
+            simulation.equity.loc[start:end].copy(),
+            orders,
+            simulation.daily_state.loc[start:end].copy(),
+            simulation.cycles.copy(),
+            {},
+        )
+    return output
 
 
 def _contiguous_chunks(items: tuple[Any, ...], workers: int) -> tuple[tuple[Any, ...], ...]:
@@ -134,9 +207,9 @@ def _run_behavior_chunk(
         }
         execution_results = {}
         if tier in {"FORMAL", "STRESS"} and task.execution is not None:
-            execution_results = _complete_baseline_execution_results(
-                workspace.data.daily,
-                workspace.data.intraday,
+            execution_results = complete_execution_results(
+                workspace.execution_daily,
+                workspace.execution_intraday,
                 representative.target_position,
                 workspace.periods,
                 task.execution,
@@ -261,7 +334,14 @@ def _evaluate_candidate_payloads_reference(
     missing = set(candidate_ids) - set(selected)
     if missing:
         raise ValueError(f"candidate payloads missing: {sorted(missing)}")
-    data = load_market_data(context.repository.raw_dir, context.symbol, context.asset_type).truncate(protocol.development_cutoff)
+    replay_data = load_replay_data(
+        context.repository,
+        "research",
+        context.symbol,
+        context.asset_type,
+        protocol.development_cutoff,
+    )
+    data = replay_data.adjusted
     factors = generate_factor_frame(data)
     daily_close = pd.Series(data.daily["close"].astype(float).to_numpy(), index=pd.DatetimeIndex(pd.to_datetime(data.daily["dt"]), name="dt"), name="close")
     periods = dict(context.periods)
@@ -274,6 +354,7 @@ def _evaluate_candidate_payloads_reference(
         baseline = resolve_strategy_payload(
             context.repository.baseline_root, strategy_payload,
             release_id=candidate_id, release_hash=str(item.get("strategy_hash", item.get("candidate_hash", ""))), symbol=context.symbol,
+            repository_root=context.repository.root,
         )
         applied = apply_resolved_baseline(factors.frame, baseline, daily_close=daily_close)
         regimes = None
@@ -297,8 +378,12 @@ def _evaluate_candidate_payloads_reference(
                 audit_no_lookahead(result.orders, result.factor_events, applied.target_position, factor_output)
             execution_results = {}
             if tier in {"FORMAL", "STRESS"} and baseline.execution is not None:
-                execution_results = _complete_baseline_execution_results(
-                    data.daily, data.intraday, applied.target_position, periods, baseline.execution,
+                execution_results = complete_execution_results(
+                    replay_data.execution_daily,
+                    replay_data.execution_intraday,
+                    applied.target_position,
+                    periods,
+                    baseline.execution,
                     fee_rate=fee_rate, init_cash=context.init_cash,
                     slippage_bp=slippage_bp,
                 )
@@ -336,6 +421,7 @@ def evaluate_candidate_payloads(
             release_id=candidate_id,
             release_hash=str(item.get("strategy_hash", item.get("candidate_hash", ""))),
             symbol=context.symbol,
+            repository_root=context.repository.root,
         )
 
     factor_cache: dict[tuple[str, ...], pd.DataFrame] = {}

@@ -24,11 +24,14 @@ from strategy_evaluator import (
     hash_return_matrix,
 )
 
-from czsc_trader.backtest import run_period_backtests
-from czsc_trader.backtest_runner import _complete_baseline_execution_results
+from czsc_trader.research_backtest import run_period_backtests
 from czsc_trader.baseline_execution import apply_resolved_baseline
 from czsc_trader.baselines import resolve_strategy_payload
-from czsc_trader.candidate_evaluation import CandidateEvaluationContext, prepare_evaluation_workspace
+from czsc_trader.candidate_evaluation import (
+    CandidateEvaluationContext,
+    complete_execution_results,
+    prepare_evaluation_workspace,
+)
 from czsc_trader.four_layer import normalized_signal_factors
 from czsc_trader.regime_weight import classify_regimes, lagged_efficiency_ratio
 
@@ -61,6 +64,7 @@ def _resolved_and_applied(
             release_id=candidate_id,
             release_hash=str(item.get("strategy_hash", item.get("candidate_hash", ""))),
             symbol=run_context.symbol,
+            repository_root=run_context.repository.root,
         )
         normalized = None
         regimes = None
@@ -110,8 +114,11 @@ def _return_evidence(
         if formal_execution:
             if baseline.execution is None:
                 raise ValueError(f"candidate {candidate_id} has no frozen execution policy")
-            effective = _complete_baseline_execution_results(
-                workspace.data.daily, workspace.data.intraday, applied.target_position, periods,
+            effective = complete_execution_results(
+                workspace.execution_daily,
+                workspace.execution_intraday,
+                applied.target_position,
+                periods,
                 baseline.execution, fee_rate=run_context.fee_rate, init_cash=run_context.init_cash,
             )["full"]
         columns.append(_daily_returns(effective.equity, run_context.init_cash).rename(candidate_id))

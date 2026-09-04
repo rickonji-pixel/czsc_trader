@@ -45,7 +45,7 @@ def replay_account(
     order_rows: list[dict[str, object]] = []
     fill_rows: list[dict[str, object]] = []
     account_rows: list[dict[str, object]] = []
-    open_fill: dict[str, object] | None = None
+    open_trade: dict[str, object] | None = None
     trade_rows: list[dict[str, object]] = []
     fee_rate = spec.capital.fee_rate
 
@@ -72,6 +72,10 @@ def replay_account(
         if target == 1 and cycle_target is None:
             cycle_target = intent.cycle_target_quantity
         day_bars = intraday.loc[intraday.index.normalize() == execution_date.normalize()]
+        exit_proceeds = 0.0
+        exit_fees = 0.0
+        exit_time: pd.Timestamp | None = None
+        exit_quantity = 0
         for slice_number, order in enumerate(intent.orders, start=1):
             order_id = _id("ORD", decision["decision_id"], execution_date, slice_number)
             trigger: str | None = None
@@ -142,25 +146,39 @@ def replay_account(
             }
             fill_rows.append(fill)
             if order.side == "BUY":
-                open_fill = fill
-            elif open_fill is not None:
-                cost = float(open_fill["quantity"]) * float(open_fill["price"]) + float(
-                    open_fill["fees"]
-                )
-                proceeds = order.quantity * fill_price - fees
-                trade_rows.append(
-                    {
+                if open_trade is None:
+                    open_trade = {
                         "cycle_id": cycle_id,
-                        "status": "CLOSED",
-                        "entry_date": open_fill["fill_time"],
-                        "exit_date": fill_time,
-                        "quantity": order.quantity,
-                        "entry_price": open_fill["price"],
-                        "exit_price": fill_price,
-                        "net_return": proceeds / cost - 1.0,
+                        "entry_date": fill_time,
+                        "quantity": 0,
+                        "gross": 0.0,
+                        "fees": 0.0,
                     }
-                )
-                open_fill = None
+                open_trade["quantity"] = int(open_trade["quantity"]) + order.quantity
+                open_trade["gross"] = float(open_trade["gross"]) + gross
+                open_trade["fees"] = float(open_trade["fees"]) + fees
+            else:
+                exit_proceeds += gross - fees
+                exit_fees += fees
+                exit_time = fill_time
+                exit_quantity += order.quantity
+        if exit_quantity and quantity == 0 and open_trade is not None and exit_time is not None:
+            entry_quantity = int(open_trade["quantity"])
+            entry_gross = float(open_trade["gross"])
+            entry_cost = entry_gross + float(open_trade["fees"])
+            trade_rows.append(
+                {
+                    "cycle_id": cycle_id,
+                    "status": "CLOSED",
+                    "entry_date": open_trade["entry_date"],
+                    "exit_date": exit_time,
+                    "quantity": entry_quantity,
+                    "entry_price": entry_gross / entry_quantity,
+                    "exit_price": (exit_proceeds + exit_fees) / exit_quantity,
+                    "net_return": exit_proceeds / entry_cost - 1.0,
+                }
+            )
+            open_trade = None
         if quantity > 0:
             cycle_target = quantity
         if target == 0 and quantity == 0:
@@ -179,15 +197,17 @@ def replay_account(
                 "equity": cash + quantity * float(price_row["close"]),
             }
         )
-    if open_fill is not None:
+    if open_trade is not None:
+        entry_quantity = int(open_trade["quantity"])
+        entry_gross = float(open_trade["gross"])
         trade_rows.append(
             {
-                "cycle_id": open_fill["cycle_id"],
+                "cycle_id": open_trade["cycle_id"],
                 "status": "OPEN",
-                "entry_date": open_fill["fill_time"],
+                "entry_date": open_trade["entry_date"],
                 "exit_date": pd.NaT,
-                "quantity": open_fill["quantity"],
-                "entry_price": open_fill["price"],
+                "quantity": entry_quantity,
+                "entry_price": entry_gross / entry_quantity,
                 "exit_price": float("nan"),
                 "net_return": float("nan"),
             }

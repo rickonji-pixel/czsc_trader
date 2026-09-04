@@ -186,6 +186,7 @@ class PaperStore:
             """
         )
         account_schema_migrated = self._migrate_account_execution_schema()
+        self._drop_obsolete_virtual_reference_column()
         self._ensure_column("virtual_accounts", "average_cost", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "symbol", "TEXT NOT NULL DEFAULT '588080.SH'")
@@ -267,6 +268,16 @@ class PaperStore:
             ),
         )
         self._connection.commit()
+
+    def _drop_obsolete_virtual_reference_column(self) -> None:
+        columns = {
+            row[1] for row in self._connection.execute("PRAGMA table_info(virtual_accounts)")
+        }
+        if "is_futu_reference" in columns:
+            with self._connection:
+                self._connection.execute(
+                    "ALTER TABLE virtual_accounts DROP COLUMN is_futu_reference"
+                )
 
     def _migrate_account_execution_schema(self) -> bool:
         """Replace empty pre-account-centric trading tables without rewriting history."""

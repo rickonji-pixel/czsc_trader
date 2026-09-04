@@ -126,7 +126,11 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert "模拟交易控制台" in html and "审计事件" in html
         with urlopen(base + "/static/app.js", timeout=3) as response:
             app_js = response.read().decode()
+        with urlopen(base + "/static/styles.css", timeout=3) as response:
+            styles_css = response.read().decode()
         assert 'scrolling="no"' in app_js
+        assert ".chart-frame-host{height:540px;min-height:540px" in styles_css
+        assert ".chart-frame-host iframe{display:block;width:100%;height:100%" in styles_css
         assert html.index("Futu渠道") < html.index("审计事件") < html.index("账户比较")
         with urlopen(base + "/audit-events", timeout=3) as response:
             assert response.status == 200

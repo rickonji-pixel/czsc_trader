@@ -54,9 +54,9 @@ tr:last-child td{border:0}
 .comparison-select label{padding:10px 13px;border:1px solid var(--line);border-radius:8px}
 .chart-governance,.chart-message{color:var(--muted);font-size:13px;margin:-4px 0 12px}
 .chart-message{color:#ffd68d}
-.chart-frame-host{min-height:540px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#07101d}
-.chart-frame-host iframe{display:block;width:100%;height:540px;border:0;overflow:hidden;background:#07101d}
-.chart-frame-host .loading,.chart-frame-host .error{min-height:540px;display:grid;place-content:center;gap:12px}
+.chart-frame-host{height:540px;min-height:540px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#07101d}
+.chart-frame-host iframe{display:block;width:100%;height:100%;border:0;overflow:hidden;background:#07101d}
+.chart-frame-host .loading,.chart-frame-host .error{height:100%;min-height:0;display:grid;place-content:center;gap:12px}
 .toast{position:fixed;right:24px;bottom:24px;background:#183153;border:1px solid #315b91;border-radius:9px;padding:12px 16px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none}
 .toast.show{opacity:1;transform:none}
 @media(max-width:900px){.system-bar{height:auto;grid-template-columns:1fr;padding:14px 18px;gap:10px}
@@ -71,5 +71,4 @@ main{padding:14px}
 .hero{flex-direction:column}
 .decision{grid-template-columns:1fr}
 .kv{grid-template-columns:1fr}
-.chart-frame-host,.chart-frame-host iframe{min-height:540px;height:540px}
 }

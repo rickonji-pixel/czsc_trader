@@ -68,15 +68,16 @@ def _fill_markers(
     prices: pd.DataFrame,
 ) -> None:
     dated = _dated_fills(fills, prices)
-    for side, name, color, symbol, glyph, column, yshift in (
-        ("BUY", "买入成交", "#ef4444", "triangle-up", "▲", "low", -18),
-        ("SELL", "卖出成交", "#22c55e", "triangle-down", "▼", "high", 18),
+    for side, name, color, symbol in (
+        ("BUY", "买入成交", "#ef4444", "triangle-up"),
+        ("SELL", "卖出成交", "#22c55e", "triangle-down"),
     ):
         selected = dated.loc[dated["side"].eq(side)] if not dated.empty else dated
+        dates = selected["date"].tolist() if "date" in selected else []
         figure.add_trace(
             go.Scatter(
-                x=[None],
-                y=[None],
+                x=dates,
+                y=[0] * len(dates),
                 mode="markers",
                 name=name,
                 marker={
@@ -87,21 +88,9 @@ def _fill_markers(
                 },
                 hoverinfo="skip",
             ),
-            row=1,
+            row=2,
             col=1,
         )
-        for date in selected.get("date", []):
-            figure.add_annotation(
-                x=date,
-                y=float(prices.loc[date, column]),
-                text=glyph,
-                name=name,
-                showarrow=False,
-                yshift=yshift,
-                font={"color": color, "size": 10},
-                row=1,
-                col=1,
-            )
 
 
 def _signal_markers(
@@ -110,16 +99,16 @@ def _signal_markers(
     prices: pd.DataFrame,
 ) -> None:
     dated = _dated_signal_events(decisions, prices)
-    for target, name, color, symbol, glyph, column, yshift in (
-        (1, "买入信号", "#ef4444", "triangle-up-open", "△", "low", -8),
-        (0, "卖出信号", "#22c55e", "triangle-down-open", "▽", "high", 8),
+    for target, name, color, symbol in (
+        (1, "买入信号", "#ef4444", "triangle-up-open"),
+        (0, "卖出信号", "#22c55e", "triangle-down-open"),
     ):
         selected = dated.loc[dated["target_position"].eq(target)]
         dates = selected["date"].tolist()
         figure.add_trace(
             go.Scatter(
-                x=[None],
-                y=[None],
+                x=dates,
+                y=[1] * len(dates),
                 mode="markers",
                 name=name,
                 marker={
@@ -130,21 +119,9 @@ def _signal_markers(
                 },
                 hoverinfo="skip",
             ),
-            row=1,
+            row=2,
             col=1,
         )
-        for date in dates:
-            figure.add_annotation(
-                x=date,
-                y=float(prices.loc[date, column]),
-                text=glyph,
-                name=name,
-                showarrow=False,
-                yshift=yshift,
-                font={"color": color, "size": 10},
-                row=1,
-                col=1,
-            )
 
 
 def render_backtest_chart_html(
@@ -157,11 +134,11 @@ def render_backtest_chart_html(
         signal_replay.evaluation_start : signal_replay.evaluation_end
     ]
     figure = make_subplots(
-        rows=2,
+        rows=3,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.035,
-        row_heights=[0.76, 0.24],
+        vertical_spacing=0.025,
+        row_heights=[0.68, 0.10, 0.22],
     )
     figure.add_trace(
         go.Candlestick(
@@ -220,7 +197,7 @@ def render_backtest_chart_html(
             name="目标持仓",
             line={"color": "#bef264", "width": 2},
         ),
-        row=2,
+        row=3,
         col=1,
     )
     figure.add_trace(
@@ -232,7 +209,7 @@ def render_backtest_chart_html(
             name="实际持仓",
             line={"color": "#e879f9", "width": 2},
         ),
-        row=2,
+        row=3,
         col=1,
     )
     figure.update_layout(
@@ -258,7 +235,17 @@ def render_backtest_chart_html(
     )
     figure.update_yaxes(gridcolor="#23344b", zerolinecolor="#23344b")
     figure.update_yaxes(title_text="后复权价格", row=1, col=1)
-    figure.update_yaxes(title_text="持仓状态", range=[-0.1, 1.1], row=2, col=1)
+    figure.update_yaxes(
+        title_text="事件",
+        range=[-0.5, 1.5],
+        tickvals=[0, 1],
+        ticktext=["成交", "信号"],
+        showgrid=False,
+        zeroline=False,
+        row=2,
+        col=1,
+    )
+    figure.update_yaxes(title_text="持仓状态", range=[-0.1, 1.1], row=3, col=1)
     html = figure.to_html(full_html=True, include_plotlyjs=True)
     style = (
         "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;"

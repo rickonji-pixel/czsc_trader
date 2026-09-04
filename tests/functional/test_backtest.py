@@ -5,7 +5,6 @@ from pathlib import Path
 from dataclasses import replace
 
 import pandas as pd
-import pytest
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
@@ -116,23 +115,20 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
             "line": {"width": 1},
         }
         assert by_name[name]["hoverinfo"] == "skip"
-    prices = data.adjusted.daily.set_index("dt").loc["2026-01-05":"2026-09-02"]
-    annotations = layout["annotations"]
-    for name, column, shift, glyph in (
-        ("买入信号", "low", -8, "△"),
-        ("买入成交", "low", -18, "▲"),
-        ("卖出信号", "high", 8, "▽"),
-        ("卖出成交", "high", 18, "▼"),
+    assert layout["yaxis2"]["tickvals"] == [0, 1]
+    assert layout["yaxis2"]["ticktext"] == ["成交", "信号"]
+    for name, lane in (
+        ("买入信号", 1),
+        ("卖出信号", 1),
+        ("买入成交", 0),
+        ("卖出成交", 0),
     ):
         trace = by_name[name]
-        assert trace["x"] == [None]
-        markers = [item for item in annotations if item["name"] == name]
-        assert markers
-        assert all(item["text"] == glyph and item["yshift"] == shift for item in markers)
-        assert all(
-            item["y"] == pytest.approx(float(prices.loc[pd.Timestamp(item["x"]), column]))
-            for item in markers
-        )
+        assert trace["x"]
+        assert set(trace["y"]) == {lane}
+        assert trace["yaxis"] == "y2"
+    assert by_name["目标持仓"]["yaxis"] == "y3"
+    assert by_name["实际持仓"]["yaxis"] == "y3"
     details = {
         str(pd.Timestamp(day).date()): text
         for day, text in zip(

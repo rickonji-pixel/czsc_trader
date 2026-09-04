@@ -49,6 +49,9 @@
 .audit-filters input,.audit-filters select { width: 100%; margin-top: 6px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: #0b1625; color: var(--text); }
 .audit-list { display: grid; gap: 10px; }
 .audit-event { margin: 0; }
+.audit-scope { display: flex; gap: 10px; align-items: baseline; margin-top: 12px; }
+.audit-scope span { color: var(--muted); font-size: 12px; }
+.audit-scope strong { color: #cfe1f7; font-size: 14px; }
 .audit-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; color: var(--muted); font-size: 12px; }
 .link-button { appearance: none; border: 0; background: transparent; color: var(--blue); padding: 8px 0 0; cursor: pointer; }
 .button.secondary { background: transparent; }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ScopedLoader, actionsForRoute, auditCategoryLabel, auditEventLabel, auditQuery, channelOrderAccountLabel, chooseAccountId, comparisonQuery, formatBeijingTime, navigationOptions, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ScopedLoader, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, channelOrderAccountLabel, chooseAccountId, comparisonQuery, formatBeijingTime, navigationOptions, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -29,6 +29,15 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(auditCategoryLabel('OTHER'), '其他事件');
   assert.equal(auditEventLabel('DECISION_GENERATED'), '生成决策');
   assert.equal(auditEventLabel('ORDER_FILLED'), '订单成交');
+  const accounts = [{account_id: 's001-v2', name: 'S001-v2模拟账户'}];
+  assert.equal(
+    auditScopeLabel({account_id: 's001-v2', channel: 'virtual'}, accounts),
+    '虚拟账户 · S001-v2模拟账户（s001-v2）',
+  );
+  assert.equal(auditScopeLabel({account_id: null, channel: 'futu'}, accounts), 'Futu模拟渠道');
+  assert.equal(auditScopeLabel({account_id: null, channel: null}, accounts), '历史记录 · 作用域未记录');
+  assert.equal(auditSeverityLabel('INFO'), '信息');
+  assert.equal(auditOutcomeLabel('SUCCESS'), '成功');
   assert.equal(
     auditQuery({category: 'TRADING', account_id: 's001-v1', correlation_id: 'DEC 1'}),
     'category=TRADING&account_id=s001-v1&correlation_id=DEC+1',

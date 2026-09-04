@@ -1,6 +1,9 @@
 import json
+import hashlib
 import sqlite3
+import subprocess
 
+import pandas as pd
 import pytest
 
 from paper_trading_engine.store import PaperStore
@@ -47,6 +50,76 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     assert store.virtual_account("s001-v2")["quantity"] == 1000
     assert store.virtual_account("s001-v2")["cash"] == "98329.1650"
     assert store.account_fills("s001-v2")[0]["channel_id"] == "futu"
+    store.close()
+
+
+def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path):
+    from paper_trading_engine.account_chart import AccountChartService
+
+    store = PaperStore(tmp_path / "chart.db")
+    create_account(store, "s001-v2", "v2", "b")
+    store.save_account_decision(
+        "s001-v2",
+        {
+            "account_id": "s001-v2",
+            "decision_id": "DEC-1",
+            "signal_date": "2026-09-03",
+            "valid_session": "2026-09-04",
+            "action": "WAIT",
+            "target_quantity": 0,
+        },
+    )
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    dates = list(pd.bdate_range(end="2026-09-02", periods=185)) + list(
+        pd.bdate_range("2026-09-03", "2026-09-04")
+    )
+    rows = ["date,open,high,low,close,volume,amount"]
+    for index, dt in enumerate(dates):
+        close = 1 + index / 1000
+        rows.append(f"{dt.date().isoformat()},{close},{close + .01},{close - .01},{close},1,1")
+    csv_bytes = ("\n".join(rows) + "\n").encode()
+    data_file = data_dir / "588080_daily_2026.csv"
+    data_file.write_bytes(csv_bytes)
+    manifest = {
+        "symbol": "588080.SH",
+        "files": {
+            data_file.name: {
+                "frequency": "daily",
+                "sha256": hashlib.sha256(csv_bytes).hexdigest(),
+            }
+        },
+        "fetch_metadata": {"daily": {"adjustment": "hfq"}},
+    }
+    (data_dir / "588080_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    calls = []
+
+    def renderer(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, "<html>chart</html>", "")
+
+    service = AccountChartService(
+        store,
+        data_dir=data_dir,
+        cache_dir=tmp_path / "charts",
+        trader_executable="czsc-trader",
+        runner=renderer,
+    )
+    first = service.status("s001-v2")
+    assert first["status"] == "READY"
+    assert first["scope"] == {"account_id": "s001-v2", "release_id": "S001-v2"}
+    assert service.chart_path("s001-v2").read_text(encoding="utf-8") == "<html>chart</html>"
+    request = json.loads(calls[0][1]["input"])
+    assert len(request["market_data"]["bars"]) == 182
+    assert request["market_data"]["bars"][0]["date"] == dates[5].date().isoformat()
+    assert request["market_data"]["bars"][-1]["date"] == "2026-09-04"
+    assert {row["account_id"] for row in request["decisions"]} == {"s001-v2"}
+    assert calls[0][0] == ["czsc-trader", "chart", "observation", "--format", "html"]
+
+    second = service.status("s001-v2")
+    assert second["fingerprint"] == first["fingerprint"]
+    assert len(calls) == 1
     store.close()
 
     legacy = tmp_path / "unsafe-legacy.db"

@@ -21,6 +21,7 @@ from .audit import AuditRecorder
 from .advice_client import CliAdviceClient
 from .data_publisher import CliDataPublisher, seed_runtime_data
 from .account_engine import AccountEngine
+from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
 from .futu_gateway import FutuGateway
 from .store import PaperStore
@@ -225,7 +226,19 @@ def build_engine(args: argparse.Namespace):
         args.advice_executable or _default_executable(args.repo_root),
         args.repo_root,
     )
-    return PteCoordinator(AccountEngine(store, advice, audit=audit), execution, audit=audit)
+    account_chart = AccountChartService(
+        store,
+        data_dir=args.data_dir,
+        cache_dir=args.database.parent / "charts",
+        trader_executable=args.advice_executable or _default_executable(args.repo_root),
+        audit=audit,
+    )
+    return PteCoordinator(
+        AccountEngine(store, advice, audit=audit),
+        execution,
+        audit=audit,
+        account_chart=account_chart,
+    )
 
 
 def build_publisher(

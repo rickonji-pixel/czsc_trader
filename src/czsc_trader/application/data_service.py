@@ -29,7 +29,12 @@ class UpdateBacktestDataCommand:
     through: date
 
 
-def _assert_append_only(current: Path, proposed: Path) -> None:
+def _assert_append_only(
+    current: Path,
+    proposed: Path,
+    *,
+    mutable_terminal_period=None,
+) -> None:
     import pandas as pd
 
     old = pd.read_csv(current, dtype=str).fillna("")
@@ -37,9 +42,55 @@ def _assert_append_only(current: Path, proposed: Path) -> None:
     key = str(old.columns[0])
     if key not in new or old[key].duplicated().any() or new[key].duplicated().any():
         raise ValueError(f"{current.name}: invalid time key")
-    aligned = new.set_index(key).reindex(old[key])
-    if aligned.isna().any().any() or not old.set_index(key).equals(aligned):
+    immutable = old
+    if mutable_terminal_period is not None:
+        old_periods = pd.to_datetime(old[key]).dt.to_period("W-SUN")
+        new_periods = pd.to_datetime(new[key]).dt.to_period("W-SUN")
+        mutable_old = old_periods == mutable_terminal_period
+        mutable_new = new_periods == mutable_terminal_period
+        mutable_old_count = int(mutable_old.sum())
+        mutable_new_count = int(mutable_new.sum())
+        if mutable_old_count == 0 and mutable_new_count == 0:
+            pass
+        elif (
+            mutable_old_count != 1
+            or mutable_new_count != 1
+            or not bool(mutable_old.iloc[-1])
+        ):
+            raise ValueError(f"{current.name}: invalid terminal weekly roll-forward")
+        else:
+            immutable = old.loc[~mutable_old]
+    aligned = new.set_index(key).reindex(immutable[key])
+    if aligned.isna().any().any() or not immutable.set_index(key).equals(aligned):
         raise ValueError(f"{current.name}: update would mutate published rows")
+
+
+def _mutable_weekly_terminal_period(
+    current_root: Path,
+    proposed_root: Path,
+    code: str,
+):
+    """Return the current partial-week period when newly fetched daily rows extend it."""
+    import pandas as pd
+
+    def daily_dates(root: Path):
+        values = []
+        for path in root.glob(f"{code}_daily_*.csv"):
+            frame = pd.read_csv(path, usecols=[0], dtype=str)
+            values.extend(frame.iloc[:, 0].tolist())
+        return pd.DatetimeIndex(pd.to_datetime(values)).sort_values()
+
+    old_dates = daily_dates(current_root)
+    new_dates = daily_dates(proposed_root)
+    if old_dates.empty or new_dates.empty:
+        return None
+    added = new_dates[~new_dates.isin(old_dates)]
+    if added.empty or added.min() <= old_dates.max():
+        return None
+    terminal_period = old_dates.max().to_period("W-SUN")
+    if added.min().to_period("W-SUN") == terminal_period:
+        return terminal_period
+    return None
 
 
 def update_backtest_data(
@@ -73,11 +124,22 @@ def update_backtest_data(
             env_file=context.root / ".env",
         )
         proposed = [path for path in staging.glob(f"{code}_*") if path.is_file()]
+        mutable_week = _mutable_weekly_terminal_period(
+            context.backtest_data_root,
+            staging,
+            code,
+        )
         for current in context.backtest_data_root.glob(f"{code}_*.csv"):
             replacement = staging / current.name
             if not replacement.is_file():
                 raise ValueError(f"{current.name}: update dropped a published file")
-            _assert_append_only(current, replacement)
+            _assert_append_only(
+                current,
+                replacement,
+                mutable_terminal_period=(
+                    mutable_week if "_weekly_" in current.name else None
+                ),
+            )
         context.backtest_data_root.mkdir(parents=True, exist_ok=True)
         for source in proposed:
             destination = context.backtest_data_root / source.name

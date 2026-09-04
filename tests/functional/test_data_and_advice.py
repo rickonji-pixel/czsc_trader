@@ -9,6 +9,7 @@ import pytest
 from czsc_trader import market_data_prep
 from czsc_trader.application.advice_service import build_advice_v4
 from czsc_trader.application.context import RepositoryContext
+from czsc_trader.application.data_service import _assert_append_only
 from czsc_trader.backtesting.datasets import load_replay_data
 from czsc_trader.backtesting.strategy_source import resolve_registered_strategy
 from czsc_trader.baselines import resolve_baseline
@@ -17,6 +18,53 @@ from czsc_trader.execution_policy import floor_to_tick, simulate_limit_policy
 from czsc_trader.execution_intent import decide_order_intent
 
 from functional_support import invoke_main, vendor_frame
+
+
+def test_backtest_update_only_allows_current_week_roll_forward(
+    tmp_path: Path,
+) -> None:
+    current = tmp_path / "588080_weekly_2026.csv"
+    proposed = tmp_path / "proposed.csv"
+    pd.DataFrame(
+        [
+            {"date": "2026-08-28", "close": "1.70"},
+            {"date": "2026-09-02", "close": "1.67"},
+        ]
+    ).to_csv(current, index=False)
+    pd.DataFrame(
+        [
+            {"date": "2026-08-28", "close": "1.70"},
+            {"date": "2026-09-04", "close": "1.75"},
+        ]
+    ).to_csv(proposed, index=False)
+
+    with pytest.raises(ValueError, match="mutate published rows"):
+        _assert_append_only(current, proposed)
+    _assert_append_only(
+        current,
+        proposed,
+        mutable_terminal_period=pd.Period("2026-09-02", freq="W-SUN"),
+    )
+
+    historical = tmp_path / "588080_weekly_2025.csv"
+    pd.DataFrame([{"date": "2025-12-31", "close": "1.50"}]).to_csv(
+        historical, index=False
+    )
+    _assert_append_only(
+        historical,
+        historical,
+        mutable_terminal_period=pd.Period("2026-09-02", freq="W-SUN"),
+    )
+
+    changed_history = pd.read_csv(proposed, dtype=str)
+    changed_history.loc[0, "close"] = "1.71"
+    changed_history.to_csv(proposed, index=False)
+    with pytest.raises(ValueError, match="mutate published rows"):
+        _assert_append_only(
+            current,
+            proposed,
+            mutable_terminal_period=pd.Period("2026-09-02", freq="W-SUN"),
+        )
 
 
 def test_replay_dataset_is_explicit_cutoff_aligned_and_deterministic(

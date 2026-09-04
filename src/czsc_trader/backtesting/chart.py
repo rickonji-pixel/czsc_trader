@@ -28,9 +28,9 @@ def _fill_markers(
         dated = dated.loc[dated["date"].isin(prices.index)]
     span = float(prices["high"].max() - prices["low"].min())
     gap = max(span * 0.025, float(prices["close"].median()) * 0.0025)
-    for side, name, color, symbol, column, offset in (
-        ("BUY", "策略买入", "#ef4444", "triangle-up", "low", -gap),
-        ("SELL", "策略卖出", "#22c55e", "triangle-down", "high", gap),
+    for side, name, color, column, offset in (
+        ("BUY", "买入成交", "#ef4444", "low", -2 * gap),
+        ("SELL", "卖出成交", "#22c55e", "high", 2 * gap),
     ):
         selected = dated.loc[dated["side"].eq(side)] if not dated.empty else dated
         dates = selected.get("date", [])
@@ -47,13 +47,56 @@ def _fill_markers(
                 mode="markers",
                 name=name,
                 customdata=custom,
-                marker={"color": color, "symbol": symbol, "size": 14},
+                marker={
+                    "color": color,
+                    "symbol": "diamond-open",
+                    "size": 7,
+                    "line": {"width": 1},
+                },
                 hovertemplate=(
                     "%{x|%Y-%m-%d}<br>信号日 %{customdata[0]}"
                     "<br>数量 %{customdata[1]:,.0f}<br>成交价 %{customdata[2]:.3f}"
                     "<br>费用 %{customdata[3]:.2f}<br>触发 %{customdata[4]}"
                     f"<extra>{name}</extra>"
                 ),
+            ),
+            row=1,
+            col=1,
+        )
+
+
+def _signal_markers(
+    figure: go.Figure,
+    decisions: pd.DataFrame,
+    prices: pd.DataFrame,
+) -> None:
+    dated = decisions.copy().sort_values("signal_date")
+    dated["date"] = pd.to_datetime(dated["signal_date"]).dt.normalize()
+    changed = dated["target_position"].ne(dated["target_position"].shift())
+    dated = dated.loc[changed & dated["date"].isin(prices.index)]
+    span = float(prices["high"].max() - prices["low"].min())
+    gap = max(span * 0.025, float(prices["close"].median()) * 0.0025)
+    for target, name, color, symbol, column, offset in (
+        (1, "买入信号", "#ef4444", "triangle-up-open", "low", -gap),
+        (0, "卖出信号", "#22c55e", "triangle-down-open", "high", gap),
+    ):
+        selected = dated.loc[dated["target_position"].eq(target)]
+        dates = selected["date"].tolist()
+        y = [float(prices.loc[date, column]) + offset for date in dates]
+        figure.add_trace(
+            go.Scatter(
+                x=dates,
+                y=y,
+                mode="markers",
+                name=name,
+                text=selected["decision_id"].tolist(),
+                marker={
+                    "color": color,
+                    "symbol": symbol,
+                    "size": 7,
+                    "line": {"width": 1},
+                },
+                hovertemplate="%{x|%Y-%m-%d}<br>%{text}<extra>" + name + "</extra>",
             ),
             row=1,
             col=1,
@@ -116,13 +159,14 @@ def render_backtest_chart_html(
             y=pens.get("price", []),
             mode="lines+markers",
             name="CZSC笔",
-            line={"color": "#38bdf8", "width": 2},
-            marker={"size": 5},
+            line={"color": "#38bdf8", "width": 1},
+            marker={"size": 3},
             hovertemplate="%{x|%Y-%m-%d}<br>笔端点 %{y:.3f}<extra>CZSC笔</extra>",
         ),
         row=1,
         col=1,
     )
+    _signal_markers(figure, result.decisions, prices)
     _fill_markers(figure, result.fills, prices)
 
     account = result.account_daily.set_index("date").loc[prices.index]
@@ -151,7 +195,10 @@ def render_backtest_chart_html(
         col=1,
     )
     figure.update_layout(
-        title=f"{result.identity.reference} 确定性回测",
+        title=(
+            f"{result.identity.reference} 确定性回测｜"
+            f"{prices.index.min().date()}—{prices.index.max().date()}"
+        ),
         height=720,
         template="plotly_dark",
         paper_bgcolor="#07101d",

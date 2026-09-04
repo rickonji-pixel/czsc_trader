@@ -28,6 +28,17 @@ METRIC_KEYS = {
 }
 
 
+def _plotly_payload(html: str) -> tuple[list[dict], dict]:
+    source = html.rsplit("Plotly.newPlot(", 1)[1].lstrip()
+    decoder = json.JSONDecoder()
+    _, consumed = decoder.raw_decode(source)
+    source = source[consumed:].lstrip().removeprefix(",").lstrip()
+    traces, consumed = decoder.raw_decode(source)
+    source = source[consumed:].lstrip().removeprefix(",").lstrip()
+    layout, _ = decoder.raw_decode(source)
+    return traces, layout
+
+
 def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     functional_repo: Path,
 ) -> None:
@@ -85,8 +96,36 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert METRIC_KEYS < set(summary.metrics)
     assert summary.metrics["closed_trades"] == 7
     chart = (summary.output_dir / "chart.html").read_text(encoding="utf-8")
-    for trace_name in ("日K", "CZSC笔", "目标持仓", "实际持仓", "策略买入", "策略卖出"):
-        assert json.dumps(trace_name)[1:-1] in chart
+    traces, layout = _plotly_payload(chart)
+    by_name = {trace["name"]: trace for trace in traces}
+    assert layout["title"]["text"] == "S001-v1 确定性回测｜2026-01-05—2026-09-02"
+    assert by_name["CZSC笔"]["line"]["width"] == 1
+    assert by_name["CZSC笔"]["marker"]["size"] == 3
+    for name, symbol, color in (
+        ("买入信号", "triangle-up-open", "#ef4444"),
+        ("卖出信号", "triangle-down-open", "#22c55e"),
+        ("买入成交", "diamond-open", "#ef4444"),
+        ("卖出成交", "diamond-open", "#22c55e"),
+    ):
+        assert by_name[name]["marker"] == {
+            "color": color,
+            "size": 7,
+            "symbol": symbol,
+            "line": {"width": 1},
+        }
+    prices = data.adjusted.daily.set_index("dt")
+    for name, column, compare in (
+        ("买入信号", "low", lambda marker, bar: marker < bar),
+        ("买入成交", "low", lambda marker, bar: marker < bar),
+        ("卖出信号", "high", lambda marker, bar: marker > bar),
+        ("卖出成交", "high", lambda marker, bar: marker > bar),
+    ):
+        trace = by_name[name]
+        assert trace["x"]
+        assert all(
+            compare(marker, float(prices.loc[pd.Timestamp(day), column]))
+            for day, marker in zip(trace["x"], trace["y"], strict=True)
+        )
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(

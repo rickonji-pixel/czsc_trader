@@ -229,15 +229,15 @@ git commit -m "feat: expose PTE audit event console"
 
 **Interfaces:** None.
 
-- [ ] **Step 1: Document event semantics, API filters, UI entry, UTC storage/Beijing rendering, retention, and failure behavior**
+- [x] **Step 1: Document event semantics, API filters, UI entry, UTC storage/Beijing rendering, retention, and failure behavior**
 
-- [ ] **Step 2: Run exact PTE collection and all seven Python scenarios**
+- [x] **Step 2: Run exact PTE collection and all seven Python scenarios**
 
 Run: `.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests --collect-only -q`
 
 Expected: exactly seven tests.
 
-- [ ] **Step 3: Run PTE JavaScript and all four Python package suites**
+- [x] **Step 3: Run PTE JavaScript and all four Python package suites**
 
 ```powershell
 node --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
@@ -246,7 +246,7 @@ node --test packages\paper_trading_engine\tests\functional\console_state.test.mj
 
 Expected: one JavaScript test and twenty Python tests pass.
 
-- [ ] **Step 4: Run archive, Ruff, compile, dependency, and diff checks**
+- [x] **Step 4: Run archive, Ruff, compile, dependency, and diff checks**
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe archive validate --all --repo-root .
@@ -258,7 +258,7 @@ git diff --check
 
 Expected: 56 archives validate; all other commands exit zero.
 
-- [ ] **Step 5: Confirm scope and commit delivery**
+- [x] **Step 5: Confirm scope and commit delivery**
 
 Confirm no files under `configs/`, `experiments/`, `data/`, `outputs/`, or `state/` changed, then commit:
 

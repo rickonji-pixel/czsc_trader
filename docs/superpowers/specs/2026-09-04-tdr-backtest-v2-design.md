@@ -75,6 +75,7 @@ TDR advice 和 Backtest v2 共用限价计算、tick 取整、目标数量计算
 ```text
 czsc_trader/
 ├── strategies/          # SM正式策略、版本、资格和证据
+│   └── dependencies/    # 既有冻结版本引用的只读历史依赖
 ├── experiments/         # 研究协议、候选、区间和实验产物
 ├── data/
 │   ├── raw/             # 当前冻结研究池
@@ -90,10 +91,12 @@ czsc_trader/
 | --- | --- |
 | `configs/strategies` | 迁移到根目录 `strategies/` |
 | `configs/backtest_windows` | 新代码不再读取；历史引用按审计需要随实验保留或归档 |
-| `configs/rule_baselines` | 旧引擎退役后删除；必要历史证据进入 `archive/legacy/` 或对应实验 |
+| `configs/rule_baselines` | 旧引擎退役后删除；S001-v1/v2 所需原始依赖迁入 `strategies/dependencies/legacy_rule_baselines/`，其余历史证据进入 `archive/legacy/` 或对应实验 |
 | `configs/execution_policies` | 执行规则已进入策略快照；必要历史证据归档 |
 
 迁移前必须扫描全部代码、测试、文档和实验引用。仍承担历史证据职责的文件先归档，再删除 `configs`。
+
+S001-v1/v2 的冻结 payload 仍通过 `baseline_20260826` 取得 warmup 权重。迁移不得修改这两个版本文件及其发布哈希。SM 解析适配器从只读历史依赖生成完整 `StrategySnapshot`，并把依赖哈希纳入快照内容哈希。新建策略版本必须直接携带 warmup 权重，不再引用历史基线。
 
 ## 6. 数据设计
 

@@ -329,6 +329,7 @@ def resolve_baseline(
     version: str | None = None,
     *,
     symbol: str | None = None,
+    repository_root: Path | None = None,
 ) -> ResolvedBaseline:
     """Resolve and verify one immutable baseline."""
     root = Path(root)
@@ -381,8 +382,8 @@ def resolve_baseline(
     elif strategy == "czsc_four_layer":
         if not source_path or not source_digest:
             raise ValueError(f"{selected_version}: four-layer source identity is missing")
-        repository_root = root.resolve().parent.parent
-        source = repository_root / source_path
+        source_root = Path(repository_root).resolve() if repository_root else root.resolve().parent.parent
+        source = source_root / source_path
         if not source.is_file():
             raise ValueError(f"{selected_version}: missing four-layer source {source}")
         if canonical_json_sha256(source) != source_digest:
@@ -392,13 +393,17 @@ def resolve_baseline(
         champion = payload.get("champion")
         if not isinstance(champion, dict):
             raise ValueError("four-layer baseline champion is missing")
-        archived = resolve_baseline(root, str(champion.get("version", "")))
+        archived = resolve_baseline(
+            root,
+            str(champion.get("version", "")),
+            repository_root=source_root,
+        )
         rule, factor_names, factor_weights = _parse_four_layer(payload, archived)
     elif strategy == "czsc_regime_weight":
         if not source_path or not source_digest:
             raise ValueError(f"{selected_version}: regime-weight source identity is missing")
-        repository_root = root.resolve().parent.parent
-        source = repository_root / source_path
+        source_root = Path(repository_root).resolve() if repository_root else root.resolve().parent.parent
+        source = source_root / source_path
         if not source.is_file():
             raise ValueError(f"{selected_version}: missing regime-weight source {source}")
         if canonical_json_sha256(source) != source_digest:
@@ -409,7 +414,11 @@ def resolve_baseline(
         parent = payload.get("baseline")
         if not isinstance(parent, dict):
             raise ValueError("regime-weight parent baseline is missing")
-        base = resolve_baseline(root, str(parent.get("version", "")))
+        base = resolve_baseline(
+            root,
+            str(parent.get("version", "")),
+            repository_root=source_root,
+        )
         (
             rule,
             factor_names,
@@ -450,6 +459,7 @@ def resolve_strategy_payload(
     release_id: str,
     release_hash: str,
     symbol: str,
+    repository_root: Path | None = None,
 ) -> ResolvedBaseline:
     """Parse a frozen Strategy Manager payload without creating another baseline."""
     rule_payload = strategy_payload.get("rule")
@@ -464,7 +474,11 @@ def resolve_strategy_payload(
         parent = rule_payload.get("baseline")
         if not isinstance(parent, dict):
             raise ValueError("regime strategy parent baseline is missing")
-        base = resolve_baseline(Path(baseline_root), str(parent.get("version", "")))
+        base = resolve_baseline(
+            Path(baseline_root),
+            str(parent.get("version", "")),
+            repository_root=repository_root,
+        )
         (
             rule,
             factor_names,
@@ -478,7 +492,11 @@ def resolve_strategy_payload(
         champion = rule_payload.get("champion")
         if not isinstance(champion, dict):
             raise ValueError("four-layer strategy champion is missing")
-        base = resolve_baseline(Path(baseline_root), str(champion.get("version", "")))
+        base = resolve_baseline(
+            Path(baseline_root),
+            str(champion.get("version", "")),
+            repository_root=repository_root,
+        )
         rule, factor_names, factor_weights = _parse_four_layer(rule_payload, base)
         strategy_kind = "czsc_four_layer"
     else:

@@ -18,6 +18,11 @@ def functional_repo(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     shutil.copytree(REPO_ROOT / "configs", root / "configs")
+    shutil.copytree(REPO_ROOT / "configs" / "strategies", root / "strategies")
+    shutil.copytree(
+        REPO_ROOT / "configs" / "rule_baselines",
+        root / "strategies" / "dependencies" / "legacy_rule_baselines",
+    )
     raw_dir = root / "data" / "raw"
     raw_dir.mkdir(parents=True)
     for source in (REPO_ROOT / "data" / "raw").glob("588080*"):

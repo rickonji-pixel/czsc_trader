@@ -37,7 +37,7 @@
 
 **Interfaces:**
 - Produces: `StrategyIdentity`, `StrategySnapshot`, `resolve_registered_strategy(context, strategy_id, version)`, and `resolve_candidate_snapshot(candidate_id, strategy_payload, content_hash, source)`.
-- Consumes: `strategy_manager.StrategyRegistry`, `czsc_trader.baselines.resolve_strategy_payload` during the migration only.
+- Consumes: `strategy_manager.StrategyRegistry` and the read-only legacy dependency resolver for already frozen S001-v1/v2.
 
 - [ ] **Step 1: Write failing functional tests for both strategy sources**
 
@@ -81,7 +81,7 @@ class StrategySnapshot:
     resolved_rule: ResolvedBaseline
 ```
 
-Registered resolution validates the SM release hash but does not call `assert_deployable`. Candidate resolution requires a caller-provided content hash and complete strategy payload.
+Registered resolution validates the SM release hash but does not call `assert_deployable`. For immutable S001-v1/v2, it resolves `baseline_20260826` from `strategies/dependencies/legacy_rule_baselines/` and includes that dependency hash in the snapshot content hash. Candidate resolution requires a caller-provided content hash and complete strategy payload. New strategy versions must embed warmup weights and cannot introduce legacy baseline references.
 
 - [ ] **Step 4: Move the default SM storage path in repository context**
 
@@ -406,6 +406,7 @@ Commit: `feat: expose backtest v2 CLI`
 
 **Files:**
 - Move: `configs/strategies/` to `strategies/`
+- Move: S001-v1/v2 required baseline bytes to `strategies/dependencies/legacy_rule_baselines/`
 - Modify: `src/czsc_trader/application/context.py`
 - Modify: `src/czsc_trader/application/advice_service.py`
 - Modify: `src/czsc_trader/application/strategy_service.py`
@@ -432,7 +433,7 @@ Expected: FAIL where code still reads `configs`.
 
 - [ ] **Step 3: Move SM assets and update all consumers**
 
-Use `git mv` for tracked strategy files. Replace legacy payload resolution inside current candidate evaluation with the Task 1 snapshot adapter while preserving experiment artifacts and hashes.
+Use `git mv` for tracked strategy files. Preserve the exact `baseline_20260826` bytes and registry identity under the read-only strategy dependency directory. Replace legacy payload resolution inside current candidate evaluation with the Task 1 snapshot adapter while preserving experiment artifacts and hashes.
 
 - [ ] **Step 4: Audit remaining production references**
 

@@ -81,21 +81,30 @@ class RuntimeScheduler:
                     "next_retry": (now + timedelta(seconds=delay)).isoformat(),
                 })
             if count == 1:
-                self.store.add_event(
-                    "SCHEDULER_OPERATION_FAILED",
-                    {"operation": name, "error": str(exc), "failure_count": count,
-                     "first_at": now.isoformat(), "retry_after_seconds": delay},
-                )
+                details = {"operation": name, "error": str(exc), "failure_count": count,
+                           "first_at": now.isoformat(), "retry_after_seconds": delay}
+                if self.audit is not None:
+                    self.audit.record(
+                        "SCHEDULER_OPERATION_FAILED", source="scheduler", outcome="FAILURE",
+                        actor_type="SCHEDULER", details=details,
+                    )
+                else:
+                    self.store.add_event("SCHEDULER_OPERATION_FAILED", details)
             return False
         else:
             if name in self._failures:
                 previous = self._failures.pop(name)
-                self.store.add_event(
-                    "SCHEDULER_OPERATION_RECOVERED",
-                    {"operation": name, "previous_error": previous["fingerprint"],
-                     "failure_count": previous["count"], "first_at": previous["first_at"].isoformat(),
-                     "last_at": previous["last_at"].isoformat()},
-                )
+                details = {"operation": name, "previous_error": previous["fingerprint"],
+                           "failure_count": previous["count"],
+                           "first_at": previous["first_at"].isoformat(),
+                           "last_at": previous["last_at"].isoformat()}
+                if self.audit is not None:
+                    self.audit.record(
+                        "SCHEDULER_OPERATION_RECOVERED", source="scheduler",
+                        actor_type="SCHEDULER", details=details,
+                    )
+                else:
+                    self.store.add_event("SCHEDULER_OPERATION_RECOVERED", details)
             clear = getattr(self.store, "clear_operation_failure", None)
             if clear is not None:
                 clear(name)
@@ -165,5 +174,12 @@ class RuntimeScheduler:
             try:
                 self.tick(datetime.now())
             except Exception as exc:
-                self.store.add_event("SCHEDULER_CYCLE_FAILED", {"error": str(exc)})
+                details = {"error": str(exc), "error_type": type(exc).__name__}
+                if self.audit is not None:
+                    self.audit.record(
+                        "SCHEDULER_CYCLE_FAILED", source="scheduler", outcome="FAILURE",
+                        actor_type="SCHEDULER", details=details,
+                    )
+                else:
+                    self.store.add_event("SCHEDULER_CYCLE_FAILED", details)
             stopped.wait(0.5)

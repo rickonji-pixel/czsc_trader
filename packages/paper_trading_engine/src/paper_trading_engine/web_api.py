@@ -4,16 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from .audit import AuditCategory, AuditOutcome, AuditSeverity
 from .channel_binding import load_channel_binding
-
-
-SYSTEM_EVENT_TYPES = {
-    "DATA_PUBLICATION_FAILED",
-    "DATA_PUBLISHED",
-    "SCHEDULER_OPERATION_FAILED",
-    "SCHEDULER_OPERATION_RECOVERED",
-    "SCHEDULER_CYCLE_FAILED",
-}
 
 
 class ResourceNotFound(KeyError):
@@ -46,8 +38,48 @@ class PteWebApi:
             "alerts": alerts,
             "events": [
                 event for event in self.store.recent_events(200)
-                if event["event_type"] in SYSTEM_EVENT_TYPES
+                if event["category"] == AuditCategory.SYSTEM
             ],
+        }
+
+    def audit_events(self, filters: dict[str, str]) -> dict[str, object]:
+        allowed = {
+            "category", "event_type", "severity", "outcome", "account_id",
+            "strategy_id", "channel", "decision_id", "order_id", "correlation_id",
+            "before_id", "limit",
+        }
+        unknown = sorted(set(filters) - allowed)
+        if unknown:
+            raise ValueError(f"unknown audit filter: {unknown[0]}")
+        enum_filters = {
+            "category": AuditCategory,
+            "severity": AuditSeverity,
+            "outcome": AuditOutcome,
+        }
+        for name, enum_type in enum_filters.items():
+            value = filters.get(name)
+            if value:
+                try:
+                    enum_type(value)
+                except ValueError as exc:
+                    raise ValueError(f"invalid audit {name}: {value}") from exc
+        query = dict(filters)
+        for name in ("before_id", "limit"):
+            if name in query:
+                try:
+                    query[name] = int(query[name])
+                except ValueError as exc:
+                    raise ValueError(f"audit event {name} must be an integer") from exc
+        events = self.store.query_audit_events(**query)
+        limit = int(query.get("limit", 50))
+        return {
+            "scope": {"resource": "audit_events", **{
+                key: value for key, value in filters.items()
+                if key not in {"before_id", "limit"}
+            }},
+            "as_of": _now(),
+            "events": events,
+            "next_before_id": events[-1]["id"] if len(events) == limit else None,
         }
 
     def virtual_accounts(self) -> dict[str, object]:
@@ -85,10 +117,7 @@ class PteWebApi:
             "cycle_target", "paused", "observation_start", "last_settlement_session", "health",
             "last_error", "created_at", "updated_at",
         }
-        events = [
-            event for event in self.store.recent_events(200)
-            if event.get("payload", {}).get("account_id") == account_id
-        ]
+        events = self.store.query_audit_events(account_id=account_id, limit=200)
         return {
             "scope": {"account_id": account_id, "strategy_id": strategy_id,
                       "release_id": release_id, "release_hash": status.get("release_hash")},
@@ -108,11 +137,7 @@ class PteWebApi:
             raise ResourceNotFound(channel)
         status = self.channel.status()
         binding = load_channel_binding(self.store)
-        events = [
-            event for event in self.store.recent_events(200)
-            if event.get("payload", {}).get("channel") == "futu"
-            or event["event_type"].startswith(("ORDER_", "FILL_", "CANCEL_", "CHANNEL_"))
-        ]
+        events = self.store.query_audit_events(channel="futu", limit=200)
         return {
             "scope": {"channel": "futu", "account_type": "broker_simulation"},
             "as_of": _now(), "binding": None if binding is None else binding.to_dict(),

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ScopedLoader, actionsForRoute, channelOrderAccountLabel, chooseAccountId, comparisonQuery, formatBeijingTime, navigationOptions, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ScopedLoader, actionsForRoute, auditCategoryLabel, auditEventLabel, auditQuery, channelOrderAccountLabel, chooseAccountId, comparisonQuery, formatBeijingTime, navigationOptions, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
   assert.deepEqual(parseRoute('/channels/futu'), {page: 'channel', channel: 'futu'});
   assert.deepEqual(parseRoute('/comparison'), {page: 'comparison'});
+  assert.deepEqual(parseRoute('/audit-events'), {page: 'audit'});
   const loader = new ScopedLoader();
   const oldRequest = loader.begin('baseline-143');
   const newRequest = loader.begin('s001-v2');
@@ -23,4 +24,12 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.deepEqual(navigationOptions('s001-v1'), {showLoading: false, forceRender: false});
   assert.equal(channelOrderAccountLabel({}), '历史未记录');
   assert.equal(formatBeijingTime('2026-09-03T11:00:11.806715+00:00'), '2026-09-03 19:00:11');
+  assert.equal(auditCategoryLabel('STRATEGY'), '策略事件');
+  assert.equal(auditCategoryLabel('OTHER'), '其他事件');
+  assert.equal(auditEventLabel('DECISION_GENERATED'), '生成决策');
+  assert.equal(auditEventLabel('ORDER_FILLED'), '订单成交');
+  assert.equal(
+    auditQuery({category: 'TRADING', account_id: 's001-v1', correlation_id: 'DEC 1'}),
+    'category=TRADING&account_id=s001-v1&correlation_id=DEC+1',
+  );
 });

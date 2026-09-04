@@ -16,6 +16,7 @@ from threading import Event, Thread
 import time
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 from .audit import AuditRecorder
 from .advice_client import CliAdviceClient
@@ -166,7 +167,11 @@ def build_engine(args: argparse.Namespace):
             symbol=args.symbol, host=args.opend_host, port=args.opend_port, audit=audit
         )
     except Exception as exc:
-        store.add_event("CHANNEL_INITIALIZATION_FAILED", {"error": str(exc)})
+        audit.record(
+            "DEPENDENCY_DEGRADED", source="cli", outcome="FAILURE",
+            actor_type="EXTERNAL", actor_id="futu", channel="futu",
+            details={"service": "futu", "operation": "initialize", "error": str(exc)},
+        )
         channel = UnavailableChannel(store, args.symbol, exc)
     else:
         binding = migrate_channel_binding(store)
@@ -227,7 +232,7 @@ def build_engine(args: argparse.Namespace):
         store.rename_virtual_account("s001-v2", "s001-v2", "S001-v2模拟账户")
     except KeyError:
         pass
-    return PteCoordinator(channel, VirtualAccountEngine(store, advice, audit=audit))
+    return PteCoordinator(channel, VirtualAccountEngine(store, advice, audit=audit), audit=audit)
 
 
 def build_publisher(
@@ -427,13 +432,21 @@ def main(
             try:
                 virtual.refresh_from_data(date.today(), args.data_dir, args.symbol)
             except Exception as exc:
-                engine.store.add_event("VIRTUAL_STARTUP_FAILED", {"error": str(exc)})
+                AuditRecorder(engine.store).record(
+                    "VIRTUAL_ACCOUNT_FAILED", source="cli", outcome="FAILURE",
+                    channel="virtual", details={
+                        "operation": "startup_refresh", "error": str(exc),
+                        "error_type": type(exc).__name__,
+                    },
+                )
         if args.action == "once":
             result = engine.refresh()
             _write({"status": "PASS", "command": "pte.once", "result": result})
             return 0
         stopped = Event()
         control_token = _ensure_control_token(engine.store)
+        audit = AuditRecorder(engine.store)
+        instance_id = uuid4().hex
         server_holder = {}
 
         def graceful_restart():
@@ -444,12 +457,12 @@ def main(
         engine.refresh()
         server = create_server(
             engine, host=args.host, port=args.port, control_token=control_token,
-            restart_callback=graceful_restart,
+            restart_callback=graceful_restart, instance_id=instance_id,
         )
         server_holder["server"] = server
         scheduler = RuntimeScheduler(
             engine,
-            build_publisher(args, AuditRecorder(engine.store)),
+            build_publisher(args, audit),
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,
@@ -458,10 +471,14 @@ def main(
             virtual_refresh=lambda session: engine.virtual.refresh_from_data(
                 session, args.data_dir, args.symbol
             ),
-            audit=AuditRecorder(engine.store),
+            audit=audit,
         )
         worker = Thread(target=scheduler.run, args=(stopped,), name="pte-scheduler", daemon=True)
         worker.start()
+        audit.record(
+            "SERVICE_STARTED", source="cli", actor_type="SYSTEM",
+            actor_id=instance_id, details={"host": args.host, "port": server.server_port},
+        )
         sys.stderr.write(f"PTE listening on http://{args.host}:{server.server_port}\n")
         try:
             server.serve_forever()
@@ -469,6 +486,10 @@ def main(
             stopped.set()
             worker.join(timeout=30.0)
             server.server_close()
+            audit.record(
+                "SERVICE_STOPPED", source="cli", actor_type="SYSTEM",
+                actor_id=instance_id,
+            )
         return 0
     except KeyboardInterrupt:
         return 130

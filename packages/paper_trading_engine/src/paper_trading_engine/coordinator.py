@@ -2,6 +2,8 @@
 
 from datetime import date
 
+from .audit import AuditRecorder
+
 
 class UnavailableChannel:
     """Channel-shaped degraded mode used when the Futu adapter cannot initialize."""
@@ -46,10 +48,11 @@ class UnavailableChannel:
 
 
 class PteCoordinator:
-    def __init__(self, channel, virtual) -> None:
+    def __init__(self, channel, virtual, audit: AuditRecorder | None = None) -> None:
         self.channel = channel
         self.virtual = virtual
         self.store = channel.store
+        self.audit = audit or AuditRecorder(self.store)
         initial = getattr(channel, "initial_error", None)
         self._channel_errors: dict[str, str] = {} if initial is None else {"initialization": initial}
 
@@ -66,7 +69,11 @@ class PteCoordinator:
         try:
             channel = self._call("refresh", self.channel.refresh)
         except Exception as exc:
-            self.store.add_event("CHANNEL_REFRESH_FAILED", {"error": str(exc)})
+            self.audit.record(
+                "DEPENDENCY_DEGRADED", source="coordinator", outcome="FAILURE",
+                actor_type="EXTERNAL", actor_id="futu", channel="futu",
+                details={"service": "futu", "operation": "refresh", "error": str(exc)},
+            )
             channel = self.channel.status()
         return self._combined(channel)
 
@@ -126,10 +133,23 @@ class PteCoordinator:
     def resume(self): return self.channel.resume()
     def issue_cancel_token(self, channel_order_id): return self.channel.issue_cancel_token(channel_order_id)
     def confirm_cancel(self, channel_order_id, token): return self.channel.confirm_cancel(channel_order_id, token)
-    def pause_virtual(self, account_id): return self.store.set_virtual_paused(account_id, True)
-    def resume_virtual(self, account_id): return self.store.set_virtual_paused(account_id, False)
+    def _set_virtual_paused(self, account_id, paused):
+        account = self.store.set_virtual_paused(account_id, paused)
+        self.audit.record(
+            "ACCOUNT_PAUSED" if paused else "ACCOUNT_RESUMED",
+            source="web.control", actor_type="OPERATOR", account_id=account_id,
+            strategy_id=account.get("strategy_id"),
+            strategy_version=account.get("strategy_version"),
+            release_hash=account.get("release_hash"), channel="virtual",
+        )
+        return account
+    def pause_virtual(self, account_id): return self._set_virtual_paused(account_id, True)
+    def resume_virtual(self, account_id): return self._set_virtual_paused(account_id, False)
     def begin_shutdown(self):
-        self.store.add_event("PTE_RESTART_REQUESTED", {"channel": "futu"})
+        self.audit.record(
+            "RESTART_REQUESTED", source="web.control", actor_type="OPERATOR",
+            channel="futu",
+        )
         self.channel.begin_shutdown()
         self.virtual.begin_shutdown()
     def close(self): return self.channel.close()

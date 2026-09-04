@@ -49,8 +49,9 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
         scheduler.tick(value)
     assert publisher.calls == 3
     assert store.values["last_data_publish_date"] == "2026-09-02"
-    assert [kind for kind, _ in store.events].count("SCHEDULER_OPERATION_FAILED") == 1
-    assert "SCHEDULER_OPERATION_RECOVERED" in [kind for kind, _ in store.events]
+    event_types = [event["event_type"] for event in store.audit_events]
+    assert event_types.count("SCHEDULER_OPERATION_FAILED") == 1
+    assert "SCHEDULER_OPERATION_RECOVERED" in event_types
     assert {event["event_type"] for event in store.audit_events} >= {
         "MARKET_DATA_PUBLICATION_REQUESTED",
         "MARKET_DATA_PUBLICATION_FAILED",
@@ -94,4 +95,5 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
     external = cli_store.audit_events[-1]
     assert external["event_type"] == "EXTERNAL_CALL_SUCCEEDED"
     assert external["details"]["service"] == "trader"
+    assert external["details"]["upstream_service"] == "tushare"
     assert external["details"]["operation"] == "data.prepare"

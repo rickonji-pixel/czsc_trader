@@ -74,9 +74,13 @@ def create_server(
                     self._json(200, api.channel_snapshot("futu"))
                 elif path == "/api/comparison":
                     self._json(200, api.comparison(parse_qs(parsed.query).get("account_id", [])))
+                elif path == "/api/audit-events":
+                    query = parse_qs(parsed.query, keep_blank_values=True)
+                    filters = {key: values[-1] for key, values in query.items()}
+                    self._json(200, api.audit_events(filters))
                 elif path.startswith("/static/"):
                     self._resource(path.removeprefix("/static/"))
-                elif path == "/" or path == "/comparison" or path.startswith("/accounts/") or path == "/channels/futu":
+                elif path in {"/", "/comparison", "/audit-events", "/channels/futu"} or path.startswith("/accounts/"):
                     self._resource("index.html")
                 else:
                     self._json(404, {"error": "not found"})

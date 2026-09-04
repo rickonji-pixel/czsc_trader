@@ -196,23 +196,23 @@ git commit -m "feat: audit PTE trading lifecycle"
 - Produces: `GET /api/audit-events` with `events` and `next_before_id`.
 - Produces: `/audit-events` browser route.
 
-- [ ] **Step 1: Add failing HTTP assertions for category/scope/correlation filters, cursor limits, unknown values, and read-only behavior**
+- [x] **Step 1: Add failing HTTP assertions for category/scope/correlation filters, cursor limits, unknown values, and read-only behavior**
 
-- [ ] **Step 2: Add failing JS assertions for route parsing, Chinese labels, Beijing timestamps, formatted details, filters, and correlation navigation**
+- [x] **Step 2: Add failing JS assertions for route parsing, Chinese labels, Beijing timestamps, formatted details, filters, and correlation navigation**
 
-- [ ] **Step 3: Wire one shared recorder into runtime components and record service/control lifecycle events**
+- [x] **Step 3: Wire one shared recorder into runtime components and record service/control lifecycle events**
 
 The build path creates one recorder from the runtime store and passes it to adapters/engines. Shutdown records `SERVICE_STOPPED` before closing SQLite.
 
-- [ ] **Step 4: Implement validated API filtering and cursor response**
+- [x] **Step 4: Implement validated API filtering and cursor response**
 
 Return HTTP 400 for invalid categories/outcomes/limits and 404 only for unknown resource paths.
 
-- [ ] **Step 5: Implement the audit page and reuse event rendering in account/Futu pages**
+- [x] **Step 5: Implement the audit page and reuse event rendering in account/Futu pages**
 
 Use four category summary cards, filters, a compact event list, accessible expandable details, and material-state fingerprinting to avoid page flashes.
 
-- [ ] **Step 6: Run FT-PTE05 and the Node scenario, inspect HTML/JS/CSS, then commit**
+- [x] **Step 6: Run FT-PTE05 and the Node scenario, inspect HTML/JS/CSS, then commit**
 
 ```powershell
 git add packages/paper_trading_engine/src/paper_trading_engine packages/paper_trading_engine/tests/functional

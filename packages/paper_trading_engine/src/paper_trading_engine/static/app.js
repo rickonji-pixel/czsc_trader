@@ -3,6 +3,7 @@ export function parseRoute(pathname) {
   if (account) return {page: 'account', accountId: decodeURIComponent(account[1])};
   if (pathname === '/channels/futu') return {page: 'channel', channel: 'futu'};
   if (pathname === '/comparison') return {page: 'comparison'};
+  if (pathname === '/audit-events') return {page: 'audit'};
   return {page: 'account', accountId: null};
 }
 
@@ -14,6 +15,17 @@ export class ScopedLoader {
 
 export const actionsForRoute = route => route.page==='channel'?['pause','resume','cancel']:route.page==='account'?['pause','resume']:[];
 export const comparisonQuery = ids => ids.map(id=>`account_id=${encodeURIComponent(id)}`).join('&');
+export const auditQuery = filters => {
+  const query=new URLSearchParams();
+  Object.entries(filters||{}).forEach(([key,value])=>{if(value!=null&&value!=='')query.set(key,value);});
+  return query.toString();
+};
+export const auditCategoryLabel = value => ({STRATEGY:'策略事件',TRADING:'交易事件',SYSTEM:'系统事件',OTHER:'其他事件'}[value]||value||'未分类');
+export const auditEventLabel = value => ({
+  MARKET_DATA_PUBLICATION_REQUESTED:'请求发布数据',MARKET_DATA_PUBLISHED:'发布数据成功',MARKET_DATA_PUBLICATION_FAILED:'发布数据失败',DECISION_GENERATED:'生成决策',DECISION_GENERATION_FAILED:'生成决策失败',SIGNAL_TRIGGERED:'触发信号',SIGNAL_CLEARED:'信号解除',DECISION_EXPIRED:'决策过期',CHANNEL_STRATEGY_BOUND:'绑定渠道策略',
+  ORDER_INTENT_CREATED:'创建订单意图',ORDER_INTENT_RECOVERED:'恢复订单意图',ORDER_SUBMISSION_BLOCKED:'订单提交受阻',ORDER_SUBMITTED:'订单已提交',ORDER_SUBMISSION_FAILED:'订单提交失败',CANCEL_REQUESTED:'请求撤单',CANCEL_SUCCEEDED:'撤单成功',CANCEL_FAILED:'撤单失败',ORDER_PARTIALLY_FILLED:'订单部分成交',ORDER_FILLED:'订单成交',ORDER_TERMINATED:'订单终止',
+  SERVICE_STARTED:'服务启动',SERVICE_STOPPED:'服务停止',RESTART_REQUESTED:'请求重启',ACCOUNT_PAUSED:'账户暂停',ACCOUNT_RESUMED:'账户恢复',EXTERNAL_CALL_SUCCEEDED:'外部接口调用成功',EXTERNAL_CALL_FAILED:'外部接口调用失败',DEPENDENCY_DEGRADED:'外部依赖降级',DEPENDENCY_RECOVERED:'外部依赖恢复',SCHEDULER_OPERATION_FAILED:'调度任务失败',SCHEDULER_OPERATION_RECOVERED:'调度任务恢复',SCHEDULER_CYCLE_FAILED:'调度周期失败',VIRTUAL_ACCOUNT_FAILED:'虚拟账户运行失败',LEGACY_EVENT:'历史事件',UNCLASSIFIED_EVENT:'未分类事件',
+}[value]||value||'未知事件');
 export const snapshotFingerprint = value => JSON.stringify(value,(key,item)=>key==='as_of'?undefined:item);
 export const systemEventLabel = value => ({
   DATA_PUBLICATION_FAILED:'发布数据失败',
@@ -72,6 +84,19 @@ async function cancelOrder(order){if(!confirm(`确认申请撤销Futu订单？\n
 
 function renderComparison(s){document.querySelector('#app').innerHTML=`<section class="panel hero"><div><div class="eyebrow">只读评估</div><h1>虚拟账户比较</h1><div class="subtle">共同观察区间 ${esc(s.common_window?.start)} 至 ${esc(s.common_window?.end)}</div></div></section><section class="panel section"><div class="section-head"><h2>参与账户</h2><span class="badge">无交易干预</span></div><div class="comparison-select">${state.accounts.map(a=>`<label><input type="checkbox" value="${esc(a.account_id)}" ${s.accounts.some(x=>x.account_id===a.account_id)?'checked':''}> ${esc(a.name)} · ${esc(a.release_id)}</label>`).join('')}</div></section><section class="panel section"><div class="section-head"><h2>核心指标</h2><span class="badge">OPC优先级</span></div>${rowsTable([['账户',r=>r.account_id],['策略发布',r=>r.release_id],['累计收益',r=>pct(r.metrics.total_return)],['最大回撤',r=>pct(r.metrics.maximum_drawdown)],['卡玛比率',r=>r.metrics.calmar_ratio==null?'不可用':Number(r.metrics.calmar_ratio).toFixed(3)],['盈亏比',r=>r.metrics.win_loss_ratio==null?'不可用':Number(r.metrics.win_loss_ratio).toFixed(3)]],s.accounts)}</section>`;document.querySelectorAll('.comparison-select input').forEach(el=>el.onchange=()=>{const ids=[...document.querySelectorAll('.comparison-select input:checked')].map(x=>x.value);navigate(`/comparison${ids.length?'?'+comparisonQuery(ids):''}`);});}
 
+function renderAudit(s){
+  const selected=new URLSearchParams(location.search),categories=['STRATEGY','TRADING','SYSTEM','OTHER'];
+  const cards=categories.map(category=>`<button class="panel metric audit-category" data-category="${category}"><label>${auditCategoryLabel(category)}</label><strong>${(s.events||[]).filter(event=>event.category===category).length}</strong></button>`).join('');
+  const options=categories.map(category=>`<option value="${category}" ${selected.get('category')===category?'selected':''}>${auditCategoryLabel(category)}</option>`).join('');
+  const events=(s.events||[]).length?(s.events||[]).map(event=>`<article class="event audit-event"><div class="event-title"><div><span class="badge">${esc(auditCategoryLabel(event.category))}</span> <strong>${esc(auditEventLabel(event.event_type))}</strong></div><time>${esc(formatBeijingTime(event.occurred_at))}</time></div><div class="audit-meta"><span>${esc(event.severity)}</span><span>${esc(event.outcome)}</span><span>账户 ${esc(event.account_id)}</span><span>策略 ${esc(event.strategy_id)}-${esc(event.strategy_version)}</span><span>渠道 ${esc(event.channel)}</span></div>${event.correlation_id?`<button class="link-button" data-correlation="${esc(event.correlation_id)}">关联 ${esc(event.correlation_id)}</button>`:''}${renderEventDetails(event.details)}</article>`).join(''):'<div class="empty">当前筛选条件下暂无事件</div>';
+  document.querySelector('#app').innerHTML=`<section class="panel hero"><div><div class="eyebrow">PTE · 只读审计账本</div><h1>运行事件</h1><div class="subtle">事件以 UTC 持久化，页面统一显示北京时间 · 最近同步 ${esc(formatBeijingTime(s.as_of))}</div></div></section><div class="grid audit-summary">${cards}</div><section class="panel section"><form id="auditFilters" class="audit-filters"><label>类别<select name="category"><option value="">全部类别</option>${options}</select></label><label>账户<input name="account_id" value="${esc(selected.get('account_id')||'')}" placeholder="账户ID"></label><label>策略<input name="strategy_id" value="${esc(selected.get('strategy_id')||'')}" placeholder="策略ID"></label><label>渠道<input name="channel" value="${esc(selected.get('channel')||'')}" placeholder="如 futu"></label><label>关联ID<input name="correlation_id" value="${esc(selected.get('correlation_id')||'')}" placeholder="决策或发布链路"></label><button class="button" type="submit">筛选</button><button class="button secondary" id="clearAuditFilters" type="button">清空</button></form></section><section class="panel section"><div class="section-head"><h2>事件明细</h2><span class="badge">${(s.events||[]).length} 条</span></div><div class="audit-list">${events}</div>${s.next_before_id?'<button id="moreAudit" class="button secondary" type="button">查看更早事件</button>':''}</section>`;
+  document.querySelectorAll('[data-category]').forEach(el=>el.onclick=()=>{const params=new URLSearchParams(location.search);params.set('category',el.dataset.category);navigate(`/audit-events?${params}`);});
+  document.querySelectorAll('[data-correlation]').forEach(el=>el.onclick=()=>navigate(`/audit-events?${auditQuery({correlation_id:el.dataset.correlation})}`));
+  document.querySelector('#auditFilters').onsubmit=event=>{event.preventDefault();const query=auditQuery(Object.fromEntries(new FormData(event.currentTarget)));navigate(`/audit-events${query?'?'+query:''}`);};
+  document.querySelector('#clearAuditFilters').onclick=()=>navigate('/audit-events');
+  const more=document.querySelector('#moreAudit');if(more)more.onclick=()=>{const params=new URLSearchParams(location.search);params.set('before_id',s.next_before_id);navigate(`/audit-events?${params}`);};
+}
+
 async function loadAccounts(options={}){const payload=await getJson('/api/virtual-accounts',options);state.accounts=payload.accounts||[];return payload;}
 async function loadRoute({showLoading=true,forceRender=false}={}){
   const route=parseRoute(location.pathname);setNav(route.page);
@@ -90,13 +115,14 @@ async function loadRoute({showLoading=true,forceRender=false}={}){
     let snapshot;
     if(route.page==='account')snapshot=await getJson(`/api/virtual-accounts/${encodeURIComponent(route.accountId)}/snapshot`,{signal:request.signal});
     else if(route.page==='channel')snapshot=await getJson('/api/channels/futu/snapshot',{signal:request.signal});
-    else{const ids=new URLSearchParams(location.search).getAll('account_id');snapshot=await getJson(`/api/comparison${ids.length?'?'+comparisonQuery(ids):''}`,{signal:request.signal});}
+    else if(route.page==='comparison'){const ids=new URLSearchParams(location.search).getAll('account_id');snapshot=await getJson(`/api/comparison${ids.length?'?'+comparisonQuery(ids):''}`,{signal:request.signal});}
+    else snapshot=await getJson(`/api/audit-events${location.search}`,{signal:request.signal});
     if(!state.loader.accept(request,scope))return;
     if(route.page==='account'&&snapshot.scope.account_id!==route.accountId)throw new Error('服务端账户作用域不一致');
     const fingerprint=snapshotFingerprint({accounts:state.accounts,snapshot});
     if(forceRender||scope!==state.renderedScope||fingerprint!==state.fingerprint){
       if(route.page==='account'){localStorage.setItem('pte.lastAccountId',route.accountId);renderAccount(snapshot);}
-      else if(route.page==='channel')renderChannel(snapshot);else renderComparison(snapshot);
+      else if(route.page==='channel')renderChannel(snapshot);else if(route.page==='comparison')renderComparison(snapshot);else renderAudit(snapshot);
       state.renderedScope=scope;state.fingerprint=fingerprint;
     }
     state.lastSuccess=new Date();

@@ -42,6 +42,17 @@
 .event summary { cursor: pointer; }
 .event pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0 0; padding: 10px; border-radius: 8px; background: #07101d; color: #b9c9dc; }
 .layout > .sidebar { height: auto; align-self: stretch; }
+.audit-category { color: var(--text); text-align: left; cursor: pointer; }
+.audit-category:hover { border-color: #315b91; transform: translateY(-1px); }
+.audit-filters { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)) auto auto; gap: 10px; align-items: end; }
+.audit-filters label { color: var(--muted); font-size: 12px; }
+.audit-filters input,.audit-filters select { width: 100%; margin-top: 6px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: #0b1625; color: var(--text); }
+.audit-list { display: grid; gap: 10px; }
+.audit-event { margin: 0; }
+.audit-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+.link-button { appearance: none; border: 0; background: transparent; color: var(--blue); padding: 8px 0 0; cursor: pointer; }
+.button.secondary { background: transparent; }
 @media (max-width: 900px) {
   .system-status { display: block; width: 100%; text-align: left; }
+  .audit-filters { grid-template-columns: 1fr; }
 }

@@ -61,7 +61,8 @@ class CliDataPublisher:
             actor_type="EXTERNAL", actor_id="trader",
             correlation_id=f"publication:{end_date}", symbol=self.symbol,
             details={
-                "service": "trader", "operation": "data.prepare",
+                "service": "trader", "upstream_service": "tushare",
+                "operation": "data.prepare",
                 "duration_ms": round((time.perf_counter() - started) * 1000, 3),
                 **({"error_type": type(error).__name__, "error": str(error)} if error else {}),
             },

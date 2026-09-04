@@ -180,7 +180,13 @@ class VirtualAccountEngine:
                 results.append(self.refresh_account(account["account_id"], session, bar))
             except Exception as exc:
                 self.store.set_virtual_health(account["account_id"], "BLOCKED", str(exc))
-                self.store.add_event("VIRTUAL_ACCOUNT_FAILED", {"account_id": account["account_id"], "error": str(exc)})
+                self.audit.record(
+                    "VIRTUAL_ACCOUNT_FAILED", source="virtual_engine", outcome="FAILURE",
+                    account_id=account["account_id"], strategy_id=account.get("strategy_id"),
+                    strategy_version=account.get("strategy_version"),
+                    release_hash=account.get("release_hash"), channel="virtual",
+                    details={"error": str(exc), "error_type": type(exc).__name__},
+                )
         return results
 
     def refresh_from_data(self, session: date, data_dir: Path, symbol: str = "588080.SH"):

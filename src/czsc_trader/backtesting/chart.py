@@ -352,6 +352,12 @@ def render_backtest_chart_html(
         rangebreaks=[{"values": _missing_calendar_dates(prices.index), "dvalue": 86_400_000}],
         gridcolor="#23344b",
         zerolinecolor="#23344b",
+        showspikes=True,
+        spikecolor="#64748b",
+        spikedash="dot",
+        spikemode="across",
+        spikesnap="data",
+        spikethickness=1,
     )
     figure.update_yaxes(gridcolor="#23344b", zerolinecolor="#23344b")
     figure.update_yaxes(

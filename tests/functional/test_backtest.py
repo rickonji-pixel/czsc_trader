@@ -130,6 +130,13 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     by_name = {trace["name"]: trace for trace in traces}
     assert layout["title"]["text"] == "S001-v1 确定性回测｜2026-01-05—2026-09-02"
     assert layout["hovermode"] == "x unified"
+    for axis_name in ("xaxis", "xaxis2"):
+        assert layout[axis_name]["showspikes"] is True
+        assert layout[axis_name]["spikecolor"] == "#64748b"
+        assert layout[axis_name]["spikedash"] == "dot"
+        assert layout[axis_name]["spikemode"] == "across"
+        assert layout[axis_name]["spikesnap"] == "data"
+        assert layout[axis_name]["spikethickness"] == 1
     assert by_name["CZSC笔"]["line"]["width"] == 1
     assert by_name["CZSC笔"]["marker"]["size"] == 3
     for name, symbol, color, angle in (

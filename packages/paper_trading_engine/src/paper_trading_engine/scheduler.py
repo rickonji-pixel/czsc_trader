@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta
 from threading import Event
 
+from .audit import AuditRecorder
+
 
 class RuntimeScheduler:
     def __init__(
@@ -18,6 +20,7 @@ class RuntimeScheduler:
         decision_interval: float = 5,
         publish_time: str = "19:00",
         virtual_refresh=None,
+        audit: AuditRecorder | None = None,
     ) -> None:
         self.engine = engine
         self.publisher = publisher
@@ -27,6 +30,9 @@ class RuntimeScheduler:
         self.decision_interval = float(decision_interval)
         self.publish_time = time.fromisoformat(publish_time)
         self.virtual_refresh = virtual_refresh
+        self.audit = audit or (
+            AuditRecorder(store) if hasattr(store, "append_audit_event") else None
+        )
         self._last_order: datetime | None = None
         self._last_account: datetime | None = None
         self._last_decision: datetime | None = None
@@ -76,7 +82,7 @@ class RuntimeScheduler:
                 })
             if count == 1:
                 self.store.add_event(
-                    "DATA_PUBLICATION_FAILED" if name == "publication" else "SCHEDULER_OPERATION_FAILED",
+                    "SCHEDULER_OPERATION_FAILED",
                     {"operation": name, "error": str(exc), "failure_count": count,
                      "first_at": now.isoformat(), "retry_after_seconds": delay},
                 )
@@ -115,14 +121,34 @@ class RuntimeScheduler:
             and self.store.get_setting("last_data_publish_date") != today
         ):
             def publish():
+                correlation_id = f"publication:{today}"
+                if self.audit is not None:
+                    self.audit.record(
+                        "MARKET_DATA_PUBLICATION_REQUESTED", source="scheduler",
+                        actor_type="SCHEDULER", correlation_id=correlation_id,
+                        details={"target_date": today},
+                    )
                 try:
                     result = self.publisher.publish(today)
                 except Exception as exc:
                     self.store.set_setting("data_publication_error", str(exc))
+                    if self.audit is not None:
+                        self.audit.record(
+                            "MARKET_DATA_PUBLICATION_FAILED", source="scheduler",
+                            outcome="FAILURE", actor_type="SCHEDULER",
+                            correlation_id=correlation_id,
+                            details={"target_date": today, "error_type": type(exc).__name__,
+                                     "error": str(exc)},
+                        )
                     raise
                 self.store.set_setting("last_data_publish_date", today)
                 self.store.set_setting("data_publication_error", "")
-                self.store.add_event("DATA_PUBLISHED", {"date": today, "result": result})
+                if self.audit is not None:
+                    self.audit.record(
+                        "MARKET_DATA_PUBLISHED", source="scheduler", actor_type="SCHEDULER",
+                        correlation_id=correlation_id,
+                        details={"target_date": today, "result": result},
+                    )
             self._guard("publication", now, publish)
         if (
             self.virtual_refresh is not None

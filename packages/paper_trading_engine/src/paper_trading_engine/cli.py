@@ -17,6 +17,7 @@ import time
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+from .audit import AuditRecorder
 from .advice_client import CliAdviceClient
 from .data_publisher import CliDataPublisher, seed_runtime_data
 from .engine import PaperTradingEngine
@@ -151,15 +152,19 @@ def _default_executable(repo_root: Path) -> Path:
 def build_engine(args: argparse.Namespace):
     seed_runtime_data(args.repo_root / "data" / "raw", args.data_dir, args.symbol)
     store = PaperStore(args.database)
+    audit = AuditRecorder(store)
     advice = CliAdviceClient(
         executable=args.advice_executable or _default_executable(args.repo_root),
         repo_root=args.repo_root,
         data_dir=args.data_dir,
         symbol=args.symbol,
         asset=args.asset,
+        audit=audit,
     )
     try:
-        gateway = FutuGateway(symbol=args.symbol, host=args.opend_host, port=args.opend_port)
+        gateway = FutuGateway(
+            symbol=args.symbol, host=args.opend_host, port=args.opend_port, audit=audit
+        )
     except Exception as exc:
         store.add_event("CHANNEL_INITIALIZATION_FAILED", {"error": str(exc)})
         channel = UnavailableChannel(store, args.symbol, exc)
@@ -171,6 +176,7 @@ def build_engine(args: argparse.Namespace):
             strategy_version=None if binding is None else binding.strategy_version,
             release_hash=None if binding is None else binding.release_hash,
             binding_required=True,
+            audit=audit,
         )
     try:
         store.virtual_account("baseline-143")
@@ -221,10 +227,12 @@ def build_engine(args: argparse.Namespace):
         store.rename_virtual_account("s001-v2", "s001-v2", "S001-v2模拟账户")
     except KeyError:
         pass
-    return PteCoordinator(channel, VirtualAccountEngine(store, advice))
+    return PteCoordinator(channel, VirtualAccountEngine(store, advice, audit=audit))
 
 
-def build_publisher(args: argparse.Namespace) -> CliDataPublisher:
+def build_publisher(
+    args: argparse.Namespace, audit: AuditRecorder | None = None,
+) -> CliDataPublisher:
     return CliDataPublisher(
         executable=args.advice_executable or _default_executable(args.repo_root),
         repo_root=args.repo_root,
@@ -232,6 +240,7 @@ def build_publisher(args: argparse.Namespace) -> CliDataPublisher:
         symbol=args.symbol,
         asset=args.asset,
         start_date=args.data_start,
+        audit=audit,
     )
 
 
@@ -440,7 +449,7 @@ def main(
         server_holder["server"] = server
         scheduler = RuntimeScheduler(
             engine,
-            build_publisher(args),
+            build_publisher(args, AuditRecorder(engine.store)),
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,
@@ -449,6 +458,7 @@ def main(
             virtual_refresh=lambda session: engine.virtual.refresh_from_data(
                 session, args.data_dir, args.symbol
             ),
+            audit=AuditRecorder(engine.store),
         )
         worker = Thread(target=scheduler.run, args=(stopped,), name="pte-scheduler", daemon=True)
         worker.start()

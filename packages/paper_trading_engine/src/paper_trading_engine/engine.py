@@ -10,6 +10,7 @@ import secrets
 from threading import RLock
 from typing import Protocol
 
+from .audit import AuditRecorder
 from .contracts import AdviceDecision, OrderSpec
 from .channel_binding import load_channel_binding
 from .store import PaperStore
@@ -125,6 +126,7 @@ class PaperTradingEngine:
         binding_required: bool = False,
         today: Callable[[], date] = date.today,
         now: Callable[[], datetime] = shanghai_now,
+        audit: AuditRecorder | None = None,
     ) -> None:
         self.store = store
         self.broker = broker
@@ -137,6 +139,7 @@ class PaperTradingEngine:
         self.binding_required = binding_required
         self.today = today
         self.now = now
+        self.audit = audit or AuditRecorder(store)
         self._account_snapshot: BrokerSnapshot | None = None
         self._orders: tuple[BrokerOrder, ...] = ()
         self._decision: AdviceDecision | None = None
@@ -165,18 +168,75 @@ class PaperTradingEngine:
     def _reconcile_order(self, order: BrokerOrder) -> None:
         row = asdict(order)
         increment = self.store.upsert_order(row)
-        if order.remark.startswith("PTE-") and self.store.get_intent(order.remark):
+        intent = self.store.get_intent(order.remark) if order.remark.startswith("PTE-") else None
+        if intent:
             self.store.bind_intent(order.remark, order.channel_order_id, order.status)
         if increment:
-            self.store.add_event(
-                "FILL_INCREMENT",
-                {
-                    "channel_order_id": order.channel_order_id,
+            payload = {} if intent is None else intent["payload"]
+            decision_id = None if intent is None else str(intent["decision_id"]).split(":", 1)[0]
+            event_type = (
+                "ORDER_FILLED"
+                if order.cumulative_filled_quantity >= order.quantity
+                else "ORDER_PARTIALLY_FILLED"
+            )
+            self.audit.record(
+                event_type, source="engine", correlation_id=decision_id or order.channel_order_id,
+                account_id=payload.get("virtual_account_id"),
+                strategy_id=payload.get("strategy_id"),
+                strategy_version=payload.get("strategy_version"),
+                release_hash=payload.get("release_hash"), symbol=order.symbol, channel="futu",
+                decision_id=decision_id, order_id=order.channel_order_id,
+                details={
+                    "side": order.side,
                     "quantity": increment,
                     "cumulative_quantity": order.cumulative_filled_quantity,
                     "average_fill_price": order.average_fill_price,
                 },
             )
+
+    @staticmethod
+    def _strategy_scope(decision: AdviceDecision) -> dict[str, object]:
+        return {
+            "strategy_id": decision.strategy.get("strategy_id"),
+            "strategy_version": decision.strategy.get("version"),
+            "release_hash": decision.strategy.get("release_hash"),
+            "symbol": decision.symbol,
+            "decision_id": decision.decision_id,
+            "correlation_id": decision.decision_id,
+        }
+
+    def _audit_decision(self, decision: AdviceDecision) -> None:
+        if self.store.get_setting("last_audited_decision_id") == decision.decision_id:
+            return
+        scope = self._strategy_scope(decision)
+        self.audit.record(
+            "DECISION_GENERATED", source="engine", **scope,
+            details={
+                "action": decision.action,
+                "actual_quantity": decision.actual_quantity,
+                "target_quantity": decision.target_quantity,
+                "execution_reference_price": decision.execution_reference_price,
+                "valid_session": decision.valid_session.isoformat(),
+            },
+        )
+        previous_action = self.store.get_setting("last_audited_signal_action")
+        if decision.action in {"BUY", "SELL"}:
+            self.audit.record(
+                "SIGNAL_TRIGGERED", source="engine", **scope,
+                details={
+                    "side": decision.action, "quantity": abs(decision.delta_quantity),
+                    "target_quantity": decision.target_quantity,
+                    "valid_session": decision.valid_session.isoformat(),
+                },
+            )
+        elif previous_action in {"BUY", "SELL"}:
+            self.audit.record(
+                "SIGNAL_CLEARED", source="engine", **scope,
+                details={"previous_action": previous_action,
+                         "target_quantity": decision.target_quantity},
+            )
+        self.store.set_setting("last_audited_decision_id", decision.decision_id)
+        self.store.set_setting("last_audited_signal_action", decision.action)
 
     @synchronized
     def refresh(self) -> dict[str, object]:
@@ -260,6 +320,7 @@ class PaperTradingEngine:
             raise PaperTradingSafetyError("advice actual quantity differs from broker reconciliation")
         if round(decision.available_cash, 2) != available_cash:
             raise PaperTradingSafetyError("advice available cash differs from broker reconciliation")
+        self._audit_decision(decision)
         self._decision = decision
         if decision.cycle_target_quantity:
             self.store.set_setting("cycle_target_quantity", str(decision.cycle_target_quantity))
@@ -306,6 +367,17 @@ class PaperTradingEngine:
                     if existing is None or existing["status"] == "PENDING_SUBMIT":
                         self._submit_once(decision, order, snapshot, index=index, decision_key=decision_key)
                         break
+        if alerts:
+            reason = alerts[0]
+            dedup_key = f"last_audited_block:{decision.decision_id}"
+            if self.store.get_setting(dedup_key) != reason:
+                event_type = "DECISION_EXPIRED" if reason == "DECISION_NOT_VALID_TODAY" else "ORDER_SUBMISSION_BLOCKED"
+                self.audit.record(
+                    event_type, source="engine", outcome="SKIPPED",
+                    severity="WARNING", **self._strategy_scope(decision),
+                    details={"reason": reason},
+                )
+                self.store.set_setting(dedup_key, reason)
         self._alerts = alerts
 
     def _save_status(self) -> dict[str, object]:
@@ -351,7 +423,11 @@ class PaperTradingEngine:
             quantity=order.quantity,
             limit_price=order.limit_price,
         )
-        intent_payload = {**asdict(intent), **self._virtual_account_audit(decision)}
+        intent_payload = {
+            **asdict(intent), **self._virtual_account_audit(decision),
+            "strategy_id": decision.strategy.get("strategy_id"),
+            "strategy_version": decision.strategy.get("version"),
+        }
         if matching is not None:
             self.store.save_intent(intent_id, decision_key, intent_payload)
             self.store.bind_intent(intent_id, matching.channel_order_id, matching.status)
@@ -359,21 +435,49 @@ class PaperTradingEngine:
         if existing is not None:
             if existing["channel_order_id"] is not None or existing["status"] != "PENDING_SUBMIT":
                 return
-            self.store.add_event("ORDER_INTENT_RECOVERED", asdict(intent))
+            self.audit.record(
+                "ORDER_INTENT_RECOVERED", source="engine", **self._strategy_scope(decision),
+                account_id=intent_payload.get("virtual_account_id"), channel="futu",
+                details={**asdict(intent), "side": order.side},
+            )
         else:
-            self.store.save_intent(intent_id, decision_key, intent_payload)
-            self.store.add_event("ORDER_INTENT_CREATED", intent_payload)
+            intent_event = self.audit.build(
+                "ORDER_INTENT_CREATED", source="engine", **self._strategy_scope(decision),
+                account_id=intent_payload.get("virtual_account_id"), channel="futu",
+                details={**intent_payload, "side": order.side},
+            )
+            self.store.save_intent_with_event(
+                intent_id, decision_key, intent_payload, intent_event
+            )
         if existing is not None:
             self.store.save_intent(intent_id, decision_key, intent_payload)
-        submitted = self.broker.place_order(intent)
+        try:
+            submitted = self.broker.place_order(intent)
+        except Exception as exc:
+            self.audit.record(
+                "ORDER_SUBMISSION_FAILED", source="engine", outcome="FAILURE",
+                severity="ERROR", **self._strategy_scope(decision),
+                account_id=intent_payload.get("virtual_account_id"), channel="futu",
+                details={
+                    "intent_id": intent_id, "side": order.side, "quantity": order.quantity,
+                    "limit_price": order.limit_price, "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+            )
+            raise
         self._reconcile_order(submitted)
         self._orders = tuple(
             item for item in self._orders if item.channel_order_id != submitted.channel_order_id
         ) + (submitted,)
         self.store.bind_intent(intent_id, submitted.channel_order_id, submitted.status)
-        self.store.add_event(
-            "ORDER_SUBMITTED",
-            {"intent_id": intent_id, "channel_order_id": submitted.channel_order_id},
+        self.audit.record(
+            "ORDER_SUBMITTED", source="engine", **self._strategy_scope(decision),
+            account_id=intent_payload.get("virtual_account_id"), channel="futu",
+            order_id=submitted.channel_order_id,
+            details={
+                "intent_id": intent_id, "side": order.side, "quantity": order.quantity,
+                "limit_price": order.limit_price, "channel_status": submitted.status,
+            },
         )
 
     def _virtual_account_audit(self, decision: AdviceDecision) -> dict[str, object]:
@@ -409,7 +513,7 @@ class PaperTradingEngine:
     @synchronized
     def pause(self) -> dict[str, object]:
         self.store.set_paused(True)
-        self.store.add_event("PAUSED", {})
+        self.audit.record("ACCOUNT_PAUSED", source="engine", channel="futu")
         return self.status()
 
     @synchronized
@@ -422,7 +526,7 @@ class PaperTradingEngine:
         if not self.store.has_reconciled():
             raise PaperTradingStateError("successful reconciliation required before resume")
         self.store.set_paused(False)
-        self.store.add_event("RESUMED", {})
+        self.audit.record("ACCOUNT_RESUMED", source="engine", channel="futu")
         return self.status()
 
     @synchronized
@@ -432,7 +536,6 @@ class PaperTradingEngine:
         token = secrets.token_urlsafe(24)
         expires = datetime.now(timezone.utc) + timedelta(minutes=2)
         self.store.save_cancel_token(token, channel_order_id, expires.isoformat())
-        self.store.add_event("CANCEL_TOKEN_ISSUED", {"channel_order_id": channel_order_id})
         return token
 
     @synchronized
@@ -443,8 +546,38 @@ class PaperTradingEngine:
             raise PaperTradingStateError("cancel token is bound to another order")
         if result != "ok":
             raise PaperTradingStateError("invalid or expired cancel token")
-        self.broker.cancel_order(channel_order_id)
-        self.store.add_event("CANCEL_REQUESTED", {"channel_order_id": channel_order_id})
+        order = next(
+            item for item in self.store.orders()
+            if item["channel_order_id"] == channel_order_id
+        )
+        decision_id = order.get("decision_id")
+        event_scope = {
+            "source": "engine", "actor_type": "OPERATOR",
+            "correlation_id": decision_id or channel_order_id,
+            "account_id": order.get("virtual_account_id"),
+            "release_hash": order.get("release_hash"), "symbol": order.get("symbol"),
+            "channel": "futu", "decision_id": decision_id, "order_id": channel_order_id,
+        }
+        self.audit.record(
+            "CANCEL_REQUESTED", source="engine", actor_type="OPERATOR",
+            correlation_id=decision_id or channel_order_id,
+            account_id=order.get("virtual_account_id"),
+            release_hash=order.get("release_hash"), symbol=order.get("symbol"),
+            channel="futu", decision_id=decision_id, order_id=channel_order_id,
+            details={"channel_status": order.get("status")},
+        )
+        try:
+            self.broker.cancel_order(channel_order_id)
+        except Exception as exc:
+            self.audit.record(
+                "CANCEL_FAILED", outcome="FAILURE", severity="ERROR", **event_scope,
+                details={"error_type": type(exc).__name__, "error": str(exc)},
+            )
+            raise
+        self.audit.record(
+            "CANCEL_SUCCEEDED", **event_scope,
+            details={"channel_status": order.get("status")},
+        )
         return self.status()
 
     @synchronized

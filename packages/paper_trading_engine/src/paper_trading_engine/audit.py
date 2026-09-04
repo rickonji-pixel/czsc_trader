@@ -163,7 +163,7 @@ class AuditRecorder:
     def __init__(self, store) -> None:
         self.store = store
 
-    def record(
+    def build(
         self,
         event_type: str,
         *,
@@ -182,7 +182,7 @@ class AuditRecorder:
         decision_id: str | None = None,
         order_id: str | None = None,
         details: dict[str, object] | None = None,
-    ) -> dict[str, object]:
+    ) -> AuditEvent:
         category = EVENT_CATALOG.get(event_type)
         if category is None:
             raise AuditContractError(f"event type is not in catalog: {event_type}")
@@ -209,4 +209,7 @@ class AuditRecorder:
             order_id=order_id,
             details=clean_details,
         )
-        return self.store.append_audit_event(event)
+        return event
+
+    def record(self, event_type: str, **kwargs) -> dict[str, object]:
+        return self.store.append_audit_event(self.build(event_type, **kwargs))

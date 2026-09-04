@@ -116,23 +116,23 @@ git commit -m "feat: migrate PTE audit event ledger"
 - Publication correlation is `publication:{YYYY-MM-DD}`.
 - Valid decisions use `decision_id` as correlation ID.
 
-- [ ] **Step 1: Add failing FT-PTE04/02 assertions for the complete publication-to-signal chain**
+- [x] **Step 1: Add failing FT-PTE04/02 assertions for the complete publication-to-signal chain**
 
 Assert requested/published/failed events, Trader external call duration/outcome, one `DECISION_GENERATED`, one `SIGNAL_TRIGGERED`, expiration/block events only on state change, shared correlation IDs, and no duplicate event after repeated five-second refresh.
 
-- [ ] **Step 2: Run both scenarios and confirm missing event types**
+- [x] **Step 2: Run both scenarios and confirm missing event types**
 
 Run FT-PTE02 and FT-PTE04 by node id.
 
-- [ ] **Step 3: Inject the recorder and instrument publication/advice calls**
+- [x] **Step 3: Inject the recorder and instrument publication/advice calls**
 
 Use `time.perf_counter()` for `duration_ms`. Record mutating/critical calls on both success and failure; sanitize stderr and exception text through the recorder.
 
-- [ ] **Step 4: Instrument validated decisions, signal changes, expiration, and scheduler transitions**
+- [x] **Step 4: Instrument validated decisions, signal changes, expiration, and scheduler transitions**
 
 Persist decision/signal deduplication keys in SQLite settings so process restart does not duplicate the same fact. Keep existing scheduler backoff behavior unchanged.
 
-- [ ] **Step 5: Run FT-PTE02/04 and Ruff, then commit**
+- [x] **Step 5: Run FT-PTE02/04 and Ruff, then commit**
 
 ```powershell
 git add packages/paper_trading_engine/src/paper_trading_engine packages/paper_trading_engine/tests/functional
@@ -155,23 +155,23 @@ git commit -m "feat: audit PTE strategy lifecycle"
 - Engine records typed intent, submit, block, cancel, partial/full fill, and termination events.
 - Virtual orders use the same event types with `channel="virtual"` and mandatory `account_id`.
 
-- [ ] **Step 1: Add failing assertions covering buy, sell, reject, cancel, partial/full fill, recovery, virtual isolation, and read-only polling silence**
+- [x] **Step 1: Add failing assertions covering buy, sell, reject, cancel, partial/full fill, recovery, virtual isolation, and read-only polling silence**
 
 Also simulate recorder persistence failure before Futu submission and assert `place_order` is not called.
 
-- [ ] **Step 2: Run FT-PTE01/02/03 and confirm missing typed events**
+- [x] **Step 2: Run FT-PTE01/02/03 and confirm missing typed events**
 
-- [ ] **Step 3: Make state transition and event writes atomic where both are local**
+- [x] **Step 3: Make state transition and event writes atomic where both are local**
 
 Add store methods that write intent/event and order binding/event in one connection transaction. Preserve remark-based recovery for crashes between external submission and local binding.
 
-- [ ] **Step 4: Instrument Futu mutations and health transitions without successful polling noise**
+- [x] **Step 4: Instrument Futu mutations and health transitions without successful polling noise**
 
 Record service `futu`, operations `place_order` and `cancel_order`, duration, outcome, and redacted error. Emit dependency degraded/recovered only when the state changes.
 
-- [ ] **Step 5: Instrument virtual account decisions/orders/fills with immutable account and strategy scopes**
+- [x] **Step 5: Instrument virtual account decisions/orders/fills with immutable account and strategy scopes**
 
-- [ ] **Step 6: Run FT-PTE01/02/03 and Ruff, then commit**
+- [x] **Step 6: Run FT-PTE01/02/03 and Ruff, then commit**
 
 ```powershell
 git add packages/paper_trading_engine/src/paper_trading_engine packages/paper_trading_engine/tests/functional

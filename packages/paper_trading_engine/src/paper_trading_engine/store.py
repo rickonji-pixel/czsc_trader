@@ -586,15 +586,37 @@ class PaperStore:
     def save_virtual_order(self, account_id: str, decision_id: str, valid_session: str, order_id: str, payload: dict[str, object]):
         now = _utc_now()
         with self._lock, self._connection:
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+            if account is None:
+                raise KeyError(account_id)
             intent_id = f"VI-{account_id}-{decision_id}"
             self._connection.execute(
                 "INSERT OR IGNORE INTO virtual_intents(intent_id,account_id,decision_id,payload,created_at) VALUES(?,?,?,?,?)",
                 (intent_id, account_id, decision_id, json.dumps(payload, default=str), now),
             )
-            self._connection.execute(
+            inserted = self._connection.execute(
                 "INSERT OR IGNORE INTO virtual_orders(order_id,account_id,decision_id,valid_session,side,quantity,limit_price,status,payload,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (order_id, account_id, decision_id, valid_session, payload["side"], int(payload["quantity"]), str(payload["limit_price"]), "PENDING", json.dumps(payload), now, now),
-            )
+            ).rowcount
+            if inserted:
+                scope = {
+                    "account_id": account_id, "strategy_id": account["strategy_id"],
+                    "strategy_version": account["strategy_version"],
+                    "release_hash": account["release_hash"], "symbol": account["symbol"],
+                    "channel": "virtual", "decision_id": decision_id, "order_id": order_id,
+                }
+                self._insert_audit_event(self._new_audit_event(
+                    "ORDER_INTENT_CREATED", source="virtual_engine",
+                    correlation_id=decision_id, **scope,
+                    details={"intent_id": intent_id, **payload},
+                ))
+                self._insert_audit_event(self._new_audit_event(
+                    "ORDER_SUBMITTED", source="virtual_engine",
+                    correlation_id=decision_id, **scope,
+                    details={"intent_id": intent_id, "channel_status": "PENDING", **payload},
+                ))
 
     def virtual_orders(self, account_id: str):
         with self._lock:
@@ -676,6 +698,18 @@ class PaperStore:
                 "UPDATE virtual_accounts SET cash=?,quantity=?,average_cost=?,realized_pnl=?,cycle_target=?,updated_at=? WHERE account_id=?",
                 (str(cash.quantize(Decimal('0.0001'))), held, str(average_cost), str(realized_total.quantize(Decimal('0.0001'))), None if held == 0 else account["cycle_target"], now, account_id),
             )
+            self._insert_audit_event(self._new_audit_event(
+                "ORDER_FILLED", source="virtual_engine", correlation_id=order["decision_id"],
+                account_id=account_id, strategy_id=account["strategy_id"],
+                strategy_version=account["strategy_version"],
+                release_hash=account["release_hash"], symbol=account["symbol"],
+                channel="virtual", decision_id=order["decision_id"], order_id=order_id,
+                details={
+                    "side": order["side"], "quantity": quantity,
+                    "cumulative_quantity": quantity, "average_fill_price": str(price),
+                    "fee": str(fee), "session": session,
+                },
+            ))
         return True
 
     def set_virtual_order_status(self, order_id: str, status: str, diagnostics: dict[str, object] | None = None):
@@ -761,6 +795,26 @@ class PaperStore:
                 event.strategy_version, event.release_hash, event.symbol, event.channel,
                 event.decision_id, event.order_id,
             ),
+        )
+
+    @staticmethod
+    def _new_audit_event(
+        event_type: str, *, source: str, correlation_id: str,
+        actor_type: str = "ENGINE", account_id: str | None = None,
+        strategy_id: str | None = None, strategy_version: str | None = None,
+        release_hash: str | None = None, symbol: str | None = None,
+        channel: str | None = None, decision_id: str | None = None,
+        order_id: str | None = None, details: dict[str, object] | None = None,
+    ) -> AuditEvent:
+        return AuditEvent(
+            event_id=str(uuid4()), occurred_at=_utc_now(),
+            category=EVENT_CATALOG[event_type], event_type=event_type,
+            severity=AuditSeverity.INFO, outcome=AuditOutcome.SUCCESS,
+            source=source, correlation_id=correlation_id, actor_type=actor_type,
+            account_id=account_id, strategy_id=strategy_id,
+            strategy_version=strategy_version, release_hash=release_hash,
+            symbol=symbol, channel=channel, decision_id=decision_id,
+            order_id=order_id, details=redact_details(details or {}),
         )
 
     def append_audit_event(self, event: AuditEvent) -> dict[str, object]:
@@ -869,6 +923,18 @@ class PaperStore:
                 "WHERE intents.status='PENDING_SUBMIT' AND intents.channel_order_id IS NULL",
                 (intent_id, decision_id, json.dumps(payload, default=str), now, now),
             )
+
+    def save_intent_with_event(
+        self, intent_id: str, decision_id: str, payload: dict[str, object], event: AuditEvent,
+    ) -> None:
+        now = _utc_now()
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT INTO intents(intent_id,decision_id,payload,status,created_at,updated_at) "
+                "VALUES(?,?,?,'PENDING_SUBMIT',?,?)",
+                (intent_id, decision_id, json.dumps(payload, default=str), now, now),
+            )
+            self._insert_audit_event(event)
 
     def get_intent(self, intent_id: str) -> dict[str, Any] | None:
         with self._lock:

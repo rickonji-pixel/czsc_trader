@@ -8,14 +8,16 @@ import json
 from pathlib import Path
 import math
 
+from .audit import AuditRecorder
 from .store import PaperStore
 from .virtual_fill import settle_limit_order
 
 
 class VirtualAccountEngine:
-    def __init__(self, store: PaperStore, advice) -> None:
+    def __init__(self, store: PaperStore, advice, audit: AuditRecorder | None = None) -> None:
         self.store = store
         self.advice = advice
+        self.audit = audit or AuditRecorder(store)
         self._draining = False
 
     def begin_shutdown(self) -> None:
@@ -67,6 +69,32 @@ class VirtualAccountEngine:
             }
             if actual_identity != expected_identity:
                 raise ValueError("advice strategy release differs from virtual account")
+            if account.get("last_decision_id") != decision.decision_id:
+                scope = {
+                    "account_id": account_id, "strategy_id": account["strategy_id"],
+                    "strategy_version": account["strategy_version"],
+                    "release_hash": account["release_hash"], "symbol": account["symbol"],
+                    "channel": "virtual", "decision_id": decision.decision_id,
+                    "correlation_id": decision.decision_id,
+                }
+                self.audit.record(
+                    "DECISION_GENERATED", source="virtual_engine", **scope,
+                    details={
+                        "action": decision.action, "actual_quantity": decision.actual_quantity,
+                        "target_quantity": decision.target_quantity,
+                        "execution_reference_price": decision.execution_reference_price,
+                        "valid_session": decision.valid_session.isoformat(),
+                    },
+                )
+                if decision.action in {"BUY", "SELL"}:
+                    self.audit.record(
+                        "SIGNAL_TRIGGERED", source="virtual_engine", **scope,
+                        details={
+                            "side": decision.action, "quantity": abs(decision.delta_quantity),
+                            "target_quantity": decision.target_quantity,
+                            "valid_session": decision.valid_session.isoformat(),
+                        },
+                    )
             self.store.save_virtual_decision(
                 account_id, asdict(decision), decision.cycle_target_quantity or None,
             )

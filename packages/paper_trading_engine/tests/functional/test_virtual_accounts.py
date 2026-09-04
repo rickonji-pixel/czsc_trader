@@ -1,14 +1,18 @@
 import json
 import sqlite3
+from dataclasses import replace
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
 import pytest
 
 from paper_trading_engine.audit import AuditRecorder
-
+from paper_trading_engine.contracts import OrderSpec
 from paper_trading_engine.store import PaperStore
+from paper_trading_engine.virtual_engine import VirtualAccountEngine
 from paper_trading_engine.virtual_fill import settle_limit_order
+from pte_support import decision
 
 
 def test_ft_pte01_virtual_accounts_are_isolated_persistent_and_conservative(tmp_path):
@@ -26,10 +30,35 @@ def test_ft_pte01_virtual_accounts_are_isolated_persistent_and_conservative(tmp_
         {"side": "BUY", "quantity": 1000, "limit_price": 1.0, "fee_rate": 0.0005},
     )
     store.settle_virtual_order("s001-v1", "ORDER-1", "2026-09-03", Decimal("1"), Decimal("0.0005"))
+    virtual_events = store.query_audit_events(account_id="s001-v1", limit=20)
+    assert {event["event_type"] for event in virtual_events} >= {
+        "ORDER_INTENT_CREATED", "ORDER_SUBMITTED", "ORDER_FILLED",
+    }
+    assert all(event["channel"] == "virtual" for event in virtual_events)
     store.set_virtual_paused("r1102-v1", True)
     assert len(store.virtual_fills("s001-v1")) == 1
     assert store.virtual_fills("r1102-v1") == []
     assert store.virtual_account("r1102-v1")["paused"] == 1
+    store.set_virtual_paused("r1102-v1", False)
+
+    class Advice:
+        def get_decision(self, actual_quantity, available_cash, **kwargs):
+            return replace(
+                decision(OrderSpec("BUY", 1000, "LIMIT", 1.0, "DAY")),
+                decision_id="DEC-R1102", actual_quantity=actual_quantity,
+                strategy={
+                    "strategy_id": "S002", "name": "R1102", "version": "v1",
+                    "release_id": "S002-v1", "release_hash": "b" * 64,
+                    "qualification": "PAPER_READY",
+                },
+            )
+
+    virtual = VirtualAccountEngine(store, Advice())
+    virtual.refresh_account("r1102-v1", date(2026, 9, 2), None)
+    virtual.refresh_account("r1102-v1", date(2026, 9, 2), None)
+    strategy_events = store.query_audit_events(account_id="r1102-v1", category="STRATEGY")
+    assert [event["event_type"] for event in strategy_events].count("DECISION_GENERATED") == 1
+    assert [event["event_type"] for event in strategy_events].count("SIGNAL_TRIGGERED") == 1
     store.close()
 
     reopened = PaperStore(database)

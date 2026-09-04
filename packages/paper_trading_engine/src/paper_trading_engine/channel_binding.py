@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 import json
 import re
 
+from .audit import AuditRecorder
+
 
 BINDING_KEY = "futu_strategy_binding"
 TERMINAL_STATUSES = {
@@ -83,13 +85,16 @@ def bind_channel_strategy(store, release, actor: str, reason: str, active_orders
         reason=reason.strip(),
     )
     store.set_setting(BINDING_KEY, json.dumps(binding.to_dict(), ensure_ascii=False))
-    store.add_event("CHANNEL_STRATEGY_BOUND", {
-        "channel": "futu",
-        "old_binding": None if current is None else current.to_dict(),
-        "new_binding": binding.to_dict(),
-        "actor": binding.bound_by,
-        "reason": binding.reason,
-    })
+    AuditRecorder(store).record(
+        "CHANNEL_STRATEGY_BOUND", source="channel_binding", actor_type="OPERATOR",
+        actor_id=binding.bound_by, strategy_id=binding.strategy_id,
+        strategy_version=binding.strategy_version, release_hash=binding.release_hash,
+        channel="futu", correlation_id=f"binding:{binding.release_id}:{binding.bound_at}",
+        details={
+            "old_binding": None if current is None else current.to_dict(),
+            "new_binding": binding.to_dict(), "reason": binding.reason,
+        },
+    )
     return binding
 
 

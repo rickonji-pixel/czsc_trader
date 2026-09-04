@@ -301,6 +301,15 @@ def _ensure_control_token(store: PaperStore) -> str:
     return token
 
 
+def _record_service_lifecycle(
+    audit: AuditRecorder, event_type: str, instance_id: str, **details: object,
+) -> None:
+    audit.record(
+        event_type, source="cli", actor_type="ENGINE",
+        actor_id=instance_id, details=details,
+    )
+
+
 def _restart_running_pte(args: argparse.Namespace) -> dict[str, object]:
     if args.host != "127.0.0.1":
         raise ValueError("PTE control host must be 127.0.0.1")
@@ -475,9 +484,9 @@ def main(
         )
         worker = Thread(target=scheduler.run, args=(stopped,), name="pte-scheduler", daemon=True)
         worker.start()
-        audit.record(
-            "SERVICE_STARTED", source="cli", actor_type="SYSTEM",
-            actor_id=instance_id, details={"host": args.host, "port": server.server_port},
+        _record_service_lifecycle(
+            audit, "SERVICE_STARTED", instance_id,
+            host=args.host, port=server.server_port,
         )
         sys.stderr.write(f"PTE listening on http://{args.host}:{server.server_port}\n")
         try:
@@ -486,10 +495,7 @@ def main(
             stopped.set()
             worker.join(timeout=30.0)
             server.server_close()
-            audit.record(
-                "SERVICE_STOPPED", source="cli", actor_type="SYSTEM",
-                actor_id=instance_id,
-            )
+            _record_service_lifecycle(audit, "SERVICE_STOPPED", instance_id)
         return 0
     except KeyboardInterrupt:
         return 130

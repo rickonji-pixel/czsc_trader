@@ -31,6 +31,7 @@ class AccountEngine:
             cycle_target_quantity=account["cycle_target"],
             strategy_id=account["strategy_id"],
             strategy_version=account["strategy_version"],
+            account_id=account_id,
         )
         expected = (
             account["strategy_id"], account["strategy_version"], account["release_hash"],

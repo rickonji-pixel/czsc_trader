@@ -42,7 +42,7 @@ class CliAdviceClient:
     def _audit_call(
         self, started: float, *, decision: AdviceDecision | None = None,
         error: Exception | None = None, strategy_id: str | None = None,
-        strategy_version: str | None = None,
+        strategy_version: str | None = None, account_id: str | None = None,
     ) -> None:
         if self.audit is None:
             return
@@ -51,6 +51,10 @@ class CliAdviceClient:
             "EXTERNAL_CALL_FAILED" if error else "EXTERNAL_CALL_SUCCEEDED",
             source="advice_client", outcome="FAILURE" if error else "SUCCESS",
             actor_type="EXTERNAL", actor_id="trader", correlation_id=correlation_id,
+            account_id=account_id,
+            strategy_id=(decision.strategy.get("strategy_id") if decision else strategy_id),
+            strategy_version=(decision.strategy.get("version") if decision else strategy_version),
+            release_hash=(decision.strategy.get("release_hash") if decision else None),
             symbol=self.symbol, decision_id=decision.decision_id if decision else None,
             details={
                 "service": "trader", "operation": "advice.run",
@@ -62,6 +66,7 @@ class CliAdviceClient:
             self.audit.record(
                 "DECISION_GENERATION_FAILED", source="advice_client", outcome="FAILURE",
                 actor_type="ENGINE", correlation_id=correlation_id, symbol=self.symbol,
+                account_id=account_id,
                 strategy_id=strategy_id, strategy_version=strategy_version,
                 details={"error_type": type(error).__name__, "error": str(error)},
             )
@@ -74,6 +79,7 @@ class CliAdviceClient:
         strategy_id: str | None = None,
         strategy_version: str | None = None,
         baseline: str | None = None,
+        account_id: str | None = None,
     ) -> AdviceDecision:
         started = time.perf_counter()
         arguments = [
@@ -139,10 +145,10 @@ class CliAdviceClient:
         except Exception as exc:
             self._audit_call(
                 started, error=exc, strategy_id=strategy_id,
-                strategy_version=strategy_version,
+                strategy_version=strategy_version, account_id=account_id,
             )
             raise
-        self._audit_call(started, decision=decision)
+        self._audit_call(started, decision=decision, account_id=account_id)
         return decision
 
     def data_identity(self) -> str:

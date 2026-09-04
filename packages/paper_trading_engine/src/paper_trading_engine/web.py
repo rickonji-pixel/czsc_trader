@@ -74,9 +74,13 @@ def create_server(
                     self._json(200, api.channel_snapshot("futu"))
                 elif path == "/api/comparison":
                     self._json(200, api.comparison(parse_qs(parsed.query).get("account_id", [])))
+                elif path == "/api/audit-events":
+                    query = parse_qs(parsed.query, keep_blank_values=True)
+                    filters = {key: values[-1] for key, values in query.items()}
+                    self._json(200, api.audit_events(filters))
                 elif path.startswith("/static/"):
                     self._resource(path.removeprefix("/static/"))
-                elif path == "/" or path == "/comparison" or path.startswith("/accounts/") or path == "/channels/futu":
+                elif path in {"/", "/comparison", "/audit-events", "/channels/futu"} or path.startswith("/accounts/"):
                     self._resource("index.html")
                 else:
                     self._json(404, {"error": "not found"})
@@ -113,9 +117,13 @@ def create_server(
                     if path.startswith("/api/channels/"):
                         result = api.channel_snapshot("futu")
                 elif path in {"/api/cancel-token", "/api/channels/futu/cancel-token"}:
-                    result = {"token": operations.issue_cancel_token(str(body["channel_order_id"]))}
+                    result = {"token": operations.issue_cancel_token(
+                        str(body["account_id"]), str(body["channel_order_id"])
+                    )}
                 elif path in {"/api/cancel", "/api/channels/futu/cancel"}:
-                    result = operations.confirm_cancel(str(body["channel_order_id"]), str(body["token"]))
+                    result = operations.confirm_cancel(
+                        str(body["account_id"]), str(body["channel_order_id"]), str(body["token"])
+                    )
                 elif parts[:2] == ["api", "virtual-accounts"] and len(parts) == 4:
                     account_id = unquote(parts[2])
                     if parts[3] == "pause":

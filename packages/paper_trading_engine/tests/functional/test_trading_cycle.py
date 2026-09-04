@@ -1,80 +1,90 @@
-from dataclasses import asdict, replace
-from datetime import date, datetime, timedelta, timezone
+from dataclasses import replace
+from datetime import date
+from subprocess import CompletedProcess
 
+import pytest
+
+from paper_trading_engine.account_engine import AccountEngine
+from paper_trading_engine.advice_client import AdviceClientError, CliAdviceClient
+from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.contracts import OrderSpec
-from paper_trading_engine.engine import OrderIntent, PaperTradingEngine
+from paper_trading_engine.futu_execution import FutuExecution
 from paper_trading_engine.store import PaperStore
-from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision, make_engine
+from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision
 
 
-def test_ft_pte02_decision_order_fill_restart_and_idempotence(tmp_path):
-    engine, store, broker, advice = make_engine(tmp_path)
-    engine.refresh_account()
-    engine.refresh_decision_if_changed(force=True)
-    assert len(broker.placed) == 1
-    assert store.get_intent(broker.placed[0].intent_id)["status"] == "SUBMITTED"
+def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_path):
+    store = PaperStore(tmp_path / "runtime.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY",
+    )
+    advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
+    accounts = AccountEngine(store, advice)
+    broker = FakeBroker()
+    execution = FutuExecution(store, broker, symbol="588080.SH", today=lambda: date(2026, 9, 2))
 
-    engine.refresh_orders()
+    accounts.refresh_account("s001-v1", force=True)
+    accounts.refresh_account("s001-v1", force=True)
+    assert len(store.account_decisions("s001-v1")) == 1
+    assert len(store.pending_account_intents()) == 1
+    snapshot = store.account_snapshots("s001-v1")[0]
+    assert snapshot["session"] == "2026-09-01"
+    assert float(snapshot["total_assets"]) == 100_000
+    decision_event = store.query_audit_events(
+        event_type="DECISION_GENERATED", account_id="s001-v1"
+    )[0]
+    assert decision_event["channel"] is None
+
+    execution.refresh_account()
+    execution.submit_pending()
+    execution.submit_pending()
     assert len(broker.placed) == 1
     submitted = broker.value.orders[0]
     broker.value = broker_snapshot(
-        orders=(replace(submitted, status="FILLED_PART", cumulative_filled_quantity=400, average_fill_price=1.67),),
-        quantity=400,
+        orders=(replace(
+            submitted, status="FILLED_PART", cumulative_filled_quantity=400,
+            average_fill_price=1.67,
+        ),), quantity=400,
     )
-    engine.refresh_orders()
-    engine.refresh_orders()
-    increments = [e for e in store.recent_events() if e["event_type"] == "FILL_INCREMENT"]
-    assert len(increments) == 1
-    assert increments[0]["payload"]["quantity"] == 400
+    execution.refresh_orders()
+    execution.refresh_orders()
+    assert store.virtual_account("s001-v1")["quantity"] == 400
+    assert len(store.account_fills("s001-v1")) == 1
 
-    engine.pause()
-    assert engine.status()["paused"] is True
     broker.value = broker_snapshot(
-        orders=(replace(submitted, status="FILLED_ALL", cumulative_filled_quantity=1000, average_fill_price=1.68),),
-        quantity=1000,
+        orders=(replace(
+            submitted, status="FILLED_ALL", cumulative_filled_quantity=1000,
+            average_fill_price=1.68,
+        ),), quantity=1000,
     )
-    engine.refresh_orders()
-    assert sum(e["payload"]["quantity"] for e in store.recent_events() if e["event_type"] == "FILL_INCREMENT") == 1000
-    engine.resume()
-    token = engine.issue_cancel_token(submitted.channel_order_id)
-    engine.confirm_cancel(submitted.channel_order_id, token)
-    assert broker.cancelled == [submitted.channel_order_id]
+    execution.refresh_orders()
+    assert store.virtual_account("s001-v1")["quantity"] == 1000
+    assert sum(row["quantity"] for row in store.account_fills("s001-v1")) == 1000
+    assert len(store.query_audit_events(event_type="ORDER_FILLED", account_id="s001-v1")) == 1
     store.close()
 
-    # A persisted pre-submit intent is safely recovered after a process restart.
-    recovery_store = PaperStore(tmp_path / "recovery.db")
-    intent = OrderIntent("PTE-DEC-ONE", "DEC-ONE", "588080.SH", "BUY", 1000, 1.68)
-    recovery_store.save_intent(intent.intent_id, intent.decision_id, asdict(intent))
-    recovery_broker = FakeBroker()
-    recovery = PaperTradingEngine(
-        recovery_store, recovery_broker, FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY"))),
-        symbol="588080.SH", today=lambda: date(2026, 9, 2),
-        now=lambda: datetime(2026, 9, 2, 9, 30, tzinfo=timezone(timedelta(hours=8))),
-    )
-    recovery.refresh()
-    assert len(recovery_broker.placed) == 1
-    assert recovery_store.get_intent(intent.intent_id)["channel_order_id"] == "1001"
-    recovery_store.close()
+    reopened = PaperStore(tmp_path / "runtime.db")
+    assert reopened.virtual_account("s001-v1")["quantity"] == 1000
+    assert len(reopened.account_orders("s001-v1")) == 1
+    assert len(reopened.account_fills("s001-v1")) == 2
+    reopened.close()
 
-    # Multi-slice decisions submit the next slice only after the active one settles.
-    first = OrderSpec("BUY", 1_000_000, "LIMIT", 1.0, "DAY")
-    second = OrderSpec("BUY", 100, "LIMIT", 1.0, "DAY")
-    multi_decision = replace(
-        decision(), action="BUY", target_quantity=1_000_100,
-        cycle_target_quantity=1_000_100, delta_quantity=1_000_100,
-        orders=(first, second),
+    audit_store = PaperStore(tmp_path / "advice-failure.db")
+    client = CliAdviceClient(
+        executable="czsc-trader", repo_root=tmp_path, data_dir=tmp_path,
+        symbol="588080.SH", asset="etf", audit=AuditRecorder(audit_store),
+        runner=lambda args, **kwargs: CompletedProcess(args, 5, "", "provider unavailable"),
     )
-    multi_store = PaperStore(tmp_path / "multi.db")
-    multi_broker = FakeBroker()
-    multi = PaperTradingEngine(
-        multi_store, multi_broker, FakeAdvice(multi_decision), symbol="588080.SH",
-        today=lambda: date(2026, 9, 2),
-        now=lambda: datetime(2026, 9, 2, 9, 30, tzinfo=timezone(timedelta(hours=8))),
-    )
-    multi.refresh()
-    assert [item.quantity for item in multi_broker.placed] == [1_000_000]
-    active = multi_broker.value.orders[0]
-    multi_broker.value = broker_snapshot(orders=(replace(active, status="FILLED_ALL"),))
-    multi.refresh_orders()
-    assert [item.quantity for item in multi_broker.placed] == [1_000_000, 100]
-    multi_store.close()
+    with pytest.raises(AdviceClientError):
+        client.get_decision(
+            0, 100_000, strategy_id="S001", strategy_version="v1",
+            account_id="s001-v1",
+        )
+    failed = audit_store.query_audit_events(event_type="DECISION_GENERATION_FAILED")[0]
+    assert failed["account_id"] == "s001-v1"
+    external = audit_store.query_audit_events(event_type="EXTERNAL_CALL_FAILED")[0]
+    assert external["account_id"] == "s001-v1"
+    audit_store.close()

@@ -16,7 +16,9 @@ def _canonical_sha256(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _metrics(initial: float, snapshots: list[dict], pnl: list[float]) -> dict[str, object]:
+def calculate_metrics(
+    initial: float, snapshots: list[dict], pnl: list[float],
+) -> dict[str, object]:
     values = [initial, *[float(item["total_assets"]) for item in snapshots]]
     ending = values[-1]
     total_return = ending / initial - 1
@@ -58,6 +60,17 @@ def _metrics(initial: float, snapshots: list[dict], pnl: list[float]) -> dict[st
     }
 
 
+def closed_trade_pnl(fills: list[dict]) -> list[float]:
+    """Aggregate partial SELL fills into one realized result per channel order."""
+    by_order: dict[str, float] = {}
+    for fill in fills:
+        if fill.get("side") != "SELL":
+            continue
+        order_id = str(fill["order_id"])
+        by_order[order_id] = by_order.get(order_id, 0.0) + float(fill["realized_pnl"])
+    return list(by_order.values())
+
+
 def export_performance(
     store,
     account_id: str,
@@ -79,24 +92,24 @@ def export_performance(
         raise ValueError("virtual account has no formal strategy identity")
     snapshots = [
         {"session": item["session"], "total_assets": item["total_assets"]}
-        for item in store.virtual_snapshots(account_id)
+        for item in store.account_snapshots(account_id)
         if (start is None or item["session"] >= start) and (end is None or item["session"] <= end)
     ]
     if not snapshots:
         raise ValueError("performance export requires at least one snapshot")
     fills = [
         item
-        for item in store.virtual_fills(account_id)
+        for item in store.account_fills(account_id)
         if item["side"] == "SELL"
-        and (start is None or item["session"] >= start)
-        and (end is None or item["session"] <= end)
+        and (start is None or item["occurred_at"][:10] >= start)
+        and (end is None or item["occurred_at"][:10] <= end)
     ]
-    pnl = [float(item["realized_pnl"]) for item in fills]
-    orders = store.virtual_orders(account_id)
+    pnl = closed_trade_pnl(fills)
+    intents = store.account_intents(account_id)
     fee_rates = {
-        float(json.loads(item["payload"])["fee_rate"])
-        for item in orders
-        if "fee_rate" in json.loads(item["payload"])
+        float(item["payload"]["fee_rate"])
+        for item in intents
+        if "fee_rate" in item["payload"]
     }
     if len(fee_rates) != 1:
         raise ValueError("performance export requires one unambiguous fee rate")
@@ -113,7 +126,7 @@ def export_performance(
         "closed_trade_pnl": pnl,
     }
     source_hash = _canonical_sha256(source)
-    metrics = _metrics(float(account["initial_cash"]), snapshots, pnl)
+    metrics = calculate_metrics(float(account["initial_cash"]), snapshots, pnl)
     recorded_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     evidence_id = f"EVD-PTE-{uuid.uuid4().hex.upper()}"
     evidence = {

@@ -1,27 +1,23 @@
-"""One runtime surface for the Futu channel and internal virtual accounts."""
+"""Account-centric runtime facade for scheduler, CLI, and web console."""
 
-from datetime import date
+from .audit import AuditRecorder
 
 
-class UnavailableChannel:
-    """Channel-shaped degraded mode used when the Futu adapter cannot initialize."""
-
+class UnavailableExecution:
     def __init__(self, store, symbol: str, error: Exception) -> None:
-        self.store = store
-        self.symbol = symbol
-        self.initial_error = str(error)
+        self.store, self.symbol, self.initial_error = store, symbol, str(error)
 
     def _raise(self, *args, **kwargs):
         raise RuntimeError(self.initial_error)
 
-    refresh = refresh_account = refresh_orders = refresh_decision_if_changed = _raise
+    refresh = refresh_account = refresh_orders = submit_pending = _raise
 
     def status(self):
         return {
             "environment": "SIMULATE", "market": "CN", "symbol": self.symbol,
-            "quote_health": "UNKNOWN", "paused": self.store.is_paused(), "account": None,
-            "actual_quantity": None, "last_decision": None, "orders": self.store.orders(),
-            "alerts": ["CHANNEL_UNAVAILABLE"], "events": self.store.recent_events(50),
+            "account": None, "positions": [], "orders": self.store.account_orders(),
+            "paused": self.store.is_paused(),
+            "reconciliation_status": "UNAVAILABLE", "alerts": ["CHANNEL_UNAVAILABLE"],
             "scheduler_failures": self.store.operation_failures(),
         }
 
@@ -29,107 +25,101 @@ class UnavailableChannel:
         self.store.set_paused(True)
         return self.status()
 
-    def resume(self):
-        raise RuntimeError("successful channel reconciliation required before resume")
-
-    def issue_cancel_token(self, channel_order_id):
-        raise RuntimeError("channel is unavailable")
-
-    def confirm_cancel(self, channel_order_id, token):
-        raise RuntimeError("channel is unavailable")
-
-    def close(self):
-        self.store.close()
-
-    def begin_shutdown(self):
-        return None
+    def resume(self): raise RuntimeError("successful channel reconciliation required before resume")
+    def issue_cancel_token(self, account_id, channel_order_id): raise RuntimeError("channel is unavailable")
+    def confirm_cancel(self, account_id, channel_order_id, token): raise RuntimeError("channel is unavailable")
+    def begin_shutdown(self): return None
+    def close(self): self.store.close()
 
 
 class PteCoordinator:
-    def __init__(self, channel, virtual) -> None:
-        self.channel = channel
-        self.virtual = virtual
-        self.store = channel.store
-        initial = getattr(channel, "initial_error", None)
-        self._channel_errors: dict[str, str] = {} if initial is None else {"initialization": initial}
+    def __init__(self, accounts, execution, audit: AuditRecorder | None = None) -> None:
+        self.accounts, self.execution = accounts, execution
+        self.store = accounts.store
+        self.audit = audit or AuditRecorder(self.store)
 
-    def _call(self, name, operation, *args, **kwargs):
-        try:
-            result = operation(*args, **kwargs)
-        except Exception as exc:
-            self._channel_errors[name] = str(exc)
-            raise
-        self._channel_errors.pop(name, None)
-        return result
+    @property
+    def virtual(self): return self.accounts
+
+    @property
+    def channel(self): return self.execution
 
     def refresh(self):
         try:
-            channel = self._call("refresh", self.channel.refresh)
+            self.execution.refresh()
         except Exception as exc:
-            self.store.add_event("CHANNEL_REFRESH_FAILED", {"error": str(exc)})
-            channel = self.channel.status()
-        return self._combined(channel)
+            self.audit.record(
+                "DEPENDENCY_DEGRADED", source="coordinator", outcome="FAILURE",
+                actor_type="EXTERNAL", actor_id="futu", channel="futu",
+                details={"service": "futu", "operation": "refresh", "error": str(exc)},
+            )
+        self.accounts.refresh_all()
+        return self.status()
 
-    def refresh_account(self):
-        return self._call("account", self.channel.refresh_account)
+    def startup(self):
+        """Reconcile and resume durable channel work without generating a new decision."""
+        try:
+            self.execution.refresh()
+        except Exception as exc:
+            self.audit.record(
+                "DEPENDENCY_DEGRADED", source="coordinator", outcome="FAILURE",
+                actor_type="EXTERNAL", actor_id="futu", channel="futu",
+                details={"service": "futu", "operation": "startup", "error": str(exc)},
+            )
+        return self.status()
+
+    def refresh_account(self): return self.execution.refresh_account()
 
     def refresh_orders(self):
-        return self._call("orders", self.channel.refresh_orders)
+        self.execution.refresh_orders()
+        return self.execution.submit_pending(reconcile=False)
 
-    def refresh_decision_if_changed(self, *, force=False):
-        return self._call("decision", self.channel.refresh_decision_if_changed, force=force)
-
-    def refresh_virtual(self, session: date, bar):
-        return self.virtual.refresh_all(session, bar)
+    def refresh_decisions(self): return self.accounts.refresh_all()
 
     def status(self):
-        return self._combined(self.channel.status())
-
-    def _combined(self, channel):
-        channel = {
-            **channel,
-            "channel_error": "; ".join(self._channel_errors.values()) or None,
-            "channel_errors": dict(self._channel_errors),
-        }
-        accounts = [self.virtual.status(row["account_id"]) for row in self.store.virtual_accounts()]
-        starts = [item["metrics"]["observation_start"] for item in accounts if item["metrics"]["observation_start"]]
-        ends = [item["metrics"]["observation_end"] for item in accounts if item["metrics"]["observation_end"]]
+        channel = self.execution.status()
+        accounts = [self.accounts.status(row["account_id"]) for row in self.store.virtual_accounts()]
+        starts = [row["metrics"]["observation_start"] for row in accounts if row["metrics"]["observation_start"]]
+        ends = [row["metrics"]["observation_end"] for row in accounts if row["metrics"]["observation_end"]]
         common_start = max(starts) if len(starts) == len(accounts) and accounts else None
         common_end = min(ends) if len(ends) == len(accounts) and accounts else None
-        if common_start and common_end and common_start <= common_end:
-            for account in accounts:
-                account["comparison_metrics"] = self.virtual.metrics(
-                    account["account_id"], common_start, common_end
-                )
         return {
-            # Compatibility aliases keep an already-running pre-v3 watchdog healthy.
-            "environment": channel.get("environment"),
-            "symbol": channel.get("symbol"),
-            "channel": channel,
-            "virtual_accounts": accounts,
+            "environment": channel.get("environment"), "symbol": channel.get("symbol"),
+            "channel": channel, "virtual_accounts": accounts,
             "default_account_id": accounts[0]["account_id"] if accounts else None,
             "comparison": {
-                "common_start": common_start,
-                "common_end": common_end,
+                "common_start": common_start, "common_end": common_end,
                 "priority_metrics": ["maximum_drawdown", "calmar_ratio", "win_loss_ratio", "total_return"],
                 "accounts": [
-                    {
-                        "account_id": account["account_id"], "name": account["name"],
-                        "metrics": account.get("comparison_metrics", account["metrics"]),
-                    }
-                    for account in accounts
+                    {"account_id": row["account_id"], "name": row["name"], "metrics": row["metrics"]}
+                    for row in accounts
                 ],
             },
         }
 
-    def pause(self): return self.channel.pause()
-    def resume(self): return self.channel.resume()
-    def issue_cancel_token(self, channel_order_id): return self.channel.issue_cancel_token(channel_order_id)
-    def confirm_cancel(self, channel_order_id, token): return self.channel.confirm_cancel(channel_order_id, token)
-    def pause_virtual(self, account_id): return self.store.set_virtual_paused(account_id, True)
-    def resume_virtual(self, account_id): return self.store.set_virtual_paused(account_id, False)
+    def pause(self): return self.execution.pause()
+    def resume(self): return self.execution.resume()
+    def issue_cancel_token(self, account_id, channel_order_id):
+        return self.execution.issue_cancel_token(account_id, channel_order_id)
+    def confirm_cancel(self, account_id, channel_order_id, token):
+        return self.execution.confirm_cancel(account_id, channel_order_id, token)
+
+    def _set_virtual_paused(self, account_id, paused):
+        account = self.store.set_virtual_paused(account_id, paused)
+        self.audit.record(
+            "ACCOUNT_PAUSED" if paused else "ACCOUNT_RESUMED", source="web.control",
+            actor_type="OPERATOR", account_id=account_id,
+            strategy_id=account.get("strategy_id"), strategy_version=account.get("strategy_version"),
+            release_hash=account.get("release_hash"), channel="futu",
+        )
+        return account
+
+    def pause_virtual(self, account_id): return self._set_virtual_paused(account_id, True)
+    def resume_virtual(self, account_id): return self._set_virtual_paused(account_id, False)
+
     def begin_shutdown(self):
-        self.store.add_event("PTE_RESTART_REQUESTED", {"channel": "futu"})
-        self.channel.begin_shutdown()
-        self.virtual.begin_shutdown()
-    def close(self): return self.channel.close()
+        self.audit.record("RESTART_REQUESTED", source="web.control", actor_type="OPERATOR")
+        self.accounts.begin_shutdown()
+        self.execution.begin_shutdown()
+
+    def close(self): self.execution.close()

@@ -3,8 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from paper_trading_engine.cli import PortUnavailableError, probe_port
+from paper_trading_engine.audit import AuditRecorder
+from paper_trading_engine.cli import PortUnavailableError, _record_service_lifecycle, probe_port
 from paper_trading_engine.service_config import ServiceConfig
+from paper_trading_engine.store import PaperStore
 from paper_trading_engine.watchdog import Watchdog
 from paper_trading_engine.windows_service import service_commands
 
@@ -18,6 +20,16 @@ class Process:
 
 
 def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
+    audit_store = PaperStore(tmp_path / "lifecycle.db")
+    _record_service_lifecycle(
+        AuditRecorder(audit_store), "SERVICE_STARTED", "instance-1", port=8080,
+    )
+    lifecycle = audit_store.recent_events(1)[0]
+    assert lifecycle["event_type"] == "SERVICE_STARTED"
+    assert lifecycle["actor_type"] == "ENGINE"
+    assert lifecycle["actor_id"] == "instance-1"
+    audit_store.close()
+
     config = ServiceConfig(repo_root=tmp_path.resolve())
     path = tmp_path / "service.json"
     config.save(path)

@@ -4,16 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from .channel_binding import load_channel_binding
-
-
-SYSTEM_EVENT_TYPES = {
-    "DATA_PUBLICATION_FAILED",
-    "DATA_PUBLISHED",
-    "SCHEDULER_OPERATION_FAILED",
-    "SCHEDULER_OPERATION_RECOVERED",
-    "SCHEDULER_CYCLE_FAILED",
-}
+from .audit import AuditCategory, AuditOutcome, AuditSeverity, EVENT_CATALOG
 
 
 class ResourceNotFound(KeyError):
@@ -39,15 +30,58 @@ class PteWebApi:
             "scope": {"system": "pte"},
             "as_of": _now(),
             "runtime": "RUNNING",
-            "data_cutoff": (channel.get("last_decision") or {}).get("data_cutoff"),
+            "data_cutoff": self.store.get_setting("last_data_publish_date"),
             "last_publication": self.store.get_setting("last_data_publication"),
             "scheduler_failures": failures,
             "futu_connection": "UNAVAILABLE" if "CHANNEL_UNAVAILABLE" in channel.get("alerts", []) else "CONNECTED",
             "alerts": alerts,
             "events": [
                 event for event in self.store.recent_events(200)
-                if event["event_type"] in SYSTEM_EVENT_TYPES
+                if event["category"] == AuditCategory.SYSTEM
             ],
+        }
+
+    def audit_events(self, filters: dict[str, str]) -> dict[str, object]:
+        allowed = {
+            "category", "event_type", "severity", "outcome", "account_id",
+            "strategy_id", "channel", "decision_id", "order_id", "correlation_id",
+            "before_id", "limit",
+        }
+        unknown = sorted(set(filters) - allowed)
+        if unknown:
+            raise ValueError(f"unknown audit filter: {unknown[0]}")
+        enum_filters = {
+            "category": AuditCategory,
+            "severity": AuditSeverity,
+            "outcome": AuditOutcome,
+        }
+        for name, enum_type in enum_filters.items():
+            value = filters.get(name)
+            if value:
+                try:
+                    enum_type(value)
+                except ValueError as exc:
+                    raise ValueError(f"invalid audit {name}: {value}") from exc
+        event_type = filters.get("event_type")
+        if event_type and event_type not in EVENT_CATALOG:
+            raise ValueError(f"invalid audit event_type: {event_type}")
+        query = dict(filters)
+        for name in ("before_id", "limit"):
+            if name in query:
+                try:
+                    query[name] = int(query[name])
+                except ValueError as exc:
+                    raise ValueError(f"audit event {name} must be an integer") from exc
+        events = self.store.query_audit_events(**query)
+        limit = int(query.get("limit", 50))
+        return {
+            "scope": {"resource": "audit_events", **{
+                key: value for key, value in filters.items()
+                if key not in {"before_id", "limit"}
+            }},
+            "as_of": _now(),
+            "events": events,
+            "next_before_id": events[-1]["id"] if len(events) == limit else None,
         }
 
     def virtual_accounts(self) -> dict[str, object]:
@@ -83,12 +117,9 @@ class PteWebApi:
             "release_hash", "qualification_snapshot", "symbol", "initial_cash", "cash",
             "frozen_cash", "total_assets", "quantity", "average_cost", "realized_pnl",
             "cycle_target", "paused", "observation_start", "last_settlement_session", "health",
-            "last_error", "created_at", "updated_at",
+            "last_error", "channel_id", "status", "created_at", "updated_at",
         }
-        events = [
-            event for event in self.store.recent_events(200)
-            if event.get("payload", {}).get("account_id") == account_id
-        ]
+        events = self.store.query_audit_events(account_id=account_id, limit=200)
         return {
             "scope": {"account_id": account_id, "strategy_id": strategy_id,
                       "release_id": release_id, "release_hash": status.get("release_hash")},
@@ -107,18 +138,33 @@ class PteWebApi:
         if channel != "futu":
             raise ResourceNotFound(channel)
         status = self.channel.status()
-        binding = load_channel_binding(self.store)
-        events = [
-            event for event in self.store.recent_events(200)
-            if event.get("payload", {}).get("channel") == "futu"
-            or event["event_type"].startswith(("ORDER_", "FILL_", "CANCEL_", "CHANNEL_"))
+        events = self.store.query_audit_events(channel="futu", limit=200)
+        accounts = [
+            {
+                "account_id": row["account_id"], "name": row["name"],
+                "release_id": f'{row["strategy_id"]}-{row["strategy_version"]}',
+                "initial_cash": row["initial_cash"], "cash": row["cash"],
+                "frozen_cash": row["frozen_cash"], "quantity": row["quantity"],
+                "paused": bool(row["paused"]), "status": row["status"],
+            }
+            for row in self.store.virtual_accounts()
+            if row.get("channel_id") == "futu"
         ]
+        broker = status.get("account") or {}
+        allocated = sum(float(row["initial_cash"]) for row in accounts)
         return {
             "scope": {"channel": "futu", "account_type": "broker_simulation"},
-            "as_of": _now(), "binding": None if binding is None else binding.to_dict(),
+            "as_of": _now(),
             "account": status.get("account"), "actual_quantity": status.get("actual_quantity"),
-            "decision": status.get("last_decision"), "orders": status.get("orders", []),
-            "paused": status.get("paused"), "quote_health": status.get("quote_health"),
+            "accounts": accounts,
+            "allocated_capital": allocated,
+            "unallocated_capital": (
+                max(0.0, float(broker.get("total_assets", 0.0)) - allocated)
+                if broker else None
+            ),
+            "orders": status.get("orders", []), "fills": self.store.account_fills(),
+            "paused": status.get("paused"),
+            "reconciliation_status": status.get("reconciliation_status"),
             "connection_error": status.get("channel_error"), "alerts": status.get("alerts", []),
             "scheduler_failures": status.get("scheduler_failures", []), "events": events,
         }

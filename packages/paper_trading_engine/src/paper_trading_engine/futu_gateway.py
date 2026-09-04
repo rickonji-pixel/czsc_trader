@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from typing import Any
+import time
 
-from .engine import (
+from .audit import AuditRecorder
+
+from .broker import (
     BrokerAccount,
     BrokerOrder,
     BrokerPosition,
@@ -46,7 +49,7 @@ class FutuGateway:
         port: int = 11111,
         sdk: object | None = None,
         trade_context: object | None = None,
-        quote_context: object | None = None,
+        audit: AuditRecorder | None = None,
     ) -> None:
         if sdk is None:
             import futu as sdk_module
@@ -59,8 +62,27 @@ class FutuGateway:
         self.trade_context = trade_context or sdk.OpenSecTradeContext(
             filter_trdmarket=sdk.TrdMarket.CN, host=host, port=port
         )
-        self.quote_context = quote_context or sdk.OpenQuoteContext(host=host, port=port)
         self._account_id: int | None = None
+        self.audit = audit
+
+    def _audit_mutation(
+        self, operation: str, started: float, *, correlation_id: str,
+        order_id: str | None = None, account_id: str | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        if self.audit is None:
+            return
+        self.audit.record(
+            "EXTERNAL_CALL_FAILED" if error else "EXTERNAL_CALL_SUCCEEDED",
+            source="futu_gateway", outcome="FAILURE" if error else "SUCCESS",
+            actor_type="EXTERNAL", actor_id="futu", correlation_id=correlation_id,
+            account_id=account_id, symbol=self.symbol, channel="futu", order_id=order_id,
+            details={
+                "service": "futu", "operation": operation,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 3),
+                **({"error_type": type(error).__name__, "error": str(error)} if error else {}),
+            },
+        )
 
     def _ok(self, operation: str, result: tuple[object, object]) -> object:
         code, value = result
@@ -89,7 +111,6 @@ class FutuGateway:
             account.account,
             account.positions,
             self.order_snapshot(),
-            account.quote_health,
         )
 
     def account_snapshot(self) -> BrokerSnapshot:
@@ -108,11 +129,9 @@ class FutuGateway:
         position_rows = _records(
             self._ok(
                 "position_list_query",
-                self.trade_context.position_list_query(code=self.code, **common),
+                self.trade_context.position_list_query(**common),
             )
         )
-        quote_result, _ = self.quote_context.get_stock_quote([self.code])
-        quote_health = "OK" if quote_result == self.sdk.RET_OK else "DEGRADED_QUOTE"
         return BrokerSnapshot(
             account=BrokerAccount(
                 environment="SIMULATE",
@@ -126,7 +145,6 @@ class FutuGateway:
                 for row in position_rows
             ),
             orders=(),
-            quote_health=quote_health,
         )
 
     def order_snapshot(self) -> tuple[BrokerOrder, ...]:
@@ -134,7 +152,6 @@ class FutuGateway:
             self._ok(
                 "order_list_query",
                 self.trade_context.order_list_query(
-                    code=self.code,
                     trd_env=self.sdk.TrdEnv.SIMULATE,
                     acc_id=self._account(),
                     refresh_cache=True,
@@ -164,41 +181,65 @@ class FutuGateway:
         if intent.order_type != "LIMIT" or intent.time_in_force != "DAY":
             raise PaperTradingSafetyError("gateway accepts DAY limit orders only")
         side = self.sdk.TrdSide.BUY if intent.side == "BUY" else self.sdk.TrdSide.SELL
-        rows = _records(
+        started = time.perf_counter()
+        try:
+            rows = _records(
+                self._ok(
+                    "place_order",
+                    self.trade_context.place_order(
+                        price=intent.limit_price,
+                        qty=intent.quantity,
+                        code=self.code,
+                        trd_side=side,
+                        order_type=self.sdk.OrderType.NORMAL,
+                        adjust_limit=0,
+                        trd_env=self.sdk.TrdEnv.SIMULATE,
+                        acc_id=self._account(),
+                        remark=intent.intent_id,
+                        time_in_force=self.sdk.TimeInForce.DAY,
+                    ),
+                )
+            )
+            if len(rows) != 1:
+                raise FutuGatewayError("place_order did not return exactly one order")
+            order = self._map_order(rows[0])
+        except Exception as exc:
+            self._audit_mutation(
+                "place_order", started, correlation_id=intent.decision_id,
+                account_id=intent.account_id, error=exc,
+            )
+            raise
+        self._audit_mutation(
+            "place_order", started, correlation_id=intent.decision_id,
+            order_id=order.channel_order_id, account_id=intent.account_id,
+        )
+        return order
+
+    def cancel_order(self, channel_order_id: str) -> None:
+        started = time.perf_counter()
+        try:
             self._ok(
-                "place_order",
-                self.trade_context.place_order(
-                    price=intent.limit_price,
-                    qty=intent.quantity,
-                    code=self.code,
-                    trd_side=side,
-                    order_type=self.sdk.OrderType.NORMAL,
+                "modify_order",
+                self.trade_context.modify_order(
+                    modify_order_op=self.sdk.ModifyOrderOp.CANCEL,
+                    order_id=channel_order_id,
+                    qty=0,
+                    price=0,
                     adjust_limit=0,
                     trd_env=self.sdk.TrdEnv.SIMULATE,
                     acc_id=self._account(),
-                    remark=intent.intent_id,
-                    time_in_force=self.sdk.TimeInForce.DAY,
                 ),
             )
-        )
-        if len(rows) != 1:
-            raise FutuGatewayError("place_order did not return exactly one order")
-        return self._map_order(rows[0])
-
-    def cancel_order(self, channel_order_id: str) -> None:
-        self._ok(
-            "modify_order",
-            self.trade_context.modify_order(
-                modify_order_op=self.sdk.ModifyOrderOp.CANCEL,
-                order_id=channel_order_id,
-                qty=0,
-                price=0,
-                adjust_limit=0,
-                trd_env=self.sdk.TrdEnv.SIMULATE,
-                acc_id=self._account(),
-            ),
+        except Exception as exc:
+            self._audit_mutation(
+                "cancel_order", started, correlation_id=channel_order_id,
+                order_id=channel_order_id, error=exc,
+            )
+            raise
+        self._audit_mutation(
+            "cancel_order", started, correlation_id=channel_order_id,
+            order_id=channel_order_id,
         )
 
     def close(self) -> None:
-        self.quote_context.close()
         self.trade_context.close()

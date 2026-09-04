@@ -69,6 +69,8 @@ Get-Command .\.venv\Scripts\pte-watchdog.exe
 
 策略统一使用 Tushare 后复权行情；交易委托价格使用同日未复权日线。发布器同时
 生成 30 分钟、日线、周线及身份清单，策略价格与执行价格按交易日严格对齐。
+`data update-backtest`采用追加保护：既有30分钟线、日线和已结束周线不可改写；只有
+与新增日线处于同一自然周的末根未完成周线可以重新聚合。更新失败时保留原数据集。
 
 ### 查看正式策略
 
@@ -142,7 +144,7 @@ experiments/MMDD_EXXX/
 .\.venv\Scripts\czsc-trader.exe backtest run `
   --strategy S001 --strategy-version v1 --dataset backtest `
   --symbol 588080.SH --asset etf `
-  --start 2026-01-01 --end 2026-09-02 --init-cash 100000
+  --start 2026-01-05 --end 2026-09-04 --init-cash 100000
 ```
 
 Backtest v2每次只回放一个不可变策略快照、一个标的和一个明确日期区间。账户从指定现金
@@ -162,6 +164,11 @@ Backtest v2每次只回放一个不可变策略快照、一个标的和一个明
 `chart.html`，并生成`buyhold_account_daily.csv`、`ma_signals.csv`、`ma_orders.csv`、
 `ma_account_daily.csv`、`ma_trades.csv`和独立的`ma_chart.html`。SE独立复算当前策略的
 订单、成交、费用和账户账本，审计未通过时不发布结果目录。
+
+策略图表展示K线、CZSC笔、空心交易信号、实心成交事件和策略得分。统一hover气泡按
+交易日汇总OHLC、策略得分、行情状态、信号及成交；垂直瞄准虚线同步贯穿价格区和策略
+得分区。图表标题和报告中的起止日均使用实际交易日。
+
 回测命令从不隐式更新数据；需要新行情时先显式执行`data update-backtest`。
 
 普通结果写入被 Git 忽略的 `outputs/`。正式研究证据必须归档到

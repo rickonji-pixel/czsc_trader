@@ -47,7 +47,8 @@ PTE虚拟账户页已经能够展示策略发布、最新决策、订单、成�
 1. **账户归属明确**：每张图只对应一个虚拟账户和一个不可变策略发布。
 2. **前瞻事实优先**：信号来自PTE已持久化决策，订单和成交来自账户账本。
 3. **不补造历史**：选择截止日前只显示行情背景和CZSC笔，不补算该账户从未生成的信号。
-4. **包边界稳定**：PTE继续通过CLI调用TDR，不导入`czsc_trader`。
+4. **包边界稳定**：PTE通过stdin/stdout调用TDR纯绘图器，不导入`czsc_trader`，也不向
+   TDR移交前瞻行情的存储权。
 5. **交易链路隔离**：绘图失败只影响图表，不能阻塞调度、决策、下单、回报或对账。
 6. **本地可用**：全部脚本和图表资源由本机服务提供，不访问公网。
 7. **OPC可维护**：复用现有绘图能力、现有完整功能测试和简单文件缓存。
@@ -108,8 +109,9 @@ WAIT决策不绘制价格标记，其目标仓位仍进入下图。部分成交�
 
 ### 5.1 行情
 
-PTE使用运行数据目录中的`{code}_daily_*.csv`作为策略行情背景。TDR绘图命令验证对应
-manifest后加载日线，选择截止日前截取最后180个交易日，截止日后保留全部交易日。
+PTE拥有运行数据目录中的`{code}_daily_*.csv`和对应manifest。PTE验证发布身份后读取
+日线，在内存中截取选择截止日前最后180个交易日和截止日后的全部交易日，再把有限窗口
+内的OHLC数据写入绘图请求。TDR不读取PTE运行目录、`data/raw`或其他行情文件。
 
 图中的策略信号定位在后复权行情上。订单意图和成交悬停显示真实未复权价格；成交标记在
 图上的纵向位置采用对应交易日K线高低点外侧，避免把两种价格口径画成同一纵轴价格。
@@ -153,37 +155,37 @@ PTE按账户读取：
 新增`paper_trading_engine.account_chart`，职责为：
 
 - 验证账户存在及截止日元数据；
+- 验证PTE运行行情manifest并读取有限窗口日线；
 - 从PaperStore读取账户决策、意图、订单、成交和日快照；
-- 构建版本化`account_observation.v1`请求；
+- 将行情与账户事实构建为版本化`account_observation.v1`请求；
 - 计算内容指纹并管理缓存；
-- 调用TDR CLI生成图表；
+- 通过stdin调用TDR CLI，并接收stdout返回的完整HTML；
+- 在PTE缓存目录中原子保存HTML；
 - 将业务错误转换为只读图表状态。
 
 它不计算信号、CZSC笔或绩效，也不修改账户账本。
 
 ### 6.2 TDR观察图渲染器
 
-TDR新增内部CLI入口：
+TDR新增纯转换CLI入口：
 
 ```powershell
-czsc-trader chart observation `
-  --input <account_observation.json> `
-  --data-dir <pte-runtime-data> `
-  --output <cached-html> `
-  --format json
+Get-Content <account_observation.json> -Raw |
+  czsc-trader chart observation --format html > <observation.html>
 ```
 
 该命令：
 
-- 校验`account_observation.v1`、日期、标的和事件字段；
-- 通过现有数据加载器验证manifest；
+- 只从stdin读取一份`account_observation.v1`，校验行情、日期、标的和事件字段；
 - 复用`charting.py`的日K、透明悬停点、CZSC笔、缺失交易日和Plotly配置；
 - 叠加截止区间、PTE信号、意图、成交和持仓轨迹；
-- 原子写入自包含HTML；
-- stdout只输出一行机器JSON，stderr承载诊断；
-- 不读取PTE数据库，不修改策略或研究档案。
+- stdout只返回自包含HTML，stderr承载诊断；
+- 不读取PTE数据库、PTE运行目录或TDR行情目录；
+- 不调用Tushare，不写行情、HTML、策略或研究档案。
 
-`chart observation`是面向PTE的机器契约。CLI实现放在TDR，PTE仍只持有可执行文件路径。
+PTE使用`subprocess.run(input=..., capture_output=True, shell=False)`传输请求，校验退出码、
+HTML内容和超时后自行原子保存stdout。冷生成超时固定为30秒，输入上限5MB，输出上限
+20MB。`chart observation`是面向PTE的机器契约，TDR在整个流程中只持有进程内数据。
 
 ### 6.3 请求契约
 
@@ -202,6 +204,13 @@ czsc-trader chart observation `
     "symbol": "588080.SH"
   },
   "context_sessions": 180,
+  "market_data": {
+    "manifest_sha256": "...",
+    "adjustment": "hfq",
+    "bars": [
+      {"date": "2026-09-02", "open": 1.0, "high": 1.1, "low": 0.9, "close": 1.05}
+    ]
+  },
   "decisions": [],
   "intents": [],
   "orders": [],
@@ -210,8 +219,9 @@ czsc-trader chart observation `
 }
 ```
 
-TDR拒绝未知顶层字段、非法日期、账户与记录作用域不一致、重复身份和截止日前观察事件。
-数值字段必须为有限数，数量必须为整数。
+TDR拒绝未知顶层字段、非法日期、非递增或重复K线、账户与记录作用域不一致、重复身份和
+截止日前观察事件。数值字段必须为有限数，OHLC关系必须有效，数量必须为整数。TDR不会
+把请求体、行情或HTML写入磁盘。
 
 ### 6.4 缓存
 
@@ -226,8 +236,9 @@ state/paper_trading/charts/<account_id>/
 指纹包含：契约版本、账户不可变身份、选择截止日、180日配置、行情manifest哈希，以及
 该账户决策、意图、订单、成交和快照的规范化内容。指纹相同则直接复用HTML。
 
-生成过程写入同目录临时文件并原子替换。每个账户使用独立进程内锁；并发请求共享一次
-生成。缓存属于本地运行态，被Git忽略，重启后可复用，删除后可安全重建。
+PTE把TDR stdout写入同目录临时文件并原子替换。每个账户使用独立进程内锁；并发请求共享
+一次生成。缓存属于PTE本地运行态，被Git忽略，重启后可复用，删除后可安全重建。TDR不
+接收缓存路径，也不保存生成结果。
 
 ### 6.5 HTTP
 
@@ -261,7 +272,7 @@ GET /charts/{account_id}/observation.html?v={fingerprint}
 
 ```text
 指纹命中 → 返回现有chart_url
-指纹未命中 → 同步生成一次 → 原子发布 → 返回新chart_url
+指纹未命中 → PTE传入内存数据 → TDR返回HTML → PTE原子发布 → 返回新chart_url
 生成失败 → 返回UNAVAILABLE，交易主链路继续运行
 ```
 
@@ -288,11 +299,12 @@ GET /charts/{account_id}/observation.html?v={fingerprint}
 
 扩展`tests/functional/test_charting.py`：
 
-- 使用固定日线和手工构造的`account_observation.v1`；
+- 通过stdin传入固定日线和手工构造的`account_observation.v1`；
 - 验证180个截止日前交易日和全部前瞻日进入图表；
 - 验证截止线、BUY/SELL、意图、成交、目标与实际持仓轨迹；
 - 验证K线任意交易日仍可从价格面板命中；
 - 验证非法作用域和截止日前观察事件被拒绝。
+- 验证命令不读取或写入行情目录，stdout为HTML且stderr不泄漏请求数据。
 
 ### PTE
 
@@ -324,7 +336,7 @@ GET /charts/{account_id}/observation.html?v={fingerprint}
 3. 截止线、区域、信号、意图、成交、目标与实际持仓语义清楚；
 4. 截止日前不补算账户历史信号；
 5. 页面轮询不造成图表或整页闪烁，缩放状态在内容不变时保留；
-6. 图表使用PTE运行数据和本地资源，不调用Futu行情或公网；
+6. 前瞻行情由PTE读取并传入；TDR只在内存中绘图，不保存或主动读取任何行情；
 7. 图表失败不影响PTE交易与对账；
 8. 现有账户完成可审计元数据补齐，新账户身份完整；
 9. 两个账户切换无串图，路径不能越过缓存根目录；

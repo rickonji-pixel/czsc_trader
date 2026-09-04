@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date
+import json
 from pathlib import Path
 import sys
 import traceback
@@ -11,6 +12,11 @@ import traceback
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.errors import CommandError, InternalError, UsageError
 from .output import write_error, write_result
+
+
+@dataclass(frozen=True)
+class RawCommandOutput:
+    content: str
 
 
 class CommandParser(argparse.ArgumentParser):
@@ -147,6 +153,12 @@ def _strategy_command(args: argparse.Namespace):
     return run_strategy_command(args, _context(args))
 
 
+def _chart_observation(args: argparse.Namespace) -> RawCommandOutput:
+    from czsc_trader.observation_chart import render_observation_html
+
+    return RawCommandOutput(render_observation_html(json.load(sys.stdin)))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = CommandParser(prog="czsc-trader")
     resources = parser.add_subparsers(
@@ -195,6 +207,18 @@ def build_parser() -> argparse.ArgumentParser:
     from czsc_trader.cli.strategy_commands import add_strategy_parser
 
     add_strategy_parser(resources, _add_repository_root, _strategy_command)
+
+    chart = resources.add_parser("chart")
+    chart_actions = chart.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
+    chart_observation = chart_actions.add_parser("observation")
+    chart_observation.add_argument("--format", choices=("html",), default="html")
+    chart_observation.add_argument("--debug", action="store_true")
+    chart_observation.set_defaults(
+        command_handler=_chart_observation,
+        command_name="chart.observation",
+    )
 
     backtest = resources.add_parser("backtest")
     backtest_actions = backtest.add_subparsers(
@@ -276,6 +300,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         args = parser.parse_args(arguments)
     except UsageError as exc:
+        if _format_hint(arguments) == "html":
+            sys.stderr.write(f"{exc.code}: {exc.message}\n")
+            return exc.exit_code
         return write_error(
             _command_hint(arguments),
             exc,
@@ -285,13 +312,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = args.command_handler(args)
     except CommandError as exc:
+        if args.format == "html":
+            sys.stderr.write(f"{exc.code}: {exc.message}\n")
+            return exc.exit_code
         return write_error(command, exc, output_format=args.format)
     except Exception as exc:  # pragma: no cover - exercised through --debug later
         if getattr(args, "debug", False):
             traceback.print_exc()
+        error = InternalError("internal_error", str(exc))
+        if args.format == "html":
+            sys.stderr.write(f"{error.code}: {error.message}\n")
+            return error.exit_code
         return write_error(
             command,
-            InternalError("internal_error", str(exc)),
+            error,
             output_format=args.format,
         )
+    if isinstance(result, RawCommandOutput):
+        sys.stdout.write(result.content)
+        return 0
     return write_result(result, output_format=args.format)

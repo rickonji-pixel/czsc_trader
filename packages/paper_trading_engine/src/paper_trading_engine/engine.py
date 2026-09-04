@@ -210,7 +210,7 @@ class PaperTradingEngine:
             "DECISION_GENERATED", decision_id=decision.decision_id, channel="futu",
         ):
             return
-        scope = self._strategy_scope(decision)
+        scope = {**self._strategy_scope(decision), "channel": "futu"}
         self.audit.record(
             "DECISION_GENERATED", source="engine", **scope,
             details={

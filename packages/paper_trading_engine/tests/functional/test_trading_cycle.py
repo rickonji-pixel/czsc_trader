@@ -23,6 +23,10 @@ def test_ft_pte02_decision_order_fill_restart_and_idempotence(tmp_path, monkeypa
         "DECISION_GENERATED", "SIGNAL_TRIGGERED", "ORDER_INTENT_CREATED", "ORDER_SUBMITTED",
     }
     assert all(event["strategy_id"] == "S001" for event in initial_events)
+    decision_event = next(
+        event for event in initial_events if event["event_type"] == "DECISION_GENERATED"
+    )
+    assert decision_event["channel"] == "futu"
     before_repeat = len(store.query_audit_events(correlation_id="DEC-ONE", limit=20))
 
     engine.refresh_orders()

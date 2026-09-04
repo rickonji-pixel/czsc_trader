@@ -3,11 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-import shutil
-import tempfile
 
-from czsc_trader.backtest_runner import BacktestRequest, run_fixed_backtest
-from czsc_trader.reporting.publication import publish_run_directory
+from czsc_trader.backtesting import (
+    BacktestRequestV2,
+    load_replay_data,
+    resolve_registered_strategy,
+    run_backtest_v2,
+)
 
 from .context import RepositoryContext
 from .errors import ExecutionError
@@ -16,15 +18,14 @@ from .results import CommandResult
 
 @dataclass(frozen=True)
 class BacktestCommand:
+    strategy_id: str
+    strategy_version: str
+    dataset: str
     symbol: str
     asset_type: str
-    start: date | None = None
-    end: date | None = None
-    baseline: str | None = None
-    windows_path: Path | None = None
-    window: str | None = None
-    fee_rate: float = 0.0005
-    init_cash: float = 1_000_000.0
+    start: date
+    end: date
+    init_cash: float
     outputs_root: Path | None = None
 
 
@@ -41,47 +42,54 @@ def run_backtest(
     *,
     run_date: date | None = None,
 ) -> CommandResult:
-    effective_date = run_date or datetime.now().astimezone().date()
-    outputs_root = _repository_path(context, request.outputs_root) or context.outputs_root
-    outputs_root.mkdir(parents=True, exist_ok=True)
-    staging_root = Path(tempfile.mkdtemp(prefix=".backtest_", dir=outputs_root))
     try:
-        summary = run_fixed_backtest(
-            BacktestRequest(
+        snapshot = resolve_registered_strategy(
+            context, request.strategy_id, request.strategy_version
+        )
+        if snapshot.resolved_rule.execution is None:
+            raise ValueError("strategy has no complete execution rule")
+        instrument = snapshot.resolved_rule.execution.instrument
+        if instrument.symbol != request.symbol.upper() or instrument.asset_type != request.asset_type:
+            raise ValueError("requested instrument differs from strategy snapshot")
+        data = load_replay_data(
+            context,
+            request.dataset,  # type: ignore[arg-type]
+            request.symbol,
+            request.asset_type,
+            request.end,
+        )
+        summary = run_backtest_v2(
+            snapshot=snapshot,
+            replay_data=data,
+            request=BacktestRequestV2(
                 symbol=request.symbol,
                 asset_type=request.asset_type,
+                dataset=data.dataset,
                 start=request.start,
                 end=request.end,
-                baseline=request.baseline,
-                windows_path=_repository_path(context, request.windows_path),
-                window=request.window,
-                fee_rate=request.fee_rate,
-                init_cash=request.init_cash,
-                raw_dir=context.raw_dir,
-                outputs_root=staging_root,
-                baseline_root=context.baseline_root,
-                execution_policy_root=context.execution_policy_root,
+                initial_cash=request.init_cash,
             ),
-            run_date=effective_date,
-        )
-        staged_output = Path(str(summary.pop("output_dir")))
-        output_dir = publish_run_directory(
-            staged_output,
-            outputs_root,
-            request.symbol,
-            effective_date,
+            outputs_root=_repository_path(context, request.outputs_root) or context.outputs_root,
+            run_date=run_date or datetime.now().astimezone().date(),
         )
     except Exception as exc:
         raise ExecutionError(
             "backtest_failed",
             str(exc),
-            context={"symbol": request.symbol, "baseline": request.baseline},
+            context={
+                "strategy": f"{request.strategy_id}-{request.strategy_version}",
+                "symbol": request.symbol,
+                "dataset": request.dataset,
+            },
         ) from exc
-    finally:
-        shutil.rmtree(staging_root, ignore_errors=True)
     return CommandResult(
         status="PASS",
         command="backtest.run",
-        result=summary,
-        artifacts={"output_dir": str(output_dir)},
+        result={
+            "strategy": snapshot.identity.reference,
+            "dataset": data.dataset,
+            "metrics": summary.metrics,
+            "audit_status": summary.manifest["audit"]["status"],
+        },
+        artifacts={"output_dir": str(summary.output_dir)},
     )

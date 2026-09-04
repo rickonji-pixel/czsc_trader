@@ -83,14 +83,13 @@ def _backtest_run(args: argparse.Namespace):
     return run_backtest(
         _context(args),
         BacktestCommand(
+            strategy_id=args.strategy,
+            strategy_version=args.strategy_version,
+            dataset=args.dataset,
             symbol=args.symbol,
             asset_type=args.asset,
             start=args.start,
             end=args.end,
-            baseline=args.baseline,
-            windows_path=args.windows,
-            window=args.window,
-            fee_rate=args.fee_rate,
             init_cash=args.init_cash,
             outputs_root=args.outputs_root,
         ),
@@ -225,15 +224,14 @@ def build_parser() -> argparse.ArgumentParser:
         dest="action", required=True, parser_class=CommandParser
     )
     backtest_run = backtest_actions.add_parser("run")
+    backtest_run.add_argument("--strategy", required=True)
+    backtest_run.add_argument("--strategy-version", required=True)
+    backtest_run.add_argument("--dataset", required=True, choices=("research", "backtest"))
     backtest_run.add_argument("--symbol", required=True)
     backtest_run.add_argument("--asset", required=True, choices=("stock", "etf"))
-    backtest_run.add_argument("--start", type=date.fromisoformat)
-    backtest_run.add_argument("--end", type=date.fromisoformat)
-    backtest_run.add_argument("--baseline")
-    backtest_run.add_argument("--windows", type=Path)
-    backtest_run.add_argument("--window")
-    backtest_run.add_argument("--fee-rate", type=float, default=0.0005)
-    backtest_run.add_argument("--init-cash", type=float, default=1_000_000.0)
+    backtest_run.add_argument("--start", required=True, type=date.fromisoformat)
+    backtest_run.add_argument("--end", required=True, type=date.fromisoformat)
+    backtest_run.add_argument("--init-cash", required=True, type=float)
     backtest_run.add_argument("--outputs-root", type=Path)
     _add_repository_root(backtest_run)
     backtest_run.set_defaults(

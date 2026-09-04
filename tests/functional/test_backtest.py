@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from dataclasses import replace
 
@@ -82,7 +83,10 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     }
     assert required == {path.name for path in summary.output_dir.iterdir()}
     assert METRIC_KEYS < set(summary.metrics)
-    assert summary.metrics["closed_trades"] == 6
+    assert summary.metrics["closed_trades"] == 7
+    chart = (summary.output_dir / "chart.html").read_text(encoding="utf-8")
+    for trace_name in ("日K", "CZSC笔", "目标持仓", "实际持仓", "策略买入", "策略卖出"):
+        assert json.dumps(trace_name)[1:-1] in chart
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(

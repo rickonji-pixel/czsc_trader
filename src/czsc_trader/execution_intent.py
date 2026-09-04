@@ -81,20 +81,20 @@ def decide_order_intent(
         raise ValueError("cycle target quantity must use complete board lots")
     if target_position:
         price = calculate_entry_limit(execution_close, execution_spec)
-        target = (
-            calculate_target_quantity(
-                available_cash,
-                price,
-                execution_spec.capital.fee_rate,
-                instrument.lot_size,
-            )
-            + actual_quantity
+        affordable_target = actual_quantity + calculate_target_quantity(
+            available_cash,
+            price,
+            execution_spec.capital.fee_rate,
+            instrument.lot_size,
+        )
+        cycle_target = (
+            affordable_target
             if cycle_target_quantity is None
             else cycle_target_quantity
         )
+        target = min(cycle_target, affordable_target)
         delta = max(0, target - actual_quantity)
         action = "BUY" if delta else ("HOLD" if actual_quantity else "WAIT")
-        cycle_target = target
         side = "BUY"
     else:
         price = round_to_tick(

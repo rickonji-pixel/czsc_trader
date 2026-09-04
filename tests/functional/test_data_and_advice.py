@@ -66,6 +66,18 @@ def test_shared_order_intent_uses_unadjusted_close_and_full_cash(
     assert intent.target_quantity == 698_900
     assert sum(order.quantity for order in intent.orders) == 698_900
 
+    retry = decide_order_intent(
+        target_position=1,
+        actual_quantity=0,
+        cycle_target_quantity=72_800,
+        available_cash=100_000,
+        execution_close=1.430,
+        execution_spec=snapshot.resolved_rule.execution,
+    )
+    assert retry.target_quantity == 69_800
+    assert retry.cycle_target_quantity == 72_800
+    assert sum(order.quantity for order in retry.orders) == 69_800
+
 
 def test_ft_t01_data_prepare_validate_and_tamper_detection(
     functional_repo: Path, capsys, monkeypatch
@@ -202,7 +214,7 @@ def test_ft_t02_advice_covers_entry_retry_hold_exit_and_fill_rules(
         target_position=1,
         actual_quantity=0,
         cycle_target_quantity=target,
-        **common,
+        **{**common, "execution_close": 1.750},
     )
     holding = build_advice_v4(
         signal_date=pd.Timestamp("2026-09-02"),
@@ -232,8 +244,9 @@ def test_ft_t02_advice_covers_entry_retry_hold_exit_and_fill_rules(
         floor_to_tick(1.688 * (1 + baseline.execution.entry_limit_parameter))
     )
     assert entry["order"]["limit_price"] * 1000 % 1 == pytest.approx(0)
-    assert retry["target_quantity"] == target
-    assert retry["order"]["quantity"] == target
+    assert retry["cycle_target_quantity"] == target
+    assert retry["target_quantity"] == 57_100
+    assert retry["order"]["quantity"] == 57_100
     assert holding["delta_quantity"] == 0
     assert holding["order"] is None
     assert exit_advice["order"]["side"] == "SELL"

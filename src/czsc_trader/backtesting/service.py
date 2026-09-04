@@ -7,13 +7,13 @@ from pathlib import Path
 import shutil
 import tempfile
 
-import plotly.graph_objects as go
 from strategy_evaluator import AuditStatus, audit_replay
 
 from czsc_trader.reporting.publication import publish_run_directory
 
 from .datasets import DatasetName, ReplayData
 from .audit_adapter import build_replay_evidence
+from .chart import render_backtest_chart_html
 from .evidence import build_manifest
 from .execution_replay import replay_account
 from .metrics import calculate_metrics
@@ -37,23 +37,6 @@ class BacktestRunSummary:
     output_dir: Path
     metrics: dict[str, object]
     manifest: dict[str, object]
-
-
-def _chart_html(result: object, reference: str) -> str:
-    account = result.account_daily
-    figure = go.Figure()
-    figure.add_trace(
-        go.Scatter(x=account["date"], y=account["equity"], name="账户权益", line={"width": 2})
-    )
-    figure.update_layout(
-        template="plotly_dark",
-        title=f"{reference} 确定性回测",
-        xaxis_title="交易日",
-        yaxis_title="账户权益",
-        height=560,
-        margin={"l": 70, "r": 30, "t": 70, "b": 60},
-    )
-    return figure.to_html(full_html=True, include_plotlyjs=True)
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -110,7 +93,7 @@ def run_backtest_v2(
         _write_json(staging / "manifest.json", manifest)
         (staging / "report.md").write_text(render_report(snapshot, metrics), encoding="utf-8")
         (staging / "chart.html").write_text(
-            _chart_html(result, snapshot.identity.reference), encoding="utf-8"
+            render_backtest_chart_html(signals, replay_data, result), encoding="utf-8"
         )
         expected = {
             "manifest.json", "decisions.csv", "orders.csv", "fills.csv",

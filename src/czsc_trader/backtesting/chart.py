@@ -204,7 +204,7 @@ def render_backtest_chart_html(
         paper_bgcolor="#07101d",
         plot_bgcolor="#0e1928",
         font={"color": "#eef5ff"},
-        hovermode="x unified",
+        hovermode="closest",
         hoversubplots="axis",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
         margin={"l": 80, "r": 30, "t": 85, "b": 45},

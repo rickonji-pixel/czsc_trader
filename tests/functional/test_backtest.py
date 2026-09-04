@@ -99,6 +99,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     traces, layout = _plotly_payload(chart)
     by_name = {trace["name"]: trace for trace in traces}
     assert layout["title"]["text"] == "S001-v1 确定性回测｜2026-01-05—2026-09-02"
+    assert layout["hovermode"] == "closest"
     assert by_name["CZSC笔"]["line"]["width"] == 1
     assert by_name["CZSC笔"]["marker"]["size"] == 3
     for name, symbol, color in (

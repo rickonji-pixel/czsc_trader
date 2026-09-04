@@ -28,13 +28,19 @@ def create_server(
     runtime_instance_id = instance_id or uuid4().hex
 
     class Handler(BaseHTTPRequestHandler):
-        def _send(self, status: int, body: bytes, content_type: str) -> None:
+        def _send(
+            self, status: int, body: bytes, content_type: str, *,
+            cache_control: str = "no-store", etag: str | None = None,
+        ) -> None:
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
+            self.send_header("Cache-Control", cache_control)
+            if etag is not None:
+                self.send_header("ETag", etag)
             self.end_headers()
-            self.wfile.write(body)
+            if body:
+                self.wfile.write(body)
 
         def _json(self, status: int, payload: object) -> None:
             self._send(status, json.dumps(payload, ensure_ascii=False, default=str).encode(),
@@ -57,6 +63,28 @@ def create_server(
                 raise ValueError("request body must be an object")
             return value
 
+        def _chart(self, account_id: str, query: dict[str, list[str]]) -> None:
+            status = api.virtual_account_chart(account_id)
+            requested = query.get("v", [""])[-1]
+            fingerprint = str(status.get("fingerprint") or "")
+            if status.get("status") not in {"READY", "EMPTY"} or requested != fingerprint:
+                raise ResourceNotFound(account_id)
+            path = api.virtual_account_chart_path(account_id)
+            if not path.is_file():
+                raise ResourceNotFound(account_id)
+            etag = f'"{fingerprint}"'
+            cache_control = "private, max-age=31536000, immutable"
+            if self.headers.get("If-None-Match") == etag:
+                self._send(
+                    304, b"", "text/html; charset=utf-8",
+                    cache_control=cache_control, etag=etag,
+                )
+                return
+            self._send(
+                200, path.read_bytes(), "text/html; charset=utf-8",
+                cache_control=cache_control, etag=etag,
+            )
+
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
             path = parsed.path
@@ -70,6 +98,12 @@ def create_server(
                 elif path.startswith("/api/virtual-accounts/") and path.endswith("/snapshot"):
                     account_id = unquote(path[len("/api/virtual-accounts/"):-len("/snapshot")].strip("/"))
                     self._json(200, api.virtual_account_snapshot(account_id))
+                elif path.startswith("/api/virtual-accounts/") and path.endswith("/chart"):
+                    account_id = unquote(path[len("/api/virtual-accounts/"):-len("/chart")].strip("/"))
+                    self._json(200, api.virtual_account_chart(account_id))
+                elif path.startswith("/charts/") and path.endswith("/observation.html"):
+                    account_id = unquote(path[len("/charts/"):-len("/observation.html")].strip("/"))
+                    self._chart(account_id, parse_qs(parsed.query, keep_blank_values=True))
                 elif path == "/api/channels/futu/snapshot":
                     self._json(200, api.channel_snapshot("futu"))
                 elif path == "/api/comparison":

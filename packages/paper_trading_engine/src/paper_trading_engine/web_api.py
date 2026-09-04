@@ -118,6 +118,7 @@ class PteWebApi:
             "frozen_cash", "total_assets", "quantity", "average_cost", "realized_pnl",
             "cycle_target", "paused", "observation_start", "last_settlement_session", "health",
             "last_error", "channel_id", "status", "created_at", "updated_at",
+            "selection_data_cutoff",
         }
         events = self.store.query_audit_events(account_id=account_id, limit=200)
         return {
@@ -133,6 +134,20 @@ class PteWebApi:
                        if status.get("last_error") else []),
             "events": events,
         }
+
+    def virtual_account_chart(self, account_id: str) -> dict[str, object]:
+        try:
+            self.store.virtual_account(account_id)
+        except KeyError as exc:
+            raise ResourceNotFound(account_id) from exc
+        if self.operations.account_chart is None:
+            raise ResourceNotFound(account_id)
+        return self.operations.account_chart.status(account_id)
+
+    def virtual_account_chart_path(self, account_id: str):
+        if self.operations.account_chart is None:
+            raise ResourceNotFound(account_id)
+        return self.operations.account_chart.chart_path(account_id)
 
     def channel_snapshot(self, channel: str) -> dict[str, object]:
         if channel != "futu":

@@ -13,7 +13,9 @@ from paper_trading_engine.web_api import PteWebApi
 
 
 class FakeEngine:
-    def __init__(self): self.paused, self.cancelled, self.audit_filters = False, [], []
+    def __init__(self):
+        self.paused, self.cancelled, self.audit_filters = False, [], []
+        self.chart_file = None
     def status(self):
         return {"environment": "SIMULATE", "market": "CN", "symbol": "588080.SH",
                 "paused": self.paused, "orders": []}
@@ -38,6 +40,22 @@ class FakeEngine:
             from paper_trading_engine.web_api import ResourceNotFound
             raise ResourceNotFound(account_id)
         return {"scope": {"account_id": account_id}}
+    def virtual_account_chart(self, account_id):
+        if account_id != "alpha":
+            from paper_trading_engine.web_api import ResourceNotFound
+            raise ResourceNotFound(account_id)
+        return {
+            "scope": {"account_id": "alpha", "release_id": "S001-v1"},
+            "status": "READY", "selection_data_cutoff": "2026-08-28",
+            "context_sessions": 180,
+            "chart_url": "/charts/alpha/observation.html?v=fingerprint-1",
+            "fingerprint": "fingerprint-1", "message": None,
+        }
+    def virtual_account_chart_path(self, account_id):
+        if account_id != "alpha" or self.chart_file is None:
+            from paper_trading_engine.web_api import ResourceNotFound
+            raise ResourceNotFound(account_id)
+        return self.chart_file
     def channel_snapshot(self, channel): return {"scope": {"channel": channel}, "orders": []}
     def comparison(self, account_ids): return {"accounts": [{"account_id": x} for x in account_ids]}
     def audit_events(self, filters):
@@ -95,6 +113,8 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
     store.close()
 
     requested, engine = Event(), FakeEngine()
+    engine.chart_file = tmp_path / "observation.html"
+    engine.chart_file.write_text("<html>alpha chart</html>", encoding="utf-8")
     server = create_server(engine, host="127.0.0.1", port=0, control_token="secret",
                            restart_callback=requested.set, instance_id="old")
     thread = Thread(target=server.serve_forever, daemon=True)
@@ -110,6 +130,18 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert request_json(base + "/api/system/status")[1]["instance_id"] == "old"
         assert request_json(base + "/api/virtual-accounts")[1]["default_account_id"] == "alpha"
         assert request_json(base + "/api/virtual-accounts/alpha/snapshot")[1]["scope"]["account_id"] == "alpha"
+        chart = request_json(base + "/api/virtual-accounts/alpha/chart")[1]
+        assert chart["scope"]["account_id"] == "alpha"
+        with urlopen(base + chart["chart_url"], timeout=3) as response:
+            assert response.read().decode() == "<html>alpha chart</html>"
+            assert response.headers["ETag"] == '"fingerprint-1"'
+            assert "immutable" in response.headers["Cache-Control"]
+        conditional = Request(
+            base + chart["chart_url"], headers={"If-None-Match": '"fingerprint-1"'}
+        )
+        with pytest.raises(HTTPError) as unchanged:
+            urlopen(conditional, timeout=3)
+        assert unchanged.value.code == 304
         assert request_json(base + "/api/channels/futu/snapshot")[1]["scope"]["channel"] == "futu"
         audit = request_json(
             base + "/api/audit-events?category=STRATEGY&account_id=alpha&correlation_id=DEC-1&limit=20"
@@ -137,6 +169,9 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         with pytest.raises(HTTPError) as missing:
             request_json(base + "/api/virtual-accounts/missing/snapshot")
         assert missing.value.code == 404
+        with pytest.raises(HTTPError) as unsafe:
+            request_json(base + "/api/virtual-accounts/%2E%2E/chart")
+        assert unsafe.value.code in {400, 404}
     finally:
         server.shutdown()
         server.server_close()

@@ -4,6 +4,7 @@ from .models import StrategyIdentity, StrategySnapshot
 from .execution_replay import replay_account
 from .result import BacktestResult
 from .signal_replay import SignalReplay, replay_signals
+from .service import BacktestRequestV2, BacktestRunSummary, run_backtest_v2
 from .datasets import DatasetName, ReplayData, load_replay_data
 from .strategy_source import resolve_candidate_snapshot, resolve_registered_strategy
 
@@ -17,6 +18,9 @@ __all__ = [
     "SignalReplay",
     "replay_account",
     "replay_signals",
+    "BacktestRequestV2",
+    "BacktestRunSummary",
+    "run_backtest_v2",
     "resolve_candidate_snapshot",
     "resolve_registered_strategy",
 ]

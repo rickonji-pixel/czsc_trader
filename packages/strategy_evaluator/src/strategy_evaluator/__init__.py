@@ -78,6 +78,12 @@ from .champion_audit import (
     hash_execution_evidence,
     hash_return_matrix,
 )
+from .replay_audit import (
+    ReplayAuditResult,
+    ReplayEvidence,
+    audit_replay,
+    hash_replay_evidence,
+)
 
 __version__ = "0.1.0"
 
@@ -105,4 +111,5 @@ __all__ = [
     "legacy_health_evidence",
     "audit_provisional_champion", "hash_audit_data", "hash_candidate_pool",
     "hash_execution_evidence", "hash_return_matrix",
+    "ReplayAuditResult", "ReplayEvidence", "audit_replay", "hash_replay_evidence",
 ]

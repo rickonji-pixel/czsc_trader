@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+from datetime import date
+
+from .datasets import ReplayData
+from .models import StrategySnapshot
+from .signal_replay import SignalReplay
+
+
+def build_manifest(
+    *,
+    request: object,
+    snapshot: StrategySnapshot,
+    data: ReplayData,
+    signals: SignalReplay,
+    metrics: dict[str, object],
+    audit: dict[str, object],
+    run_date: date,
+) -> dict[str, object]:
+    return {
+        "schema_version": 2,
+        "engine": "TDR_BACKTEST_V2",
+        "run_date": run_date.isoformat(),
+        "strategy": {
+            "kind": snapshot.identity.kind,
+            "reference": snapshot.identity.reference,
+            "source": snapshot.identity.source,
+            "source_hash": snapshot.source_hash,
+            "snapshot_hash": snapshot.content_hash,
+        },
+        "dataset": {
+            "name": data.dataset,
+            "fingerprint": data.fingerprint,
+            "cutoff": data.cutoff.isoformat(),
+            "signal_adjustment": "hfq",
+            "execution_adjustment": "none",
+        },
+        "request": {
+            "symbol": getattr(request, "symbol"),
+            "asset_type": getattr(request, "asset_type"),
+            "start": getattr(request, "start").isoformat(),
+            "end": getattr(request, "end").isoformat(),
+            "initial_cash": getattr(request, "initial_cash"),
+        },
+        "ranges": {
+            "calculation": [
+                signals.calculation_start.date().isoformat(),
+                signals.calculation_end.date().isoformat(),
+            ],
+            "evaluation": [
+                signals.evaluation_start.date().isoformat(),
+                signals.evaluation_end.date().isoformat(),
+            ],
+        },
+        "metrics": metrics,
+        "audit": audit,
+    }

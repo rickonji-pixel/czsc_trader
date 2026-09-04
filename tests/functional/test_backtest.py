@@ -177,6 +177,8 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert "目标持仓" not in by_name
     assert "实际持仓" not in by_name
     assert by_name["策略得分"]["yaxis"] == "y2"
+    for name in ("策略得分", "买入阈值", "卖出阈值"):
+        assert by_name[name]["xaxis"] == "x"
     assert by_name["策略得分"]["line"] == {"color": "#fbbf24", "width": 2}
     assert by_name["买入阈值"]["yaxis"] == "y2"
     assert by_name["买入阈值"]["line"] == {
@@ -186,6 +188,21 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert by_name["卖出阈值"]["line"] == {
         "color": "#22c55e", "dash": "dash", "width": 1
     }
+    axis_titles = {
+        annotation["text"]: annotation
+        for annotation in layout["annotations"]
+        if annotation["text"] in {"后复权价格", "策略得分"}
+    }
+    assert set(axis_titles) == {"后复权价格", "策略得分"}
+    assert {annotation["x"] for annotation in axis_titles.values()} == {-0.025}
+    assert all(
+        annotation["xref"] == "paper"
+        and annotation["yref"] == "paper"
+        and annotation["textangle"] == -90
+        for annotation in axis_titles.values()
+    )
+    assert "title" not in layout["yaxis"]
+    assert "title" not in layout["yaxis2"]
     details = {
         str(pd.Timestamp(day).date()): text
         for day, text in zip(

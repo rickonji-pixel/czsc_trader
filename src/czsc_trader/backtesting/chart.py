@@ -332,6 +332,7 @@ def render_backtest_chart_html(
             row=2,
             col=1,
         )
+    figure.update_traces(xaxis="x", row=2, col=1)
     figure.update_layout(
         title=(
             f"{result.identity.reference} 确定性回测｜"
@@ -360,12 +361,21 @@ def render_backtest_chart_html(
         spikethickness=1,
     )
     figure.update_yaxes(gridcolor="#23344b", zerolinecolor="#23344b")
-    figure.update_yaxes(
-        title_text="后复权价格", range=list(price_axis_range), row=1, col=1
-    )
-    figure.update_yaxes(
-        title_text="策略得分", range=list(score_axis_range), row=2, col=1
-    )
+    figure.update_yaxes(range=list(price_axis_range), row=1, col=1)
+    figure.update_yaxes(range=list(score_axis_range), row=2, col=1)
+    for title, axis_name in (("后复权价格", "yaxis"), ("策略得分", "yaxis2")):
+        domain = figure.layout[axis_name].domain
+        figure.add_annotation(
+            text=title,
+            x=-0.025,
+            y=sum(domain) / 2,
+            xref="paper",
+            yref="paper",
+            textangle=-90,
+            showarrow=False,
+            xanchor="center",
+            yanchor="middle",
+        )
     html = figure.to_html(full_html=True, include_plotlyjs=True)
     style = (
         "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;"

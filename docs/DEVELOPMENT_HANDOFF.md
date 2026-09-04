@@ -23,7 +23,7 @@
 - Python：3.12。
 - 正式策略：`S001 / 综合基线策略`；`v1`和`v2`均为`PAPER_READY`。
 - PTE虚拟账户：`s001-v1`绑定`S001-v1`，`s001-v2`绑定`S001-v2`，各10万元初始资金。
-- TDR/PTE机器契约：`advice.v4`。
+- TDR/PTE机器契约：决策为`advice.v4`，纯绘图为`account_observation.v1`。
 - PTE控制台：<http://127.0.0.1:8080>。
 - WDG Windows服务：`CZSC-PTE-Watchdog`。
 - 当前唯一交易渠道：Futu中国市场模拟交易。
@@ -86,6 +86,8 @@ Tushare → dataflows → data/raw
    新订单，活动订单继续对账；撤单需要二次确认。
 9. SM资格、PTE账户状态和进程状态彼此独立。研究、模拟盘和未来实盘绩效分阶段记录。
 10. PTE运行结果默认属于观察证据，只有经人工确认登记的里程碑快照进入SM治理链路。
+11. PTE拥有前瞻行情及观察图缓存。TDR的`chart observation`只消费PTE通过stdin传入的
+    有限数据，在内存绘制并由stdout返回HTML，不主动读取或保存行情。
 
 ## 新机器恢复
 
@@ -135,6 +137,7 @@ WDG会拉起新实例。仓库移动后重新执行`install-config`以更新绝�
 - `outputs/`：普通回测输出；
 - `state/paper_trading/runtime.db`：账户、订单、成交、暂停状态和审计事件；
 - `state/paper_trading/data/`与`logs/`：运行数据副本和日志；
+- `state/paper_trading/charts/`：按账户和内容指纹生成的可重建观察图缓存；
 - Windows服务、Futu OpenD及其登录状态。
 
 跨机继续开发可以创建新的本地状态。跨机延续同一条模拟盘观察序列，需要迁移完整SQLite，
@@ -161,7 +164,7 @@ WDG会拉起新实例。仓库移动后重新执行`install-config`以更新绝�
 8. **用例数量变化需要说明。** 新增长期用例时说明现有场景无法承载的原因；删除用例时
    确认其行为已被保留场景覆盖。
 
-当前基准套件为TDR 8个、SM 2个、SE 3个、PTE 10个Python功能场景，以及PTE 1个
+当前基准套件为TDR 11个、SM 2个、SE 3个、PTE 12个Python功能场景，以及PTE 1个
 前端功能场景。数量是维护基线，不是硬上限；业务覆盖和可诊断性优先。
 
 完整回归：

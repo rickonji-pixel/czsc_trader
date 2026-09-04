@@ -30,6 +30,7 @@ EXPECTED_ACTIONS = {
     "backtest": {"run"},
     "advice": {"run"},
     "archive": {"validate"},
+    "chart": {"observation"},
 }
 
 

@@ -77,7 +77,9 @@ def run_backtest_v2(
     signals = replay_signals(snapshot, replay_data, request.start, request.end)
     result = replay_account(signals, replay_data, request.initial_cash)
     metrics = calculate_metrics(result, request.initial_cash)
-    evidence = build_replay_evidence(signals, replay_data, result, request.initial_cash)
+    evidence = build_replay_evidence(
+        signals, replay_data, result, request.initial_cash, metrics
+    )
     audited = audit_replay(evidence)
     if audited.status is not AuditStatus.PASS:
         raise ValueError(f"SE replay audit failed: {', '.join(audited.reason_codes)}")

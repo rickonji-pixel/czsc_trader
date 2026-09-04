@@ -26,6 +26,7 @@ def build_replay_evidence(
     data: ReplayData,
     result: BacktestResult,
     initial_cash: float,
+    metrics: dict[str, object],
 ) -> ReplayEvidence:
     spec = signals.snapshot.resolved_rule.execution
     if spec is None:
@@ -57,6 +58,7 @@ def build_replay_evidence(
         fills=_records(result.fills, ("signal_date", "fill_time")),
         account_daily=_records(result.account_daily, ("date", "signal_date")),
         trades=_records(result.trades, ("entry_date", "exit_date")),
+        metrics=metrics,
         execution_daily=_records(daily, ("date",)),
         execution_intraday=_records(intraday, ("time",)),
     )

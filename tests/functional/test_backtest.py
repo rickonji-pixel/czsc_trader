@@ -10,6 +10,7 @@ from czsc_trader.backtesting import load_replay_data, resolve_registered_strateg
 from czsc_trader.backtesting.execution_replay import replay_account
 from czsc_trader.backtesting.signal_replay import replay_signals
 from czsc_trader.backtesting.audit_adapter import build_replay_evidence
+from czsc_trader.backtesting.metrics import calculate_metrics
 from czsc_trader.backtesting.service import BacktestRequestV2, run_backtest_v2
 from strategy_evaluator import AuditStatus, audit_replay
 
@@ -48,13 +49,17 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert set(result.fills["trigger"]) <= {"OPEN", "INTRADAY_LIMIT"}
     assert result.decisions["signal_date"].max() <= pd.Timestamp("2026-09-02")
     assert result.account_daily["equity"].gt(0).all()
-    evidence = build_replay_evidence(signals, data, result, 100_000)
+    evidence = build_replay_evidence(
+        signals, data, result, 100_000, calculate_metrics(result, 100_000)
+    )
     assert audit_replay(evidence).status is AuditStatus.PASS
     corrupted = list(evidence.account_daily)
     corrupted[-1] = {**corrupted[-1], "equity": corrupted[-1]["equity"] + 1}
     tampered = audit_replay(replace(evidence, account_daily=tuple(corrupted)))
     assert tampered.status is AuditStatus.FAIL
     assert "ACCOUNT_LEDGER_MISMATCH" in tampered.reason_codes
+    bad_metrics = audit_replay(replace(evidence, metrics={**evidence.metrics, "return": 9}))
+    assert "METRIC_MISMATCH" in bad_metrics.reason_codes
 
     summary = run_backtest_v2(
         snapshot=snapshot,

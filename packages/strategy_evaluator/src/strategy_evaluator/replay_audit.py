@@ -6,6 +6,9 @@ from hashlib import sha256
 import json
 from typing import Any, Mapping
 
+import numpy as np
+import pandas as pd
+
 from .audit_models import AuditStatus
 from .models import Record
 
@@ -29,6 +32,7 @@ class ReplayEvidence(Record):
     fills: tuple[Mapping[str, Any], ...]
     account_daily: tuple[Mapping[str, Any], ...]
     trades: tuple[Mapping[str, Any], ...]
+    metrics: Mapping[str, Any]
     execution_daily: tuple[Mapping[str, Any], ...]
     execution_intraday: tuple[Mapping[str, Any], ...]
 
@@ -198,6 +202,105 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
         ):
             reasons.append("ACCOUNT_LEDGER_MISMATCH")
     checks.append("ACCOUNT_LEDGER")
+
+    expected_trades: dict[str, dict[str, Any]] = {}
+    fills_by_cycle: dict[str, list[Mapping[str, Any]]] = {}
+    for fill in evidence.fills:
+        fills_by_cycle.setdefault(str(fill["cycle_id"]), []).append(fill)
+    for cycle_id, cycle_fills in fills_by_cycle.items():
+        buys = [item for item in cycle_fills if item["side"] == "BUY"]
+        sells = [item for item in cycle_fills if item["side"] == "SELL"]
+        buy_quantity = sum(int(item["quantity"]) for item in buys)
+        sell_quantity = sum(int(item["quantity"]) for item in sells)
+        buy_gross = sum(int(item["quantity"]) * float(item["price"]) for item in buys)
+        sell_gross = sum(int(item["quantity"]) * float(item["price"]) for item in sells)
+        buy_fees = sum(float(item["fees"]) for item in buys)
+        sell_fees = sum(float(item["fees"]) for item in sells)
+        closed = bool(buys and sell_quantity == buy_quantity)
+        expected_trades[cycle_id] = {
+            "status": "CLOSED" if closed else "OPEN",
+            "quantity": buy_quantity,
+            "entry_price": buy_gross / buy_quantity if buy_quantity else None,
+            "exit_price": sell_gross / sell_quantity if closed else None,
+            "net_return": (
+                (sell_gross - sell_fees) / (buy_gross + buy_fees) - 1 if closed else None
+            ),
+        }
+    actual_trades = {str(row["cycle_id"]): row for row in evidence.trades}
+    if set(actual_trades) != set(expected_trades):
+        reasons.append("TRADE_PAIRING_MISMATCH")
+    else:
+        for cycle_id, expected in expected_trades.items():
+            actual = actual_trades[cycle_id]
+            if (
+                str(actual["status"]) != expected["status"]
+                or int(actual["quantity"]) != expected["quantity"]
+            ):
+                reasons.append("TRADE_PAIRING_MISMATCH")
+                continue
+            for name in ("entry_price", "exit_price", "net_return"):
+                expected_value = expected[name]
+                actual_value = actual.get(name)
+                if expected_value is None:
+                    if actual_value is not None:
+                        reasons.append("TRADE_VALUE_MISMATCH")
+                elif actual_value is None or abs(float(actual_value) - float(expected_value)) > tolerance:
+                    reasons.append("TRADE_VALUE_MISMATCH")
+    checks.append("TRADE_PAIRING")
+
+    equity_series = pd.Series(
+        [float(row["equity"]) for row in evidence.account_daily], dtype=float
+    )
+    total_return = equity_series.iloc[-1] / evidence.initial_cash - 1
+    max_drawdown = float(equity_series.div(equity_series.cummax()).sub(1).min())
+    annualized = float(
+        (equity_series.iloc[-1] / evidence.initial_cash) ** (252 / len(equity_series)) - 1
+    )
+    calmar = annualized / abs(max_drawdown) if abs(max_drawdown) > 1e-12 else None
+    previous = equity_series.shift(1)
+    previous.iloc[0] = evidence.initial_cash
+    returns = equity_series.div(previous).sub(1)
+    volatility = float(returns.std(ddof=1))
+    sharpe = (
+        float(np.sqrt(252) * returns.mean() / volatility)
+        if np.isfinite(volatility) and volatility > 0 else None
+    )
+    closed_returns = [
+        float(item["net_return"])
+        for item in expected_trades.values()
+        if item["status"] == "CLOSED"
+    ]
+    wins = [value for value in closed_returns if value > 0]
+    losses = [value for value in closed_returns if value < 0]
+    if not closed_returns:
+        ratio, ratio_status = None, "NO_CLOSED_TRADES"
+    elif not wins:
+        ratio, ratio_status = None, "NO_WINS"
+    elif not losses:
+        ratio, ratio_status = None, "NO_LOSSES"
+    else:
+        ratio = (sum(wins) / len(wins)) / abs(sum(losses) / len(losses))
+        ratio_status = "VALID"
+    expected_metrics = {
+        "max_drawdown": max_drawdown,
+        "calmar": calmar,
+        "win_loss_ratio": ratio,
+        "win_loss_ratio_status": ratio_status,
+        "return": total_return,
+        "sharpe": sharpe,
+        "closed_trades": len(closed_returns),
+    }
+    for name, expected in expected_metrics.items():
+        actual = evidence.metrics.get(name)
+        if isinstance(expected, (str, int)):
+            if actual != expected:
+                reasons.append("METRIC_MISMATCH")
+        elif expected is None:
+            if actual is not None:
+                reasons.append("METRIC_MISMATCH")
+        elif actual is None or abs(float(actual) - float(expected)) > tolerance:
+            reasons.append("METRIC_MISMATCH")
+    checks.append("METRICS")
     unique_reasons = tuple(dict.fromkeys(reasons))
     return ReplayAuditResult(
         AuditStatus.FAIL if unique_reasons else AuditStatus.PASS,

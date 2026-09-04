@@ -23,7 +23,10 @@ def test_ft_pte02_decision_order_fill_restart_and_idempotence(tmp_path):
     )
     engine.refresh_orders()
     engine.refresh_orders()
-    increments = [e for e in store.recent_events() if e["event_type"] == "FILL_INCREMENT"]
+    increments = [
+        event for event in store.recent_events()
+        if event["event_type"] == "ORDER_PARTIALLY_FILLED"
+    ]
     assert len(increments) == 1
     assert increments[0]["payload"]["quantity"] == 400
 
@@ -34,7 +37,10 @@ def test_ft_pte02_decision_order_fill_restart_and_idempotence(tmp_path):
         quantity=1000,
     )
     engine.refresh_orders()
-    assert sum(e["payload"]["quantity"] for e in store.recent_events() if e["event_type"] == "FILL_INCREMENT") == 1000
+    assert sum(
+        event["details"]["quantity"] for event in store.recent_events()
+        if event["event_type"] in {"ORDER_PARTIALLY_FILLED", "ORDER_FILLED"}
+    ) == 1000
     engine.resume()
     token = engine.issue_cancel_token(submitted.channel_order_id)
     engine.confirm_cancel(submitted.channel_order_id, token)

@@ -9,6 +9,16 @@ import sqlite3
 import re
 from threading import RLock
 from typing import Any
+from uuid import NAMESPACE_URL, uuid4, uuid5
+
+from .audit import (
+    EVENT_CATALOG,
+    AuditCategory,
+    AuditEvent,
+    AuditOutcome,
+    AuditSeverity,
+    redact_details,
+)
 
 
 def _utc_now() -> str:
@@ -33,7 +43,25 @@ class PaperStore:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 created_at TEXT NOT NULL,
                 event_type TEXT NOT NULL,
-                payload TEXT NOT NULL
+                payload TEXT NOT NULL,
+                event_id TEXT,
+                occurred_at TEXT,
+                category TEXT,
+                severity TEXT,
+                outcome TEXT,
+                source TEXT,
+                correlation_id TEXT,
+                actor_type TEXT,
+                actor_id TEXT,
+                schema_version TEXT,
+                account_id TEXT,
+                strategy_id TEXT,
+                strategy_version TEXT,
+                release_hash TEXT,
+                symbol TEXT,
+                channel TEXT,
+                decision_id TEXT,
+                order_id TEXT
             );
             CREATE TABLE IF NOT EXISTS operation_failures (
                 operation TEXT PRIMARY KEY,
@@ -163,6 +191,26 @@ class PaperStore:
         self._ensure_column("virtual_fills", "fill_sequence", "INTEGER NOT NULL DEFAULT 1")
         self._ensure_column("virtual_fills", "source", "TEXT NOT NULL DEFAULT 'VIRTUAL_MODEL'")
         self._ensure_column("orders", "created_at", "TEXT")
+        for column in (
+            "event_id", "occurred_at", "category", "severity", "outcome", "source",
+            "correlation_id", "actor_type", "actor_id", "schema_version", "account_id",
+            "strategy_id", "strategy_version", "release_hash", "symbol", "channel",
+            "decision_id", "order_id",
+        ):
+            self._ensure_column("events", column, "TEXT")
+        self._migrate_audit_events()
+        self._connection.executescript(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_events_event_id ON events(event_id);
+            CREATE INDEX IF NOT EXISTS idx_events_occurred_at ON events(occurred_at);
+            CREATE INDEX IF NOT EXISTS idx_events_category_time ON events(category, occurred_at);
+            CREATE INDEX IF NOT EXISTS idx_events_account_time ON events(account_id, occurred_at);
+            CREATE INDEX IF NOT EXISTS idx_events_strategy_time
+                ON events(strategy_id, strategy_version, occurred_at);
+            CREATE INDEX IF NOT EXISTS idx_events_decision ON events(decision_id);
+            CREATE INDEX IF NOT EXISTS idx_events_order ON events(order_id);
+            """
+        )
         self._connection.execute(
             "UPDATE orders SET created_at=updated_at WHERE created_at IS NULL"
         )
@@ -179,6 +227,77 @@ class PaperStore:
             ),
         )
         self._connection.commit()
+
+    @staticmethod
+    def _legacy_profile(event_type: str, payload: dict[str, object]):
+        aliases = {
+            "DATA_PUBLISHED": "MARKET_DATA_PUBLISHED",
+            "DATA_PUBLICATION_FAILED": "MARKET_DATA_PUBLICATION_FAILED",
+            "FILL_INCREMENT": "ORDER_PARTIALLY_FILLED",
+            "PAUSED": "ACCOUNT_PAUSED",
+            "RESUMED": "ACCOUNT_RESUMED",
+            "PTE_RESTART_REQUESTED": "RESTART_REQUESTED",
+            "CHANNEL_INITIALIZATION_FAILED": "DEPENDENCY_DEGRADED",
+            "CHANNEL_REFRESH_FAILED": "DEPENDENCY_DEGRADED",
+            "VIRTUAL_STARTUP_FAILED": "VIRTUAL_ACCOUNT_FAILED",
+        }
+        canonical = aliases.get(event_type, event_type)
+        details = dict(payload)
+        if canonical not in EVENT_CATALOG:
+            details = {
+                **details,
+                "legacy_event_type": event_type,
+                "classification_reason": "legacy event type has no audit.v1 mapping",
+            }
+            canonical = "LEGACY_EVENT"
+        category = EVENT_CATALOG[canonical]
+        failure = "FAILED" in canonical or canonical == "DEPENDENCY_DEGRADED"
+        severity = AuditSeverity.ERROR if failure else (
+            AuditSeverity.WARNING if category is AuditCategory.OTHER else AuditSeverity.INFO
+        )
+        outcome = AuditOutcome.FAILURE if failure else (
+            AuditOutcome.UNKNOWN if category is AuditCategory.OTHER else AuditOutcome.SUCCESS
+        )
+        source = "scheduler" if canonical.startswith(("MARKET_DATA", "SCHEDULER_")) else "engine"
+        actor_type = "SCHEDULER" if source == "scheduler" else "ENGINE"
+        return canonical, category, severity, outcome, source, actor_type, redact_details(details)
+
+    def _migrate_audit_events(self) -> None:
+        rows = self._connection.execute(
+            "SELECT * FROM events WHERE event_id IS NULL OR schema_version IS NULL ORDER BY id"
+        ).fetchall()
+        for row in rows:
+            original_payload = json.loads(row["payload"])
+            canonical, category, severity, outcome, source, actor_type, details = (
+                self._legacy_profile(str(row["event_type"]), original_payload)
+            )
+            event_id = str(uuid5(
+                NAMESPACE_URL,
+                f'pte-event:{row["id"]}|{row["created_at"]}|{row["event_type"]}',
+            ))
+            correlation = str(
+                details.get("decision_id") or details.get("channel_order_id") or event_id
+            )
+            self._connection.execute(
+                "UPDATE events SET event_id=?,occurred_at=?,event_type=?,payload=?,category=?,"
+                "severity=?,outcome=?,source=?,correlation_id=?,actor_type=?,schema_version=?,"
+                "account_id=?,strategy_id=?,strategy_version=?,release_hash=?,symbol=?,channel=?,"
+                "decision_id=?,order_id=? WHERE id=?",
+                (
+                    event_id, row["created_at"], canonical,
+                    json.dumps(details, ensure_ascii=False, default=str), category.value,
+                    severity.value, outcome.value, source, correlation, actor_type, "audit.v1",
+                    details.get("account_id"), details.get("strategy_id"),
+                    details.get("strategy_version") or details.get("version"),
+                    details.get("release_hash"), details.get("symbol"), details.get("channel"),
+                    details.get("decision_id"),
+                    details.get("order_id") or details.get("channel_order_id"), row["id"],
+                ),
+            )
+        self._connection.execute(
+            "INSERT INTO settings(key,value) VALUES('audit_schema_version','audit.v1') "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+        )
 
     def _ensure_column(self, table: str, column: str, declaration: str) -> None:
         columns = {row["name"] for row in self._connection.execute(f"PRAGMA table_info({table})")}
@@ -335,12 +454,12 @@ class PaperStore:
                             f"UPDATE {table} SET {payload_column}=? WHERE {key_column}=?",
                             (json.dumps(replaced, ensure_ascii=False, default=str), row[key_column]),
                         )
-            self._connection.execute(
-                "INSERT INTO events(created_at,event_type,payload) VALUES(?,?,?)",
-                (now, "VIRTUAL_ACCOUNT_RENAMED", json.dumps({
-                    "old_account_id": old_account_id, "account_id": account_id, "name": name,
-                }, ensure_ascii=False)),
+            event = self._legacy_audit_event(
+                "VIRTUAL_ACCOUNT_RENAMED",
+                {"old_account_id": old_account_id, "account_id": account_id, "name": name},
+                occurred_at=now,
             )
+            self._insert_audit_event(event)
         return self.virtual_account(account_id)
 
     def set_futu_reference(self, account_id: str):
@@ -597,27 +716,125 @@ class PaperStore:
             ).fetchall()
         return [{"session": row["session"], **json.loads(row["payload"]), "created_at": row["created_at"]} for row in rows]
 
-    def add_event(self, event_type: str, payload: dict[str, object]) -> None:
-        with self._lock, self._connection:
-            self._connection.execute(
-                "INSERT INTO events(created_at, event_type, payload) VALUES(?, ?, ?)",
-                (_utc_now(), event_type, json.dumps(payload, ensure_ascii=False, default=str)),
-            )
+    def _legacy_audit_event(
+        self, event_type: str, payload: dict[str, object], *, occurred_at: str | None = None,
+    ) -> AuditEvent:
+        canonical, category, severity, outcome, source, actor_type, details = (
+            self._legacy_profile(event_type, payload)
+        )
+        event_id = str(uuid4())
+        decision_id = details.get("decision_id")
+        order_id = details.get("order_id") or details.get("channel_order_id")
+        return AuditEvent(
+            event_id=event_id,
+            occurred_at=occurred_at or _utc_now(),
+            category=category,
+            event_type=canonical,
+            severity=severity,
+            outcome=outcome,
+            source=source,
+            correlation_id=str(decision_id or order_id or event_id),
+            actor_type=actor_type,
+            account_id=details.get("account_id"),
+            strategy_id=details.get("strategy_id"),
+            strategy_version=details.get("strategy_version") or details.get("version"),
+            release_hash=details.get("release_hash"),
+            symbol=details.get("symbol"),
+            channel=details.get("channel"),
+            decision_id=decision_id,
+            order_id=order_id,
+            details=details,
+        )
 
-    def recent_events(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _insert_audit_event(self, event: AuditEvent) -> None:
+        self._connection.execute(
+            "INSERT INTO events(created_at,event_type,payload,event_id,occurred_at,category,"
+            "severity,outcome,source,correlation_id,actor_type,actor_id,schema_version,account_id,"
+            "strategy_id,strategy_version,release_hash,symbol,channel,decision_id,order_id) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                event.occurred_at, event.event_type,
+                json.dumps(event.details, ensure_ascii=False, default=str),
+                event.event_id, event.occurred_at, event.category.value, event.severity.value,
+                event.outcome.value, event.source, event.correlation_id, event.actor_type,
+                event.actor_id, event.schema_version, event.account_id, event.strategy_id,
+                event.strategy_version, event.release_hash, event.symbol, event.channel,
+                event.decision_id, event.order_id,
+            ),
+        )
+
+    def append_audit_event(self, event: AuditEvent) -> dict[str, object]:
+        with self._lock, self._connection:
+            self._insert_audit_event(event)
+        return event.to_dict()
+
+    def add_event(self, event_type: str, payload: dict[str, object]) -> None:
+        """Compatibility facade for pre-audit callers."""
+        event = self._legacy_audit_event(event_type, payload)
+        with self._lock, self._connection:
+            self._insert_audit_event(event)
+
+    @staticmethod
+    def _audit_row(row: sqlite3.Row) -> dict[str, Any]:
+        details = json.loads(row["payload"])
+        return {
+            "id": row["id"],
+            "event_id": row["event_id"],
+            "occurred_at": row["occurred_at"],
+            "created_at": row["occurred_at"],
+            "category": row["category"],
+            "event_type": row["event_type"],
+            "severity": row["severity"],
+            "outcome": row["outcome"],
+            "source": row["source"],
+            "correlation_id": row["correlation_id"],
+            "actor_type": row["actor_type"],
+            "actor_id": row["actor_id"],
+            "schema_version": row["schema_version"],
+            "account_id": row["account_id"],
+            "strategy_id": row["strategy_id"],
+            "strategy_version": row["strategy_version"],
+            "release_hash": row["release_hash"],
+            "symbol": row["symbol"],
+            "channel": row["channel"],
+            "decision_id": row["decision_id"],
+            "order_id": row["order_id"],
+            "details": details,
+            "payload": details,
+        }
+
+    def query_audit_events(
+        self, *, category=None, event_type=None, severity=None, outcome=None,
+        account_id=None, strategy_id=None, channel=None, decision_id=None, order_id=None,
+        correlation_id=None, before_id=None, limit=50,
+    ) -> list[dict[str, Any]]:
+        limit = int(limit)
+        if not 1 <= limit <= 200:
+            raise ValueError("audit event limit must be between 1 and 200")
+        filters = {
+            "category": category, "event_type": event_type, "severity": severity,
+            "outcome": outcome, "account_id": account_id, "strategy_id": strategy_id,
+            "channel": channel, "decision_id": decision_id, "order_id": order_id,
+            "correlation_id": correlation_id,
+        }
+        clauses, values = [], []
+        for column, value in filters.items():
+            if value is not None:
+                clauses.append(f"{column}=?")
+                values.append(str(value))
+        if before_id is not None:
+            clauses.append("id<?")
+            values.append(int(before_id))
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._lock:
             rows = self._connection.execute(
-                "SELECT created_at, event_type, payload FROM events ORDER BY id DESC LIMIT ?",
-                (int(limit),),
+                f"SELECT * FROM events{where} ORDER BY id DESC LIMIT ?",
+                (*values, limit),
             ).fetchall()
-        return [
-            {
-                "created_at": row["created_at"],
-                "event_type": row["event_type"],
-                "payload": json.loads(row["payload"]),
-            }
-            for row in rows
-        ]
+        return [self._audit_row(row) for row in rows]
+
+    def recent_events(self, limit: int = 100) -> list[dict[str, Any]]:
+        return self.query_audit_events(limit=limit)
 
     def set_operation_failure(self, operation: str, payload: dict[str, object]) -> None:
         with self._lock, self._connection:

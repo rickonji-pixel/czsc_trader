@@ -74,27 +74,27 @@ git commit -m "feat: define PTE audit event contract"
 - Produces: `PaperStore.query_audit_events(*, category=None, event_type=None, severity=None, outcome=None, account_id=None, strategy_id=None, channel=None, decision_id=None, order_id=None, correlation_id=None, before_id=None, limit=50) -> list[dict[str, object]]`.
 - Preserves: `add_event(event_type, payload)` and `recent_events(limit)`.
 
-- [ ] **Step 1: Extend FT-PTE01 with a legacy database migration fixture**
+- [x] **Step 1: Extend FT-PTE01 with a legacy database migration fixture**
 
 Create the old three-column events table directly, insert known and unknown events, reopen through `PaperStore`, and assert count/payload preservation, deterministic UUIDv5, category mappings, scope extraction, indexes, and idempotent reopen.
 
-- [ ] **Step 2: Run FT-PTE01 and confirm new columns/query API are absent**
+- [x] **Step 2: Run FT-PTE01 and confirm new columns/query API are absent**
 
 Run: `.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests\functional\test_virtual_accounts.py -q`
 
-- [ ] **Step 3: Add nullable columns, backfill transaction, version marker, and indexes**
+- [x] **Step 3: Add nullable columns, backfill transaction, version marker, and indexes**
 
 Use `_ensure_column` followed by one transaction. Derive legacy UUIDv5 from `id|created_at|event_type`; preserve `payload`; map known types from design section 10; store unknown original type in `details.legacy_event_type` and a migration classification reason.
 
-- [ ] **Step 4: Implement append, compatibility, filtered cursor queries, and immutable public API**
+- [x] **Step 4: Implement append, compatibility, filtered cursor queries, and immutable public API**
 
 Reject limits outside `1..200`. `recent_events` delegates to `query_audit_events` and continues returning `created_at`, `event_type`, and `payload` aliases alongside the new contract.
 
-- [ ] **Step 5: Run FT-PTE01, FT-PTE07, and Ruff**
+- [x] **Step 5: Run FT-PTE01, FT-PTE07, and Ruff**
 
 Run both functional files and Ruff on `store.py`, `audit.py`, and their tests.
 
-- [ ] **Step 6: Commit the ledger migration**
+- [x] **Step 6: Commit the ledger migration**
 
 ```powershell
 git add packages/paper_trading_engine/src/paper_trading_engine/store.py packages/paper_trading_engine/tests/functional

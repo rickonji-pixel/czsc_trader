@@ -1,183 +1,109 @@
 # Paper Trading Engine
 
-PTE 是与 `czsc_trader` 并列的模拟交易运行包。它通过 `czsc-trader advice run`
-的 `advice.v4` JSON 契约取得正式策略版本决策，通过渠道适配器执行，并将运行状态和审计
-事件保存到 SQLite。PTE 不导入 Trader 或 Strategy Manager，也不直接获取研究数据。
+PTE 是与 `czsc_trader` 并列的模拟交易运行包。PTE 通过 `czsc-trader advice run`
+取得 `advice.v4` 决策，通过 Futu 中国市场模拟账户执行，并把虚拟账户账本与审计事件
+保存在本机 SQLite。PTE 不导入 Trader、Strategy Manager 或 Strategy Evaluator。
 
-## 安装
+## 对象关系
 
-在仓库根目录执行：
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -e .\packages\paper_trading_engine
+```text
+冻结策略发布 1 ── 1 虚拟账户 N ── 1 Futu模拟渠道 ── 1 Futu模拟账户
+                         │
+                         └── 决策、意图、订单、成交、资金、持仓、绩效
 ```
 
-运行前启动本机 Futu OpenD，确保存在中国市场模拟账户。行情权限可以缺失；页面
-会显示 `DEGRADED_QUOTE`，自动提交仍按项目侧 advice 数值限价执行。渠道自动调价
-固定关闭。
+- 虚拟账户是业务归属中心；每个账户绑定一个不可变策略发布和唯一渠道。
+- 当前唯一渠道为 `futu`；一个 Futu 渠道承载多个虚拟账户。
+- Futu 渠道只执行、回报和对账，不绑定策略，不生成决策，不修改价格或数量。
+- 所有订单和成交必须能够追溯到虚拟账户、策略发布和决策。
+- PTE 独占底层 Futu 模拟账户；无法归属的活动订单或不一致持仓会阻止新单。
+- 内部 OHLC 模拟成交渠道已经移除；只有 Futu 累计成交回报能够改变账户持仓。
 
-## 运行
-
-先执行单轮诊断：
+## 安装与启动
 
 ```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 .\.venv\Scripts\pte.exe once --repo-root D:\CodeBase\czsc_trader
-```
-
-确认结果后启动持续服务：
-
-```powershell
 .\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
 ```
 
-页面入口为 `http://127.0.0.1:8080`，控制台按资源分成四个页面：
+运行前启动 Futu OpenD，并确保只有一个中国市场模拟账户。实时行情权限可以缺失；页面
+显示“行情降级”，委托仍严格使用 Trader 提供的限价。控制台地址为
+<http://127.0.0.1:8080>。
 
-- `/accounts/{account_id}`：虚拟账户工作区，账户、决策、订单、成交、绩效和开关统一归属该账户。
-- `/channels/futu`：Futu模拟渠道，展示实际账户、订单与虚拟账户归属以及撤单。
-- `/comparison`：多个虚拟账户在共同观察区间内的只读比较。
-- `/audit-events`：策略、交易、系统和其他四类运行事件的只读审计与关联链路查询。
+PTE 每 5 秒同步订单和成交，每 60 秒同步渠道账户与持仓。每个自然日 19:00 后发布一次
+完整收盘数据，失败按 5、15、30、60、300 秒退避。数据发布成功后，每个运行账户只
+生成一次对应数据版本的决策；重启发现漏做时自动补做。新单仅在决策 `valid_session`
+当天的 `09:30–11:30`、`13:00–14:57`（北京时间）提交。
 
-订单和累计成交默认每 5 秒轮询，账户与持仓
-每 60 秒刷新，策略每 5 秒检查一次数据身份，只有完整收盘数据身份或实际持仓发生
-变化才重新调用 advice。Futu渠道异常按5、15、30、60、300秒退避，虚拟账户继续
-独立运行；失败计数和下次重试时间保存在运行库，PTE重启不会清空退避状态。运行库位于 `state/paper_trading/runtime.db`；运行数据位于
-`state/paper_trading/data`，均不进入版本控制。重启会复用订单意图、渠道订单、暂停
-状态与审计事件。
-
-控制台的5秒轮询采用静默刷新：时间戳变化不会重建页面，业务状态发生变化时才更新
-工作区；轮询失败会继续保留最后成功数据并显示过期提示。
-
-服务在每个自然日 19:00 后自动运行一次数据发布，发布失败会写入告警事件并按退避
-间隔重试。发布流程通过 Tushare 的 SSE 交易日历写入下一有效交易日，策略建议和
-自动提交均使用该日期，不按普通工作日推断。各频率和发布时间可分别调整：
-
-```powershell
-.\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader `
-  --order-interval 5 --account-interval 60 `
-  --decision-interval 5 --data-refresh-time 19:00
-```
-
-自动买入使用模拟账户已对账的全部可部署现金。PTE 将现金与实际持仓交给
-`czsc-trader advice run`，由项目侧按限价、执行费率和 100 份交易单位计算最大可买
-数量；卖出信号卖出全部已成交持仓。渠道不参与定价或改量。
-
-页面字段使用中文业务语义，英文枚举仍保留在 API、数据库和可展开的结构化诊断区。
-暂停、恢复和撤单操作都会立即显示成功或失败反馈。
-
-## 运行事件审计
-
-PTE把运行事实追加写入同一个SQLite事件账本，四个固定类别为：
-
-- `STRATEGY`：数据发布、决策生成、信号触发或解除、决策过期和渠道策略绑定；
-- `TRADING`：订单意图、提交、阻断、撤单、部分成交、全部成交和终态；
-- `SYSTEM`：服务启停与重启、账户干预、Futu或Trader/Tushare调用、依赖健康和调度故障；
-- `OTHER`：历史迁移或暂时无法归入前三类的兜底事件，必须保存分类原因。
-
-每条事件包含事件ID、UTC发生时间、类别、类型、严重程度、结果、来源、关联ID及可用的
-账户、策略、渠道、决策和订单作用域。敏感字段在写入前递归脱敏。成功的高频只读轮询
-保持静默；外部变更调用全部记录，读取失败、恢复或健康状态变化也会记录。订单意图等
-关键本地状态与对应事件在同一SQLite事务内提交，事件落库失败时不会继续向渠道发单。
-
-控制台的审计页将时间转换为北京时间，并对详情做格式化渲染。接口为
-`GET /api/audit-events`，支持`category`、`event_type`、`severity`、`outcome`、
-`account_id`、`strategy_id`、`channel`、`decision_id`、`order_id`、`correlation_id`、
-`before_id`和`limit`（1至200）过滤。`next_before_id`用于继续查询更早事件。查询接口
-只读，不产生新的审计事件。当前版本采用追加保留策略，不自动清理事件；运行库整体按
-本机状态迁移与备份。
-
-自动新单仅在决策的有效交易日，并处于 `09:30–11:30` 或 `13:00–14:57`
-（Asia/Shanghai）时提交。夜间、午休和集合竞价阶段继续观测与对账。
+`--decision-interval`仅为旧服务配置保留，已经不控制决策轮询。
 
 ## 虚拟账户
 
-PTE首次启动会幂等创建绑定`S001 / 综合基线策略 / v1`和10万元初始资金的账户；
-`baseline-143`只保留为内部兼容账户ID。每个虚拟账户拥有独立现金、持仓、成本、
-意图、订单、成交和日快照。
-19:00完整数据发布成功后，PTE先结算当日有效订单，再生成下一交易日决策；暂停只
-阻止新订单，已有订单仍结算。开盘改善按开盘价成交，盘中严格穿价按限价成交，
-等价触及记为不确定且不成交。
+首次启动会幂等创建 `s001-v1 / S001-v1模拟账户`，绑定 `S001-v1`，初始资金10万元。
+每个新增账户同样默认10万元；账户资金相互独立，底层 Futu 模拟账户提供共享容量。
 
 ```powershell
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
-  --account-id s001-shadow --name "S001影子账户" `
-  --strategy S001 --strategy-version v1 --futu-reference
-.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
-.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
+  --account-id s001-v2 --name "S001-v2模拟账户" `
+  --strategy S001 --strategy-version v2
+.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
+.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
 ```
 
-控制台以URL中的虚拟账户为统一作用域，账户概览、最新策略决策、模型订单、
-模型成交、账户详情和暂停开关同步切换，并在浏览器内记住下次入口偏好。Futu账户、
-渠道订单和撤单操作集中在独立的Futu渠道页。多账户比较采用共同观察区间，
-盈亏比仅统计已闭合买卖交易。`--futu-reference`用于切换唯一的Futu
-参照账户，只影响页面标记和比较，不会向Futu复制虚拟订单。每个新账户默认初始资金
-为10万元；可通过`--initial-cash`显式覆盖。Futu渠道账户的100万元不受此默认值影响。
+账户身份包含账户ID、名称、标的、策略ID、版本、发布哈希和初始资金，创建后不可变。
+暂停只阻止该账户产生新订单，已有订单继续对账。买单创建意图时冻结本账户资金；明确
+拒绝、过期或未完全成交后终止时释放剩余冻结资金。网络中断等结果不确定的提交保留
+冻结资金并阻塞账户，等待按订单备注恢复归属。卖单不得超过该账户未被其他活动意图
+占用的持仓。
 
-模拟盘里程碑证据通过以下命令导出，随后交给Trader登记：
+## 控制台与审计
+
+- `/accounts/{account_id}`：账户身份、最新决策、订单、成交、资金、持仓、绩效和开关。
+- `/channels/futu`：底层 Futu 模拟账户、承载账户、逐笔订单/成交归属和撤单。
+- `/comparison`：多个虚拟账户在共同观察区间内的只读比较。
+- `/audit-events`：策略、交易、系统和其他事件，可按账户、策略、渠道和关联ID筛选。
+
+策略事件归属虚拟账户；Futu 外部调用和渠道对账事件归属 Futu 渠道；交易事件同时带
+账户与渠道。时间以 UTC 写入，页面统一显示北京时间。页面轮询采用稳定指纹，只在业务
+数据变化时重绘。
+
+撤单必须选择归属账户和 Futu 订单，获取两分钟有效令牌并二次确认。未知活动订单、
+账户汇总持仓与 Futu 持仓不一致、非 `SIMULATE/CN` 环境或分配资金超过底层总资产，
+都会使渠道对账进入 `BLOCKED`。
+
+## 模拟盘证据
 
 ```powershell
 .\.venv\Scripts\pte.exe performance export --repo-root D:\CodeBase\czsc_trader `
-  --account-id s001-shadow --recorded-by tomxiao `
-  --start 2026-09-03 --end 2026-12-03 --output state\paper-forward.json
+  --account-id s001-v2 --recorded-by tomxiao `
+  --start 2026-09-04 --end 2026-12-04 --output state\paper-forward.json
 .\.venv\Scripts\czsc-trader.exe strategy evidence add --input state\paper-forward.json
 ```
 
-证据包包含发布身份、统计口径和可复核的净值/闭合交易输入；PTE不直接写
-`configs/strategies/`。
+PTE 日常状态位于 `state/paper_trading/runtime.db`，行情副本和日志也位于
+`state/paper_trading/`，均不进入 Git。跨机延续模拟盘需迁移整个运行目录。
 
-## Futu渠道策略绑定
+## Windows watchdog
 
-冻结策略只创建独立虚拟账户。Futu模拟账户执行哪个正式策略，必须由操作者显式绑定：
-
-```powershell
-.\.venv\Scripts\pte.exe channel bind-strategy --repo-root D:\CodeBase\czsc_trader `
-  --channel futu --strategy S001 --strategy-version v2 `
-  --actor tomxiao --reason "人工确认切换Futu模拟执行策略"
-```
-
-PTE通过Trader CLI校验策略资格和发布哈希，随后把绑定写入SQLite并记录操作者、原因、
-旧绑定和新绑定。相同发布重复绑定保持幂等；存在活动渠道订单时拒绝切换。首次升级
-Console v2会从最近一次Futu渠道决策迁移绑定；无完整历史决策时保持未绑定，渠道继续
-对账，同时阻止生成新决策和提交新单。
-
-## Windows 服务
-
-先在管理员 PowerShell 中注册并启动 watchdog：
+在管理员 PowerShell 中首次注册：
 
 ```powershell
 .\.venv\Scripts\pte-watchdog.exe install-config --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte-watchdog.exe start --wait 30
 ```
 
-服务状态使用`sc.exe query CZSC-PTE-Watchdog`查看；管理命令为
-`stop --wait 30`、`restart --wait 30`和`remove`，需管理员PowerShell。唯一的
-系统服务名为 `CZSC-PTE-Watchdog`，启动类型为自动。watchdog 通过现有 `pte serve`
-CLI 启动 PTE 子进程，每 10 秒检查进程和 8080 HTTP 状态；连续 3 次失败后重启，
-退避间隔为 5、30、60 秒。安装时会停止并删除旧的 `CZSC-PaperTrading` 服务。
-
-配置保存在 `state/paper_trading/service.json`；watchdog 滚动日志位于
-`state/paper_trading/logs/watchdog.log`，PTE 输出位于
-`state/paper_trading/logs/pte.log`。
-
-日常发布代码后无需管理员权限重启Windows服务。运行以下命令，CLI会通过带本地令牌的
-控制接口要求PTE停止新调度、等待当前操作结束并正常退出；watchdog识别退出码0后跳过
-故障退避并拉起新进程，命令等待新的运行实例恢复健康：
+服务名为 `CZSC-PTE-Watchdog`。日常发布代码后可使用 PTE 的本地控制接口优雅重启，
+无需重启系统服务：
 
 ```powershell
 .\.venv\Scripts\pte.exe control restart --repo-root D:\CodeBase\czsc_trader
 ```
 
-首次升级到支持该能力的版本仍需重启一次`CZSC-PTE-Watchdog`，以便运行进程生成控制
-令牌。控制接口只接受`127.0.0.1`请求和`X-PTE-Control-Token`，令牌保存在不受Git跟踪
-的运行库中；首版仅支持重启，不提供停止命令。
+## 最小回归
 
-## 干预语义
-
-- 暂停只阻止新订单，已有订单继续对账。
-- 恢复要求本进程已成功完成一次渠道对账。
-- 撤单先获取绑定具体订单、两分钟有效的令牌，再做第二次确认。
-- 只有渠道明确返回的累计成交数量增量会记录为成交；委托受理不更新持仓。
-- 新单只在 advice 的`valid_session`当天提交；存在未终态订单时先等待订单收敛。
-
-`pte once` 也可能自动提交 advice 给出的新订单。只读诊断前应先用
-`czsc-trader advice run` 确认当前 `order` 为 `null`，或先在页面暂停新订单。
+```powershell
+.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests\functional -q
+node packages\paper_trading_engine\tests\functional\console_state.test.mjs
+```

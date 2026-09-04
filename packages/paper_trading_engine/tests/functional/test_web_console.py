@@ -23,9 +23,9 @@ class FakeEngine:
     def resume(self):
         self.paused = False
         return self.status()
-    def issue_cancel_token(self, order_id): return f"token-{order_id}"
-    def confirm_cancel(self, order_id, token):
-        if token != f"token-{order_id}":
+    def issue_cancel_token(self, account_id, order_id): return f"token-{account_id}-{order_id}"
+    def confirm_cancel(self, account_id, order_id, token):
+        if token != f"token-{account_id}-{order_id}":
             raise RuntimeError("invalid token")
         self.cancelled.append(order_id)
         return self.status()
@@ -119,8 +119,8 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
             assert invalid.value.code == 400
         assert request_json(base + "/api/pause", "POST", {})[1]["paused"] is True
         assert request_json(base + "/api/resume", "POST", {})[1]["paused"] is False
-        token = request_json(base + "/api/cancel-token", "POST", {"channel_order_id": "1"})[1]["token"]
-        request_json(base + "/api/cancel", "POST", {"channel_order_id": "1", "token": token})
+        token = request_json(base + "/api/cancel-token", "POST", {"account_id": "alpha", "channel_order_id": "1"})[1]["token"]
+        request_json(base + "/api/cancel", "POST", {"account_id": "alpha", "channel_order_id": "1", "token": token})
         assert engine.cancelled == ["1"]
         with pytest.raises(HTTPError) as denied:
             request_json(base + "/api/system/restart", "POST", {}, "wrong")

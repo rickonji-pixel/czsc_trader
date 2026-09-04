@@ -19,7 +19,6 @@ class RuntimeScheduler:
         account_interval: float = 60,
         decision_interval: float = 5,
         publish_time: str = "19:00",
-        virtual_refresh=None,
         audit: AuditRecorder | None = None,
     ) -> None:
         self.engine = engine
@@ -27,15 +26,15 @@ class RuntimeScheduler:
         self.store = store
         self.order_interval = float(order_interval)
         self.account_interval = float(account_interval)
+        # Kept as a compatibility argument for existing service definitions. Decisions are
+        # generated once per successfully published data generation, never on a timer.
         self.decision_interval = float(decision_interval)
         self.publish_time = time.fromisoformat(publish_time)
-        self.virtual_refresh = virtual_refresh
         self.audit = audit or (
             AuditRecorder(store) if hasattr(store, "append_audit_event") else None
         )
         self._last_order: datetime | None = None
         self._last_account: datetime | None = None
-        self._last_decision: datetime | None = None
         self._failures = self._restore_failures()
         self._retry_delays = (5, 15, 30, 60, 300)
 
@@ -121,9 +120,6 @@ class RuntimeScheduler:
         if self._due(self._last_order, now, self.order_interval):
             self._guard("orders", now, self.engine.refresh_orders)
             self._last_order = now
-        if self._due(self._last_decision, now, self.decision_interval):
-            self._guard("decision", now, self.engine.refresh_decision_if_changed)
-            self._last_decision = now
         today = now.date().isoformat()
         if (
             now.time() >= self.publish_time
@@ -159,15 +155,15 @@ class RuntimeScheduler:
                         details={"target_date": today, "result": result},
                     )
             self._guard("publication", now, publish)
+        published_date = self.store.get_setting("last_data_publish_date")
         if (
-            self.virtual_refresh is not None
-            and self.store.get_setting("last_data_publish_date") == today
-            and self.store.get_setting("last_virtual_refresh_date") != today
+            published_date is not None
+            and self.store.get_setting("last_account_decision_date") != published_date
         ):
-            def refresh_virtual():
-                self.virtual_refresh(now.date())
-                self.store.set_setting("last_virtual_refresh_date", today)
-            self._guard("virtual_accounts", now, refresh_virtual)
+            def refresh_accounts():
+                self.engine.refresh_decisions()
+                self.store.set_setting("last_account_decision_date", published_date)
+            self._guard("account_decisions", now, refresh_accounts)
 
     def run(self, stopped: Event) -> None:
         while not stopped.is_set():

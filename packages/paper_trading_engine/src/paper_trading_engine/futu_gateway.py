@@ -7,7 +7,7 @@ import time
 
 from .audit import AuditRecorder
 
-from .engine import (
+from .broker import (
     BrokerAccount,
     BrokerOrder,
     BrokerPosition,
@@ -70,7 +70,8 @@ class FutuGateway:
 
     def _audit_mutation(
         self, operation: str, started: float, *, correlation_id: str,
-        order_id: str | None = None, error: Exception | None = None,
+        order_id: str | None = None, account_id: str | None = None,
+        error: Exception | None = None,
     ) -> None:
         if self.audit is None:
             return
@@ -78,7 +79,7 @@ class FutuGateway:
             "EXTERNAL_CALL_FAILED" if error else "EXTERNAL_CALL_SUCCEEDED",
             source="futu_gateway", outcome="FAILURE" if error else "SUCCESS",
             actor_type="EXTERNAL", actor_id="futu", correlation_id=correlation_id,
-            symbol=self.symbol, channel="futu", order_id=order_id,
+            account_id=account_id, symbol=self.symbol, channel="futu", order_id=order_id,
             details={
                 "service": "futu", "operation": operation,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 3),
@@ -149,7 +150,7 @@ class FutuGateway:
         position_rows = _records(
             self._ok(
                 "position_list_query",
-                self.trade_context.position_list_query(code=self.code, **common),
+                self.trade_context.position_list_query(**common),
             )
         )
         quote_result, _ = self.quote_context.get_stock_quote([self.code])
@@ -176,7 +177,6 @@ class FutuGateway:
             self._ok(
                 "order_list_query",
                 self.trade_context.order_list_query(
-                    code=self.code,
                     trd_env=self.sdk.TrdEnv.SIMULATE,
                     acc_id=self._account(),
                     refresh_cache=True,
@@ -230,12 +230,13 @@ class FutuGateway:
             order = self._map_order(rows[0])
         except Exception as exc:
             self._audit_mutation(
-                "place_order", started, correlation_id=intent.decision_id, error=exc
+                "place_order", started, correlation_id=intent.decision_id,
+                account_id=intent.account_id, error=exc,
             )
             raise
         self._audit_mutation(
             "place_order", started, correlation_id=intent.decision_id,
-            order_id=order.channel_order_id,
+            order_id=order.channel_order_id, account_id=intent.account_id,
         )
         return order
 

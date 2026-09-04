@@ -23,7 +23,7 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(systemAlertCount({alerts: ['x'], scheduler_failures: [{operation: 'x'}]}), 2);
   assert.equal(chooseAccountId('baseline-143', [{account_id: 's001-v1'}], 's001-v1'), 's001-v1');
   assert.deepEqual(navigationOptions('s001-v1'), {showLoading: false, forceRender: false});
-  assert.equal(channelOrderAccountLabel({}), '历史未记录');
+  assert.equal(channelOrderAccountLabel({account_id: 's001-v2'}), 's001-v2');
   assert.equal(formatBeijingTime('2026-09-03T11:00:11.806715+00:00'), '2026-09-03 19:00:11');
   assert.equal(auditCategoryLabel('STRATEGY'), '策略事件');
   assert.equal(auditCategoryLabel('OTHER'), '其他事件');
@@ -31,7 +31,7 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(auditEventLabel('ORDER_FILLED'), '订单成交');
   const accounts = [{account_id: 's001-v2', name: 'S001-v2模拟账户'}];
   assert.equal(
-    auditScopeLabel({account_id: 's001-v2', channel: 'virtual'}, accounts),
+    auditScopeLabel({account_id: 's001-v2', channel: 'futu'}, accounts),
     '虚拟账户 · S001-v2模拟账户（s001-v2）',
   );
   assert.equal(auditScopeLabel({account_id: null, channel: 'futu'}, accounts), 'Futu模拟渠道');

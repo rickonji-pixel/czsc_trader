@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -70,19 +71,75 @@ class PaperStore:
             );
             CREATE TABLE IF NOT EXISTS intents (
                 intent_id TEXT PRIMARY KEY,
-                decision_id TEXT NOT NULL UNIQUE,
+                account_id TEXT NOT NULL,
+                decision_id TEXT NOT NULL,
+                order_sequence INTEGER NOT NULL,
+                channel_id TEXT NOT NULL DEFAULT 'futu',
+                symbol TEXT NOT NULL,
+                side TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                limit_price TEXT NOT NULL,
+                valid_session TEXT NOT NULL,
                 payload TEXT NOT NULL,
                 status TEXT NOT NULL,
                 channel_order_id TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                UNIQUE(account_id, decision_id, order_sequence)
             );
             CREATE TABLE IF NOT EXISTS orders (
                 channel_order_id TEXT PRIMARY KEY,
+                intent_id TEXT NOT NULL UNIQUE,
+                account_id TEXT NOT NULL,
+                decision_id TEXT NOT NULL,
+                channel_id TEXT NOT NULL DEFAULT 'futu',
                 payload TEXT NOT NULL,
                 cumulative_filled_quantity INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS decisions (
+                account_id TEXT NOT NULL,
+                decision_id TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                signal_date TEXT NOT NULL,
+                valid_session TEXT NOT NULL,
+                generated_at TEXT NOT NULL,
+                PRIMARY KEY(account_id, decision_id)
+            );
+            CREATE TABLE IF NOT EXISTS fills (
+                fill_id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                order_id TEXT NOT NULL,
+                decision_id TEXT NOT NULL,
+                channel_id TEXT NOT NULL DEFAULT 'futu',
+                side TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                price TEXT NOT NULL,
+                fee TEXT NOT NULL,
+                realized_pnl TEXT NOT NULL DEFAULT '0.0000',
+                occurred_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS account_ledger (
+                ledger_entry_id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                entry_type TEXT NOT NULL,
+                order_id TEXT,
+                fill_id TEXT,
+                cash_delta TEXT NOT NULL,
+                frozen_cash_delta TEXT NOT NULL,
+                quantity_delta INTEGER NOT NULL,
+                fee TEXT NOT NULL,
+                balance_after TEXT NOT NULL,
+                quantity_after INTEGER NOT NULL,
+                occurred_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS account_snapshots (
+                account_id TEXT NOT NULL,
+                session TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(account_id, session)
             );
             CREATE TABLE IF NOT EXISTS snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,67 +172,25 @@ class PaperStore:
                 realized_pnl TEXT NOT NULL DEFAULT '0.0000',
                 cycle_target INTEGER,
                 paused INTEGER NOT NULL DEFAULT 0,
-                is_futu_reference INTEGER NOT NULL DEFAULT 0,
                 observation_start TEXT,
                 last_settlement_session TEXT,
                 last_decision_id TEXT,
                 last_decision_payload TEXT,
                 health TEXT NOT NULL DEFAULT 'READY',
                 last_error TEXT,
+                channel_id TEXT NOT NULL DEFAULT 'futu',
+                status TEXT NOT NULL DEFAULT 'RUNNING',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS virtual_intents (
-                intent_id TEXT PRIMARY KEY,
-                account_id TEXT NOT NULL,
-                decision_id TEXT NOT NULL,
-                payload TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                UNIQUE(account_id, decision_id, intent_id)
-            );
-            CREATE TABLE IF NOT EXISTS virtual_orders (
-                order_id TEXT PRIMARY KEY,
-                account_id TEXT NOT NULL,
-                decision_id TEXT NOT NULL,
-                valid_session TEXT NOT NULL,
-                side TEXT NOT NULL,
-                quantity INTEGER NOT NULL,
-                limit_price TEXT NOT NULL,
-                status TEXT NOT NULL,
-                payload TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE(account_id, decision_id, order_id)
-            );
-            CREATE TABLE IF NOT EXISTS virtual_fills (
-                fill_id TEXT PRIMARY KEY,
-                account_id TEXT NOT NULL,
-                order_id TEXT NOT NULL UNIQUE,
-                session TEXT NOT NULL,
-                side TEXT NOT NULL,
-                quantity INTEGER NOT NULL,
-                price TEXT NOT NULL,
-                fee TEXT NOT NULL,
-                realized_pnl TEXT NOT NULL DEFAULT '0.0000',
-                fill_sequence INTEGER NOT NULL DEFAULT 1,
-                source TEXT NOT NULL DEFAULT 'VIRTUAL_MODEL',
-                created_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS virtual_snapshots (
-                account_id TEXT NOT NULL,
-                session TEXT NOT NULL,
-                payload TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                PRIMARY KEY(account_id, session)
-            );
             """
         )
+        account_schema_migrated = self._migrate_account_execution_schema()
         self._ensure_column("virtual_accounts", "average_cost", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "symbol", "TEXT NOT NULL DEFAULT '588080.SH'")
         self._ensure_column("virtual_accounts", "frozen_cash", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "total_assets", "TEXT NOT NULL DEFAULT '0.0000'")
-        self._ensure_column("virtual_accounts", "is_futu_reference", "INTEGER NOT NULL DEFAULT 0")
         self._ensure_column("virtual_accounts", "observation_start", "TEXT")
         self._ensure_column("virtual_accounts", "last_settlement_session", "TEXT")
         self._ensure_column("virtual_accounts", "last_decision_id", "TEXT")
@@ -187,9 +202,9 @@ class PaperStore:
         self._ensure_column("virtual_accounts", "strategy_version", "TEXT")
         self._ensure_column("virtual_accounts", "release_hash", "TEXT")
         self._ensure_column("virtual_accounts", "qualification_snapshot", "TEXT")
-        self._ensure_column("virtual_fills", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
-        self._ensure_column("virtual_fills", "fill_sequence", "INTEGER NOT NULL DEFAULT 1")
-        self._ensure_column("virtual_fills", "source", "TEXT NOT NULL DEFAULT 'VIRTUAL_MODEL'")
+        self._ensure_column("virtual_accounts", "channel_id", "TEXT NOT NULL DEFAULT 'futu'")
+        self._ensure_column("virtual_accounts", "status", "TEXT NOT NULL DEFAULT 'RUNNING'")
+        self._ensure_column("fills", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("orders", "created_at", "TEXT")
         for column in (
             "event_id", "occurred_at", "category", "severity", "outcome", "source",
@@ -199,6 +214,31 @@ class PaperStore:
         ):
             self._ensure_column("events", column, "TEXT")
         self._migrate_audit_events()
+        if account_schema_migrated:
+            self._insert_audit_event(self._new_audit_event(
+                "ACCOUNT_EXECUTION_MIGRATED", source="store", actor_type="ENGINE",
+                correlation_id="account-execution-migration",
+                details={"schema": "account_execution.v1", "channel": "futu"},
+            ))
+            for account in self.virtual_accounts():
+                correlation_id = f"account-binding:{account['account_id']}"
+                self._insert_audit_event(self._new_audit_event(
+                    "ACCOUNT_CHANNEL_BOUND", source="store", actor_type="ENGINE",
+                    correlation_id=correlation_id, account_id=account["account_id"],
+                    strategy_id=account.get("strategy_id"),
+                    strategy_version=account.get("strategy_version"),
+                    release_hash=account.get("release_hash"), symbol=account.get("symbol"),
+                    channel="futu", details={"migration": True, "channel_id": "futu"},
+                ))
+                if account.get("strategy_id"):
+                    self._insert_audit_event(self._new_audit_event(
+                        "ACCOUNT_STRATEGY_BOUND", source="store", actor_type="ENGINE",
+                        correlation_id=correlation_id, account_id=account["account_id"],
+                        strategy_id=account["strategy_id"],
+                        strategy_version=account.get("strategy_version"),
+                        release_hash=account.get("release_hash"), symbol=account.get("symbol"),
+                        details={"migration": True},
+                    ))
         self._connection.executescript(
             """
             CREATE UNIQUE INDEX IF NOT EXISTS idx_events_event_id ON events(event_id);
@@ -227,6 +267,76 @@ class PaperStore:
             ),
         )
         self._connection.commit()
+
+    def _migrate_account_execution_schema(self) -> bool:
+        """Replace empty pre-account-centric trading tables without rewriting history."""
+        tables = {
+            row[0]
+            for row in self._connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        legacy_tables = {
+            name for name in (
+                "virtual_intents", "virtual_orders", "virtual_fills", "virtual_snapshots"
+            ) if name in tables
+        }
+        intent_columns = {
+            row[1] for row in self._connection.execute("PRAGMA table_info(intents)")
+        }
+        old_core = "account_id" not in intent_columns
+        if not legacy_tables and not old_core:
+            self._connection.execute(
+                "INSERT INTO settings(key,value) VALUES('account_execution_schema','account_execution.v1') "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+            )
+            return False
+        guarded = set(legacy_tables)
+        if old_core:
+            guarded.update({"intents", "orders"})
+        populated = {
+            name: int(self._connection.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0])
+            for name in guarded
+        }
+        if any(populated.values()):
+            raise RuntimeError(
+                "account-centric migration requires empty legacy trading tables: "
+                + ", ".join(f"{name}={count}" for name, count in sorted(populated.items()))
+            )
+        with self._connection:
+            for name in sorted(legacy_tables):
+                self._connection.execute(f"DROP TABLE {name}")
+            if old_core:
+                self._connection.execute("DROP TABLE intents")
+                self._connection.execute("DROP TABLE orders")
+                self._connection.executescript(
+                    """
+                    CREATE TABLE intents (
+                        intent_id TEXT PRIMARY KEY, account_id TEXT NOT NULL,
+                        decision_id TEXT NOT NULL, order_sequence INTEGER NOT NULL,
+                        channel_id TEXT NOT NULL DEFAULT 'futu', symbol TEXT NOT NULL,
+                        side TEXT NOT NULL, quantity INTEGER NOT NULL, limit_price TEXT NOT NULL,
+                        valid_session TEXT NOT NULL, payload TEXT NOT NULL, status TEXT NOT NULL,
+                        channel_order_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                        UNIQUE(account_id, decision_id, order_sequence)
+                    );
+                    CREATE TABLE orders (
+                        channel_order_id TEXT PRIMARY KEY, intent_id TEXT NOT NULL UNIQUE,
+                        account_id TEXT NOT NULL, decision_id TEXT NOT NULL,
+                        channel_id TEXT NOT NULL DEFAULT 'futu', payload TEXT NOT NULL,
+                        cumulative_filled_quantity INTEGER NOT NULL,
+                        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+                    );
+                    """
+                )
+            self._connection.execute(
+                "DELETE FROM settings WHERE key IN ('futu_strategy_binding','last_virtual_refresh_date')"
+            )
+            self._connection.execute(
+                "INSERT INTO settings(key,value) VALUES('account_execution_schema','account_execution.v1') "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+            )
+        return True
 
     @staticmethod
     def _legacy_profile(event_type: str, payload: dict[str, object]):
@@ -342,7 +452,7 @@ class PaperStore:
 
     def create_virtual_account(
         self, account_id, name, baseline_version, baseline_sha256, initial_cash,
-        *, symbol="588080.SH", is_futu_reference=False, strategy_id=None,
+        *, symbol="588080.SH", strategy_id=None,
         strategy_name_snapshot=None, strategy_version=None, release_hash=None,
         qualification_snapshot=None,
     ):
@@ -376,20 +486,36 @@ class PaperStore:
                 raise ValueError("strategy qualification does not permit paper trading")
         now = _utc_now()
         with self._lock, self._connection:
-            if is_futu_reference:
-                self._connection.execute("UPDATE virtual_accounts SET is_futu_reference=0")
             self._connection.execute(
                 "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,"
                 "strategy_id,strategy_name_snapshot,strategy_version,release_hash,"
-                "qualification_snapshot,symbol,initial_cash,cash,total_assets,is_futu_reference,"
-                "created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "qualification_snapshot,symbol,initial_cash,cash,total_assets,channel_id,status,"
+                "created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     account_id, name, baseline_version, baseline_sha256, strategy_id,
                     strategy_name_snapshot, strategy_version, release_hash,
                     qualification_snapshot, symbol.upper(), str(cash), str(cash), str(cash),
-                    int(is_futu_reference), now, now,
+                    "futu", "RUNNING", now, now,
                 ),
             )
+            scope = {
+                "account_id": account_id, "strategy_id": strategy_id,
+                "strategy_version": strategy_version, "release_hash": release_hash,
+                "symbol": symbol.upper(),
+            }
+            self._insert_audit_event(self._new_audit_event(
+                "ACCOUNT_STRATEGY_BOUND", source="account_registry",
+                correlation_id=f"account:{account_id}", **scope,
+                details={
+                    "release_id": f"{strategy_id}-{strategy_version}",
+                    "qualification": qualification_snapshot,
+                },
+            ))
+            self._insert_audit_event(self._new_audit_event(
+                "ACCOUNT_CHANNEL_BOUND", source="account_registry",
+                correlation_id=f"account:{account_id}", channel="futu", **scope,
+                details={"channel_id": "futu"},
+            ))
         return self.virtual_account(account_id)
 
     def rename_virtual_account(self, old_account_id: str, account_id: str, name: str):
@@ -424,7 +550,7 @@ class PaperStore:
             if old_account_id == account_id and source["name"] == name:
                 return dict(source)
 
-            for table in ("virtual_intents", "virtual_orders", "virtual_fills", "virtual_snapshots"):
+            for table in ("decisions", "intents", "orders", "fills", "account_ledger", "account_snapshots"):
                 self._connection.execute(
                     f"UPDATE {table} SET account_id=? WHERE account_id=?",
                     (account_id, old_account_id),
@@ -436,9 +562,9 @@ class PaperStore:
 
             payload_columns = (
                 ("virtual_accounts", "account_id", "last_decision_payload"),
-                ("virtual_intents", "intent_id", "payload"),
-                ("virtual_orders", "order_id", "payload"),
-                ("virtual_snapshots", "rowid", "payload"),
+                ("intents", "intent_id", "payload"),
+                ("orders", "channel_order_id", "payload"),
+                ("account_snapshots", "rowid", "payload"),
                 ("events", "id", "payload"),
             )
             for table, key_column, payload_column in payload_columns:
@@ -460,19 +586,6 @@ class PaperStore:
                 occurred_at=now,
             )
             self._insert_audit_event(event)
-        return self.virtual_account(account_id)
-
-    def set_futu_reference(self, account_id: str):
-        with self._lock, self._connection:
-            if self._connection.execute(
-                "SELECT 1 FROM virtual_accounts WHERE account_id=?", (account_id,)
-            ).fetchone() is None:
-                raise KeyError(account_id)
-            self._connection.execute("UPDATE virtual_accounts SET is_futu_reference=0")
-            self._connection.execute(
-                "UPDATE virtual_accounts SET is_futu_reference=1,updated_at=? WHERE account_id=?",
-                (_utc_now(), account_id),
-            )
         return self.virtual_account(account_id)
 
     def migrate_pristine_virtual_account_capital(
@@ -499,7 +612,7 @@ class PaperStore:
                     f"SELECT COUNT(*) FROM {table} WHERE account_id=?", (account_id,)
                 ).fetchone()[0])
                 for table in (
-                    "virtual_intents", "virtual_orders", "virtual_fills", "virtual_snapshots",
+                    "intents", "orders", "fills", "account_snapshots",
                 )
             )
             pristine = (
@@ -536,22 +649,6 @@ class PaperStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def update_virtual_account(self, account_id: str, *, cash, quantity: int, cycle_target: int | None):
-        from decimal import Decimal
-        value = str(Decimal(cash).quantize(Decimal("0.0001")))
-        if not Decimal(value).is_finite() or Decimal(value) < 0:
-            raise ValueError("virtual cash must be finite and non-negative")
-        if quantity < 0 or quantity % 100 or (cycle_target is not None and cycle_target % 100):
-            raise ValueError("virtual quantities must use non-negative 100-share lots")
-        with self._lock, self._connection:
-            changed = self._connection.execute(
-                "UPDATE virtual_accounts SET cash=?, quantity=?, cycle_target=?, updated_at=? WHERE account_id=?",
-                (value, quantity, cycle_target, _utc_now(), account_id),
-            ).rowcount
-        if not changed:
-            raise KeyError(account_id)
-        return self.virtual_account(account_id)
-
     def set_virtual_paused(self, account_id: str, paused: bool):
         with self._lock, self._connection:
             changed = self._connection.execute(
@@ -562,18 +659,6 @@ class PaperStore:
             raise KeyError(account_id)
         return self.virtual_account(account_id)
 
-    def save_virtual_decision(self, account_id: str, decision, cycle_target: int | None):
-        if cycle_target is not None and (cycle_target < 0 or cycle_target % 100):
-            raise ValueError("cycle target must use non-negative 100-share lots")
-        payload = json.dumps(decision, ensure_ascii=False, default=str)
-        with self._lock, self._connection:
-            changed = self._connection.execute(
-                "UPDATE virtual_accounts SET cycle_target=?,last_decision_id=?,last_decision_payload=?,health='OK',last_error=NULL,updated_at=? WHERE account_id=?",
-                (cycle_target, decision.get("decision_id"), payload, _utc_now(), account_id),
-            ).rowcount
-        if not changed:
-            raise KeyError(account_id)
-
     def set_virtual_health(self, account_id: str, health: str, error: str | None = None):
         with self._lock, self._connection:
             changed = self._connection.execute(
@@ -582,173 +667,6 @@ class PaperStore:
             ).rowcount
         if not changed:
             raise KeyError(account_id)
-
-    def save_virtual_order(self, account_id: str, decision_id: str, valid_session: str, order_id: str, payload: dict[str, object]):
-        now = _utc_now()
-        with self._lock, self._connection:
-            account = self._connection.execute(
-                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
-            ).fetchone()
-            if account is None:
-                raise KeyError(account_id)
-            intent_id = f"VI-{account_id}-{decision_id}"
-            self._connection.execute(
-                "INSERT OR IGNORE INTO virtual_intents(intent_id,account_id,decision_id,payload,created_at) VALUES(?,?,?,?,?)",
-                (intent_id, account_id, decision_id, json.dumps(payload, default=str), now),
-            )
-            inserted = self._connection.execute(
-                "INSERT OR IGNORE INTO virtual_orders(order_id,account_id,decision_id,valid_session,side,quantity,limit_price,status,payload,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                (order_id, account_id, decision_id, valid_session, payload["side"], int(payload["quantity"]), str(payload["limit_price"]), "PENDING", json.dumps(payload), now, now),
-            ).rowcount
-            if inserted:
-                scope = {
-                    "account_id": account_id, "strategy_id": account["strategy_id"],
-                    "strategy_version": account["strategy_version"],
-                    "release_hash": account["release_hash"], "symbol": account["symbol"],
-                    "channel": "virtual", "decision_id": decision_id, "order_id": order_id,
-                }
-                self._insert_audit_event(self._new_audit_event(
-                    "ORDER_INTENT_CREATED", source="virtual_engine",
-                    correlation_id=decision_id, **scope,
-                    details={"intent_id": intent_id, **payload},
-                ))
-                self._insert_audit_event(self._new_audit_event(
-                    "ORDER_SUBMITTED", source="virtual_engine",
-                    correlation_id=decision_id, **scope,
-                    details={"intent_id": intent_id, "channel_status": "PENDING", **payload},
-                ))
-
-    def virtual_orders(self, account_id: str):
-        with self._lock:
-            rows = self._connection.execute(
-                "SELECT * FROM virtual_orders WHERE account_id=? ORDER BY created_at,order_id", (account_id,)
-            ).fetchall()
-        return [dict(row) for row in rows]
-
-    def virtual_fills(self, account_id: str):
-        with self._lock:
-            rows = self._connection.execute(
-                "SELECT * FROM virtual_fills WHERE account_id=? ORDER BY created_at", (account_id,)
-            ).fetchall()
-        return [dict(row) for row in rows]
-
-    def virtual_intents(self, account_id: str):
-        with self._lock:
-            rows = self._connection.execute(
-                "SELECT * FROM virtual_intents WHERE account_id=? ORDER BY created_at,intent_id", (account_id,)
-            ).fetchall()
-        return [dict(row) for row in rows]
-
-    def settle_virtual_order(
-        self, account_id: str, order_id: str, session: str, price, fee_rate,
-        diagnostics: dict[str, object] | None = None,
-    ):
-        from decimal import Decimal
-        with self._lock, self._connection:
-            order = self._connection.execute(
-                "SELECT * FROM virtual_orders WHERE account_id=? AND order_id=?", (account_id, order_id)
-            ).fetchone()
-            if order is None:
-                raise KeyError(order_id)
-            existing = self._connection.execute(
-                "SELECT fill_id FROM virtual_fills WHERE order_id=?", (order_id,)
-            ).fetchone()
-            if existing is not None:
-                return False
-            account = self._connection.execute(
-                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
-            ).fetchone()
-            quantity = int(order["quantity"])
-            value = Decimal(str(price)) * quantity
-            fee = (value * Decimal(str(fee_rate))).quantize(Decimal("0.0001"))
-            cash = Decimal(account["cash"])
-            held = int(account["quantity"])
-            average_cost = Decimal(account["average_cost"])
-            realized_total = Decimal(account["realized_pnl"])
-            realized_fill = Decimal("0")
-            if order["side"] == "BUY":
-                cash -= value + fee
-                average_cost = ((average_cost * held + value + fee) / (held + quantity)).quantize(Decimal("0.0001"))
-                held += quantity
-            else:
-                if quantity > held:
-                    raise ValueError("virtual sell exceeds holdings")
-                cash += value - fee
-                realized_fill = ((Decimal(str(price)) - average_cost) * quantity - fee).quantize(Decimal("0.0001"))
-                realized_total += realized_fill
-                held -= quantity
-                if held == 0:
-                    average_cost = Decimal("0")
-            if cash < 0:
-                raise ValueError("virtual account has insufficient cash")
-            fill_id = f"VF-{order_id}"
-            now = _utc_now()
-            order_payload = json.loads(order["payload"])
-            if diagnostics:
-                order_payload.update(diagnostics)
-            self._connection.execute(
-                "INSERT INTO virtual_fills(fill_id,account_id,order_id,session,side,quantity,price,fee,realized_pnl,fill_sequence,source,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                (fill_id, account_id, order_id, session, order["side"], quantity, str(Decimal(str(price)).quantize(Decimal('0.0001'))), str(fee), str(realized_fill), 1, "VIRTUAL_MODEL", now),
-            )
-            self._connection.execute(
-                "UPDATE virtual_orders SET status='FILLED',payload=?,updated_at=? WHERE order_id=?",
-                (json.dumps(order_payload, default=str), now, order_id),
-            )
-            self._connection.execute(
-                "UPDATE virtual_accounts SET cash=?,quantity=?,average_cost=?,realized_pnl=?,cycle_target=?,updated_at=? WHERE account_id=?",
-                (str(cash.quantize(Decimal('0.0001'))), held, str(average_cost), str(realized_total.quantize(Decimal('0.0001'))), None if held == 0 else account["cycle_target"], now, account_id),
-            )
-            self._insert_audit_event(self._new_audit_event(
-                "ORDER_FILLED", source="virtual_engine", correlation_id=order["decision_id"],
-                account_id=account_id, strategy_id=account["strategy_id"],
-                strategy_version=account["strategy_version"],
-                release_hash=account["release_hash"], symbol=account["symbol"],
-                channel="virtual", decision_id=order["decision_id"], order_id=order_id,
-                details={
-                    "side": order["side"], "quantity": quantity,
-                    "cumulative_quantity": quantity, "average_fill_price": str(price),
-                    "fee": str(fee), "session": session,
-                },
-            ))
-        return True
-
-    def set_virtual_order_status(self, order_id: str, status: str, diagnostics: dict[str, object] | None = None):
-        with self._lock, self._connection:
-            if diagnostics:
-                row = self._connection.execute(
-                    "SELECT payload FROM virtual_orders WHERE order_id=?", (order_id,)
-                ).fetchone()
-                if row is None:
-                    raise KeyError(order_id)
-                payload = json.loads(row["payload"])
-                payload.update(diagnostics)
-                self._connection.execute(
-                    "UPDATE virtual_orders SET status=?,payload=?,updated_at=? WHERE order_id=?",
-                    (status, json.dumps(payload, default=str), _utc_now(), order_id),
-                )
-            else:
-                self._connection.execute(
-                    "UPDATE virtual_orders SET status=?,updated_at=? WHERE order_id=?", (status, _utc_now(), order_id)
-                )
-
-    def save_virtual_snapshot(self, account_id: str, session: str, payload: dict[str, object]) -> None:
-        with self._lock, self._connection:
-            self._connection.execute(
-                "INSERT INTO virtual_snapshots(account_id,session,payload,created_at) VALUES(?,?,?,?) "
-                "ON CONFLICT(account_id,session) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at",
-                (account_id, session, json.dumps(payload, ensure_ascii=False, default=str), _utc_now()),
-            )
-            self._connection.execute(
-                "UPDATE virtual_accounts SET total_assets=?,observation_start=COALESCE(observation_start,?),last_settlement_session=?,health='OK',last_error=NULL,updated_at=? WHERE account_id=?",
-                (str(payload["total_assets"]), session, session, _utc_now(), account_id),
-            )
-
-    def virtual_snapshots(self, account_id: str):
-        with self._lock:
-            rows = self._connection.execute(
-                "SELECT session,payload,created_at FROM virtual_snapshots WHERE account_id=? ORDER BY session", (account_id,)
-            ).fetchall()
-        return [{"session": row["session"], **json.loads(row["payload"]), "created_at": row["created_at"]} for row in rows]
 
     def _legacy_audit_event(
         self, event_type: str, payload: dict[str, object], *, occurred_at: str | None = None,
@@ -890,6 +808,7 @@ class PaperStore:
     def has_audit_event(
         self, event_type: str, *, account_id: str | None = None,
         decision_id: str | None = None, channel: str | None = None,
+        channel_is_null: bool = False,
     ) -> bool:
         filters = {"event_type": event_type, "account_id": account_id,
                    "decision_id": decision_id, "channel": channel}
@@ -898,6 +817,8 @@ class PaperStore:
             if value is not None:
                 clauses.append(f"{column}=?")
                 values.append(str(value))
+        if channel_is_null:
+            clauses.append("channel IS NULL")
         with self._lock:
             row = self._connection.execute(
                 f"SELECT 1 FROM events WHERE {' AND '.join(clauses)} LIMIT 1", values,
@@ -929,105 +850,465 @@ class PaperStore:
             for row in rows
         ]
 
-    def save_intent(self, intent_id: str, decision_id: str, payload: dict[str, object]) -> None:
+    def create_account_intent(
+        self, *, account_id: str, decision_id: str, order_sequence: int,
+        symbol: str, side: str, quantity: int, limit_price, valid_session: str,
+        fee_rate="0.0005", audit_event: AuditEvent | None = None,
+    ) -> dict[str, Any]:
+        """Persist one idempotent account order intent and reserve its cash."""
+        from decimal import Decimal
+
+        side = str(side).upper()
+        price = Decimal(str(limit_price)).quantize(Decimal("0.0001"))
+        fee = Decimal(str(fee_rate))
+        if side not in {"BUY", "SELL"}:
+            raise ValueError("intent side must be BUY or SELL")
+        if quantity <= 0 or quantity % 100:
+            raise ValueError("intent quantity must use positive 100-share lots")
+        identity = f"{account_id}\0{decision_id}\0{order_sequence}".encode("utf-8")
+        intent_id = "PTE-" + hashlib.sha256(identity).hexdigest()[:20].upper()
         now = _utc_now()
         with self._lock, self._connection:
+            existing = self._connection.execute(
+                "SELECT * FROM intents WHERE account_id=? AND decision_id=? AND order_sequence=?",
+                (account_id, decision_id, order_sequence),
+            ).fetchone()
+            if existing is not None:
+                return self._account_intent_row(existing)
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+            if account is None:
+                raise KeyError(account_id)
+            if account["channel_id"] != "futu":
+                raise ValueError("account execution channel must be futu")
+            if side == "SELL" and quantity > int(account["quantity"]):
+                raise ValueError("sell quantity exceeds account position")
+            if side == "SELL":
+                reserved_rows = self._connection.execute(
+                    "SELECT i.quantity,COALESCE(o.cumulative_filled_quantity,0) AS filled "
+                    "FROM intents i LEFT JOIN orders o ON o.intent_id=i.intent_id "
+                    "WHERE i.account_id=? AND i.side='SELL' AND i.status NOT IN "
+                    "('SUBMISSION_FAILED','EXPIRED','CANCELLED_ALL','FAILED','DISABLED',"
+                    "'DELETED','FILL_CANCELLED','FILLED_ALL')",
+                    (account_id,),
+                ).fetchall()
+                reserved_quantity = sum(
+                    max(0, int(row["quantity"]) - int(row["filled"])) for row in reserved_rows
+                )
+                if reserved_quantity + quantity > int(account["quantity"]):
+                    raise ValueError("sell intents exceed account available position")
+            reserve = (price * quantity * (Decimal("1") + fee)).quantize(Decimal("0.0001"))
+            if side == "BUY":
+                cash = Decimal(account["cash"])
+                if reserve > cash:
+                    raise ValueError("buy order exceeds account cash")
+                self._connection.execute(
+                    "UPDATE virtual_accounts SET cash=?,frozen_cash=?,updated_at=? WHERE account_id=?",
+                    (
+                        str((cash - reserve).quantize(Decimal("0.0001"))),
+                        str((Decimal(account["frozen_cash"]) + reserve).quantize(Decimal("0.0001"))),
+                        now, account_id,
+                    ),
+                )
+            payload = {
+                "account_id": account_id, "decision_id": decision_id,
+                "order_sequence": order_sequence, "channel_id": "futu",
+                "symbol": symbol.upper(), "side": side, "quantity": quantity,
+                "limit_price": str(price), "valid_session": valid_session,
+                "fee_rate": str(fee),
+            }
             self._connection.execute(
-                "INSERT OR IGNORE INTO intents"
-                "(intent_id, decision_id, payload, status, created_at, updated_at) "
-                "VALUES(?, ?, ?, 'PENDING_SUBMIT', ?, ?) "
-                "ON CONFLICT(intent_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at "
-                "WHERE intents.status='PENDING_SUBMIT' AND intents.channel_order_id IS NULL",
-                (intent_id, decision_id, json.dumps(payload, default=str), now, now),
+                "INSERT INTO intents(intent_id,account_id,decision_id,order_sequence,channel_id,"
+                "symbol,side,quantity,limit_price,valid_session,payload,status,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,'PENDING_SUBMIT',?,?)",
+                (
+                    intent_id, account_id, decision_id, order_sequence, "futu", symbol.upper(),
+                    side, quantity, str(price), valid_session,
+                    json.dumps(payload, ensure_ascii=False), now, now,
+                ),
             )
+            if audit_event is not None:
+                self._insert_audit_event(audit_event)
+            row = self._connection.execute(
+                "SELECT * FROM intents WHERE intent_id=?", (intent_id,)
+            ).fetchone()
+        return self._account_intent_row(row)
 
-    def save_intent_with_event(
-        self, intent_id: str, decision_id: str, payload: dict[str, object], event: AuditEvent,
-    ) -> None:
+    def save_account_decision(self, account_id: str, payload: dict[str, object]) -> dict[str, Any]:
+        decision_id = str(payload["decision_id"])
+        signal_date = str(payload["signal_date"])
+        valid_session = str(payload["valid_session"])
         now = _utc_now()
+        encoded = json.dumps(payload, ensure_ascii=False, default=str)
+        cycle_target = int(payload.get("cycle_target_quantity") or 0) or None
         with self._lock, self._connection:
             self._connection.execute(
-                "INSERT INTO intents(intent_id,decision_id,payload,status,created_at,updated_at) "
-                "VALUES(?,?,?,'PENDING_SUBMIT',?,?)",
-                (intent_id, decision_id, json.dumps(payload, default=str), now, now),
+                "INSERT OR IGNORE INTO decisions(account_id,decision_id,payload,signal_date,"
+                "valid_session,generated_at) VALUES(?,?,?,?,?,?)",
+                (account_id, decision_id, encoded, signal_date, valid_session, now),
             )
-            self._insert_audit_event(event)
+            self._connection.execute(
+                "UPDATE virtual_accounts SET last_decision_id=?,last_decision_payload=?,"
+                "cycle_target=?,updated_at=? WHERE account_id=?",
+                (decision_id, encoded, cycle_target, now, account_id),
+            )
+        return self.account_decision(account_id, decision_id)
 
-    def get_intent(self, intent_id: str) -> dict[str, Any] | None:
+    def account_decision(self, account_id: str, decision_id: str) -> dict[str, Any]:
         with self._lock:
             row = self._connection.execute(
-                "SELECT * FROM intents WHERE intent_id = ?", (intent_id,)
+                "SELECT * FROM decisions WHERE account_id=? AND decision_id=?",
+                (account_id, decision_id),
             ).fetchone()
-        return self._intent_row(row)
+        if row is None:
+            raise KeyError((account_id, decision_id))
+        result = dict(row)
+        result["payload"] = json.loads(result["payload"])
+        return result
 
-    def find_intent_by_decision(self, decision_id: str) -> dict[str, Any] | None:
+    def account_decisions(self, account_id: str | None = None) -> list[dict[str, Any]]:
+        sql = "SELECT account_id,decision_id FROM decisions"
+        values: tuple[object, ...] = ()
+        if account_id is not None:
+            sql += " WHERE account_id=?"
+            values = (account_id,)
+        sql += " ORDER BY generated_at DESC"
         with self._lock:
-            row = self._connection.execute(
-                "SELECT * FROM intents WHERE decision_id = ?", (decision_id,)
-            ).fetchone()
-        return self._intent_row(row)
+            keys = [tuple(row) for row in self._connection.execute(sql, values).fetchall()]
+        return [self.account_decision(str(account), str(decision)) for account, decision in keys]
 
     @staticmethod
-    def _intent_row(row: sqlite3.Row | None) -> dict[str, Any] | None:
-        if row is None:
-            return None
-        return {
-            "intent_id": row["intent_id"],
-            "decision_id": row["decision_id"],
-            "payload": json.loads(row["payload"]),
-            "status": row["status"],
-            "channel_order_id": row["channel_order_id"],
-        }
+    def _account_intent_row(row: sqlite3.Row) -> dict[str, Any]:
+        result = dict(row)
+        result["payload"] = json.loads(result["payload"])
+        return result
 
-    def bind_intent(self, intent_id: str, channel_order_id: str, status: str) -> None:
-        with self._lock, self._connection:
-            self._connection.execute(
-                "UPDATE intents SET channel_order_id=?, status=?, updated_at=? WHERE intent_id=?",
-                (channel_order_id, status, _utc_now(), intent_id),
-            )
-
-    def upsert_order(self, order: dict[str, object]) -> int:
-        channel_order_id = str(order["channel_order_id"])
-        cumulative = int(order["cumulative_filled_quantity"])
-        with self._lock, self._connection:
+    def account_intent(self, intent_id: str) -> dict[str, Any] | None:
+        with self._lock:
             row = self._connection.execute(
-                "SELECT cumulative_filled_quantity FROM orders WHERE channel_order_id=?",
-                (channel_order_id,),
+                "SELECT * FROM intents WHERE intent_id=?", (intent_id,)
             ).fetchone()
-            previous = 0 if row is None else int(row[0])
-            if cumulative < previous:
-                raise ValueError("cumulative filled quantity cannot decrease")
-            self._connection.execute(
-                "INSERT INTO orders(channel_order_id, payload, cumulative_filled_quantity, created_at, updated_at) "
-                "VALUES(?, ?, ?, ?, ?) ON CONFLICT(channel_order_id) DO UPDATE SET "
-                "payload=excluded.payload, cumulative_filled_quantity=excluded.cumulative_filled_quantity, "
-                "updated_at=excluded.updated_at",
-                (channel_order_id, json.dumps(order, default=str), cumulative, _utc_now(), _utc_now()),
-            )
-        return cumulative - previous
+        return None if row is None else self._account_intent_row(row)
 
-    def orders(self) -> list[dict[str, Any]]:
+    def update_account_intent_status(self, intent_id: str, status: str) -> dict[str, Any]:
+        with self._lock, self._connection:
+            changed = self._connection.execute(
+                "UPDATE intents SET status=?,updated_at=? WHERE intent_id=?",
+                (status, _utc_now(), intent_id),
+            ).rowcount
+        if not changed:
+            raise KeyError(intent_id)
+        result = self.account_intent(intent_id)
+        assert result is not None
+        return result
+
+    def pending_account_intents(self) -> list[dict[str, Any]]:
         with self._lock:
             rows = self._connection.execute(
-                "SELECT o.payload,o.created_at,o.updated_at,i.intent_id,i.decision_id,"
-                "i.payload AS intent_payload FROM orders o LEFT JOIN intents i "
-                "ON i.channel_order_id=o.channel_order_id ORDER BY o.updated_at DESC"
+                "SELECT * FROM intents WHERE status='PENDING_SUBMIT' "
+                "ORDER BY account_id,decision_id,order_sequence"
             ).fetchall()
-        result = []
-        for row in rows:
-            order = json.loads(row["payload"])
-            audit = json.loads(row["intent_payload"]) if row["intent_payload"] else {}
-            order.update({
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-                "intent_id": row["intent_id"],
-                "decision_id": row["decision_id"],
-                "virtual_account_id": audit.get("virtual_account_id"),
-                "strategy_release_id": audit.get("strategy_release_id"),
-                "release_hash": audit.get("release_hash"),
-            })
-            result.append(order)
+        return [self._account_intent_row(row) for row in rows]
+
+    def account_intents(self, account_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT * FROM intents WHERE account_id=? ORDER BY created_at,order_sequence",
+                (account_id,),
+            ).fetchall()
+        return [self._account_intent_row(row) for row in rows]
+
+    def bind_channel_order(
+        self, intent_id: str, channel_order_id: str, payload: dict[str, object],
+        audit_event: AuditEvent | None = None,
+    ) -> dict[str, Any]:
+        now = _utc_now()
+        initial_payload = dict(payload)
+        initial_payload["cumulative_filled_quantity"] = 0
+        initial_payload["average_fill_price"] = 0
+        with self._lock, self._connection:
+            intent = self._connection.execute(
+                "SELECT * FROM intents WHERE intent_id=?", (intent_id,)
+            ).fetchone()
+            if intent is None:
+                raise KeyError(intent_id)
+            self._connection.execute(
+                "INSERT INTO orders(channel_order_id,intent_id,account_id,decision_id,channel_id,"
+                "payload,cumulative_filled_quantity,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(channel_order_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at",
+                (
+                    str(channel_order_id), intent_id, intent["account_id"], intent["decision_id"],
+                    "futu", json.dumps(initial_payload, ensure_ascii=False, default=str),
+                    0, now, now,
+                ),
+            )
+            self._connection.execute(
+                "UPDATE intents SET status=?,channel_order_id=?,updated_at=? WHERE intent_id=?",
+                (str(payload.get("status", "SUBMITTED")), str(channel_order_id), now, intent_id),
+            )
+            if audit_event is not None:
+                self._insert_audit_event(audit_event)
+        return self.account_order(str(channel_order_id))
+
+    def release_account_intent(self, intent_id: str, status: str) -> dict[str, Any]:
+        """Release the unfilled BUY reservation once and terminate an intent."""
+        from decimal import Decimal
+
+        terminal = {
+            "SUBMISSION_FAILED", "EXPIRED", "CANCELLED_ALL", "FAILED", "DISABLED",
+            "DELETED", "FILL_CANCELLED", "FILLED_ALL",
+        }
+        if status not in terminal:
+            raise ValueError("intent release requires a terminal status")
+        now = _utc_now()
+        with self._lock, self._connection:
+            intent = self._connection.execute(
+                "SELECT * FROM intents WHERE intent_id=?", (intent_id,)
+            ).fetchone()
+            if intent is None:
+                raise KeyError(intent_id)
+            if intent["status"] in terminal:
+                return self._account_intent_row(intent)
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (intent["account_id"],)
+            ).fetchone()
+            order = self._connection.execute(
+                "SELECT * FROM orders WHERE intent_id=?", (intent_id,)
+            ).fetchone()
+            filled = 0 if order is None else int(order["cumulative_filled_quantity"])
+            release = Decimal("0")
+            old_cash = Decimal(account["cash"])
+            old_frozen = Decimal(account["frozen_cash"])
+            if intent["side"] == "BUY":
+                fee_rate = Decimal(json.loads(intent["payload"]).get("fee_rate", "0.0005"))
+                remaining = max(0, int(intent["quantity"]) - filled)
+                release = (
+                    Decimal(intent["limit_price"]) * remaining * (Decimal("1") + fee_rate)
+                ).quantize(Decimal("0.0001"))
+                if release > old_frozen:
+                    raise ValueError("account frozen cash is below the intent reservation")
+                self._connection.execute(
+                    "UPDATE virtual_accounts SET cash=?,frozen_cash=?,updated_at=? WHERE account_id=?",
+                    (
+                        str((old_cash + release).quantize(Decimal("0.0001"))),
+                        str((old_frozen - release).quantize(Decimal("0.0001"))),
+                        now, intent["account_id"],
+                    ),
+                )
+            self._connection.execute(
+                "UPDATE intents SET status=?,updated_at=? WHERE intent_id=?",
+                (status, now, intent_id),
+            )
+            if release:
+                ledger_id = str(uuid5(NAMESPACE_URL, f"pte-release:{intent_id}"))
+                self._connection.execute(
+                    "INSERT OR IGNORE INTO account_ledger(ledger_entry_id,account_id,entry_type,"
+                    "order_id,fill_id,cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,"
+                    "quantity_after,occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        ledger_id, intent["account_id"], "INTENT_RELEASE",
+                        None if order is None else order["channel_order_id"], None,
+                        str(release), str(-release), 0, "0.0000",
+                        str((old_cash + release).quantize(Decimal("0.0001"))),
+                        int(account["quantity"]), now,
+                    ),
+                )
+        result = self.account_intent(intent_id)
+        assert result is not None
         return result
+
+    def update_channel_order_report(
+        self, channel_order_id: str, payload: dict[str, object],
+    ) -> dict[str, Any]:
+        """Persist the latest Futu order state, then release any unused reservation."""
+        status = str(payload.get("status", "UNKNOWN"))
+        terminal = {
+            "SUBMISSION_FAILED", "CANCELLED_ALL", "FAILED", "DISABLED", "DELETED",
+            "FILL_CANCELLED", "FILLED_ALL",
+        }
+        now = _utc_now()
+        with self._lock, self._connection:
+            order = self._connection.execute(
+                "SELECT * FROM orders WHERE channel_order_id=?", (channel_order_id,)
+            ).fetchone()
+            if order is None:
+                raise KeyError(channel_order_id)
+            intent = self._connection.execute(
+                "SELECT status FROM intents WHERE intent_id=?", (order["intent_id"],)
+            ).fetchone()
+            self._connection.execute(
+                "UPDATE orders SET payload=?,updated_at=? WHERE channel_order_id=?",
+                (json.dumps(payload, ensure_ascii=False, default=str), now, channel_order_id),
+            )
+            intent_id = str(order["intent_id"])
+            previous_status = str(intent["status"])
+            if status not in terminal:
+                self._connection.execute(
+                    "UPDATE intents SET status=?,updated_at=? WHERE intent_id=?",
+                    (status, now, intent_id),
+                )
+        if status in terminal and previous_status not in terminal:
+            self.release_account_intent(intent_id, status)
+        return self.account_order(channel_order_id)
+
+    def account_order(self, channel_order_id: str) -> dict[str, Any]:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM orders WHERE channel_order_id=?", (channel_order_id,)
+            ).fetchone()
+        if row is None:
+            raise KeyError(channel_order_id)
+        result = dict(row)
+        result.update(json.loads(result.pop("payload")))
+        return result
+
+    def account_orders(self, account_id: str | None = None) -> list[dict[str, Any]]:
+        sql = "SELECT channel_order_id FROM orders"
+        values: tuple[object, ...] = ()
+        if account_id is not None:
+            sql += " WHERE account_id=?"
+            values = (account_id,)
+        sql += " ORDER BY updated_at DESC"
+        with self._lock:
+            ids = [row[0] for row in self._connection.execute(sql, values).fetchall()]
+        return [self.account_order(str(order_id)) for order_id in ids]
+
+    def apply_fill_increment(
+        self, channel_order_id: str, *, cumulative_quantity: int,
+        average_price, occurred_at: str,
+    ) -> dict[str, Any] | None:
+        """Apply the newly reported cumulative Futu fill exactly once."""
+        from decimal import Decimal
+
+        avg = Decimal(str(average_price))
+        with self._lock, self._connection:
+            order = self._connection.execute(
+                "SELECT * FROM orders WHERE channel_order_id=?", (channel_order_id,)
+            ).fetchone()
+            if order is None:
+                raise KeyError(channel_order_id)
+            previous = int(order["cumulative_filled_quantity"])
+            if cumulative_quantity < previous:
+                raise ValueError("cumulative filled quantity cannot decrease")
+            if cumulative_quantity == previous:
+                return None
+            intent = self._connection.execute(
+                "SELECT * FROM intents WHERE intent_id=?", (order["intent_id"],)
+            ).fetchone()
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (order["account_id"],)
+            ).fetchone()
+            order_payload = json.loads(order["payload"])
+            previous_avg = Decimal(str(order_payload.get("average_fill_price", 0)))
+            increment = cumulative_quantity - previous
+            incremental_value = avg * cumulative_quantity - previous_avg * previous
+            incremental_price = incremental_value / increment
+            fee_rate = Decimal(json.loads(intent["payload"]).get("fee_rate", "0.0005"))
+            fee = (incremental_value * fee_rate).quantize(Decimal("0.0001"))
+            old_cash = Decimal(account["cash"])
+            old_frozen = Decimal(account["frozen_cash"])
+            old_quantity = int(account["quantity"])
+            old_cost = Decimal(account["average_cost"])
+            if intent["side"] == "BUY":
+                reserved = (
+                    Decimal(intent["limit_price"]) * increment * (Decimal("1") + fee_rate)
+                ).quantize(Decimal("0.0001"))
+                cash = old_cash + reserved - incremental_value - fee
+                frozen = old_frozen - reserved
+                quantity = old_quantity + increment
+                cost = ((old_cost * old_quantity + incremental_value + fee) / quantity)
+                realized = Decimal(account["realized_pnl"])
+            else:
+                cash = old_cash + incremental_value - fee
+                frozen = old_frozen
+                quantity = old_quantity - increment
+                if quantity < 0:
+                    raise ValueError("Futu sell fill exceeds owning account position")
+                realized = Decimal(account["realized_pnl"]) + (
+                    (incremental_price - old_cost) * increment - fee
+                )
+                cost = Decimal("0") if quantity == 0 else old_cost
+            fill_id = str(uuid5(NAMESPACE_URL, f"pte-fill:{channel_order_id}:{cumulative_quantity}"))
+            self._connection.execute(
+                "INSERT INTO fills(fill_id,account_id,order_id,decision_id,channel_id,side,quantity,"
+                "price,fee,realized_pnl,occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    fill_id, order["account_id"], str(channel_order_id), order["decision_id"],
+                    "futu", intent["side"], increment, str(incremental_price), str(fee),
+                    str((realized - Decimal(account["realized_pnl"])).quantize(Decimal("0.0001"))),
+                    occurred_at,
+                ),
+            )
+            cash = cash.quantize(Decimal("0.0001"))
+            frozen = frozen.quantize(Decimal("0.0001"))
+            cost = cost.quantize(Decimal("0.0001"))
+            realized = realized.quantize(Decimal("0.0001"))
+            self._connection.execute(
+                "UPDATE virtual_accounts SET cash=?,frozen_cash=?,quantity=?,average_cost=?,"
+                "realized_pnl=?,updated_at=? WHERE account_id=?",
+                (str(cash), str(frozen), quantity, str(cost), str(realized), _utc_now(), order["account_id"]),
+            )
+            order_payload["cumulative_filled_quantity"] = cumulative_quantity
+            order_payload["average_fill_price"] = float(avg)
+            self._connection.execute(
+                "UPDATE orders SET payload=?,cumulative_filled_quantity=?,updated_at=? "
+                "WHERE channel_order_id=?",
+                (json.dumps(order_payload, default=str), cumulative_quantity, _utc_now(), channel_order_id),
+            )
+            self._connection.execute(
+                "INSERT INTO account_ledger(ledger_entry_id,account_id,entry_type,order_id,fill_id,"
+                "cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,quantity_after,occurred_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    str(uuid5(NAMESPACE_URL, f"pte-ledger:{fill_id}")), order["account_id"],
+                    "BUY_FILL" if intent["side"] == "BUY" else "SELL_FILL",
+                    str(channel_order_id), fill_id, str(cash - old_cash), str(frozen - old_frozen),
+                    increment if intent["side"] == "BUY" else -increment, str(fee), str(cash),
+                    quantity, occurred_at,
+                ),
+            )
+        return self.account_fills(order["account_id"])[0]
+
+    def account_fills(self, account_id: str | None = None) -> list[dict[str, Any]]:
+        sql = "SELECT * FROM fills"
+        values: tuple[object, ...] = ()
+        if account_id is not None:
+            sql += " WHERE account_id=?"
+            values = (account_id,)
+        sql += " ORDER BY occurred_at DESC"
+        with self._lock:
+            return [dict(row) for row in self._connection.execute(sql, values).fetchall()]
+
+    def account_snapshots(self, account_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT session,payload,created_at FROM account_snapshots "
+                "WHERE account_id=? ORDER BY session", (account_id,)
+            ).fetchall()
+        return [
+            {"account_id": account_id, "session": row["session"],
+             **json.loads(row["payload"]), "created_at": row["created_at"]}
+            for row in rows
+        ]
+
+    def save_account_snapshot(self, account_id: str, session: str, payload: dict[str, object]) -> None:
+        now = _utc_now()
+        with self._lock, self._connection:
+            if self._connection.execute(
+                "SELECT 1 FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone() is None:
+                raise KeyError(account_id)
+            self._connection.execute(
+                "INSERT INTO account_snapshots(account_id,session,payload,created_at) VALUES(?,?,?,?) "
+                "ON CONFLICT(account_id,session) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at",
+                (account_id, session, json.dumps(payload, ensure_ascii=False, default=str), now),
+            )
+            self._connection.execute(
+                "UPDATE virtual_accounts SET total_assets=?,observation_start=COALESCE(observation_start,?),"
+                "last_settlement_session=?,updated_at=? WHERE account_id=?",
+                (str(payload["total_assets"]), session, session, now, account_id),
+            )
 
     def save_snapshot(self, payload: dict[str, object]) -> None:
         with self._lock, self._connection:

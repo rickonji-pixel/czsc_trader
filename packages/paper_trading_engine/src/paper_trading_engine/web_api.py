@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .audit import AuditCategory, AuditOutcome, AuditSeverity, EVENT_CATALOG
-from .channel_binding import load_channel_binding
 
 
 class ResourceNotFound(KeyError):
@@ -31,7 +30,7 @@ class PteWebApi:
             "scope": {"system": "pte"},
             "as_of": _now(),
             "runtime": "RUNNING",
-            "data_cutoff": (channel.get("last_decision") or {}).get("data_cutoff"),
+            "data_cutoff": self.store.get_setting("last_data_publish_date"),
             "last_publication": self.store.get_setting("last_data_publication"),
             "scheduler_failures": failures,
             "futu_connection": "UNAVAILABLE" if "CHANNEL_UNAVAILABLE" in channel.get("alerts", []) else "CONNECTED",
@@ -118,7 +117,7 @@ class PteWebApi:
             "release_hash", "qualification_snapshot", "symbol", "initial_cash", "cash",
             "frozen_cash", "total_assets", "quantity", "average_cost", "realized_pnl",
             "cycle_target", "paused", "observation_start", "last_settlement_session", "health",
-            "last_error", "created_at", "updated_at",
+            "last_error", "channel_id", "status", "created_at", "updated_at",
         }
         events = self.store.query_audit_events(account_id=account_id, limit=200)
         return {
@@ -139,14 +138,33 @@ class PteWebApi:
         if channel != "futu":
             raise ResourceNotFound(channel)
         status = self.channel.status()
-        binding = load_channel_binding(self.store)
         events = self.store.query_audit_events(channel="futu", limit=200)
+        accounts = [
+            {
+                "account_id": row["account_id"], "name": row["name"],
+                "release_id": f'{row["strategy_id"]}-{row["strategy_version"]}',
+                "initial_cash": row["initial_cash"], "cash": row["cash"],
+                "frozen_cash": row["frozen_cash"], "quantity": row["quantity"],
+                "paused": bool(row["paused"]), "status": row["status"],
+            }
+            for row in self.store.virtual_accounts()
+            if row.get("channel_id") == "futu"
+        ]
+        broker = status.get("account") or {}
+        allocated = sum(float(row["initial_cash"]) for row in accounts)
         return {
             "scope": {"channel": "futu", "account_type": "broker_simulation"},
-            "as_of": _now(), "binding": None if binding is None else binding.to_dict(),
+            "as_of": _now(),
             "account": status.get("account"), "actual_quantity": status.get("actual_quantity"),
-            "decision": status.get("last_decision"), "orders": status.get("orders", []),
+            "accounts": accounts,
+            "allocated_capital": allocated,
+            "unallocated_capital": (
+                max(0.0, float(broker.get("total_assets", 0.0)) - allocated)
+                if broker else None
+            ),
+            "orders": status.get("orders", []), "fills": self.store.account_fills(),
             "paused": status.get("paused"), "quote_health": status.get("quote_health"),
+            "reconciliation_status": status.get("reconciliation_status"),
             "connection_error": status.get("channel_error"), "alerts": status.get("alerts", []),
             "scheduler_failures": status.get("scheduler_failures", []), "events": events,
         }

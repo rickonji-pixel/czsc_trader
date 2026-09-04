@@ -173,22 +173,14 @@ Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续�
 
 ## CZSC PTE 使用
 
-### 前置检查
+PTE 以虚拟账户为业务中心。每个虚拟账户绑定一个不可变策略发布和 Futu 渠道；一个
+Futu 渠道承载多个虚拟账户，并把它们的订单统一提交到底层中国市场模拟账户。渠道只
+负责执行、回报和对账，不绑定策略、不生成决策。内部 OHLC 模拟成交渠道已经移除。
 
-启动本机 Futu OpenD，并确认存在中国市场模拟账户。实时行情权限可以缺失，此时页面
-显示“行情降级”，PTE 仍按 Trader 给出的价格和数量执行模拟委托，渠道自动调价关闭。
-
-先用 Trader 查看当前决策。确认模拟环境和订单风险后，可执行单轮运行：
+启动 Futu OpenD 并确认存在唯一中国市场模拟账户后运行：
 
 ```powershell
 .\.venv\Scripts\pte.exe once --repo-root D:\CodeBase\czsc_trader
-```
-
-`pte once`是完整交易周期，在有效交易时段内可能提交模拟订单。
-
-### 前台持续运行
-
-```powershell
 .\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
 ```
 
@@ -196,39 +188,36 @@ Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续�
 
 - 订单和成交约每 5 秒对账；账户与持仓每 60 秒刷新；
 - 每个交易日 19:00 后发布完整收盘数据，失败后退避重试；
-- 只有数据身份或实际持仓变化时重新生成决策；
-- 自动买入尽可能使用全部已对账可用现金，卖出清空已成交持仓；
+- 每次数据发布成功后，各账户只生成一次对应数据版本的决策，漏做时由重启补做；
+- 自动买入使用该虚拟账户的可用资金，卖出不超过该账户持仓；
 - 新单只在有效交易日的 `09:30–11:30`、`13:00–14:57`提交；
 - 暂停只阻止新订单，已有订单继续对账；撤单必须二次确认。
 
-首次启动会创建初始资金10万元、账户ID为`s001-v1`、名称为“S001-v1模拟账户”且
-绑定`S001-v1`的虚拟账户。虚拟账户完全由本地账本
-模拟成交，与唯一Futu模拟账户相互隔离；Futu渠道异常不会阻断虚拟账户。账户管理命令：
+首次启动会创建初始资金10万元、账户ID为 `s001-v1`、名称为“S001-v1模拟账户”且
+绑定 `S001-v1` 的虚拟账户。新增账户默认初始资金同为10万元：
 
 ```powershell
 .\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
-  --account-id s001-shadow --name "S001影子账户" `
-  --strategy S001 --strategy-version v1 --futu-reference
-.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
-.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id s001-shadow
+  --account-id s001-v2 --name "S001-v2模拟账户" `
+  --strategy S001 --strategy-version v2
+.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
+.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
 ```
 
-虚拟订单在有效交易日的19:00数据发布成功后，先用完整日线按保守规则结算，再生成
-下一有效交易日决策。等价触及限价但未穿价记为“触价未穿价”，不计成交。
-Futu新订单会固化虚拟账户、策略版本和决策ID，并在“订单与虚拟账户”列表逐笔展示；
-历史订单缺少原始证据时显示“历史未记录”。`--futu-reference`用于同一策略版本存在
-多个虚拟账户时明确订单审计归属，不会复制订单；任一时刻最多一个虚拟账户带有该
-标记。`account create`默认初始资金为10万元，需要其他金额时再显式
-传入`--initial-cash`。页面顶部的“查看系统事件”显示当前活动告警；独立的
+所有成交以 Futu 累计成交回报为准。订单意图先冻结所属账户资金，明确拒绝、过期或
+未完全成交后终止时释放剩余冻结资金；结果不确定的提交保留冻结资金等待对账。未知
+活动订单或 Futu 持仓与账户汇总持仓不一致
+时，渠道进入阻塞状态并停止新单。页面顶部的“查看系统事件”显示当前活动告警；独立的
 `/audit-events`页面统一查询策略、交易、系统和其他四类历史事件，可按账户、策略、
-渠道和关联ID过滤。事件在SQLite中以UTC追加保存，页面统一按北京时间展示。
+渠道和关联ID过滤。策略决策归属虚拟账户，外部接口和渠道对账归属 Futu 渠道，交易
+事件同时记录账户与渠道。事件在 SQLite 中以 UTC 追加保存，页面统一按北京时间展示。
 
 需要登记模拟盘里程碑时，先由PTE导出自包含证据包，再由Trader写入策略注册表：
 
 ```powershell
 .\.venv\Scripts\pte.exe performance export --repo-root D:\CodeBase\czsc_trader `
-  --account-id s001-shadow --recorded-by tomxiao `
+  --account-id s001-v2 --recorded-by tomxiao `
   --start 2026-09-03 --end 2026-12-03 --output state\paper-forward.json
 .\.venv\Scripts\czsc-trader.exe strategy evidence add `
   --input state\paper-forward.json
@@ -274,7 +263,7 @@ node --test packages\paper_trading_engine\tests\functional\console_state.test.mj
   packages\paper_trading_engine\src packages\paper_trading_engine\tests
 ```
 
-默认回归由Trader 8个、SM 2个、SE 3个、PTE 7个Python完整功能场景，以及PTE
+默认回归由Trader 8个、SM 2个、SE 3个、PTE 10个Python完整功能场景，以及PTE
 1个前端功能场景组成。不联网、不读取运行中的PTE，也不重算历史候选全集。完整实验
 档案校验使用`archive validate --all`独立执行。TDD阶段产生的临时聚焦用例，在相应
 行为进入功能场景后删除。

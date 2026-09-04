@@ -1,5 +1,9 @@
 # PTE统一审计事件设计
 
+> 2026-09-04补充：运行对象关系以`2026-09-04-pte-account-centric-execution-design.md`
+> 为准。策略与决策归属虚拟账户；Futu仅作为共享执行渠道。下文的历史
+> `CHANNEL_STRATEGY_BOUND`只用于解释迁移前记录，新运行不再产生该事件。
+
 ## 1. 目标
 
 PTE运行时使用一套追加式事件账本记录策略、交易、系统和其他四类事实，使操作者能够回答：
@@ -89,10 +93,10 @@ PTE运行时使用一套追加式事件账本记录策略、交易、系统和�
 | `SIGNAL_TRIGGERED` | 新决策首次产生BUY或SELL动作 | side、数量、目标仓位、有效交易日 |
 | `SIGNAL_CLEARED` | 原交易信号变为WAIT且目标仓位稳定 | 前一动作、当前目标仓位 |
 | `DECISION_EXPIRED` | 决策已不在有效交易日且尚未提交 | 有效交易日、阻止原因 |
-| `CHANNEL_STRATEGY_BOUND` | Futu渠道成功绑定策略发布 | 旧发布、新发布、操作者、原因 |
+| `ACCOUNT_STRATEGY_BOUND` | 虚拟账户绑定不可变策略发布 | 账户、策略、版本、发布哈希 |
 
-相同`decision_id`的`DECISION_GENERATED`和`SIGNAL_TRIGGERED`只能各记录一次。缓存命中、
-每5秒重复求值以及相同阻止原因不重复写事件。
+相同账户、相同`decision_id`的`DECISION_GENERATED`和`SIGNAL_TRIGGERED`只能各记录一次。
+同一数据发布对应的决策只生成一次；缓存命中和相同阻止原因不重复写事件。
 
 ### 5.2 交易事件 TRADING
 
@@ -101,7 +105,7 @@ PTE运行时使用一套追加式事件账本记录策略、交易、系统和�
 | `ORDER_INTENT_CREATED` | 本地订单意图在外部调用前持久化 | side、数量、限价、订单类型 |
 | `ORDER_INTENT_RECOVERED` | 重启后恢复未完成意图 | 原创建时间、恢复原因 |
 | `ORDER_SUBMISSION_BLOCKED` | 新信号因安全规则无法提交且原因发生变化 | 原因代码、活动订单 |
-| `ORDER_SUBMITTED` | Futu或虚拟账户接受订单 | side、数量、限价、渠道状态 |
+| `ORDER_SUBMITTED` | Futu接受账户订单 | side、数量、限价、渠道状态 |
 | `ORDER_SUBMISSION_FAILED` | 提交调用失败或被渠道拒绝 | side、数量、错误类型、错误摘要 |
 | `CANCEL_REQUESTED` | 操作者完成二次确认并发起撤单 | 订单当前状态、操作者 |
 | `CANCEL_SUCCEEDED` | 渠道确认撤单成功 | 渠道最终状态 |
@@ -165,7 +169,7 @@ PTE运行时使用一套追加式事件账本记录策略、交易、系统和�
 - 使用结构化过滤条件分页查询；
 - 拒绝更新和删除事件。
 
-Scheduler、Advice Client、Engine、Virtual Engine、Futu Gateway、Coordinator、Web控制接口只负责
+Scheduler、Advice Client、Account Engine、Futu Execution、Futu Gateway、Coordinator、Web控制接口只负责
 在明确的业务边界调用Recorder，不自行拼装数据库记录。外部适配器通过可选Recorder注入保持
 独立测试能力。
 

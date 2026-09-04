@@ -6,7 +6,7 @@
 
 ## 当前交付状态
 
-- 当前开发分支：`codex/pte-console-v2`（完成后待用户授权合并`master`）
+- 当前开发分支：`codex/pte-audit-events`（PTE账户中心化执行改造，完成后待用户授权合并`master`）
 - Python版本：3.12
 - 正式策略：`S001 / 综合基线策略 / v2`，资格`PAPER_READY`
 - 历史基线别名：`baseline_20260903`（候选143，内嵌唯一执行规则）
@@ -38,8 +38,8 @@ CZSC Trader
   └─ advice run → advice.v4 JSON（策略发布身份 + entry-cycle资金目标）
                       ↓ CLI 子进程
 CZSC PTE ── SQLite审计 ── 本机HTTP控制台
-  ├─ 独立虚拟账户账本
-  └─ 渠道适配器 → Futu OpenD模拟账户
+  └─ N个虚拟账户（各绑定一个冻结策略发布）
+       └─ 共用Futu执行渠道 → 唯一Futu OpenD模拟账户
 ```
 
 ### CZSC Trader
@@ -99,8 +99,14 @@ Trader的`candidate_evaluation.py`统一加载行情和因子并复用正式执�
 ### CZSC PTE
 
 独立包位于`packages/paper_trading_engine/`，通过CLI调用Trader并消费`advice.v4`。
-它负责渠道账户对账、决策缓存、订单意图、提交与成交增量、SQLite审计、观测页面和
-运行调度。PTE不导入`czsc_trader.*`或`strategy_manager`，只消费机器契约。
+它负责虚拟账户决策、独立资金与持仓分账、订单意图、Futu提交与成交增量、渠道对账、
+SQLite审计、观测页面和运行调度。PTE不导入`czsc_trader.*`或`strategy_manager`，只
+消费机器契约。
+
+虚拟账户是业务归属中心。每个账户绑定一个不可变策略发布和唯一`futu`渠道；一个
+Futu渠道承载多个虚拟账户。渠道不绑定策略、不生成决策、不调价或改量。内部OHLC
+模拟成交渠道已经删除，只有Futu累计成交回报能够改变账户持仓。PTE独占底层模拟账户；
+无法归属的活动订单或账户汇总持仓不一致会阻止新单。
 
 Console采用四个资源级页面：`/accounts/{account_id}`是虚拟账户主从工作区，
 `/channels/futu`是唯一Futu模拟渠道，`/comparison`是只读共同区间比较，
@@ -115,9 +121,9 @@ Console采用四个资源级页面：`/accounts/{account_id}`是虚拟账户主�
 调用边界，并在详情中标明上游数据源Tushare。关键本地状态与事件应使用同一SQLite事务；
 事件持久化失败时禁止继续外部下单。当前无自动清理策略，跨机延续观察需迁移整个SQLite。
 
-Futu执行策略保存在SQLite设置`futu_strategy_binding`，通过`pte channel bind-strategy`
-显式切换。命令经Trader校验资格、版本和发布哈希，并记录actor、reason及新旧绑定；
-存在活动渠道订单时拒绝切换。策略冻结只创建虚拟账户，不自动改变Futu绑定。
+数据发布成功后，各运行账户只生成一次对应数据版本的决策；若服务在发布与决策之间
+退出，重启会按`last_data_publish_date`补做。订单/成交每5秒对账，渠道账户/持仓每60秒
+同步。旧`--decision-interval`参数仅兼容既有服务定义，不再触发定时决策。
 
 ### Watchdog
 
@@ -172,16 +178,17 @@ Trader会验证证据包的来源哈希，并复制到`configs/strategies/S001/e
 8. 每个交易日19:00后发布完整收盘数据，失败后退避重试；盘中价格不改变日频信号。
 9. 普通文本身份先归一化LF；配置JSON使用语义哈希；原始行情CSV和二进制按字节哈希。
 10. PTE运行结果不自动构成策略样本外或实盘有效性证据。
-11. Futu渠道与每个虚拟账户独立失败；相同错误按5、15、30、60、300秒退避并聚合记录。
-12. 虚拟订单等价触价但未穿价不计成交；只有明确模型成交才能改变虚拟现金与持仓。
+11. Futu渠道承载多个虚拟账户；渠道故障停止提交并保留账户账本，相同错误按
+    5、15、30、60、300秒退避并聚合记录。
+12. 只有Futu明确返回的累计成交增量才能改变所属虚拟账户的现金与持仓。
 13. 正式回测直接执行完整基线内嵌规则并输出`active_baseline_execution`；请求费率必须
     与完整基线费率一致，不能从外部形成另一套执行组合。
 14. SM资格与PTE运行状态相互独立；资格变化不自动启停进程或账户。
 15. 研究、模拟盘和未来实盘绩效按阶段并列，不拼接为一条收益曲线。
 16. 控制台URL决定资源作用域；虚拟账户、Futu渠道和账户比较使用独立页面与API。
-17. Futu策略绑定必须显式、持久化且可审计；无绑定或决策身份不一致时继续对账并停止新单。
-18. Futu订单提交前固化虚拟账户、策略版本、决策和意图身份；旧订单没有原始证据时
-    标记“历史未记录”，不做推定关联。
+17. 每个虚拟账户绑定一个冻结策略发布和一个Futu渠道；Futu渠道本身不绑定策略。
+18. Futu订单提交前固化虚拟账户、策略版本、决策和短意图身份；无法可靠归属的活动
+    订单不做推定关联，并立即阻止新单。
 19. SQLite保留带时区原始时间，控制台统一转换为北京时间展示。
 20. 运行事件统一进入四类追加式账本；`OTHER`必须说明分类原因，查询事件本身不产生事件。
 
@@ -199,16 +206,16 @@ Trader会验证证据包的来源哈希，并复制到`configs/strategies/S001/e
 | `configs/execution_policies/` | 历史执行规则档案；正式运行不解析 |
 | `packages/dataflows/` | Tushare适配、复权和多频发布 |
 | `packages/strategy_manager/` | 纯领域策略治理包 |
-| `packages/paper_trading_engine/src/paper_trading_engine/engine.py` | 对账、决策和订单状态机 |
+| `packages/paper_trading_engine/src/paper_trading_engine/account_engine.py` | 账户决策、意图和日终估值 |
+| `packages/paper_trading_engine/src/paper_trading_engine/futu_execution.py` | 多账户共享Futu执行与渠道对账 |
+| `packages/paper_trading_engine/src/paper_trading_engine/broker.py` | 券商中立的账户、持仓、订单契约 |
 | `packages/paper_trading_engine/src/paper_trading_engine/store.py` | SQLite持久化与审计事件 |
 | `packages/paper_trading_engine/src/paper_trading_engine/audit.py` | 四类事件契约、目录、校验与脱敏 |
-| `packages/paper_trading_engine/src/paper_trading_engine/virtual_engine.py` | 独立虚拟账户结算与决策 |
 | `packages/paper_trading_engine/src/paper_trading_engine/performance_export.py` | 自包含模拟盘里程碑证据导出 |
-| `packages/paper_trading_engine/src/paper_trading_engine/coordinator.py` | Futu渠道与虚拟账户故障隔离 |
+| `packages/paper_trading_engine/src/paper_trading_engine/coordinator.py` | 账户引擎与Futu执行门面 |
 | `packages/paper_trading_engine/src/paper_trading_engine/futu_gateway.py` | Futu模拟渠道适配 |
 | `packages/paper_trading_engine/src/paper_trading_engine/scheduler.py` | 数据、账户、决策和订单轮询 |
 | `packages/paper_trading_engine/src/paper_trading_engine/web_api.py` | 系统、账户、渠道、比较和事件查询资源 |
-| `packages/paper_trading_engine/src/paper_trading_engine/channel_binding.py` | Futu策略显式绑定与迁移审计 |
 | `packages/paper_trading_engine/src/paper_trading_engine/static/` | 无构建链的Console v2页面、路由和样式 |
 | `packages/paper_trading_engine/src/paper_trading_engine/watchdog.py` | PTE子进程和HTTP探活 |
 | `packages/paper_trading_engine/src/paper_trading_engine/windows_service.py` | Windows SCM薄适配层 |
@@ -251,9 +258,9 @@ python -m venv .venv
 信号、订单、成交、Futu/Trader/Tushare调用、调度及服务生命周期，支持作用域和关联ID
 筛选，并以北京时间显示格式化详情。
 
-创建或切换Futu参照账户时，在`account create`末尾增加`--futu-reference`。该标记
-用于同一策略版本存在多个虚拟账户时明确新订单审计归属，不改变Futu渠道的决策内容。
-Futu页面通过“订单与虚拟账户”列表展示逐笔归属，不单独展示当前绑定和最新渠道决策。
+Futu页面通过“承载账户”“订单”“成交”三个列表展示共享渠道及逐笔账户归属。账户页
+展示该账户自己的策略发布、最新决策、订单、成交和绩效。策略事件归属账户，Futu调用
+与渠道对账事件归属渠道，交易事件同时携带账户和渠道作用域。
 
 发布行情时将根目录`.env.example`复制为`.env`并填写`TUSHARE_TOKEN`；不要提交
 密钥。运行PTE前安装并启动Futu OpenD，确认模拟账户可访问。行情权限缺失时PTE允许以
@@ -283,7 +290,7 @@ node --test packages\paper_trading_engine\tests\functional\console_state.test.mj
 .\.venv\Scripts\czsc-trader.exe archive validate --all --repo-root .
 ```
 
-默认回归只收集Trader 8个、SM 2个、SE 3个、PTE 7个Python完整功能场景，以及
+默认回归只收集Trader 8个、SM 2个、SE 3个、PTE 10个Python完整功能场景，以及
 PTE 1个前端功能场景。不联网，也不重算历史候选全集。完整不可变实验档案通过
 `archive validate --all`独立校验。TDD阶段产生的临时聚焦用例，在行为进入对应功能
 场景后删除。

@@ -1,125 +1,80 @@
 import json
 import sqlite3
-from dataclasses import asdict, replace
-from datetime import date
-from decimal import Decimal
-from uuid import UUID
 
 import pytest
 
-from paper_trading_engine.audit import AuditRecorder
-from paper_trading_engine.contracts import OrderSpec
 from paper_trading_engine.store import PaperStore
-from paper_trading_engine.virtual_engine import VirtualAccountEngine
-from paper_trading_engine.virtual_fill import settle_limit_order
-from pte_support import decision
 
 
-def test_ft_pte01_virtual_accounts_are_isolated_persistent_and_conservative(tmp_path):
-    database = tmp_path / "runtime.db"
-    store = PaperStore(database)
-    for account_id, version, marker in (("s001-v1", "v1", "a"), ("r1102-v1", "v1", "b")):
-        store.create_virtual_account(
-            account_id, f"{account_id}模拟账户", "legacy", marker * 64, 100_000,
-            strategy_id="S001" if account_id.startswith("s001") else "S002",
-            strategy_name_snapshot="策略", strategy_version=version,
-            release_hash=marker * 64, qualification_snapshot="PAPER_READY",
-        )
-    store.save_virtual_order(
-        "s001-v1", "DEC-BUY", "2026-09-03", "ORDER-1",
-        {"side": "BUY", "quantity": 1000, "limit_price": 1.0, "fee_rate": 0.0005},
+def create_account(store, account_id, version, marker):
+    return store.create_virtual_account(
+        account_id, f"{account_id}模拟账户", "legacy", marker * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version=version, release_hash=marker * 64,
+        qualification_snapshot="PAPER_READY",
     )
-    store.settle_virtual_order("s001-v1", "ORDER-1", "2026-09-03", Decimal("1"), Decimal("0.0005"))
-    virtual_events = store.query_audit_events(account_id="s001-v1", limit=20)
-    assert {event["event_type"] for event in virtual_events} >= {
-        "ORDER_INTENT_CREATED", "ORDER_SUBMITTED", "ORDER_FILLED",
-    }
-    assert all(event["channel"] == "virtual" for event in virtual_events)
-    store.set_virtual_paused("r1102-v1", True)
-    assert len(store.virtual_fills("s001-v1")) == 1
-    assert store.virtual_fills("r1102-v1") == []
-    assert store.virtual_account("r1102-v1")["paused"] == 1
-    store.set_virtual_paused("r1102-v1", False)
 
-    class Advice:
-        def get_decision(self, actual_quantity, available_cash, **kwargs):
-            return replace(
-                decision(OrderSpec("BUY", 1000, "LIMIT", 1.0, "DAY")),
-                decision_id="DEC-R1102", actual_quantity=actual_quantity,
-                strategy={
-                    "strategy_id": "S002", "name": "R1102", "version": "v1",
-                    "release_id": "S002-v1", "release_hash": "b" * 64,
-                    "qualification": "PAPER_READY",
-                },
-            )
 
-    pre_audit_decision = Advice().get_decision(0, 100_000)
-    store.save_virtual_decision("r1102-v1", asdict(pre_audit_decision), None)
-    virtual = VirtualAccountEngine(store, Advice())
-    virtual.refresh_account("r1102-v1", date(2026, 9, 2), None)
-    virtual.refresh_account("r1102-v1", date(2026, 9, 2), None)
-    strategy_events = store.query_audit_events(account_id="r1102-v1", category="STRATEGY")
-    assert [event["event_type"] for event in strategy_events].count("DECISION_GENERATED") == 1
-    assert [event["event_type"] for event in strategy_events].count("SIGNAL_TRIGGERED") == 1
+def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path):
+    store = PaperStore(tmp_path / "account-centric.db")
+    create_account(store, "s001-v1", "v1", "a")
+    create_account(store, "s001-v2", "v2", "b")
+    assert {row["channel_id"] for row in store.virtual_accounts()} == {"futu"}
+    assert len(store.query_audit_events(event_type="ACCOUNT_STRATEGY_BOUND")) == 2
+    assert len(store.query_audit_events(event_type="ACCOUNT_CHANNEL_BOUND", channel="futu")) == 2
+    tables = {row[0] for row in store._connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    )}
+    assert not {"virtual_intents", "virtual_orders", "virtual_fills", "virtual_snapshots"} & tables
+
+    intent = store.create_account_intent(
+        account_id="s001-v2", decision_id="DEC-2", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000,
+        limit_price="1.680", valid_session="2026-09-04", fee_rate="0.0005",
+    )
+    store.bind_channel_order(intent["intent_id"], "1001", {
+        "channel_order_id": "1001", "symbol": "588080.SH", "side": "BUY",
+        "quantity": 1000, "limit_price": 1.68, "status": "SUBMITTED",
+        "cumulative_filled_quantity": 0, "average_fill_price": 0,
+        "remark": intent["intent_id"],
+    })
+    store.apply_fill_increment(
+        "1001", cumulative_quantity=1000, average_price="1.670",
+        occurred_at="2026-09-04T01:31:00+00:00",
+    )
+    assert store.virtual_account("s001-v1")["quantity"] == 0
+    assert store.virtual_account("s001-v2")["quantity"] == 1000
+    assert store.virtual_account("s001-v2")["cash"] == "98329.1650"
+    assert store.account_fills("s001-v2")[0]["channel_id"] == "futu"
     store.close()
 
-    reopened = PaperStore(database)
-    assert reopened.virtual_account("s001-v1")["quantity"] == 1000
-    assert reopened.virtual_account("r1102-v1")["cash"] == "100000.0000"
-    reopened.rename_virtual_account("s001-v1", "s001-forward", "S001-v1模拟账户")
-    assert reopened.virtual_orders("s001-v1") == []
-    assert reopened.virtual_orders("s001-forward")[0]["order_id"] == "ORDER-1"
-    assert settle_limit_order("BUY", 1000, Decimal("1"), Decimal("1.1"), Decimal("1.2"), Decimal("1")).status == "TOUCH_UNCERTAIN"
-    assert settle_limit_order("BUY", 1000, Decimal("1"), Decimal("1.1"), Decimal("1.2"), Decimal("0.99")).status == "FILLED"
-    reopened.close()
-
-    legacy_path = tmp_path / "legacy.db"
-    connection = sqlite3.connect(legacy_path)
-    connection.execute(
-        "CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "created_at TEXT NOT NULL, event_type TEXT NOT NULL, payload TEXT NOT NULL)"
+    legacy = tmp_path / "unsafe-legacy.db"
+    connection = sqlite3.connect(legacy)
+    connection.executescript(
+        "CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);"
+        "CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT,created_at TEXT NOT NULL,event_type TEXT NOT NULL,payload TEXT NOT NULL);"
+        "CREATE TABLE intents(intent_id TEXT PRIMARY KEY,decision_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,status TEXT NOT NULL,channel_order_id TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);"
+        "CREATE TABLE orders(channel_order_id TEXT PRIMARY KEY,payload TEXT NOT NULL,cumulative_filled_quantity INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);"
     )
     connection.execute(
-        "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
-    )
-    connection.execute(
-        "INSERT INTO events(created_at,event_type,payload) VALUES(?,?,?)",
-        (
-            "2026-09-03T11:00:00+00:00",
-            "DATA_PUBLISHED",
-            json.dumps({"account_id": "s001-v1", "date": "2026-09-03"}),
-        ),
-    )
-    connection.execute(
-        "INSERT INTO events(created_at,event_type,payload) VALUES(?,?,?)",
-        ("2026-09-03T12:00:00+00:00", "MYSTERY", json.dumps({"value": 7})),
+        "INSERT INTO intents VALUES(?,?,?,?,?,?,?)",
+        ("OLD", "DEC", json.dumps({}), "PENDING_SUBMIT", None, "x", "x"),
     )
     connection.commit()
     connection.close()
+    with pytest.raises(RuntimeError, match="requires empty legacy trading tables"):
+        PaperStore(legacy)
 
-    migrated = PaperStore(legacy_path)
-    events = migrated.query_audit_events(limit=10)
-    assert len(events) == 2
-    assert events[1]["event_type"] == "MARKET_DATA_PUBLISHED"
-    assert events[1]["category"] == "STRATEGY"
-    assert events[1]["details"] == {"account_id": "s001-v1", "date": "2026-09-03"}
-    assert events[1]["account_id"] == "s001-v1"
-    assert events[0]["event_type"] == "LEGACY_EVENT"
-    assert events[0]["details"]["legacy_event_type"] == "MYSTERY"
-    assert events[0]["details"]["value"] == 7
-    first_ids = [UUID(event["event_id"]) for event in events]
-    assert migrated.get_setting("audit_schema_version") == "audit.v1"
-    migrated.close()
-
-    migrated = PaperStore(legacy_path)
-    assert [UUID(event["event_id"]) for event in migrated.query_audit_events()] == first_ids
-    recorder = AuditRecorder(migrated)
-    recorder.record(
-        "DECISION_GENERATED", source="engine", decision_id="DEC-NEW",
-        account_id="s001-v1", strategy_id="S001",
+    safe_legacy = tmp_path / "safe-legacy.db"
+    connection = sqlite3.connect(safe_legacy)
+    connection.executescript(
+        "CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);"
+        "CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT,created_at TEXT NOT NULL,event_type TEXT NOT NULL,payload TEXT NOT NULL);"
+        "CREATE TABLE intents(intent_id TEXT PRIMARY KEY,decision_id TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,status TEXT NOT NULL,channel_order_id TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);"
+        "CREATE TABLE orders(channel_order_id TEXT PRIMARY KEY,payload TEXT NOT NULL,cumulative_filled_quantity INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);"
     )
-    assert migrated.query_audit_events(strategy_id="S001")[0]["decision_id"] == "DEC-NEW"
-    assert migrated.query_audit_events(category="STRATEGY", account_id="s001-v1")
-    with pytest.raises(ValueError, match="limit"):
-        migrated.query_audit_events(limit=201)
+    connection.close()
+    migrated = PaperStore(safe_legacy)
+    assert migrated.get_setting("account_execution_schema") == "account_execution.v1"
+    assert migrated.query_audit_events(event_type="ACCOUNT_EXECUTION_MIGRATED")
     migrated.close()

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Sequence
 from decimal import Decimal
-from datetime import date
 import json
 from pathlib import Path
 import socket
@@ -21,14 +20,13 @@ from uuid import uuid4
 from .audit import AuditRecorder
 from .advice_client import CliAdviceClient
 from .data_publisher import CliDataPublisher, seed_runtime_data
-from .engine import PaperTradingEngine
+from .account_engine import AccountEngine
+from .futu_execution import FutuExecution
 from .futu_gateway import FutuGateway
 from .store import PaperStore
 from .scheduler import RuntimeScheduler
 from .web import create_server
-from .virtual_engine import VirtualAccountEngine
-from .coordinator import PteCoordinator, UnavailableChannel
-from .channel_binding import bind_channel_strategy, migrate_channel_binding
+from .coordinator import PteCoordinator, UnavailableExecution
 
 
 class PortUnavailableError(RuntimeError):
@@ -115,7 +113,6 @@ def build_parser() -> argparse.ArgumentParser:
     identity.add_argument("--baseline")
     create.add_argument("--strategy-version")
     create.add_argument("--initial-cash", default="100000")
-    create.add_argument("--futu-reference", action="store_true")
     performance = actions.add_parser("performance")
     performance_actions = performance.add_subparsers(dest="performance_action", required=True)
     export = performance_actions.add_parser("export")
@@ -125,15 +122,6 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--recorded-by", required=True)
     export.add_argument("--start")
     export.add_argument("--end")
-    channel = actions.add_parser("channel")
-    channel_actions = channel.add_subparsers(dest="channel_action", required=True)
-    bind = channel_actions.add_parser("bind-strategy")
-    _common(bind)
-    bind.add_argument("--channel", choices=("futu",), required=True)
-    bind.add_argument("--strategy", required=True)
-    bind.add_argument("--strategy-version", required=True)
-    bind.add_argument("--actor", required=True)
-    bind.add_argument("--reason", required=True)
     control = actions.add_parser("control")
     control_actions = control.add_subparsers(dest="control_action", required=True)
     restart = control_actions.add_parser("restart")
@@ -172,17 +160,9 @@ def build_engine(args: argparse.Namespace):
             actor_type="EXTERNAL", actor_id="futu", channel="futu",
             details={"service": "futu", "operation": "initialize", "error": str(exc)},
         )
-        channel = UnavailableChannel(store, args.symbol, exc)
+        execution = UnavailableExecution(store, args.symbol, exc)
     else:
-        binding = migrate_channel_binding(store)
-        channel = PaperTradingEngine(
-            store, gateway, advice, symbol=args.symbol,
-            strategy_id=None if binding is None else binding.strategy_id,
-            strategy_version=None if binding is None else binding.strategy_version,
-            release_hash=None if binding is None else binding.release_hash,
-            binding_required=True,
-            audit=audit,
-        )
+        execution = FutuExecution(store, gateway, symbol=args.symbol, audit=audit)
     try:
         store.virtual_account("baseline-143")
     except KeyError:
@@ -202,7 +182,6 @@ def build_engine(args: argparse.Namespace):
             strategy_version=CURRENT_STRATEGY_VERSION,
             release_hash=CURRENT_RELEASE_HASH,
             qualification_snapshot=CURRENT_QUALIFICATION,
-            is_futu_reference=True,
         )
     else:
         if Decimal(account["initial_cash"]) == LEGACY_VIRTUAL_INITIAL_CASH:
@@ -226,13 +205,11 @@ def build_engine(args: argparse.Namespace):
         )
         if actual != expected:
             raise ValueError(f"{DEFAULT_VIRTUAL_ACCOUNT_ID} virtual account has a different immutable identity")
-        if not any(row["is_futu_reference"] for row in store.virtual_accounts()):
-            store.set_futu_reference(DEFAULT_VIRTUAL_ACCOUNT_ID)
     try:
         store.rename_virtual_account("s001-v2", "s001-v2", "S001-v2模拟账户")
     except KeyError:
         pass
-    return PteCoordinator(channel, VirtualAccountEngine(store, advice, audit=audit), audit=audit)
+    return PteCoordinator(AccountEngine(store, advice, audit=audit), execution, audit=audit)
 
 
 def build_publisher(
@@ -273,18 +250,6 @@ def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
     if qualification not in {"PAPER_READY", "LIVE_READY"}:
         raise RuntimeError(f"strategy qualification cannot enter paper trading: {qualification}")
     return payload["result"]
-
-
-def _run_channel_command(args: argparse.Namespace) -> dict[str, object]:
-    identity = _validate_strategy(args)
-    store = PaperStore(args.database)
-    try:
-        binding = bind_channel_strategy(
-            store, identity, args.actor, args.reason, store.orders(),
-        )
-        return binding.to_dict()
-    finally:
-        store.close()
 
 
 def _read_json(url: str, *, request: Request | None = None, timeout: float = 3.0):
@@ -377,7 +342,7 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
                 str(Decimal(args.initial_cash).quantize(Decimal("0.0001"))),
             ):
                 raise ValueError("account id already exists with a different immutable identity")
-            return store.set_futu_reference(args.account_id) if args.futu_reference else existing
+            return existing
         return store.create_virtual_account(
             args.account_id, args.name, baseline_version, baseline_hash, args.initial_cash,
             strategy_id=identity["strategy_id"],
@@ -386,7 +351,6 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             release_hash=identity["release_hash"],
             qualification_snapshot=identity["qualification"],
             symbol=args.symbol,
-            is_futu_reference=args.futu_reference,
         )
     finally:
         store.close()
@@ -399,7 +363,7 @@ def _write(payload: dict[str, object]) -> None:
 def main(
     argv: Sequence[str] | None = None,
     *,
-    engine_factory: Callable[[argparse.Namespace], PaperTradingEngine] = build_engine,
+    engine_factory: Callable[[argparse.Namespace], object] = build_engine,
 ) -> int:
     args = build_parser().parse_args(argv)
     engine = None
@@ -425,10 +389,6 @@ def main(
             result = _run_account_command(args)
             _write({"status": "PASS", "command": f"pte.account.{args.account_action}", "result": result})
             return 0
-        if args.action == "channel":
-            result = _run_channel_command(args)
-            _write({"status": "PASS", "command": "pte.channel.bind-strategy", "result": result})
-            return 0
         if args.action == "control":
             result = _restart_running_pte(args)
             _write({"status": "PASS", "command": "pte.control.restart", "result": result})
@@ -436,18 +396,6 @@ def main(
         if args.action == "serve":
             probe_port(args.host, args.port)
         engine = engine_factory(args)
-        virtual = getattr(engine, "virtual", None)
-        if virtual is not None:
-            try:
-                virtual.refresh_from_data(date.today(), args.data_dir, args.symbol)
-            except Exception as exc:
-                AuditRecorder(engine.store).record(
-                    "VIRTUAL_ACCOUNT_FAILED", source="cli", outcome="FAILURE",
-                    channel="virtual", details={
-                        "operation": "startup_refresh", "error": str(exc),
-                        "error_type": type(exc).__name__,
-                    },
-                )
         if args.action == "once":
             result = engine.refresh()
             _write({"status": "PASS", "command": "pte.once", "result": result})
@@ -463,7 +411,7 @@ def main(
             stopped.set()
             server_holder["server"].shutdown()
 
-        engine.refresh()
+        engine.startup()
         server = create_server(
             engine, host=args.host, port=args.port, control_token=control_token,
             restart_callback=graceful_restart, instance_id=instance_id,
@@ -477,9 +425,6 @@ def main(
             account_interval=args.account_interval,
             decision_interval=args.decision_interval,
             publish_time=args.data_refresh_time,
-            virtual_refresh=lambda session: engine.virtual.refresh_from_data(
-                session, args.data_dir, args.symbol
-            ),
             audit=audit,
         )
         worker = Thread(target=scheduler.run, args=(stopped,), name="pte-scheduler", daemon=True)

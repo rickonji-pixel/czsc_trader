@@ -117,9 +117,13 @@ def create_server(
                     if path.startswith("/api/channels/"):
                         result = api.channel_snapshot("futu")
                 elif path in {"/api/cancel-token", "/api/channels/futu/cancel-token"}:
-                    result = {"token": operations.issue_cancel_token(str(body["channel_order_id"]))}
+                    result = {"token": operations.issue_cancel_token(
+                        str(body["account_id"]), str(body["channel_order_id"])
+                    )}
                 elif path in {"/api/cancel", "/api/channels/futu/cancel"}:
-                    result = operations.confirm_cancel(str(body["channel_order_id"]), str(body["token"]))
+                    result = operations.confirm_cancel(
+                        str(body["account_id"]), str(body["channel_order_id"]), str(body["token"])
+                    )
                 elif parts[:2] == ["api", "virtual-accounts"] and len(parts) == 4:
                     account_id = unquote(parts[2])
                     if parts[3] == "pause":

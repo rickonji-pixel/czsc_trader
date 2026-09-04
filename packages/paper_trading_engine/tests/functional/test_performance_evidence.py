@@ -47,13 +47,25 @@ def test_ft_pte07_performance_evidence_is_self_contained_and_release_bound(tmp_p
         strategy_id="S001", strategy_name_snapshot="综合基线策略", strategy_version="v1",
         release_hash="b" * 64, qualification_snapshot="PAPER_READY",
     )
-    for session, side, price in (("2026-09-03", "BUY", "1.0"), ("2026-09-04", "SELL", "1.1")):
+    for index, (session, side, price) in enumerate((("2026-09-03", "BUY", "1.0"), ("2026-09-04", "SELL", "1.1"))):
         order_id = f"ORDER-{side}"
-        store.save_virtual_order("s001-forward", f"DEC-{side}", session, order_id,
-                                 {"side": side, "quantity": 1000, "limit_price": float(price), "fee_rate": 0.0005})
-        store.settle_virtual_order("s001-forward", order_id, session, Decimal(price), Decimal("0.0005"))
+        intent = store.create_account_intent(
+            account_id="s001-forward", decision_id=f"DEC-{side}", order_sequence=index,
+            symbol="588080.SH", side=side, quantity=1000,
+            limit_price=price, valid_session=session, fee_rate="0.0005",
+        )
+        store.bind_channel_order(intent["intent_id"], order_id, {
+            "channel_order_id": order_id, "symbol": "588080.SH", "side": side,
+            "quantity": 1000, "limit_price": float(price), "status": "FILLED_ALL",
+            "cumulative_filled_quantity": 0, "average_fill_price": 0,
+            "remark": intent["intent_id"],
+        })
+        store.apply_fill_increment(
+            order_id, cumulative_quantity=1000, average_price=price,
+            occurred_at=f"{session}T07:00:00+00:00",
+        )
         account = store.virtual_account("s001-forward")
-        store.save_virtual_snapshot("s001-forward", session, {
+        store.save_account_snapshot("s001-forward", session, {
             "close": price, "cash": account["cash"], "quantity": account["quantity"],
             "total_assets": str(Decimal(account["cash"]) + Decimal(price) * account["quantity"]),
         })

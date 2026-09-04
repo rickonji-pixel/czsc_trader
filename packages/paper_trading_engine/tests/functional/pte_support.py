@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
+from datetime import date
 
 from paper_trading_engine.contracts import AdviceDecision, OrderSpec
-from paper_trading_engine.engine import (
+from paper_trading_engine.broker import (
     BrokerAccount,
     BrokerOrder,
     BrokerSnapshot,
-    PaperTradingEngine,
 )
-from paper_trading_engine.store import PaperStore
 
 
 def decision(order: OrderSpec | None = None) -> AdviceDecision:
@@ -47,7 +44,7 @@ def decision(order: OrderSpec | None = None) -> AdviceDecision:
 
 
 def broker_snapshot(*, orders=(), quantity=0) -> BrokerSnapshot:
-    from paper_trading_engine.engine import BrokerPosition
+    from paper_trading_engine.broker import BrokerPosition
 
     positions = () if quantity == 0 else (BrokerPosition("588080.SH", quantity),)
     return BrokerSnapshot(
@@ -68,7 +65,7 @@ class FakeAdvice:
 
     def get_decision(self, actual_quantity, available_cash, **kwargs):
         self.calls.append((actual_quantity, available_cash, kwargs))
-        return replace(self.value, actual_quantity=actual_quantity)
+        return replace(self.value, actual_quantity=actual_quantity, available_cash=available_cash)
 
 
 class FakeBroker:
@@ -98,16 +95,5 @@ class FakeBroker:
     def cancel_order(self, channel_order_id):
         self.cancelled.append(channel_order_id)
 
-
-def make_engine(tmp_path: Path, *, order_quantity=1000):
-    store = PaperStore(tmp_path / "runtime.db")
-    broker = FakeBroker()
-    advice = FakeAdvice(
-        decision(OrderSpec("BUY", order_quantity, "LIMIT", 1.68, "DAY"))
-    )
-    engine = PaperTradingEngine(
-        store, broker, advice, symbol="588080.SH",
-        today=lambda: date(2026, 9, 2),
-        now=lambda: datetime(2026, 9, 2, 9, 30, tzinfo=timezone(timedelta(hours=8))),
-    )
-    return engine, store, broker, advice
+    def close(self):
+        return None

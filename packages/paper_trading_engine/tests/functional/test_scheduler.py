@@ -11,7 +11,7 @@ class Engine:
     def __init__(self): self.calls = []
     def refresh_orders(self): self.calls.append("orders")
     def refresh_account(self): self.calls.append("account")
-    def refresh_decision_if_changed(self, *, force=False): self.calls.append("decision")
+    def refresh_decisions(self): self.calls.append("decisions")
 
 
 class Store:
@@ -63,6 +63,16 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
     } == {"publication:2026-09-02"}
     assert engine.calls.count("orders") >= 3
     assert engine.calls.count("account") == 1
+    assert engine.calls.count("decisions") == 1
+
+    catchup_store = Store()
+    catchup_store.values["last_data_publish_date"] = "2026-09-02"
+    catchup_engine = Engine()
+    catchup = RuntimeScheduler(catchup_engine, publisher, catchup_store)
+    catchup.tick(datetime(2026, 9, 3, 10, 0, 0))
+    catchup.tick(datetime(2026, 9, 3, 10, 0, 5))
+    assert catchup_engine.calls.count("decisions") == 1
+    assert catchup_store.values["last_account_decision_date"] == "2026-09-02"
 
     restored = Store()
     restored.failures["account"] = {

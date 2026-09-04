@@ -79,6 +79,12 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
         runner=lambda args, **kwargs: CompletedProcess(args, 5, "", "provider unavailable"),
     )
     with pytest.raises(AdviceClientError):
-        client.get_decision(0, 100_000, strategy_id="S001", strategy_version="v1")
-    assert audit_store.query_audit_events(event_type="DECISION_GENERATION_FAILED")
+        client.get_decision(
+            0, 100_000, strategy_id="S001", strategy_version="v1",
+            account_id="s001-v1",
+        )
+    failed = audit_store.query_audit_events(event_type="DECISION_GENERATION_FAILED")[0]
+    assert failed["account_id"] == "s001-v1"
+    external = audit_store.query_audit_events(event_type="EXTERNAL_CALL_FAILED")[0]
+    assert external["account_id"] == "s001-v1"
     audit_store.close()

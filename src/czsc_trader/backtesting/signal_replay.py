@@ -62,6 +62,11 @@ def replay_signals(
                 "valid_session": valid_session,
                 "target_position": target,
                 "factor_score": float(applied.scores.loc[signal_date]),
+                "regime": (
+                    None
+                    if applied.regimes is None
+                    else str(applied.regimes.loc[signal_date])
+                ),
             }
         )
     return SignalReplay(

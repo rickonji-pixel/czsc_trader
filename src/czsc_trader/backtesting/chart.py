@@ -34,9 +34,15 @@ def _daily_hover_text(
     prices: pd.DataFrame,
     decisions: pd.DataFrame,
     fills: pd.DataFrame,
+    entry_threshold: float,
+    exit_threshold: float,
 ) -> list[str]:
+    dated_decisions = decisions.copy()
+    dated_decisions["date"] = pd.to_datetime(dated_decisions["signal_date"]).dt.normalize()
+    dated_decisions = dated_decisions.loc[dated_decisions["date"].isin(prices.index)]
     signals = _dated_signal_events(decisions, prices)
     executions = _dated_fills(fills, prices)
+    decision_groups = {date: group for date, group in dated_decisions.groupby("date")}
     signal_groups = {date: group for date, group in signals.groupby("date")}
     fill_groups = {date: group for date, group in executions.groupby("date")}
     output: list[str] = []
@@ -48,6 +54,22 @@ def _daily_hover_text(
             f"低 {float(row['low']):.3f}",
             f"收 {float(row['close']):.3f}",
         ]
+        daily_decisions = decision_groups.get(day, pd.DataFrame())
+        if not daily_decisions.empty:
+            decision = daily_decisions.iloc[-1]
+            regime = {
+                "trend": "趋势（trend）",
+                "range": "震荡（range）",
+                "warmup": "预热（warmup）",
+            }.get(str(decision.get("regime")), "不适用")
+            lines.extend(
+                [
+                    f"策略得分 {float(decision['factor_score']):.3f}",
+                    f"行情状态 {regime}",
+                    f"买入阈值 {float(entry_threshold):.3f}",
+                    f"卖出阈值 {float(exit_threshold):.3f}",
+                ]
+            )
         for signal in signal_groups.get(day, pd.DataFrame()).to_dict("records"):
             direction = "买入信号" if int(signal["target_position"]) == 1 else "卖出信号"
             lines.append(f"<b>{direction}</b> · 决策 {signal['decision_id']}")
@@ -85,7 +107,6 @@ def _fill_markers(
                     "line": {"width": 1},
                     "angle": angle,
                     "angleref": "up",
-                    "standoff": 8,
                 },
                 hoverinfo="skip",
             ),
@@ -117,7 +138,6 @@ def _signal_markers(
                     "line": {"width": 1},
                     "angle": angle,
                     "angleref": "up",
-                    "standoff": 8,
                 },
                 hoverinfo="skip",
             ),
@@ -131,9 +151,11 @@ def _paired_event_markers(
     fills: pd.DataFrame,
     prices: pd.DataFrame,
     pens: pd.DataFrame,
+    price_axis_range: tuple[float, float],
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     signals = _dated_signal_events(decisions, prices).copy()
     executions = _dated_fills(fills, prices).copy()
+    axis_low, axis_high = price_axis_range
     pen_curve = pd.Series(index=prices.index, dtype=float)
     if not pens.empty:
         points = pens.copy()
@@ -147,7 +169,9 @@ def _paired_event_markers(
         values = [float(prices.loc[date, column])]
         if pd.notna(pen_curve.get(date)):
             values.append(float(pen_curve.loc[date]))
-        return min(values) if side == "BUY" else max(values)
+        boundary = min(values) if side == "BUY" else max(values)
+        axis_edge = axis_low if side == "BUY" else axis_high
+        return boundary + (axis_edge - boundary) * 0.2
 
     signals["marker_y"] = [
         outside_value(row.date, "BUY" if int(row.target_position) == 1 else "SELL")
@@ -170,11 +194,32 @@ def _paired_event_markers(
         start, end = min(dates), max(dates)
         values = prices.loc[start:end, column].astype(float).tolist()
         values.extend(pen_curve.loc[start:end].dropna().astype(float).tolist())
-        shared_y = min(values) if side == "BUY" else max(values)
+        boundary = min(values) if side == "BUY" else max(values)
+        axis_edge = axis_low if side == "BUY" else axis_high
+        shared_y = boundary + (axis_edge - boundary) * 0.2
         if not signal_indexes.empty:
             signals.loc[signal_indexes, "marker_y"] = shared_y
         executions.loc[grouped_fills.index, "marker_y"] = shared_y
     return signals, executions
+
+
+def _price_axis_range(prices: pd.DataFrame, pens: pd.DataFrame) -> tuple[float, float]:
+    values = prices[["low", "high"]].astype(float).to_numpy().ravel().tolist()
+    if not pens.empty:
+        values.extend(pens["price"].astype(float).tolist())
+    lower = min(values)
+    upper = max(values)
+    span = upper - lower
+    padding = max(span * 0.1, max(abs(lower), abs(upper), 1.0) * 1e-9)
+    return lower - padding, upper + padding
+
+
+def _score_axis_range(scores: pd.Series, entry: float, exit_: float) -> tuple[float, float]:
+    lower = min(float(scores.min()), float(entry), float(exit_))
+    upper = max(float(scores.max()), float(entry), float(exit_))
+    span = upper - lower
+    padding = max(span * 0.1, max(abs(lower), abs(upper), 1.0) * 1e-9)
+    return lower - padding, upper + padding
 
 
 def render_backtest_chart_html(
@@ -186,6 +231,7 @@ def render_backtest_chart_html(
     prices = _normalize_daily(replay_data.adjusted.daily).loc[
         signal_replay.evaluation_start : signal_replay.evaluation_end
     ]
+    rule = signal_replay.snapshot.resolved_rule.rule
     figure = make_subplots(
         rows=2,
         cols=1,
@@ -216,7 +262,13 @@ def render_backtest_chart_html(
             name="交易日详情",
             showlegend=False,
             marker={"color": "rgba(0,0,0,0)", "size": 12},
-            text=_daily_hover_text(prices, result.decisions, result.fills),
+            text=_daily_hover_text(
+                prices,
+                result.decisions,
+                result.fills,
+                rule.enter,
+                rule.exit,
+            ),
             hovertemplate="%{text}<extra></extra>",
         ),
         row=1,
@@ -224,6 +276,7 @@ def render_backtest_chart_html(
     )
     pens = extract_pen_points(replay_data.adjusted.daily, signal_replay.evaluation_end)
     pens = pens.loc[pens["dt"].between(prices.index.min(), prices.index.max())]
+    price_axis_range = _price_axis_range(prices, pens)
     figure.add_trace(
         go.Scatter(
             x=pens.get("dt", []),
@@ -242,35 +295,43 @@ def render_backtest_chart_html(
         result.fills,
         prices,
         pens,
+        price_axis_range,
     )
     _signal_markers(figure, signals)
     _fill_markers(figure, executions)
 
-    account = result.account_daily.set_index("date").loc[prices.index]
+    score_rows = result.decisions.copy()
+    score_rows["date"] = pd.to_datetime(score_rows["signal_date"]).dt.normalize()
+    score_rows = score_rows.loc[score_rows["date"].isin(prices.index)]
+    score_axis_range = _score_axis_range(score_rows["factor_score"], rule.enter, rule.exit)
     figure.add_trace(
         go.Scatter(
-            x=account.index,
-            y=account["target_position"].astype(int),
+            x=score_rows["date"],
+            y=score_rows["factor_score"].astype(float),
             mode="lines",
-            line_shape="hv",
-            name="目标持仓",
-            line={"color": "#bef264", "width": 2},
+            name="策略得分",
+            line={"color": "#fbbf24", "width": 2},
+            hoverinfo="skip",
         ),
         row=2,
         col=1,
     )
-    figure.add_trace(
-        go.Scatter(
-            x=account.index,
-            y=account["quantity"].gt(0).astype(int),
-            mode="lines",
-            line_shape="hv",
-            name="实际持仓",
-            line={"color": "#e879f9", "width": 2},
-        ),
-        row=2,
-        col=1,
-    )
+    for name, value, color in (
+        ("买入阈值", rule.enter, "#ef4444"),
+        ("卖出阈值", rule.exit, "#22c55e"),
+    ):
+        figure.add_trace(
+            go.Scatter(
+                x=[prices.index.min(), prices.index.max()],
+                y=[float(value), float(value)],
+                mode="lines",
+                name=name,
+                line={"color": color, "dash": "dash", "width": 1},
+                hoverinfo="skip",
+            ),
+            row=2,
+            col=1,
+        )
     figure.update_layout(
         title=(
             f"{result.identity.reference} 确定性回测｜"
@@ -293,8 +354,12 @@ def render_backtest_chart_html(
         zerolinecolor="#23344b",
     )
     figure.update_yaxes(gridcolor="#23344b", zerolinecolor="#23344b")
-    figure.update_yaxes(title_text="后复权价格", row=1, col=1)
-    figure.update_yaxes(title_text="持仓状态", range=[-0.1, 1.1], row=2, col=1)
+    figure.update_yaxes(
+        title_text="后复权价格", range=list(price_axis_range), row=1, col=1
+    )
+    figure.update_yaxes(
+        title_text="策略得分", range=list(score_axis_range), row=2, col=1
+    )
     html = figure.to_html(full_html=True, include_plotlyjs=True)
     style = (
         "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;"

@@ -10,7 +10,9 @@ import tempfile
 from strategy_evaluator import AuditStatus, audit_replay
 
 from czsc_trader.reporting.publication import publish_run_directory
+from czsc_trader.ma_charting import write_ma_chart
 
+from .benchmarks import replay_benchmarks
 from .datasets import DatasetName, ReplayData
 from .audit_adapter import build_replay_evidence
 from .chart import render_backtest_chart_html
@@ -59,14 +61,22 @@ def run_backtest_v2(
         raise ValueError("request dataset differs from loaded replay data")
     signals = replay_signals(snapshot, replay_data, request.start, request.end)
     result = replay_account(signals, replay_data, request.initial_cash)
-    metrics = calculate_metrics(result, request.initial_cash)
+    strategy_metrics = calculate_metrics(result, request.initial_cash)
     evidence = build_replay_evidence(
-        signals, replay_data, result, request.initial_cash, metrics
+        signals, replay_data, result, request.initial_cash, strategy_metrics
     )
     audited = audit_replay(evidence)
     if audited.status is not AuditStatus.PASS:
         raise ValueError(f"SE replay audit failed: {', '.join(audited.reason_codes)}")
     audit = audited.to_dict()
+    benchmarks = replay_benchmarks(signals, replay_data, request.initial_cash)
+    metrics = {
+        "strategy": {
+            "reference": snapshot.identity.reference,
+            "metrics": strategy_metrics,
+        },
+        "benchmarks": benchmarks.metrics,
+    }
     manifest = build_manifest(
         request=request,
         snapshot=snapshot,
@@ -86,6 +96,11 @@ def run_backtest_v2(
             ("fills.csv", result.fills),
             ("account_daily.csv", result.account_daily),
             ("trades.csv", result.trades),
+            ("buyhold_account_daily.csv", benchmarks.buyhold_account_daily),
+            ("ma_signals.csv", benchmarks.ma_signals),
+            ("ma_orders.csv", benchmarks.ma_orders),
+            ("ma_account_daily.csv", benchmarks.ma_account_daily),
+            ("ma_trades.csv", benchmarks.ma_trades),
         ):
             frame.to_csv(staging / name, index=False, encoding="utf-8-sig", lineterminator="\n")
         _write_json(staging / "metrics.json", metrics)
@@ -95,10 +110,22 @@ def run_backtest_v2(
         (staging / "chart.html").write_text(
             render_backtest_chart_html(signals, replay_data, result), encoding="utf-8"
         )
+        ma_chart_signals = benchmarks.ma_signals.set_index("date")
+        write_ma_chart(
+            replay_data.adjusted.daily,
+            ma_chart_signals,
+            benchmarks.ma_orders,
+            signals.evaluation_start,
+            signals.evaluation_end,
+            f"{snapshot.identity.reference}｜MA5/MA20基准",
+            staging / "ma_chart.html",
+        )
         expected = {
             "manifest.json", "decisions.csv", "orders.csv", "fills.csv",
             "account_daily.csv", "trades.csv", "metrics.json", "audit.json",
-            "report.md", "chart.html",
+            "report.md", "chart.html", "buyhold_account_daily.csv",
+            "ma_signals.csv", "ma_orders.csv", "ma_account_daily.csv",
+            "ma_trades.csv", "ma_chart.html",
         }
         if {item.name for item in staging.iterdir()} != expected:
             raise AssertionError("backtest publication is structurally incomplete")

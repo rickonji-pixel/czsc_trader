@@ -31,6 +31,7 @@ class AppliedRule:
     target_position: pd.Series
     scores: pd.Series
     events: pd.DataFrame
+    regimes: pd.Series | None = None
 
 
 def positions_for_rule(factors: pd.DataFrame, rule: Rule) -> tuple[pd.Series, pd.Series]:

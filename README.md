@@ -152,9 +152,16 @@ Backtest v2每次只回放一个不可变策略快照、一个标的和一个明
 买入周期首次计算的目标数量作为仓位上限；未成交重试时按最新限价和可用现金向下收缩，
 不会因价格上涨形成超出购买力的委托，也不会在价格下跌时扩大已确定的周期仓位。
 
+每次回测同时使用独立的同额资金账户计算BuyHold和MA5/MA20参照。两个基准使用相同费率，
+按收盘信号在下一交易日开盘成交；MA信号由后复权收盘价计算，成交和估值使用不复权行情。
+报告统一比较当前策略、BuyHold和MA5/MA20的最大回撤、卡玛比率、盈亏比、收益率和夏普率。
+两个基准只用于绩效参照，不参与当前策略的SE审计或PASS判定。
+
 每次运行生成`manifest.json`、`decisions.csv`、`orders.csv`、`fills.csv`、
 `account_daily.csv`、`trades.csv`、`metrics.json`、`audit.json`、`report.md`和
-`chart.html`。SE独立复算订单、成交、费用和账户账本，审计未通过时不发布结果目录。
+`chart.html`，并生成`buyhold_account_daily.csv`、`ma_signals.csv`、`ma_orders.csv`、
+`ma_account_daily.csv`、`ma_trades.csv`和独立的`ma_chart.html`。SE独立复算当前策略的
+订单、成交、费用和账户账本，审计未通过时不发布结果目录。
 回测命令从不隐式更新数据；需要新行情时先显式执行`data update-backtest`。
 
 普通结果写入被 Git 忽略的 `outputs/`。正式研究证据必须归档到

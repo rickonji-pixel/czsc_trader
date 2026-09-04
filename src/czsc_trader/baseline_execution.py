@@ -44,6 +44,7 @@ def apply_resolved_baseline(
             raise ValueError("prepared normalized factors differ from frozen factor identities")
     weights = pd.Series(baseline.factor_weights, index=names, name="weight", dtype=float)
     validate_fixed_factor_weights(weights, names, minimum_absolute_weight=0.005)
+    applied_regimes: pd.Series | None = None
     if baseline.strategy == "czsc_four_layer":
         scores = score_four_layer(factors, weights)
     else:
@@ -61,6 +62,7 @@ def apply_resolved_baseline(
             )
         elif not regimes.index.equals(factors.index):
             raise ValueError("prepared regimes do not align to factors")
+        applied_regimes = regimes.astype("string").copy()
         regime_weights = {
             label: pd.Series(values, index=names, name="weight", dtype=float)
             for label, values in baseline.regime_factor_weights.items()
@@ -80,4 +82,4 @@ def apply_resolved_baseline(
         baseline.rule.enter,
         baseline.rule.exit,
     )
-    return AppliedRule(target, scores, events)
+    return AppliedRule(target, scores, events, applied_regimes)

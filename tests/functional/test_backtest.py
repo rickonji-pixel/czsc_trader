@@ -60,6 +60,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert result.orders["quantity"].mod(100).eq(0).all()
     assert set(result.fills["trigger"]) <= {"OPEN", "INTRADAY_LIMIT"}
     assert result.decisions["signal_date"].max() <= pd.Timestamp("2026-09-02")
+    assert set(result.decisions["regime"].dropna()) <= {"trend", "range", "warmup"}
     assert result.account_daily["equity"].gt(0).all()
     evidence = build_replay_evidence(
         signals, data, result, 100_000, calculate_metrics(result, 100_000)
@@ -90,11 +91,38 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     required = {
         "manifest.json", "decisions.csv", "orders.csv", "fills.csv",
         "account_daily.csv", "trades.csv", "metrics.json", "audit.json",
-        "report.md", "chart.html",
+        "report.md", "chart.html", "buyhold_account_daily.csv",
+        "ma_signals.csv", "ma_orders.csv", "ma_account_daily.csv",
+        "ma_trades.csv", "ma_chart.html",
     }
     assert required == {path.name for path in summary.output_dir.iterdir()}
-    assert METRIC_KEYS < set(summary.metrics)
-    assert summary.metrics["closed_trades"] == 7
+    assert set(summary.metrics) == {"strategy", "benchmarks"}
+    assert summary.metrics["strategy"]["reference"] == "S001-v1"
+    assert METRIC_KEYS < set(summary.metrics["strategy"]["metrics"])
+    assert summary.metrics["strategy"]["metrics"]["closed_trades"] == 7
+    assert set(summary.metrics["benchmarks"]) == {"buyhold", "ma5_ma20"}
+    for benchmark in summary.metrics["benchmarks"].values():
+        assert METRIC_KEYS <= set(benchmark["metrics"])
+    ma_orders = pd.read_csv(summary.output_dir / "ma_orders.csv")
+    ma_sessions = pd.to_datetime(
+        pd.read_csv(summary.output_dir / "ma_signals.csv")["date"]
+    )
+    next_session = dict(zip(ma_sessions[:-1], ma_sessions[1:], strict=True))
+    assert all(
+        next_session[pd.Timestamp(row.signal_date)] == pd.Timestamp(row.execution_date)
+        for row in ma_orders.itertuples()
+    )
+    assert pd.read_csv(summary.output_dir / "buyhold_account_daily.csv").iloc[0][
+        "equity"
+    ] > 0
+    report = (summary.output_dir / "report.md").read_text(encoding="utf-8")
+    assert "| S001-v1 |" in report
+    assert "| BuyHold |" in report
+    assert "| MA5/MA20 |" in report
+    assert "[MA5/MA20图表](ma_chart.html)" in report
+    ma_chart = (summary.output_dir / "ma_chart.html").read_text(encoding="utf-8")
+    ma_traces, _ = _plotly_payload(ma_chart)
+    assert {trace["name"] for trace in ma_traces} >= {"日K", "MA5", "MA20"}
     chart = (summary.output_dir / "chart.html").read_text(encoding="utf-8")
     traces, layout = _plotly_payload(chart)
     by_name = {trace["name"]: trace for trace in traces}
@@ -115,7 +143,6 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
             "line": {"width": 1},
             "angle": angle,
             "angleref": "up",
-            "standoff": 8,
         }
         assert by_name[name]["hoverinfo"] == "skip"
     marker_y = {
@@ -125,17 +152,31 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         }
         for name in ("买入信号", "卖出信号", "买入成交", "卖出成交")
     }
-    assert marker_y["买入成交"]["2026-01-06"] == 1.3954054
-    assert marker_y["买入信号"]["2026-04-01"] == 1.2934257
-    assert marker_y["买入成交"]["2026-04-02"] == 1.2934257
-    assert marker_y["卖出信号"]["2026-07-13"] == 2.2905044500000002
-    assert marker_y["卖出成交"]["2026-07-14"] == 2.2905044500000002
-    assert marker_y["卖出信号"]["2026-08-14"] == 1.847751
-    assert marker_y["卖出成交"]["2026-08-17"] == 1.847751
-    assert marker_y["买入信号"]["2026-08-27"] == 1.6902378
-    assert marker_y["买入成交"]["2026-08-28"] == 1.6902378
-    assert by_name["目标持仓"]["yaxis"] == "y2"
-    assert by_name["实际持仓"]["yaxis"] == "y2"
+    assert abs(layout["yaxis"]["range"][0] - 1.18175288) < 1e-12
+    assert abs(layout["yaxis"]["range"][1] - 2.44912832) < 1e-12
+    assert abs(marker_y["买入成交"]["2026-01-06"] - 1.352674896) < 1e-12
+    assert abs(marker_y["卖出信号"]["2026-01-29"] - 1.774971824) < 1e-12
+    assert abs(marker_y["卖出成交"]["2026-01-30"] - 1.774971824) < 1e-12
+    assert marker_y["买入信号"]["2026-04-01"] < 1.2934257
+    assert marker_y["买入成交"]["2026-04-02"] == marker_y["买入信号"]["2026-04-01"]
+    assert marker_y["卖出信号"]["2026-07-13"] > 2.2905044500000002
+    assert marker_y["卖出成交"]["2026-07-14"] == marker_y["卖出信号"]["2026-07-13"]
+    assert marker_y["卖出信号"]["2026-08-14"] > 1.847751
+    assert marker_y["卖出成交"]["2026-08-17"] == marker_y["卖出信号"]["2026-08-14"]
+    assert marker_y["买入信号"]["2026-08-27"] < 1.6902378
+    assert marker_y["买入成交"]["2026-08-28"] == marker_y["买入信号"]["2026-08-27"]
+    assert "目标持仓" not in by_name
+    assert "实际持仓" not in by_name
+    assert by_name["策略得分"]["yaxis"] == "y2"
+    assert by_name["策略得分"]["line"] == {"color": "#fbbf24", "width": 2}
+    assert by_name["买入阈值"]["yaxis"] == "y2"
+    assert by_name["买入阈值"]["line"] == {
+        "color": "#ef4444", "dash": "dash", "width": 1
+    }
+    assert by_name["卖出阈值"]["yaxis"] == "y2"
+    assert by_name["卖出阈值"]["line"] == {
+        "color": "#22c55e", "dash": "dash", "width": 1
+    }
     details = {
         str(pd.Timestamp(day).date()): text
         for day, text in zip(
@@ -147,6 +188,10 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert "成交" not in details["2026-01-08"]
     assert "卖出信号" in details["2026-01-29"]
     assert "成交" not in details["2026-01-29"]
+    assert "策略得分" in details["2026-01-29"]
+    assert "行情状态" in details["2026-01-29"]
+    assert "买入阈值 0.175" in details["2026-01-29"]
+    assert "卖出阈值 0.025" in details["2026-01-29"]
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
@@ -183,7 +228,10 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     output_dir = Path(payload["artifacts"]["output_dir"])
     assert payload["result"]["strategy"] == "S001-v1"
     assert payload["result"]["audit_status"] == "PASS"
-    assert METRIC_KEYS < set(payload["result"]["metrics"])
+    assert METRIC_KEYS < set(payload["result"]["metrics"]["strategy"]["metrics"])
+    assert set(payload["result"]["metrics"]["benchmarks"]) == {
+        "buyhold", "ma5_ma20"
+    }
 
     required = {
         "manifest.json",
@@ -196,6 +244,12 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
         "account_daily.csv",
         "trades.csv",
         "metrics.json",
+        "buyhold_account_daily.csv",
+        "ma_signals.csv",
+        "ma_orders.csv",
+        "ma_account_daily.csv",
+        "ma_trades.csv",
+        "ma_chart.html",
     }
     assert required <= {path.name for path in output_dir.iterdir()}
     execution_orders = pd.read_csv(output_dir / "orders.csv")
@@ -205,4 +259,4 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     ]
     assert (buy_limits * 1000 % 1 < 1e-9).all()
     report = (output_dir / "report.md").read_text(encoding="utf-8")
-    assert "| 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 | 闭合交易 |" in report
+    assert "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |" in report

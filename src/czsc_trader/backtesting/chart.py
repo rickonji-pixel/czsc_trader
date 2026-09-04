@@ -68,53 +68,15 @@ def _fill_markers(
     prices: pd.DataFrame,
 ) -> None:
     dated = _dated_fills(fills, prices)
-    span = float(prices["high"].max() - prices["low"].min())
-    gap = max(span * 0.025, float(prices["close"].median()) * 0.0025)
-    for side, name, color, column, offset in (
-        ("BUY", "买入成交", "#ef4444", "low", -4 * gap),
-        ("SELL", "卖出成交", "#22c55e", "high", 4 * gap),
+    for side, name, color, symbol, glyph, column, yshift in (
+        ("BUY", "买入成交", "#ef4444", "triangle-up", "▲", "low", -18),
+        ("SELL", "卖出成交", "#22c55e", "triangle-down", "▼", "high", 18),
     ):
         selected = dated.loc[dated["side"].eq(side)] if not dated.empty else dated
-        dates = selected.get("date", [])
-        y = [float(prices.loc[date, column]) + offset for date in dates]
         figure.add_trace(
             go.Scatter(
-                x=dates,
-                y=y,
-                mode="markers",
-                name=name,
-                marker={
-                    "color": color,
-                    "symbol": "diamond-open",
-                    "size": 10,
-                    "line": {"width": 1},
-                },
-                hoverinfo="skip",
-            ),
-            row=1,
-            col=1,
-        )
-
-
-def _signal_markers(
-    figure: go.Figure,
-    decisions: pd.DataFrame,
-    prices: pd.DataFrame,
-) -> None:
-    dated = _dated_signal_events(decisions, prices)
-    span = float(prices["high"].max() - prices["low"].min())
-    gap = max(span * 0.025, float(prices["close"].median()) * 0.0025)
-    for target, name, color, symbol, column, offset in (
-        (1, "买入信号", "#ef4444", "triangle-up-open", "low", -2 * gap),
-        (0, "卖出信号", "#22c55e", "triangle-down-open", "high", 2 * gap),
-    ):
-        selected = dated.loc[dated["target_position"].eq(target)]
-        dates = selected["date"].tolist()
-        y = [float(prices.loc[date, column]) + offset for date in dates]
-        figure.add_trace(
-            go.Scatter(
-                x=dates,
-                y=y,
+                x=[None],
+                y=[None],
                 mode="markers",
                 name=name,
                 marker={
@@ -128,6 +90,61 @@ def _signal_markers(
             row=1,
             col=1,
         )
+        for date in selected.get("date", []):
+            figure.add_annotation(
+                x=date,
+                y=float(prices.loc[date, column]),
+                text=glyph,
+                name=name,
+                showarrow=False,
+                yshift=yshift,
+                font={"color": color, "size": 10},
+                row=1,
+                col=1,
+            )
+
+
+def _signal_markers(
+    figure: go.Figure,
+    decisions: pd.DataFrame,
+    prices: pd.DataFrame,
+) -> None:
+    dated = _dated_signal_events(decisions, prices)
+    for target, name, color, symbol, glyph, column, yshift in (
+        (1, "买入信号", "#ef4444", "triangle-up-open", "△", "low", -8),
+        (0, "卖出信号", "#22c55e", "triangle-down-open", "▽", "high", 8),
+    ):
+        selected = dated.loc[dated["target_position"].eq(target)]
+        dates = selected["date"].tolist()
+        figure.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                name=name,
+                marker={
+                    "color": color,
+                    "symbol": symbol,
+                    "size": 10,
+                    "line": {"width": 1},
+                },
+                hoverinfo="skip",
+            ),
+            row=1,
+            col=1,
+        )
+        for date in dates:
+            figure.add_annotation(
+                x=date,
+                y=float(prices.loc[date, column]),
+                text=glyph,
+                name=name,
+                showarrow=False,
+                yshift=yshift,
+                font={"color": color, "size": 10},
+                row=1,
+                col=1,
+            )
 
 
 def render_backtest_chart_html(

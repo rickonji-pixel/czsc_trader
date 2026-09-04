@@ -106,8 +106,8 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     for name, symbol, color in (
         ("买入信号", "triangle-up-open", "#ef4444"),
         ("卖出信号", "triangle-down-open", "#22c55e"),
-        ("买入成交", "diamond-open", "#ef4444"),
-        ("卖出成交", "diamond-open", "#22c55e"),
+        ("买入成交", "triangle-up", "#ef4444"),
+        ("卖出成交", "triangle-down", "#22c55e"),
     ):
         assert by_name[name]["marker"] == {
             "color": color,
@@ -117,23 +117,21 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         }
         assert by_name[name]["hoverinfo"] == "skip"
     prices = data.adjusted.daily.set_index("dt").loc["2026-01-05":"2026-09-02"]
-    gap = max(
-        float(prices["high"].max() - prices["low"].min()) * 0.025,
-        float(prices["close"].median()) * 0.0025,
-    )
-    for name, column, direction, distance in (
-        ("买入信号", "low", -1, 2),
-        ("买入成交", "low", -1, 4),
-        ("卖出信号", "high", 1, 2),
-        ("卖出成交", "high", 1, 4),
+    annotations = layout["annotations"]
+    for name, column, shift, glyph in (
+        ("买入信号", "low", -8, "△"),
+        ("买入成交", "low", -18, "▲"),
+        ("卖出信号", "high", 8, "▽"),
+        ("卖出成交", "high", 18, "▼"),
     ):
         trace = by_name[name]
-        assert trace["x"]
+        assert trace["x"] == [None]
+        markers = [item for item in annotations if item["name"] == name]
+        assert markers
+        assert all(item["text"] == glyph and item["yshift"] == shift for item in markers)
         assert all(
-            marker == pytest.approx(
-                float(prices.loc[pd.Timestamp(day), column]) + direction * distance * gap
-            )
-            for day, marker in zip(trace["x"], trace["y"], strict=True)
+            item["y"] == pytest.approx(float(prices.loc[pd.Timestamp(item["x"]), column]))
+            for item in markers
         )
     details = {
         str(pd.Timestamp(day).date()): text

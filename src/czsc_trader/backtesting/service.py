@@ -106,7 +106,18 @@ def run_backtest_v2(
         _write_json(staging / "metrics.json", metrics)
         _write_json(staging / "audit.json", audit)
         _write_json(staging / "manifest.json", manifest)
-        (staging / "report.md").write_text(render_report(snapshot, metrics), encoding="utf-8")
+        (staging / "report.md").write_text(
+            render_report(
+                snapshot,
+                metrics,
+                calculation_start=signals.calculation_start.date(),
+                calculation_end=signals.calculation_end.date(),
+                evaluation_start=signals.evaluation_start.date(),
+                evaluation_end=signals.evaluation_end.date(),
+                trading_days=len(result.account_daily),
+            ),
+            encoding="utf-8",
+        )
         (staging / "chart.html").write_text(
             render_backtest_chart_html(signals, replay_data, result), encoding="utf-8"
         )

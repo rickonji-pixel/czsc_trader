@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+from datetime import date
+
 from .models import StrategySnapshot
 
 
-def render_report(snapshot: StrategySnapshot, metrics: dict[str, object]) -> str:
+def render_report(
+    snapshot: StrategySnapshot,
+    metrics: dict[str, object],
+    *,
+    calculation_start: date,
+    calculation_end: date,
+    evaluation_start: date,
+    evaluation_end: date,
+    trading_days: int,
+) -> str:
     def percent(value: object) -> str:
         return "N/A" if value is None else f"{float(value):.2%}"
 
@@ -24,6 +35,11 @@ def render_report(snapshot: StrategySnapshot, metrics: dict[str, object]) -> str
         "",
         "本报告由 TDR Backtest v2 基于确定性账户回放生成。成交均为虚拟成交。",
         "主策略使用冻结执行规则；BuyHold与MA5/MA20使用独立资金按次日开盘成交。",
+        f"计算窗口：{calculation_start.isoformat()}—{calculation_end.isoformat()}",
+        (
+            f"回测窗口：{evaluation_start.isoformat()}—{evaluation_end.isoformat()}，"
+            f"共{int(trading_days)}个交易日"
+        ),
         "",
         "## 策略比较",
         "",

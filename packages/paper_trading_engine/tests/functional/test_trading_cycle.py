@@ -69,6 +69,29 @@ def test_ft_pte02_decision_order_fill_restart_and_idempotence(tmp_path, monkeypa
     assert store.query_audit_events(event_type="CANCEL_SUCCEEDED")[0]["order_id"] == "1001"
     store.close()
 
+    scoped_store = PaperStore(tmp_path / "scoped.db")
+    scoped_store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "b" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY",
+    )
+    scoped_engine = PaperTradingEngine(
+        scoped_store, FakeBroker(),
+        FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY"))),
+        symbol="588080.SH", strategy_id="S001", strategy_version="v1",
+        release_hash="b" * 64, binding_required=True,
+        today=lambda: date(2026, 9, 2),
+        now=lambda: datetime(2026, 9, 2, 9, 30, tzinfo=timezone(timedelta(hours=8))),
+    )
+    scoped_engine.refresh_account()
+    scoped_engine.refresh_decision_if_changed(force=True)
+    scoped_decisions = scoped_store.query_audit_events(
+        event_type="DECISION_GENERATED", account_id="s001-v1", channel="futu",
+    )
+    assert len(scoped_decisions) == 1
+    scoped_store.close()
+
     class RejectingBroker(FakeBroker):
         def place_order(self, intent):
             raise RuntimeError("broker rejected")

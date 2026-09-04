@@ -35,6 +35,14 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
     '虚拟账户 · S001-v2模拟账户（s001-v2）',
   );
   assert.equal(auditScopeLabel({account_id: null, channel: 'futu'}, accounts), 'Futu模拟渠道');
+  assert.equal(
+    auditScopeLabel({event_type: 'DECISION_GENERATED', account_id: null, channel: 'futu'}, accounts),
+    '历史记录 · 虚拟账户未记录',
+  );
+  assert.equal(
+    auditScopeLabel({account_id: 's001-v2', channel: 'futu'}, accounts),
+    '虚拟账户 · S001-v2模拟账户（s001-v2）',
+  );
   assert.equal(auditScopeLabel({account_id: null, channel: null}, accounts), '历史记录 · 作用域未记录');
   assert.equal(auditSeverityLabel('INFO'), '信息');
   assert.equal(auditOutcomeLabel('SUCCESS'), '成功');

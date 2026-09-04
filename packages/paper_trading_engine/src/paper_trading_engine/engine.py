@@ -206,11 +206,17 @@ class PaperTradingEngine:
         }
 
     def _audit_decision(self, decision: AdviceDecision) -> None:
+        account_id = None
+        if self.binding_required:
+            account_id = self._virtual_account_audit(decision)["virtual_account_id"]
         if self.store.has_audit_event(
-            "DECISION_GENERATED", decision_id=decision.decision_id, channel="futu",
+            "DECISION_GENERATED", account_id=account_id,
+            decision_id=decision.decision_id, channel="futu",
         ):
             return
-        scope = {**self._strategy_scope(decision), "channel": "futu"}
+        scope = {
+            **self._strategy_scope(decision), "account_id": account_id, "channel": "futu",
+        }
         self.audit.record(
             "DECISION_GENERATED", source="engine", **scope,
             details={

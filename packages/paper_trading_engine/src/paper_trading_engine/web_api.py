@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from .audit import AuditCategory, AuditOutcome, AuditSeverity
+from .audit import AuditCategory, AuditOutcome, AuditSeverity, EVENT_CATALOG
 from .channel_binding import load_channel_binding
 
 
@@ -63,6 +63,9 @@ class PteWebApi:
                     enum_type(value)
                 except ValueError as exc:
                     raise ValueError(f"invalid audit {name}: {value}") from exc
+        event_type = filters.get("event_type")
+        if event_type and event_type not in EVENT_CATALOG:
+            raise ValueError(f"invalid audit event_type: {event_type}")
         query = dict(filters)
         for name in ("before_id", "limit"):
             if name in query:

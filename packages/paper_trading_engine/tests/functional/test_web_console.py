@@ -81,6 +81,8 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
     assert len(store.recent_events()) == count
     with pytest.raises(ValueError, match="invalid audit category"):
         audit_api.audit_events({"category": "INVALID"})
+    with pytest.raises(ValueError, match="invalid audit event_type"):
+        audit_api.audit_events({"event_type": "UNKNOWN_EVENT"})
     with pytest.raises(ValueError, match="between 1 and 200"):
         audit_api.audit_events({"limit": "0"})
     store.close()

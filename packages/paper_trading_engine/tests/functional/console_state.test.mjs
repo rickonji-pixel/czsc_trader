@@ -19,6 +19,7 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   const later = {as_of: '2026-09-04T09:00:05Z', account: {cash: '100000.0000'}};
   assert.equal(snapshotFingerprint(first), snapshotFingerprint(later));
   assert.equal(systemEventLabel('DATA_PUBLICATION_FAILED'), '发布数据失败');
+  assert.equal(systemEventLabel('SERVICE_STARTED'), '服务启动');
   assert.equal(systemAlertCount({alerts: ['x'], scheduler_failures: [{operation: 'x'}]}), 2);
   assert.equal(chooseAccountId('baseline-143', [{account_id: 's001-v1'}], 's001-v1'), 's001-v1');
   assert.deepEqual(navigationOptions('s001-v1'), {showLoading: false, forceRender: false});

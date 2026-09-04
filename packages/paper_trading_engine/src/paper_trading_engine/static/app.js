@@ -33,7 +33,7 @@ export const systemEventLabel = value => ({
   SCHEDULER_OPERATION_FAILED:'调度任务失败',
   SCHEDULER_OPERATION_RECOVERED:'调度任务恢复',
   SCHEDULER_CYCLE_FAILED:'调度周期失败',
-}[value]||value||'未知事件');
+}[value]||auditEventLabel(value));
 export const systemAlertCount = value => (value?.alerts?.length||0)+(value?.scheduler_failures?.length||0);
 export const chooseAccountId = (requested, accounts, defaultAccountId) => accounts.some(item=>item.account_id===requested)?requested:defaultAccountId;
 export const navigationOptions = renderedScope => ({showLoading:renderedScope==null,forceRender:false});

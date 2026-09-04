@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "symbol": "159516.SZ",
+  "name": "国泰中证半导体材料设备主题ETF",
+  "code": "159516",
+  "asset_type": "etf",
+  "vendor": "tushare",
+  "requested_start": "2025-01-01",
+  "requested_end": "2026-09-02",
+  "generated_at_utc": "2026-09-02T11:23:20.425016+00:00",
+  "files": {
+    "159516_30m_2025.csv": {
+      "frequency": "30m",
+      "year": 2025,
+      "rows": 1944,
+      "first": "2025-01-02T10:00:00",
+      "last": "2025-12-31T15:00:00",
+      "sha256": "79ecbe2f9602647f9887c2a770ce757e0ede8a826021e550c15863a0868cb219"
+    },
+    "159516_30m_2026.csv": {
+      "frequency": "30m",
+      "year": 2026,
+      "rows": 1296,
+      "first": "2026-01-05T10:00:00",
+      "last": "2026-09-02T15:00:00",
+      "sha256": "d2427d6bfe92eec8a8ffcc7e791e6aea56fe4885fafc99e1a8d5bc2d6b0bf1a7"
+    },
+    "159516_daily_2025.csv": {
+      "frequency": "daily",
+      "year": 2025,
+      "rows": 243,
+      "first": "2025-01-02T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "469eb933f8a0b40dc32b15476b4d4fdf358a213657f66612dee916ea1b75f7e6"
+    },
+    "159516_daily_2026.csv": {
+      "frequency": "daily",
+      "year": 2026,
+      "rows": 162,
+      "first": "2026-01-05T00:00:00",
+      "last": "2026-09-02T00:00:00",
+      "sha256": "db3e8db16296d48102f8ce128bec5ee5812d51867626f1f105cfe2e96e6dbe81"
+    },
+    "159516_weekly_2025.csv": {
+      "frequency": "weekly",
+      "year": 2025,
+      "rows": 53,
+      "first": "2025-01-03T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "e40f2c9c9af9af3e8ab1487a030f2a965c465aaee045d8b8d10d2707c74777cd"
+    },
+    "159516_weekly_2026.csv": {
+      "frequency": "weekly",
+      "year": 2026,
+      "rows": 34,
+      "first": "2026-01-09T00:00:00",
+      "last": "2026-09-02T00:00:00",
+      "sha256": "11928819eb693be3eba9266fcf2104d4e69ee09818342d85f9afc0bfa42fd647"
+    }
+  },
+  "fetch_metadata": {
+    "30m": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159516.SZ",
+      "period": "30m",
+      "asset_type": "etf",
+      "adjustment": "hfq",
+      "adjustment_factor_source": "fund_adj",
+      "adjustment_factor_sha256": "f912cd491c070d4f07ecfa79098996cd635f3e0f0f65d1c297c623d247fc17a0"
+    },
+    "daily": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159516.SZ",
+      "period": "daily",
+      "asset_type": "etf",
+      "adjustment": "hfq",
+      "adjustment_factor_source": "fund_adj",
+      "adjustment_factor_sha256": "f912cd491c070d4f07ecfa79098996cd635f3e0f0f65d1c297c623d247fc17a0"
+    },
+    "weekly": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159516.SZ",
+      "period": "weekly",
+      "asset_type": "etf",
+      "adjustment": "hfq",
+      "adjustment_factor_source": "fund_adj",
+      "adjustment_factor_sha256": "f912cd491c070d4f07ecfa79098996cd635f3e0f0f65d1c297c623d247fc17a0"
+    }
+  },
+  "adjustment": {
+    "mode": "hfq",
+    "factor_source": "fund_adj",
+    "factor_sha256": "f912cd491c070d4f07ecfa79098996cd635f3e0f0f65d1c297c623d247fc17a0"
+  }
+}

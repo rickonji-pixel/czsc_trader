@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "symbol": "159352.SZ",
+  "name": "南方中证A500ETF",
+  "code": "159352",
+  "asset_type": "etf",
+  "vendor": "tushare",
+  "adjustment": "none",
+  "requested_start": "2025-01-01",
+  "requested_end": "2026-09-02",
+  "next_trading_session": "2026-09-03",
+  "calendar": {
+    "vendor": "tushare",
+    "exchange": "SSE"
+  },
+  "generated_at_utc": "2026-09-02T11:23:17.302980+00:00",
+  "files": {
+    "159352_execution_daily_2025.csv": {
+      "frequency": "daily",
+      "year": 2025,
+      "rows": 243,
+      "first": "2025-01-02T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "37178c2180d13128eb0a878ea8c1716ebe81c851ada28b92dbc543c62df4c40b"
+    },
+    "159352_execution_daily_2026.csv": {
+      "frequency": "daily",
+      "year": 2026,
+      "rows": 162,
+      "first": "2026-01-05T00:00:00",
+      "last": "2026-09-02T00:00:00",
+      "sha256": "b33230747be7c1fc5e9b76cb6bafe4d6011b0af609415935359625e4b0deee1e"
+    }
+  },
+  "fetch_metadata": {
+    "vendor": "tushare",
+    "market": "a_share",
+    "vendor_symbol": "159352.SZ",
+    "period": "daily",
+    "asset_type": "etf",
+    "adjustment": "none"
+  }
+}

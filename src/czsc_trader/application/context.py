@@ -16,6 +16,8 @@ class RepositoryContext:
 
     root: Path
     raw_dir: Path
+    research_data_root: Path
+    backtest_data_root: Path
     baseline_root: Path
     strategy_root: Path
     strategy_dependency_root: Path
@@ -42,6 +44,8 @@ class RepositoryContext:
         return cls(
             root=root,
             raw_dir=root / "data" / "raw",
+            research_data_root=root / "data" / "raw",
+            backtest_data_root=root / "data" / "backtest",
             baseline_root=root / "configs" / "rule_baselines",
             strategy_root=root / "strategies",
             strategy_dependency_root=(

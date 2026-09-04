@@ -6,13 +6,44 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from czsc_trader import market_data_prep
 from czsc_trader.application.advice_service import build_advice_v4
+from czsc_trader.application.context import RepositoryContext
+from czsc_trader.backtesting.datasets import load_replay_data
 from czsc_trader.baselines import resolve_baseline
 from czsc_trader.data import load_execution_prices
 from czsc_trader.execution_policy import floor_to_tick, simulate_limit_policy
-from czsc_trader import market_data_prep
 
 from functional_support import invoke_main, vendor_frame
+
+
+def test_replay_dataset_is_explicit_cutoff_aligned_and_deterministic(
+    functional_repo: Path,
+) -> None:
+    context = RepositoryContext.discover(functional_repo)
+    first = load_replay_data(
+        context,
+        "backtest",
+        "588080.SH",
+        "etf",
+        date(2026, 9, 2),
+    )
+    repeated = load_replay_data(
+        context,
+        "backtest",
+        "588080.SH",
+        "etf",
+        date(2026, 9, 2),
+    )
+
+    assert first.dataset == "backtest"
+    assert first.adjusted.daily["dt"].max().date() == date(2026, 9, 2)
+    assert first.execution_daily["dt"].max().date() == date(2026, 9, 2)
+    assert set(first.execution_intraday["dt"].dt.normalize()) == set(
+        first.execution_daily["dt"]
+    )
+    assert first.fingerprint == repeated.fingerprint
+    assert len(first.fingerprint) == 64
 
 
 def test_ft_t01_data_prepare_validate_and_tamper_detection(

@@ -27,6 +27,7 @@ def functional_repo(tmp_path: Path) -> Path:
     raw_dir.mkdir(parents=True)
     for source in (REPO_ROOT / "data" / "raw").glob("588080*"):
         shutil.copy2(source, raw_dir / source.name)
+    shutil.copytree(raw_dir, root / "data" / "backtest")
     for relative in (
         Path("0824_EX04/artifacts/frozen_challenger.json"),
         Path("0901_EX20/artifacts/frozen_challenger.json"),

@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "symbol": "159352.SZ",
+  "name": "南方中证A500ETF",
+  "code": "159352",
+  "asset_type": "etf",
+  "vendor": "tushare",
+  "requested_start": "2025-01-01",
+  "requested_end": "2026-09-02",
+  "generated_at_utc": "2026-09-02T11:23:17.302980+00:00",
+  "files": {
+    "159352_30m_2025.csv": {
+      "frequency": "30m",
+      "year": 2025,
+      "rows": 1944,
+      "first": "2025-01-02T10:00:00",
+      "last": "2025-12-31T15:00:00",
+      "sha256": "c43c54734d96f04f85bf8e119338e5dd64eeccdf064ac0eeb7503cf2c5f91751"
+    },
+    "159352_30m_2026.csv": {
+      "frequency": "30m",
+      "year": 2026,
+      "rows": 1296,
+      "first": "2026-01-05T10:00:00",
+      "last": "2026-09-02T15:00:00",
+      "sha256": "e7a639a575f108d41274cbbde8f895b9f6f3694766a485342bc6b4fa240d9833"
+    },
+    "159352_daily_2025.csv": {
+      "frequency": "daily",
+      "year": 2025,
+      "rows": 243,
+      "first": "2025-01-02T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "c9102c9a1f06768e40b8f67efadbc49f3822c809a2db12e245a4cc6966560edd"
+    },
+    "159352_daily_2026.csv": {
+      "frequency": "daily",
+      "year": 2026,
+      "rows": 162,
+      "first": "2026-01-05T00:00:00",
+      "last": "2026-09-02T00:00:00",
+      "sha256": "9a86658f3f5c0af91c3f772f8d238c31064cd990d7bf0e633c9c95867bcdf69e"
+    },
+    "159352_weekly_2025.csv": {
+      "frequency": "weekly",
+      "year": 2025,
+      "rows": 53,
+      "first": "2025-01-03T00:00:00",
+      "last": "2025-12-31T00:00:00",
+      "sha256": "bb9e07efec842e0b25734a76bb62696a539a352479408f716875c1bffacf9a0b"
+    },
+    "159352_weekly_2026.csv": {
+      "frequency": "weekly",
+      "year": 2026,
+      "rows": 34,
+      "first": "2026-01-09T00:00:00",
+      "last": "2026-09-02T00:00:00",
+      "sha256": "46d347881a204d765ebe0efd3e3d1b60a46a19f0d369c843349adfb0bb77aa61"
+    }
+  },
+  "fetch_metadata": {
+    "30m": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159352.SZ",
+      "period": "30m",
+      "asset_type": "etf",
+      "adjustment": "hfq",
+      "adjustment_factor_source": "fund_adj",
+      "adjustment_factor_sha256": "0c401eec3389771683ba897b8cbb69a669adb589c12edc2eedcda3873ac45d55"
+    },
+    "daily": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159352.SZ",
+      "period": "daily",
+      "asset_type": "etf",
+      "adjustment": "hfq",
+      "adjustment_factor_source": "fund_adj",
+      "adjustment_factor_sha256": "0c401eec3389771683ba897b8cbb69a669adb589c12edc2eedcda3873ac45d55"
+    },
+    "weekly": {
+      "vendor": "tushare",
+      "market": "a_share",
+      "vendor_symbol": "159352.SZ",
+      "period": "weekly",
+      "asset_type": "etf",
+      "adjustment": "hfq",
+      "adjustment_factor_source": "fund_adj",
+      "adjustment_factor_sha256": "0c401eec3389771683ba897b8cbb69a669adb589c12edc2eedcda3873ac45d55"
+    }
+  },
+  "adjustment": {
+    "mode": "hfq",
+    "factor_source": "fund_adj",
+    "factor_sha256": "0c401eec3389771683ba897b8cbb69a669adb589c12edc2eedcda3873ac45d55"
+  }
+}

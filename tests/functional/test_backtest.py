@@ -5,6 +5,7 @@ from pathlib import Path
 from dataclasses import replace
 
 import pandas as pd
+import pytest
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
@@ -99,7 +100,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     traces, layout = _plotly_payload(chart)
     by_name = {trace["name"]: trace for trace in traces}
     assert layout["title"]["text"] == "S001-v1 确定性回测｜2026-01-05—2026-09-02"
-    assert layout["hovermode"] == "closest"
+    assert layout["hovermode"] == "x unified"
     assert by_name["CZSC笔"]["line"]["width"] == 1
     assert by_name["CZSC笔"]["marker"]["size"] == 3
     for name, symbol, color in (
@@ -110,23 +111,41 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     ):
         assert by_name[name]["marker"] == {
             "color": color,
-            "size": 7,
+            "size": 10,
             "symbol": symbol,
             "line": {"width": 1},
         }
-    prices = data.adjusted.daily.set_index("dt")
-    for name, column, compare in (
-        ("买入信号", "low", lambda marker, bar: marker < bar),
-        ("买入成交", "low", lambda marker, bar: marker < bar),
-        ("卖出信号", "high", lambda marker, bar: marker > bar),
-        ("卖出成交", "high", lambda marker, bar: marker > bar),
+        assert by_name[name]["hoverinfo"] == "skip"
+    prices = data.adjusted.daily.set_index("dt").loc["2026-01-05":"2026-09-02"]
+    gap = max(
+        float(prices["high"].max() - prices["low"].min()) * 0.025,
+        float(prices["close"].median()) * 0.0025,
+    )
+    for name, column, direction, distance in (
+        ("买入信号", "low", -1, 2),
+        ("买入成交", "low", -1, 4),
+        ("卖出信号", "high", 1, 2),
+        ("卖出成交", "high", 1, 4),
     ):
         trace = by_name[name]
         assert trace["x"]
         assert all(
-            compare(marker, float(prices.loc[pd.Timestamp(day), column]))
+            marker == pytest.approx(
+                float(prices.loc[pd.Timestamp(day), column]) + direction * distance * gap
+            )
             for day, marker in zip(trace["x"], trace["y"], strict=True)
         )
+    details = {
+        str(pd.Timestamp(day).date()): text
+        for day, text in zip(
+            by_name["交易日详情"]["x"], by_name["交易日详情"]["text"], strict=True
+        )
+    }
+    assert "买入成交" in details["2026-01-06"]
+    assert "成交" not in details["2026-01-07"]
+    assert "成交" not in details["2026-01-08"]
+    assert "卖出信号" in details["2026-01-29"]
+    assert "成交" not in details["2026-01-29"]
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(

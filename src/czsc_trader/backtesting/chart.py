@@ -15,50 +15,81 @@ from .result import BacktestResult
 from .signal_replay import SignalReplay
 
 
+def _dated_fills(fills: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
+    if fills.empty:
+        return fills.copy()
+    dated = fills.copy()
+    dated["date"] = pd.to_datetime(dated["fill_time"]).dt.normalize()
+    return dated.loc[dated["date"].isin(prices.index)]
+
+
+def _dated_signal_events(decisions: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
+    dated = decisions.copy().sort_values("signal_date")
+    dated["date"] = pd.to_datetime(dated["signal_date"]).dt.normalize()
+    changed = dated["target_position"].ne(dated["target_position"].shift())
+    return dated.loc[changed & dated["date"].isin(prices.index)]
+
+
+def _daily_hover_text(
+    prices: pd.DataFrame,
+    decisions: pd.DataFrame,
+    fills: pd.DataFrame,
+) -> list[str]:
+    signals = _dated_signal_events(decisions, prices)
+    executions = _dated_fills(fills, prices)
+    signal_groups = {date: group for date, group in signals.groupby("date")}
+    fill_groups = {date: group for date, group in executions.groupby("date")}
+    output: list[str] = []
+    for day, row in prices.iterrows():
+        lines = [
+            f"<b>{day.date()}</b>",
+            f"开 {float(row['open']):.3f}",
+            f"高 {float(row['high']):.3f}",
+            f"低 {float(row['low']):.3f}",
+            f"收 {float(row['close']):.3f}",
+        ]
+        for signal in signal_groups.get(day, pd.DataFrame()).to_dict("records"):
+            direction = "买入信号" if int(signal["target_position"]) == 1 else "卖出信号"
+            lines.append(f"<b>{direction}</b> · 决策 {signal['decision_id']}")
+        for fill in fill_groups.get(day, pd.DataFrame()).to_dict("records"):
+            direction = "买入成交" if str(fill["side"]).upper() == "BUY" else "卖出成交"
+            lines.append(
+                f"<b>{direction}</b> · 数量 {int(fill['quantity']):,}"
+                f" · 未复权价 {float(fill['price']):.3f}"
+                f" · 费用 {float(fill['fees']):.2f} · 触发 {fill['trigger']}"
+            )
+        output.append("<br>".join(lines))
+    return output
+
+
 def _fill_markers(
     figure: go.Figure,
     fills: pd.DataFrame,
     prices: pd.DataFrame,
 ) -> None:
-    if fills.empty:
-        dated = fills.copy()
-    else:
-        dated = fills.copy()
-        dated["date"] = pd.to_datetime(dated["fill_time"]).dt.normalize()
-        dated = dated.loc[dated["date"].isin(prices.index)]
+    dated = _dated_fills(fills, prices)
     span = float(prices["high"].max() - prices["low"].min())
     gap = max(span * 0.025, float(prices["close"].median()) * 0.0025)
     for side, name, color, column, offset in (
-        ("BUY", "买入成交", "#ef4444", "low", -2 * gap),
-        ("SELL", "卖出成交", "#22c55e", "high", 2 * gap),
+        ("BUY", "买入成交", "#ef4444", "low", -4 * gap),
+        ("SELL", "卖出成交", "#22c55e", "high", 4 * gap),
     ):
         selected = dated.loc[dated["side"].eq(side)] if not dated.empty else dated
         dates = selected.get("date", [])
         y = [float(prices.loc[date, column]) + offset for date in dates]
-        custom = (
-            selected[["signal_date", "quantity", "price", "fees", "trigger"]].to_numpy()
-            if not selected.empty
-            else []
-        )
         figure.add_trace(
             go.Scatter(
                 x=dates,
                 y=y,
                 mode="markers",
                 name=name,
-                customdata=custom,
                 marker={
                     "color": color,
                     "symbol": "diamond-open",
-                    "size": 7,
+                    "size": 10,
                     "line": {"width": 1},
                 },
-                hovertemplate=(
-                    "%{x|%Y-%m-%d}<br>信号日 %{customdata[0]}"
-                    "<br>数量 %{customdata[1]:,.0f}<br>成交价 %{customdata[2]:.3f}"
-                    "<br>费用 %{customdata[3]:.2f}<br>触发 %{customdata[4]}"
-                    f"<extra>{name}</extra>"
-                ),
+                hoverinfo="skip",
             ),
             row=1,
             col=1,
@@ -70,15 +101,12 @@ def _signal_markers(
     decisions: pd.DataFrame,
     prices: pd.DataFrame,
 ) -> None:
-    dated = decisions.copy().sort_values("signal_date")
-    dated["date"] = pd.to_datetime(dated["signal_date"]).dt.normalize()
-    changed = dated["target_position"].ne(dated["target_position"].shift())
-    dated = dated.loc[changed & dated["date"].isin(prices.index)]
+    dated = _dated_signal_events(decisions, prices)
     span = float(prices["high"].max() - prices["low"].min())
     gap = max(span * 0.025, float(prices["close"].median()) * 0.0025)
     for target, name, color, symbol, column, offset in (
-        (1, "买入信号", "#ef4444", "triangle-up-open", "low", -gap),
-        (0, "卖出信号", "#22c55e", "triangle-down-open", "high", gap),
+        (1, "买入信号", "#ef4444", "triangle-up-open", "low", -2 * gap),
+        (0, "卖出信号", "#22c55e", "triangle-down-open", "high", 2 * gap),
     ):
         selected = dated.loc[dated["target_position"].eq(target)]
         dates = selected["date"].tolist()
@@ -89,14 +117,13 @@ def _signal_markers(
                 y=y,
                 mode="markers",
                 name=name,
-                text=selected["decision_id"].tolist(),
                 marker={
                     "color": color,
                     "symbol": symbol,
-                    "size": 7,
+                    "size": 10,
                     "line": {"width": 1},
                 },
-                hovertemplate="%{x|%Y-%m-%d}<br>%{text}<extra>" + name + "</extra>",
+                hoverinfo="skip",
             ),
             row=1,
             col=1,
@@ -139,14 +166,11 @@ def render_backtest_chart_html(
             x=prices.index,
             y=prices["close"],
             mode="markers",
-            name="日K数据",
+            name="交易日详情",
             showlegend=False,
             marker={"color": "rgba(0,0,0,0)", "size": 12},
-            customdata=prices[["open", "high", "low", "close"]].to_numpy(),
-            hovertemplate=(
-                "开 %{customdata[0]:.3f}<br>高 %{customdata[1]:.3f}"
-                "<br>低 %{customdata[2]:.3f}<br>收 %{customdata[3]:.3f}<extra>日K</extra>"
-            ),
+            text=_daily_hover_text(prices, result.decisions, result.fills),
+            hovertemplate="%{text}<extra></extra>",
         ),
         row=1,
         col=1,
@@ -204,7 +228,7 @@ def render_backtest_chart_html(
         paper_bgcolor="#07101d",
         plot_bgcolor="#0e1928",
         font={"color": "#eef5ff"},
-        hovermode="closest",
+        hovermode="x unified",
         hoversubplots="axis",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
         margin={"l": 80, "r": 30, "t": 85, "b": 45},

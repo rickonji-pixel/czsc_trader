@@ -125,40 +125,12 @@ git pull --ff-only origin master
 
 ## OPC测试用例治理
 
-测试目标是用尽量少的稳定场景保护完整业务能力，控制个人团队的维护与回归成本。
+测试目标是用尽量少的稳定业务场景保护TDR、SM、SE、PTE的完整能力。TDD最小失败用例
+可以临时存在；行为稳定后应并入长期功能场景并删除重复用例。长期用例验证公开入口、关键
+状态转换、持久化结果和安全约束，不围绕私有实现持续增长。
 
-1. **以模块功能场景为长期资产。** TDR、SM、SE、PTE各维护少量端到端或完整功能用例，
-   覆盖公开入口、核心数据流、关键失败路径和持久化结果。
-2. **一个行为只由一个主用例负责。** 新缺陷先找到所属模块和场景，优先扩展现有用例；
-   只有独立业务能力才新增长期用例。
-3. **TDD聚焦用例允许临时存在。** 开发时先用最小失败用例定位问题；行为合入完整功能
-   场景后删除重复的细粒度用例，避免用例随实现细节增长。
-4. **验证外部边界，不复刻内部实现。** 断言CLI/API输出、状态变化、审计记录和安全约束；
-   私有方法、常量、文案和调用层级通常不单独建用例。
-5. **测试保持确定性。** 使用固定小数据、临时目录和本地模拟适配器，不连接Tushare、
-   Futu OpenD、实时网络或Windows服务，不修改正式`state`。
-6. **研究档案另行校验。** 日常回归不重算历史候选全集；不可变实验产物通过
-   `archive validate --all`验证哈希、清单和结构。
-7. **按风险分级运行。** 开发中只跑受影响模块；提交前跑受影响模块及Ruff；合并或推送
-   前跑TDR、SM、SE、PTE全部功能用例和PTE前端用例。
-8. **用例数量变化需要说明。** 新增长期用例时说明现有场景无法承载的原因；删除用例时
-   确认其行为已被保留场景覆盖。
-
-当前基准套件为TDR 16个、SM 2个、SE 3个、PTE 12个Python功能场景，以及PTE 1个
-前端功能场景。数量是维护基线，不是硬上限；业务覆盖和可诊断性优先。
-
-完整回归：
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests -q
-.\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
-.\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
-.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
-node --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
-.\.venv\Scripts\python.exe -m ruff check `
-  src tests packages\strategy_manager packages\strategy_evaluator `
-  packages\paper_trading_engine\src packages\paper_trading_engine\tests
-```
+用例准入、收敛与删除条件、分级回归命令、月度及触发式审查流程统一见
+[测试用例治理](TEST_GOVERNANCE.md)。该文档是后续周期性治理的唯一操作规范。
 
 ## 开发与交付规则
 

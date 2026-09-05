@@ -1,320 +1,57 @@
 # CZSC Trader / CZSC PTE
 
-本仓库包含两个面向用户的并列运行包，以及两个由 Trader 隐藏调用的领域包：
+这是一个面向个人量化团队的可审计策略研发与模拟交易仓库。项目覆盖受控行情、策略研究、
+候选评估、不可变策略版本、确定性回测、交易决策、虚拟账户模拟交易和运行审计。
 
-| 包 | 目录 | 命令 | 职责 |
+## 核心模块
+
+| 模块 | 简称 | 位置 | 职责 |
 | --- | --- | --- | --- |
-| CZSC Trader | `src/czsc_trader/` | `czsc-trader` | 行情验证、策略管理、回测、研究归档和交易决策 |
-| CZSC PTE | `packages/paper_trading_engine/` | `pte`、`pte-watchdog` | 模拟账户对账、自动下单、审计、观测页面和进程保活 |
-| Strategy Manager | `packages/strategy_manager/` | 通过`czsc-trader strategy`使用 | 策略身份、不可变版本、资格、审计和绩效证据 |
-| Strategy Evaluator | `packages/strategy_evaluator/` | 由Trader内部调用 | 候选筛选、Pareto排名、完整冠军审计和冻结建议 |
+| CZSC Trader | TDR | `src/czsc_trader/` | 数据、策略解析、回测、研究编排和交易决策 |
+| Strategy Manager | SM | `packages/strategy_manager/` | 策略身份、版本、资格、证据和治理审计 |
+| Strategy Evaluator | SE | `packages/strategy_evaluator/` | 候选筛选、排名、体检和统计稳健性审计 |
+| Paper Trading Engine | PTE | `packages/paper_trading_engine/` | 虚拟账户、模拟交易、运行审计和控制台 |
+| PTE Watchdog | WDG | PTE包内 | PTE进程开机自启、探活和故障拉起 |
+| Dataflows | — | `packages/dataflows/` | Tushare行情获取、复权、多频发布和清单 |
 
-`packages/dataflows/`是行情获取与发布依赖。Trader 通过
-`advice.v4` JSON 契约向 PTE 提供决策；PTE 不导入 Trader 或 Strategy Manager，券商渠道
-不参与策略计算、定价或改量。
+TDR通过`advice.v4` JSON契约向PTE提供交易决策。PTE通过CLI调用TDR，不导入TDR、SM
+或SE；Futu渠道只负责执行、回报和对账，不参与策略计算、定价或改量。WDG只管理PTE
+进程生命周期和健康探测，不持有交易业务配置。
 
-候选评估使用`opc-v3`时，完整体检均由Strategy Evaluator判定；Trader负责行情、回测、
-事实证据和归档。统计风险标签供人工冻结决策使用，不自动改变SM或PTE状态。
+## 文档入口
 
-研究现状见[研究交接](docs/RESEARCH_HANDOFF.md)，跨机开发与运行恢复见
-[开发交接](docs/DEVELOPMENT_HANDOFF.md)。
+| 需求 | 文档 |
+| --- | --- |
+| 安装、数据更新、回测、策略查看、PTE控制台和WDG/PTE启停 | [用户使用说明](docs/USER_GUIDE.md) |
+| 继续策略研究、创建实验、评估候选、冻结策略和防止数据污染 | [研究交接](docs/RESEARCH_HANDOFF.md) |
+| 继续代码开发、理解架构契约、恢复环境和执行测试 | [技术交接](docs/DEVELOPMENT_HANDOFF.md) |
 
-## 环境要求
+包级技术参考：
 
-- Python 3.12
-- Tushare Token：仅在发布新行情时需要，将`.env.example`复制为`.env`并填写
-  `TUSHARE_TOKEN`
-- Futu OpenD：仅运行当前 Futu 模拟交易渠道时需要
-- Windows 管理员权限：仅安装、更新或删除 watchdog 系统服务时需要
+- [Dataflows](packages/dataflows/README.md)
+- [Strategy Evaluator](packages/strategy_evaluator/README.md)
+- [Paper Trading Engine](packages/paper_trading_engine/README.md)
 
-普通数据验证、回测和 advice 读取本地数据，不隐式联网。`data/raw/`是受控研究池，
-`data/backtest/`是独立更新的普通回测数据集。
+已批准设计与实施计划保存在`docs/superpowers/`，用于历史审计，不作为当前使用入口。
 
-## 安装
+## 当前运行基线
 
-在仓库根目录执行：
+- Python 3.12；
+- 当前正式策略身份：`S001 / 综合基线策略`；
+- 当前模拟交易渠道：Futu中国市场模拟交易；
+- PTE控制台：<http://127.0.0.1:8080>；
+- Windows服务：`CZSC-PTE-Watchdog`；
+- `data/raw/`为受控研究池，`data/backtest/`为独立普通回测数据集。
+
+## 最短开始路径
 
 ```powershell
+git clone https://github.com/tomxiao/czsc_trader.git czsc_trader
+cd czsc_trader
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
-.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
-.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
-.\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
-```
-
-确认三个命令入口均可用：
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe --help
-.\.venv\Scripts\pte.exe --help
-Get-Command .\.venv\Scripts\pte-watchdog.exe
-```
-
-## CZSC Trader 使用
-
-### 数据准备与验证
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe data prepare `
-  --symbol 588080.SH --asset etf `
-  --start 2020-01-01 --end 2026-09-01
-
-.\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
-
-.\.venv\Scripts\czsc-trader.exe data update-backtest `
-  --symbol 588080.SH --asset etf --through 2026-09-04
-```
-
-策略统一使用 Tushare 后复权行情；交易委托价格使用同日未复权日线。发布器同时
-生成 30 分钟、日线、周线及身份清单，策略价格与执行价格按交易日严格对齐。
-`data update-backtest`采用追加保护：既有30分钟线、日线和已结束周线不可改写；只有
-与新增日线处于同一自然周的末根未完成周线可以重新聚合。更新失败时保留原数据集。
-
-### 查看正式策略
-
-当前正式身份为`S001 / 综合基线策略`，`v1`和`v2`均为`PAPER_READY`：
-
-```powershell
 .\.venv\Scripts\czsc-trader.exe strategy list
-.\.venv\Scripts\czsc-trader.exe strategy show --strategy S001 --version v1
-.\.venv\Scripts\czsc-trader.exe strategy history --strategy S001
-.\.venv\Scripts\czsc-trader.exe strategy performance --strategy S001 --version v1
-.\.venv\Scripts\czsc-trader.exe strategy validate --all
 ```
 
-`RESEARCH`表示版本仍可修改；冻结后进入`PAPER_READY`并可创建模拟账户；人工晋升到
-`LIVE_READY`后才具备实盘部署资格；`RETIRED`禁止创建新运行实例。资格变化只改变
-治理权限，不直接启动、暂停或停止PTE。
-
-### 评估候选并接受冠军
-
-新研究在`experiments/MMDD_EXXX/`准备不可变的`evaluation_protocol.json`和
-`candidate_manifest.json`。清单必须包含完整可执行策略payload、统一窗口和完整试验
-台账。Trader统一运行候选并生成一页结论：
-
-```text
-experiments/MMDD_EXXX/
-├─ evaluation_protocol.json   # 目标、截止日、在位策略、窗口、收紧边界
-└─ candidate_manifest.json    # symbol、成本、资金、windows、candidates、trials
-```
-
-每个`candidates[]`至少提供`candidate_id`、候选/行为/执行规则哈希、`is_incumbent`和
-完整`strategy_payload`；可能成为冠军的候选还需`strategy_id`与`strategy_name`。
-`trials[]`覆盖全部尝试，包括早期失败和行为重复项。`target_requirements`使用窗口派生的
-`<window_id>_return`、`total_return`或`net_cagr`作为首版目标字段。
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe strategy evaluate --experiment 0903_EXXX
-```
-
-结论只有`RECOMMEND_FREEZE`（建议冻结）、`KEEP_INCUMBENT`（保留在位策略）和
-`INSUFFICIENT_EVIDENCE`（证据不足）。决策采用净年化收益、最大回撤、卡玛比率和
-盈亏因子四项核心指标，同时检查多窗口最差表现、Pareto关系、复现性、邻域和加倍成本
-压力。实验只能收紧`opc-v1`默认边界，不能放宽。
-
-评估不会自动改变策略状态。人工确认后运行：
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe strategy accept-evaluation `
-  --experiment 0903_EXXX --actor tomxiao --reason "确认冻结并进入模拟盘"
-```
-
-该命令幂等创建并冻结SM版本，再创建默认10万元PTE虚拟账户。PTE暂时不可用时记录
-`PAPER_ACTIVATION_PENDING`；修复运行环境后重复同一命令即可继续注册。已完成实验受
-输入哈希保护，历史实验档案不会被重写。
-
-### 查看历史基线
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe baseline list
-.\.venv\Scripts\czsc-trader.exe baseline show `
-  --version baseline_20260903 --symbol 588080.SH
-.\.venv\Scripts\czsc-trader.exe baseline validate `
-  --version baseline_20260903 --symbol 588080.SH
-```
-
-`baseline_20260903`是`S001-v1`的只读历史别名。旧基线仅作为S001既有发布的不可变
-依赖保存在`strategies/dependencies/legacy_rule_baselines/`；新版本统一登记到`strategies/`。
-
-### 回测
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe backtest run `
-  --strategy S001 --strategy-version v1 --dataset backtest `
-  --symbol 588080.SH --asset etf `
-  --start 2026-01-05 --end 2026-09-04 --init-cash 100000
-```
-
-Backtest v2每次只回放一个不可变策略快照、一个标的和一个明确日期区间。账户从指定现金
-和零持仓开始；信号使用后复权行情，委托、成交、数量和估值使用不复权行情。T日完整收盘
-决策在T+1执行；买入开盘价不高于限价时按开盘成交，盘中最低价严格低于限价时按限价
-成交，相等触价保持未成交；卖出按下一交易日开盘成交。未成交委托同样进入审计证据。
-买入周期首次计算的目标数量作为仓位上限；未成交重试时按最新限价和可用现金向下收缩，
-不会因价格上涨形成超出购买力的委托，也不会在价格下跌时扩大已确定的周期仓位。
-
-每次回测同时使用独立的同额资金账户计算BuyHold和MA5/MA20参照。两个基准使用相同费率，
-按收盘信号在下一交易日开盘成交；MA信号由后复权收盘价计算，成交和估值使用不复权行情。
-报告统一比较当前策略、BuyHold和MA5/MA20的最大回撤、卡玛比率、盈亏比、收益率和夏普率。
-两个基准只用于绩效参照，不参与当前策略的SE审计或PASS判定。
-
-每次运行生成`manifest.json`、`decisions.csv`、`orders.csv`、`fills.csv`、
-`account_daily.csv`、`trades.csv`、`metrics.json`、`audit.json`、`report.md`和
-`chart.html`，并生成`buyhold_account_daily.csv`、`ma_signals.csv`、`ma_orders.csv`、
-`ma_account_daily.csv`、`ma_trades.csv`和独立的`ma_chart.html`。SE独立复算当前策略的
-订单、成交、费用和账户账本，审计未通过时不发布结果目录。
-
-策略图表展示K线、CZSC笔、空心交易信号、实心成交事件和策略得分。统一hover气泡按
-交易日汇总OHLC、策略得分、行情状态、信号及成交；垂直瞄准虚线同步贯穿价格区和策略
-得分区。图表标题和报告中的起止日均使用实际交易日。
-
-回测命令从不隐式更新数据；需要新行情时先显式执行`data update-backtest`。
-
-普通结果写入被 Git 忽略的 `outputs/`。正式研究证据必须归档到
-`experiments/MMDD_EXXX/`，并可用以下命令校验：
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe archive validate --all
-```
-
-### 生成交易决策
-
-按账户可用现金生成 `advice.v4`：
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe advice run `
-  --symbol 588080.SH --asset etf `
-  --actual-quantity 0 --available-cash 1000000 `
-  --strategy S001 --strategy-version v1 `
-  --format json
-```
-
-Trader 使用完整冻结基线内嵌的唯一执行规则计算限价、手续费空间和 100 份整数倍数量。输出包含
-确定性 `decision_id`、信号日期、有效交易日、目标/实际/差额数量及可提交 DAY 限价
-单。`advice run`不连接券商、不提交订单、不修改账户状态。
-
-`--baseline baseline_20260903`暂时保留为输入别名，并解析到同一个`S001-v1`；新输出
-始终为`advice.v4`。兼容调用可用 `--actual-quantity`配合`--position-size`生成
-`advice.v1`；PTE正式运行只接受`advice.v4`。未收到明确成交回报时，实际持仓数量保持不变。
-
-## CZSC PTE 使用
-
-PTE 以虚拟账户为业务中心。每个虚拟账户绑定一个不可变策略发布和 Futu 渠道；一个
-Futu 渠道承载多个虚拟账户，并把它们的订单统一提交到底层中国市场模拟账户。渠道只
-负责执行、回报和对账，不绑定策略、不生成决策。内部 OHLC 模拟成交渠道已经移除。
-
-启动 Futu OpenD 并确认存在唯一中国市场模拟账户。开发调试或单次诊断时，可以直接在
-前台运行 PTE；`serve` 通过 `Ctrl+C` 结束：
-
-```powershell
-.\.venv\Scripts\pte.exe once --repo-root D:\CodeBase\czsc_trader
-.\.venv\Scripts\pte.exe serve --repo-root D:\CodeBase\czsc_trader
-```
-
-观测与干预页面为 <http://127.0.0.1:8080>。默认行为：
-
-- 订单和成交约每 5 秒对账；账户与持仓每 60 秒刷新；
-- 每个交易日 20:30 后发布完整收盘数据，失败后退避重试；
-- 每次数据发布成功后，各账户只生成一次对应数据版本的决策，漏做时由重启补做；
-- 自动买入使用该虚拟账户的可用资金，卖出不超过该账户持仓；
-- 新单只在有效交易日的 `09:30–11:30`、`13:00–14:57`提交；
-- 暂停只阻止新订单，已有订单继续对账；撤单必须二次确认。
-
-虚拟账户页的“前瞻观察”把该账户的行情背景、已生成信号、订单意图、明确成交、目标持仓
-和实际持仓放在同一张图中。默认展示策略选择截止日以前最后60个交易日和截止日后的
-全部完整日线；红色截止线左侧只作背景，右侧才属于该策略版本的前瞻记录。页面查看行为
-不会改变研究数据身份，若后续用这些行情调参，新版本必须登记新的选择截止日。
-
-该图由PTE读取自身运行行情和账户账本后，通过stdin交给TDR纯内存绘制。TDR不读取或
-保存前瞻行情，HTML由PTE缓存在`state/paper_trading/charts/`；绘图失败只影响图表，
-不会暂停账户或阻断决策、下单和对账。
-
-首次启动会创建初始资金10万元、账户ID为 `s001-v1`、名称为“S001-v1模拟账户”且
-绑定 `S001-v1` 的虚拟账户。新增账户默认初始资金同为10万元：
-
-```powershell
-.\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
-.\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
-  --account-id s001-v2 --name "S001-v2模拟账户" `
-  --strategy S001 --strategy-version v2
-.\.venv\Scripts\pte.exe account pause --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
-.\.venv\Scripts\pte.exe account resume --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
-```
-
-所有成交以 Futu 累计成交回报为准。订单意图先冻结所属账户资金，明确拒绝、过期或
-未完全成交后终止时释放剩余冻结资金；结果不确定的提交保留冻结资金等待对账。未知
-活动订单或 Futu 持仓与账户汇总持仓不一致
-时，渠道进入阻塞状态并停止新单。页面顶部的“查看系统事件”显示当前活动告警；独立的
-`/audit-events`页面统一查询策略、交易、系统和其他四类历史事件，可按账户、策略、
-渠道和关联ID过滤。策略决策归属虚拟账户，外部接口和渠道对账归属 Futu 渠道，交易
-事件同时记录账户与渠道。事件在 SQLite 中以 UTC 追加保存，页面统一按北京时间展示。
-
-需要登记模拟盘里程碑时，先由PTE导出自包含证据包，再由Trader写入策略注册表：
-
-```powershell
-.\.venv\Scripts\pte.exe performance export --repo-root D:\CodeBase\czsc_trader `
-  --account-id s001-v2 --recorded-by tomxiao `
-  --start 2026-09-03 --end 2026-12-03 --output state\paper-forward.json
-.\.venv\Scripts\czsc-trader.exe strategy evidence add `
-  --input state\paper-forward.json
-.\.venv\Scripts\czsc-trader.exe strategy performance --strategy S001 --version v1
-```
-
-日常净值仍保存在SQLite；只有人工复核、晋升或降级所需的里程碑证据进入Git。
-
-### Windows watchdog 服务
-
-正式运行由 WDG 托管 PTE。首次安装时，在管理员 PowerShell 中执行：
-
-```powershell
-.\.venv\Scripts\pte-watchdog.exe install-config --repo-root D:\CodeBase\czsc_trader
-.\.venv\Scripts\pte-watchdog.exe start --wait 30
-```
-
-系统服务名为`CZSC-PTE-Watchdog`，启动类型为自动。watchdog 通过 CLI 启动 PTE
-子进程，每 10 秒检查进程和 8080 HTTP 状态；连续 3 次失败后按 5、30、60 秒
-退避重启。
-
-日常发布 PTE 代码或修改 PTE 业务配置后，只需执行 peaceful restart。PTE 完成当前
-请求并正常退出，WDG 随即拉起新实例；该操作不重启 WDG，也不需要管理员权限：
-
-```powershell
-.\.venv\Scripts\pte.exe control restart --repo-root D:\CodeBase\czsc_trader --wait 30
-Invoke-RestMethod http://127.0.0.1:8080/api/status
-```
-
-WDG 自身升级、仓库路径或监听地址变更时，才在管理员 PowerShell 中维护系统服务：
-
-```powershell
-Get-Service CZSC-PTE-Watchdog
-Start-Service CZSC-PTE-Watchdog       # 同时启动 PTE
-Stop-Service CZSC-PTE-Watchdog        # 同时停止 PTE
-Restart-Service CZSC-PTE-Watchdog     # 同时重启 WDG 和 PTE
-.\.venv\Scripts\pte-watchdog.exe remove
-```
-
-停止 WDG 后，WDG 不再保活 PTE；启动 WDG 时会重新启动 PTE。生产环境不要另行运行
-`pte serve`，以免产生第二个实例或占用 8080 端口。
-
-本机运行数据库、发布数据和日志位于`state/paper_trading/`，均不纳入 Git。详细运行
-语义见[独立包说明](packages/paper_trading_engine/README.md)。
-
-## 测试
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
-.\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
-.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
-node --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
-.\.venv\Scripts\czsc-trader.exe archive validate --all --repo-root .
-.\.venv\Scripts\python.exe -m ruff check `
-  src tests packages\strategy_manager packages\strategy_evaluator `
-  packages\paper_trading_engine\src packages\paper_trading_engine\tests
-```
-
-默认回归由Trader 15个、SM 2个、SE 3个、PTE 12个Python完整功能场景，以及PTE
-1个前端功能场景组成。不联网、不读取运行中的PTE，也不重算历史候选全集。完整实验
-档案校验使用`archive validate --all`独立执行。TDD阶段产生的临时聚焦用例，在相应
-行为进入功能场景后删除。
+完整依赖安装和所有操作命令以[用户使用说明](docs/USER_GUIDE.md)为准。研究和开发接手前，
+分别阅读对应的交接文档。

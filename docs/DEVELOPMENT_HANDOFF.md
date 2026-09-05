@@ -1,7 +1,7 @@
-# 开发交接
+# 技术交接
 
 > 本文是跨机器、跨会话继续开发的入口，只记录系统全貌、关键边界、恢复方法和开发规则。
-> 研究结论见`docs/RESEARCH_HANDOFF.md`，安装与完整命令见根目录及各包`README.md`，
+> 研究结论见`docs/RESEARCH_HANDOFF.md`，安装与日常操作见`docs/USER_GUIDE.md`，
 > 历史设计与实施过程见`docs/superpowers/`。
 
 ## 模块简称
@@ -90,9 +90,9 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 11. PTE运行结果默认属于观察证据，只有经人工确认登记的里程碑快照进入SM治理链路。
 12. PTE拥有前瞻行情及观察图缓存。TDR的`chart observation`只消费PTE通过stdin传入的
     有限数据，在内存绘制并由stdout返回HTML，不主动读取或保存行情。
-12. TDR Backtest v2每次只接受一个不可变策略快照、一个标的、明确起止日和初始现金。
+13. TDR Backtest v2每次只接受一个不可变策略快照、一个标的、明确起止日和初始现金。
     信号使用后复权数据，执行和估值使用不复权数据；结果发布前必须通过SE独立回放审计。
-13. `data/raw/`是受控研究池，`data/backtest/`独立维护。普通回测不会更新数据，也不
+14. `data/raw/`是受控研究池，`data/backtest/`独立维护。普通回测不会更新数据，也不
     判定数据污染；研究数据边界由受控研究工作流负责。
 
 ## 新机器恢复
@@ -102,39 +102,11 @@ git clone https://github.com/tomxiao/czsc_trader.git czsc_trader
 cd czsc_trader
 git checkout master
 git pull --ff-only origin master
-
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
-.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
-.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
-.\.venv\Scripts\python.exe -m pip install -e ".[test]"
-.\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```
 
-将`.env.example`复制为`.env`并配置`TUSHARE_TOKEN`。启动Futu OpenD并确认中国市场模拟
-交易账户可访问。随后检查账户与TDR决策：
-
-```powershell
-.\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
-.\.venv\Scripts\czsc-trader.exe advice run `
-  --symbol 588080.SH --asset etf `
-  --actual-quantity 0 --available-cash 100000 `
-  --strategy S001 --strategy-version v2 --format json
-```
-
-首次安装WDG需使用管理员PowerShell：
-
-```powershell
-.\.venv\Scripts\pte-watchdog.exe install-config --repo-root D:\CodeBase\czsc_trader
-.\.venv\Scripts\pte-watchdog.exe start --wait 30
-sc.exe query CZSC-PTE-Watchdog
-```
-
-日常代码更新后通过`.\.venv\Scripts\pte.exe control restart --repo-root .`请求PTE和平退出，
-WDG会拉起新实例。该操作不重启WDG；只有WDG自身升级、仓库路径或监听地址变化时才维护
-系统服务。`Start-Service`与`Stop-Service CZSC-PTE-Watchdog`会分别启动和停止WDG及其
-PTE子进程。仓库移动后重新执行`install-config`以更新绝对路径。
+依赖安装、凭据、PTE/WDG启停和健康检查统一按[用户使用说明](USER_GUIDE.md)执行。
+开发环境恢复后运行本文的完整功能测试。仓库移动会改变WDG保存的绝对路径，需要按用户
+手册重新安装服务配置。
 
 ## 本地状态与跨机边界
 
@@ -188,19 +160,6 @@ node --test packages\paper_trading_engine\tests\functional\console_state.test.mj
   packages\paper_trading_engine\src packages\paper_trading_engine\tests
 ```
 
-## 运行检查入口
-
-```powershell
-Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue
-Get-CimInstance Win32_Service -Filter "Name='CZSC-PTE-Watchdog'"
-Invoke-RestMethod http://127.0.0.1:8080/api/status
-Get-Content state\paper_trading\logs\watchdog.log -Tail 100
-Get-Content state\paper_trading\logs\pte.log -Tail 100
-```
-
-端口冲突由PTE明确报错。恢复运行失败时先检查Futu OpenD，再确认渠道已完成账户、订单、
-成交和持仓对账。数据发布告警结合交易日20:30后的日志判断。
-
 ## 开发与交付规则
 
 - 普通改动使用`master`；重量级开发和研究任务先确认是否新建`codex/`分支。
@@ -208,8 +167,9 @@ Get-Content state\paper_trading\logs\pte.log -Tail 100
 - 分支内可以自主提交；合并`master`和推送远端前取得用户确认。
 - 修改研究口径时同步`docs/RESEARCH_HANDOFF.md`和实验档案。
 - 修改运行边界、契约或安装方式时同步本文及对应包`README.md`。
-- 根目录`README.md`只维护当前安装、操作路径和用户可见能力；本文只维护长期有效的
-  架构、边界、恢复方法和开发约束。调试流水及已完成任务不进入这两份文档。
+- 根目录`README.md`只维护项目介绍和文档索引；`docs/USER_GUIDE.md`维护安装与当前
+  操作路径；本文只维护长期有效的架构、边界、恢复方法和开发约束。调试流水及已完成
+  任务不进入这些文档。
 
 ## TDR Backtest v2维护边界
 
@@ -225,8 +185,9 @@ Get-Content state\paper_trading\logs\pte.log -Tail 100
 
 ## 详细资料入口
 
-- 项目安装与日常使用：`README.md`
-- PTE对象关系、命令和控制台：`packages/paper_trading_engine/README.md`
+- 项目介绍与文档索引：`README.md`
+- 安装、日常使用和运行排障：`docs/USER_GUIDE.md`
+- PTE对象关系与包级契约：`packages/paper_trading_engine/README.md`
 - SM与SE契约：`docs/superpowers/specs/2026-09-03-strategy-manager-design.md`、
   `packages/strategy_evaluator/README.md`
 - 当前研究结论与实验组织：`docs/RESEARCH_HANDOFF.md`

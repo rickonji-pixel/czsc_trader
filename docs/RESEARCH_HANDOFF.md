@@ -2,7 +2,8 @@
 
 > 本文用于跨机器、跨会话继续策略研究，重点说明如何应用当前工作流开展下一轮研究、
 > 评估和冻结。历史事实以Git中的策略注册表、实验档案和机器证据为准；开发环境、服务
-> 恢复和测试治理见`docs/DEVELOPMENT_HANDOFF.md`。
+> 恢复和测试治理见[技术交接](DEVELOPMENT_HANDOFF.md)，安装与日常操作见
+> [用户使用说明](USER_GUIDE.md)。
 
 ## 当前研究起点
 
@@ -234,7 +235,8 @@ git status --short --branch
 - 普通可再生回测：`outputs/`，不参与交接和策略接受；
 - 模拟盘前瞻记录：`state/paper_trading/`，默认不随Git迁移；
 - SE当前能力：`packages/strategy_evaluator/README.md`；
-- 安装、运行、测试和跨机开发：`docs/DEVELOPMENT_HANDOFF.md`。
+- 安装、回测、PTE和WDG日常操作：`docs/USER_GUIDE.md`；
+- 架构、测试治理和跨机开发：`docs/DEVELOPMENT_HANDOFF.md`。
 
 普通文本身份统一归一化LF；JSON规则使用语义SHA-256；正式行情CSV和二进制使用原始字节
 SHA-256。新实现统一复用`src/czsc_trader/identity.py`，历史实验档案保持原样。

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 import json
 from pathlib import Path
@@ -41,6 +41,36 @@ class BacktestRunSummary:
     manifest: dict[str, object]
 
 
+def _bind_backtest_symbol(
+    snapshot: StrategySnapshot,
+    request: BacktestRequestV2,
+) -> tuple[StrategySnapshot, dict[str, str]]:
+    spec = snapshot.resolved_rule.execution
+    if spec is None:
+        raise ValueError("strategy snapshot has no execution specification")
+    requested_symbol = request.symbol.upper()
+    if spec.instrument.asset_type != request.asset_type:
+        raise ValueError("requested asset type differs from strategy execution specification")
+    reference_symbol = spec.instrument.symbol.upper()
+    instrument = replace(spec.instrument, symbol=requested_symbol)
+    execution = replace(spec, instrument=instrument)
+    resolved_rule = replace(
+        snapshot.resolved_rule,
+        symbol=requested_symbol,
+        execution=execution,
+    )
+    application = {
+        "mode": (
+            "native_symbol"
+            if reference_symbol == requested_symbol
+            else "cross_symbol_generalization"
+        ),
+        "strategy_reference_symbol": reference_symbol,
+        "backtest_symbol": requested_symbol,
+    }
+    return replace(snapshot, resolved_rule=resolved_rule), application
+
+
 def _write_json(path: Path, value: object) -> None:
     path.write_text(
         json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
@@ -59,7 +89,13 @@ def run_backtest_v2(
     """Run, validate, and atomically publish one immutable replay."""
     if request.dataset != replay_data.dataset:
         raise ValueError("request dataset differs from loaded replay data")
-    signals = replay_signals(snapshot, replay_data, request.start, request.end)
+    request = replace(request, symbol=request.symbol.upper())
+    if replay_data.adjusted.symbol != request.symbol:
+        raise ValueError("request symbol differs from loaded replay data")
+    if replay_data.adjusted.asset_type != request.asset_type:
+        raise ValueError("request asset type differs from loaded replay data")
+    applied_snapshot, application = _bind_backtest_symbol(snapshot, request)
+    signals = replay_signals(applied_snapshot, replay_data, request.start, request.end)
     result = replay_account(signals, replay_data, request.initial_cash)
     strategy_metrics = calculate_metrics(result, request.initial_cash)
     evidence = build_replay_evidence(
@@ -84,6 +120,7 @@ def run_backtest_v2(
         signals=signals,
         metrics=metrics,
         audit=audit,
+        application=application,
         run_date=run_date,
     )
     root = Path(outputs_root)
@@ -110,6 +147,9 @@ def run_backtest_v2(
             render_report(
                 snapshot,
                 metrics,
+                strategy_reference_symbol=application["strategy_reference_symbol"],
+                backtest_symbol=application["backtest_symbol"],
+                application_mode=application["mode"],
                 calculation_start=signals.calculation_start.date(),
                 calculation_end=signals.calculation_end.date(),
                 evaluation_start=signals.evaluation_start.date(),

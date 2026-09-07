@@ -15,6 +15,7 @@ def build_manifest(
     signals: SignalReplay,
     metrics: dict[str, object],
     audit: dict[str, object],
+    application: dict[str, str],
     run_date: date,
 ) -> dict[str, object]:
     return {
@@ -28,6 +29,7 @@ def build_manifest(
             "source_hash": snapshot.source_hash,
             "snapshot_hash": snapshot.content_hash,
         },
+        "application": application,
         "dataset": {
             "name": data.dataset,
             "fingerprint": data.fingerprint,

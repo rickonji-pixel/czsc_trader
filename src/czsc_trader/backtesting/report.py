@@ -9,6 +9,9 @@ def render_report(
     snapshot: StrategySnapshot,
     metrics: dict[str, object],
     *,
+    strategy_reference_symbol: str,
+    backtest_symbol: str,
+    application_mode: str,
     calculation_start: date,
     calculation_end: date,
     evaluation_start: date,
@@ -35,6 +38,13 @@ def render_report(
         "",
         "本报告由 TDR Backtest v2 基于确定性账户回放生成。成交均为虚拟成交。",
         "主策略使用冻结执行规则；BuyHold与MA5/MA20使用独立资金按次日开盘成交。",
+        f"- 策略参考标的：{strategy_reference_symbol}",
+        f"- 实际回测标的：{backtest_symbol}",
+        (
+            "- 应用方式：跨标的泛化测试"
+            if application_mode == "cross_symbol_generalization"
+            else "- 应用方式：原始标的回测"
+        ),
         f"- 计算窗口：{calculation_start.isoformat()}—{calculation_end.isoformat()}",
         (
             f"- 回测窗口：{evaluation_start.isoformat()}—{evaluation_end.isoformat()}，"

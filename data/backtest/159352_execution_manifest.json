@@ -6,15 +6,23 @@
   "asset_type": "etf",
   "vendor": "tushare",
   "adjustment": "none",
-  "requested_start": "2025-01-01",
-  "requested_end": "2026-09-02",
-  "next_trading_session": "2026-09-03",
+  "requested_start": "2024-01-01",
+  "requested_end": "2026-09-07",
+  "next_trading_session": "2026-09-08",
   "calendar": {
     "vendor": "tushare",
     "exchange": "SSE"
   },
-  "generated_at_utc": "2026-09-02T11:23:17.302980+00:00",
+  "generated_at_utc": "2026-09-07T15:25:40.999636+00:00",
   "files": {
+    "159352_execution_daily_2024.csv": {
+      "frequency": "daily",
+      "year": 2024,
+      "rows": 56,
+      "first": "2024-10-15T00:00:00",
+      "last": "2024-12-31T00:00:00",
+      "sha256": "19479f6b08dcdc34abef4d35de3c9f5336f1e6b27d43908e7f11f3a9834a651c"
+    },
     "159352_execution_daily_2025.csv": {
       "frequency": "daily",
       "year": 2025,
@@ -26,10 +34,10 @@
     "159352_execution_daily_2026.csv": {
       "frequency": "daily",
       "year": 2026,
-      "rows": 162,
+      "rows": 165,
       "first": "2026-01-05T00:00:00",
-      "last": "2026-09-02T00:00:00",
-      "sha256": "b33230747be7c1fc5e9b76cb6bafe4d6011b0af609415935359625e4b0deee1e"
+      "last": "2026-09-07T00:00:00",
+      "sha256": "8dab5871c280289e4de769acd441545c6f0f954eaa78e8d24e3d297a34ead2ef"
     }
   },
   "fetch_metadata": {

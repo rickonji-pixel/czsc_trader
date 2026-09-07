@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
-from dataclasses import replace
+import shutil
 
 import pandas as pd
 
@@ -286,3 +287,41 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     assert (buy_limits * 1000 % 1 < 1e-9).all()
     report = (output_dir / "report.md").read_text(encoding="utf-8")
     assert "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |" in report
+
+    source_root = functional_repo / "data" / "backtest"
+    for source in source_root.glob("588080*"):
+        destination = source.with_name(source.name.replace("588080", "159352"))
+        if source.suffix == ".json":
+            destination.write_text(
+                source.read_text(encoding="utf-8")
+                .replace("588080.SH", "159352.SZ")
+                .replace("588080", "159352"),
+                encoding="utf-8",
+            )
+        else:
+            shutil.copy2(source, destination)
+    generalized = invoke_main(
+        [
+            "backtest", "run",
+            "--strategy", "S001", "--strategy-version", "v1",
+            "--dataset", "backtest", "--symbol", "159352.SZ", "--asset", "etf",
+            "--start", "2026-01-01", "--end", "2026-09-02", "--init-cash", "100000",
+            "--outputs-root", str(functional_repo / "outputs"),
+            "--repo-root", str(functional_repo),
+        ],
+        capsys,
+    )
+    generalized_dir = Path(generalized["artifacts"]["output_dir"])
+    generalized_manifest = json.loads(
+        (generalized_dir / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert generalized["result"]["audit_status"] == "PASS"
+    assert generalized_manifest["application"] == {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "159352.SZ",
+    }
+    generalized_report = (generalized_dir / "report.md").read_text(encoding="utf-8")
+    assert "- 策略参考标的：588080.SH" in generalized_report
+    assert "- 实际回测标的：159352.SZ" in generalized_report
+    assert "- 应用方式：跨标的泛化测试" in generalized_report

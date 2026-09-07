@@ -48,9 +48,6 @@ def run_backtest(
         )
         if snapshot.resolved_rule.execution is None:
             raise ValueError("strategy has no complete execution rule")
-        instrument = snapshot.resolved_rule.execution.instrument
-        if instrument.symbol != request.symbol.upper() or instrument.asset_type != request.asset_type:
-            raise ValueError("requested instrument differs from strategy snapshot")
         data = load_replay_data(
             context,
             request.dataset,  # type: ignore[arg-type]

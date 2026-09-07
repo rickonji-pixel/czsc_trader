@@ -90,8 +90,10 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 11. PTE运行结果默认属于观察证据，只有经人工确认登记的里程碑快照进入SM治理链路。
 12. PTE拥有前瞻行情及观察图缓存。TDR的`chart observation`只消费PTE通过stdin传入的
     有限数据，在内存绘制并由stdout返回HTML，不主动读取或保存行情。
-13. TDR Backtest v2每次只接受一个不可变策略快照、一个标的、明确起止日和初始现金。
-    信号使用后复权数据，执行和估值使用不复权数据；结果发布前必须通过SE独立回放审计。
+13. TDR Backtest v2每次只接受一个不可变策略快照、一个实际回测标的、明确起止日和初始
+    现金。回测可以将策略临时应用到同资产类型的其他标的，不修改策略快照或SM部署范围；
+    报告与清单必须同时记录策略参考标的和实际回测标的。信号使用后复权数据，执行和估值
+    使用不复权数据；结果发布前必须通过SE独立回放审计。
 14. `data/raw/`是受控研究池，`data/backtest/`独立维护。普通回测不会更新数据，也不
     判定数据污染；研究数据边界由受控研究工作流负责。
 
@@ -149,6 +151,8 @@ git pull --ff-only origin master
   `strategies/dependencies/legacy_rule_baselines/`。
 - 研究候选通过`resolve_candidate_snapshot`进入同一个回放核心，生命周期资格不会阻止
   研究回测；只有PTE部署检查`PAPER_READY`。
+- `backtest run --symbol`指定实际回测标的。若其与策略参考标的不同，Backtest v2只在本次
+  内存回放中绑定新标的，并校验资产类型一致；策略ID、版本、内容哈希和注册内容保持不变。
 - SE拥有回放证据审计，TDR只负责生成事实与适配证据。PTE的券商成交继续以渠道回报为准。
 - `data update-backtest`严格保护既有30分钟线、日线和已结束周线；只有新增交易日仍位于
   当前末周时，才允许末根未完成周线滚动重算。校验或网络失败不得改变已发布数据集。

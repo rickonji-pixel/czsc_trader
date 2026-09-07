@@ -129,7 +129,9 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     chart = (summary.output_dir / "chart.html").read_text(encoding="utf-8")
     traces, layout = _plotly_payload(chart)
     by_name = {trace["name"]: trace for trace in traces}
-    assert layout["title"]["text"] == "S001-v1 确定性回测｜2026-01-05—2026-09-02"
+    assert layout["title"]["text"] == (
+        "588080.SH | S001-v1 | 2026.01.05 - 2026.09.02"
+    )
     assert layout["hovermode"] == "x unified"
     for axis_name in ("xaxis", "xaxis2"):
         assert layout[axis_name]["showspikes"] is True

@@ -333,10 +333,11 @@ def render_backtest_chart_html(
             col=1,
         )
     figure.update_traces(xaxis="x", row=2, col=1)
+    backtest_symbol = signal_replay.snapshot.resolved_rule.execution.instrument.symbol
     figure.update_layout(
         title=(
-            f"{result.identity.reference} 确定性回测｜"
-            f"{prices.index.min().date()}—{prices.index.max().date()}"
+            f"{backtest_symbol} | {result.identity.reference} | "
+            f"{prices.index.min():%Y.%m.%d} - {prices.index.max():%Y.%m.%d}"
         ),
         height=720,
         template="plotly_dark",

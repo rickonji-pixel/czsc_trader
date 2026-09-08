@@ -77,6 +77,7 @@ class AdviceDecision:
     fee_rate: float = 0.0
     estimated_order_cost: float = 0.0
     unallocated_cash: float = 0.0
+    source_decision_id: str = ""
 
     @classmethod
     def from_cli_payload(cls, payload: object) -> "AdviceDecision":
@@ -163,4 +164,5 @@ class AdviceDecision:
             fee_rate=float(value["fee_rate"]),
             estimated_order_cost=float(value.get("estimated_order_cost", 0.0)),
             unallocated_cash=float(value.get("unallocated_cash", value["available_cash"])),
+            source_decision_id=str(value.get("decision_id", "")),
         )

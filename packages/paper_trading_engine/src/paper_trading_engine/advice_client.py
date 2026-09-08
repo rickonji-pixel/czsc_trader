@@ -80,6 +80,7 @@ class CliAdviceClient:
         strategy_version: str | None = None,
         baseline: str | None = None,
         account_id: str | None = None,
+        decision_transform: Callable[[AdviceDecision], AdviceDecision] | None = None,
     ) -> AdviceDecision:
         started = time.perf_counter()
         arguments = [
@@ -140,6 +141,8 @@ class CliAdviceClient:
             try:
                 payload = json.loads(lines[0])
                 decision = AdviceDecision.from_cli_payload(payload)
+                if decision_transform is not None:
+                    decision = decision_transform(decision)
             except (json.JSONDecodeError, AdviceContractError, KeyError, TypeError, ValueError) as exc:
                 raise AdviceClientError(f"invalid advice contract: {exc}") from exc
         except Exception as exc:

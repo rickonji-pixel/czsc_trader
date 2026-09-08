@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from hashlib import sha256
 import json
 
 from .audit import AuditRecorder
@@ -11,14 +13,45 @@ from .store import PaperStore
 
 
 class AccountEngine:
-    def __init__(self, store: PaperStore, advice, audit: AuditRecorder | None = None) -> None:
+    _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
+
+    def __init__(
+        self, store: PaperStore, advice, audit: AuditRecorder | None = None,
+        now=None,
+    ) -> None:
         self.store = store
         self.advice = advice
         self.audit = audit or AuditRecorder(store)
+        self.now = now or (lambda: datetime.now(self._BEIJING))
         self._draining = False
 
     def begin_shutdown(self) -> None:
         self._draining = True
+
+    def _assign_decision_id(self, account_id: str, previous_payload, decision):
+        source_id = decision.source_decision_id or decision.decision_id
+        previous = json.loads(previous_payload) if previous_payload else None
+        if previous:
+            previous_source = previous.get("source_decision_id") or previous.get("decision_id")
+            if previous_source == source_id:
+                return replace(
+                    decision,
+                    decision_id=str(previous["decision_id"]),
+                    source_decision_id=source_id,
+                )
+
+        generated_at = self.now()
+        if generated_at.tzinfo is None:
+            generated_at = generated_at.replace(tzinfo=self._BEIJING)
+        else:
+            generated_at = generated_at.astimezone(self._BEIJING)
+        stamp = generated_at.strftime("%Y%m%d-%H%M")
+        suffix = sha256(f"{account_id}\0{source_id}".encode("utf-8")).hexdigest()[:12].upper()
+        return replace(
+            decision,
+            decision_id=f"DEC-{stamp}-{suffix}",
+            source_decision_id=source_id,
+        )
 
     def refresh_account(self, account_id: str, *, force: bool = False):
         account = self.store.virtual_account(account_id)
@@ -26,13 +59,19 @@ class AccountEngine:
         previous_action = (
             json.loads(previous_payload).get("action") if previous_payload else None
         )
+        transform = lambda value: self._assign_decision_id(
+            account_id, previous_payload, value,
+        )
         decision = self.advice.get_decision(
             int(account["quantity"]), float(account["cash"]),
             cycle_target_quantity=account["cycle_target"],
             strategy_id=account["strategy_id"],
             strategy_version=account["strategy_version"],
             account_id=account_id,
+            decision_transform=transform,
         )
+        if decision.decision_id == (decision.source_decision_id or decision.decision_id):
+            decision = transform(decision)
         expected = (
             account["strategy_id"], account["strategy_version"], account["release_hash"],
         )

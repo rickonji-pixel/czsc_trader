@@ -1,5 +1,6 @@
-from dataclasses import replace
-from datetime import date
+from dataclasses import asdict, replace
+from datetime import date, datetime, timezone
+import re
 from subprocess import CompletedProcess
 
 import pytest
@@ -22,7 +23,9 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
         qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
     )
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
-    accounts = AccountEngine(store, advice)
+    accounts = AccountEngine(
+        store, advice, now=lambda: datetime(2026, 9, 8, 6, 35, tzinfo=timezone.utc),
+    )
     broker = FakeBroker()
     execution = FutuExecution(store, broker, symbol="588080.SH", today=lambda: date(2026, 9, 2))
 
@@ -30,6 +33,9 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     accounts.refresh_account("s001-v1", force=True)
     assert len(store.account_decisions("s001-v1")) == 1
     assert len(store.pending_account_intents()) == 1
+    saved_decision = store.account_decisions("s001-v1")[0]
+    assert re.fullmatch(r"DEC-20260908-1435-[0-9A-F]{12}", saved_decision["decision_id"])
+    assert saved_decision["payload"]["source_decision_id"] == "DEC-ONE"
     snapshot = store.account_snapshots("s001-v1")[0]
     assert snapshot["session"] == "2026-09-01"
     assert float(snapshot["total_assets"]) == 100_000
@@ -88,3 +94,29 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     external = audit_store.query_audit_events(event_type="EXTERNAL_CALL_FAILED")[0]
     assert external["account_id"] == "s001-v1"
     audit_store.close()
+
+
+def test_existing_decision_id_is_preserved_when_same_decision_is_recomputed(tmp_path):
+    store = PaperStore(tmp_path / "runtime.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    old_decision = decision()
+    old_payload = asdict(old_decision)
+    old_payload.pop("source_decision_id")
+    store.save_account_decision("s001-v1", old_payload)
+
+    accounts = AccountEngine(
+        store, FakeAdvice(old_decision),
+        now=lambda: datetime(2026, 9, 8, 6, 35, tzinfo=timezone.utc),
+    )
+    accounts.refresh_account("s001-v1", force=True)
+
+    saved = store.account_decisions("s001-v1")
+    assert len(saved) == 1
+    assert saved[0]["decision_id"] == "DEC-ONE"
+    assert store.virtual_account("s001-v1")["last_decision_id"] == "DEC-ONE"
+    store.close()

@@ -64,7 +64,14 @@ class FakeAdvice:
 
     def get_decision(self, actual_quantity, available_cash, **kwargs):
         self.calls.append((actual_quantity, available_cash, kwargs))
-        return replace(self.value, actual_quantity=actual_quantity, available_cash=available_cash)
+        value = replace(
+            self.value,
+            actual_quantity=actual_quantity,
+            available_cash=available_cash,
+            source_decision_id=self.value.source_decision_id or self.value.decision_id,
+        )
+        transform = kwargs.get("decision_transform")
+        return transform(value) if transform else value
 
 
 class FakeBroker:

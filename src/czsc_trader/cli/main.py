@@ -167,7 +167,12 @@ def _strategy_command(args: argparse.Namespace):
 def _chart_observation(args: argparse.Namespace) -> RawCommandOutput:
     from czsc_trader.observation_chart import render_observation_html
 
-    return RawCommandOutput(render_observation_html(json.load(sys.stdin)))
+    return RawCommandOutput(
+        render_observation_html(
+            json.load(sys.stdin),
+            plotly_runtime=args.plotly_runtime,
+        )
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -234,6 +239,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     chart_observation = chart_actions.add_parser("observation")
     chart_observation.add_argument("--format", choices=("html",), default="html")
+    chart_observation.add_argument(
+        "--plotly-runtime",
+        choices=("embedded", "external"),
+        default="embedded",
+    )
     chart_observation.add_argument("--debug", action="store_true")
     chart_observation.set_defaults(
         command_handler=_chart_observation,

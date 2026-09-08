@@ -20,7 +20,7 @@ from .audit import AuditRecorder
 ACCOUNT_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 INPUT_LIMIT = 5 * 1024 * 1024
 OUTPUT_LIMIT = 20 * 1024 * 1024
-CACHE_RENDER_REVISION = "aligned-y-titles-v1"
+CACHE_RENDER_REVISION = "external-plotly-runtime-v1"
 
 
 class AccountChartService:
@@ -273,7 +273,19 @@ class AccountChartService:
             )
             if len(encoded.encode("utf-8")) > INPUT_LIMIT:
                 raise ValueError("account observation input exceeds 5 MiB")
-            cache_key = f"{CACHE_RENDER_REVISION}\n{encoded}".encode("utf-8")
+            fingerprint_request = {**request, "orders": []}
+            fingerprint_input = json.dumps(
+                fingerprint_request,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            )
+            # The current chart has no order-status layer. Futu refreshes terminal order
+            # timestamps every few seconds, so including orders here would force identical
+            # charts to be rendered repeatedly. Intents, fills and snapshots remain visual
+            # facts and continue to invalidate the cache.
+            cache_key = f"{CACHE_RENDER_REVISION}\n{fingerprint_input}".encode("utf-8")
             fingerprint = self._sha256(cache_key)
         except KeyError:
             raise
@@ -294,6 +306,8 @@ class AccountChartService:
                             "observation",
                             "--format",
                             "html",
+                            "--plotly-runtime",
+                            "external",
                         ],
                         input=encoded,
                         text=True,

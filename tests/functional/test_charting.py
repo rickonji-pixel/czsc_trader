@@ -244,7 +244,18 @@ def test_ft_t07_chart_observation_cli_writes_raw_html(monkeypatch, capsys) -> No
     )
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(_observation_payload())))
 
-    assert main(["chart", "observation", "--format", "html"]) == 0
+    assert main(
+        [
+            "chart",
+            "observation",
+            "--format",
+            "html",
+            "--plotly-runtime",
+            "external",
+        ]
+    ) == 0
     captured = capsys.readouterr()
     assert captured.out.lstrip().startswith("<html>")
+    assert 'src="/static/plotly.min.js"' in captured.out
+    assert len(captured.out.encode("utf-8")) < 100_000
     assert captured.err == ""

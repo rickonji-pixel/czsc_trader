@@ -47,7 +47,8 @@ FutuChannel 1 ─── 1 Futu SIMULATE/CN account
 - `advice.v4`：PTE传入标的、策略版本、实际持仓和可用资金，TDR返回确定性决策、目标
   数量、执行限价和订单列表；
 - `account_observation.v1`：PTE通过stdin传入有限行情、决策和账户事实，TDR在内存中
-  返回HTML，不读取或保存PTE前瞻行情；
+  返回HTML，不读取或保存PTE前瞻行情；PTE使用外置Plotly运行库并长期缓存，账户数据
+  刷新时保留图表DOM，只有图表事实变化才加载新的轻量HTML；
 - PTE只接受冻结且资格为`PAPER_READY`的策略发布。
 
 ### Futu

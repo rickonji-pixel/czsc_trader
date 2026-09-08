@@ -190,8 +190,14 @@ def _marker_y(prices: pd.DataFrame, dates: pd.Series, column: str, offset: float
     return [float(prices.loc[pd.Timestamp(dt), column]) + offset for dt in dates]
 
 
-def render_observation_html(payload: object) -> str:
+def render_observation_html(
+    payload: object,
+    *,
+    plotly_runtime: str = "embedded",
+) -> str:
     """Validate and render one PTE account observation document as HTML."""
+    if plotly_runtime not in {"embedded", "external"}:
+        raise ValueError("plotly_runtime must be embedded or external")
     doc = validate_observation(payload)
     account = doc["account"]
     prices = _price_frame(doc)
@@ -433,7 +439,10 @@ def render_observation_html(payload: object) -> str:
             yanchor="middle",
             font={"color": "#eef5ff", "size": 14},
         )
-    html = figure.to_html(full_html=True, include_plotlyjs=True)
+    include_plotlyjs: bool | str = (
+        True if plotly_runtime == "embedded" else "/static/plotly.min.js"
+    )
+    html = figure.to_html(full_html=True, include_plotlyjs=include_plotlyjs)
     embedded_style = (
         "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;"
         "background:#07101d}.plotly-graph-div{overflow:hidden}</style>"

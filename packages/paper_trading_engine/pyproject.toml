@@ -8,7 +8,11 @@ version = "0.1.0"
 description = "Broker-neutral paper trading operations engine"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["futu-api==10.10.7008", "pywin32>=308; platform_system == 'Windows'"]
+dependencies = [
+    "futu-api==10.10.7008",
+    "plotly==6.9.0",
+    "pywin32>=308; platform_system == 'Windows'",
+]
 
 [project.scripts]
 pte = "paper_trading_engine.cli:main"

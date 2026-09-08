@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 import json
@@ -11,6 +12,8 @@ from threading import Thread
 from urllib.parse import parse_qs, unquote, urlparse
 from typing import Protocol
 from uuid import uuid4
+
+from plotly.offline import get_plotlyjs
 
 from .web_api import PteWebApi, ResourceNotFound
 
@@ -26,6 +29,8 @@ def create_server(
     api = operations if hasattr(operations, "system_status") else PteWebApi(operations)
     static_root = files("paper_trading_engine").joinpath("static")
     runtime_instance_id = instance_id or uuid4().hex
+    plotly_javascript = get_plotlyjs().encode("utf-8")
+    plotly_etag = f'"{hashlib.sha256(plotly_javascript).hexdigest()}"'
 
     class Handler(BaseHTTPRequestHandler):
         def _send(
@@ -47,6 +52,25 @@ def create_server(
                        "application/json; charset=utf-8")
 
         def _resource(self, name: str) -> None:
+            if name == "plotly.min.js":
+                cache_control = "private, max-age=31536000, immutable"
+                if self.headers.get("If-None-Match") == plotly_etag:
+                    self._send(
+                        304,
+                        b"",
+                        "text/javascript; charset=utf-8",
+                        cache_control=cache_control,
+                        etag=plotly_etag,
+                    )
+                    return
+                self._send(
+                    200,
+                    plotly_javascript,
+                    "text/javascript; charset=utf-8",
+                    cache_control=cache_control,
+                    etag=plotly_etag,
+                )
+                return
             resource = static_root.joinpath(name)
             if not resource.is_file():
                 self._json(404, {"error": "not found"})

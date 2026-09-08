@@ -117,10 +117,34 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     assert request["market_data"]["bars"][0]["date"] == dates[125].date().isoformat()
     assert request["market_data"]["bars"][-1]["date"] == "2026-09-04"
     assert {row["account_id"] for row in request["decisions"]} == {"s001-v2"}
-    assert calls[0][0] == ["czsc-trader", "chart", "observation", "--format", "html"]
+    assert calls[0][0] == [
+        "czsc-trader",
+        "chart",
+        "observation",
+        "--format",
+        "html",
+        "--plotly-runtime",
+        "external",
+    ]
 
     second = service.status("s001-v2")
     assert second["fingerprint"] == first["fingerprint"]
+    assert len(calls) == 1
+
+    monkeypatch.setattr(
+        store,
+        "account_orders",
+        lambda _account_id: [
+            {
+                "account_id": "s001-v2",
+                "created_at": "2026-09-04T09:30:00+08:00",
+                "updated_at": "2026-09-04T09:30:05+08:00",
+                "status": "FILLED_ALL",
+            }
+        ],
+    )
+    order_refresh = service.status("s001-v2")
+    assert order_refresh["fingerprint"] == first["fingerprint"]
     assert len(calls) == 1
 
     monkeypatch.setattr(account_chart, "CACHE_RENDER_REVISION", "next-layout")

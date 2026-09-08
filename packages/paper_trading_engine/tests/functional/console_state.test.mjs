@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ScopedLoader, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, formatBeijingTime, navigationOptions, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, formatBeijingTime, navigationOptions, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -34,6 +34,7 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
     {account_id: 'a', fingerprint: 'f1'},
     {scope: {account_id: 'b'}, fingerprint: 'f1'},
   ), true);
+  assert.equal(ACCOUNT_REFRESH_SECTIONS.includes('chart'), false);
   assert.equal(auditCategoryLabel('STRATEGY'), '策略事件');
   assert.equal(auditCategoryLabel('OTHER'), '其他事件');
   assert.equal(auditEventLabel('DECISION_GENERATED'), '生成决策');

@@ -61,7 +61,7 @@ const esc = value => String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<
 const money = value => value==null?'—':Number(value).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct = value => value==null?'—':`${(Number(value)*100).toFixed(2)}%`;
 const shortHash = value => value?String(value).slice(0,10):'—';
-const actionLabel = value => ({BUY:'买入',SELL:'卖出',WAIT:'等待'}[value]||value||'等待');
+export const actionLabel = value => ({BUY:'买入',SELL:'卖出',WAIT:'等待',HOLD:'持有'}[value]||value||'等待');
 const statusLabel = value => ({READY:'就绪',RUNNING:'运行中',OK:'正常',BLOCKED:'阻塞',UNAVAILABLE:'不可用',CHANNEL_RECONCILIATION_BLOCKED:'渠道对账阻塞',SUBMITTED:'已提交',SUBMITTING:'提交中',FILLED_PART:'部分成交',FILLED_ALL:'全部成交',CANCELLED_ALL:'已撤销',PENDING:'待执行'}[value]||value||'—');
 const state = {accounts:[],loader:new ScopedLoader(),lastSuccess:null,renderedScope:null,fingerprint:null,system:null,systemFingerprint:null,chart:null};
 

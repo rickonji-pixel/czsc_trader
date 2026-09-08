@@ -195,3 +195,40 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_channel_capital_uses_static_principal_allocations(tmp_path):
+    store = PaperStore(tmp_path / "capital.db")
+    for account_id in ("s001-v1", "s001-v2"):
+        store.create_virtual_account(
+            account_id, account_id, "legacy", "a" * 64, 100_000,
+            strategy_id="S001", strategy_name_snapshot="综合基线策略",
+            strategy_version=account_id[-2:], release_hash="b" * 64,
+            qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+        )
+    with store._lock, store._connection:
+        store._connection.execute(
+            "UPDATE virtual_accounts SET cash='64.5572',quantity=60500 WHERE account_id='s001-v2'"
+        )
+    status = {
+        "account": {
+            "environment": "SIMULATE", "market": "CN",
+            "cash": 900_060.661, "frozen_cash": 0.0,
+            "total_assets": 998_675.661,
+        },
+        "orders": [], "actual_quantity": 60_500,
+    }
+    api = PteWebApi(SimpleNamespace(
+        store=store, virtual=None,
+        channel=SimpleNamespace(status=lambda: status),
+    ))
+
+    snapshot = api.channel_snapshot("futu")
+
+    assert snapshot["capital_pool"] == pytest.approx(1_000_000)
+    assert snapshot["allocated_capital"] == pytest.approx(200_000)
+    assert snapshot["unallocated_capital"] == pytest.approx(800_000)
+    assert snapshot["allocated_capital"] + snapshot["unallocated_capital"] == pytest.approx(
+        snapshot["capital_pool"]
+    )
+    store.close()

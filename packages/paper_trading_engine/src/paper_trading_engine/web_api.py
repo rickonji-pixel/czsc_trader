@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .audit import AuditCategory, AuditOutcome, AuditSeverity, EVENT_CATALOG
+from .store import DEFAULT_FUTU_CAPITAL_POOL
 
 
 class ResourceNotFound(KeyError):
@@ -165,18 +166,19 @@ class PteWebApi:
             for row in self.store.virtual_accounts()
             if row.get("channel_id") == "futu"
         ]
-        broker = status.get("account") or {}
+        capital_pool = float(
+            self.store.get_setting("futu_capital_pool") or DEFAULT_FUTU_CAPITAL_POOL
+        )
         allocated = sum(float(row["initial_cash"]) for row in accounts)
+        unallocated = capital_pool - allocated
         return {
             "scope": {"channel": "futu", "account_type": "broker_simulation"},
             "as_of": _now(),
             "account": status.get("account"), "actual_quantity": status.get("actual_quantity"),
             "accounts": accounts,
+            "capital_pool": capital_pool,
             "allocated_capital": allocated,
-            "unallocated_capital": (
-                max(0.0, float(broker.get("total_assets", 0.0)) - allocated)
-                if broker else None
-            ),
+            "unallocated_capital": unallocated,
             "orders": status.get("orders", []), "fills": self.store.account_fills(),
             "paused": status.get("paused"),
             "reconciliation_status": status.get("reconciliation_status"),

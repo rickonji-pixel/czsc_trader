@@ -22,6 +22,9 @@ from .audit import (
 )
 
 
+DEFAULT_FUTU_CAPITAL_POOL = "1000000.0000"
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -268,6 +271,10 @@ class PaperStore:
                 "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
                 "a7af8864e469b72a94c59eb2e012af5f9a634203cdf5a0214391dd2909e9e331",
             ),
+        )
+        self._connection.execute(
+            "INSERT OR IGNORE INTO settings(key,value) VALUES('futu_capital_pool', ?)",
+            (DEFAULT_FUTU_CAPITAL_POOL,),
         )
         self._connection.commit()
 

@@ -22,6 +22,15 @@ from .tushare_common import get_tushare_pro
 
 
 _TUSHARE_ETF_VOLUME_X100_DATES = {
+    "510500.SH": {
+        "2024-04-03",
+        "2024-04-19",
+        "2024-04-26",
+        "2024-04-30",
+        "2024-05-24",
+        "2024-05-31",
+        "2024-06-14",
+    },
     "515050.SH": {
         "2024-04-03",
         "2024-04-19",
@@ -49,14 +58,19 @@ def _intraday_boundary(value: str, *, end: bool) -> str:
     return f"{value} {'23:59:59' if end else '00:00:00'}"
 
 
-def _calendar_year_segments(start_date: str, end_date: str) -> list[tuple[str, str]]:
-    """Split long minute requests to stay below Tushare's silent row cap."""
+def _calendar_year_segments(
+    start_date: str, end_date: str, *, years_per_segment: int = 1,
+) -> list[tuple[str, str]]:
+    """Split long requests to stay below Tushare's silent row caps."""
+    if years_per_segment < 1:
+        raise ValueError("years_per_segment must be positive")
     start = pd.Timestamp(start_date).normalize()
     end = pd.Timestamp(end_date).normalize()
     segments: list[tuple[str, str]] = []
-    for year in range(start.year, end.year + 1):
+    for year in range(start.year, end.year + 1, years_per_segment):
         segment_start = max(start, pd.Timestamp(year=year, month=1, day=1))
-        segment_end = min(end, pd.Timestamp(year=year, month=12, day=31))
+        last_year = min(year + years_per_segment - 1, end.year)
+        segment_end = min(end, pd.Timestamp(year=last_year, month=12, day=31))
         segments.append(
             (segment_start.date().isoformat(), segment_end.date().isoformat())
         )
@@ -139,6 +153,19 @@ def _merge_opening_auction_into_first_30m_bar(dataframe: pd.DataFrame) -> pd.Dat
     )
 
 
+def _drop_zero_activity_days(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Remove synthetic intraday rows emitted for suspended ETF sessions."""
+    if dataframe.empty:
+        return dataframe.copy()
+    frame = dataframe.copy()
+    trade_dates = pd.to_datetime(frame["Date"], errors="coerce").dt.normalize()
+    active = frame.assign(_trade_date=trade_dates).groupby("_trade_date").agg(
+        Volume=("Volume", "sum"), Amount=("Amount", "sum")
+    )
+    active_dates = active.index[(active["Volume"] > 0) | (active["Amount"] > 0)]
+    return frame.loc[trade_dates.isin(active_dates)].reset_index(drop=True)
+
+
 def _fetch_tushare_etf_ohlcv(
     symbol: str,
     start_date: str,
@@ -192,6 +219,7 @@ def _fetch_tushare_etf_ohlcv(
             normalized, ts_code
         )
         normalized = _merge_opening_auction_into_first_30m_bar(normalized)
+        normalized = _drop_zero_activity_days(normalized)
         normalized = drop_incomplete_intraday_bar(normalized)
         validate_a_share_30m_bars(normalized)
     if corrected_dates:
@@ -206,11 +234,21 @@ def _fetch_hfq_factors(
     *,
     env_file: str | Path | None = None,
 ) -> pd.DataFrame:
-    dataframe = get_tushare_pro(env_file).fund_adj(
-        ts_code=ts_code,
-        start_date=start_date.replace("-", ""),
-        end_date=end_date.replace("-", ""),
-    )
+    pro = get_tushare_pro(env_file)
+    pieces = [
+        pro.fund_adj(
+            ts_code=ts_code,
+            start_date=segment_start.replace("-", ""),
+            end_date=segment_end.replace("-", ""),
+        )
+        for segment_start, segment_end in _calendar_year_segments(
+            start_date, end_date, years_per_segment=5
+        )
+    ]
+    dataframe = pd.concat(
+        [piece for piece in pieces if piece is not None and not piece.empty],
+        ignore_index=True,
+    ) if any(piece is not None and not piece.empty for piece in pieces) else pd.DataFrame()
     return normalize_adjustment_factors(dataframe)
 
 

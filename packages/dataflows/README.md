@@ -63,13 +63,15 @@ fetching. Stock factors come from `adj_factor` and ETF factors from `fund_adj`.
 OHLC is multiplied by the trade-date factor, volume is divided by it, and
 actual turnover amount is unchanged. Weekly bars are aggregated only after
 daily adjustment. Returned metadata records the adjustment mode, factor
-source, and a stable SHA-256 of the complete requested factor series.
+source, and a stable SHA-256 of the complete requested factor series. ETF
+adjustment factors are fetched in five-calendar-year segments so histories
+longer than Tushare's single-response row cap remain complete.
 
-Tushare returns 100x intraday volume for `515050.SH` and `588080.SH` on seven
-confirmed 2024 trade dates (`04-03`, `04-19`, `04-26`, `04-30`, `05-24`,
-`05-31`, `06-14`). Only these explicit symbol/date allowlists are divided by
-100, and the corrected dates are recorded in fetch metadata. No heuristic
-correction is applied elsewhere.
+Tushare returns 100x intraday volume for `510500.SH`, `515050.SH`, and
+`588080.SH` on seven confirmed 2024 trade dates (`04-03`, `04-19`, `04-26`,
+`04-30`, `05-24`, `05-31`, `06-14`). Only these explicit symbol/date
+allowlists are divided by 100, and the corrected dates are recorded in fetch
+metadata. No heuristic correction is applied elsewhere.
 
 The normalized columns are `Date`, `Open`, `High`, `Low`, `Close`, `Volume`,
 and `Amount`. A-share 30-minute bars are checked for duplicate timestamps,
@@ -78,8 +80,9 @@ current bar is removed until its close time.
 
 The Tushare ETF adapter uses `fund_daily` for daily bars, applies `fund_adj`,
 aggregates adjusted daily bars into weekly bars, and uses `etf_mins` for
-30-minute bars. Tushare's
-09:30 opening-auction record is folded into the 10:00 bar.
+30-minute bars. Tushare's 09:30 opening-auction record is folded into the
+10:00 bar. Synthetic zero-volume ETF sessions are removed before frequency
+reconciliation.
 
 For a strict historical-data gate, reconcile a complete 30-minute frame with
 an independently fetched daily frame. This catches overlapping cumulative

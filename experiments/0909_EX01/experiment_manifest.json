@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0909_EX01",
+  "status": "PREREGISTERED",
+  "experiment_type": "cross_symbol_framework_transfer",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 395,
+      "sha256": "eaa85fdd66111b6c2326e3f044c05dd324658ad145b631a7b3aae2dd16844c7c"
+    },
+    "02_design.md": {
+      "bytes": 1784,
+      "sha256": "615c76f121a2f42f753d1c076998795e66c67b375c216b76e25c5b8231682e54"
+    },
+    "03_execution.md": {
+      "bytes": 87,
+      "sha256": "3f173ff0b687eec529ffa2bea384d178f4085e84f8a0e178fe8346204191a43f"
+    },
+    "04_conclusion.md": {
+      "bytes": 78,
+      "sha256": "fab72f0b17741eadc4acc541b03504bffebdf19327dbb1248b6530ba4bd76bdb"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1188,
+      "sha256": "2214849598da7f6845ae2268db5bc1184cc5f9462ab546fc005c29d376c1a136"
+    },
+    "run_experiment.py": {
+      "bytes": 10777,
+      "sha256": "fc20c892cdebfd08c6cdcd57fded34f84d9b4ab4aae4343593739fb0ce579c37"
+    }
+  }
+}

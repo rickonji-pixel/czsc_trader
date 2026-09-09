@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX06",
+  "status": "PLANNED",
+  "experiment_type": "signal_filter_factorial_attribution",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 338,
+      "sha256": "39cf5b4bd9b779c3d2c3478ed8854e0e4021068ef527b43df4d2905e3283e28c"
+    },
+    "02_design.md": {
+      "bytes": 1839,
+      "sha256": "aae482c4b4f4c59673783a1d485a25c6d9a05c4ffc114c7040c931f3d52cf076"
+    },
+    "03_execution.md": {
+      "bytes": 85,
+      "sha256": "f2ac6ba07c9ac291c5ea7664d8a550f8aa32b2bddcaacc28b7775434e8ddc524"
+    },
+    "04_conclusion.md": {
+      "bytes": 76,
+      "sha256": "da4cda1899a1408aaf5805e52d344abdb440bf32250073b15ff2de63fd95c02f"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3073,
+      "sha256": "dff66fdb45bc3a209876d616c405a743736fbf02a5168d0b75c58b17aaf4646d"
+    }
+  }
+}

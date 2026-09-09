@@ -16,6 +16,23 @@ class PrototypeTargets:
     decisions: pd.DataFrame
 
 
+def two_by_two_effects(
+    no_filter: float,
+    top_only: float,
+    pressure_only: float,
+    both: float,
+) -> dict[str, float]:
+    """Return symmetric main effects and interaction for a 2x2 filter matrix."""
+    top_main = ((top_only - no_filter) + (both - pressure_only)) / 2.0
+    pressure_main = ((pressure_only - no_filter) + (both - top_only)) / 2.0
+    interaction = both - top_only - pressure_only + no_filter
+    return {
+        "top_divergence_main": float(top_main),
+        "structure_pressure_main": float(pressure_main),
+        "interaction": float(interaction),
+    }
+
+
 def transition_into(states: pd.Series, expected: str) -> pd.Series:
     """Identify a transition into one primary state on a normalized date index."""
     values = states.astype("string")

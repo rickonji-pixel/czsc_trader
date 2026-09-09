@@ -7,7 +7,7 @@
 - 研究线阶段：`RESEARCH`；SM身份已登记，尚无策略版本和部署资格；
 - 研究数据：`2019-10-08`至`2026-09-08`；
 - 当前开发截止：`2026-09-08`；
-- 最近实验：`experiments/20260909_S002_EX05`。
+- 最近实验：`experiments/20260909_S002_EX06`。
 
 ## 当前结论
 
@@ -39,15 +39,20 @@ EX05在提交冻结协议后，将两个入场机制做成同口径最小原型�
 尚未完成归因、敏感性或前瞻验证。当前仍没有S002候选或策略版本。
 S001因子和参数不作为S002默认种子。
 
+EX06完成2×2过滤归因。无过滤版本已经取得-3.64%最大回撤、1.5177卡玛、2.1136盈亏比
+和34.15%收益率，说明核心表现不依赖风险过滤。顶背驰仅改变一次退出且轻微拖累三个主
+指标。压力过滤改善卡玛和盈亏比，但净收益改善集中在2023年阻止的两次入场，并在2021年
+产生负贡献。按OPC简洁性原则，下一轮核心机制采用无过滤版本；压力过滤保留为待验证假设。
+
 ## 下一步
 
-下一轮以均值回归原型为唯一主线，先做归因，暂不调参：
+下一轮以无过滤的三连跌均值回归为唯一主线，做持有期邻域稳定性审计：
 
-1. 预注册四个版本：仅三连跌入场、只加顶背驰过滤、只加压力过滤、同时加两项过滤；
-2. 保持仓位、五日持有、成交、费用和窗口不变，判断两项过滤各自贡献及交互；
-3. 单列被过滤入场、提前退出和未受影响交易，检查改善是否依赖极少数偶然事件；
-4. 若均值回归机制在去除过滤后仍成立，再评审持有期敏感性与邻域稳定性；
-5. 趋势延续原型保留为已审计证据，本阶段不继续扩展。
+1. 预注册3、4、5、6、7个完整交易日五个持有期，不追加新的入场或过滤信号；
+2. 保持仓位、成交、费用和评价窗口不变，检查五日结果是否为孤立尖峰；
+3. 优先比较最大回撤、卡玛和盈亏比，并报告逐年度方向和交易级分布；
+4. 只判断是否存在稳健平台，本轮不以最高指标自动选择持有期；
+5. 趋势延续及两项过滤保留为已审计证据，本阶段不继续扩展。
 
 所有评估继续绑定S002开发截止`2026-09-08`。只有归因和稳健性证据成立后，才创建首个
 S002候选并交给SE评价。
@@ -57,5 +62,5 @@ S002候选并交给SE评价。
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 510500.SH
 .\.venv\Scripts\czsc-trader.exe strategy show --strategy S002
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; print(validate_experiment_archive(Path('experiments/20260909_S002_EX05'))['status'])"
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; print(validate_experiment_archive(Path('experiments/20260909_S002_EX06'))['status'])"
 ```

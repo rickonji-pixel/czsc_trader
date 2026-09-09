@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from czsc_trader.signal_prototypes import build_minimal_prototype
+from czsc_trader.signal_prototypes import build_minimal_prototype, two_by_two_effects
 
 
 def test_minimal_prototype_applies_risk_and_time_exits() -> None:
@@ -35,3 +35,13 @@ def test_minimal_prototype_applies_risk_and_time_exits() -> None:
         "HOLD_CASH",
         "HOLD_CASH",
     ]
+
+
+def test_two_by_two_effects_separate_main_and_interaction_terms() -> None:
+    effects = two_by_two_effects(10.0, 12.0, 13.0, 18.0)
+
+    assert effects == {
+        "top_divergence_main": 3.5,
+        "structure_pressure_main": 4.5,
+        "interaction": 3.0,
+    }

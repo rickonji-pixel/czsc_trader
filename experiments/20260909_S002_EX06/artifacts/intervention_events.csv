@@ -1,0 +1,10 @@
+﻿prototype_id,date,entry_state,entry_transition,risk_active,active_risks,held_sessions,action,target_position
+P-A10-TOP-DIVERGENCE,2025-03-31,其他,False,True,tas_macd_bs1_V230411,4,EXIT_RISK,0.0
+P-A01-STRUCTURE-PRESSURE,2021-03-12,其他,False,True,cxt_overlap_V240612,2,EXIT_RISK,0.0
+P-A01-STRUCTURE-PRESSURE,2023-03-06,三连跌,True,True,cxt_overlap_V240612,0,BLOCK_ENTRY_RISK,0.0
+P-A01-STRUCTURE-PRESSURE,2023-07-18,三连跌,True,True,cxt_overlap_V240612,0,BLOCK_ENTRY_RISK,0.0
+P-A01-STRUCTURE-PRESSURE,2025-04-01,其他,False,True,cxt_overlap_V240612,5,EXIT_RISK,0.0
+P-A11-BOTH-FILTERS,2021-03-12,其他,False,True,cxt_overlap_V240612,2,EXIT_RISK,0.0
+P-A11-BOTH-FILTERS,2023-03-06,三连跌,True,True,cxt_overlap_V240612,0,BLOCK_ENTRY_RISK,0.0
+P-A11-BOTH-FILTERS,2023-07-18,三连跌,True,True,cxt_overlap_V240612,0,BLOCK_ENTRY_RISK,0.0
+P-A11-BOTH-FILTERS,2025-03-31,其他,False,True,tas_macd_bs1_V230411,4,EXIT_RISK,0.0

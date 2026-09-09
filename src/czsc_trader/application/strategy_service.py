@@ -59,8 +59,19 @@ def list_strategies(context: RepositoryContext) -> CommandResult:
     def operation() -> list[dict[str, Any]]:
         rows = []
         for strategy in registry.list_strategies():
-            release = registry.resolve_strategy(strategy.strategy_id)
-            rows.append(_identity(registry, strategy.strategy_id, release.version))
+            versions = registry.versions(strategy.strategy_id)
+            rows.append(
+                _identity(registry, strategy.strategy_id, versions[-1].version)
+                if versions
+                else {
+                    "strategy_id": strategy.strategy_id,
+                    "name": strategy.name,
+                    "version": None,
+                    "release_id": None,
+                    "release_hash": None,
+                    "qualification": None,
+                }
+            )
         return rows
 
     rows = _domain_call("strategy.list", operation)
@@ -73,6 +84,20 @@ def show_strategy(
     registry = _registry(context)
 
     def operation() -> dict[str, Any]:
+        strategy = registry.resolve_strategy_identity(reference)
+        versions = registry.versions(strategy.strategy_id)
+        if version is None and not versions:
+            return {
+                "strategy_id": strategy.strategy_id,
+                "name": strategy.name,
+                "version": None,
+                "release_id": None,
+                "release_hash": None,
+                "qualification": None,
+                "objective": strategy.objective,
+                "responsibility": strategy.responsibility,
+                "scope": strategy.scope,
+            }
         release = registry.resolve_strategy(reference, version)
         strategy = registry.get_strategy(release.strategy_id)
         return {

@@ -7,6 +7,11 @@
       ],
       "path": "S001",
       "strategy_id": "S001"
+    },
+    {
+      "aliases": [],
+      "path": "S002",
+      "strategy_id": "S002"
     }
   ]
 }

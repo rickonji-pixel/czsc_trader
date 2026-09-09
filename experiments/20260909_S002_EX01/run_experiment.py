@@ -19,7 +19,7 @@ from czsc_trader.backtesting import (
 from czsc_trader.experiment_archive import build_experiment_manifest
 
 
-EXPERIMENT_ID = "0909_EX01"
+EXPERIMENT_ID = "20260909_S002_EX01"
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -130,7 +130,7 @@ def _render_conclusion(
         & rows["subject"].isin(["buyhold", "ma5_ma20"])
     ].copy()
     lines = [
-        "# 0909_EX01 结论",
+        "# 20260909_S002_EX01 结论",
         "",
         "状态：COMPLETE。全部14次TDR回放及SE审计通过。",
         "",
@@ -206,7 +206,7 @@ def main() -> None:
     run_evidence: list[dict[str, object]] = []
     identities: list[dict[str, str]] = []
 
-    with tempfile.TemporaryDirectory(prefix="czsc_0909_ex01_") as temp:
+    with tempfile.TemporaryDirectory(prefix="czsc_s002_ex01_") as temp:
         temp_root = Path(temp)
         for strategy_spec in protocol["reference_strategies"]:
             snapshot = resolve_registered_strategy(
@@ -288,7 +288,7 @@ def main() -> None:
     }
     _write_json(artifacts / "run_evidence.json", evidence)
     (experiment_dir / "03_execution.md").write_text(
-        "# 0909_EX01 执行\n\n"
+        "# 20260909_S002_EX01 执行\n\n"
         "状态：COMPLETE。\n\n"
         "按冻结协议完成2个参考策略、7个窗口，共14次独立资金回放。全部运行通过TDR "
         "Backtest v2，并由SE完成执行账本审计。运行未生成候选、未调用SM或PTE。\n",
@@ -303,6 +303,9 @@ def main() -> None:
             "experiment_id": EXPERIMENT_ID,
             "status": "COMPLETE",
             "experiment_type": protocol["experiment_type"],
+            "strategy_id": target["strategy_id"],
+            "symbol": target["symbol"],
+            "development_cutoff": dataset_spec["cutoff"],
             "promotion_allowed": False,
         },
     )

@@ -107,6 +107,21 @@ class StrategyRegistry:
             raise RegistryError(f"unknown strategy: {strategy_id}")
         return Strategy.from_dict(self._read_json(path))
 
+    def resolve_strategy_identity(self, reference: str) -> Strategy:
+        registry = self._load_registry()
+        match = next(
+            (
+                item
+                for item in registry["strategies"]
+                if reference == item["strategy_id"]
+                or reference in item.get("aliases", [])
+            ),
+            None,
+        )
+        if match is None:
+            raise RegistryError(f"unknown strategy reference: {reference}")
+        return self.get_strategy(match["strategy_id"])
+
     def get_version(self, strategy_id: str, version: str) -> StrategyVersion:
         path = self._version_path(strategy_id, version)
         if not path.exists():
@@ -129,23 +144,18 @@ class StrategyRegistry:
         versions = [self.get_version(strategy_id, path.stem) for path in directory.glob("v*.json")]
         return sorted(versions, key=lambda item: int(item.version[1:]))
 
+    def versions(self, strategy_id: str) -> tuple[StrategyVersion, ...]:
+        """Return registered versions, including an empty tuple for a new identity."""
+        self.get_strategy(strategy_id)
+        return tuple(self._versions(strategy_id))
+
     def resolve_strategy(self, reference: str, version: str | None = None) -> StrategyVersion:
-        registry = self._load_registry()
-        match = next(
-            (
-                item
-                for item in registry["strategies"]
-                if reference == item["strategy_id"] or reference in item.get("aliases", [])
-            ),
-            None,
-        )
-        if match is None:
-            raise RegistryError(f"unknown strategy reference: {reference}")
-        versions = self._versions(match["strategy_id"])
+        strategy = self.resolve_strategy_identity(reference)
+        versions = self._versions(strategy.strategy_id)
         if version is not None:
-            return self.get_version(match["strategy_id"], version)
+            return self.get_version(strategy.strategy_id, version)
         if not versions:
-            raise RegistryError(f"strategy has no versions: {match['strategy_id']}")
+            raise RegistryError(f"strategy has no versions: {strategy.strategy_id}")
         return versions[-1]
 
     def create_strategy(

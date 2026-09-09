@@ -24,6 +24,7 @@ TDR通过`advice.v4` JSON契约向PTE提供交易决策。PTE通过CLI调用TDR�
 | --- | --- |
 | 安装、数据更新、回测、策略查看、PTE控制台和WDG/PTE启停 | [用户使用说明](docs/USER_GUIDE.md) |
 | 继续策略研究、创建实验、评估候选、冻结策略和防止数据污染 | [研究交接](docs/RESEARCH_HANDOFF.md) |
+| 查看S001、S002等各条研究线的当前状态和下一步 | [研究项目索引](research/README.md) |
 | 继续代码开发、理解架构契约、恢复环境和执行测试 | [技术交接](docs/DEVELOPMENT_HANDOFF.md) |
 | 控制TDD用例膨胀、收敛测试并执行周期性治理 | [测试用例治理](docs/TEST_GOVERNANCE.md) |
 

@@ -5,25 +5,20 @@
 > 恢复和测试治理见[技术交接](DEVELOPMENT_HANDOFF.md)，安装与日常操作见
 > [用户使用说明](USER_GUIDE.md)。
 
-## 当前研究起点
+## 研究项目组织
 
-- 标的：`588080.SH`。
-- 在位挑战对象：`S001-v2 / 综合基线策略 / R1102`。
-- 资格：`PAPER_READY`；发布哈希以`strategies/S001/versions/v2.json`为准。
-- 来源实验：`0903_EX06`；人工接受记录为
-  `experiments/0903_EX06/evaluation_acceptance.json`。
-- 策略选择截止：2026-09-02。
-- Git正式行情截止：2026-09-02；每次研究前重新读取`data/raw/588080_manifest.json`。
-- 统计稳健性：`MIXED`。PBO和配对Bootstrap偏正面，DSR中性，真实候选邻域偏弱。
-- 前一版本：`S001-v1`，来源候选143，继续作为不可变历史对照和独立模拟账户。
+每条研究线从立项开始使用SM策略ID，当前状态和下一步维护在`research/<策略ID>/HANDOFF.md`。
+正式策略版本、资格和绩效证据以`strategies/`为准；不可变实验事实以`experiments/`为准。
+研究交接文件只保存当前上下文并链接证据，避免复制历史流水。
 
-`baseline_20260903`仅是S001既有版本的历史依赖，`S001-v2`是当前正式策略发布。
-后续候选必须挑战`S001-v2`，不能把“候选143”“活动基线”“冠军策略”等历史称呼当作
-新的策略身份。
+当前研究项目见[研究项目索引](../research/README.md)：
 
-当前最高效的OPC研究方式是：把2026-09-02及以前全部数据视为可重复使用的开发池，在
-池内进行研究、滚动评估和候选PK；选出的新策略冻结为新版本，并从冻结后的新增信号开始
-独立前瞻观察。
+- [S001 / 588080.SH](../research/S001/HANDOFF.md)：已进入PTE前瞻观察，后续可继续研究
+  range区间；
+- [S002 / 510500.SH](../research/S002/HANDOFF.md)：已完成迁移诊断，准备开展专属参数研究。
+
+适合OPC团队的工作方式是：每个策略单独登记开发截止，在其开发池内反复研究、滚动评估
+和候选PK；选出的新策略冻结为新版本，并从冻结后的新增信号开始独立前瞻观察。
 
 ## 标准研究工作流
 
@@ -43,7 +38,8 @@
 
 ### 2. 创建不可变实验
 
-使用当天尚未占用的`experiments/MMDD_EXXX/`编号。建议结构：
+新实验使用`experiments/YYYYMMDD_策略ID_EXnn/`编号。同一策略同一天从`EX01`开始递增，
+例如`20260909_S002_EX02`。历史`MMDD_EXXX`目录保持原样。建议结构：
 
 ```text
 01_goal.md                 研究问题和成功口径
@@ -122,9 +118,9 @@ SE输出筛选、排名和审计证据，不直接改变SM或PTE状态。
 先审阅一页摘要、筛除台账和统计证据，再由人工执行接受：
 
 ```powershell
-.\.venv\Scripts\czsc-trader.exe strategy evaluate --experiment MMDD_EXXX
+.\.venv\Scripts\czsc-trader.exe strategy evaluate --experiment YYYYMMDD_SXXX_EXnn
 .\.venv\Scripts\czsc-trader.exe strategy accept-evaluation `
-  --experiment MMDD_EXXX --actor tomxiao --reason "确认冻结并进入模拟盘"
+  --experiment YYYYMMDD_SXXX_EXnn --actor tomxiao --reason "确认冻结并进入模拟盘"
 ```
 
 接受操作创建新的不可变策略版本并登记证据，随后在PTE创建绑定该发布的独立虚拟账户。
@@ -148,8 +144,8 @@ PTE虚拟账户页的“前瞻观察”默认显示选择截止日前60个交易
 
 ### 开发池、内部验证和前瞻观察
 
-- **开发池**：研究者已经查看、比较、调参或用于接受决策的数据。当前固定为
-  2026-09-02及以前，可以反复用于提高研究效率。
+- **开发池**：研究者已经查看、比较、调参或用于接受决策的数据。截止日与具体策略绑定，
+  以对应`research/<策略ID>/HANDOFF.md`及冻结版本中的`selection_data_cutoff`为准。
 - **内部验证**：开发池内的年度窗口、滚动窗口、留一窗口和walk-forward。它们用于检验
   跨周期稳定性，但仍属于开发证据。
 - **前瞻观察**：某策略版本完成选择之后才出现、且未反向参与该版本选择的数据。它用于
@@ -187,25 +183,24 @@ PTE虚拟账户页的“前瞻观察”默认显示选择截止日前60个交易
 - **范围控制**：研究目标之外的诊断只报告，不在结果已知后增加硬约束。
 - **可复现性**：数据清单、候选、代码、协议、随机种子、产物和接受记录都进入哈希链。
 
-## 下一轮研究清单
+## 启动一轮研究
 
-下一轮range优化建议按以下顺序开展：
-
-1. 从`strategies/registry.json`读取S001，并以`S001-v2`发布哈希锁定在位策略；
-2. 将数据截止固定为2026-09-02，暂不使用其后的PTE前瞻数据调参；
-3. 明确只调整range部分，记录trend参数保持冻结，但仍评估完整策略的跨regime影响；
-4. 预注册候选生成、核心指标、窗口和硬约束，建立完整候选台账；
-5. 复用TDR完整执行事实和SE `opc-v3`，保留所有筛除与排名证据；
-6. 对唯一临时冠军审阅统计风险、参数邻域、交易样本和收益代价；
-7. 没有具备实际意义的胜者时保留`S001-v2`，不为完成实验而冻结；
-8. 人工接受胜者后创建`S001-v3`及新PTE虚拟账户，从新信号开始独立观察。
+1. 从[研究项目索引](../research/README.md)进入对应策略交接文件；
+2. 核对策略身份、参考版本或种子、标的、研究问题和开发截止；
+3. 使用`YYYYMMDD_策略ID_EXnn`创建新实验并在结果产生前冻结协议；
+4. 复用TDR完整执行事实和SE评估能力，保留候选全集及全部筛除去向；
+5. 对唯一临时冠军审阅统计风险、参数邻域、交易样本和收益代价；
+6. 没有具备实际意义的胜者时保留当前状态，不为完成实验而冻结；
+7. 人工接受胜者后由SM创建并冻结版本，再为其建立独立PTE虚拟账户。
 
 研究开始前的最小检查：
 
 ```powershell
 git status --short --branch
-.\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
-.\.venv\Scripts\czsc-trader.exe strategy show --strategy S001 --version v2
+$StrategyId = "S002"
+$ResearchSymbol = "510500.SH"
+.\.venv\Scripts\czsc-trader.exe data validate --symbol $ResearchSymbol
+.\.venv\Scripts\czsc-trader.exe strategy show --strategy $StrategyId
 .\.venv\Scripts\czsc-trader.exe strategy validate --all
 .\.venv\Scripts\czsc-trader.exe archive validate --all
 ```
@@ -228,6 +223,7 @@ git status --short --branch
 ## 资料边界
 
 - 正式策略身份与资格：`strategies/`；
+- 各研究线当前上下文：`research/`；
 - S001既有版本的历史规则依赖：`strategies/dependencies/legacy_rule_baselines/`；
 - 受控研究数据身份：`data/raw/`；
 - 独立普通回测数据：`data/backtest/`；

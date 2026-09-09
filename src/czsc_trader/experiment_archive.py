@@ -19,13 +19,18 @@ REQUIRED_DOCUMENTS = (
 MANIFEST_NAME = "experiment_manifest.json"
 GOVERNANCE_SIDECARS = {"evaluation_acceptance.json"}
 TEXT_SUFFIXES = {".csv", ".html", ".json", ".md", ".py", ".txt"}
+STRATEGY_EXPERIMENT_PATTERN = re.compile(
+    r"(?P<date>[0-9]{8})_(?P<strategy_id>S[0-9]{3})_EX[0-9]{2}$"
+)
 
 
-def create_experiment_dir(root: Path, run_date: date) -> Path:
-    """Create the next non-overwriting date-scoped ``MMDD_EXX`` directory."""
+def create_experiment_dir(root: Path, run_date: date, strategy_id: str) -> Path:
+    """Create the next strategy-owned ``YYYYMMDD_SXXX_EXnn`` directory."""
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
-    prefix = f"{run_date:%m%d}_EX"
+    if not re.fullmatch(r"S[0-9]{3}", strategy_id):
+        raise ValueError("strategy_id must match S plus three digits")
+    prefix = f"{run_date:%Y%m%d}_{strategy_id}_EX"
     pattern = re.compile(rf"{re.escape(prefix)}(\d{{2}})")
     numbers = [
         int(match.group(1))
@@ -59,12 +64,31 @@ def _is_managed_file(experiment_dir: Path, path: Path) -> bool:
     )
 
 
+def _validate_strategy_experiment_identity(
+    experiment_dir: Path, metadata: dict[str, object]
+) -> None:
+    match = STRATEGY_EXPERIMENT_PATTERN.fullmatch(experiment_dir.name)
+    if match is None:
+        return
+    if metadata.get("experiment_id") != experiment_dir.name:
+        raise ValueError("experiment_id must equal the strategy experiment directory")
+    if metadata.get("strategy_id") != match.group("strategy_id"):
+        raise ValueError("strategy_id must equal the strategy experiment owner")
+    if not isinstance(metadata.get("symbol"), str) or not metadata["symbol"]:
+        raise ValueError("strategy experiment must declare symbol")
+    try:
+        date.fromisoformat(str(metadata["development_cutoff"]))
+    except (KeyError, ValueError) as exc:
+        raise ValueError("strategy experiment must declare development_cutoff") from exc
+
+
 def build_experiment_manifest(
     experiment_dir: Path,
     metadata: dict[str, object],
 ) -> dict[str, object]:
     """Write a deterministic manifest for every managed file in an archive."""
     experiment_dir = Path(experiment_dir).resolve()
+    _validate_strategy_experiment_identity(experiment_dir, metadata)
     files = {
         path.relative_to(experiment_dir).as_posix(): _file_record(path)
         for path in sorted(experiment_dir.rglob("*"))
@@ -88,6 +112,7 @@ def validate_experiment_archive(experiment_dir: Path) -> dict[str, object]:
     if "outputs/" in serialized or re.search(r"_R\d{2}", serialized):
         raise ValueError("experiment manifest must not reference outputs revisions")
     manifest = json.loads(serialized)
+    _validate_strategy_experiment_identity(experiment_dir, manifest)
     files = manifest.get("files")
     if not isinstance(files, dict):
         raise ValueError("experiment manifest files must be an object")

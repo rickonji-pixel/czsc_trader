@@ -124,6 +124,10 @@ def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
         ["strategy", "create", "--input", str(strategy_input), *audit, *root],
         capsys,
     )
+    listed_identity = invoke_main(["strategy", "list", *root], capsys)
+    shown_identity = invoke_main(
+        ["strategy", "show", "--strategy", "S900", *root], capsys
+    )
     versioned = invoke_main(
         [
             "strategy",
@@ -256,6 +260,15 @@ def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
     )
 
     assert created["result"]["strategy_id"] == "S900"
+    pending = next(
+        row
+        for row in listed_identity["result"]["strategies"]
+        if row["strategy_id"] == "S900"
+    )
+    assert pending["version"] is None
+    assert pending["qualification"] is None
+    assert shown_identity["result"]["objective"] == "验证完整策略治理链路"
+    assert shown_identity["result"]["version"] is None
     assert versioned["result"]["version"]["release_id"] == "S900-v1"
     assert len(release_hash) == 64
     assert promoted["result"]["to_state"] == "LIVE_READY"

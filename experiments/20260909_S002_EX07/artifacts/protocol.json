@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX07",
+  "experiment_type": "holding_period_neighborhood_audit",
+  "research_target": {
+    "strategy_id": "S002",
+    "symbol": "510500.SH",
+    "asset_type": "etf",
+    "development_cutoff": "2026-09-08"
+  },
+  "source_experiment": {
+    "experiment_id": "20260909_S002_EX06",
+    "manifest_sha256": "a4e46a07d24680b6c639a6443f2d38b8863b78c9b7a2e28f0784a7a99ff953ab",
+    "protocol_sha256": "dff66fdb45bc3a209876d616c405a743736fbf02a5168d0b75c58b17aaf4646d",
+    "window_metrics_sha256": "37e3fe9887471e5aca42d3cba265e00df36db410ce935e0349e1eacf615d4f77"
+  },
+  "signal_generation": {
+    "price_adjustment": "hfq",
+    "frequency_specs": [
+      {"tag": "daily", "czsc_freq": "日线", "warmup_bars": 250}
+    ],
+    "entry": {
+      "signal_id": "SIG-DAILY-7F321044E87FE70C",
+      "frequency": "daily",
+      "name": "bar_triple_V230506",
+      "state": "三连跌",
+      "state_id": "STATE-25B722E7D5716B00",
+      "expected_events_since_2021": 26
+    }
+  },
+  "holding_periods": [3, 4, 5, 6, 7],
+  "reference_holding_period": 5,
+  "shared_rules": {
+    "risk_filters": [],
+    "target_position": 1.0,
+    "signal_time": "T close after completed bar",
+    "execution_time": "T+1 open",
+    "ignore_entries_while_holding": true,
+    "require_fresh_transition_after_exit": true,
+    "fee_rate_one_way": 0.0005,
+    "initial_cash": 1000000.0
+  },
+  "windows": [
+    {"id": "2021", "start": "2021-01-04", "end": "2021-12-31"},
+    {"id": "2022", "start": "2022-01-04", "end": "2022-12-30"},
+    {"id": "2023", "start": "2023-01-03", "end": "2023-12-29"},
+    {"id": "2024", "start": "2024-01-02", "end": "2024-12-31"},
+    {"id": "2025", "start": "2025-01-02", "end": "2025-12-31"},
+    {"id": "2026YTD", "start": "2026-01-05", "end": "2026-09-08"},
+    {"id": "2021_2026YTD", "start": "2021-01-04", "end": "2026-09-08"}
+  ],
+  "primary_metrics": ["max_drawdown", "calmar", "win_loss_ratio"],
+  "secondary_metrics": ["return", "sharpe", "closed_trades", "exposure"],
+  "automatic_acceptance": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

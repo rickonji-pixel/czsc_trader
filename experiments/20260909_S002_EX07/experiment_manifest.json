@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX07",
+  "status": "PLANNED",
+  "experiment_type": "holding_period_neighborhood_audit",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 306,
+      "sha256": "c3dd88a8358cf5370520f2d609962b9550430898ea37bd171ff60fd4dc5bd18c"
+    },
+    "02_design.md": {
+      "bytes": 1698,
+      "sha256": "2808f07a0b299a9a00c8e947288689e4a260550d646615782373057b27183ebf"
+    },
+    "03_execution.md": {
+      "bytes": 85,
+      "sha256": "340dcf7253637983ea1df4b0ec1402f3291d42989cb8417d0d5b89eda3ae30b6"
+    },
+    "04_conclusion.md": {
+      "bytes": 76,
+      "sha256": "03acbeb4a5b50ffcf8b9a75652de8f1ddd7927f30af69f4b7285483e82174eac"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2219,
+      "sha256": "50f75387a2f717cffeb3ad0ddc9033057f65be7058e088e544d7a151a5c27de3"
+    }
+  }
+}

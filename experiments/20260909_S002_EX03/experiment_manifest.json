@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX03",
+  "status": "FAILED",
+  "experiment_type": "signal_hypothesis_review",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 301,
+      "sha256": "3c0f4c70fecce9557f82fd93c6f3da3464f68a6f442006f140c0a3f3cd76e8c3"
+    },
+    "02_design.md": {
+      "bytes": 2173,
+      "sha256": "9f5804a1ab65839c049106552146010093e9097ecc617a217524af8ec79dc7c7"
+    },
+    "03_execution.md": {
+      "bytes": 559,
+      "sha256": "53054e0f9028c966b65405636eb6f848a1515edb8814d4c5716bc1fcc5edad19"
+    },
+    "04_conclusion.md": {
+      "bytes": 345,
+      "sha256": "525647f599c489cbad05d563d4ebb68296ff506fafc7050a30e1102e7ddcf434"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3144,
+      "sha256": "d231b8025f2ce3b707db0d621206d47522dee4e09507cd03c5a0dabdbd4afbaf"
+    },
+    "run_experiment.py": {
+      "bytes": 18879,
+      "sha256": "b17e1a637c6c7cc8debcd47da588c06188fb0ca7f7ff30b7257548f6eb9395dc"
+    }
+  }
+}

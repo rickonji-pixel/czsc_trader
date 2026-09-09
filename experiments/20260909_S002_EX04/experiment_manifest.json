@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX04",
+  "status": "COMPLETE",
+  "experiment_type": "signal_hypothesis_review",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 338,
+      "sha256": "e7f22b1be8604e154396d56fdfbe8169efb07b647730c4a5cd7298bee4a6cd36"
+    },
+    "02_design.md": {
+      "bytes": 2143,
+      "sha256": "d7a0d9c05ab1c322d6d156f8e31486a4ffd8667fcb9d1d7d681cd1ed9ccbfdc6"
+    },
+    "03_execution.md": {
+      "bytes": 355,
+      "sha256": "1cab97076574b135cd01e19d6ba20c2d5a207180af87c858638b9fc9021cb4d8"
+    },
+    "04_conclusion.md": {
+      "bytes": 2183,
+      "sha256": "3cabf889da3ff2d1b54002e5cf958432dfb62e3b4046fb5c48622f9d92657044"
+    },
+    "artifacts/hypotheses.json": {
+      "bytes": 1589,
+      "sha256": "1bdd5596bae2019564903d6794730c80616968dce3590a87434933eabdb41f06"
+    },
+    "artifacts/mechanical_review_universe.csv": {
+      "bytes": 42298,
+      "sha256": "223da14c3210ab362014c9ec1149441d54109aaae19c8eced7d434875b734823"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3344,
+      "sha256": "a1170c5623032ddeb7f80e35601d00ff121bedb095b1fc277197fbe3c8774210"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 1991,
+      "sha256": "0469345827fdbcf13dbe844c046a6cb99eef79ce31ca3316a97bd7fbff16102a"
+    },
+    "artifacts/selected_annual_metrics.csv": {
+      "bytes": 33034,
+      "sha256": "2ad70d05af16492519744be9b11312fde439a32e81a47673a1e48d3e0b8820ee"
+    },
+    "artifacts/selected_event_metrics.csv": {
+      "bytes": 8634,
+      "sha256": "b4d4724d414621efb2575b8bc81a4d12f2e1e20d84835314e59c89023e6b997a"
+    },
+    "artifacts/selected_event_overlap.csv": {
+      "bytes": 486,
+      "sha256": "5106ea7177b1923c1dba6098d4fa804201231c9eff3fb5e54ae3383ed9a20f30"
+    },
+    "artifacts/selected_events.csv": {
+      "bytes": 19309,
+      "sha256": "30f1dbbc1c288129f432bd05207dc79d2fc8fd56b42adb20f6586b5d3f53b150"
+    },
+    "artifacts/semantic_review.csv": {
+      "bytes": 3239,
+      "sha256": "dd04738b57c5350e375197aa9c8f43b547728e018176c659bb0347f89a7c5fa0"
+    },
+    "artifacts/signal_review.html": {
+      "bytes": 4993524,
+      "sha256": "c60a82e47530515cb91479cec8e24ddc419a719517e536cfd11dc8bc73040f57"
+    },
+    "run_experiment.py": {
+      "bytes": 10482,
+      "sha256": "05adb837c5cb5da6266fffa56a31e4c31e7b1e88ca616204fb98103cab31ed73"
+    }
+  }
+}

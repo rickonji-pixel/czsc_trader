@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX04",
+  "source_experiment": {
+    "experiment_id": "20260909_S002_EX02",
+    "manifest_sha256": "788c86174f5127fa02972f52ef976b8d39d82a466e9e045c001b5b7390bea213",
+    "event_metrics_sha256": "91627bd948a042ba5d16795d25f7a82b8f690cba12506d71696b1eb45ef69f82",
+    "signal_events_sha256": "a52257be10805828a1cf8d8972a0917a4435a90c4ecf4a458946920bc23abde6"
+  },
+  "mechanical_review_counts": {
+    "eligible_before_exact_deduplication": 202,
+    "eligible_after_exact_deduplication": 196
+  },
+  "selected_hypotheses": 4,
+  "selected_event_count": 111,
+  "selected_same_day_overlap_max": 2,
+  "market_data": {
+    "symbol": "510500.SH",
+    "cutoff": "2026-09-08",
+    "manifest_sha256": "e22ef09a5b33471cd9e84e01d3d386acd5205224b464053839f67f6160a59358"
+  },
+  "outputs": {
+    "mechanical_review_universe.csv": {
+      "bytes": 42298,
+      "sha256": "223da14c3210ab362014c9ec1149441d54109aaae19c8eced7d434875b734823"
+    },
+    "semantic_review.csv": {
+      "bytes": 3239,
+      "sha256": "dd04738b57c5350e375197aa9c8f43b547728e018176c659bb0347f89a7c5fa0"
+    },
+    "selected_event_metrics.csv": {
+      "bytes": 8634,
+      "sha256": "b4d4724d414621efb2575b8bc81a4d12f2e1e20d84835314e59c89023e6b997a"
+    },
+    "selected_annual_metrics.csv": {
+      "bytes": 33034,
+      "sha256": "2ad70d05af16492519744be9b11312fde439a32e81a47673a1e48d3e0b8820ee"
+    },
+    "selected_events.csv": {
+      "bytes": 19309,
+      "sha256": "30f1dbbc1c288129f432bd05207dc79d2fc8fd56b42adb20f6586b5d3f53b150"
+    },
+    "selected_event_overlap.csv": {
+      "bytes": 486,
+      "sha256": "5106ea7177b1923c1dba6098d4fa804201231c9eff3fb5e54ae3383ed9a20f30"
+    },
+    "hypotheses.json": {
+      "bytes": 1638,
+      "sha256": "19352424acb45eaa27561a095562e93556cf96dcf8834784ef31512edb19e9cb"
+    },
+    "signal_review.html": {
+      "bytes": 4997411,
+      "sha256": "249103308ef9ed57255a11c3b56b267a8c989b6e26a45ad1f5cb3b80a09e4438"
+    }
+  }
+}

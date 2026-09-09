@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX05",
+  "dataset_fingerprint": "02f6a42a12d98d37521fdb35083ad3cc0fb74a62eb34e42fa84e54ef5036c36b",
+  "cutoff": "2026-09-08",
+  "transition_audit_passed": true,
+  "subjects": [
+    "BUYHOLD",
+    "MA5_MA20",
+    "P-A-MEAN-REVERSION",
+    "P-B-TREND-CONTINUATION"
+  ],
+  "windows": [
+    "2021",
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026YTD",
+    "2021_2026YTD"
+  ],
+  "outputs": {
+    "signal_transition_audit.csv": {
+      "bytes": 483,
+      "sha256": "f87e564b22912cb814aff4396c6fd6ed8b25dd67df320898e1b774867e32b632"
+    },
+    "generated_signal_catalog.csv": {
+      "bytes": 4554,
+      "sha256": "43d8dd7434a5efbb4c752143d0fbe6544db19103ca64a2afc79f439b014f113f"
+    },
+    "prototype_daily.csv": {
+      "bytes": 211103,
+      "sha256": "4b05c6d13ecf5cc85781d4a08d0acb4a654f8e08cd78f18028e1192665ef49c8"
+    },
+    "decision_counts.csv": {
+      "bytes": 461,
+      "sha256": "9f813c0cb5856fa5f132aca1d80682272b73f8792ee5ea2ae0c59b263992f9d0"
+    },
+    "window_metrics.csv": {
+      "bytes": 4674,
+      "sha256": "51fa472f6b6fecf802a0746b7b82afc94d3b4d6521ddcf5daac9fba8fc588eea"
+    },
+    "orders.csv": {
+      "bytes": 33562,
+      "sha256": "4c890ff76e2f91e24bcfa2008b83a2b009b541245d063cea9dfa08078025165e"
+    },
+    "closed_trades.csv": {
+      "bytes": 33595,
+      "sha256": "baace5582b4c12610a45cebeccc90d8c903b12343f5e99ac906c564375297d12"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "experiment_id": "20260909_S002_EX05",
-  "status": "PLANNED",
+  "status": "COMPLETE",
   "experiment_type": "minimal_signal_prototype_comparison",
   "strategy_id": "S002",
   "symbol": "510500.SH",
@@ -17,16 +17,52 @@
       "sha256": "f172bed9194049bdfb52c3a0277862f176e387b7ed651f5362272a9c019a1d3e"
     },
     "03_execution.md": {
-      "bytes": 85,
-      "sha256": "97dde8a25aa89c44f6f0e0c21942a994aa92fe651419d062ffc29af87822e6a6"
+      "bytes": 352,
+      "sha256": "a4a32fb70202b6e5d7ed71bde66467da36e3d7cf5621e4168542e3154f05444c"
     },
     "04_conclusion.md": {
-      "bytes": 76,
-      "sha256": "50600ce176faff293f1a7aa47e1c90153f46a02447a0a3abf86a9242d0d5886e"
+      "bytes": 1439,
+      "sha256": "3b642ac67a1f46fc3e2b0698d003417477655d0bbbf4ffc1a2545a1db266ca13"
+    },
+    "artifacts/closed_trades.csv": {
+      "bytes": 33595,
+      "sha256": "baace5582b4c12610a45cebeccc90d8c903b12343f5e99ac906c564375297d12"
+    },
+    "artifacts/decision_counts.csv": {
+      "bytes": 461,
+      "sha256": "9f813c0cb5856fa5f132aca1d80682272b73f8792ee5ea2ae0c59b263992f9d0"
+    },
+    "artifacts/generated_signal_catalog.csv": {
+      "bytes": 4554,
+      "sha256": "43d8dd7434a5efbb4c752143d0fbe6544db19103ca64a2afc79f439b014f113f"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 33562,
+      "sha256": "4c890ff76e2f91e24bcfa2008b83a2b009b541245d063cea9dfa08078025165e"
     },
     "artifacts/protocol.json": {
       "bytes": 3179,
       "sha256": "617abb85a8e0747011f3eafde3391a8bbaaea56706c4b7bfb4fc2b23432ab912"
+    },
+    "artifacts/prototype_daily.csv": {
+      "bytes": 211103,
+      "sha256": "4b05c6d13ecf5cc85781d4a08d0acb4a654f8e08cd78f18028e1192665ef49c8"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 1448,
+      "sha256": "a01301068df0c5b548bd95d5b929bf9ee5033fda498e7f3ab1eec5d38698df00"
+    },
+    "artifacts/signal_transition_audit.csv": {
+      "bytes": 483,
+      "sha256": "f87e564b22912cb814aff4396c6fd6ed8b25dd67df320898e1b774867e32b632"
+    },
+    "artifacts/window_metrics.csv": {
+      "bytes": 4674,
+      "sha256": "51fa472f6b6fecf802a0746b7b82afc94d3b4d6521ddcf5daac9fba8fc588eea"
+    },
+    "run_experiment.py": {
+      "bytes": 16350,
+      "sha256": "df26515ae59e00fadef52b923488d05e8ee6b8908db9ed324cbfe15164d9bedb"
     }
   }
 }

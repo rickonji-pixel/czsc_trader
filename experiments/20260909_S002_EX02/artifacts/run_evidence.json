@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX02",
+  "runtime_seconds": 198.883,
+  "dataset": {
+    "name": "research",
+    "symbol": "510500.SH",
+    "fingerprint": "02f6a42a12d98d37521fdb35083ad3cc0fb74a62eb34e42fa84e54ef5036c36b",
+    "cutoff": "2026-09-08",
+    "available_first_session": "2019-10-08",
+    "available_last_session": "2026-09-08",
+    "evaluation_first_session": "2021-01-04",
+    "market_manifest_sha256": "e22ef09a5b33471cd9e84e01d3d386acd5205224b464053839f67f6160a59358",
+    "execution_manifest_sha256": "16f5b09e7cb8b63c5a51de0ed3385ba518e5a484cba1aa0cc64938a65c186d22"
+  },
+  "czsc": {
+    "version": "1.0.1",
+    "registry_sha256": "3fcb43630641fe5fb3d0069861e5ec1cef1688aad86954c9c5ce5145e9b4c56f",
+    "registered_total": 246,
+    "registered_by_category": {
+      "kline": 222,
+      "trader": 24
+    },
+    "included_functions": 222,
+    "excluded_functions": 24,
+    "requested_configurations": 666,
+    "generated_configurations": 662,
+    "failed_or_unmapped_configurations": 4
+  },
+  "failures": [
+    {
+      "name": "bar_limit_down_V230525",
+      "frequency": "30分钟",
+      "error_type": "MissingSignalOutput",
+      "error": "CZSC returned no identifiable signal column"
+    },
+    {
+      "name": "bar_zt_count_V230504",
+      "frequency": "30分钟",
+      "error_type": "MissingSignalOutput",
+      "error": "CZSC returned no identifiable signal column"
+    },
+    {
+      "name": "bar_limit_down_V230525",
+      "frequency": "周线",
+      "error_type": "MissingSignalOutput",
+      "error": "CZSC returned no identifiable signal column"
+    },
+    {
+      "name": "bar_zt_count_V230504",
+      "frequency": "周线",
+      "error_type": "MissingSignalOutput",
+      "error": "CZSC returned no identifiable signal column"
+    }
+  ],
+  "outputs": {
+    "signal_catalog.csv": {
+      "bytes": 302728,
+      "sha256": "a7eac3f839800e1af31328bbb5144561191ca9ba55a796d54985811cf327a82e"
+    },
+    "event_metrics.csv": {
+      "bytes": 4529109,
+      "sha256": "91627bd948a042ba5d16795d25f7a82b8f690cba12506d71696b1eb45ef69f82"
+    },
+    "signal_stability.csv": {
+      "bytes": 15437495,
+      "sha256": "6f0f41465d781db9aa6b73a1e7061b0a289ab2955e7e7bba14c1a1511a9ce7ae"
+    },
+    "signal_events.csv.gz": {
+      "bytes": 2984929,
+      "sha256": "a52257be10805828a1cf8d8972a0917a4435a90c4ecf4a458946920bc23abde6"
+    },
+    "redundancy_map.json": {
+      "bytes": 50360,
+      "sha256": "997b501b7aba42c9bf1468c0d90f610875792adb5126cbcfae2774abe8c03be2"
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX02",
+  "status": "COMPLETE",
+  "experiment_type": "czsc_signal_census_and_causal_event_study",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 550,
+      "sha256": "b398a685c936ffc5d672c47b0decc4bafde6e2a33843504303bcac364c94046c"
+    },
+    "02_design.md": {
+      "bytes": 2991,
+      "sha256": "13ea8c088c53423a1f253982339282eda98d507974a856d0f6716a17d32bbf0e"
+    },
+    "03_execution.md": {
+      "bytes": 450,
+      "sha256": "e0cd3e39248d83ce3f0d906f8525036b1d2e5685f4271749d93b9ddd20f625a7"
+    },
+    "04_conclusion.md": {
+      "bytes": 3404,
+      "sha256": "b85e4e33e91ff44a38757f694ccbc56b04d225684e89bfbfd5bbb7c5cf43ed4e"
+    },
+    "artifacts/event_metrics.csv": {
+      "bytes": 4529109,
+      "sha256": "91627bd948a042ba5d16795d25f7a82b8f690cba12506d71696b1eb45ef69f82"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1760,
+      "sha256": "88f44e5166cce8b05f6c9fde2c5ecefd8f378c9c9779208d73883faf58b277e1"
+    },
+    "artifacts/redundancy_map.json": {
+      "bytes": 48776,
+      "sha256": "80e25382088f6ab68390f95babe60573be994be207669be4fe4c9a0068fa7dd2"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 2528,
+      "sha256": "6602d99d91fe90866d26b1be3f48146ab477bb04b46dd7fae2789f332e6f66c1"
+    },
+    "artifacts/signal_catalog.csv": {
+      "bytes": 302728,
+      "sha256": "a7eac3f839800e1af31328bbb5144561191ca9ba55a796d54985811cf327a82e"
+    },
+    "artifacts/signal_events.csv.gz": {
+      "bytes": 2984929,
+      "sha256": "a52257be10805828a1cf8d8972a0917a4435a90c4ecf4a458946920bc23abde6"
+    },
+    "artifacts/signal_stability.csv": {
+      "bytes": 15437495,
+      "sha256": "6f0f41465d781db9aa6b73a1e7061b0a289ab2955e7e7bba14c1a1511a9ce7ae"
+    },
+    "run_experiment.py": {
+      "bytes": 11861,
+      "sha256": "c25f755d816c65f2605d9d120172c3aa6b4bed35b48ae8de66b854e986dedca3"
+    }
+  }
+}

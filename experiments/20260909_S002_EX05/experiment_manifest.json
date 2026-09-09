@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX05",
+  "status": "PLANNED",
+  "experiment_type": "minimal_signal_prototype_comparison",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 325,
+      "sha256": "9e20961932a0659290d14585cc7c43c46f993540c6567f75d41ac1c1e0f432d8"
+    },
+    "02_design.md": {
+      "bytes": 2020,
+      "sha256": "f172bed9194049bdfb52c3a0277862f176e387b7ed651f5362272a9c019a1d3e"
+    },
+    "03_execution.md": {
+      "bytes": 85,
+      "sha256": "97dde8a25aa89c44f6f0e0c21942a994aa92fe651419d062ffc29af87822e6a6"
+    },
+    "04_conclusion.md": {
+      "bytes": 76,
+      "sha256": "50600ce176faff293f1a7aa47e1c90153f46a02447a0a3abf86a9242d0d5886e"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3179,
+      "sha256": "617abb85a8e0747011f3eafde3391a8bbaaea56706c4b7bfb4fc2b23432ab912"
+    }
+  }
+}

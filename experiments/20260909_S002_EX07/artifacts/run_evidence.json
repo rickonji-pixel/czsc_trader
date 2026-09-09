@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260909_S002_EX07",
+  "dataset_fingerprint": "02f6a42a12d98d37521fdb35083ad3cc0fb74a62eb34e42fa84e54ef5036c36b",
+  "cutoff": "2026-09-08",
+  "entry_events_since_2021": 26,
+  "ex06_reproduction_passed": true,
+  "holding_periods": [
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "windows": [
+    "2021",
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026YTD",
+    "2021_2026YTD"
+  ],
+  "outputs": {
+    "prototype_daily.csv": {
+      "bytes": 343874,
+      "sha256": "73a1b0560c0efb6edcd5c8ee67f7fe055423bbc294408dce40075a534fe89717"
+    },
+    "window_metrics.csv": {
+      "bytes": 5500,
+      "sha256": "74496eae2cff568f3f26036463ca83ed9bc9c445fa95c0c8c79c9d6eb95903fc"
+    },
+    "orders.csv": {
+      "bytes": 39974,
+      "sha256": "becf6eefbfd1e786dc66322fed163395822dbf58541a7d251317278530f726d7"
+    },
+    "closed_trades.csv": {
+      "bytes": 34910,
+      "sha256": "c21ea99e4807e93b6690d8499fcf050016871608c3b22bc387ffd31bd1da7170"
+    },
+    "trade_distribution.csv": {
+      "bytes": 838,
+      "sha256": "8f22967ea26b4926b08ba4c93ad7b4d44f6c4fb8c27c73341f56376e1e702613"
+    },
+    "neighborhood_summary.csv": {
+      "bytes": 903,
+      "sha256": "1e8be44fd0e1bd7b857f769c57bfde8de92b3d4dcee0586a0622d064458c1178"
+    },
+    "reproduction_audit.csv": {
+      "bytes": 117,
+      "sha256": "8477f7a3182ad019d43f73cdc5991dd2bed7c631f33660b1dfdfbd9c2fbd95f0"
+    }
+  }
+}

@@ -7,7 +7,7 @@
 - 研究线阶段：`RESEARCH`；SM身份已登记，尚无策略版本和部署资格；
 - 研究数据：`2019-10-08`至`2026-09-08`；
 - 当前开发截止：`2026-09-08`；
-- 最近实验：`experiments/20260909_S002_EX06`。
+- 最近实验：`experiments/20260909_S002_EX07`。
 
 ## 当前结论
 
@@ -44,15 +44,20 @@ EX06完成2×2过滤归因。无过滤版本已经取得-3.64%最大回撤、1.5
 指标。压力过滤改善卡玛和盈亏比，但净收益改善集中在2023年阻止的两次入场，并在2021年
 产生负贡献。按OPC简洁性原则，下一轮核心机制采用无过滤版本；压力过滤保留为待验证假设。
 
+EX07完成3至7日持有期邻域审计。五个持有期的连续窗口卡玛均为正，4至6日盈亏比均超过
+2，说明均值回归机制不会因小幅持有期变化而消失；但五日卡玛1.5177约为四日0.8244和
+六日0.7801的两倍，且最大回撤明显更低。当前形态属于4至6日可用带中的突出峰值，尚非
+宽阔平原。五日最大单笔绝对收益占全部交易绝对收益12.98%，没有单笔独占结果。
+
 ## 下一步
 
-下一轮以无过滤的三连跌均值回归为唯一主线，做持有期邻域稳定性审计：
+下一轮对无过滤三连跌核心规则做候选前统计审计：
 
-1. 预注册3、4、5、6、7个完整交易日五个持有期，不追加新的入场或过滤信号；
-2. 保持仓位、成交、费用和评价窗口不变，检查五日结果是否为孤立尖峰；
-3. 优先比较最大回撤、卡玛和盈亏比，并报告逐年度方向和交易级分布；
-4. 只判断是否存在稳健平台，本轮不以最高指标自动选择持有期；
-5. 趋势延续及两项过滤保留为已审计证据，本阶段不继续扩展。
+1. 五日保持为此前已冻结的代表规则，同时把四日和六日作为相关参数邻居；
+2. 输出三者对齐的日收益矩阵，使用SE做配对区块Bootstrap、PBO和DSR；
+3. 做逐年留一审计，确认结论是否依赖某个年度，并重点检查始终较弱的2023年；
+4. 执行双倍费用及滑点压力测试，观察最大回撤、卡玛和盈亏比的退化幅度；
+5. 统计证据只给出`FAVORABLE/MIXED/WEAK`风险标签，不自动创建或晋升策略。
 
 所有评估继续绑定S002开发截止`2026-09-08`。只有归因和稳健性证据成立后，才创建首个
 S002候选并交给SE评价。
@@ -62,5 +67,5 @@ S002候选并交给SE评价。
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 510500.SH
 .\.venv\Scripts\czsc-trader.exe strategy show --strategy S002
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; print(validate_experiment_archive(Path('experiments/20260909_S002_EX06'))['status'])"
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; print(validate_experiment_archive(Path('experiments/20260909_S002_EX07'))['status'])"
 ```

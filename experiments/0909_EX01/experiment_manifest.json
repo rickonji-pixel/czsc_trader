@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "experiment_id": "0909_EX01",
-  "status": "PREREGISTERED",
+  "status": "COMPLETE",
   "experiment_type": "cross_symbol_framework_transfer",
   "promotion_allowed": false,
   "files": {
@@ -14,20 +14,28 @@
       "sha256": "615c76f121a2f42f753d1c076998795e66c67b375c216b76e25c5b8231682e54"
     },
     "03_execution.md": {
-      "bytes": 87,
-      "sha256": "3f173ff0b687eec529ffa2bea384d178f4085e84f8a0e178fe8346204191a43f"
+      "bytes": 240,
+      "sha256": "b8ddc1c91de9a7ed29f36e50ed6592ad23ff2da0e1fd8a99b616c857a297fa1a"
     },
     "04_conclusion.md": {
-      "bytes": 78,
-      "sha256": "fab72f0b17741eadc4acc541b03504bffebdf19327dbb1248b6530ba4bd76bdb"
+      "bytes": 1201,
+      "sha256": "72bc31248fce509648d46e5020a8286fce57460092621bc5f1b21dec745f56f2"
     },
     "artifacts/protocol.json": {
       "bytes": 1188,
       "sha256": "2214849598da7f6845ae2268db5bc1184cc5f9462ab546fc005c29d376c1a136"
     },
+    "artifacts/run_evidence.json": {
+      "bytes": 18496,
+      "sha256": "1b4c422fe47094a9e5371a591924f0f891a812df1b5137bf27847d65e723946f"
+    },
+    "artifacts/window_metrics.csv": {
+      "bytes": 6413,
+      "sha256": "308be74b3f781240c9580f09687bbae9fbfbf442239ea019804f6644d1176cf3"
+    },
     "run_experiment.py": {
-      "bytes": 10777,
-      "sha256": "fc20c892cdebfd08c6cdcd57fded34f84d9b4ab4aae4343593739fb0ce579c37"
+      "bytes": 11785,
+      "sha256": "dcf2311293ecb1b7bf31ccac2d5a15d1481e5702d31ffbf57b73c6747e1878d0"
     }
   }
 }

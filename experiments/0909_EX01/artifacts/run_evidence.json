@@ -1,0 +1,552 @@
+{
+  "schema_version": 1,
+  "experiment_id": "0909_EX01",
+  "dataset": {
+    "name": "research",
+    "fingerprint": "02f6a42a12d98d37521fdb35083ad3cc0fb74a62eb34e42fa84e54ef5036c36b",
+    "cutoff": "2026-09-08",
+    "market_manifest_sha256": "360c0977dd060264c5f0179e0720e71dee71d80509fdc08d05447a1e4526de55",
+    "execution_manifest_sha256": "a36e55af6421bdbaea5d2479c3914c11143b9eb4156ff0ab1408f84040bd3d57"
+  },
+  "strategy_identities": [
+    {
+      "reference": "S001-v1",
+      "source_hash": "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
+      "snapshot_hash": "8d0f0c4dfe1b3b04f0bfb7c7f2c7d6d266614613cab9d6f8b63d19e41e3f1fae"
+    },
+    {
+      "reference": "S001-v2",
+      "source_hash": "146490c8a4ee75f307d3d59453efaebc8fea671c726c023c96449706c40b944e",
+      "snapshot_hash": "45e1a9c201e053a9403a4801827399be6a9fbece89623e354ad3a48ebfa835e9"
+    }
+  ],
+  "runs": [
+    {
+      "strategy_reference": "S001-v1",
+      "window": "2021",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2021-01-04",
+          "2021-12-31"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "1df18cd0424b961064637701a1f3142c96e436b4bca6b1af41196d37a8ed9137",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "c720baa8ccbac1ca3b1c9834d9ed3928ae4f6de0accff826b98586f2a8f00d37",
+        "orders.csv": "bf70c4e535300b6762ca1701e0c9f584db34346035095da023fdc7f68cca5635",
+        "fills.csv": "6916ec8d0776509d7f0b10d4ecebf8ce621ae76abf2ac1db2c1daf9e9c69f9ff",
+        "account_daily.csv": "fd62738bbe92042588a6f83477cdfcef3f10c488b8821b6595417e5d2fa4d98e",
+        "trades.csv": "4455f60b071242f9d62ac1684ed14a1225256410ab06c26ed7c709805b65da40"
+      }
+    },
+    {
+      "strategy_reference": "S001-v1",
+      "window": "2022",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2022-01-04",
+          "2022-12-30"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "e1f0e57dbb035c565f88e1f3a15c305fe69ba8da1a343fc8edfb79b89df97230",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "4e457dfc9615a79465a4d5ce9528bd66dec452f7307118cea554c8f393e33321",
+        "orders.csv": "96e0096eafa3981ae4a0e3812e6b08ca86e4aa2d6da006288349722c633a50f5",
+        "fills.csv": "7e8cb931155d290c8539ab7d35519b90cd7e8d20aff3ea51d35dc376bdcb4eb7",
+        "account_daily.csv": "f141095293b0d6a7e2b47b97c83bf2d581464e0b2cda686ee3a94ad55254b93d",
+        "trades.csv": "1ec8dade694327a8939ecbbc590935c175bb727904fd52505f19d4f36a8adec6"
+      }
+    },
+    {
+      "strategy_reference": "S001-v1",
+      "window": "2023",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2023-01-03",
+          "2023-12-29"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "7cff6e058811574e97ea8b6bd4474ed0c74d6593237427a7ad5c19758d694790",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "0c030ad8d257ac7081d2258d5a0e598a4ea3831aa3189406737b5f217efe6197",
+        "orders.csv": "9e8a677ebdf1e8cd254f5b3efa1236862fddcf5cfef79da4da1d523687b07f0e",
+        "fills.csv": "703c8691a4f57f324d73de24d648fe1e636033d2341848803666f3833cc91a0c",
+        "account_daily.csv": "4a3ec249efb005082264e73ae0a3d221988e190cea2d7e3e3b944ad4805323e6",
+        "trades.csv": "67f53aa424bd4faf5ad2fa5c66d4f1017b277ee19e4bc662fcaee57cb6c4aba2"
+      }
+    },
+    {
+      "strategy_reference": "S001-v1",
+      "window": "2024",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2024-01-02",
+          "2024-12-31"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "a655e849c89d927427cfe7f1cb0ab20efe88c6dc9ccdae04416f65ec3e856d5d",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "8661ddb49e4fb04af573b989e4c5db5349913c38f5ac7080e8b07aabea8d80ec",
+        "orders.csv": "beafee6bd8fa9881e96e01fcda777e2b8a18a1035006f449aed306b8163e6725",
+        "fills.csv": "45ffe483540239f50c23f59003570f7bbc63e33cb074eb358dee5eedb6fb8e49",
+        "account_daily.csv": "44c057209e576095b05417f13415a79bcc2131d2ce130c369f39691c2638fc00",
+        "trades.csv": "54ffde069e14498586266b4b600cb433e7dda63fbe0e1590607822b7324fc49e"
+      }
+    },
+    {
+      "strategy_reference": "S001-v1",
+      "window": "2025",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2025-01-02",
+          "2025-12-31"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "3396cc90a0649d2cb91a45ad3cde8a325d2b5b62fc7693d06fb0907ebc07859c",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "b964db1d42a2ed340bcbb6cbc425b251f0871cbd561b7e4d247492b7527b5d8e",
+        "orders.csv": "d567287faa660100ad1fd6ec2521ee83e43581d59b2c3d68370b5f1e7cca3f05",
+        "fills.csv": "5389d96d259431a64d2d3242c0282b705d3e7dbb64eedfecd640a7440cbcde09",
+        "account_daily.csv": "b744723cee3b39c309d2f414604134ae4843cd83425e2a46ed2fcc57cc9f99f6",
+        "trades.csv": "82878d3dbb37f37d833b64eaf5d93f2ddad124e6543c946c8a780d5798248697"
+      }
+    },
+    {
+      "strategy_reference": "S001-v1",
+      "window": "2021_2025",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2021-01-04",
+          "2025-12-31"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "8536245bebffa28bdf100b29e7f2753b706b9b9fa0ada72870079ddfcaa5b0c8",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "fe4ae9e143d27ee68d684149ec82ed10c9e980260727c4cdb31fb8879fe5bc49",
+        "orders.csv": "675aa42cf5770df89d11768ad1f10ba4135ba521c37129d6c2c3dabf7d34157b",
+        "fills.csv": "8a0c54863d656e1c1a31ab87efa5d15ba36531589758e5c2e2dbbc9a4fb33197",
+        "account_daily.csv": "adb3f203bcab140fbeced9daf209868a02476325875e800e4ab8639e6887e88a",
+        "trades.csv": "ab11930d2f76f0008a7a0af67e2d20a61385627478968acfcaeb66d4f814dc62"
+      }
+    },
+    {
+      "strategy_reference": "S001-v1",
+      "window": "2026YTD",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2026-01-05",
+          "2026-09-08"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "6f03d4129e6119b294f3577bfd1f392c913afe347fb76789f9a50cf57c3cadc7",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "06eee16c5753afe511c11d890dd42c4791397c8f9984565cde81651dfc0f80d5",
+        "orders.csv": "51a1aaff145c49fc8697513bc7d8d7dccbdbf2bbdc9ef7cfc36c62753f21eb81",
+        "fills.csv": "d4a7b633d8f6ad3eeb3043f45eff4d5890e5fccf6edcaed1c31df5066bd15b74",
+        "account_daily.csv": "f8b5a3285fc9e76ba771286608cb030e4c145804284fa233e6283746fb4ca5d4",
+        "trades.csv": "10a46b6d5400ab92b0e177d9b54d52d2aed55094fdb6f606a8e0297c195d00f1"
+      }
+    },
+    {
+      "strategy_reference": "S001-v2",
+      "window": "2021",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2021-01-04",
+          "2021-12-31"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "70969fcbe6276b89ceaef0aba3a1c862a1852b40350c6e0819e362b5f77e8c68",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "b1096135713a4a8e0638df10162cf622a4df8c888fbcad7635ddf0852755eec6",
+        "orders.csv": "e4f8aae87b456cc11682182412a93b10cd8435f4e1bd659b4e71ddf146eb8ab4",
+        "fills.csv": "2a7a5641e5a210ad18213034ad8cdf1c1851d87f150bddd074bb2fd51be102a3",
+        "account_daily.csv": "dcb5adb87fb1660b0a4237137520df48e3dc15eff7cdfc5d6f9a71063167f5fb",
+        "trades.csv": "2da7474d4a03b38daf562b9befa63b985c2113454f1340989eec3274b838c2a3"
+      }
+    },
+    {
+      "strategy_reference": "S001-v2",
+      "window": "2022",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2022-01-04",
+          "2022-12-30"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "c1571c9f89362f04b9eb1a8f99f520a1d9a704d5686e0775a2a1d8107b80e5ef",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "988c7a1acdda54f6bba0826199fdf3ed5f66550d9b5868ad56f0ab3c20d270f0",
+        "orders.csv": "5b4c50fb06d69d6a2c0f6bd827574b2da5dc1a0f886306994eea5f359b5d8375",
+        "fills.csv": "b29b95461e79707e704f989fd7b4359b5c87fd89f28a284e68011935c47fda19",
+        "account_daily.csv": "2fb23ede77db97907cec82fc4d2c5801bcc9be6fcc905f1f01a3ff234501796d",
+        "trades.csv": "49abd683cfbfdd8e42df258dc9ebc38fdc7a33229eacfb60c8688f9c6ec5cf64"
+      }
+    },
+    {
+      "strategy_reference": "S001-v2",
+      "window": "2023",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2023-01-03",
+          "2023-12-29"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "231f7012d14e008b70d86efdae75194cbfab151cf100f0e541cc937fdcb254ca",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "21d6e698f7aedf7698bde72903f1d17e5027e8767fdcde2de486a2d7d19628d3",
+        "orders.csv": "0f2d00036ab21983bf768bf509203a95aad75a0bf2e681fe1f239bc30c7d6454",
+        "fills.csv": "ea548d7eb0081a4e956ee816bc3ef47f1ddcad703748c3527c52cb2163fda39a",
+        "account_daily.csv": "f6c0e63456463de7864739e8b1f0052f84c48579943d8241c80575d7a1fc7cf9",
+        "trades.csv": "4c0ad60170a2de1257298fe137c6c0c5c356485a832c45b36bfa188ac640d089"
+      }
+    },
+    {
+      "strategy_reference": "S001-v2",
+      "window": "2024",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2024-01-02",
+          "2024-12-31"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "f07854ff31bf0c5c1768ed691b7cd8b83620160f660130a4d2233591aeabecf0",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "2f5e37d3732ef243d0a3352ec28705bbe8b4fbd7c0794709cd25a182a22e6b4b",
+        "orders.csv": "0f7bb7484104abfd207eb15a35c6577a071d493ff28726fa6314d4654e3e3cd4",
+        "fills.csv": "481c6c1f7539c3f3a4deb814220e3797728dc312f3efd80a2838f0b0945ec0e2",
+        "account_daily.csv": "5cd5fcaa091008e620e1f51f78ef422f706e3ec44d6c908d49fbf459fb82ac50",
+        "trades.csv": "702215001c84d310bf366edbd0cd4e53abb8ea0489176f3a11489c24728b25a9"
+      }
+    },
+    {
+      "strategy_reference": "S001-v2",
+      "window": "2025",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2025-01-02",
+          "2025-12-31"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "ef2fadbc3dec7f463abb34a42b2ae1f77a0e19debf19edf4822ecab73267b786",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "c85ef2bdb08ae5e3ec757f54780783f044503dbc73e776d661ad65b54e5388ee",
+        "orders.csv": "ffe28c0aaf647457d09100182b064c24347c6ca8341ef5c9bc92bb4d1cfc9431",
+        "fills.csv": "5ac642d1865457146a476eb519effcd8936168ba91000409174a21d5bada14c0",
+        "account_daily.csv": "c0b4640952d40b0cb0f7e7d9d6644adb1ff36b4ab8ff6743f668234c91211135",
+        "trades.csv": "46e44de09540d89ff4dbba45bcf5b9206dbb8b87165aaddb6d8c074538fd2f11"
+      }
+    },
+    {
+      "strategy_reference": "S001-v2",
+      "window": "2021_2025",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2021-01-04",
+          "2025-12-31"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "c1f8ad8fdabdbecd74ca22f5bcb217f14980cdc07eac05bfd7fffaeed1ee3599",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "5b3fc073f7f84feda081c3896b54adc19a47782bf355c006a0892144f33b498e",
+        "orders.csv": "9fb83c21a64260ed6523034a2df9a9f8f5f79ea88e65e09bc3114e644920a973",
+        "fills.csv": "e53a00ad3fe00e42ba21ff1555545d9c96461321943655d2a462b7c61cef6ca4",
+        "account_daily.csv": "a3268ab8869dacbdc5690429876c18af0c8c9892ef9dfeee96f22557888e8c13",
+        "trades.csv": "277d7008b8c23b2cb67bc66aa701395421f483bc518fd0114bb43bddc53a26e2"
+      }
+    },
+    {
+      "strategy_reference": "S001-v2",
+      "window": "2026YTD",
+      "ranges": {
+        "calculation": [
+          "2019-10-08",
+          "2026-09-08"
+        ],
+        "evaluation": [
+          "2026-01-05",
+          "2026-09-08"
+        ]
+      },
+      "application": {
+        "mode": "cross_symbol_generalization",
+        "strategy_reference_symbol": "588080.SH",
+        "backtest_symbol": "510500.SH"
+      },
+      "audit": {
+        "status": "PASS",
+        "evidence_hash": "9a32bb98f112d86c7546d56e7612ec7761d63492342a97a79e8bc8464a34c8c6",
+        "checks": [
+          "ORDER_AND_FILL_CAUSALITY",
+          "ACCOUNT_LEDGER",
+          "TRADE_PAIRING",
+          "METRICS"
+        ],
+        "reason_codes": []
+      },
+      "ledger_sha256": {
+        "decisions.csv": "46b9c10ef78d71425978dc83c96aceb0667d92e1da5c8212c433800ed066f9ee",
+        "orders.csv": "174cd820dbba46eef6775e3ea57bfae59f2764d23dcf78656583c17134b98e86",
+        "fills.csv": "1b209849c91c71e6eef37e61b438a2752e106d88718af198661c43da272323d5",
+        "account_daily.csv": "e8d0c9bcd1baa9e6806253afab8073138b5d22b0d8586860aae59485f365ddd1",
+        "trades.csv": "086ba64d46bef620d557a35ce6639aeb64d2bf8d150f5938a011ce796ab47f5b"
+      }
+    }
+  ],
+  "primary_metric_wins": {
+    "S001-v1": 8,
+    "S001-v2": 13,
+    "ties": 0
+  },
+  "classifications": {
+    "S001-v1": "FRAMEWORK_SEED_ONLY",
+    "S001-v2": "FRAMEWORK_SEED_ONLY"
+  }
+}

@@ -124,6 +124,11 @@ def _render_conclusion(
     table = rows.loc[
         (rows["window"] == "2021_2025") & (rows["subject"] == "strategy")
     ].copy()
+    benchmarks = rows.loc[
+        (rows["strategy_reference"] == "S001-v2")
+        & (rows["window"] == "2021_2025")
+        & rows["subject"].isin(["buyhold", "ma5_ma20"])
+    ].copy()
     lines = [
         "# 0909_EX01 结论",
         "",
@@ -144,10 +149,28 @@ def _render_conclusion(
     lines.extend(
         [
             "",
+            "## 连续窗口参照",
+            "",
+            "| 参照 | 最大回撤 | 卡玛 | 盈亏比 | 收益率 |",
+            "|---|---:|---:|---:|---:|",
+        ]
+    )
+    for _, row in benchmarks.iterrows():
+        ratio = "N/A" if pd.isna(row["win_loss_ratio"]) else f"{row['win_loss_ratio']:.4f}"
+        label = "BuyHold" if row["subject"] == "buyhold" else "MA5/MA20"
+        lines.append(
+            f"| {label} | {row['max_drawdown']:.2%} | {row['calmar']:.4f} | "
+            f"{ratio} | {row['return']:.2%} |"
+        )
+    lines.extend(
+        [
+            "",
             "## 判读",
             "",
             f"三个主指标的逐窗口胜出计数为：S001-v1 {wins['S001-v1']}，"
             f"S001-v2 {wins['S001-v2']}，同值或不可比 {wins['ties']}。",
+            "两版都只有3个年度窗口的卡玛为正，且连续窗口表现低于MA5/MA20，故不满足"
+            "直接复用条件。两版的回放审计与交易样本条件均满足，保留为框架种子。",
             f"按冻结协议，`{seed}`作为S002下一轮研究的参数种子。这个选择只代表相对更合适的"
             "搜索起点，不代表其可直接部署到510500。",
             "",

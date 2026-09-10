@@ -145,7 +145,7 @@ def main() -> None:
         snapshots,
         dataset["start"],
         dataset["development_cutoff"],
-        require_exact_calendar=bool(dataset["require_exact_calendar"]),
+        require_exact_calendar=False,
     )
 
     for symbol, snapshot in sorted(clipped.items()):
@@ -161,20 +161,30 @@ def main() -> None:
     }
     _write_json(artifacts / "source_evidence.json", source_evidence)
 
+    status = (
+        "PASS"
+        if quality["exact_calendar_match"] or not dataset["require_exact_calendar"]
+        else "FAIL"
+    )
+    missing_512100 = quality["missing_sessions"].get("512100.SH", [])
     (experiment / "03_execution.md").write_text(
         "# S003 EX20 执行\n\n"
         f"三只ETF均覆盖{quality['common_sessions']}个共同交易日，实际范围为"
         f"{quality['common_first_session']}至{quality['common_last_session']}。"
-        "后复权与未复权日线逐日对齐，OHLC、成交量、成交额、复权因子和跨标的交易日历"
-        "质量门全部通过。执行过程没有计算条件未来收益或生成信号。\n",
+        "后复权与未复权日线逐日对齐，OHLC、成交量、成交额和复权因子质量门通过。\n\n"
+        f"跨标的精确日历质量门结果为`{status}`。512100缺少目标交易日："
+        f"{missing_512100}。外部公告确认2022-09-02为512100份额合并日，当日暂停交易；"
+        "这属于合法停牌，不是行情接口漏数。\n\n"
+        "执行过程没有计算条件未来收益或生成信号。\n",
         encoding="utf-8",
     )
     (experiment / "04_conclusion.md").write_text(
         "# S003 EX20 结论\n\n"
-        "结论：`PASS`。510500、510300、512100的受控日线OHLCV快照可以作为S003后续"
-        "相对风格机制研究的数据入口。该结论只证明数据有效，不构成任何策略有效性证据。\n\n"
-        "下一轮应在读取未来收益前预先定义少量、可解释、仅使用T日收盘前信息的相对强弱"
-        "与残差机制，再先做事件密度普查。\n",
+        f"结论：`{status}`。三只ETF的单体数据质量有效，但预注册的完全一致交易日历要求"
+        "未通过。512100因2022-09-02份额合并合法停牌一天，不能直接按普通共同日历处理。\n\n"
+        "EX20保留为失败证据。下一轮必须在读取条件未来收益前冻结合法停牌的因果对齐规则："
+        "以510500交易日历为主，参考标的只使用当时已经发布的最近观测，并显式记录陈旧天数。"
+        "该数据门结果不构成任何策略有效性证据。\n",
         encoding="utf-8",
     )
     build_experiment_manifest(
@@ -184,7 +194,7 @@ def main() -> None:
             "strategy_id": "S003",
             "symbol": "510500.SH",
             "development_cutoff": dataset["development_cutoff"],
-            "status": "PASS",
+            "status": status,
             "common_sessions": quality["common_sessions"],
             "conditional_return_analysis": False,
             "candidate_generation": False,

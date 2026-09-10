@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX41",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "FAIL",
+  "selected_route": null,
+  "conditional_return_analysis": false,
+  "candidate_generation": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 190,
+      "sha256": "4f9aba29e1e76d5a9d57a86fbdab57cd86906649a4f83cf6f6c743a0f14e896e"
+    },
+    "02_design.md": {
+      "bytes": 744,
+      "sha256": "773932fb76dec7fa8690c9d77863a4931ae5848696c0191dbc8b43638be70722"
+    },
+    "03_execution.md": {
+      "bytes": 271,
+      "sha256": "7aa7a8ac3eadad7741738fbf6fe474361e5e6144732f05fddd7680f6f7f3f651"
+    },
+    "04_conclusion.md": {
+      "bytes": 162,
+      "sha256": "594fd4055eabe5ce0694f5d45391185ce5bcf3f50e5f1cd97d811eedb9f444b7"
+    },
+    "artifacts/etf_flow_features.csv.gz": {
+      "bytes": 38903,
+      "sha256": "e68065554689f71ec6d8a72eb6e651448813dc8ae449221cb99f0dc146e2a0b0"
+    },
+    "artifacts/feature_profile.json": {
+      "bytes": 872,
+      "sha256": "5f09f18368cbd01951148cd791c3ced91a1e89905de9854798cf8b6c2239ed72"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1627,
+      "sha256": "cf992a762e3d1fa5b6520ba5c0d726bf92065b8091a6054ee706d8ecf3c3b510"
+    },
+    "artifacts/route_density.csv": {
+      "bytes": 213,
+      "sha256": "f7afda75e4a93e630ed2ebe803b048cdec546c6fdded136bdd9de534a5e2f358"
+    },
+    "run_experiment.py": {
+      "bytes": 8345,
+      "sha256": "791b3a50fb85ec973e7c3aa68356917eecaf731a7e5c94190b4739b4af4482a5"
+    }
+  }
+}

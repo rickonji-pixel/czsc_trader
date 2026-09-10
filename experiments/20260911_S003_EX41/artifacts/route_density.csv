@@ -1,0 +1,3 @@
+route_id,event_count,rolling_60_median,rolling_60_p10,rolling_60_min,rolling_60_max,density_eligible
+ALL_NET_REDEMPTION,722,33.0,22.0,14.0,43.0,False
+PRIOR60_LOWEST_QUINTILE_REDEMPTION,260,12.0,6.0,0.0,23.0,False

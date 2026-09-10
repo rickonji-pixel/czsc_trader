@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "strategy_id": "S003",
+  "candidate_id": "S003-C001",
+  "name": "成分资金流宽度早盘延续",
+  "stage": "PROPOSED_RESEARCH_CANDIDATE",
+  "development_cutoff": "2026-09-08",
+  "payload_path": "candidate_payload.json",
+  "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+  "source_experiments": [
+    "20260911_S003_EX45",
+    "20260911_S003_EX47",
+    "20260911_S003_EX51",
+    "20260911_S003_EX52"
+  ]
+}

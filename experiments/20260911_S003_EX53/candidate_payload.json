@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "strategy_kind": "constituent_moneyflow_breadth_intraday",
+  "strategy_id": "S003",
+  "candidate_id": "S003-C001",
+  "name": "成分资金流宽度早盘延续",
+  "symbol": "510500.SH",
+  "signal": {
+    "index_code": "000905.SH",
+    "membership_source": "tushare.index_weight",
+    "moneyflow_source": "tushare.moneyflow.net_mf_amount",
+    "positive_member_condition": "net_mf_amount > 0",
+    "breadth_weighting": "POINT_IN_TIME_INDEX_WEIGHT",
+    "minimum_observed_weight_ratio": 0.95,
+    "threshold_lookback_valid_sessions": 60,
+    "threshold_quantile": 0.8,
+    "threshold_excludes_current_session": true,
+    "trigger": "breadth >= prior_threshold",
+    "decision_time": "T_AFTER_20_30"
+  },
+  "portfolio_rule": {
+    "core_position_fraction": 0.5,
+    "overlay_cash_fraction": 0.5,
+    "maximum_episodes_per_day": 1,
+    "overlapping_episode_allowed": false
+  },
+  "execution": {
+    "entry_time": "T_PLUS_1_OPEN",
+    "exit_time": "T_PLUS_1_11_30",
+    "direction": "LONG",
+    "baseline_fee_rate_one_way": 0.00012,
+    "stress_fee_rate_one_way": 0.0006
+  },
+  "development_cutoff": "2026-09-08",
+  "risk_labels": {
+    "mechanism_evidence": "FAVORABLE",
+    "statistical_evidence": "MIXED",
+    "external_validation": "FAVORABLE"
+  }
+}

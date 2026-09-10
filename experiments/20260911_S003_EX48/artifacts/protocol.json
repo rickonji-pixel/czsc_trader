@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX48",
+  "experiment_type": "cross_section_intraday_execution_data_gate",
+  "research_target": {
+    "strategy_id": "S003",
+    "symbol": "512100.SH",
+    "index_code": "000852.SH",
+    "purpose": "INDEPENDENT_CROSS_SECTION_REPLICATION"
+  },
+  "dataset": {
+    "start": "2021-01-04",
+    "development_cutoff": "2026-09-08",
+    "frequency": "5m",
+    "adjustment": "hfq"
+  },
+  "source": {
+    "vendor": "tushare",
+    "minute_endpoint": "etf_mins",
+    "daily_endpoint": "fund_daily",
+    "adjustment_endpoint": "fund_adj",
+    "opening_auction": "MERGE_INTO_FIRST_BAR"
+  },
+  "quality_gate": {
+    "expected_bars_per_complete_session": 48,
+    "require_complete_sessions": true,
+    "require_daily_reconciliation": true,
+    "require_first_and_last_session": true,
+    "require_unique_monotonic_timestamps": true,
+    "minimum_complete_sessions": 1300
+  },
+  "event_generation": false,
+  "conditional_return_analysis": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX52",
+  "cross_market_pass": true,
+  "evidence_label": "MIXED",
+  "pooled_equal_market_observed_mean": 0.0014522412380963373,
+  "pooled_lower_90": 0.0006068624049766603,
+  "pooled_median": 0.0014585049693908363,
+  "pooled_upper_90": 0.0023138175026312952,
+  "both_markets_positive_probability": 0.9858,
+  "all_threshold_neighborhood_means_positive": true,
+  "ex47_dsr_effective_probability": 0.11545829382706368,
+  "ex47_dsr_direction": "ADVERSE",
+  "eligible_for_candidate_workflow": true,
+  "candidate_created": false
+}

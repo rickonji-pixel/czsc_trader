@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX06",
+  "status": "PASS",
+  "input_manifests": {
+    "census": "a4a56b90583e51d48ef453732795d5d37e23c5e7888c027b9e73d00ad4f2fb16",
+    "regime": "7f7319d7fede9c6ad2e7085da9d77aea178df94ccaaec09af05fc13888420172",
+    "hypothesis": "3b83eab26de0c6c600cf13cdcc9087513d76b8402d7a0b514984f60cde59f631"
+  },
+  "evaluated_combinations": 28,
+  "evidence_counts": {
+    "DIRECTION_FAIL": 20,
+    "EVIDENCE_RATE_FAIL": 8
+  },
+  "candidate_created": false
+}

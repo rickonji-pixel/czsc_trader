@@ -491,13 +491,18 @@ def main() -> None:
     })
 
     attempt_log = _read_json(artifacts / "attempt_log.json")
-    attempt_log["attempts"].append({
-        "attempt": len(attempt_log["attempts"]) + 1,
-        "stage": "daily_only_cross_sectional_validation",
-        "status": "COMPLETE",
-        "scientific_results_observed": True,
-        "protocol_changed": False,
-    })
+    if not any(
+        item.get("stage") == "daily_only_cross_sectional_validation"
+        and item.get("status") == "COMPLETE"
+        for item in attempt_log["attempts"]
+    ):
+        attempt_log["attempts"].append({
+            "attempt": len(attempt_log["attempts"]) + 1,
+            "stage": "daily_only_cross_sectional_validation",
+            "status": "COMPLETE",
+            "scientific_results_observed": True,
+            "protocol_changed": False,
+        })
     _write_json(artifacts / "attempt_log.json", attempt_log)
     downtrend_count = int(primary_events["downtrend_60"].sum())
     (experiment_dir / "03_execution.md").write_text(
@@ -510,6 +515,18 @@ def main() -> None:
         encoding="utf-8",
     )
     means = summary["mean_returns"]
+    metric_index = metrics.set_index("holding_sessions")
+    metric_lines = [
+        "| 持有期 | 最大回撤 | 卡玛 | 盈亏比 | 收益率 |",
+        "|---:|---:|---:|---:|---:|",
+    ]
+    for horizon in (4, 5, 6):
+        row = metric_index.loc[horizon]
+        metric_lines.append(
+            f"| {horizon}日 | {_pct(float(row['max_drawdown']))} | "
+            f"{float(row['calmar']):.4f} | {float(row['win_loss_ratio']):.4f} | "
+            f"{_pct(float(row['return']))} |"
+        )
     (experiment_dir / "04_conclusion.md").write_text(
         f"# {EXPERIMENT_ID} 结论\n\n状态：COMPLETE。横截面机制证据标签为`{label}`。\n\n"
         "## 512100横截面验证\n\n"
@@ -520,6 +537,8 @@ def main() -> None:
         f"路径匹配随机对照中，实际机制带位于{_pct(float(matched['actual_percentile']))}分位；"
         f"零假设中位数为{_pct(float(matched['null_median']))}，90%区间为"
         f"[{_pct(float(matched['null_lower_90']))}, {_pct(float(matched['null_upper_90']))}]。\n\n"
+        + "\n".join(metric_lines)
+        + "\n\n"
         "## 510500补充诊断\n\n"
         f"5日成为3至10日观察集合最高点的重采样频率为"
         f"{_pct(float(peak['five_exact_peak_frequency']))}，距离最高点不超过10%的频率为"

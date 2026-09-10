@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX11",
+  "evidence_label": "MIXED",
+  "label_reasons": [
+    "favorable_conditions_incomplete"
+  ],
+  "closed_trades": 21,
+  "mean_returns": {
+    "3": 0.004133966285570924,
+    "4": 0.006351741315361082,
+    "5": 0.005573016999924095,
+    "6": -0.0014460848640597426,
+    "7": -0.004497556253445188,
+    "8": -0.007047359728599474,
+    "10": -0.008639362978303986
+  },
+  "band_mean_return": 0.0034928911504084788,
+  "leave_two_out_minimum_band_mean": -0.0007265316902078985,
+  "matched_control": {
+    "actual_band_mean": 0.0034928911504084788,
+    "null_median": 0.00023019673939390917,
+    "null_lower_90": -0.010615632327213395,
+    "null_upper_90": 0.011623243224887704,
+    "actual_percentile": 0.6901,
+    "minimum_pool_size": 30
+  },
+  "primary_peak_bootstrap": {
+    "repetitions": 10000,
+    "five_exact_peak_frequency": 0.336,
+    "five_within_10pct_of_peak_frequency": 0.5095,
+    "band_mean_positive_frequency": 0.994,
+    "all_band_horizons_positive_frequency": 0.9775
+  },
+  "primary_downtrend_trades": 9,
+  "signal_evidence": {
+    "signal_id": "SIG-DAILY-7F321044E87FE70C",
+    "output_key": "日线_D1三K加速_裸K形态V230506",
+    "config_json": "{\"di\":1,\"freq\":\"日线\",\"name\":\"bar_triple_V230506\"}"
+  }
+}

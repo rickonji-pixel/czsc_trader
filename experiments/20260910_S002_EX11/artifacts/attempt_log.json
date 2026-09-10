@@ -1,5 +1,13 @@
 {
   "schema_version": 1,
   "experiment_id": "20260910_S002_EX11",
-  "attempts": []
+  "attempts": [
+    {
+      "attempt": 1,
+      "stage": "daily_only_cross_sectional_validation",
+      "status": "COMPLETE",
+      "scientific_results_observed": true,
+      "protocol_changed": false
+    }
+  ]
 }

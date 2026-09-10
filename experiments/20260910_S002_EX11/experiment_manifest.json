@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX11",
+  "status": "COMPLETE",
+  "experiment_type": "cross_sectional_mechanism_validation_retry",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "validation_symbol": "512100.SH",
+  "development_cutoff": "2026-09-08",
+  "evidence_label": "MIXED",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 457,
+      "sha256": "f761628d9fb593240f9f8bdf91925d535b14d240a02e2be7c39980032dd58a37"
+    },
+    "02_design.md": {
+      "bytes": 1105,
+      "sha256": "32bf81c39e057882209d8538fdc56bbb1100f39a2ad6d65b252a3d84fb6d5640"
+    },
+    "03_execution.md": {
+      "bytes": 454,
+      "sha256": "bf8957f297646cd5919c07f7cc0507f0fd34cfd7dbe8bb3f2bc6e5c9dd2cdb59"
+    },
+    "04_conclusion.md": {
+      "bytes": 1377,
+      "sha256": "24d630d6f33ee1c4b10064242162270cb17759d9ef6c9c9faa54ed6fb90fb7b6"
+    },
+    "artifacts/510500_2023_trade_ledger.csv": {
+      "bytes": 1685,
+      "sha256": "24355631a05da038bb5ea9046d92a3a86b66b77d67734ffd681d190e44edeb9c"
+    },
+    "artifacts/510500_downtrend_summary.csv": {
+      "bytes": 190,
+      "sha256": "a1c4d563b65fbd2e8945c47513665bb8830d0ce2d4bcea5ae6ab03686ebcb76a"
+    },
+    "artifacts/512100_adjusted_daily.csv": {
+      "bytes": 161770,
+      "sha256": "1b7eabdc4623833c29267440b9428ef6e83a3b4e72249954a2c326c3f24ee885"
+    },
+    "artifacts/512100_annual_summary.csv": {
+      "bytes": 626,
+      "sha256": "4b04bb2ec0964d3dee5a466ebd104c345265499625211ea9fd7a3de3ce635517"
+    },
+    "artifacts/512100_data_manifest.json": {
+      "bytes": 1187,
+      "sha256": "9ec29d385a8cadecb2ef291fc0fae628251c4dfba1d41712afc58a150c27f9ed"
+    },
+    "artifacts/512100_execution_daily.csv": {
+      "bytes": 128553,
+      "sha256": "1101c625eebeb5c5b114ad60c29c9367ab56a6109cc3ddaa17212dd5c8c561ab"
+    },
+    "artifacts/512100_matched_control_distribution.csv": {
+      "bytes": 266759,
+      "sha256": "1a8c563458b7be05bddeaddd342a600c5d2c44d7afe2449304835fb27a7e02f9"
+    },
+    "artifacts/512100_matched_pool_audit.csv": {
+      "bytes": 1163,
+      "sha256": "5600a35b72a758967d346826492833b38b162d3b298eacbd3a038ad366b18eb1"
+    },
+    "artifacts/512100_strategy_metrics.csv": {
+      "bytes": 998,
+      "sha256": "0737e2ee0538eb1d5c00422d22cac95467580c67a101405b2fb25ee86eaa0610"
+    },
+    "artifacts/512100_trade_horizon_matrix.csv": {
+      "bytes": 9774,
+      "sha256": "e18ba0aafcacbac50e85ef5d86362c347c7ac385140578807bef7bc4d8ae45b5"
+    },
+    "artifacts/attempt_log.json": {
+      "bytes": 279,
+      "sha256": "68f6bd63892e0b7d70b507524ebc3e516fcec80efa51c524853be4732cd9203f"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 4078,
+      "sha256": "1bc44b1e09662a2464248300145948509307e790f26b7b40f5b84e6e4406ee3d"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 3038,
+      "sha256": "7b76f9eefc9ff18bdaf9f2ebd82499e863c3daeb8fa39d31d633a0b0be1f3355"
+    },
+    "artifacts/validation_summary.json": {
+      "bytes": 1299,
+      "sha256": "915cfbec65c0c14418870c24416c731f730ed41ecc98acf5e233bef8b21989df"
+    },
+    "run_experiment.py": {
+      "bytes": 27349,
+      "sha256": "f7049abd00a0994142894446eed2f8867101a2530825039d38e7d0e85f9fa5c3"
+    }
+  }
+}

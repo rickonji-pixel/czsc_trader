@@ -11,7 +11,7 @@
     "development_cutoff": "2026-09-08",
     "source_experiment": "20260911_S003_EX39",
     "source_manifest_sha256": "dfe57b2a76202e569a4f36215355e9ed91858eb438b0ea8907da0b64a94f4761",
-    "source_panel_sha256": "ec1e343c0f91918d04adf632bfcc8edfdb1e545ff01b1fdd56574589f0de5e2",
+    "source_panel_sha256": "ec1e343c0f91918d04adf632bfcc8edfdbb1e545ff01b1fdd56574589f0de5e2",
     "source_quality_sha256": "efe59d186ab99c46cdb9b470c7d4df01b04c2ab6d6997b685a4db480be43153f"
   },
   "corporate_actions": [

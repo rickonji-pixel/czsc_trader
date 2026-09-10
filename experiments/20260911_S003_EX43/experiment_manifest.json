@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX43",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "conditional_return_analysis": false,
+  "event_generation": false,
+  "candidate_generation": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 225,
+      "sha256": "066dbc387a6498a332458b102b96d85b092f9904f57f82dc1874a0668006376f"
+    },
+    "02_design.md": {
+      "bytes": 615,
+      "sha256": "f25893a2ea4610e96334e7fa154b09f70bb1b7b473f6e114b6e6fd5bde37334c"
+    },
+    "03_execution.md": {
+      "bytes": 292,
+      "sha256": "f31714f4e74f46eed8d9a6433135748a9424c4780b9c4b5cfbe2a385f7aae7ad"
+    },
+    "04_conclusion.md": {
+      "bytes": 153,
+      "sha256": "0b97f4b702759400c746980c2fc17ba2336bfdec47c5c50d56d21460e6cfaaba"
+    },
+    "artifacts/constituent_moneyflow_panel.csv.gz": {
+      "bytes": 5337159,
+      "sha256": "c67f3a21e4180751e65733173d2e2072fccc4011ded14c1fa36d0611fa467062"
+    },
+    "artifacts/daily_coverage.csv": {
+      "bytes": 35521,
+      "sha256": "1a7d0c0a785f3aa1359a066b6777aabbbd53384d2a1572e8b785e36159ae4934"
+    },
+    "artifacts/data_quality.json": {
+      "bytes": 778,
+      "sha256": "c804e903fc429a9e00f922658454e4d150e31af51e39fd6295c4fcd840ef904f"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1767,
+      "sha256": "ae1ebeaddb62a137501f2705742cc21aa902389d49aa6234e70e9ca56df19ae4"
+    },
+    "run_experiment.py": {
+      "bytes": 11301,
+      "sha256": "c7a1a3400e228cc3c0119cc8c461ecaa0c372de4b30940a17ce47ee6922e931b"
+    }
+  }
+}

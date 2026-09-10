@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX40",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "conditional_return_analysis": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 281,
+      "sha256": "6b48230e67603e78ec0203477818345442f537c99612aa14d0d6773856593305"
+    },
+    "02_design.md": {
+      "bytes": 641,
+      "sha256": "bdb77187400431967312a40e7fe2814c187155abf5102605c0224a2628acfaad"
+    },
+    "03_execution.md": {
+      "bytes": 317,
+      "sha256": "de3f37d702601350194154b0a62e10db321b3f17a5506a048dd6b0f12fdf1e55"
+    },
+    "04_conclusion.md": {
+      "bytes": 216,
+      "sha256": "e933ae063b73287b3dd74c8b2482d37a36a8a2336cac64893b7222647de97b8a"
+    },
+    "artifacts/corporate_action_evidence.csv": {
+      "bytes": 364,
+      "sha256": "3edabb976f2d73367e6cdeecf3721f50f2a28a21eb8260d4429ec74ca003e3b4"
+    },
+    "artifacts/data_quality.json": {
+      "bytes": 525,
+      "sha256": "d7d034c77be576439f3d4ea3ebe0947e288572cfa2b7a3a7751388e6511552d9"
+    },
+    "artifacts/governed_etf_share_nav_panel.csv.gz": {
+      "bytes": 39503,
+      "sha256": "ff108fc7befa83502ee1ef31afd1b5c8eb7096999bd443bed837b7261f2e5137"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1819,
+      "sha256": "6d8167d4ccaad2c84fac6675f0e101726bca69c4fbe12425db9ca86402b81e70"
+    },
+    "run_experiment.py": {
+      "bytes": 9050,
+      "sha256": "83e4c71fd35db7b00a860a0c759ccada976ab632e3368457f0aba95ba37b951a"
+    }
+  }
+}

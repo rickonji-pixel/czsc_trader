@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
   "experiment_id": "20260910_S002_EX13",
-  "status": "PENDING",
+  "status": "COMPLETE",
   "experiment_type": "candidate_slice_confounding_diagnosis",
   "strategy_id": "S002",
   "symbol": "510500.SH",
   "candidate_id": "S002-C001",
   "development_cutoff": "2026-09-08",
+  "diagnosis": "CONFOUNDED",
   "promotion_allowed": false,
   "files": {
     "01_goal.md": {
@@ -18,12 +19,24 @@
       "sha256": "2864d00db78e51cc24de8a620aeb33fa9478dbc89c140db166181d546820276f"
     },
     "03_execution.md": {
-      "bytes": 94,
-      "sha256": "e5443ec07f3f5611d38f9f091896b7bd831b68ee272b31531beb545958014100"
+      "bytes": 196,
+      "sha256": "4910c9c318b3f1076718bb9f7c7d239b4cac2c173d04162af8f28b279f49d88c"
     },
     "04_conclusion.md": {
-      "bytes": 49,
-      "sha256": "e6cfd1131b288417d5e0d64c5d046a806ab74bec6979ba871bfccb7f1394b751"
+      "bytes": 675,
+      "sha256": "647ddd17bf19bd8c5620e4f981c7edd6f1ebf4ea4b005dcaedf7f09742c642d5"
+    },
+    "artifacts/annual_volatility_cells.csv": {
+      "bytes": 1011,
+      "sha256": "0a117077ec63f4c41a896288c5b1d51c4f31f1688911c9a3c375f8882669139d"
+    },
+    "artifacts/confounding_cells.csv": {
+      "bytes": 465,
+      "sha256": "67b955737bfaef09faa7b6943c0c8909c9ef748a283933ee3a0beed7b047b646"
+    },
+    "artifacts/diagnosis.json": {
+      "bytes": 514,
+      "sha256": "80e7987b3b35a5d5f15350e8abd200a348904c623f8d15c556538e6cd634f6cf"
     },
     "artifacts/protocol.json": {
       "bytes": 958,

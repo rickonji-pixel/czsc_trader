@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX13",
+  "candidate_id": "S002-C001",
+  "diagnosis": "CONFOUNDED",
+  "total_trades": 25,
+  "counts": {
+    "year_2023": 11,
+    "low_volatility": 12,
+    "intersection_2023_low": 9,
+    "counterfactual_2023_non_low": 2,
+    "counterfactual_other_year_low": 3
+  },
+  "overlap": {
+    "intersection_share_of_low": 0.75,
+    "intersection_share_of_2023": 0.8181818181818182
+  },
+  "independent_boundary_supported": false,
+  "candidate_rule_changed": false
+}

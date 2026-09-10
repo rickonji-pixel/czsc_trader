@@ -8,7 +8,7 @@
 - 候选资格：SE建议登记，综合风险`MIXED`；尚无策略版本、冻结和部署资格；
 - 研究数据：`2019-10-08`至`2026-09-08`；
 - 当前开发截止：`2026-09-08`；
-- 最近实验：`experiments/20260910_S002_EX12`。
+- 最近实验：`experiments/20260910_S002_EX13`。
 
 ## 当前结论
 
@@ -84,11 +84,19 @@ EX12将固定五日规则固化为`S002-C001（三连跌五日修复）`，并�
 已登记为`RESEARCH_CANDIDATE`。同期BuyHold仅作诊断参照：收益10.21%、最大回撤-47.31%、
 卡玛0.0379；它不充当在位策略，也不影响立项裁决。
 
+EX13诊断2023年和低波动弱表现的关系，预注册裁决为`CONFOUNDED`。25笔交易中2023年
+11笔、低波动12笔，交集9笔；交集占低波动交易75.00%、占2023年交易81.82%。用于区分
+两种解释的“非2023低波动”和“2023非低波动”分别只有3笔和2笔，均低于5笔下限。当前
+不能把年份效应和低波动效应拆开，不能据此定义适用边界或增加过滤器。
+
 ## 下一步
 
-围绕`S002-C001`处理两个尚未解决、但不阻断候选立项的问题：解释2023年和低波动环境
-偏弱的来源，并设计冻结前的失效条件。保持候选规则不变，禁止围绕现有结果追加过滤器、
-动态持有期或继续逐标的试错。只有形成新的、预注册的研究问题时才启动下一轮实验。
+评审`research/S002/candidates/S002-C001_MONITORING_DRAFT.md`中的冻结后观测规则草案。
+草案采用两个核心复核触发器：最近10笔新交易平均净收益不大于0，以及冻结后最大回撤
+达到-8%。信号休眠和执行故障单独处理，不混入策略失效判断。
+
+保持候选规则不变，禁止围绕现有结果追加过滤器、动态持有期或继续逐标的试错。2023年与
+低波动的反事实样本只能通过后续市场自然积累，不能通过继续切分开发池解决。
 
 候选登记不代表冻结资格。进入冻结评审前，必须重新汇总全部证据、预注册失效条件，并由
 人工决定是否创建首个策略版本；当前不得进入PTE。
@@ -98,5 +106,5 @@ EX12将固定五日规则固化为`S002-C001（三连跌五日修复）`，并�
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 510500.SH
 .\.venv\Scripts\czsc-trader.exe strategy show --strategy S002
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/20260910_S002_EX10'), Path('experiments/20260910_S002_EX11'), Path('experiments/20260910_S002_EX12'))]"
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/20260910_S002_EX10'), Path('experiments/20260910_S002_EX11'), Path('experiments/20260910_S002_EX12'), Path('experiments/20260910_S002_EX13'))]"
 ```

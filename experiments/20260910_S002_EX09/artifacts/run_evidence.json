@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX09",
+  "dataset_fingerprint": "02f6a42a12d98d37521fdb35083ad3cc0fb74a62eb34e42fa84e54ef5036c36b",
+  "cutoff": "2026-09-08",
+  "evaluation_sessions": 1378,
+  "source_reproduction_passed": true,
+  "se_return_matrix_hash": "911c5d27c167d091e693005eff4de0f8b6479685416fcf4320ab1f13d1077fb1",
+  "evidence_label": "MIXED",
+  "outputs": {
+    "trial_ledger.csv": {
+      "bytes": 1173,
+      "sha256": "0a02dc3716d1417b5a27dc6e3a1d9f68129f212d39e0ec86efafe13eddabfa40"
+    },
+    "reproduction_audit.csv": {
+      "bytes": 1501,
+      "sha256": "d57caa7615bf24fff0c0820a1af882fbb8b891a13705c7bea3996171cbae01da"
+    },
+    "daily_return_matrix.csv": {
+      "bytes": 87959,
+      "sha256": "6cdc17bddb1976ceea85796e002655b9e848b99dfe2c600d1fd0e5f5b4eb10a3"
+    },
+    "return_matrix_evidence.json": {
+      "bytes": 217714,
+      "sha256": "2b110acb3ef44fc5b67166c8975d9696bbd85203558c68824fe643a383a7dfa1"
+    },
+    "pbo.json": {
+      "bytes": 130204,
+      "sha256": "cd02ecb560845617926955473efdefee8899d6e0be20e556ebab68d1e5973804"
+    },
+    "cscv_splits.csv": {
+      "bytes": 29904,
+      "sha256": "ac6beb6429c4443a65e9c8173e8ba4a8f4267b1029b47863c85177e27fbb988e"
+    },
+    "dsr.json": {
+      "bytes": 848,
+      "sha256": "a3dc7ed30a24a5d1c870344c23f433ac1bf674f9f953c575752e6dfc8f7ef2e0"
+    },
+    "absolute_bootstrap.csv": {
+      "bytes": 1148,
+      "sha256": "3014ac57f20b9d2610a1b2e6c14d8d5bf9b9bea020fd70a785a0a294d02c524c"
+    },
+    "pairwise_bootstrap.csv": {
+      "bytes": 2011,
+      "sha256": "f2f2997eaf59463f0520a7e6fcf348a51202ce7f0cc5fede0944ecb55171a7e9"
+    },
+    "leave_one_year_out.csv": {
+      "bytes": 1819,
+      "sha256": "b21cf02e7aa4e411b99ea4575fdfdd70f4594faea82a3330e6af93def8e65d9e"
+    },
+    "band_cost_stress.csv": {
+      "bytes": 1426,
+      "sha256": "02b236c130f5be3f2b45a46d532046fde7a0bc7367b153537740efc6d1861c93"
+    },
+    "cost_tolerance_curve.csv": {
+      "bytes": 10235,
+      "sha256": "ca8803b045916ea77d783cd2e66b7b6370fff9f2eea7b27974bf21745b8fa1e8"
+    },
+    "statistical_summary.json": {
+      "bytes": 965,
+      "sha256": "1b33e497c07e95e15ff87fdcc4f0c5f0581cebf9c239d7426faacac1d799b5fc"
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX09",
+  "status": "COMPLETE",
+  "experiment_type": "mechanism_statistical_robustness_audit",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "evidence_label": "MIXED",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 331,
+      "sha256": "1613452f220ab625905b63daa68918e241587ec496adac8b8edcd0e8fc73e755"
+    },
+    "02_design.md": {
+      "bytes": 2758,
+      "sha256": "53b19e0ef6445e7773160e21f809aaacc1dd7ef50123183f83e0e5de4039e198"
+    },
+    "03_execution.md": {
+      "bytes": 477,
+      "sha256": "c9124693bfd10f5e39e4ff1f8c6eb49f49ab34d28ec22248e0a4b81c49911141"
+    },
+    "04_conclusion.md": {
+      "bytes": 1806,
+      "sha256": "970666c3bb1d105d8ee2f8619dda08557f4cce0a46b41688058d1a4bbcd7716d"
+    },
+    "artifacts/absolute_bootstrap.csv": {
+      "bytes": 1148,
+      "sha256": "3014ac57f20b9d2610a1b2e6c14d8d5bf9b9bea020fd70a785a0a294d02c524c"
+    },
+    "artifacts/attempt_log.json": {
+      "bytes": 432,
+      "sha256": "75047bf1e814379088814ec1fc5e69021160c3721dd4c58096b4d117e535db2b"
+    },
+    "artifacts/band_cost_stress.csv": {
+      "bytes": 1426,
+      "sha256": "02b236c130f5be3f2b45a46d532046fde7a0bc7367b153537740efc6d1861c93"
+    },
+    "artifacts/cost_tolerance_curve.csv": {
+      "bytes": 10235,
+      "sha256": "ca8803b045916ea77d783cd2e66b7b6370fff9f2eea7b27974bf21745b8fa1e8"
+    },
+    "artifacts/cscv_splits.csv": {
+      "bytes": 29904,
+      "sha256": "ac6beb6429c4443a65e9c8173e8ba4a8f4267b1029b47863c85177e27fbb988e"
+    },
+    "artifacts/daily_return_matrix.csv": {
+      "bytes": 87959,
+      "sha256": "6cdc17bddb1976ceea85796e002655b9e848b99dfe2c600d1fd0e5f5b4eb10a3"
+    },
+    "artifacts/dsr.json": {
+      "bytes": 822,
+      "sha256": "6208a6df32e175d4105a2dd87b4c0194936b7b9728cf96828613b127fcd9beec"
+    },
+    "artifacts/leave_one_year_out.csv": {
+      "bytes": 1819,
+      "sha256": "b21cf02e7aa4e411b99ea4575fdfdd70f4594faea82a3330e6af93def8e65d9e"
+    },
+    "artifacts/pairwise_bootstrap.csv": {
+      "bytes": 2011,
+      "sha256": "f2f2997eaf59463f0520a7e6fcf348a51202ce7f0cc5fede0944ecb55171a7e9"
+    },
+    "artifacts/pbo.json": {
+      "bytes": 124136,
+      "sha256": "30e2d276cbb0c7ee3cf145d7ed245ea4de4e7a776c545a3830f3399f9156d19f"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 4922,
+      "sha256": "afc3c0fd75a3ddc7698d1b2306adbc3207a721ab8ae56b29f62f8a8f76508162"
+    },
+    "artifacts/reproduction_audit.csv": {
+      "bytes": 1501,
+      "sha256": "d57caa7615bf24fff0c0820a1af882fbb8b891a13705c7bea3996171cbae01da"
+    },
+    "artifacts/return_matrix_evidence.json": {
+      "bytes": 201160,
+      "sha256": "67b2b6c570074bdf28536ac7f814d8a54f3846ab1bc2f702bb81ee4edd2cfcb9"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 2229,
+      "sha256": "f3d236e08c2f64f950b193c76760cd715aa8114994d44e551abcd92ac72a64c2"
+    },
+    "artifacts/statistical_summary.json": {
+      "bytes": 933,
+      "sha256": "d10f4b97e0db51d6c415a239799bd1f135f0513279d95deb825a711b57c3a17d"
+    },
+    "artifacts/trial_ledger.csv": {
+      "bytes": 1173,
+      "sha256": "0a02dc3716d1417b5a27dc6e3a1d9f68129f212d39e0ec86efafe13eddabfa40"
+    },
+    "run_experiment.py": {
+      "bytes": 29038,
+      "sha256": "de1b0e03b216358d855e5c5b77e7a311b757b4b41df86b800cbcacafc6c26510"
+    }
+  }
+}

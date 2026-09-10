@@ -36,6 +36,27 @@ class BootstrapComparison(Record):
     calmar: BootstrapMetric
 
 
+@dataclass(frozen=True)
+class BootstrapInterval(Record):
+    metric: str
+    point: float
+    lower_90: float
+    upper_90: float
+    lower_95: float
+    upper_95: float
+    probability_above_zero: float
+
+
+@dataclass(frozen=True)
+class AbsoluteBootstrap(Record):
+    candidate_id: str
+    repetitions: int
+    mean_block_length: int
+    cagr: BootstrapInterval
+    max_drawdown: BootstrapInterval
+    calmar: BootstrapInterval
+
+
 def performance_metrics(returns: np.ndarray) -> PerformanceMetrics:
     values = np.asarray(returns, dtype=float)
     if values.ndim != 1 or values.size < 2 or not np.isfinite(values).all():
@@ -71,6 +92,79 @@ def _summary(metric: str, point: float, values: np.ndarray) -> BootstrapMetric:
     return BootstrapMetric(
         metric, "higher_is_better", point, float(lower), float(upper),
         float(np.mean(finite > 0.0) + 0.5 * np.mean(finite == 0.0)),
+    )
+
+
+def _interval(metric: str, point: float, values: np.ndarray) -> BootstrapInterval:
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        missing = float("nan")
+        return BootstrapInterval(metric, point, missing, missing, missing, missing, missing)
+    lower_90, upper_90 = np.quantile(finite, (0.05, 0.95))
+    lower_95, upper_95 = np.quantile(finite, (0.025, 0.975))
+    return BootstrapInterval(
+        metric,
+        point,
+        float(lower_90),
+        float(upper_90),
+        float(lower_95),
+        float(upper_95),
+        float(np.mean(finite > 0.0) + 0.5 * np.mean(finite == 0.0)),
+    )
+
+
+def stationary_bootstrap_performance(
+    returns: np.ndarray,
+    *,
+    candidate_id: str,
+    repetitions: int = 10_000,
+    mean_block_length: int = 21,
+    seed: int = 0,
+) -> AbsoluteBootstrap:
+    """Estimate absolute performance uncertainty with a stationary block bootstrap."""
+    values = np.asarray(returns, dtype=float)
+    if values.ndim != 1 or len(values) < 2 or not np.isfinite(values).all():
+        raise ValueError("absolute bootstrap returns must be finite and one-dimensional")
+    if np.any(values <= -1.0):
+        raise ValueError("daily returns must be greater than -1")
+    if repetitions < 1 or mean_block_length < 1:
+        raise ValueError("repetitions and mean block length must be positive")
+
+    rng = np.random.default_rng(seed)
+    samples = [[], [], []]
+    chunk_size = min(256, repetitions)
+    for start in range(0, repetitions, chunk_size):
+        count = min(chunk_size, repetitions - start)
+        indices = np.empty((count, len(values)), dtype=np.int32)
+        indices[:, 0] = rng.integers(0, len(values), size=count)
+        for column in range(1, len(values)):
+            restart = rng.random(count) < 1.0 / mean_block_length
+            indices[:, column] = np.where(
+                restart,
+                rng.integers(0, len(values), size=count),
+                (indices[:, column - 1] + 1) % len(values),
+            )
+        for metric_index, metric_values in enumerate(_row_metrics(values[indices])):
+            samples[metric_index].append(metric_values)
+
+    arrays = tuple(np.concatenate(parts) for parts in samples)
+    point = performance_metrics(values)
+    intervals = tuple(
+        _interval(name, value, distribution)
+        for name, value, distribution in zip(
+            ("cagr", "max_drawdown", "calmar"),
+            (point.cagr, point.max_drawdown, point.calmar),
+            arrays,
+            strict=True,
+        )
+    )
+    return AbsoluteBootstrap(
+        candidate_id,
+        repetitions,
+        mean_block_length,
+        intervals[0],
+        intervals[1],
+        intervals[2],
     )
 
 

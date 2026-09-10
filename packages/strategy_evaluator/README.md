@@ -13,6 +13,8 @@ belong to CZSC Trader.
 
 OPC-v3 keeps the deterministic OPC-v2 screen and ranking, then runs one complete audit inside SE:
 execution/reproducibility/ledger checks, fee and slippage stress, CSCV/PBO, Deflated Sharpe,
-paired stationary bootstrap, and a real-candidate parameter-neighborhood check. Statistical
+absolute and paired stationary bootstrap, and a real-candidate parameter-neighborhood check.
+The absolute bootstrap reports point estimates, 90%/95% intervals, and the probability of a
+positive CAGR, maximum drawdown, and Calmar ratio. Statistical
 findings are reported as `FAVORABLE`, `MIXED`, or `WEAK`; they do not create a numerical automatic
 veto. Trader supplies immutable factual evidence and executes the scenarios requested by SE.

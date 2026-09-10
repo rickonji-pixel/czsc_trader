@@ -38,6 +38,7 @@ from strategy_evaluator import (
     render_summary,
     required_stress_scenarios,
     screen_candidates,
+    stationary_bootstrap_performance,
     validate_protocol,
 )
 
@@ -365,6 +366,19 @@ def test_ft_se02_champion_audit_combines_statistical_and_engineering_evidence() 
     assert audit.stress.status is AuditStatus.PASS
     assert result.decision is Decision.RECOMMEND_FREEZE
     assert result.audit == audit
+
+    absolute = stationary_bootstrap_performance(
+        np.asarray(request.search_returns.returns, dtype=float)[:, 0],
+        candidate_id=request.champion_id,
+        repetitions=100,
+        mean_block_length=10,
+        seed=20260910,
+    )
+    assert absolute.candidate_id == request.champion_id
+    assert absolute.repetitions == 100
+    assert absolute.cagr.lower_90 <= absolute.cagr.upper_90
+    assert absolute.max_drawdown.lower_95 <= absolute.max_drawdown.upper_95
+    assert 0.0 <= absolute.calmar.probability_above_zero <= 1.0
 
     invalid = audit_provisional_champion(
         _complete_audit_request(execution_invalid=True)

@@ -7,7 +7,7 @@
 - 研究线阶段：`RESEARCH`；SM身份已登记，尚无策略版本和部署资格；
 - 研究数据：`2019-10-08`至`2026-09-08`；
 - 当前开发截止：`2026-09-08`；
-- 最近实验：`experiments/20260909_S002_EX07`。
+- 最近实验：`experiments/20260910_S002_EX09`。
 
 ## 当前结论
 
@@ -49,23 +49,33 @@ EX07完成3至7日持有期邻域审计。五个持有期的连续窗口卡玛�
 六日0.7801的两倍，且最大回撤明显更低。当前形态属于4至6日可用带中的突出峰值，尚非
 宽阔平原。五日最大单笔绝对收益占全部交易绝对收益12.98%，没有单笔独占结果。
 
+EX08完成机制可辨识性审计，证据为`MIXED`。4至6日共同事件带的平均净收益为1.11%；
+年度匹配和跌幅波动匹配随机对照中的实际百分位分别为97.51%和99.76%。任意删除两笔
+交易后，4至6日带平均收益的最低值仍为0.71%，五日峰值没有被一两笔交易支配。匹配
+近邻池最少只有2个候选，限制了随机对照的辨别力，因此证据无法标为`FAVORABLE`。
+
+EX09完成统计稳健性审计，未经EX08上限约束的标签为`FAVORABLE`，最终证据仍为`MIXED`。
+11次已实施策略试验去重为9条行为路径，有效试验数1.47；PBO为34.52%，五日核心的
+有效试验数DSR概率为61.13%。21日平均区块Bootstrap的五日CAGR和卡玛90%下界分别为
+2.03%和0.3008；逐年留一没有出现负卡玛；单边15 bp全包成本下，四、五、六日卡玛分别
+为0.4661、1.0157、0.5474，五日卡玛在单边16 bp时首次跌破1。统计结果没有触发停止
+条件，但DSR仍属`MIXED`，且全部证据来自同一开发池。
+
 ## 下一步
 
-下一轮对无过滤三连跌核心规则做候选前统计审计：
+进入首个S002候选的人工评审。建议候选采用已预先选定的固定五日版本，四日和六日仅作为
+机制邻居与敏感性证据，不做动态持有期或参数集成。评审应明确接受以下已知风险：25笔
+闭合交易样本较少、2023年和低波动切片偏弱、DSR未给出强证据、匹配近邻池不足，以及
+所有证据均来自截至`2026-09-08`的同一开发池。
 
-1. 五日保持为此前已冻结的代表规则，同时把四日和六日作为相关参数邻居；
-2. 输出三者对齐的日收益矩阵，使用SE做配对区块Bootstrap、PBO和DSR；
-3. 做逐年留一审计，确认结论是否依赖某个年度，并重点检查始终较弱的2023年；
-4. 执行双倍费用及滑点压力测试，观察最大回撤、卡玛和盈亏比的退化幅度；
-5. 统计证据只给出`FAVORABLE/MIXED/WEAK`风险标签，不自动创建或晋升策略。
-
-所有评估继续绑定S002开发截止`2026-09-08`。只有归因和稳健性证据成立后，才创建首个
-S002候选并交给SE评价。
+人工认可后，再创建首个S002候选并交给SE走统一候选评价；当前不得直接冻结、登记策略
+版本或进入PTE。若人工否决，则停止这一机制路线，保留EX02至EX09作为不可变研究证据，
+不围绕审计结果继续追加过滤器。
 
 开始前验证：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 510500.SH
 .\.venv\Scripts\czsc-trader.exe strategy show --strategy S002
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; print(validate_experiment_archive(Path('experiments/20260909_S002_EX07'))['status'])"
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/20260910_S002_EX08'), Path('experiments/20260910_S002_EX09'))]"
 ```

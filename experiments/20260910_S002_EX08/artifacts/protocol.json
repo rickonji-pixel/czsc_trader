@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX08",
+  "experiment_type": "mechanism_identifiability_audit",
+  "research_target": {
+    "strategy_id": "S002",
+    "symbol": "510500.SH",
+    "asset_type": "etf",
+    "development_cutoff": "2026-09-08"
+  },
+  "source_experiment": {
+    "experiment_id": "20260909_S002_EX07",
+    "manifest_sha256": "4f8f45f8baa394039725c7deee3b9b0d738424e19bb5bc87ac333dc775aec830",
+    "protocol_sha256": "50f75387a2f717cffeb3ad0ddc9033057f65be7058e088e544d7a151a5c27de3",
+    "closed_trades_sha256": "c21ea99e4807e93b6690d8499fcf050016871608c3b22bc387ffd31bd1da7170",
+    "prototype_daily_sha256": "73a1b0560c0efb6edcd5c8ee67f7fe055423bbc294408dce40075a534fe89717",
+    "window_metrics_sha256": "74496eae2cff568f3f26036463ca83ed9bc9c445fa95c0c8c79c9d6eb95903fc"
+  },
+  "filter_source_experiment": {
+    "experiment_id": "20260909_S002_EX06",
+    "manifest_sha256": "f95d89da990dc78cc1a10620cfd334f45526ea889427be7d2da7b5265de27a3d",
+    "closed_trades_sha256": "9525bbbfbe449441bf0005df98f8cc43237476978a4b0dbae0c127a1d0a6af24",
+    "window_metrics_sha256": "37e3fe9887471e5aca42d3cba265e00df36db410ce935e0349e1eacf615d4f77"
+  },
+  "execution_data": {
+    "manifest": "data/raw/510500_execution_manifest.json",
+    "manifest_sha256": "16f5b09e7cb8b63c5a51de0ed3385ba518e5a484cba1aa0cc64938a65c186d22",
+    "price_adjustment": "none"
+  },
+  "evaluation_sample": {
+    "source_window": "2021_2026YTD",
+    "source_holding_sessions": 5,
+    "expected_closed_trades": 25,
+    "holding_horizons": [3, 4, 5, 6, 7, 8, 10],
+    "mechanism_band": [4, 5, 6]
+  },
+  "shared_rules": {
+    "signal_time": "T close after completed bar",
+    "entry_time": "T+1 open",
+    "exit_time": "entry open plus N trading sessions at open",
+    "fee_rate_one_way": 0.0005,
+    "target_position": 1.0,
+    "initial_cash": 1000000.0
+  },
+  "volatility_slice": {
+    "lookback_sessions": 20,
+    "annualization_sessions": 252,
+    "buckets": 3,
+    "quantiles_from": "all eligible evaluation sessions"
+  },
+  "random_controls": {
+    "seed": 20260910,
+    "repetitions": 10000,
+    "exclude_true_signal_dates": true,
+    "preserve_annual_counts": true,
+    "non_overlap_holding_sessions": 5,
+    "matched_pullback": {
+      "three_session_return_must_be_negative": true,
+      "same_year": true,
+      "same_volatility_bucket": true,
+      "exclude_within_sessions_of_true_signal": 10,
+      "nearest_pool_size": 30,
+      "unique_dates_per_repetition": true,
+      "non_overlap_required": false
+    }
+  },
+  "evidence_labels": {
+    "weak": {
+      "any_band_mean_non_positive": true,
+      "matched_band_percentile_below": 0.5,
+      "leave_two_out_band_mean_non_positive": true
+    },
+    "favorable": {
+      "all_band_means_positive": true,
+      "both_control_band_percentiles_at_least": 0.9,
+      "leave_two_out_band_mean_positive": true,
+      "top_two_peak_absolute_contribution_share_at_most": 0.5,
+      "minimum_matched_candidates_per_event_at_least": 10
+    },
+    "otherwise": "MIXED"
+  },
+  "automatic_acceptance": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

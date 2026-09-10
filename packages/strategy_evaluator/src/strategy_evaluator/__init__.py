@@ -48,12 +48,15 @@ from .search_bias import (
     effective_trial_count,
 )
 from .bootstrap import (
+    AbsoluteBootstrap,
     BootstrapComparison,
+    BootstrapInterval,
     BootstrapMetric,
     PerformanceMetrics,
     audit_pairwise_bootstrap,
     paired_stationary_bootstrap,
     performance_metrics,
+    stationary_bootstrap_performance,
 )
 from .neighborhood import (
     NeighborhoodAudit,
@@ -102,8 +105,9 @@ __all__ = [
     "CscvSplit", "DsrBundle", "DsrEstimate", "SearchBiasResult",
     "annualized_sharpe", "calculate_dsr_bundle", "cscv_pbo",
     "deflated_sharpe_ratio", "effective_trial_count",
-    "BootstrapComparison", "BootstrapMetric", "PerformanceMetrics",
-    "audit_pairwise_bootstrap", "paired_stationary_bootstrap", "performance_metrics",
+    "AbsoluteBootstrap", "BootstrapComparison", "BootstrapInterval", "BootstrapMetric",
+    "PerformanceMetrics", "audit_pairwise_bootstrap", "paired_stationary_bootstrap",
+    "performance_metrics", "stationary_bootstrap_performance",
     "NeighborhoodAudit", "NeighborhoodMetric", "NeighborhoodRow",
     "audit_parameter_neighborhood",
     "StressAudit", "StressComparison", "audit_execution", "audit_reproducibility",

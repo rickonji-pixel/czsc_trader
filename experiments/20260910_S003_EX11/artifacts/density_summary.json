@@ -1,0 +1,15 @@
+{
+  "calendar_sessions": 1378,
+  "independent_events": 491,
+  "distinct_event_days": 491,
+  "buy_pressure_events": 305,
+  "sell_pressure_events": 186,
+  "price_direction_agreement": 0.9063136456211812,
+  "rolling_window_sessions": 60,
+  "rolling_median_events": 21.0,
+  "rolling_p10_events": 18.0,
+  "rolling_min_events": 12.0,
+  "rolling_max_events": 30.0,
+  "density_pass": true,
+  "evidence": "DENSITY_CAPABLE"
+}

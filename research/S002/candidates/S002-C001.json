@@ -3,7 +3,7 @@
   "strategy_id": "S002",
   "candidate_id": "S002-C001",
   "name": "三连跌五日修复",
-  "status": "RESEARCH_CANDIDATE",
+  "status": "PROMOTED",
   "registered_at": "2026-09-10",
   "development_cutoff": "2026-09-08",
   "candidate_hash": "8a804a7fafc784c92ddd8b8c2d4c3fbc8dda953ca0fd7f0cfb6ab6fd7650574d",
@@ -27,14 +27,22 @@
     "decision": "RECOMMEND_FREEZE",
     "risk_label": "MIXED",
     "evidence": "experiments/20260910_S002_EX16/artifacts/freeze_health.json",
-    "accepted": false
+    "accepted": true,
+    "accepted_at": "2026-09-10T20:23:59+08:00",
+    "accepted_by": "tomxiao"
   },
   "permissions": {
     "research": true,
-    "strategy_version": false,
-    "freeze": false,
-    "paper_trading": false,
+    "strategy_version": true,
+    "freeze": true,
+    "paper_trading": true,
     "live_trading": false
+  },
+  "promotion": {
+    "strategy_release": "S002-v1",
+    "release_hash": "67326ee14e0b67b3cbebb6ba7fd3d10e6fc053002d2a5f1323fe3489a2f84ee9",
+    "experiment_id": "20260910_S002_EX16",
+    "promoted_at": "2026-09-10T20:23:59+08:00"
   },
   "known_risks": [
     "510500主样本仅25笔闭合交易",

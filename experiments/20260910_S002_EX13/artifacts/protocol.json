@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX13",
+  "experiment_type": "candidate_slice_confounding_diagnosis",
+  "strategy_id": "S002",
+  "candidate_id": "S002-C001",
+  "development_cutoff": "2026-09-08",
+  "source_experiments": {
+    "trade_matrix": {
+      "experiment_id": "20260910_S002_EX08",
+      "manifest_sha256": "d7a2de7310dfb34d40f813309fa365d95e4c5f07e3bf83484432db2f3e131083"
+    },
+    "trend_audit": {
+      "experiment_id": "20260910_S002_EX11",
+      "manifest_sha256": "d52360151cc48a84adefb33ed4e5f88c89565cb7989e55235a9e3db8d51f0d4a"
+    }
+  },
+  "analysis": {
+    "representative_horizon": 5,
+    "mechanism_band": [4, 5, 6],
+    "weak_year": 2023,
+    "weak_volatility_bucket": "LOW",
+    "overlap_threshold": 0.6,
+    "minimum_counterfactual_cell_trades": 5
+  },
+  "parameter_selection": false,
+  "candidate_mutation": false,
+  "filter_creation": false,
+  "freeze_allowed": false,
+  "pte_deployment_allowed": false
+}

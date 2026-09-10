@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX13",
+  "status": "PENDING",
+  "experiment_type": "candidate_slice_confounding_diagnosis",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "candidate_id": "S002-C001",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 233,
+      "sha256": "37cee65b24e8323e2c4800620fdfc7aed3280ef3cb39f4970d75766a015c82c2"
+    },
+    "02_design.md": {
+      "bytes": 824,
+      "sha256": "2864d00db78e51cc24de8a620aeb33fa9478dbc89c140db166181d546820276f"
+    },
+    "03_execution.md": {
+      "bytes": 94,
+      "sha256": "e5443ec07f3f5611d38f9f091896b7bd831b68ee272b31531beb545958014100"
+    },
+    "04_conclusion.md": {
+      "bytes": 49,
+      "sha256": "e6cfd1131b288417d5e0d64c5d046a806ab74bec6979ba871bfccb7f1394b751"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 958,
+      "sha256": "689caf42c2845342bf9aae1be7de6d2da494416361c5adf9a40b274c1c9bc80a"
+    },
+    "run_experiment.py": {
+      "bytes": 6938,
+      "sha256": "18f0971ff5932e87aeb0097a086376d7761ae1b833048d9bfd310c98e3d60e08"
+    }
+  }
+}

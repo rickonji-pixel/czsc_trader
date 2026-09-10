@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "strategy_id": "S002",
+  "candidate_id": "S002-C001",
+  "name": "三连跌五日修复",
+  "stage": "PROPOSED_RESEARCH_CANDIDATE",
+  "development_cutoff": "2026-09-08",
+  "payload_path": "candidate_payload.json",
+  "candidate_hash": "8a804a7fafc784c92ddd8b8c2d4c3fbc8dda953ca0fd7f0cfb6ab6fd7650574d",
+  "source_experiments": [
+    "20260909_S002_EX05",
+    "20260909_S002_EX07",
+    "20260910_S002_EX08",
+    "20260910_S002_EX09",
+    "20260910_S002_EX11"
+  ]
+}

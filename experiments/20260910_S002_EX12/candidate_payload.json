@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "strategy_kind": "czsc_event_hold",
+  "strategy_id": "S002",
+  "candidate_id": "S002-C001",
+  "name": "三连跌五日修复",
+  "symbol": "510500.SH",
+  "price_adjustment": "hfq",
+  "signal": {
+    "frequency": "日线",
+    "name": "bar_triple_V230506",
+    "config": {
+      "di": 1,
+      "freq": "日线",
+      "name": "bar_triple_V230506"
+    },
+    "output_key": "日线_D1三K加速_裸K形态V230506",
+    "entry_state": "三连跌",
+    "trigger": "fresh_transition"
+  },
+  "portfolio_rule": {
+    "flat_position": 0.0,
+    "target_position": 1.0,
+    "holding_sessions": 5,
+    "ignore_entries_while_holding": true,
+    "require_fresh_transition_after_exit": true
+  },
+  "execution": {
+    "decision_time": "T_CLOSE_AFTER_COMPLETED_BAR",
+    "order_time": "T_PLUS_1_OPEN",
+    "fee_rate_one_way": 0.0005
+  },
+  "risk_filters": []
+}

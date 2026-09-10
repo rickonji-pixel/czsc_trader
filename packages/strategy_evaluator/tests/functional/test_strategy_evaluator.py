@@ -9,6 +9,8 @@ import pytest
 from strategy_evaluator import (
     AuditIdentity,
     AuditStatus,
+    CandidateReadinessDecision,
+    CandidateReadinessRequest,
     CandidateDescriptor,
     CandidateProfile,
     ChampionAuditRequest,
@@ -28,6 +30,7 @@ from strategy_evaluator import (
     StressScenarioResult,
     TrialRecord,
     ValidationError,
+    assess_research_candidate,
     audit_provisional_champion,
     finalize_evaluation,
     hash_audit_data,
@@ -443,3 +446,31 @@ def test_ft_se03_governance_validation_and_report_are_complete() -> None:
     assert f"统计风险：{audit.risk_label.value}" in report
     assert "统计审计完成不等于统计优势已经得到证明" in report
     assert len(report.splitlines()) <= 80
+
+
+def test_ft_se04_first_research_candidate_has_no_synthetic_incumbent() -> None:
+    request = CandidateReadinessRequest(
+        candidate_id="S002-C001",
+        candidate_hash="d" * 64,
+        integrity=AuditStatus.PASS,
+        reproducibility=AuditStatus.PASS,
+        mechanism_evidence=RiskLabel.MIXED,
+        statistical_evidence=RiskLabel.MIXED,
+        external_validation=RiskLabel.MIXED,
+        primary_closed_trades=25,
+        minimum_closed_trades=20,
+    )
+
+    result = assess_research_candidate(request)
+    assert result.decision is CandidateReadinessDecision.RECOMMEND_REGISTRATION
+    assert result.risk_label is RiskLabel.MIXED
+
+    insufficient = assess_research_candidate(
+        replace(request, primary_closed_trades=19)
+    )
+    assert insufficient.decision is CandidateReadinessDecision.INSUFFICIENT_EVIDENCE
+
+    rejected = assess_research_candidate(
+        replace(request, external_validation=RiskLabel.WEAK)
+    )
+    assert rejected.decision is CandidateReadinessDecision.REJECT

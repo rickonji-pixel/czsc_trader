@@ -87,6 +87,12 @@ from .replay_audit import (
     audit_replay,
     hash_replay_evidence,
 )
+from .candidate_readiness import (
+    CandidateReadinessDecision,
+    CandidateReadinessRequest,
+    CandidateReadinessResult,
+    assess_research_candidate,
+)
 
 __version__ = "0.1.0"
 
@@ -116,4 +122,6 @@ __all__ = [
     "audit_provisional_champion", "hash_audit_data", "hash_candidate_pool",
     "hash_execution_evidence", "hash_return_matrix",
     "ReplayAuditResult", "ReplayEvidence", "audit_replay", "hash_replay_evidence",
+    "CandidateReadinessDecision", "CandidateReadinessRequest",
+    "CandidateReadinessResult", "assess_research_candidate",
 ]

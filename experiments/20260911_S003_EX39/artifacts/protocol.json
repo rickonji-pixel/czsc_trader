@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX39",
+  "experiment_type": "legacy_etf_share_nav_data_gate",
+  "inherits": ["20260911_S003_EX35"],
+  "research_target": {
+    "strategy_id": "S003",
+    "trade_symbol": "510500.SH"
+  },
+  "dataset": {
+    "start": "2021-01-04",
+    "development_cutoff": "2026-09-08",
+    "execution_manifest": "data/raw/510500_execution_manifest.json",
+    "execution_manifest_sha256": "16f5b09e7cb8b63c5a51de0ed3385ba518e5a484cba1aa0cc64938a65c186d22"
+  },
+  "sources": {
+    "vendor": "tushare",
+    "share_endpoint": "fund_share",
+    "share_fields": ["ts_code", "trade_date", "fd_share"],
+    "nav_endpoint": "fund_nav",
+    "nav_fields": ["ts_code", "ann_date", "nav_date", "unit_nav", "accum_nav", "adj_nav"],
+    "execution_close": "manifest_verified_unadjusted_close"
+  },
+  "availability": {
+    "share": "FIRST_TRADING_SESSION_AFTER_TRADE_DATE",
+    "nav": "FIRST_TRADING_SESSION_AFTER_ANN_DATE",
+    "combined": "LATER_OF_SHARE_AND_NAV_AVAILABILITY"
+  },
+  "quality_gate": {
+    "access_available": true,
+    "unique_share_dates": true,
+    "unique_nav_dates": true,
+    "first_calendar_session_covered": true,
+    "last_calendar_session_covered": true,
+    "minimum_share_calendar_coverage_ratio": 0.95,
+    "minimum_nav_calendar_coverage_ratio": 0.95,
+    "positive_finite_share_and_nav": true,
+    "announcement_not_before_nav_date": true,
+    "maximum_p95_combined_availability_delay_sessions": 3,
+    "maximum_absolute_close_nav_deviation": 0.1,
+    "no_forward_fill": true
+  },
+  "conditional_return_analysis": false,
+  "signal_generation": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

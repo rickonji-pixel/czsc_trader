@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX46",
+  "status": "COMPLETE",
+  "experiment_type": "moneyflow_breadth_statistical_audit",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "evidence_label": "ADVERSE",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 237,
+      "sha256": "b68728ef05dd808aad056472db06c41ff96a1c7980b6b62fab7e4309b2d0a636"
+    },
+    "02_design.md": {
+      "bytes": 590,
+      "sha256": "6132973010c36cc55559c6e1cecd45705bee9a2f7cf6a221051199fac9849dd9"
+    },
+    "03_execution.md": {
+      "bytes": 194,
+      "sha256": "df92b8a5861831986ab44a793f463b944b86ce9afde144b172f9cb4061cada74"
+    },
+    "04_conclusion.md": {
+      "bytes": 529,
+      "sha256": "6cd9ad3e5403dd834004d8660e536885957d24d60c94d6817be7949313060db4"
+    },
+    "artifacts/bootstrap_intervals.csv": {
+      "bytes": 1177,
+      "sha256": "2a3cec1719bc897161c9e8f2fc1f5f070fb72716efe6a7f2acd2fa56d63692db"
+    },
+    "artifacts/cscv_splits.csv": {
+      "bytes": 32040,
+      "sha256": "4af2997db3a930c4f94156ab8b9e9d703c65a3dac5bd32b907145eea8892e28f"
+    },
+    "artifacts/cyclic_placebo.csv.gz": {
+      "bytes": 13241,
+      "sha256": "bae1f8dd100ba08191e163bb179bf341e2aac3b78f59f7307a0ef34c2c8f912d"
+    },
+    "artifacts/leave_one_year_out.csv": {
+      "bytes": 504,
+      "sha256": "c2426414b6a2d41afb4f8dec2699dcc1c8a34c7c199297f4b996fdc6d983f46f"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2021,
+      "sha256": "3f64d5e8b1476449dc32b33a5654029a8144333ac1b81712a1c8442e3e2d56c1"
+    },
+    "artifacts/statistical_details.json": {
+      "bytes": 149972,
+      "sha256": "6e574f749ca50f80281a8410cc61b02f3f5605343c9025c1ba5d0ac2dc1c1206"
+    },
+    "artifacts/statistical_summary.json": {
+      "bytes": 809,
+      "sha256": "db7ca0b1fb761dd568f601c203e9749112671c4c4a4bc80ecd82d37dfea9e268"
+    },
+    "artifacts/threshold_neighborhood.csv": {
+      "bytes": 420,
+      "sha256": "86c113d81eb23e5e94ead78e77760f62a5090f5120c24f5968605bab1ac9bd25"
+    },
+    "artifacts/trial_ledger.csv": {
+      "bytes": 14811,
+      "sha256": "7f89d5b85e84195883a4081ede8b70ebabf997602b14c15dcf01eed70485713b"
+    },
+    "artifacts/trial_sharpes.csv": {
+      "bytes": 8679,
+      "sha256": "585b889c29303379d131fdc5fb59d0d7dd6b41a68c077de0e651a84a03e2bf02"
+    },
+    "artifacts/trial_sources.json": {
+      "bytes": 4046,
+      "sha256": "460ef98ef5a335ef5ed91f36975283bd683a0d438f62c5eae62e6acfab3e3292"
+    },
+    "run_experiment.py": {
+      "bytes": 18867,
+      "sha256": "353e463e247dac8498d656e8fcf071170f5acc4d9b8b8630921b05c880ac5539"
+    }
+  }
+}

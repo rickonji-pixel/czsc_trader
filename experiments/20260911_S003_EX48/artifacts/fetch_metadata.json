@@ -1,0 +1,23 @@
+{
+  "minute": {
+    "vendor": "tushare",
+    "market": "a_share",
+    "vendor_symbol": "512100.SH",
+    "period": "5m",
+    "asset_type": "etf",
+    "adjustment": "hfq",
+    "adjustment_factor_source": "fund_adj",
+    "adjustment_factor_sha256": "c9332bb439b9fecbba9b80fc93744adbe84438631d1d16457fbadeacea40792e",
+    "hardcoded_volume_corrections": "2024-04-03,2024-04-19,2024-04-26,2024-04-30,2024-05-24,2024-05-31,2024-06-14"
+  },
+  "daily": {
+    "vendor": "tushare",
+    "market": "a_share",
+    "vendor_symbol": "512100.SH",
+    "period": "daily",
+    "asset_type": "etf",
+    "adjustment": "hfq",
+    "adjustment_factor_source": "fund_adj",
+    "adjustment_factor_sha256": "c9332bb439b9fecbba9b80fc93744adbe84438631d1d16457fbadeacea40792e"
+  }
+}

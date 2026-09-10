@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX09",
+  "status": "COMPLETE",
+  "experiment_type": "opening_liquidity_shock_event_definition",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 333,
+      "sha256": "cf2609527a61c446ddf6cfffd0f5242b8cf3bae431e91e1aa61c8798cf3a72e0"
+    },
+    "02_design.md": {
+      "bytes": 1385,
+      "sha256": "965265238b6bedc21d7d3cd2c32977000ea210d51c89e7aeabe9448a48c8bd0b"
+    },
+    "03_execution.md": {
+      "bytes": 225,
+      "sha256": "e9dc6984c8c1a2e71375268f8899eaca133cee610bd0a87acfca837afb0c4e6c"
+    },
+    "04_conclusion.md": {
+      "bytes": 287,
+      "sha256": "808d6026977962641aed46ee6db1919724ca81f32b5242f66126da3540320e0e"
+    },
+    "artifacts/density_summary.json": {
+      "bytes": 346,
+      "sha256": "2fe49229fa153d6bec74ff71f9045fa8087e2ac8799c6733f6a637199e2c8c25"
+    },
+    "artifacts/opening_features.csv": {
+      "bytes": 224026,
+      "sha256": "6c049ea3674452a1daf38ca45f8a593d3f0d4d0c8ec89742076a6fbc487557ac"
+    },
+    "artifacts/opening_shock_events.csv": {
+      "bytes": 79585,
+      "sha256": "c1e099b9845a73d8cf6fc0f89c252118d71f366bd7678eee217fa14f1096558d"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1238,
+      "sha256": "4893718ba36296f2b8f11975d06d0073091d15bccd3bf1812ed65b1b8bcfd91f"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 9684,
+      "sha256": "efdbc8f894a0119abaafed585254f61bbd1b9b688044648e86b07279ccb92cf5"
+    },
+    "run_experiment.py": {
+      "bytes": 5494,
+      "sha256": "054e96f36e9ced793db3b30928160234b413fc7efcb6d411d62d4223a920f741"
+    }
+  }
+}

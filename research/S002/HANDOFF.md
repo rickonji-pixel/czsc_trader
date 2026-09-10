@@ -101,6 +101,11 @@ EX13诊断2023年和低波动弱表现的关系，预注册裁决为`CONFOUNDED`
 下一步进入冻结准备：先验证候选能被TDR确定性回放、能被PTE按同一规则执行，再由SE汇总
 冻结证据。技术契约未通过前不创建`S002-v1`，当前不得进入PTE。
 
+首次技术预检已确认阻断：TDR现有策略解析器尚不支持`czsc_event_hold`，直接解析候选会报
+`strategy payload must define execution instrument symbol`；并且研究回测采用T+1开盘成交，
+当前PTE的限价委托及成交判定必须与该口径完成统一评审。后续应作为独立开发任务补齐
+TDR回放、advice和PTE执行链路，并用同一候选规则做端到端复现。
+
 开始前验证：
 
 ```powershell

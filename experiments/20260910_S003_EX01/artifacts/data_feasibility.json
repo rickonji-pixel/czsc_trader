@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX01",
+  "status": "PASS",
+  "protocol_sha256": "ae8388d953effaf2903ea27aa2d5a2444fcb696c284fe74bc82fa2f20ec91180",
+  "daily_rows": 2,
+  "shared_adjustment_factor_sha256": "75c929ddd8b7d76cd7977a58dd5fbc152adbe5679981de10014c055c4af44448",
+  "frequencies": {
+    "15m": {
+      "status": "PASS",
+      "bar_count": 32,
+      "complete_day_count": 2,
+      "expected_bars_per_day": 16,
+      "first_bar": "2026-09-07T09:45:00",
+      "last_bar": "2026-09-08T15:00:00",
+      "first_session_close": "09:45:00",
+      "last_session_close": "15:00:00",
+      "daily_matched_days": 2,
+      "metadata": {
+        "vendor": "tushare",
+        "market": "a_share",
+        "vendor_symbol": "510500.SH",
+        "period": "15m",
+        "asset_type": "etf",
+        "adjustment": "hfq",
+        "adjustment_factor_source": "fund_adj",
+        "adjustment_factor_sha256": "75c929ddd8b7d76cd7977a58dd5fbc152adbe5679981de10014c055c4af44448"
+      }
+    },
+    "5m": {
+      "status": "PASS",
+      "bar_count": 96,
+      "complete_day_count": 2,
+      "expected_bars_per_day": 48,
+      "first_bar": "2026-09-07T09:35:00",
+      "last_bar": "2026-09-08T15:00:00",
+      "first_session_close": "09:35:00",
+      "last_session_close": "15:00:00",
+      "daily_matched_days": 2,
+      "metadata": {
+        "vendor": "tushare",
+        "market": "a_share",
+        "vendor_symbol": "510500.SH",
+        "period": "5m",
+        "asset_type": "etf",
+        "adjustment": "hfq",
+        "adjustment_factor_source": "fund_adj",
+        "adjustment_factor_sha256": "75c929ddd8b7d76cd7977a58dd5fbc152adbe5679981de10014c055c4af44448"
+      }
+    },
+    "1m": {
+      "status": "PASS",
+      "bar_count": 480,
+      "complete_day_count": 2,
+      "expected_bars_per_day": 240,
+      "first_bar": "2026-09-07T09:31:00",
+      "last_bar": "2026-09-08T15:00:00",
+      "first_session_close": "09:31:00",
+      "last_session_close": "15:00:00",
+      "daily_matched_days": 2,
+      "metadata": {
+        "vendor": "tushare",
+        "market": "a_share",
+        "vendor_symbol": "510500.SH",
+        "period": "1m",
+        "asset_type": "etf",
+        "adjustment": "hfq",
+        "adjustment_factor_source": "fund_adj",
+        "adjustment_factor_sha256": "75c929ddd8b7d76cd7977a58dd5fbc152adbe5679981de10014c055c4af44448"
+      }
+    }
+  },
+  "scope": {
+    "signal_census": false,
+    "candidate_created": false,
+    "strategy_manager_mutated": false,
+    "pte_mutated": false
+  }
+}

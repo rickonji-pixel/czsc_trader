@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX13",
+  "status": "COMPLETE",
+  "experiment_type": "regime_conditioned_intraday_pullback",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 311,
+      "sha256": "c80e5a38790f324c3ff9785b25a11e766d94507c848111472c725833e8955317"
+    },
+    "02_design.md": {
+      "bytes": 1045,
+      "sha256": "fc3b7254813b509b92650a2242949c26651b420f69a5900847e8769530699095"
+    },
+    "03_execution.md": {
+      "bytes": 189,
+      "sha256": "9d0b91391da0d271be2c65986921e65ac852482cc55627ad84d5738a7cb36d89"
+    },
+    "04_conclusion.md": {
+      "bytes": 492,
+      "sha256": "79e738a9fb95fbaa04e6ad18ab4afc9db76ff19c69312f85cdf1b055be1b0d5b"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 416,
+      "sha256": "879746f1c7e9265ec144c8a5e1d824de4652a64b25be05ee21ced4efa16be4e5"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 1965,
+      "sha256": "6f50b5e171a4b188a89642489f6a127af0c4af644adf1d60ccd6a07420459b7b"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 58635,
+      "sha256": "67dd2557aeda5b2dcff957680b8a1195420f0d9b0202bfaf9b04e64f1f29ed00"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 955,
+      "sha256": "fec2614fcaab5d2e67a7ff9158ae7aa534821adfa422fd3114403d841b462ff9"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1857,
+      "sha256": "564be31e91348fd515bbc0fcd954e58b71f3b1a427d7f9e0db6f58dd1f3c70a7"
+    },
+    "artifacts/regime_metrics.csv": {
+      "bytes": 1093,
+      "sha256": "8ae55cd12b00d372f351540a2d206efa88411e558b324e808b4e91c58eac7cbd"
+    },
+    "artifacts/regime_pullback_summary.json": {
+      "bytes": 469,
+      "sha256": "5d6dffe76077f7cebd3987cead4cfba838f7bb34bc3875895b9765ccd148f901"
+    },
+    "artifacts/selected_events.csv": {
+      "bytes": 56904,
+      "sha256": "893a91cc8a8ed48b1ca28b1bdcbdfb29358dc2f9cb459d2929ba201d25e24a8b"
+    },
+    "run_experiment.py": {
+      "bytes": 7754,
+      "sha256": "dc1d586ea6a5ecf580467f3987407fe60c3147fbe88af7144af1ceb901358d33"
+    }
+  }
+}

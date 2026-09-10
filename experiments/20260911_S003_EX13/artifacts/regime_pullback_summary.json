@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX13",
+  "status": "PASS",
+  "event_manifest_sha256": "3b109014f0c883dab1d207a525ca9103516676f68dbb3634daa878052787904c",
+  "regime_manifest_sha256": "7f7319d7fede9c6ad2e7085da9d77aea178df94ccaaec09af05fc13888420172",
+  "source_events": 491,
+  "selected_events": 347,
+  "evaluated_combinations": 2,
+  "feasible_combinations": 0,
+  "route_decision": "STOP_REGIME_PULLBACK_ROUTE",
+  "candidate_created": false
+}

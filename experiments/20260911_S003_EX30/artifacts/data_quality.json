@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX30",
+  "first_usable_session": "2019-11-01",
+  "last_session": "2026-09-08",
+  "sessions": 1664,
+  "constituent_union": 1068,
+  "panel_rows": 832000,
+  "member_count_min": 500,
+  "member_count_max": 500,
+  "daily_api_calls": 356,
+  "suspension_api_calls": 7,
+  "daily_duplicate_rows": 0,
+  "observed_rows": 831001,
+  "suspended_rows": 986,
+  "unexplained_missing_rows": 13,
+  "finite_observed_pct_change": true,
+  "nonnegative_observed_volume_and_amount": true,
+  "causal_membership": true,
+  "compressed_storage_mb": 16.266244888305664,
+  "expected_daily_calls": 356,
+  "passed": false
+}

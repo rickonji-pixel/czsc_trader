@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX47",
+  "experiment_type": "moneyflow_breadth_statistical_audit_correction",
+  "inherits": ["20260911_S003_EX46"],
+  "research_target": {
+    "strategy_id": "S003",
+    "symbol": "510500.SH",
+    "selected_behavior": "CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG"
+  },
+  "source": {
+    "experiment_id": "20260911_S003_EX46",
+    "manifest_sha256": "df18a9ecfba2e6d78ce9e2574dcaee5c6ba32ef137210431e992bea9f8d16abc",
+    "run_script_sha256": "353e463e247dac8498d656e8fcf071170f5acc4d9b8b8630921b05c880ac5539",
+    "statistical_summary_sha256": "061484946625f702b86bccbccd2e280f9f12bbd39f8cb9579b98eb2313fb3d5e",
+    "trial_sources_sha256": "460ef98ef5a335ef5ed91f36975283bd683a0d438f62c5eae62e6acfab3e3292"
+  },
+  "correction": {
+    "invalid_experiment_id": "20260910_S003_EX07",
+    "invalid_manifest_status": "INVALID",
+    "invalid_reason": "SURVIVORSHIP_BIAS_FROM_DROPPED_UNCLOSED_ENTRIES",
+    "attempted_trial_count": 142,
+    "excluded_invalid_return_paths": 7,
+    "comparable_return_path_count": 135,
+    "dsr_raw_trial_count": 142,
+    "pbo_and_empirical_sharpe_use_comparable_paths_only": true
+  },
+  "audit": {
+    "cscv_blocks": 10,
+    "positive_dsr_probability": 0.9,
+    "adverse_dsr_probability_below": 0.5,
+    "favorable_pbo_max": 0.4,
+    "adverse_pbo_min_exclusive": 0.5
+  },
+  "automatic_acceptance": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

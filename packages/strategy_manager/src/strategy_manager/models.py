@@ -34,6 +34,58 @@ class EvidencePhase(str, Enum):
     LIVE = "LIVE"
 
 
+@dataclass(frozen=True)
+class FreezeApproval:
+    schema_version: int
+    assessment_id: str
+    strategy_id: str
+    candidate_id: str
+    candidate_hash: str
+    decision: str
+    risk_label: str
+    source_experiment: str
+    source_hash: str
+    assessed_at: str
+
+    FIELDS: ClassVar[tuple[str, ...]] = (
+        "schema_version",
+        "assessment_id",
+        "strategy_id",
+        "candidate_id",
+        "candidate_hash",
+        "decision",
+        "risk_label",
+        "source_experiment",
+        "source_hash",
+        "assessed_at",
+    )
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> FreezeApproval:
+        require_exact_fields(value, cls.FIELDS)
+        decision = require_string(value["decision"], "decision")
+        if decision != "RECOMMEND_FREEZE":
+            raise ValidationError("freeze approval decision must be RECOMMEND_FREEZE")
+        risk_label = require_string(value["risk_label"], "risk_label")
+        if risk_label not in {"FAVORABLE", "MIXED"}:
+            raise ValidationError("freeze approval risk_label must be FAVORABLE or MIXED")
+        return cls(
+            schema_version=require_schema_version(value["schema_version"]),
+            assessment_id=require_string(value["assessment_id"], "assessment_id"),
+            strategy_id=require_strategy_id(value["strategy_id"]),
+            candidate_id=require_string(value["candidate_id"], "candidate_id"),
+            candidate_hash=require_sha256(value["candidate_hash"], "candidate_hash"),
+            decision=decision,
+            risk_label=risk_label,
+            source_experiment=require_string(value["source_experiment"], "source_experiment"),
+            source_hash=require_sha256(value["source_hash"], "source_hash"),
+            assessed_at=require_timestamp(value["assessed_at"], "assessed_at"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 def canonical_sha256(payload: Any) -> str:
     encoded = json.dumps(
         payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")

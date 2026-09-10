@@ -10,6 +10,7 @@ from strategy_manager import (
     StrategyManagerError,
     StrategyRegistry,
     StrategyVersion,
+    canonical_sha256,
 )
 
 from .context import RepositoryContext
@@ -180,6 +181,7 @@ def freeze_strategy_version(
     strategy_id: str,
     version: str,
     evidence_path: Path,
+    health_check_path: Path,
     *,
     actor: str,
     reason: str,
@@ -187,12 +189,20 @@ def freeze_strategy_version(
     registry = _registry(context)
 
     def operation() -> dict[str, Any]:
+        document = _read_object(context, health_check_path)
+        source = document.get("source")
+        approval = document.get("approval")
+        if not isinstance(source, dict) or not isinstance(approval, dict):
+            raise ValueError("health check must contain source and approval objects")
+        if approval.get("source_hash") != canonical_sha256(source):
+            raise ValueError("health check source hash mismatch")
         frozen, event = registry.freeze_version(
             strategy_id,
             version,
             actor=actor,
             reason=reason,
             evidence=_read_object(context, evidence_path),
+            approval=approval,
         )
         return {"version": frozen.to_dict(), "event": event.to_dict()}
 

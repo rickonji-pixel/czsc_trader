@@ -8,7 +8,7 @@
   "candidate_id": "S002-C001",
   "benchmark_id": "BuyHold-510500",
   "development_cutoff": "2026-09-08",
-  "decision": "RECOMMEND_FREEZE",
+  "decision": "RECOMMEND_HEALTH_CHECK",
   "risk_label": "MIXED",
   "strategy_frozen": false,
   "pte_mutated": false,
@@ -18,16 +18,16 @@
       "sha256": "6d08c94f6426b5911ccfa6770d8415b0d60a41efe48dc8ae1466958e01b012ba"
     },
     "02_design.md": {
-      "bytes": 1180,
-      "sha256": "487b9dbb6c29fe5e60f867e64078478e04bd34aef4359452a3e92459f4c585ef"
+      "bytes": 1190,
+      "sha256": "ea15253f3934c1c91b7e87f477ea8e64fde2c3d33dce22dc428ce758c1a02870"
     },
     "03_execution.md": {
       "bytes": 254,
       "sha256": "66307a88f837eb0db81fc1d9180b35898e4c487a0b7dfd1c14c5aa45b4e5db86"
     },
     "04_conclusion.md": {
-      "bytes": 706,
-      "sha256": "c19c7a7e77c96305e58f24c5d3a4f9b1e7a530094196a5f6ebed4ecc2e7398fd"
+      "bytes": 709,
+      "sha256": "95d0dd63daab2fe45e1c29d9e2acaad2f8a475f7d53b3cb75f3d1fded2928f51"
     },
     "artifacts/buyhold_account_daily.csv": {
       "bytes": 69159,
@@ -38,8 +38,8 @@
       "sha256": "c522adf3362179e1cb92156867ecdabb4ed6dd059370ff58d5a0700861ba329b"
     },
     "artifacts/freeze_assessment.json": {
-      "bytes": 2791,
-      "sha256": "a70dd2661db14724bed5381f64f83abfa752392c77db029e2f670ae114d11612"
+      "bytes": 2797,
+      "sha256": "8a1dd1f7ffc4e19ed20254bc73120713236ac7b31035f9ba40514f6e51c583cb"
     },
     "artifacts/paired_bootstrap.json": {
       "bytes": 2875,
@@ -54,8 +54,8 @@
       "sha256": "24c8e8c2207c89f95191242d61db4f584984ec5a5884f5d73bf3120a2ab86c6c"
     },
     "run_experiment.py": {
-      "bytes": 10956,
-      "sha256": "d243a434340f76811730b69fbd9e0ebf2ab1807a246fc12de2ba3c6eba32ba53"
+      "bytes": 10953,
+      "sha256": "e6264701f752fb37273f97c6c2d190828f0e2c1346148596dcbfb1666cafbe27"
     }
   }
 }

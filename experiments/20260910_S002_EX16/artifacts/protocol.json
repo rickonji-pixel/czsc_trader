@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX16",
+  "experiment_type": "freeze_health_check",
+  "strategy_id": "S002",
+  "candidate_id": "S002-C001",
+  "candidate_hash": "8a804a7fafc784c92ddd8b8c2d4c3fbc8dda953ca0fd7f0cfb6ab6fd7650574d",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "mutates_candidate": false,
+  "freezes_strategy": false,
+  "mutates_pte": false
+}

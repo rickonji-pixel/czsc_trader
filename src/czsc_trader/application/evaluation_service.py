@@ -661,7 +661,29 @@ def _ensure_frozen(
         "source_path": f"experiments/{experiment_id}/artifacts/evaluation_result.json", "source_hash": canonical_sha256(source),
         "recorded_at": datetime.now().astimezone().isoformat(), "recorded_by": actor,
     }
-    frozen, _ = registry.freeze_version(strategy_id, version.version, actor=actor, reason=reason, evidence=evidence)
+    candidate_hash = str(winner.get("strategy_hash", winner.get("candidate_hash", "")))
+    if len(candidate_hash) != 64:
+        raise ValueError("winning candidate requires candidate_hash for freeze approval")
+    approval = {
+        "schema_version": 1,
+        "assessment_id": f"FHC-{experiment_id}-{candidate_id}",
+        "strategy_id": strategy_id,
+        "candidate_id": candidate_id,
+        "candidate_hash": candidate_hash,
+        "decision": "RECOMMEND_FREEZE",
+        "risk_label": str(result.get("audit", {}).get("risk_label", "MIXED")),
+        "source_experiment": f"experiments/{experiment_id}",
+        "source_hash": canonical_sha256(result),
+        "assessed_at": datetime.now().astimezone().isoformat(),
+    }
+    frozen, _ = registry.freeze_version(
+        strategy_id,
+        version.version,
+        actor=actor,
+        reason=reason,
+        evidence=evidence,
+        approval=approval,
+    )
     return frozen
 
 

@@ -241,7 +241,7 @@ def main() -> None:
         f"年化收益 {primary_values['cagr'].probability_favorable:.2%}、"
         f"最大回撤 {primary_values['max_drawdown'].probability_favorable:.2%}、"
         f"卡玛 {primary_values['calmar'].probability_favorable:.2%}。\n\n"
-        "候选已击败首个明确对手，具备提交冻结人工评审的资格。年化收益优势的概率证据偏弱，"
+        "候选已击败首个明确对手，具备进入冻结前体检的资格。年化收益优势的概率证据偏弱，"
         "既有DSR、横截面和正式执行证据均为MIXED，因此本结论不等同于统计显著性已被充分证明。\n",
         encoding="utf-8",
     )

@@ -58,7 +58,7 @@
     "candidate_id": "S002-C001",
     "candidate_hash": "8a804a7fafc784c92ddd8b8c2d4c3fbc8dda953ca0fd7f0cfb6ab6fd7650574d",
     "benchmark_id": "BuyHold-510500",
-    "decision": "RECOMMEND_FREEZE",
+    "decision": "RECOMMEND_HEALTH_CHECK",
     "risk_label": "MIXED",
     "reason_codes": [
       "REQUIRED_AUDITS_PASSED",

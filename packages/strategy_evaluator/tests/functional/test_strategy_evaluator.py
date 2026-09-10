@@ -509,7 +509,7 @@ def test_ft_se04_first_research_candidate_has_no_synthetic_incumbent() -> None:
         execution_evidence=RiskLabel.MIXED,
     )
     assessed = assess_benchmark_challenge(challenge)
-    assert assessed.decision is BenchmarkChallengeDecision.RECOMMEND_FREEZE
+    assert assessed.decision is BenchmarkChallengeDecision.RECOMMEND_HEALTH_CHECK
     assert assessed.risk_label is RiskLabel.MIXED
     assert assess_benchmark_challenge(
         replace(
@@ -517,3 +517,35 @@ def test_ft_se04_first_research_candidate_has_no_synthetic_incumbent() -> None:
             candidate_performance=PerformanceMetrics(0.01, -0.05, 0.79),
         )
     ).decision is BenchmarkChallengeDecision.KEEP_BENCHMARK
+
+    from strategy_evaluator import (
+        FreezeHealthDecision,
+        FreezeHealthRequest,
+        assess_freeze_health,
+    )
+
+    health_request = FreezeHealthRequest(
+        candidate_id="S002-C001",
+        candidate_hash="d" * 64,
+        candidate_readiness=AuditStatus.PASS,
+        benchmark_challenge=BenchmarkChallengeDecision.RECOMMEND_HEALTH_CHECK,
+        evidence_integrity=AuditStatus.PASS,
+        reproducibility=AuditStatus.PASS,
+        technical_replay=AuditStatus.PASS,
+        cost_stress=AuditStatus.PASS,
+        monitoring_plan=AuditStatus.PASS,
+        mechanism_evidence=RiskLabel.FAVORABLE,
+        statistical_evidence=RiskLabel.MIXED,
+        parameter_robustness=RiskLabel.FAVORABLE,
+        external_validation=RiskLabel.MIXED,
+        execution_evidence=RiskLabel.MIXED,
+    )
+    health = assess_freeze_health(health_request)
+    assert health.decision is FreezeHealthDecision.RECOMMEND_FREEZE
+    assert health.risk_label is RiskLabel.MIXED
+    assert assess_freeze_health(
+        replace(
+            health_request,
+            benchmark_challenge=BenchmarkChallengeDecision.KEEP_BENCHMARK,
+        )
+    ).decision is FreezeHealthDecision.KEEP_RESEARCHING

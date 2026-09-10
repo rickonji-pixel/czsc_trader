@@ -99,6 +99,12 @@ from .benchmark_challenge import (
     BenchmarkChallengeResult,
     assess_benchmark_challenge,
 )
+from .freeze_health import (
+    FreezeHealthDecision,
+    FreezeHealthRequest,
+    FreezeHealthResult,
+    assess_freeze_health,
+)
 
 __version__ = "0.1.0"
 
@@ -132,4 +138,6 @@ __all__ = [
     "CandidateReadinessResult", "assess_research_candidate",
     "BenchmarkChallengeDecision", "BenchmarkChallengeRequest",
     "BenchmarkChallengeResult", "assess_benchmark_challenge",
+    "FreezeHealthDecision", "FreezeHealthRequest", "FreezeHealthResult",
+    "assess_freeze_health",
 ]

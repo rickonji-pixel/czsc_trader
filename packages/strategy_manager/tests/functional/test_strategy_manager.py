@@ -90,6 +90,21 @@ def _evidence(
     )
 
 
+def _approval(*, decision: str = "RECOMMEND_FREEZE") -> dict:
+    return {
+        "schema_version": 1,
+        "assessment_id": "FHC-S001-v1",
+        "strategy_id": "S001",
+        "candidate_id": "winner",
+        "candidate_hash": "c" * 64,
+        "decision": decision,
+        "risk_label": "MIXED",
+        "source_experiment": "experiments/0904_TEST",
+        "source_hash": "d" * 64,
+        "assessed_at": "2026-09-03T10:00:00+08:00",
+    }
+
+
 def _frozen_registry(root: Path) -> tuple[StrategyRegistry, str]:
     registry = StrategyRegistry(root)
     registry.create_strategy(_strategy(), actor="tester", reason="创建策略")
@@ -100,6 +115,7 @@ def _frozen_registry(root: Path) -> tuple[StrategyRegistry, str]:
         actor="tester",
         reason="进入模拟盘",
         evidence=_evidence("EVD-RESEARCH", "RESEARCH_BACKTEST", "a" * 64),
+        approval=_approval(),
     )
     assert frozen.release_hash is not None
     return registry, frozen.release_hash
@@ -170,6 +186,15 @@ def test_ft_sm02_governance_rejects_invalid_mutation_and_tampering(
             reason="重复名称",
         )
     registry.create_version(_version(), actor="tester", reason="创建首版")
+    with pytest.raises(ValidationError, match="RECOMMEND_FREEZE"):
+        registry.freeze_version(
+            "S001",
+            "v1",
+            actor="tester",
+            reason="体检未通过",
+            evidence=_evidence("EVD-REJECTED", "RESEARCH_BACKTEST", "a" * 64),
+            approval=_approval(decision="KEEP_RESEARCHING"),
+        )
     with pytest.raises(RegistryError, match="next version"):
         registry.create_version(
             _version(version="v3", parent="v1"),
@@ -182,6 +207,7 @@ def test_ft_sm02_governance_rejects_invalid_mutation_and_tampering(
         actor="tester",
         reason="进入模拟盘",
         evidence=_evidence("EVD-RESEARCH", "RESEARCH_BACKTEST", "a" * 64),
+        approval=_approval(),
     )
     before = registry.lifecycle_events("S001")
     with pytest.raises(EvidenceRequiredError, match="PAPER_FORWARD"):

@@ -46,6 +46,7 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
             args.strategy,
             args.version,
             args.evidence,
+            args.health_check,
             actor=args.actor,
             reason=args.reason,
         )
@@ -133,6 +134,7 @@ def add_strategy_parser(
     freeze = actions.add_parser("freeze")
     _identity(freeze)
     freeze.add_argument("--evidence", type=Path, required=True)
+    freeze.add_argument("--health-check", type=Path, required=True)
     _audit(freeze)
     add_common(freeze)
     freeze.set_defaults(command_handler=handler, command_name="strategy.freeze")

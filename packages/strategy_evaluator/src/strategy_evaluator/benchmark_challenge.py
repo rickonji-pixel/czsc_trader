@@ -11,7 +11,7 @@ from .models import Record
 class BenchmarkChallengeDecision(str, Enum):
     """Decision for a candidate challenging an explicit benchmark."""
 
-    RECOMMEND_FREEZE = "RECOMMEND_FREEZE"
+    RECOMMEND_HEALTH_CHECK = "RECOMMEND_HEALTH_CHECK"
     KEEP_BENCHMARK = "KEEP_BENCHMARK"
     INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
 
@@ -142,7 +142,7 @@ def assess_benchmark_challenge(
         request.candidate_id,
         request.candidate_hash,
         request.benchmark_id,
-        BenchmarkChallengeDecision.RECOMMEND_FREEZE,
+        BenchmarkChallengeDecision.RECOMMEND_HEALTH_CHECK,
         risk,
         (
             "REQUIRED_AUDITS_PASSED",

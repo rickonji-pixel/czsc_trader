@@ -22,8 +22,9 @@
 - 主开发分支：`master`；开始工作前现场确认分支和远端同步状态。
 - Python：3.12。
 - 正式策略：`S001-v1`和`S001-v2`均为`PAPER_READY`；TDR已支持S002研究候选使用的
-  `czsc_event_hold`事件持有型运行时。S002已取得SE冻结建议，等待人工确认，尚未冻结。
+  `czsc_event_hold`事件持有型运行时。S002已通过BuyHold PK和冻结前体检，等待人工确认。
 - PTE虚拟账户：每个账户持有独立策略发布、标的和资产类型；现有两个S001账户各10万元。
+- SM冻结必须携带SE冻结前体检批准书；批准书与策略、候选ID及候选哈希不一致时拒绝冻结。
 - TDR/PTE机器契约：决策为`advice.v4`，纯绘图为`account_observation.v1`。
 - PTE控制台：<http://127.0.0.1:8080>。
 - WDG Windows服务：`CZSC-PTE-Watchdog`。

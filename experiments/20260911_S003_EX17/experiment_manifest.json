@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX17",
+  "status": "COMPLETE",
+  "experiment_type": "early_session_event_census",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 314,
+      "sha256": "e4c5a6e3aae38c338574dbb3c351b8fa9300d80f12264002041e0a000a5dcdca"
+    },
+    "02_design.md": {
+      "bytes": 1187,
+      "sha256": "ab9f7465c36ee2b52f25534b0c17e784793b0739a8496a7001c606460e2cd1ae"
+    },
+    "03_execution.md": {
+      "bytes": 174,
+      "sha256": "42a06df49868692baa41c5713997af081976dd585b059ed8da4cbbceff4c4d69"
+    },
+    "04_conclusion.md": {
+      "bytes": 490,
+      "sha256": "9c6b1bd74b0bd261987cda4c8bafbf4a7dd99bb5af3d5b7b0628a7b2aa71ef13"
+    },
+    "artifacts/census_summary.json": {
+      "bytes": 382,
+      "sha256": "85e643fcf0a7598b4cbe489d2589921e84f11b4d6bf845fabb0080884228388a"
+    },
+    "artifacts/density_metrics.csv": {
+      "bytes": 459,
+      "sha256": "c90fdbcfe3cdb6acbc5aa49878aa9e822871989c042eabde823409c9cf1a6f6a"
+    },
+    "artifacts/early_session_features.csv": {
+      "bytes": 316290,
+      "sha256": "82fa836e5dfc6f748abe2b5fb428728847af333d205bcf4c4d25e634f7fdbbb4"
+    },
+    "artifacts/mechanism_events.csv": {
+      "bytes": 273848,
+      "sha256": "f6023aae144f7de9fa2f0ce6b108d814e42ac6c7f64a04dc2123ec2bc8334fbe"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1677,
+      "sha256": "bed5a4885df3dac8d90612fcfc46a3db3819bd4b947ce5477371611108064420"
+    },
+    "run_experiment.py": {
+      "bytes": 5885,
+      "sha256": "65840579412c1d5157d8050ee8c734ffd2e7dcdc78f7b739adced56863f390ae"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# S003 EX17 结论
+
+|机制|事件数|多头/减仓|60日中位/P10|最小/最大|目标带|证据|
+|---|---:|---:|---:|---:|---|---|
+|PRIOR_INTRADAY_CONTINUATION|365|205/160|16/10|5/30|是|DENSITY_CAPABLE|
+|LATE_SESSION_FLOW_CONTINUATION|379|186/193|16/9|4/32|是|DENSITY_CAPABLE|
+|OPENING_GAP_REVERSION|375|242/133|17/9|3/28|是|DENSITY_CAPABLE|
+
+密度合格机制可按冻结方向和执行时点进入EX18收益检验。 本实验没有读取执行后价格，也没有创建候选。

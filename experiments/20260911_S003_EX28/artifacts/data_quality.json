@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX28",
+  "first_snapshot": "2019-10-31",
+  "last_snapshot": "2026-08-31",
+  "snapshot_count": 83,
+  "missing_months": [
+    "2026-09"
+  ],
+  "member_count_min": 500,
+  "member_count_max": 500,
+  "weight_sum_min": 99.984,
+  "weight_sum_max": 100.019,
+  "nonpositive_weight_rows": 0,
+  "duplicate_snapshot_member_rows": 0,
+  "snapshot_dates_outside_master_calendar": [],
+  "historical_constituent_union": 1068,
+  "first_last_overlap": 151,
+  "sample_codes": {
+    "persistent": [
+      "000009.SZ",
+      "000021.SZ",
+      "000027.SZ",
+      "000039.SZ"
+    ],
+    "departed": [
+      "000006.SZ",
+      "000008.SZ",
+      "000012.SZ",
+      "000025.SZ"
+    ],
+    "entered": [
+      "000032.SZ",
+      "000034.SZ",
+      "000050.SZ",
+      "000088.SZ"
+    ]
+  },
+  "sample_daily_rows": 20147,
+  "sample_expected_member_day_rows": 11249,
+  "sample_missing_daily_rows": 5,
+  "sample_explained_suspension_rows": 5,
+  "sample_unexplained_missing_rows": [],
+  "finite_observed_pct_change": true,
+  "estimated_initial_daily_calls": 1068,
+  "estimated_compressed_storage_mb": 16.79736759524526,
+  "incremental_daily_calls": 1,
+  "passed": false
+}

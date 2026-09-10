@@ -4,7 +4,8 @@
   "strategy_id": "S003",
   "symbol": "510500.SH",
   "development_cutoff": "2026-09-08",
-  "status": "PREREGISTERED",
+  "status": "PASS",
+  "target_sessions": 1682,
   "conditional_return_analysis": false,
   "candidate_generation": false,
   "files": {
@@ -17,12 +18,20 @@
       "sha256": "9514ae62a848ed3e6e07b889d33d37281d1ef4a5876488a4ca349586dbf2f3e7"
     },
     "03_execution.md": {
-      "bytes": 54,
-      "sha256": "665800db5dcbcd3629db7926bb9a1d1f8204c2d4c51c56ab6012ca2709d83737"
+      "bytes": 405,
+      "sha256": "f8bad1e133e884bebd7ec4be17a11ca42205069a42abe102ea816c4bcbf8199b"
     },
     "04_conclusion.md": {
-      "bytes": 33,
-      "sha256": "5f21e73eaaa281c49801ebf4cedc607ce36e97d85663d0e834f83634432e9dda"
+      "bytes": 302,
+      "sha256": "658234b8d69cf32f0965eaec7f0665fdac5646f404de4632031d3df87a301aad"
+    },
+    "artifacts/aligned_adjusted_daily.csv": {
+      "bytes": 563302,
+      "sha256": "28113ca03649ef884bbef23eb3b131b39ddf530af5209f4b720414246d38e5cb"
+    },
+    "artifacts/alignment_audit.json": {
+      "bytes": 726,
+      "sha256": "12cfd59fc689f8432d93f040ce0ede902e02ffda9e101a7bceba3ec342b96292"
     },
     "artifacts/protocol.json": {
       "bytes": 1492,

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX31",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "breadth_feature_generation": false,
+  "conditional_return_analysis": false,
+  "candidate_generation": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 294,
+      "sha256": "0af13842048b6d6d3423189196ebbec87fdba929771b2b413b593a4cea65c31f"
+    },
+    "02_design.md": {
+      "bytes": 499,
+      "sha256": "b387e5a61f44ee4e924bb8439b8ca43132ed60ba777448455beb757b67647041"
+    },
+    "03_execution.md": {
+      "bytes": 280,
+      "sha256": "f52327fe2d66afd0faf790874abbb1267e0c1f1d364667f1cc1858b19fcfed7d"
+    },
+    "04_conclusion.md": {
+      "bytes": 207,
+      "sha256": "7986ae4343165c978a3c18c51f9dfac9ddafcea31e1270d1fb0dfcdc3680b4af"
+    },
+    "artifacts/data_quality.json": {
+      "bytes": 738,
+      "sha256": "45d36debe7c7d8377267d0aa6ff154c2832e2f7e1a4ae1a2cab8f9d3cebe3fd2"
+    },
+    "artifacts/lifecycle_aware_constituent_panel.csv.gz": {
+      "bytes": 17389381,
+      "sha256": "282c47b9def58b2844ef238f234c3fdae601f2f85a8abc828f3643d243aae58b"
+    },
+    "artifacts/lifecycle_evidence.csv": {
+      "bytes": 184,
+      "sha256": "9b1fe430f19f1e7a4461510a002867c2e61ddd6fc94a5163346c5ad409bd8e38"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1286,
+      "sha256": "ec502d13924fdf30b22c5d4b6dc67aa18eed44cd5b1a3aaffe3176f1d8e4a5ce"
+    },
+    "run_experiment.py": {
+      "bytes": 8329,
+      "sha256": "0005236bf6f8d32cd5d5ec4ae6de74916f9a211f3a61c15f9346b37749933257"
+    }
+  }
+}

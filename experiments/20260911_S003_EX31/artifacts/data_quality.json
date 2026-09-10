@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX31",
+  "source_unexplained_missing_rows": 13,
+  "resolved_by_delisting_rows": 13,
+  "remaining_unexplained_rows": 0,
+  "lifecycle_codes": [
+    {
+      "ts_code": "000540.SZ",
+      "name": "*ST中天(退)",
+      "list_status": "D",
+      "list_date": "1994-02-02",
+      "delist_date": "2023-06-30"
+    },
+    {
+      "ts_code": "600068.SH",
+      "name": "葛洲坝(退)",
+      "list_status": "D",
+      "list_date": "1997-05-26",
+      "delist_date": "2021-09-13"
+    }
+  ],
+  "record_status_counts": {
+    "OBSERVED": 831001,
+    "SUSPENDED": 986,
+    "DELISTED_STALE_MEMBERSHIP": 13
+  },
+  "unexpected_statuses": [],
+  "price_or_return_fill_rows": 0,
+  "passed": true
+}

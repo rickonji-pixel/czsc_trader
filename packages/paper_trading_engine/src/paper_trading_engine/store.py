@@ -167,6 +167,7 @@ class PaperStore:
                 selection_data_cutoff TEXT,
                 qualification_snapshot TEXT,
                 symbol TEXT NOT NULL DEFAULT '588080.SH',
+                asset_type TEXT NOT NULL DEFAULT 'etf',
                 initial_cash TEXT NOT NULL,
                 cash TEXT NOT NULL,
                 frozen_cash TEXT NOT NULL DEFAULT '0.0000',
@@ -194,6 +195,7 @@ class PaperStore:
         self._ensure_column("virtual_accounts", "average_cost", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "symbol", "TEXT NOT NULL DEFAULT '588080.SH'")
+        self._ensure_column("virtual_accounts", "asset_type", "TEXT NOT NULL DEFAULT 'etf'")
         self._ensure_column("virtual_accounts", "frozen_cash", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "total_assets", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("virtual_accounts", "observation_start", "TEXT")
@@ -472,7 +474,7 @@ class PaperStore:
 
     def create_virtual_account(
         self, account_id, name, baseline_version, baseline_sha256, initial_cash,
-        *, symbol="588080.SH", strategy_id=None,
+        *, symbol="588080.SH", asset_type="etf", strategy_id=None,
         strategy_name_snapshot=None, strategy_version=None, release_hash=None,
         qualification_snapshot=None, selection_data_cutoff=None,
     ):
@@ -484,6 +486,8 @@ class PaperStore:
             raise ValueError("account id must use 1-64 letters, digits, dots, underscores or hyphens")
         if not str(name).strip() or not str(baseline_version).strip():
             raise ValueError("account name and baseline version are required")
+        if asset_type not in {"etf", "stock"}:
+            raise ValueError("asset type must be etf or stock")
         if re.fullmatch(r"[0-9a-f]{64}", str(baseline_sha256).lower()) is None:
             raise ValueError("baseline sha256 must contain 64 hexadecimal characters")
         strategy_values = (
@@ -515,12 +519,13 @@ class PaperStore:
             self._connection.execute(
                 "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,"
                 "strategy_id,strategy_name_snapshot,strategy_version,release_hash,"
-                "selection_data_cutoff,qualification_snapshot,symbol,initial_cash,cash,total_assets,"
-                "channel_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "selection_data_cutoff,qualification_snapshot,symbol,asset_type,initial_cash,cash,total_assets,"
+                "channel_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     account_id, name, baseline_version, baseline_sha256, strategy_id,
                     strategy_name_snapshot, strategy_version, release_hash,
-                    selection_data_cutoff, qualification_snapshot, symbol.upper(), str(cash), str(cash), str(cash),
+                    selection_data_cutoff, qualification_snapshot, symbol.upper(), asset_type,
+                    str(cash), str(cash), str(cash),
                     "futu", "RUNNING", now, now,
                 ),
             )

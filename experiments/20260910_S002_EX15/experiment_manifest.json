@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX15",
+  "status": "COMPLETE",
+  "experiment_type": "benchmark_freeze_qualification",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "candidate_id": "S002-C001",
+  "benchmark_id": "BuyHold-510500",
+  "development_cutoff": "2026-09-08",
+  "decision": "RECOMMEND_HEALTH_CHECK",
+  "risk_label": "MIXED",
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 239,
+      "sha256": "6d08c94f6426b5911ccfa6770d8415b0d60a41efe48dc8ae1466958e01b012ba"
+    },
+    "02_design.md": {
+      "bytes": 1190,
+      "sha256": "ea15253f3934c1c91b7e87f477ea8e64fde2c3d33dce22dc428ce758c1a02870"
+    },
+    "03_execution.md": {
+      "bytes": 254,
+      "sha256": "66307a88f837eb0db81fc1d9180b35898e4c487a0b7dfd1c14c5aa45b4e5db86"
+    },
+    "04_conclusion.md": {
+      "bytes": 709,
+      "sha256": "95d0dd63daab2fe45e1c29d9e2acaad2f8a475f7d53b3cb75f3d1fded2928f51"
+    },
+    "artifacts/buyhold_account_daily.csv": {
+      "bytes": 69159,
+      "sha256": "7e6382b4caab091f43203cd9685cb59e5561b5aa18325a2db8ecd64e3109bad6"
+    },
+    "artifacts/daily_return_matrix.csv": {
+      "bytes": 52892,
+      "sha256": "c522adf3362179e1cb92156867ecdabb4ed6dd059370ff58d5a0700861ba329b"
+    },
+    "artifacts/freeze_assessment.json": {
+      "bytes": 2797,
+      "sha256": "8a1dd1f7ffc4e19ed20254bc73120713236ac7b31035f9ba40514f6e51c583cb"
+    },
+    "artifacts/paired_bootstrap.json": {
+      "bytes": 2875,
+      "sha256": "11ef9b3cb2b920b49f5d1a9a3d4ace22b98906c4cb0a6c2b0e5d86142d3003f9"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 733,
+      "sha256": "7eaf290ecc82e5438015064beeefb572daf69913bb5d05833ec4901bda349ef3"
+    },
+    "artifacts/return_matrix_evidence.json": {
+      "bytes": 98522,
+      "sha256": "24c8e8c2207c89f95191242d61db4f584984ec5a5884f5d73bf3120a2ab86c6c"
+    },
+    "run_experiment.py": {
+      "bytes": 10953,
+      "sha256": "e6264701f752fb37273f97c6c2d190828f0e2c1346148596dcbfb1666cafbe27"
+    }
+  }
+}

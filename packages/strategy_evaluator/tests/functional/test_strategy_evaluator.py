@@ -474,3 +474,78 @@ def test_ft_se04_first_research_candidate_has_no_synthetic_incumbent() -> None:
         replace(request, external_validation=RiskLabel.WEAK)
     )
     assert rejected.decision is CandidateReadinessDecision.REJECT
+
+    from strategy_evaluator import (
+        BenchmarkChallengeDecision,
+        BenchmarkChallengeRequest,
+        BootstrapComparison,
+        BootstrapMetric,
+        PerformanceMetrics,
+        assess_benchmark_challenge,
+    )
+
+    bootstrap = BootstrapComparison(
+        "S002-C001",
+        "BuyHold-510500",
+        10_000,
+        21,
+        BootstrapMetric("cagr", "higher_is_better", 0.02, -0.01, 0.05, 0.59),
+        BootstrapMetric("max_drawdown", "higher_is_better", 0.42, 0.30, 0.50, 1.0),
+        BootstrapMetric("calmar", "higher_is_better", 0.75, 0.10, 1.20, 0.92),
+    )
+    challenge = BenchmarkChallengeRequest(
+        candidate_id="S002-C001",
+        candidate_hash="d" * 64,
+        benchmark_id="BuyHold-510500",
+        integrity=AuditStatus.PASS,
+        reproducibility=AuditStatus.PASS,
+        technical_replay=AuditStatus.PASS,
+        monitoring_plan=AuditStatus.PASS,
+        candidate_performance=PerformanceMetrics(0.04, -0.05, 0.79),
+        benchmark_performance=PerformanceMetrics(0.02, -0.47, 0.04),
+        bootstrap=bootstrap,
+        statistical_evidence=RiskLabel.MIXED,
+        external_validation=RiskLabel.MIXED,
+        execution_evidence=RiskLabel.MIXED,
+    )
+    assessed = assess_benchmark_challenge(challenge)
+    assert assessed.decision is BenchmarkChallengeDecision.RECOMMEND_HEALTH_CHECK
+    assert assessed.risk_label is RiskLabel.MIXED
+    assert assess_benchmark_challenge(
+        replace(
+            challenge,
+            candidate_performance=PerformanceMetrics(0.01, -0.05, 0.79),
+        )
+    ).decision is BenchmarkChallengeDecision.KEEP_BENCHMARK
+
+    from strategy_evaluator import (
+        FreezeHealthDecision,
+        FreezeHealthRequest,
+        assess_freeze_health,
+    )
+
+    health_request = FreezeHealthRequest(
+        candidate_id="S002-C001",
+        candidate_hash="d" * 64,
+        candidate_readiness=AuditStatus.PASS,
+        benchmark_challenge=BenchmarkChallengeDecision.RECOMMEND_HEALTH_CHECK,
+        evidence_integrity=AuditStatus.PASS,
+        reproducibility=AuditStatus.PASS,
+        technical_replay=AuditStatus.PASS,
+        cost_stress=AuditStatus.PASS,
+        monitoring_plan=AuditStatus.PASS,
+        mechanism_evidence=RiskLabel.FAVORABLE,
+        statistical_evidence=RiskLabel.MIXED,
+        parameter_robustness=RiskLabel.FAVORABLE,
+        external_validation=RiskLabel.MIXED,
+        execution_evidence=RiskLabel.MIXED,
+    )
+    health = assess_freeze_health(health_request)
+    assert health.decision is FreezeHealthDecision.RECOMMEND_FREEZE
+    assert health.risk_label is RiskLabel.MIXED
+    assert assess_freeze_health(
+        replace(
+            health_request,
+            benchmark_challenge=BenchmarkChallengeDecision.KEEP_BENCHMARK,
+        )
+    ).decision is FreezeHealthDecision.KEEP_RESEARCHING

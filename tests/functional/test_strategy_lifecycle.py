@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from strategy_manager import StrategyRegistry
+from strategy_manager import StrategyRegistry, canonical_sha256
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.backtesting.strategy_source import (
@@ -11,7 +11,7 @@ from czsc_trader.backtesting.strategy_source import (
     resolve_registered_strategy,
 )
 
-from functional_support import invoke_main
+from functional_support import invoke_main, invoke_main_failure
 
 
 def _write_json(path: Path, payload: dict) -> Path:
@@ -117,6 +117,29 @@ def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
             release_hash="a" * 64,
         ),
     )
+    health_source = {
+        "candidate_id": "functional-winner",
+        "candidate_hash": "c" * 64,
+        "decision": "RECOMMEND_FREEZE",
+    }
+    health_path = _write_json(
+        functional_repo / "freeze-health.json",
+        {
+            "source": health_source,
+            "approval": {
+                "schema_version": 1,
+                "assessment_id": "FHC-0904-TEST-functional-winner",
+                "strategy_id": "S900",
+                "candidate_id": "functional-winner",
+                "candidate_hash": "c" * 64,
+                "decision": "RECOMMEND_FREEZE",
+                "risk_label": "MIXED",
+                "source_experiment": "experiments/0904_TEST",
+                "source_hash": canonical_sha256(health_source),
+                "assessed_at": "2026-09-04T19:00:00+08:00",
+            },
+        },
+    )
     root = ["--repo-root", str(functional_repo)]
     audit = ["--actor", "tester", "--reason", "functional lifecycle"]
 
@@ -140,6 +163,21 @@ def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
         ],
         capsys,
     )
+    blocked_freeze = invoke_main_failure(
+        [
+            "strategy",
+            "freeze",
+            "--strategy",
+            "S900",
+            "--version",
+            "v1",
+            "--evidence",
+            str(research_path),
+            *audit,
+            *root,
+        ],
+        capsys,
+    )
     frozen = invoke_main(
         [
             "strategy",
@@ -150,6 +188,8 @@ def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
             "v1",
             "--evidence",
             str(research_path),
+            "--health-check",
+            str(health_path),
             *audit,
             *root,
         ],
@@ -270,6 +310,7 @@ def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
     assert shown_identity["result"]["objective"] == "验证完整策略治理链路"
     assert shown_identity["result"]["version"] is None
     assert versioned["result"]["version"]["release_id"] == "S900-v1"
+    assert blocked_freeze["error"]["code"] == "invalid_arguments"
     assert len(release_hash) == 64
     assert promoted["result"]["to_state"] == "LIVE_READY"
     assert downgraded["result"]["to_state"] == "PAPER_READY"

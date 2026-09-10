@@ -36,6 +36,8 @@ def _daily_hover_text(
     fills: pd.DataFrame,
     entry_threshold: float,
     exit_threshold: float,
+    *,
+    event_hold: bool = False,
 ) -> list[str]:
     dated_decisions = decisions.copy()
     dated_decisions["date"] = pd.to_datetime(dated_decisions["signal_date"]).dt.normalize()
@@ -62,14 +64,17 @@ def _daily_hover_text(
                 "range": "震荡（range）",
                 "warmup": "预热（warmup）",
             }.get(str(decision.get("regime")), "不适用")
-            lines.extend(
-                [
-                    f"策略得分 {float(decision['factor_score']):.3f}",
-                    f"行情状态 {regime}",
+            lines.extend([
+                f"策略得分 {float(decision['factor_score']):.3f}",
+                f"行情状态 {regime}",
+            ])
+            if event_hold:
+                lines.append(f"信号激活值 {float(entry_threshold):.3f}")
+            else:
+                lines.extend([
                     f"买入阈值 {float(entry_threshold):.3f}",
                     f"卖出阈值 {float(exit_threshold):.3f}",
-                ]
-            )
+                ])
         for signal in signal_groups.get(day, pd.DataFrame()).to_dict("records"):
             direction = "买入信号" if int(signal["target_position"]) == 1 else "卖出信号"
             lines.append(f"<b>{direction}</b> · 决策 {signal['decision_id']}")
@@ -231,7 +236,15 @@ def render_backtest_chart_html(
     prices = _normalize_daily(replay_data.adjusted.daily).loc[
         signal_replay.evaluation_start : signal_replay.evaluation_end
     ]
-    rule = signal_replay.snapshot.resolved_rule.rule
+    resolved = signal_replay.snapshot.resolved_rule
+    rule = resolved.rule
+    event_hold = resolved.strategy == "czsc_event_hold"
+    if event_hold:
+        entry_threshold, exit_threshold = 1.0, 0.0
+    else:
+        if rule is None:
+            raise ValueError("factor strategy has no score rule")
+        entry_threshold, exit_threshold = rule.enter, rule.exit
     figure = make_subplots(
         rows=2,
         cols=1,
@@ -266,8 +279,9 @@ def render_backtest_chart_html(
                 prices,
                 result.decisions,
                 result.fills,
-                rule.enter,
-                rule.exit,
+                entry_threshold,
+                exit_threshold,
+                event_hold=event_hold,
             ),
             hovertemplate="%{text}<extra></extra>",
         ),
@@ -303,7 +317,9 @@ def render_backtest_chart_html(
     score_rows = result.decisions.copy()
     score_rows["date"] = pd.to_datetime(score_rows["signal_date"]).dt.normalize()
     score_rows = score_rows.loc[score_rows["date"].isin(prices.index)]
-    score_axis_range = _score_axis_range(score_rows["factor_score"], rule.enter, rule.exit)
+    score_axis_range = _score_axis_range(
+        score_rows["factor_score"], entry_threshold, exit_threshold
+    )
     figure.add_trace(
         go.Scatter(
             x=score_rows["date"],
@@ -316,10 +332,15 @@ def render_backtest_chart_html(
         row=2,
         col=1,
     )
-    for name, value, color in (
-        ("买入阈值", rule.enter, "#ef4444"),
-        ("卖出阈值", rule.exit, "#22c55e"),
-    ):
+    guides = (
+        (("信号激活值", entry_threshold, "#ef4444"),)
+        if event_hold
+        else (
+            ("买入阈值", entry_threshold, "#ef4444"),
+            ("卖出阈值", exit_threshold, "#22c55e"),
+        )
+    )
+    for name, value, color in guides:
         figure.add_trace(
             go.Scatter(
                 x=[prices.index.min(), prices.index.max()],

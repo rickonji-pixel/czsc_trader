@@ -23,6 +23,7 @@ from .four_layer import normalized_signal_factors
 from .range_diagnostics import range_cycle_objectives
 from .regime_weight import classify_regimes, lagged_efficiency_ratio
 from .strategy_metrics import closed_trade_ledger
+from .strategy_runtime import apply_resolved_strategy
 
 METRIC_SEMANTICS_VERSION = "candidate-metrics-v1"
 
@@ -356,7 +357,10 @@ def _evaluate_candidate_payloads_reference(
             release_id=candidate_id, release_hash=str(item.get("strategy_hash", item.get("candidate_hash", ""))), symbol=context.symbol,
             repository_root=context.repository.root,
         )
-        applied = apply_resolved_baseline(factors.frame, baseline, daily_close=daily_close)
+        if baseline.strategy == "czsc_event_hold":
+            applied = apply_resolved_strategy(data, baseline)
+        else:
+            applied = apply_resolved_baseline(factors.frame, baseline, daily_close=daily_close)
         regimes = None
         if baseline.strategy == "czsc_regime_weight":
             regimes = classify_regimes(
@@ -448,13 +452,18 @@ def evaluate_candidate_payloads(
                     baseline.er_threshold,
                 )
                 regime_cache[regime_key] = regimes
-        applied_by_candidate[candidate_id] = apply_resolved_baseline(
-            workspace.factor_frame,
-            baseline,
-            daily_close=workspace.daily_close,
-            normalized_factors=normalized,
-            regimes=regimes,
-        )
+        if baseline.strategy == "czsc_event_hold":
+            applied_by_candidate[candidate_id] = apply_resolved_strategy(
+                workspace.data, baseline,
+            )
+        else:
+            applied_by_candidate[candidate_id] = apply_resolved_baseline(
+                workspace.factor_frame,
+                baseline,
+                daily_close=workspace.daily_close,
+                normalized_factors=normalized,
+                regimes=regimes,
+            )
         regimes_by_candidate[candidate_id] = regimes
 
     observations: dict[tuple[str, str, str], MetricObservation] = {}

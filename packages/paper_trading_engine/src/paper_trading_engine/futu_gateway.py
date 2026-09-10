@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 import time
+import re
 
 from .audit import AuditRecorder
 
@@ -44,7 +45,7 @@ class FutuGateway:
     def __init__(
         self,
         *,
-        symbol: str,
+        symbol: str | None = None,
         host: str = "127.0.0.1",
         port: int = 11111,
         sdk: object | None = None,
@@ -57,8 +58,7 @@ class FutuGateway:
             sdk = sdk_module
         self.sdk = sdk
         self.sdk.SysConfig.enable_console_log(False)
-        self.symbol = symbol.upper()
-        self.code = _broker_code(self.symbol)
+        self.symbol = symbol.upper() if symbol else None
         self.trade_context = trade_context or sdk.OpenSecTradeContext(
             filter_trdmarket=sdk.TrdMarket.CN, host=host, port=port
         )
@@ -69,6 +69,7 @@ class FutuGateway:
         self, operation: str, started: float, *, correlation_id: str,
         order_id: str | None = None, account_id: str | None = None,
         error: Exception | None = None,
+        symbol: str | None = None,
     ) -> None:
         if self.audit is None:
             return
@@ -76,7 +77,7 @@ class FutuGateway:
             "EXTERNAL_CALL_FAILED" if error else "EXTERNAL_CALL_SUCCEEDED",
             source="futu_gateway", outcome="FAILURE" if error else "SUCCESS",
             actor_type="EXTERNAL", actor_id="futu", correlation_id=correlation_id,
-            account_id=account_id, symbol=self.symbol, channel="futu", order_id=order_id,
+            account_id=account_id, symbol=symbol or self.symbol, channel="futu", order_id=order_id,
             details={
                 "service": "futu", "operation": operation,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 3),
@@ -174,8 +175,8 @@ class FutuGateway:
         )
 
     def place_order(self, intent: OrderIntent) -> BrokerOrder:
-        if intent.symbol != self.symbol:
-            raise PaperTradingSafetyError("order symbol differs from gateway whitelist")
+        if re.fullmatch(r"[0-9]{6}\.(SH|SZ)", intent.symbol) is None:
+            raise PaperTradingSafetyError("order symbol is not a supported China-market code")
         if intent.quantity <= 0 or intent.quantity % 100:
             raise PaperTradingSafetyError("order quantity must use positive 100-share lots")
         if intent.order_type != "LIMIT" or intent.time_in_force != "DAY":
@@ -189,7 +190,7 @@ class FutuGateway:
                     self.trade_context.place_order(
                         price=intent.limit_price,
                         qty=intent.quantity,
-                        code=self.code,
+                        code=_broker_code(intent.symbol),
                         trd_side=side,
                         order_type=self.sdk.OrderType.NORMAL,
                         adjust_limit=0,
@@ -206,12 +207,13 @@ class FutuGateway:
         except Exception as exc:
             self._audit_mutation(
                 "place_order", started, correlation_id=intent.decision_id,
-                account_id=intent.account_id, error=exc,
+                account_id=intent.account_id, error=exc, symbol=intent.symbol,
             )
             raise
         self._audit_mutation(
             "place_order", started, correlation_id=intent.decision_id,
             order_id=order.channel_order_id, account_id=intent.account_id,
+            symbol=intent.symbol,
         )
         return order
 

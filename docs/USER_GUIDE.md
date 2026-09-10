@@ -161,6 +161,10 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 .\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
   --account-id s001-v2 --name "S001-v2模拟账户" `
   --strategy S001 --strategy-version v2
+.\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
+  --account-id s002-v1 --name "S002-v1模拟账户" `
+  --strategy S002 --strategy-version v1 `
+  --symbol 510500.SH --asset etf --initial-cash 100000
 .\.venv\Scripts\pte.exe account pause `
   --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
 .\.venv\Scripts\pte.exe account resume `

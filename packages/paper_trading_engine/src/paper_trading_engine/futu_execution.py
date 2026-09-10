@@ -15,10 +15,10 @@ class ChannelReconciliationError(RuntimeError):
 
 
 class FutuExecution:
-    def __init__(self, store, broker, *, symbol: str, today=date.today, audit=None) -> None:
+    def __init__(self, store, broker, *, symbol: str | None = None, today=date.today, audit=None) -> None:
         self.store = store
         self.broker = broker
-        self.symbol = symbol.upper()
+        self.symbol = symbol.upper() if symbol else None
         self.today = today
         self.audit = audit or AuditRecorder(store)
         self._snapshot = None
@@ -144,9 +144,14 @@ class FutuExecution:
         # Positions and cash can change with the order fills processed above.
         self.refresh_account()
         if self._snapshot is not None:
+            accounts = [
+                account for account in self.store.virtual_accounts()
+                if account.get("status") != "RETIRED"
+            ]
+            owned_symbols = {str(account["symbol"]).upper() for account in accounts}
             foreign_positions = [
                 position for position in self._snapshot.positions
-                if position.symbol != self.symbol and position.quantity != 0
+                if position.symbol not in owned_symbols and position.quantity != 0
             ]
             if foreign_positions:
                 self.store.set_setting("channel_reconciliation_status", "BLOCKED")
@@ -159,27 +164,29 @@ class FutuExecution:
                     },
                 )
                 raise ChannelReconciliationError("Futu账户存在PTE无法归属的持仓")
-            broker_quantity = sum(
-                position.quantity for position in self._snapshot.positions
-                if position.symbol == self.symbol
-            )
-            logical_quantity = sum(
-                int(account["quantity"]) for account in self.store.virtual_accounts()
-                if account["symbol"] == self.symbol
-            )
-            if broker_quantity != logical_quantity:
-                self.store.set_setting("channel_reconciliation_status", "BLOCKED")
-                self.audit.record(
-                    "CHANNEL_RECONCILIATION_FAILED", source="futu_execution",
-                    outcome="FAILURE", channel="futu",
-                    details={
-                        "reason": "position_mismatch", "broker_quantity": broker_quantity,
-                        "logical_quantity": logical_quantity,
-                    },
+            for symbol in sorted(owned_symbols):
+                broker_quantity = sum(
+                    position.quantity for position in self._snapshot.positions
+                    if position.symbol == symbol
                 )
-                raise ChannelReconciliationError(
-                    f"Futu持仓与虚拟账户分账不一致: {broker_quantity}!={logical_quantity}"
+                logical_quantity = sum(
+                    int(account["quantity"]) for account in accounts
+                    if account["symbol"] == symbol
                 )
+                if broker_quantity != logical_quantity:
+                    self.store.set_setting("channel_reconciliation_status", "BLOCKED")
+                    self.audit.record(
+                        "CHANNEL_RECONCILIATION_FAILED", source="futu_execution",
+                        outcome="FAILURE", channel="futu", symbol=symbol,
+                        details={
+                            "reason": "position_mismatch", "broker_quantity": broker_quantity,
+                            "logical_quantity": logical_quantity,
+                        },
+                    )
+                    raise ChannelReconciliationError(
+                        f"Futu持仓与虚拟账户分账不一致({symbol}): "
+                        f"{broker_quantity}!={logical_quantity}"
+                    )
         self.store.set_setting("channel_reconciliation_status", "OK")
         if previous_reconciliation == "BLOCKED":
             self.audit.record(
@@ -258,13 +265,19 @@ class FutuExecution:
         account = None if self._snapshot is None else asdict(self._snapshot.account)
         positions = [] if self._snapshot is None else [asdict(row) for row in self._snapshot.positions]
         reconciliation = self.store.get_setting("channel_reconciliation_status")
+        symbols = sorted({row["symbol"] for row in self.store.virtual_accounts()})
+        actual_by_symbol = {
+            symbol: sum(row["quantity"] for row in positions if row["symbol"] == symbol)
+            for symbol in symbols
+        }
         return {
             "environment": None if account is None else account["environment"],
             "market": None if account is None else account["market"],
-            "symbol": self.symbol, "account": account, "positions": positions,
-            "actual_quantity": sum(
-                row["quantity"] for row in positions if row["symbol"] == self.symbol
-            ),
+            "symbol": symbols[0] if len(symbols) == 1 else None,
+            "symbols": symbols,
+            "account": account, "positions": positions,
+            "actual_quantity": sum(actual_by_symbol.values()),
+            "actual_quantity_by_symbol": actual_by_symbol,
             "orders": self.store.account_orders(),
             "paused": self.store.is_paused(),
             "reconciliation_status": reconciliation,

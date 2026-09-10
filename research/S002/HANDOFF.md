@@ -4,11 +4,11 @@
 
 - 名称：中证500择时策略；
 - 标的：`510500.SH`；
-- 研究线阶段：`RESEARCH`；正式研究候选为`S002-C001（三连跌五日修复）`；
-- 候选资格：SE建议登记，综合风险`MIXED`；尚无策略版本、冻结和部署资格；
+- 研究线阶段：`PAPER_READY`；`S002-C001（三连跌五日修复）`已晋升为`S002-v1`；
+- 发布资格：EX16冻结前体检经人工确认，`S002-v1`已进入PTE前瞻观察；
 - 研究数据：`2019-10-08`至`2026-09-08`；
 - 当前开发截止：`2026-09-08`；
-- 最近实验：`experiments/20260910_S002_EX13`。
+- 最近实验：`experiments/20260910_S002_EX16`。
 
 ## 当前结论
 
@@ -89,6 +89,26 @@ EX13诊断2023年和低波动弱表现的关系，预注册裁决为`CONFOUNDED`
 两种解释的“非2023低波动”和“2023非低波动”分别只有3笔和2笔，均低于5笔下限。当前
 不能把年份效应和低波动效应拆开，不能据此定义适用边界或增加过滤器。
 
+EX14完成候选到正式运行口径的技术审计。TDR已原生支持`czsc_event_hold`的候选回放、
+正式回测、advice和图表；候选与正式发布的目标仓位序列完全一致。采用前收盘限价、严格
+触价成交、单边5 bp费率后，2021-01-01至2026-09-08累计收益25.14%、最大回撤-5.28%、
+卡玛0.7927、盈亏比2.3131，共25笔闭合交易；26次买入中出现9次首日未成交并在持仓目标
+有效期内重试。该结果弱于研究用次日开盘口径，但仍明显优于同期BuyHold的风险调整表现。
+SE独立回放已经通过，因此候选达到“技术就绪”；EX14不包含冻结资格裁决，不创建正式
+策略版本，也不进入PTE。
+
+EX15按预注册口径将`BuyHold-510500`设为首个明确对手。正式执行口径下，S002-C001累计
+收益25.14%、最大回撤-5.28%、卡玛0.793，BuyHold同期分别为10.21%、-47.31%、0.038。
+21交易日平均区块配对Bootstrap的年化收益、最大回撤、卡玛胜出概率分别为59.35%、
+100.00%、92.15%。SE输出`RECOMMEND_HEALTH_CHECK / MIXED`：候选取得冻结前体检资格，
+收益优势的统计证据仍偏弱；本轮没有冻结、创建版本或写入PTE。
+
+EX16执行独立冻结前体检。候选登记、BuyHold PK、证据完整性、可复现性、正式执行回放、
+15bp成本压力和冻结后监测方案全部通过；参数稳健性为`FAVORABLE`，机制、统计、横截面和
+执行证据保留`MIXED`。SE输出`RECOMMEND_FREEZE / MIXED`。体检批准书已与候选ID及哈希
+绑定。用户确认后，SM创建并冻结`S002-v1`，PTE创建同名10万元虚拟账户；账户绑定
+`510500.SH`和Futu模拟渠道，初始状态`RUNNING / READY`。
+
 ## 下一步
 
 冻结后观测规则已经批准并固化在`research/S002/candidates/S002-C001_MONITORING.md`。
@@ -98,18 +118,13 @@ EX13诊断2023年和低波动弱表现的关系，预注册裁决为`CONFOUNDED`
 保持候选规则不变，禁止围绕现有结果追加过滤器、动态持有期或继续逐标的试错。2023年与
 低波动的反事实样本只能通过后续市场自然积累，不能通过继续切分开发池解决。
 
-下一步进入冻结准备：先验证候选能被TDR确定性回放、能被PTE按同一规则执行，再由SE汇总
-冻结证据。技术契约未通过前不创建`S002-v1`，当前不得进入PTE。
-
-首次技术预检已确认阻断：TDR现有策略解析器尚不支持`czsc_event_hold`，直接解析候选会报
-`strategy payload must define execution instrument symbol`；并且研究回测采用T+1开盘成交，
-当前PTE的限价委托及成交判定必须与该口径完成统一评审。后续应作为独立开发任务补齐
-TDR回放、advice和PTE执行链路，并用同一候选规则做端到端复现。
+下一步从冻结后的新增数据和信号开始积累前瞻证据。继续保持固定五日规则，不围绕既有
+结果追加过滤器或动态持有期；按已批准监测规则记录信号、订单、成交、回撤与闭合交易。
 
 开始前验证：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 510500.SH
 .\.venv\Scripts\czsc-trader.exe strategy show --strategy S002
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/20260910_S002_EX10'), Path('experiments/20260910_S002_EX11'), Path('experiments/20260910_S002_EX12'), Path('experiments/20260910_S002_EX13'))]"
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/20260910_S002_EX10'), Path('experiments/20260910_S002_EX11'), Path('experiments/20260910_S002_EX12'), Path('experiments/20260910_S002_EX13'), Path('experiments/20260910_S002_EX14'))]"
 ```

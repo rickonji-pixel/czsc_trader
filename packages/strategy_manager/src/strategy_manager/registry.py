@@ -19,6 +19,7 @@ from .errors import (
 from .lifecycle import qualification_is_deployable, validate_transition
 from .models import (
     EvidencePhase,
+    FreezeApproval,
     LifecycleEvent,
     PerformanceEvidence,
     Qualification,
@@ -312,6 +313,7 @@ class StrategyRegistry:
         actor: str,
         reason: str,
         evidence: PerformanceEvidence | dict[str, Any],
+        approval: FreezeApproval | dict[str, Any],
     ) -> tuple[StrategyVersion, LifecycleEvent]:
         actor = require_string(actor, "actor")
         reason = require_string(reason, "reason")
@@ -322,6 +324,17 @@ class StrategyRegistry:
             raise ImmutableVersionError(f"strategy version is already frozen: {research.release_id}")
         release_hash = canonical_sha256(research.release_payload())
         frozen = replace(research, release_hash=release_hash)
+        freeze_approval = (
+            approval if isinstance(approval, FreezeApproval) else FreezeApproval.from_dict(dict(approval))
+        )
+        if freeze_approval.strategy_id != strategy_id:
+            raise EvidenceRequiredError("freeze approval belongs to another strategy")
+        if str(research.source_candidate) != freeze_approval.candidate_id:
+            raise EvidenceRequiredError("freeze approval belongs to another candidate")
+        candidate_source = research.strategy_payload.get("candidate_source", {})
+        payload_hash = candidate_source.get("candidate_hash") if isinstance(candidate_source, dict) else None
+        if payload_hash is not None and payload_hash != freeze_approval.candidate_hash:
+            raise EvidenceRequiredError("freeze approval candidate hash mismatch")
         incoming = evidence.to_dict() if isinstance(evidence, PerformanceEvidence) else dict(evidence)
         incoming.update(
             {"strategy_id": strategy_id, "version": version, "release_hash": release_hash}
@@ -339,15 +352,17 @@ class StrategyRegistry:
             Qualification.PAPER_READY,
             actor,
             reason,
-            [research_evidence.evidence_id],
+            [research_evidence.evidence_id, freeze_approval.assessment_id],
             release_hash,
         )
         version_path = self._version_path(strategy_id, version)
         expected_version = version_path.read_bytes()
         evidence_path = self._strategy_dir(strategy_id) / "evidence.jsonl"
         lifecycle_path = self._strategy_dir(strategy_id) / "lifecycle.jsonl"
+        approval_path = self._strategy_dir(strategy_id) / "freeze_approvals.jsonl"
         expected_evidence = evidence_path.read_bytes() if evidence_path.exists() else None
         expected_lifecycle = lifecycle_path.read_bytes() if lifecycle_path.exists() else None
+        expected_approval = approval_path.read_bytes() if approval_path.exists() else None
         self._atomic_write(version_path, _canonical_json(frozen.to_dict()), expected_version)
         existing_evidence = expected_evidence.decode("utf-8") if expected_evidence else ""
         evidence_line = json.dumps(
@@ -357,6 +372,15 @@ class StrategyRegistry:
             evidence_path,
             f"{existing_evidence}{evidence_line}\n",
             expected_evidence,
+        )
+        existing_approvals = expected_approval.decode("utf-8") if expected_approval else ""
+        approval_line = json.dumps(
+            freeze_approval.to_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        self._atomic_write(
+            approval_path,
+            f"{existing_approvals}{approval_line}\n",
+            expected_approval,
         )
         existing_lifecycle = expected_lifecycle.decode("utf-8") if expected_lifecycle else ""
         event_line = json.dumps(

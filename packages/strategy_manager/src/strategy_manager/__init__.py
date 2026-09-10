@@ -10,6 +10,7 @@ from .errors import (
 )
 from .models import (
     EvidencePhase,
+    FreezeApproval,
     LifecycleEvent,
     PerformanceEvidence,
     Qualification,
@@ -22,6 +23,7 @@ from .registry import StrategyRegistry
 __all__ = [
     "EvidencePhase",
     "EvidenceRequiredError",
+    "FreezeApproval",
     "ImmutableVersionError",
     "InvalidTransitionError",
     "LifecycleEvent",

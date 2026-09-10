@@ -159,6 +159,7 @@ class PteWebApi:
             {
                 "account_id": row["account_id"], "name": row["name"],
                 "release_id": f'{row["strategy_id"]}-{row["strategy_version"]}',
+                "symbol": row["symbol"], "asset_type": row["asset_type"],
                 "initial_cash": row["initial_cash"], "cash": row["cash"],
                 "frozen_cash": row["frozen_cash"], "quantity": row["quantity"],
                 "paused": bool(row["paused"]), "status": row["status"],

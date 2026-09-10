@@ -6,9 +6,12 @@ from pathlib import Path
 import shutil
 
 import pandas as pd
+import pytest
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
+from czsc_trader.backtesting.strategy_source import resolve_candidate_snapshot
+from czsc_trader.identity import canonical_json_sha256
 from czsc_trader.backtesting.execution_replay import replay_account
 from czsc_trader.backtesting.signal_replay import replay_signals
 from czsc_trader.backtesting.audit_adapter import build_replay_evidence
@@ -221,6 +224,52 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert "行情状态" in details["2026-01-29"]
     assert "买入阈值 0.175" in details["2026-01-29"]
     assert "卖出阈值 0.025" in details["2026-01-29"]
+
+
+def test_ft_t03_s002_event_hold_replays_with_formal_execution() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    context = RepositoryContext.discover(repo)
+    candidate = json.loads(
+        (repo / "experiments/20260910_S002_EX12/candidate_payload.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    proposed = json.loads(
+        (
+            repo
+            / "experiments/20260910_S002_EX14/artifacts/proposed_strategy_payload.json"
+        ).read_text(encoding="utf-8")
+    )
+    candidate_hash = canonical_json_sha256(candidate)
+    original = resolve_candidate_snapshot(
+        context, "S002-C001", candidate, candidate_hash, "candidate_payload.json"
+    )
+    deployed = resolve_candidate_snapshot(
+        context,
+        "S002-C001-EXECUTION",
+        proposed,
+        canonical_json_sha256(proposed),
+        "proposed_strategy_payload.json",
+    )
+    data = load_replay_data(
+        context, "research", "510500.SH", "etf", pd.Timestamp("2026-09-08").date()
+    )
+    original_signals = replay_signals(
+        original, data, pd.Timestamp("2021-01-01").date(), pd.Timestamp("2026-09-08").date()
+    )
+    deployed_signals = replay_signals(
+        deployed, data, pd.Timestamp("2021-01-01").date(), pd.Timestamp("2026-09-08").date()
+    )
+    assert original_signals.decisions["target_position"].equals(
+        deployed_signals.decisions["target_position"]
+    )
+    assert deployed_signals.decisions["target_position"].diff().eq(1).sum() == 26
+    result = replay_account(deployed_signals, data, 100_000)
+    metrics = calculate_metrics(result, 100_000)
+    assert metrics["closed_trades"] == 25
+    assert metrics["return"] == pytest.approx(0.2514063685)
+    evidence = build_replay_evidence(deployed_signals, data, result, 100_000, metrics)
+    assert audit_replay(evidence).status is AuditStatus.PASS
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(

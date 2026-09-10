@@ -59,15 +59,16 @@ class AccountEngine:
         previous_action = (
             json.loads(previous_payload).get("action") if previous_payload else None
         )
-        transform = lambda value: self._assign_decision_id(
-            account_id, previous_payload, value,
-        )
+        def transform(value):
+            return self._assign_decision_id(account_id, previous_payload, value)
         decision = self.advice.get_decision(
             int(account["quantity"]), float(account["cash"]),
             cycle_target_quantity=account["cycle_target"],
             strategy_id=account["strategy_id"],
             strategy_version=account["strategy_version"],
             account_id=account_id,
+            symbol=account["symbol"],
+            asset=account["asset_type"],
             decision_transform=transform,
         )
         if decision.decision_id == (decision.source_decision_id or decision.decision_id):

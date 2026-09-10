@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX14",
+  "status": "COMPLETE",
+  "experiment_type": "deployment_execution_compatibility",
+  "strategy_id": "S002",
+  "symbol": "510500.SH",
+  "candidate_id": "S002-C001",
+  "development_cutoff": "2026-09-08",
+  "target_positions_identical": true,
+  "se_replay_audit": "PASS",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 257,
+      "sha256": "8115180e5c21e2db413efc99043e92fbacdd287499350c07b814be146df92853"
+    },
+    "02_design.md": {
+      "bytes": 446,
+      "sha256": "a5d6bd87dc223a0d707ec9f8aaf40e8afda76fd8c23174dbb8c19328ee347a16"
+    },
+    "03_execution.md": {
+      "bytes": 235,
+      "sha256": "947e6c59c0284fe2aabdd9060ac3d17601107e779076425a53023c802328a86a"
+    },
+    "04_conclusion.md": {
+      "bytes": 313,
+      "sha256": "3964ddc3700c9197d2e720aa567881f63589c1cad55ba054ab845afad18a8fa9"
+    },
+    "artifacts/account_daily.csv": {
+      "bytes": 117926,
+      "sha256": "29392979a6e51e8cd61481346d7ddf6609c825b062b561536e7b05e5f0960fbd"
+    },
+    "artifacts/decisions.csv": {
+      "bytes": 74533,
+      "sha256": "305290b5b28afbeb0eb3631286fd7d5ff4ddecd7743991adf6ea64bc32d9f27e"
+    },
+    "artifacts/execution_compatibility.json": {
+      "bytes": 1513,
+      "sha256": "88603c0e992ad22c9608fec56f4d3a26ccc32b00c170a779718374c1d6a53cc2"
+    },
+    "artifacts/fills.csv": {
+      "bytes": 8526,
+      "sha256": "510ef1f72d174625f7410a06d2fa49c378960fb2bdf104a8a85b4287b36adb52"
+    },
+    "artifacts/freeze_evidence_input.json": {
+      "bytes": 1041,
+      "sha256": "a027d0670b18d06e02844d86cb3b01889dee2cb76ec4b30a59811a23139eaf96"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 7324,
+      "sha256": "0b6eaad8a219a880d9845a4066dd0ef53961b9b05a5600336f9888707dae4595"
+    },
+    "artifacts/proposed_strategy_payload.json": {
+      "bytes": 1921,
+      "sha256": "6bbc2930fff0d58455d7419203a626da0f036a482f3c5a29b3f30f808300aa6c"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 619,
+      "sha256": "48389c981da1e25e6c4523506bcdead89147b202c8dcff1cc6dfd9a20724e816"
+    },
+    "artifacts/trades.csv": {
+      "bytes": 2702,
+      "sha256": "927783394ed7250fed05fa1c38285490304a1604b62466d5a2afac7cedca60e6"
+    },
+    "artifacts/version_input.json": {
+      "bytes": 2480,
+      "sha256": "1b8590a148e5583c90e0844f53163faa890bd6b44915d81237011d9b34973bcc"
+    },
+    "run_experiment.py": {
+      "bytes": 9148,
+      "sha256": "ced65c6203fdb68d61cf1e14f25f72c25894cf4871244da0a7ab9ea5de9c24c6"
+    }
+  }
+}

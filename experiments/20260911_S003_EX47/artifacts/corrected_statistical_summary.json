@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX47",
+  "status": "PASS",
+  "evidence_label": "ADVERSE",
+  "direction_flags": {
+    "pbo": "FAVORABLE",
+    "dsr": "ADVERSE",
+    "absolute_bootstrap": "FAVORABLE",
+    "cyclic_placebo": "FAVORABLE",
+    "leave_one_year_out": "FAVORABLE",
+    "threshold_neighborhood": "FAVORABLE",
+    "recent_252_sessions": "FAVORABLE"
+  },
+  "attempted_trial_count": 142,
+  "comparable_return_path_count": 135,
+  "excluded_invalid_return_paths": 7,
+  "effective_trial_count": 16.5118449065342,
+  "pbo": 0.06746031746031746,
+  "dsr_raw_probability": 2.6563921530610934e-05,
+  "dsr_effective_probability": 0.11545829382706368,
+  "candidate_created": false
+}

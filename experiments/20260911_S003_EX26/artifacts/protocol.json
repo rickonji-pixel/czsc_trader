@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX26",
+  "experiment_type": "ic_basis_confirmation_event_census",
+  "research_target": {
+    "strategy_id": "S003",
+    "trade_symbol": "510500.SH",
+    "mechanism": "RELATIVE_STRENGTH_WITH_BASIS_CONFIRMATION"
+  },
+  "dataset": {
+    "evaluation_start": "2021-01-04",
+    "development_cutoff": "2026-09-08",
+    "relative_feature_experiment": "20260911_S003_EX22",
+    "relative_feature_manifest_sha256": "d252779532eba588b089142703147b7c81baa3ec0f1ce5fb2c932b00a289026f",
+    "relative_feature_file_sha256": "e6138d011f7609a6b64bf21af7dd4f0d8ffea1e76caf276d42ce97221c90b80c",
+    "basis_experiment": "20260911_S003_EX25",
+    "basis_manifest_sha256": "409dddd4ce6d56ef97832bed10e5b4b4186f09b41a47532805a2c9b832e9e7c1",
+    "basis_file_sha256": "6a5fab35946df5ae8f6a91cdccabade1ea24158a810642adca55ecc6d554148d"
+  },
+  "mechanism": {
+    "relative_strength_window": 5,
+    "basis_change_window": 5,
+    "threshold_lookback": 60,
+    "threshold": "prior_median",
+    "combination": "both_above_prior_median",
+    "roll_day_basis_change": 0.0,
+    "signal_time": "T_POST_CLOSE",
+    "entry_time": "T_PLUS_1_OPEN",
+    "exit_time": "T_PLUS_1_11_30"
+  },
+  "density_gate": {
+    "rolling_sessions": 60,
+    "median_min": 12,
+    "median_max": 20,
+    "p10_min": 8
+  },
+  "conditional_return_analysis": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

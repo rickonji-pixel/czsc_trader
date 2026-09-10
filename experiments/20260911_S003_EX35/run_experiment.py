@@ -61,12 +61,52 @@ def main() -> None:
 
     source = protocol["source"]
     pro = get_tushare_pro(repo_root / ".env")
-    frame = pro.etf_share_size(
-        ts_code=protocol["research_target"]["trade_symbol"],
-        start_date=dataset["start"].replace("-", ""),
-        end_date=dataset["development_cutoff"].replace("-", ""),
-        fields=",".join(source["fields"]),
-    )
+    try:
+        frame = pro.etf_share_size(
+            ts_code=protocol["research_target"]["trade_symbol"],
+            start_date=dataset["start"].replace("-", ""),
+            end_date=dataset["development_cutoff"].replace("-", ""),
+            fields=",".join(source["fields"]),
+        )
+    except Exception as exc:  # Tushare exposes provider failures as a generic exception.
+        quality = {
+            "schema_version": 1,
+            "experiment_id": EXPERIMENT_ID,
+            "passed": False,
+            "access_available": False,
+            "provider_error_type": type(exc).__name__,
+            "provider_error": str(exc),
+            "conditional_return_analysis": False,
+        }
+        _write_json(artifacts / "data_quality.json", quality)
+        (experiment / "03_execution.md").write_text(
+            "# S003 EX35 执行\n\n"
+            "数据门结果：`FAIL`。当前Tushare账号无法调用`etf_share_size`，因此没有读取"
+            "任何ETF份额、净值或条件收益数据。供应商原始错误保存在机器证据中。\n",
+            encoding="utf-8",
+        )
+        (experiment / "04_conclusion.md").write_text(
+            "# S003 EX35 结论\n\n"
+            "结论：`FAIL`。当前数据权限不满足ETF份额规模研究的数据门，停止该信息源。"
+            "本轮没有创建候选，也没有修改SM或PTE。\n",
+            encoding="utf-8",
+        )
+        build_experiment_manifest(
+            experiment,
+            {
+                "experiment_id": EXPERIMENT_ID,
+                "strategy_id": "S003",
+                "symbol": "510500.SH",
+                "development_cutoff": dataset["development_cutoff"],
+                "status": "FAIL",
+                "failure_reason": "PROVIDER_ACCESS_UNAVAILABLE",
+                "conditional_return_analysis": False,
+                "candidate_generation": False,
+                "promotion_allowed": False,
+            },
+        )
+        validate_experiment_archive(experiment)
+        return
     if frame is None or frame.empty:
         raise ValueError("Tushare returned no ETF share-size data")
     frame = frame.copy()

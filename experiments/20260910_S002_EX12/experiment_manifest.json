@@ -1,12 +1,14 @@
 {
   "schema_version": 1,
   "experiment_id": "20260910_S002_EX12",
-  "status": "PENDING",
+  "status": "COMPLETE",
   "experiment_type": "first_research_candidate_readiness",
   "strategy_id": "S002",
   "symbol": "510500.SH",
   "candidate_id": "S002-C001",
   "development_cutoff": "2026-09-08",
+  "se_decision": "RECOMMEND_REGISTRATION",
+  "risk_label": "MIXED",
   "promotion_allowed": false,
   "files": {
     "01_goal.md": {
@@ -18,12 +20,16 @@
       "sha256": "c09cc2c5d76fabdf4d0493002d9f78fa77617354705428310abc4816b6f95914"
     },
     "03_execution.md": {
-      "bytes": 109,
-      "sha256": "d8dd66eaec5c823a738d95e3d9ba49af4a41589e3e8b94b9780a4b86d1bf50d0"
+      "bytes": 252,
+      "sha256": "5e5f31deef0eab13fe408d9731c6dd1df073bc91611f363969f193c36a559611"
     },
     "04_conclusion.md": {
-      "bytes": 49,
-      "sha256": "5b238686bfe76b2c4940bbd02e8078622d21c0eeeac9c96919ed6fc1a1df1472"
+      "bytes": 654,
+      "sha256": "87085bd0df2939f61dec646945862a1ce8bf8cc0d7c2da29cc422023791cfe99"
+    },
+    "artifacts/candidate_readiness.json": {
+      "bytes": 1563,
+      "sha256": "dcd024e9aa7844ce3097d4142e7db8f172e6fbc0a479768e79d03660c2d0697f"
     },
     "artifacts/protocol.json": {
       "bytes": 1729,

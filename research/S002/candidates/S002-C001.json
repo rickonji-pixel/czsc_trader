@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "strategy_id": "S002",
+  "candidate_id": "S002-C001",
+  "name": "三连跌五日修复",
+  "status": "RESEARCH_CANDIDATE",
+  "registered_at": "2026-09-10",
+  "development_cutoff": "2026-09-08",
+  "candidate_hash": "8a804a7fafc784c92ddd8b8c2d4c3fbc8dda953ca0fd7f0cfb6ab6fd7650574d",
+  "definition": "experiments/20260910_S002_EX12/candidate_payload.json",
+  "evaluation": {
+    "experiment_id": "20260910_S002_EX12",
+    "decision": "RECOMMEND_REGISTRATION",
+    "risk_label": "MIXED",
+    "evidence": "experiments/20260910_S002_EX12/artifacts/candidate_readiness.json"
+  },
+  "permissions": {
+    "research": true,
+    "strategy_version": false,
+    "freeze": false,
+    "paper_trading": false,
+    "live_trading": false
+  },
+  "known_risks": [
+    "510500主样本仅25笔闭合交易",
+    "统计稳健性证据为MIXED",
+    "512100横截面验证仅部分复现且证据为MIXED",
+    "2023年与低波动环境表现偏弱的原因仍待解释",
+    "510500与512100共享A股中小盘市场状态，横截面证据并非完全独立"
+  ]
+}

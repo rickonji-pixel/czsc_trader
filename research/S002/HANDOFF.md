@@ -4,10 +4,11 @@
 
 - 名称：中证500择时策略；
 - 标的：`510500.SH`；
-- 研究线阶段：`RESEARCH`；SM身份已登记，尚无策略版本和部署资格；
+- 研究线阶段：`RESEARCH`；正式研究候选为`S002-C001（三连跌五日修复）`；
+- 候选资格：SE建议登记，综合风险`MIXED`；尚无策略版本、冻结和部署资格；
 - 研究数据：`2019-10-08`至`2026-09-08`；
 - 当前开发截止：`2026-09-08`；
-- 最近实验：`experiments/20260910_S002_EX11`。
+- 最近实验：`experiments/20260910_S002_EX12`。
 
 ## 当前结论
 
@@ -77,22 +78,25 @@ EX11以完全相同的科学协议和后复权连续开盘价重试，横截面�
 发生在预注册的60日下行趋势，5日平均收益1.15%，与其余16笔的1.28%接近，当前样本未
 显示趋势状态构成阻断风险。2023年和低波动环境偏弱仍作为待解释观察，不形成过滤器。
 
+EX12将固定五日规则固化为`S002-C001（三连跌五日修复）`，并由SE执行首个研究候选立项
+审计。证据身份与来源回放均通过，25笔主样本达到20笔最低门槛，机制可辨识性、统计稳健
+性和横截面验证均为`MIXED`且没有阻断项。SE裁决为`RECOMMEND_REGISTRATION`，因此候选
+已登记为`RESEARCH_CANDIDATE`。同期BuyHold仅作诊断参照：收益10.21%、最大回撤-47.31%、
+卡玛0.0379；它不充当在位策略，也不影响立项裁决。
+
 ## 下一步
 
-进入首个S002正式候选的人工评审。建议候选采用已预先选定的固定五日版本，四日和六日
-仅作为机制邻居与敏感性证据，不做动态持有期或参数集成。支持创建候选的依据是510500
-内部机制带、随机对照和逐年删除证据较强，512100也在4日和5日给出同方向结果。评审应
-明确接受以下风险：25笔主样本较少、2023年和低波动切片偏弱、DSR证据有限、512100
-横截面验证仅为`MIXED`，以及两个标的共享A股中小盘市场状态。
+围绕`S002-C001`处理两个尚未解决、但不阻断候选立项的问题：解释2023年和低波动环境
+偏弱的来源，并设计冻结前的失效条件。保持候选规则不变，禁止围绕现有结果追加过滤器、
+动态持有期或继续逐标的试错。只有形成新的、预注册的研究问题时才启动下一轮实验。
 
-人工认可后，再创建首个S002候选并交给SE走统一候选评价；候选创建不代表冻结资格，
-当前不得直接登记策略版本或进入PTE。若人工否决，则停止这一机制路线，保留EX02至EX11
-作为不可变研究证据，不围绕审计结果继续追加过滤器或逐个尝试更多标的。
+候选登记不代表冻结资格。进入冻结评审前，必须重新汇总全部证据、预注册失效条件，并由
+人工决定是否创建首个策略版本；当前不得进入PTE。
 
 开始前验证：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 510500.SH
 .\.venv\Scripts\czsc-trader.exe strategy show --strategy S002
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/20260910_S002_EX10'), Path('experiments/20260910_S002_EX11'))]"
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/20260910_S002_EX10'), Path('experiments/20260910_S002_EX11'), Path('experiments/20260910_S002_EX12'))]"
 ```

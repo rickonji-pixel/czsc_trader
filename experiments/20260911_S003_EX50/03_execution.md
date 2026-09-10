@@ -1,0 +1,3 @@
+# S003 EX50 执行
+
+状态：`PREREGISTERED`。

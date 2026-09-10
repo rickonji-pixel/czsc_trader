@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX32",
+  "density_pass": true,
+  "event_count": 362,
+  "minimum_observed_ratio_actual": 0.99,
+  "conditional_return_analysis": false,
+  "next_step": "RETURN_EVALUATION"
+}

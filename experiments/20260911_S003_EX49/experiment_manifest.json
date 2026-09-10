@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX49",
+  "strategy_id": "S003",
+  "symbol": "512100.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "conditional_return_analysis": false,
+  "candidate_generation": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 234,
+      "sha256": "2897b183d18f6eb4817e1a8fdd7ef4ab1a8f83651e1fa31ccc8808d92a62d916"
+    },
+    "02_design.md": {
+      "bytes": 816,
+      "sha256": "cf925a96bb1c6b91caf4453571329006890039a01033218127328af69a2cbc59"
+    },
+    "03_execution.md": {
+      "bytes": 336,
+      "sha256": "0a413f8b2fa528608b5f0c8e0a2e42562f0818df87558fbe470623f3dade7ef3"
+    },
+    "04_conclusion.md": {
+      "bytes": 160,
+      "sha256": "1543f03ac744a978b7789807441d9c70911b346679cf499edbccefd2a317267b"
+    },
+    "artifacts/constituent_moneyflow_panel.csv.gz": {
+      "bytes": 16083118,
+      "sha256": "adeb0f615884aa7051fdc6119115ef3f39815d44dc816af5bdc50576bfde2bd4"
+    },
+    "artifacts/daily_coverage.csv": {
+      "bytes": 78536,
+      "sha256": "5505c1d9dd396af4cef80c0b6d019e801e06e3698a120948f3a428bf40797479"
+    },
+    "artifacts/data_quality.json": {
+      "bytes": 1092,
+      "sha256": "61ed2db787a37c437ec24825a056df46dfe11652307436d3cc0a2a570b979ac3"
+    },
+    "artifacts/index_weight_snapshots.csv.gz": {
+      "bytes": 332194,
+      "sha256": "ef7d458d7237e665b01a5ad6032bcef4b4890f853846e91b49826849554d8fc7"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2094,
+      "sha256": "03c970cfcb2c12f44357221b45fb1e301b2c1adf84e4908433e3e7be6993cedb"
+    },
+    "run_experiment.py": {
+      "bytes": 14345,
+      "sha256": "8a1a1214c465112e484cde88b62fb9b6c913461fd4b67e075267bb2be320a7cb"
+    }
+  }
+}

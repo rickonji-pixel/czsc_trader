@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX12",
+  "status": "PASS",
+  "event_manifest_sha256": "3b109014f0c883dab1d207a525ca9103516676f68dbb3634daa878052787904c",
+  "regime_manifest_sha256": "7f7319d7fede9c6ad2e7085da9d77aea178df94ccaaec09af05fc13888420172",
+  "evaluated_combinations": 2,
+  "feasible_combinations": 0,
+  "route_decision": "STOP_VOLUME_PRESSURE_ROUTE",
+  "candidate_created": false
+}

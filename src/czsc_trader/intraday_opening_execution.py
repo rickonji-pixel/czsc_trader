@@ -126,6 +126,7 @@ def evaluate_opening_shock_directions(
     median_episodes_required: int,
     p10_episodes_required: int,
     positive_years_required: int,
+    entry_clock: str = "09:50",
 ) -> OpeningShockEvaluationResult:
     """Compare fixed reversal and continuation mappings on identical events."""
 
@@ -147,7 +148,7 @@ def evaluate_opening_shock_directions(
     )
     regimes = daily_regime.copy()
     regimes.index = pd.DatetimeIndex(pd.to_datetime(regimes.index)).normalize()
-    entry = bars.loc[bars["clock"].eq("09:50")].set_index("trade_date")["Open"]
+    entry = bars.loc[bars["clock"].eq(entry_clock)].set_index("trade_date")["Open"]
     daily_close = bars.loc[bars["clock"].eq("15:00")].set_index("trade_date")["Close"]
     elapsed_years = max((calendar.max() - calendar.min()).days / 365.25, 1.0)
     median_count, p10_count, minimum_count, maximum_count = _density(

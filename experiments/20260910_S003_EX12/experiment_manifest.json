@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX12",
+  "status": "COMPLETE",
+  "experiment_type": "first_hour_volume_pressure_direction_competition",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 298,
+      "sha256": "c488c103b7eed95bd464b83b0760cb35871ca410aa8c1eefb3f3c70c47129683"
+    },
+    "02_design.md": {
+      "bytes": 824,
+      "sha256": "5bb68e2a7b7226eb80135cac332b14f9d501ebc0ef5d9723322b6f8c5dabf207"
+    },
+    "03_execution.md": {
+      "bytes": 212,
+      "sha256": "0263cbebb0241be6347d2bf17b59da5875325f61134c303d40be45ee95bd8b3d"
+    },
+    "04_conclusion.md": {
+      "bytes": 474,
+      "sha256": "100cbe4497de3dd7d511f5dff1951fb1585b1b695d86418ff42006a3aad17591"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 425,
+      "sha256": "31679a29c9ec829a094b6e7a3db6134d3ee66e648e0591fb6ef5a5bf01244c82"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 2038,
+      "sha256": "ee41d37b076023f10ff349ccc56039fb7139350a3ae4dd4e2976eef33a8a67de"
+    },
+    "artifacts/direction_summary.json": {
+      "bytes": 419,
+      "sha256": "9c314835dad4c90de71e7bcd84a46567b98f35f09e91b6b10a46789325dd5402"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 81731,
+      "sha256": "d79f5c60b44b42be55ff4be101cd54e756d2285a76c3050580836641857370b1"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 977,
+      "sha256": "4b6384b0ed220ec94068ff5683decd908a848f7d954dee1ca562c146a6a83c08"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1577,
+      "sha256": "628a47f5ea8cecce93873b32587791620f6e2ec562b2f57c9c0eea2fe7c4e7d6"
+    },
+    "artifacts/regime_metrics.csv": {
+      "bytes": 1110,
+      "sha256": "de57c866f1595a6872d2bdebcf2b63029dc59b62837ac8d6d20adfb538ba1348"
+    },
+    "run_experiment.py": {
+      "bytes": 6332,
+      "sha256": "fc07ad61185b66452e04bcc6fa696e8aec75683743f12010bb2d1739ffe83d9a"
+    }
+  }
+}

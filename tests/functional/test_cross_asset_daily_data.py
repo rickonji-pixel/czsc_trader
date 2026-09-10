@@ -5,6 +5,7 @@ import pytest
 
 from czsc_trader.cross_asset_daily_data import (
     DailySnapshot,
+    align_adjusted_to_target_calendar,
     canonicalize_daily,
     synchronize_snapshots,
     validate_daily_pair,
@@ -76,3 +77,46 @@ def test_daily_pair_rejects_inconsistent_adjustment_factor() -> None:
     assert canonicalize_daily(vendor, "510300.SH").columns.tolist() == [
         "dt", "symbol", "open", "high", "low", "close", "vol", "amount"
     ]
+
+
+def test_reference_suspension_is_causally_carried_and_audited() -> None:
+    target_adjusted, target_execution = _daily(
+        "510500.SH", ["2022-09-01", "2022-09-02", "2022-09-05"]
+    )
+    reference_adjusted, reference_execution = _daily(
+        "512100.SH", ["2022-09-01", "2022-09-05"]
+    )
+    snapshots = {
+        "510500.SH": DailySnapshot(
+            "510500.SH", target_adjusted, target_execution, {}
+        ),
+        "512100.SH": DailySnapshot(
+            "512100.SH", reference_adjusted, reference_execution, {}
+        ),
+    }
+
+    panel, audit = align_adjusted_to_target_calendar(
+        snapshots,
+        "510500.SH",
+        {"512100.SH": {"2022-09-02"}},
+    )
+
+    carried = panel.loc[
+        panel["symbol"].eq("512100.SH")
+        & panel["dt"].eq(pd.Timestamp("2022-09-02"))
+    ].iloc[0]
+    prior = panel.loc[
+        panel["symbol"].eq("512100.SH")
+        & panel["dt"].eq(pd.Timestamp("2022-09-01"))
+    ].iloc[0]
+    assert carried["observed"] == False  # noqa: E712
+    assert carried["source_dt"] == pd.Timestamp("2022-09-01")
+    assert carried["staleness_sessions"] == 1
+    assert carried[["open", "high", "low", "close"]].nunique() == 1
+    assert carried["close"] == prior["close"]
+    assert carried["vol"] == 0
+    assert carried["amount"] == 0
+    assert audit["symbols"]["512100.SH"]["carried_dates"] == ["2022-09-02"]
+
+    with pytest.raises(ValueError, match="unapproved"):
+        align_adjusted_to_target_calendar(snapshots, "510500.SH", {})

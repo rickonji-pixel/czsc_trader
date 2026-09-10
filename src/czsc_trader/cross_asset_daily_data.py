@@ -159,3 +159,73 @@ def synchronize_snapshots(
         "symbols": quality,
     }
     return clipped, calendar, report
+
+
+def align_adjusted_to_target_calendar(
+    snapshots: dict[str, DailySnapshot],
+    target_symbol: str,
+    allowed_absences: dict[str, set[str]],
+) -> tuple[pd.DataFrame, dict[str, object]]:
+    """Build a target-calendar panel using only information available on each date."""
+
+    target_symbol = str(target_symbol).upper()
+    if target_symbol not in snapshots:
+        raise ValueError("target symbol is absent from snapshots")
+    target = canonicalize_daily(snapshots[target_symbol].adjusted, target_symbol)
+    target_calendar = pd.DatetimeIndex(target["dt"], name="dt")
+    pieces: list[pd.DataFrame] = []
+    audit: dict[str, object] = {}
+    for symbol, snapshot in sorted(snapshots.items()):
+        source = canonicalize_daily(snapshot.adjusted, symbol).set_index("dt")
+        source_dates = set(source.index)
+        missing_dates = set(target_calendar) - source_dates
+        allowed = {pd.Timestamp(value).normalize() for value in allowed_absences.get(symbol, set())}
+        unexpected = sorted(ts.date().isoformat() for ts in missing_dates - allowed)
+        unused = sorted(ts.date().isoformat() for ts in allowed - missing_dates)
+        if unexpected:
+            raise ValueError(f"{symbol}: unapproved target-calendar absences {unexpected[:10]}")
+        if unused:
+            raise ValueError(f"{symbol}: absence allowlist does not match source {unused[:10]}")
+
+        aligned = source.reindex(target_calendar).copy()
+        observed = aligned["close"].notna()
+        if not observed.iloc[0]:
+            raise ValueError(f"{symbol}: first target session has no observation")
+        source_dates_series = pd.Series(
+            pd.to_datetime(aligned.index.where(observed)), index=aligned.index
+        ).ffill()
+        prior_close = aligned["close"].ffill()
+        for column in PRICE_COLUMNS:
+            aligned[column] = aligned[column].where(observed, prior_close)
+        aligned["vol"] = aligned["vol"].where(observed, 0.0)
+        aligned["amount"] = aligned["amount"].where(observed, 0.0)
+        aligned["symbol"] = symbol
+        aligned["observed"] = observed.to_numpy(dtype=bool)
+        aligned["source_dt"] = source_dates_series.to_numpy()
+        staleness: list[int] = []
+        age = 0
+        for is_observed in observed:
+            age = 0 if is_observed else age + 1
+            staleness.append(age)
+        aligned["staleness_sessions"] = staleness
+        aligned = aligned.reset_index().loc[
+            :,
+            (*CANONICAL_COLUMNS, "observed", "source_dt", "staleness_sessions"),
+        ]
+        pieces.append(aligned)
+        audit[symbol] = {
+            "target_sessions": int(len(aligned)),
+            "observed_sessions": int(observed.sum()),
+            "carried_sessions": int((~observed).sum()),
+            "carried_dates": sorted(ts.date().isoformat() for ts in missing_dates),
+            "maximum_staleness_sessions": int(max(staleness)),
+        }
+
+    panel = pd.concat(pieces, ignore_index=True).sort_values(["dt", "symbol"])
+    return panel.reset_index(drop=True), {
+        "target_symbol": target_symbol,
+        "target_sessions": int(len(target_calendar)),
+        "first_session": target_calendar.min().date().isoformat(),
+        "last_session": target_calendar.max().date().isoformat(),
+        "symbols": audit,
+    }

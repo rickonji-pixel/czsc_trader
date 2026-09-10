@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX21",
+  "experiment_type": "suspension_aware_cross_asset_data_gate",
+  "inherits": ["20260911_S003_EX20"],
+  "research_target": {
+    "strategy_id": "S003",
+    "trade_symbol": "510500.SH",
+    "reference_symbols": ["510300.SH", "512100.SH"]
+  },
+  "dataset": {
+    "start": "2019-10-08",
+    "evaluation_start": "2021-01-04",
+    "development_cutoff": "2026-09-08",
+    "frequency": "daily"
+  },
+  "source_evidence": {
+    "experiment_id": "20260911_S003_EX20",
+    "experiment_manifest_sha256": "1b26a94a35949f5a0fb9224c9efd1fbb69c4598172576fddae6ed689c6bbef13",
+    "source_evidence_sha256": "ad8bd41ce00ab2a60cb43eb756d6f348cada75e9f1523888fd90cdb8fa574ea7"
+  },
+  "alignment": {
+    "calendar_owner": "510500.SH",
+    "allowed_absences": {
+      "512100.SH": {
+        "dates": ["2022-09-02"],
+        "reason": "fund_share_consolidation_suspension",
+        "source": "https://www.cjsc.com.cn/main/a/20220829/28517.shtml"
+      }
+    },
+    "missing_price_rule": "last_published_adjusted_close",
+    "missing_ohlc_rule": "all_equal_last_published_adjusted_close",
+    "missing_volume": 0,
+    "missing_amount": 0,
+    "record_observation_freshness": true,
+    "future_backfill_forbidden": true
+  },
+  "conditional_return_analysis": false,
+  "signal_generation": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "symbol": "512100.SH",
+  "requested_start": "2019-01-01",
+  "requested_end": "2026-09-08",
+  "actual_start": "2019-01-02",
+  "actual_end": "2026-09-08",
+  "sessions": 1864,
+  "adjusted_metadata": {
+    "vendor": "tushare",
+    "market": "a_share",
+    "vendor_symbol": "512100.SH",
+    "period": "daily",
+    "asset_type": "etf",
+    "adjustment": "hfq",
+    "adjustment_factor_source": "fund_adj",
+    "adjustment_factor_sha256": "0da7a20c71bd0f262f390a8ff8e4cbfde1727c59b174a361a37656edba2f04e5"
+  },
+  "execution_metadata": {
+    "vendor": "tushare",
+    "market": "a_share",
+    "vendor_symbol": "512100.SH",
+    "period": "daily",
+    "asset_type": "etf",
+    "adjustment": "none"
+  },
+  "intraday_excluded": true,
+  "intraday_exclusion_reason": "EX10 freezes a daily-only signal; vendor 30m Open fails strict daily reconciliation",
+  "files": {
+    "adjusted": {
+      "path": "512100_adjusted_daily.csv",
+      "sha256": "1b7eabdc4623833c29267440b9428ef6e83a3b4e72249954a2c326c3f24ee885"
+    },
+    "execution": {
+      "path": "512100_execution_daily.csv",
+      "sha256": "1101c625eebeb5c5b114ad60c29c9367ab56a6109cc3ddaa17212dd5c8c561ab"
+    }
+  }
+}

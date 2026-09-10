@@ -1,0 +1,2 @@
+mechanism,event_count_before_collision_control,event_count,collision_rows_removed,rolling_60_median,rolling_60_p10,rolling_60_min,rolling_60_max,density_eligible
+ETF_DISCOUNT_REVERSAL,262,256,6,12.0,7.0,0.0,18.0,False

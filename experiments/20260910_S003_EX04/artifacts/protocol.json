@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX04",
+  "experiment_type": "intraday_signal_density_census",
+  "inherits": "20260910_S003_EX03",
+  "research_target": {
+    "strategy_id": "S003",
+    "symbol": "510500.SH",
+    "asset_type": "etf"
+  },
+  "dataset": {
+    "intraday_name": "research_intraday",
+    "intraday_period": "15m",
+    "start": "2019-10-08",
+    "cutoff": "2026-09-08",
+    "evaluation_start": "2021-01-04",
+    "regime_experiment": "20260910_S003_EX03"
+  },
+  "signal_registry": {
+    "category": "kline",
+    "frequency": "15分钟",
+    "parameter_policy": "native_defaults",
+    "warmup_bars": 500
+  },
+  "event_definition": {
+    "transition": "primary_state_false_to_true",
+    "deduplication": "first_transition_per_signal_state_trade_date"
+  },
+  "density_screen": {
+    "window_sessions": 30,
+    "median_event_days_required": 18,
+    "p10_event_days_required": 12,
+    "p10_interpolation": "lower",
+    "distinct_event_days_required": 12,
+    "role": "necessary_condition_for_mechanism_research"
+  },
+  "reads_forward_returns": false,
+  "assigns_trade_direction": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

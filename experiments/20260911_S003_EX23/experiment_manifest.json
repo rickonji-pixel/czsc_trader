@@ -4,7 +4,8 @@
   "strategy_id": "S003",
   "symbol": "510500.SH",
   "development_cutoff": "2026-09-08",
-  "status": "PREREGISTERED",
+  "status": "COMPLETE",
+  "eligible_for_audit": [],
   "candidate_generation": false,
   "promotion_allowed": false,
   "files": {
@@ -17,12 +18,32 @@
       "sha256": "a8aafd3ea3dd3e20abb8ec34dd165bf758f3e814b8783a17c26eb132670a1de7"
     },
     "03_execution.md": {
-      "bytes": 54,
-      "sha256": "6ed6cf15a8b3888fad1af512f24b813ec4f4f0b67e89423eeb2ce98f8b3b35db"
+      "bytes": 93,
+      "sha256": "17a8101b4f314a66cff671a586b2e13dbd15ef1f55fa28064a2926f6bbaaeedc"
     },
     "04_conclusion.md": {
-      "bytes": 33,
-      "sha256": "5e239b6913acfb177e7a71a3fa722c39d69a37fdb721de7cb0bea31563de3d90"
+      "bytes": 573,
+      "sha256": "58813e464365c7a114a0de15caae5bf1a59681c36ba332b5359bc72b4fc47378"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 786,
+      "sha256": "cd3eebb9f7550c9c5a133af7ad8e026c0726848710cc63827d4a68b33a859677"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 2969,
+      "sha256": "72aa857ea988c634542c26d554030ba4070e39b5dcf8ad62f68781db042abb51"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 133626,
+      "sha256": "57b469fac28bceb6dc65f5dd80ca49e4840623115e9db48fc33c2741bb2f86d2"
+    },
+    "artifacts/evaluation_summary.json": {
+      "bytes": 171,
+      "sha256": "fc1818ca07c25ab28d40d7309eb897a8f239a85aa8f6dc6c5d94ce3e39e97a79"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 1559,
+      "sha256": "c8a0023d44867c4569b767eb9723a7606f84e4a6cb972fb5f3d56a919ff54c6b"
     },
     "artifacts/protocol.json": {
       "bytes": 1933,

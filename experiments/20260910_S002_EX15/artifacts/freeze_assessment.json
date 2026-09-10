@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX15",
+  "request": {
+    "candidate_id": "S002-C001",
+    "candidate_hash": "8a804a7fafc784c92ddd8b8c2d4c3fbc8dda953ca0fd7f0cfb6ab6fd7650574d",
+    "benchmark_id": "BuyHold-510500",
+    "integrity": "PASS",
+    "reproducibility": "PASS",
+    "technical_replay": "PASS",
+    "monitoring_plan": "PASS",
+    "candidate_performance": {
+      "cagr": 0.04186536652056638,
+      "max_drawdown": -0.0528121001271632,
+      "calmar": 0.7927230013531216
+    },
+    "benchmark_performance": {
+      "cagr": 0.01793691400789932,
+      "max_drawdown": -0.47314458813934523,
+      "calmar": 0.037910005646343226
+    },
+    "bootstrap": {
+      "champion_id": "S002-C001",
+      "comparator_id": "BuyHold-510500",
+      "repetitions": 10000,
+      "mean_block_length": 21,
+      "cagr": {
+        "metric": "cagr",
+        "direction": "higher_is_better",
+        "point_difference": 0.023928452512667064,
+        "lower_95": -0.18495472373383207,
+        "upper_95": 0.19559446928797702,
+        "probability_favorable": 0.5935
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "direction": "higher_is_better",
+        "point_difference": 0.42033248801218204,
+        "lower_95": 0.1791671022351341,
+        "upper_95": 0.6388537638928561,
+        "probability_favorable": 1.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "direction": "higher_is_better",
+        "point_difference": 0.7548129957067784,
+        "lower_95": -0.27222775896071627,
+        "upper_95": 2.155705201984097,
+        "probability_favorable": 0.9215
+      }
+    },
+    "statistical_evidence": "MIXED",
+    "external_validation": "MIXED",
+    "execution_evidence": "MIXED",
+    "blocking_findings": []
+  },
+  "result": {
+    "candidate_id": "S002-C001",
+    "candidate_hash": "8a804a7fafc784c92ddd8b8c2d4c3fbc8dda953ca0fd7f0cfb6ab6fd7650574d",
+    "benchmark_id": "BuyHold-510500",
+    "decision": "RECOMMEND_FREEZE",
+    "risk_label": "MIXED",
+    "reason_codes": [
+      "REQUIRED_AUDITS_PASSED",
+      "BENCHMARK_DOMINATED_ON_POINT_METRICS",
+      "PAIRED_BOOTSTRAP_ADVANTAGE_MAJORITY",
+      "NO_BLOCKING_FINDINGS"
+    ]
+  },
+  "candidate_total_return": 0.2514063684999992,
+  "candidate_profit_factor": 2.313059628417679,
+  "buyhold_total_return": 0.10209655189395273,
+  "buyhold_profit_factor": null,
+  "profit_factor_comparison": "NOT_APPLICABLE_BUYHOLD_HAS_NO_CLOSED_TRADES",
+  "supporting_evidence": {
+    "statistical": "experiments/20260910_S002_EX09",
+    "external_validation": "experiments/20260910_S002_EX11",
+    "candidate_registration": "experiments/20260910_S002_EX12",
+    "formal_execution": "experiments/20260910_S002_EX14"
+  },
+  "lifecycle_effects": {
+    "frozen": false,
+    "pte_deployed": false
+  }
+}

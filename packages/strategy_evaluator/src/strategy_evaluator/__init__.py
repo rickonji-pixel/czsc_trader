@@ -93,6 +93,12 @@ from .candidate_readiness import (
     CandidateReadinessResult,
     assess_research_candidate,
 )
+from .benchmark_challenge import (
+    BenchmarkChallengeDecision,
+    BenchmarkChallengeRequest,
+    BenchmarkChallengeResult,
+    assess_benchmark_challenge,
+)
 
 __version__ = "0.1.0"
 
@@ -124,4 +130,6 @@ __all__ = [
     "ReplayAuditResult", "ReplayEvidence", "audit_replay", "hash_replay_evidence",
     "CandidateReadinessDecision", "CandidateReadinessRequest",
     "CandidateReadinessResult", "assess_research_candidate",
+    "BenchmarkChallengeDecision", "BenchmarkChallengeRequest",
+    "BenchmarkChallengeResult", "assess_benchmark_challenge",
 ]

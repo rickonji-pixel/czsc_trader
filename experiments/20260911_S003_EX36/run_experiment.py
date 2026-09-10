@@ -182,7 +182,7 @@ def main() -> None:
     }
     quality["passed"] = bool(
         duplicate_rows == 0
-        and not extra_dates
+        and extra_dates.empty
         and calendar.min() in observed
         and calendar.max() in observed
         and coverage_ratio >= float(quality_gate["minimum_calendar_coverage_ratio"])

@@ -238,6 +238,8 @@ $ResearchSymbol = "510500.SH"
 - 各研究线当前上下文：`research/`；
 - S001既有版本的历史规则依赖：`strategies/dependencies/legacy_rule_baselines/`；
 - 受控研究数据身份：`data/raw/`；
+- 分钟研究数据身份：`data/raw/<代码>_intraday_manifest.json`，与既有日线/30m manifest
+  分离管理；
 - 独立普通回测数据：`data/backtest/`；
 - 不可变研究证据：`experiments/`；
 - 普通可再生回测：`outputs/`，不参与交接和策略接受；

@@ -240,9 +240,10 @@ def _fetch_tushare_etf_ohlcv(
     if period == "weekly":
         normalized = _resample_weekly(normalized)
     if intraday:
-        normalized, corrected_dates = _apply_known_intraday_volume_corrections(
-            normalized, ts_code
-        )
+        if period != "1m":
+            normalized, corrected_dates = _apply_known_intraday_volume_corrections(
+                normalized, ts_code
+            )
         normalized = _merge_opening_auction_into_first_bar(normalized, period)
         normalized = _drop_zero_activity_days(normalized)
         normalized = drop_incomplete_intraday_bar(normalized)

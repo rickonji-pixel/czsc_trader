@@ -5,49 +5,75 @@ from types import SimpleNamespace
 import pytest
 
 from paper_trading_engine.audit import AuditRecorder
-from paper_trading_engine.broker import OrderIntent, PaperTradingSafetyError
+from paper_trading_engine.broker import (
+    BrokerPosition,
+    BrokerSnapshot,
+    OrderIntent,
+    PaperTradingSafetyError,
+)
 from paper_trading_engine.futu_execution import ChannelReconciliationError, FutuExecution
 from paper_trading_engine.futu_gateway import FutuGateway
 from paper_trading_engine.store import PaperStore
-from pte_support import FakeBroker, broker_snapshot
+from pte_support import FakeBroker
 
 
 def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     store = PaperStore(tmp_path / "shared-futu.db")
-    for account_id, version, marker in (("s001-v1", "v1", "a"), ("s001-v2", "v2", "b")):
+    for account_id, strategy, version, marker, symbol in (
+        ("s001-v1", "S001", "v1", "a", "588080.SH"),
+        ("s001-v2", "S001", "v2", "b", "588080.SH"),
+        ("s002-v1", "S002", "v1", "c", "510500.SH"),
+    ):
         store.create_virtual_account(
             account_id, f"{account_id}模拟账户", "legacy", marker * 64, 100_000,
-            strategy_id="S001", strategy_name_snapshot="综合基线策略",
+            strategy_id=strategy, strategy_name_snapshot="测试策略",
             strategy_version=version, release_hash=marker * 64,
             qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
+            symbol=symbol,
         )
-    intent = store.create_account_intent(
+    first_intent = store.create_account_intent(
         account_id="s001-v2", decision_id="DEC-2", order_sequence=0,
         symbol="588080.SH", side="BUY", quantity=1000,
         limit_price="1.680", valid_session="2026-09-04",
     )
-    assert intent["intent_id"].startswith("PTE-")
-    assert len(intent["intent_id"]) <= 24
+    store.create_account_intent(
+        account_id="s002-v1", decision_id="DEC-3", order_sequence=0,
+        symbol="510500.SH", side="BUY", quantity=1000,
+        limit_price="7.500", valid_session="2026-09-04",
+    )
+    assert first_intent["intent_id"].startswith("PTE-")
+    assert len(first_intent["intent_id"]) <= 24
     broker = FakeBroker()
     execution = FutuExecution(store, broker, symbol="588080.SH", today=lambda: date(2026, 9, 4))
     execution.refresh_account()
     execution.submit_pending()
-    submitted = broker.value.orders[0]
-    broker.value = broker_snapshot(
-        orders=(replace(
-            submitted, status="FILLED_ALL", cumulative_filled_quantity=1000,
-            average_fill_price=1.67,
-        ),), quantity=1000,
+    submitted = broker.value.orders
+    filled = tuple(
+        replace(
+            order, status="FILLED_ALL", cumulative_filled_quantity=1000,
+            average_fill_price=1.67 if order.symbol == "588080.SH" else 7.49,
+        )
+        for order in submitted
+    )
+    broker.value = BrokerSnapshot(
+        broker.value.account,
+        (BrokerPosition("588080.SH", 1000), BrokerPosition("510500.SH", 1000)),
+        filled,
     )
     execution.refresh_orders()
     assert store.virtual_account("s001-v1")["quantity"] == 0
     assert store.virtual_account("s001-v2")["quantity"] == 1000
+    assert store.virtual_account("s002-v1")["quantity"] == 1000
 
     foreign = replace(
-        submitted, channel_order_id="9999", quantity=100,
+        submitted[0], channel_order_id="9999", quantity=100,
         status="SUBMITTED", cumulative_filled_quantity=0, remark="MANUAL",
     )
-    broker.value = broker_snapshot(orders=(foreign,), quantity=1000)
+    broker.value = BrokerSnapshot(
+        broker.value.account,
+        (BrokerPosition("588080.SH", 1000), BrokerPosition("510500.SH", 1000)),
+        (foreign,),
+    )
     with pytest.raises(ChannelReconciliationError, match="无法归属"):
         execution.refresh_orders()
     assert store.get_setting("channel_reconciliation_status") == "BLOCKED"
@@ -86,8 +112,10 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     gateway.place_order(OrderIntent("PTE-s001-v1-X", "DEC-X", "588080.SH", "BUY", 1000, 1.68))
     assert trade.place_calls[0]["trd_env"] == "SIMULATE"
     assert trade.place_calls[0]["adjust_limit"] == 0
-    with pytest.raises(PaperTradingSafetyError, match="whitelist"):
-        gateway.place_order(OrderIntent("PTE-X", "DEC-X", "159352.SZ", "BUY", 1000, 1.0))
+    gateway.place_order(OrderIntent("PTE-s002-v1-X", "DEC-Y", "510500.SH", "BUY", 1000, 7.5))
+    assert trade.place_calls[1]["code"] == "SH.510500"
+    with pytest.raises(PaperTradingSafetyError, match="China-market"):
+        gateway.place_order(OrderIntent("PTE-X", "DEC-Z", "AAPL.US", "BUY", 1000, 1.0))
     audit_store.close()
 
 

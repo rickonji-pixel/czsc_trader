@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S002_EX14",
+  "candidate_id": "S002-C001",
+  "candidate_hash": "8a804a7fafc784c92ddd8b8c2d4c3fbc8dda953ca0fd7f0cfb6ab6fd7650574d",
+  "proposed_strategy_payload_hash": "2739b02b011452250f8249f32faa7734362d56113ca9184179ae26818fdbc3dc",
+  "execution_policy_hash": "e86f01357de6ca2a4dd9815d46d1ea1dac4f635985f044d88f7c5874a555ef11",
+  "target_positions_identical": true,
+  "entry_signals": 26,
+  "exit_signals": 25,
+  "buy_orders": 35,
+  "buy_orders_filled": 26,
+  "buy_orders_unfilled": 9,
+  "sell_orders": 25,
+  "sell_orders_filled": 25,
+  "formal_execution_metrics": {
+    "max_drawdown": -0.05281210012716331,
+    "calmar": 0.7927230013531199,
+    "win_loss_ratio": 2.313059628417679,
+    "win_loss_ratio_status": "VALID",
+    "return": 0.2514063684999992,
+    "sharpe": 0.8087326452241879,
+    "closed_trades": 25
+  },
+  "research_next_open_reference": {
+    "closed_trades": 25,
+    "maximum_drawdown": -0.0363661389838702,
+    "calmar_ratio": 1.5177090960302675,
+    "total_return": 0.3414832610103573,
+    "source": "experiments/20260910_S002_EX12/artifacts/candidate_readiness.json"
+  },
+  "se_replay_audit": {
+    "status": "PASS",
+    "evidence_hash": "cbbceb87ef1b36fdfbe22ad5ccd95ce60d221804015ad48a256cee6fbe9dd1d9",
+    "checks": [
+      "ORDER_AND_FILL_CAUSALITY",
+      "ACCOUNT_LEDGER",
+      "TRADE_PAIRING",
+      "METRICS"
+    ],
+    "reason_codes": []
+  },
+  "candidate_changed": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

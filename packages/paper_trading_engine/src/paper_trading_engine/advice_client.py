@@ -24,8 +24,8 @@ class CliAdviceClient:
         executable: Path,
         repo_root: Path,
         data_dir: Path,
-        symbol: str,
-        asset: str,
+        symbol: str | None = None,
+        asset: str = "etf",
         timeout_seconds: float = 60,
         runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
         audit: AuditRecorder | None = None,
@@ -33,7 +33,7 @@ class CliAdviceClient:
         self.executable = Path(executable)
         self.repo_root = Path(repo_root).resolve()
         self.data_dir = Path(data_dir).resolve()
-        self.symbol = symbol.upper()
+        self.symbol = symbol.upper() if symbol else None
         self.asset = asset
         self.timeout_seconds = float(timeout_seconds)
         self.runner = runner
@@ -43,10 +43,12 @@ class CliAdviceClient:
         self, started: float, *, decision: AdviceDecision | None = None,
         error: Exception | None = None, strategy_id: str | None = None,
         strategy_version: str | None = None, account_id: str | None = None,
+        symbol: str | None = None,
     ) -> None:
         if self.audit is None:
             return
-        correlation_id = decision.decision_id if decision else f"advice:{self.symbol}"
+        audit_symbol = decision.symbol if decision else (symbol or self.symbol)
+        correlation_id = decision.decision_id if decision else f"advice:{audit_symbol}"
         self.audit.record(
             "EXTERNAL_CALL_FAILED" if error else "EXTERNAL_CALL_SUCCEEDED",
             source="advice_client", outcome="FAILURE" if error else "SUCCESS",
@@ -55,7 +57,7 @@ class CliAdviceClient:
             strategy_id=(decision.strategy.get("strategy_id") if decision else strategy_id),
             strategy_version=(decision.strategy.get("version") if decision else strategy_version),
             release_hash=(decision.strategy.get("release_hash") if decision else None),
-            symbol=self.symbol, decision_id=decision.decision_id if decision else None,
+            symbol=audit_symbol, decision_id=decision.decision_id if decision else None,
             details={
                 "service": "trader", "operation": "advice.run",
                 "duration_ms": round((time.perf_counter() - started) * 1000, 3),
@@ -65,7 +67,7 @@ class CliAdviceClient:
         if error is not None:
             self.audit.record(
                 "DECISION_GENERATION_FAILED", source="advice_client", outcome="FAILURE",
-                actor_type="ENGINE", correlation_id=correlation_id, symbol=self.symbol,
+                actor_type="ENGINE", correlation_id=correlation_id, symbol=audit_symbol,
                 account_id=account_id,
                 strategy_id=strategy_id, strategy_version=strategy_version,
                 details={"error_type": type(error).__name__, "error": str(error)},
@@ -80,17 +82,23 @@ class CliAdviceClient:
         strategy_version: str | None = None,
         baseline: str | None = None,
         account_id: str | None = None,
+        symbol: str | None = None,
+        asset: str | None = None,
         decision_transform: Callable[[AdviceDecision], AdviceDecision] | None = None,
     ) -> AdviceDecision:
         started = time.perf_counter()
+        selected_symbol = (symbol or self.symbol or "").upper()
+        selected_asset = asset or self.asset
+        if not selected_symbol:
+            raise AdviceClientError("advice symbol is required")
         arguments = [
             str(self.executable),
             "advice",
             "run",
             "--symbol",
-            self.symbol,
+            selected_symbol,
             "--asset",
-            self.asset,
+            selected_asset,
             "--actual-quantity",
             str(actual_quantity),
             "--available-cash",
@@ -149,13 +157,17 @@ class CliAdviceClient:
             self._audit_call(
                 started, error=exc, strategy_id=strategy_id,
                 strategy_version=strategy_version, account_id=account_id,
+                symbol=selected_symbol,
             )
             raise
         self._audit_call(started, decision=decision, account_id=account_id)
         return decision
 
-    def data_identity(self) -> str:
-        code = self.symbol.split(".", 1)[0]
+    def data_identity(self, symbol: str | None = None) -> str:
+        selected_symbol = (symbol or self.symbol or "").upper()
+        if not selected_symbol:
+            raise AdviceClientError("data identity symbol is required")
+        code = selected_symbol.split(".", 1)[0]
         names = (
             f"{code}_manifest.json",
             f"{code}_validation.json",

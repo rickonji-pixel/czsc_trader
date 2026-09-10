@@ -26,9 +26,13 @@ def apply_resolved_baseline(
 ) -> AppliedRule:
     """Execute one already-frozen baseline without candidate generation."""
     if baseline.strategy == "czsc_fixed_rule":
+        if baseline.rule is None:
+            raise ValueError("fixed-rule baseline has no rule")
         return apply_fixed_rule(factor_frame, baseline.rule)
     if baseline.strategy not in {"czsc_four_layer", "czsc_regime_weight"}:
         raise ValueError(f"unknown baseline strategy: {baseline.strategy}")
+    if baseline.rule is None:
+        raise ValueError("factor baseline has no rule")
     names = tuple(map(str, baseline.factor_names))
     if len(names) != len(set(names)):
         raise ValueError("four-layer frozen factor identities must be unique")

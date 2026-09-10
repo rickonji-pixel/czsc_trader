@@ -25,8 +25,7 @@ def http_is_healthy(url: str, timeout: float) -> bool:
             if response.status != 200:
                 return False
             payload = json.loads(response.read())
-        channel = payload.get("channel", payload)
-        return bool(isinstance(channel, dict) and channel.get("environment") and channel.get("symbol"))
+        return bool(isinstance(payload, dict) and payload.get("runtime") == "RUNNING")
     except (OSError, ValueError, TypeError):
         return False
 

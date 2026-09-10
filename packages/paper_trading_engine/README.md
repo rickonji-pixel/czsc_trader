@@ -26,6 +26,7 @@ WDG位于本包内，只管理PTE子进程生命周期和HTTP健康探测。数�
 ```text
 StrategyRelease 1 ─── N VirtualAccount
                          │
+                         ├── 1 Instrument
                          ├── N Decision
                          ├── N OrderIntent ─── N FutuFill
                          └── N AccountSnapshot
@@ -34,8 +35,8 @@ FutuChannel 1 ─── N VirtualAccount
 FutuChannel 1 ─── 1 Futu SIMULATE/CN account
 ```
 
-- 一个虚拟账户绑定一个不可变策略发布和一个渠道；
-- Futu渠道可承载多个虚拟账户，渠道本身不绑定策略；
+- 一个虚拟账户绑定一个不可变策略发布、一个交易标的和一个渠道；
+- Futu渠道可承载多个虚拟账户及多个中国市场标的，渠道本身不绑定策略；
 - 每条决策、订单和成交必须追溯到虚拟账户、策略发布和关联ID；
 - 未知活动订单或底层持仓与账户汇总不一致时，渠道阻止新单；
 - 委托受理不代表成交，没有明确成交增量时保持账户账本不变。
@@ -66,7 +67,7 @@ PTE日常运行状态不进入SM。只有人工复核后的里程碑通过自包
 ## 运行结构
 
 - `cli.py`：`once`、`serve`、账户、绩效导出和控制接口；
-- `scheduler.py`：数据发布、退避、逐账户决策及订单/账户对账节奏；
+- `scheduler.py`：按活跃账户标的发布数据、退避、逐账户决策及订单/账户对账节奏；
 - `coordinator.py`与`account_engine.py`：账户中心编排和账本；
 - `futu_gateway.py`与`futu_execution.py`：Futu交易适配与执行；
 - `store.py`与`audit.py`：SQLite状态及四类追加式审计事件；

@@ -110,3 +110,49 @@ class CliDataPublisher:
             raise
         self._audit_call(end_date, started)
         return payload["result"]
+
+
+class AccountDataPublisher:
+    """Publish every distinct instrument currently owned by a virtual account."""
+
+    def __init__(
+        self,
+        *,
+        store,
+        executable: Path,
+        repo_root: Path,
+        data_dir: Path,
+        start_date: str,
+        runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+        audit: AuditRecorder | None = None,
+    ) -> None:
+        self.store = store
+        self.executable = executable
+        self.repo_root = repo_root
+        self.data_dir = data_dir
+        self.start_date = start_date
+        self.runner = runner
+        self.audit = audit
+
+    def publish(self, end_date: str) -> dict[str, object]:
+        instruments = sorted({
+            (str(account["symbol"]).upper(), str(account["asset_type"]))
+            for account in self.store.virtual_accounts()
+            if account.get("status") != "RETIRED"
+        })
+        if not instruments:
+            raise DataPublicationError("no active virtual-account instrument to publish")
+        published = []
+        for symbol, asset in instruments:
+            result = CliDataPublisher(
+                executable=self.executable,
+                repo_root=self.repo_root,
+                data_dir=self.data_dir,
+                symbol=symbol,
+                asset=asset,
+                start_date=self.start_date,
+                runner=self.runner,
+                audit=self.audit,
+            ).publish(end_date)
+            published.append({"symbol": symbol, "asset_type": asset, "result": result})
+        return {"instruments": published}

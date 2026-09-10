@@ -19,7 +19,7 @@ from uuid import uuid4
 
 from .audit import AuditRecorder
 from .advice_client import CliAdviceClient
-from .data_publisher import CliDataPublisher, seed_runtime_data
+from .data_publisher import AccountDataPublisher, seed_runtime_data
 from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
@@ -141,20 +141,18 @@ def _default_executable(repo_root: Path) -> Path:
 
 
 def build_engine(args: argparse.Namespace):
-    seed_runtime_data(args.repo_root / "data" / "raw", args.data_dir, args.symbol)
     store = PaperStore(args.database)
     audit = AuditRecorder(store)
     advice = CliAdviceClient(
         executable=args.advice_executable or _default_executable(args.repo_root),
         repo_root=args.repo_root,
         data_dir=args.data_dir,
-        symbol=args.symbol,
         asset=args.asset,
         audit=audit,
     )
     try:
         gateway = FutuGateway(
-            symbol=args.symbol, host=args.opend_host, port=args.opend_port, audit=audit
+            host=args.opend_host, port=args.opend_port, audit=audit
         )
     except Exception as exc:
         audit.record(
@@ -164,7 +162,7 @@ def build_engine(args: argparse.Namespace):
         )
         execution = UnavailableExecution(store, args.symbol, exc)
     else:
-        execution = FutuExecution(store, gateway, symbol=args.symbol, audit=audit)
+        execution = FutuExecution(store, gateway, audit=audit)
     try:
         store.virtual_account("baseline-143")
     except KeyError:
@@ -185,6 +183,7 @@ def build_engine(args: argparse.Namespace):
             release_hash=CURRENT_RELEASE_HASH,
             qualification_snapshot=CURRENT_QUALIFICATION,
             selection_data_cutoff=CURRENT_SELECTION_DATA_CUTOFF,
+            asset_type=args.asset,
         )
     else:
         if Decimal(account["initial_cash"]) == LEGACY_VIRTUAL_INITIAL_CASH:
@@ -204,7 +203,7 @@ def build_engine(args: argparse.Namespace):
             DEFAULT_VIRTUAL_ACCOUNT_NAME, CURRENT_LEGACY_BASELINE, CURRENT_LEGACY_BASELINE_HASH,
             CURRENT_STRATEGY_ID, CURRENT_STRATEGY_NAME, CURRENT_STRATEGY_VERSION,
             CURRENT_RELEASE_HASH, CURRENT_QUALIFICATION,
-            args.symbol.upper(), str(DEFAULT_VIRTUAL_INITIAL_CASH),
+            args.symbol.upper(), args.asset, str(DEFAULT_VIRTUAL_INITIAL_CASH),
             CURRENT_SELECTION_DATA_CUTOFF,
         )
         actual = (
@@ -212,7 +211,8 @@ def build_engine(args: argparse.Namespace):
             account["strategy_id"], account["strategy_name_snapshot"],
             account["strategy_version"], account["release_hash"],
             account["qualification_snapshot"],
-            account["symbol"], account["initial_cash"], account["selection_data_cutoff"],
+            account["symbol"], account["asset_type"], account["initial_cash"],
+            account["selection_data_cutoff"],
         )
         if actual != expected:
             raise ValueError(f"{DEFAULT_VIRTUAL_ACCOUNT_ID} virtual account has a different immutable identity")
@@ -226,6 +226,10 @@ def build_engine(args: argparse.Namespace):
         args.advice_executable or _default_executable(args.repo_root),
         args.repo_root,
     )
+    for account in store.virtual_accounts():
+        seed_runtime_data(
+            args.repo_root / "data" / "raw", args.data_dir, account["symbol"]
+        )
     account_chart = AccountChartService(
         store,
         data_dir=args.data_dir,
@@ -242,14 +246,13 @@ def build_engine(args: argparse.Namespace):
 
 
 def build_publisher(
-    args: argparse.Namespace, audit: AuditRecorder | None = None,
-) -> CliDataPublisher:
-    return CliDataPublisher(
+    args: argparse.Namespace, store: PaperStore, audit: AuditRecorder | None = None,
+) -> AccountDataPublisher:
+    return AccountDataPublisher(
+        store=store,
         executable=args.advice_executable or _default_executable(args.repo_root),
         repo_root=args.repo_root,
         data_dir=args.data_dir,
-        symbol=args.symbol,
-        asset=args.asset,
         start_date=args.data_start,
         audit=audit,
     )
@@ -417,17 +420,20 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             if (
                 existing["strategy_id"], existing["strategy_version"],
                 existing["release_hash"], existing["name"],
-                existing["symbol"], existing["initial_cash"],
+                existing["symbol"], existing["asset_type"], existing["initial_cash"],
                 existing["selection_data_cutoff"],
             ) != (
                 identity["strategy_id"], identity["version"], identity["release_hash"],
-                args.name, args.symbol.upper(),
+                args.name, args.symbol.upper(), args.asset,
                 str(Decimal(args.initial_cash).quantize(Decimal("0.0001"))),
                 identity["selection_data_cutoff"],
             ):
                 raise ValueError("account id already exists with a different immutable identity")
+            seed_runtime_data(
+                args.repo_root / "data" / "raw", args.data_dir, args.symbol
+            )
             return existing
-        return store.create_virtual_account(
+        created = store.create_virtual_account(
             args.account_id, args.name, baseline_version, baseline_hash, args.initial_cash,
             strategy_id=identity["strategy_id"],
             strategy_name_snapshot=identity["name"],
@@ -436,7 +442,12 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             qualification_snapshot=identity["qualification"],
             selection_data_cutoff=identity["selection_data_cutoff"],
             symbol=args.symbol,
+            asset_type=args.asset,
         )
+        seed_runtime_data(
+            args.repo_root / "data" / "raw", args.data_dir, args.symbol
+        )
+        return created
     finally:
         store.close()
 
@@ -504,7 +515,7 @@ def main(
         server_holder["server"] = server
         scheduler = RuntimeScheduler(
             engine,
-            build_publisher(args, audit),
+            build_publisher(args, engine.store, audit),
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,

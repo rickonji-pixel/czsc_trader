@@ -21,7 +21,7 @@ _ENTRY_GATES = {"none", "structure", "trend", "structure_and_trend"}
 @dataclass(frozen=True)
 class ResolvedBaseline:
     version: str
-    rule: Rule
+    rule: Rule | None
     rule_payload: dict[str, object]
     sha256: str
     strategy: str = "czsc_fixed_rule"
@@ -38,6 +38,24 @@ class ResolvedBaseline:
     selection_sample_end: str = ""
     forward_validation_start: str = ""
     execution: ExecutionSpec | None = None
+    event_hold: EventHoldSpec | None = None
+
+
+@dataclass(frozen=True)
+class EventHoldSpec:
+    """One fully declared CZSC event and fixed holding-period state machine."""
+
+    symbol: str
+    price_adjustment: str
+    signal_frequency: str
+    signal_name: str
+    signal_config: dict[str, object]
+    output_key: str
+    entry_state: str
+    trigger: str
+    holding_sessions: int
+    target_position: float
+    warmup_bars: int = 250
 
 
 @dataclass(frozen=True)
@@ -334,6 +352,64 @@ def _parse_execution(payload: dict[str, object], symbol: str | None) -> Executio
     )
 
 
+def _parse_event_hold(
+    payload: dict[str, object],
+    *,
+    symbol: str,
+) -> EventHoldSpec:
+    signal = payload.get("signal")
+    portfolio = payload.get("portfolio_rule")
+    if not isinstance(signal, dict) or not isinstance(portfolio, dict):
+        raise ValueError("event-hold signal or portfolio rule is missing")
+    config = signal.get("config")
+    if not isinstance(config, dict):
+        raise ValueError("event-hold signal config is missing")
+    frequency = str(signal.get("frequency", ""))
+    name = str(signal.get("name", ""))
+    if frequency not in {"daily", "日线"}:
+        raise ValueError("event-hold currently supports daily signals only")
+    if str(config.get("name", "")) != name or str(config.get("freq", "")) != "日线":
+        raise ValueError("event-hold signal identity differs from its config")
+    if str(signal.get("trigger", "")) != "fresh_transition":
+        raise ValueError("event-hold requires a fresh-transition trigger")
+    if float(portfolio.get("flat_position", -1)) != 0.0:
+        raise ValueError("event-hold flat position must be zero")
+    target = float(portfolio.get("target_position", 0))
+    holding = int(portfolio.get("holding_sessions", 0))
+    if target != 1.0 or holding < 1:
+        raise ValueError("event-hold target or holding period is invalid")
+    if portfolio.get("ignore_entries_while_holding") is not True:
+        raise ValueError("event-hold must ignore entries while holding")
+    if portfolio.get("require_fresh_transition_after_exit") is not True:
+        raise ValueError("event-hold must require a fresh transition after exit")
+    risks = payload.get("risk_filters", [])
+    if risks != []:
+        raise ValueError("event-hold risk filters are not supported by this frozen mechanism")
+    adjustment = str(payload.get("price_adjustment", ""))
+    if adjustment != "hfq":
+        raise ValueError("event-hold requires hfq signal prices")
+    output_key = str(signal.get("output_key", ""))
+    entry_state = str(signal.get("entry_state", ""))
+    if not name or not output_key or not entry_state:
+        raise ValueError("event-hold signal declaration is incomplete")
+    declared_symbol = str(payload.get("symbol", symbol)).upper()
+    if declared_symbol != symbol.upper():
+        raise ValueError("event-hold symbol differs from requested symbol")
+    return EventHoldSpec(
+        symbol=declared_symbol,
+        price_adjustment=adjustment,
+        signal_frequency="日线",
+        signal_name=name,
+        signal_config=dict(config),
+        output_key=output_key,
+        entry_state=entry_state,
+        trigger="fresh_transition",
+        holding_sessions=holding,
+        target_position=target,
+        warmup_bars=int(signal.get("warmup_bars", 250)),
+    )
+
+
 def resolve_baseline(
     root: Path,
     version: str | None = None,
@@ -472,6 +548,31 @@ def resolve_strategy_payload(
     repository_root: Path | None = None,
 ) -> ResolvedBaseline:
     """Parse a frozen Strategy Manager payload without creating another baseline."""
+    strategy_kind = str(strategy_payload.get("strategy_kind", ""))
+    if strategy_kind == "czsc_event_hold":
+        nested = strategy_payload.get("rule")
+        rule_payload = dict(nested) if isinstance(nested, dict) else dict(strategy_payload)
+        if "symbol" not in rule_payload and "symbol" in strategy_payload:
+            rule_payload["symbol"] = strategy_payload["symbol"]
+        event_hold = _parse_event_hold(rule_payload, symbol=symbol)
+        execution_value = rule_payload.get("execution")
+        execution = (
+            _parse_execution(rule_payload, symbol)
+            if isinstance(execution_value, dict) and isinstance(execution_value.get("instrument"), dict)
+            else None
+        )
+        return ResolvedBaseline(
+            version=release_id,
+            rule=None,
+            rule_payload=rule_payload,
+            sha256=release_hash,
+            strategy="czsc_event_hold",
+            status="active",
+            scope="symbol",
+            symbol=symbol,
+            execution=execution,
+            event_hold=event_hold,
+        )
     rule_payload = strategy_payload.get("rule")
     if not isinstance(rule_payload, dict):
         raise ValueError("strategy payload must contain a complete rule object")

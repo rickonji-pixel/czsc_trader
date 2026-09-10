@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from subprocess import CompletedProcess
 
 from paper_trading_engine.audit import AuditRecorder
-from paper_trading_engine.data_publisher import CliDataPublisher
+from paper_trading_engine.data_publisher import AccountDataPublisher, CliDataPublisher
 from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.trading_window import is_submission_window
 
@@ -17,6 +17,7 @@ class Engine:
 class Store:
     def __init__(self):
         self.values, self.events, self.failures, self.audit_events = {}, [], {}, []
+        self.accounts = []
     def get_setting(self, key): return self.values.get(key)
     def set_setting(self, key, value): self.values[key] = value
     def add_event(self, kind, payload): self.events.append((kind, payload))
@@ -28,6 +29,7 @@ class Store:
         value = event.to_dict()
         self.audit_events.append(value)
         return value
+    def virtual_accounts(self): return list(self.accounts)
 
 
 def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery():
@@ -109,3 +111,31 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
     assert external["details"]["service"] == "trader"
     assert external["details"]["upstream_service"] == "tushare"
     assert external["details"]["operation"] == "data.prepare"
+
+    calls: list[list[str]] = []
+    def multi_runner(args, **kwargs):
+        calls.append(args)
+        return CompletedProcess(
+            args, 0, '{"status":"PASS","result":{"data_cutoff":"2026-09-02"}}', ""
+        )
+
+    cli_store.accounts = [
+        {"symbol": "588080.SH", "asset_type": "etf", "status": "RUNNING"},
+        {"symbol": "510500.SH", "asset_type": "etf", "status": "RUNNING"},
+    ]
+    multi = AccountDataPublisher(
+        store=cli_store,
+        executable="czsc-trader",
+        repo_root=".",
+        data_dir=".",
+        start_date="2021-01-01",
+        runner=multi_runner,
+        audit=AuditRecorder(cli_store),
+    )
+    multi_result = multi.publish("2026-09-02")
+    published_symbols = [
+        args[args.index("--symbol") + 1]
+        for args in calls
+    ]
+    assert published_symbols == ["510500.SH", "588080.SH"]
+    assert [item["symbol"] for item in multi_result["instruments"]] == published_symbols

@@ -41,7 +41,7 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
     assert set(json.loads(path.read_text()).keys()) == {
         "repo_root", "host", "port",
     }
-    assert config.health_url == "http://127.0.0.1:8080/api/status"
+    assert config.health_url == "http://127.0.0.1:8080/api/system/status"
     with pytest.raises(ValueError, match="localhost"):
         ServiceConfig(repo_root=tmp_path.resolve(), host="0.0.0.0")
 

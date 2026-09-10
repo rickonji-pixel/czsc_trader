@@ -6,8 +6,7 @@ from hashlib import sha256
 
 import pandas as pd
 
-from czsc_trader.baseline_execution import apply_resolved_baseline
-from czsc_trader.factors import generate_factor_frame
+from czsc_trader.strategy_runtime import apply_resolved_strategy
 
 from .datasets import ReplayData
 from .models import StrategySnapshot
@@ -44,9 +43,7 @@ def replay_signals(
     evaluation = sessions[(sessions >= requested_start) & (sessions <= requested_end)]
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
-    factors = generate_factor_frame(replay_data.adjusted)
-    close = pd.Series(daily["close"].astype(float).to_numpy(), index=sessions, name="close")
-    applied = apply_resolved_baseline(factors.frame, snapshot.resolved_rule, daily_close=close)
+    applied = apply_resolved_strategy(replay_data.adjusted, snapshot.resolved_rule)
     first_location = sessions.get_loc(evaluation[0])
     first_signal_location = max(0, int(first_location) - 1)
     visible = sessions[first_signal_location : sessions.get_loc(evaluation[-1]) + 1]

@@ -33,7 +33,7 @@ class ServiceConfig:
 
     @property
     def health_url(self) -> str:
-        return f"http://{self.host}:{self.port}/api/status"
+        return f"http://{self.host}:{self.port}/api/system/status"
 
     @property
     def log_path(self) -> Path:

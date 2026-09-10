@@ -231,4 +231,6 @@ def test_channel_capital_uses_static_principal_allocations(tmp_path):
     assert snapshot["allocated_capital"] + snapshot["unallocated_capital"] == pytest.approx(
         snapshot["capital_pool"]
     )
+    assert {row["symbol"] for row in snapshot["accounts"]} == {"588080.SH"}
+    assert {row["asset_type"] for row in snapshot["accounts"]} == {"etf"}
     store.close()

@@ -34,6 +34,7 @@ from czsc_trader.candidate_evaluation import (
 )
 from czsc_trader.four_layer import normalized_signal_factors
 from czsc_trader.regime_weight import classify_regimes, lagged_efficiency_ratio
+from czsc_trader.strategy_runtime import apply_resolved_strategy
 
 
 def _daily_returns(equity: pd.Series, init_cash: float) -> pd.Series:
@@ -83,10 +84,13 @@ def _resolved_and_applied(
                     lagged_efficiency_ratio(close, baseline.er_lookback), baseline.er_threshold,
                 )
                 regime_cache[key] = regimes
-        applied = apply_resolved_baseline(
-            workspace.factor_frame, baseline, daily_close=workspace.daily_close,
-            normalized_factors=normalized, regimes=regimes,
-        )
+        if baseline.strategy == "czsc_event_hold":
+            applied = apply_resolved_strategy(workspace.data, baseline)
+        else:
+            applied = apply_resolved_baseline(
+                workspace.factor_frame, baseline, daily_close=workspace.daily_close,
+                normalized_factors=normalized, regimes=regimes,
+            )
         output[candidate_id] = (baseline, applied)
     return workspace, output
 

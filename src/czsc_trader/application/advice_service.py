@@ -9,13 +9,12 @@ import json
 
 import pandas as pd
 
-from czsc_trader.baseline_execution import apply_resolved_baseline
 from czsc_trader.baselines import ResolvedBaseline, resolve_strategy_payload
 from czsc_trader.data import load_execution_manifest, load_execution_prices, load_market_data
 from czsc_trader.execution_policies import ResolvedExecutionPolicy
 from czsc_trader.execution_policy import floor_to_tick, round_to_tick
-from czsc_trader.factors import generate_factor_frame
 from czsc_trader.execution_intent import decide_order_intent
+from czsc_trader.strategy_runtime import apply_resolved_strategy
 
 from .context import RepositoryContext
 from .errors import ExecutionError, UsageError
@@ -447,13 +446,12 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
         execution_manifest = load_execution_manifest(
             context.raw_dir, request.symbol, request.asset_type
         )
-        factor_result = generate_factor_frame(data)
         close = pd.Series(
             data.daily["close"].astype(float).to_numpy(),
             index=pd.DatetimeIndex(pd.to_datetime(data.daily["dt"]), name="dt"),
             name="close",
         )
-        applied = apply_resolved_baseline(factor_result.frame, baseline, daily_close=close)
+        applied = apply_resolved_strategy(data, baseline)
         signal_date = pd.Timestamp(close.index[-1])
         execution_rows = execution_prices.loc[execution_prices["dt"].eq(signal_date)]
         if len(execution_rows) != 1:

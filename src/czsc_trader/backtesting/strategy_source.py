@@ -17,6 +17,12 @@ def _rule_symbol(strategy_payload: dict[str, object]) -> str:
     instrument = execution.get("instrument") if isinstance(execution, dict) else None
     symbol = instrument.get("symbol") if isinstance(instrument, dict) else None
     if not isinstance(symbol, str) or not symbol.strip():
+        symbol = (
+            rule.get("symbol")
+            if isinstance(rule, dict) and isinstance(rule.get("symbol"), str)
+            else strategy_payload.get("symbol")
+        )
+    if not isinstance(symbol, str) or not symbol.strip():
         raise ValueError("strategy payload must define execution instrument symbol")
     return symbol.upper()
 

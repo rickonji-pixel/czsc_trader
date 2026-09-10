@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX14",
+  "status": "COMPLETE",
+  "experiment_type": "medium_frequency_mechanism_census",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 297,
+      "sha256": "0413085a566e8209f93bf119bf483539628ead83178f9f9f2b502d0285cf7f5b"
+    },
+    "02_design.md": {
+      "bytes": 1304,
+      "sha256": "32b983df8e5cf525feec96fc935adcc00c8b04679baf761017a066e9d9fbdf2f"
+    },
+    "03_execution.md": {
+      "bytes": 203,
+      "sha256": "900714aaa35be4f59c66f5154df5bde761e5d29d41205974a00760fb1aa03e0b"
+    },
+    "04_conclusion.md": {
+      "bytes": 495,
+      "sha256": "2704d2b31064aea8fb30d2e56717a04770d26880114ba1ff24d9259cde98514b"
+    },
+    "artifacts/census_summary.json": {
+      "bytes": 387,
+      "sha256": "d2c049855f9d8513316a70c395ee436f5e06ef1918814fef8024f5d281463abe"
+    },
+    "artifacts/density_metrics.csv": {
+      "bytes": 504,
+      "sha256": "0436fc92c3aba77eb9d1b1df09363b90da5e66b373f2e0606a4f51f30adaa567"
+    },
+    "artifacts/mechanism_events.csv": {
+      "bytes": 354371,
+      "sha256": "53d1c6f91deacd8cf8bd1181381cee32a678fb3c4a42e4aad6cf3b41b5ae99c7"
+    },
+    "artifacts/medium_frequency_features.csv": {
+      "bytes": 461163,
+      "sha256": "6928012691c534283b2c075f06462cde274dfbb24a1c61a76af6ca7fe161f223"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1602,
+      "sha256": "4a20566fcf17a6101d093bed3ca7ad7690a74c2392302c44cb5ae5e0eb757e6d"
+    },
+    "run_experiment.py": {
+      "bytes": 6251,
+      "sha256": "428fc33ed88d676d166de659457a2077d0fdf28b2533c5380cc1036e880f619e"
+    }
+  }
+}

@@ -1,0 +1,4 @@
+﻿mechanism_id,events,distinct_event_days,long_events,short_overlay_events,rolling_window_sessions,rolling_median_events,rolling_p10_events,rolling_min_events,rolling_max_events,inside_target_band,density_pass,evidence
+ABNORMAL_ACTIVITY_CONTINUATION,360,360,192,168,60,16.0,10.0,5.0,25.0,True,True,DENSITY_CAPABLE
+DIRECTIONAL_EFFICIENCY_CONTINUATION,366,366,209,157,60,16.0,12.0,10.0,24.0,True,True,DENSITY_CAPABLE
+VWAP_DEVIATION_REVERSION,370,370,165,205,60,15.0,9.0,5.0,31.0,True,True,DENSITY_CAPABLE

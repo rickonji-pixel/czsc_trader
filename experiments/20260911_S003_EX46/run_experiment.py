@@ -417,7 +417,7 @@ def main() -> None:
     _write(
         artifacts / "statistical_details.json",
         {
-            "return_matrix_hash": evidence.input_hash,
+            "return_matrix_hash": evidence.content_hash,
             "pbo": pbo.to_dict(),
             "dsr": {"raw": asdict(dsr.raw), "effective": asdict(dsr.effective)},
             "bootstrap": [asdict(report) for report in bootstrap_reports],

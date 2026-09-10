@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX53",
+  "request": {
+    "candidate_id": "S003-C001",
+    "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+    "integrity": "PASS",
+    "reproducibility": "PASS",
+    "mechanism_evidence": "FAVORABLE",
+    "statistical_evidence": "MIXED",
+    "external_validation": "FAVORABLE",
+    "primary_closed_trades": 276,
+    "minimum_closed_trades": 200,
+    "blocking_findings": []
+  },
+  "result": {
+    "candidate_id": "S003-C001",
+    "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+    "decision": "RECOMMEND_REGISTRATION",
+    "risk_label": "MIXED",
+    "reason_codes": [
+      "IDENTITY_VERIFIED",
+      "EVIDENCE_COMPLETE",
+      "MINIMUM_SAMPLE_MET",
+      "NO_BLOCKING_FINDINGS"
+    ]
+  },
+  "primary_510500": {
+    "closed_episodes": 276,
+    "stress_mean_return": 0.000976743988251,
+    "profit_factor": 1.313440149898223,
+    "account_max_drawdown": -0.1901364106677832,
+    "account_calmar": 0.2840146560919119
+  },
+  "external_512100": {
+    "closed_episodes": 271,
+    "stress_mean_return": 0.0019277384879416,
+    "profit_factor": 1.6208926593588615
+  },
+  "lifecycle_effects": {
+    "research_candidate": true,
+    "strategy_version": false,
+    "frozen": false,
+    "pte_deployed": false
+  }
+}

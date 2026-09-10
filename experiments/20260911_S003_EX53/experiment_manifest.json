@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX53",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "candidate_id": "S003-C001",
+  "development_cutoff": "2026-09-08",
+  "status": "COMPLETE",
+  "se_decision": "RECOMMEND_REGISTRATION",
+  "risk_label": "MIXED",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 234,
+      "sha256": "4dc5a3283508153b5374c140e269d05109842a0a24001d5bcce01626f0a3b1b0"
+    },
+    "02_design.md": {
+      "bytes": 561,
+      "sha256": "da4905ec6584278bd11aaf0b0e4c043443cfd87d47972e09b4727d90543a7dc9"
+    },
+    "03_execution.md": {
+      "bytes": 230,
+      "sha256": "a41ad464a2a9df9db8bd40b571559c0417173c33067c956d0211dff596267178"
+    },
+    "04_conclusion.md": {
+      "bytes": 389,
+      "sha256": "a77e417b644083b56164325a09ffb79c4e6939064e1c00db136a785f94995ce5"
+    },
+    "artifacts/candidate_readiness.json": {
+      "bytes": 1340,
+      "sha256": "ece65f91edc43643f75fe73fc7eee2e88ff9d5301bf185399699e4ae0bd54d82"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1036,
+      "sha256": "0625f42644d3ab8a240a5c1ef9f87e271d6a78f742a232228ded26b63a873d38"
+    },
+    "candidate_manifest.json": {
+      "bytes": 475,
+      "sha256": "b95c7446e7c7ea306b19b9d6e6dd1a44716781ad8067c153167659e79cd748c0"
+    },
+    "candidate_payload.json": {
+      "bytes": 1277,
+      "sha256": "96ac78371bf4cae0732a8c737fdd4ec77368d600371d77e853766811a1c9a9ad"
+    },
+    "run_experiment.py": {
+      "bytes": 6711,
+      "sha256": "554762ccaff474ecd7acbb7925f4082be49e7215036897f7447f3f05d6591750"
+    }
+  }
+}

@@ -190,3 +190,85 @@ def generate_relative_style_events(
         pd.DataFrame(annual_rows),
         overlap,
     )
+
+
+def generate_price_volume_confirmation_events(
+    features: pd.DataFrame,
+    *,
+    evaluation_start: str | pd.Timestamp,
+    normalization_lookback: int = 60,
+    threshold_lookback: int = 60,
+    tail_quantile: float = 0.25,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Generate one fixed price-volume continuation mechanism without returns."""
+
+    frame = features.copy()
+    frame["dt"] = pd.to_datetime(frame["dt"]).dt.normalize()
+    frame = frame.sort_values("dt").reset_index(drop=True)
+    strength = frame["relative_strength_5"].astype(float)
+    amount = frame["relative_amount_impulse"].astype(float)
+
+    def causal_zscore(series: pd.Series) -> pd.Series:
+        prior = series.shift(1).rolling(normalization_lookback, min_periods=normalization_lookback)
+        mean = prior.mean()
+        standard_deviation = prior.std(ddof=0).replace(0.0, float("nan"))
+        return (series - mean) / standard_deviation
+
+    strength_z = causal_zscore(strength)
+    amount_z = causal_zscore(amount)
+    composite = 0.5 * strength_z + 0.5 * amount_z
+    threshold = _prior_quantile(composite, 1.0 - tail_quantile, threshold_lookback)
+    active = (
+        composite.gt(threshold)
+        & strength.gt(0)
+        & frame["clean_20_session_window"].astype(bool)
+    ).fillna(False)
+    calendar = pd.DatetimeIndex(frame["dt"])
+    next_session = pd.Series(calendar, index=calendar).shift(-1)
+    signal_dates = calendar[active]
+    events = pd.DataFrame(
+        {
+            "mechanism": "PRICE_VOLUME_ROTATION_CONFIRMATION",
+            "signal_date": signal_dates,
+            "event_date": next_session.reindex(signal_dates).to_numpy(),
+            "signal_clock": "15:00",
+            "execution_clock": "NEXT_OPEN",
+            "relative_strength_5": strength.loc[active].to_numpy(),
+            "relative_amount_impulse": amount.loc[active].to_numpy(),
+            "composite_score": composite.loc[active].to_numpy(),
+            "threshold": threshold.loc[active].to_numpy(),
+        }
+    ).dropna(subset=["event_date"])
+    events = events.loc[events["event_date"] >= pd.Timestamp(evaluation_start)].reset_index(drop=True)
+
+    activation = pd.Series(calendar.isin(pd.to_datetime(events["event_date"])), index=calendar)
+    rolling = activation.astype(int).rolling(60, min_periods=60).sum()
+    eligible_rolling = rolling.loc[rolling.index >= pd.Timestamp(evaluation_start)].dropna()
+    density = pd.DataFrame(
+        [
+            {
+                "mechanism": "PRICE_VOLUME_ROTATION_CONFIRMATION",
+                "event_count": int(len(events)),
+                "rolling_60_median": float(eligible_rolling.median()),
+                "rolling_60_p10": float(eligible_rolling.quantile(0.10)),
+                "rolling_60_min": float(eligible_rolling.min()),
+                "density_eligible": bool(
+                    12 <= float(eligible_rolling.median()) <= 20
+                    and float(eligible_rolling.quantile(0.10)) >= 8
+                ),
+            }
+        ]
+    )
+    feature_evidence = pd.DataFrame(
+        {
+            "dt": calendar,
+            "relative_strength_5": strength,
+            "relative_amount_impulse": amount,
+            "strength_z": strength_z,
+            "amount_z": amount_z,
+            "composite_score": composite,
+            "prior_threshold": threshold,
+            "active": active,
+        }
+    )
+    return events, density, feature_evidence

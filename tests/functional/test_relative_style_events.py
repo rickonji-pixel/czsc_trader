@@ -6,6 +6,7 @@ import pandas as pd
 from czsc_trader.relative_style_events import (
     MECHANISMS,
     build_relative_style_features,
+    generate_price_volume_confirmation_events,
     generate_relative_style_events,
 )
 
@@ -44,3 +45,22 @@ def test_relative_style_events_are_causal_and_return_free() -> None:
     assert (events.loc[events["execution_clock"].eq("NEXT_OPEN"), "event_date"] > events.loc[
         events["execution_clock"].eq("NEXT_OPEN"), "signal_date"
     ]).all()
+
+
+def test_price_volume_confirmation_is_fixed_before_next_session() -> None:
+    dates = pd.bdate_range("2025-01-02", periods=260)
+    features = pd.DataFrame(
+        {
+            "dt": dates,
+            "relative_strength_5": np.sin(np.arange(len(dates)) / 5) * 0.02 + 0.01,
+            "relative_amount_impulse": np.cos(np.arange(len(dates)) / 7),
+            "clean_20_session_window": True,
+        }
+    )
+    events, density, evidence = generate_price_volume_confirmation_events(
+        features, evaluation_start=dates[140]
+    )
+
+    assert (events["event_date"] > events["signal_date"]).all()
+    assert set(density["mechanism"]) == {"PRICE_VOLUME_ROTATION_CONFIRMATION"}
+    assert not any("forward" in column for column in evidence.columns)

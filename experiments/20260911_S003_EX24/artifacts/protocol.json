@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX24",
+  "experiment_type": "price_volume_confirmation_evaluation",
+  "inherits": ["20260911_S003_EX22", "20260911_S003_EX23"],
+  "research_target": {
+    "strategy_id": "S003",
+    "symbol": "510500.SH"
+  },
+  "dataset": {
+    "evaluation_start": "2021-01-04",
+    "development_cutoff": "2026-09-08",
+    "feature_experiment": "20260911_S003_EX22",
+    "feature_manifest_sha256": "d252779532eba588b089142703147b7c81baa3ec0f1ce5fb2c932b00a289026f",
+    "feature_file_sha256": "e6138d011f7609a6b64bf21af7dd4f0d8ffea1e76caf276d42ce97221c90b80c",
+    "prior_evaluation_experiment": "20260911_S003_EX23",
+    "prior_evaluation_manifest_sha256": "46184799dc0d5edf925da9b908ee3a9de05e702f2382d7e79b47872acae052a2",
+    "intraday_manifest_sha256": "b614d7e4dd7cfd91b624513601576f52f95aa5b77b4c965f661189d8d174f319"
+  },
+  "mechanism": {
+    "id": "PRICE_VOLUME_ROTATION_CONFIRMATION",
+    "strength_feature": "relative_strength_5",
+    "amount_feature": "relative_amount_impulse",
+    "normalization_lookback": 60,
+    "weights": {"strength": 0.5, "amount": 0.5},
+    "threshold_lookback": 60,
+    "tail_quantile": 0.25,
+    "require_positive_strength": true,
+    "signal_clock": "15:00",
+    "entry_checkpoint": "OPEN",
+    "exit_checkpoint": "11:30_CLOSE",
+    "direction": "LONG"
+  },
+  "density_gate": {
+    "rolling_sessions": 60,
+    "median_min": 12,
+    "median_max": 20,
+    "p10_min": 8
+  },
+  "execution": {
+    "base_fraction": 0.5,
+    "baseline_one_way_cost": 0.00012,
+    "stress_one_way_cost": 0.0006,
+    "t_plus_one_inventory_rotation": true
+  },
+  "acceptance": {
+    "stress_mean_return_positive": true,
+    "stress_profit_factor_min_exclusive": 1.0,
+    "beat_unconditional_same_segment": true,
+    "beat_opposite_same_dates": true,
+    "positive_years_required": 4,
+    "incremental_terminal_return_vs_static_positive": true,
+    "recent_sessions": 252,
+    "recent_stress_mean_return_positive": true
+  },
+  "prior_test_paths_must_enter_future_search_bias_audit": true,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

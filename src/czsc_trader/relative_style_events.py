@@ -53,7 +53,7 @@ def build_relative_style_features(panel: pd.DataFrame) -> pd.DataFrame:
     log_gap = np.log(opening.astype(float) / close.shift(1))
     opening_gap_residual = log_gap[TRADE_SYMBOL] - log_gap.loc[:, REFERENCE_SYMBOLS].mean(axis=1)
     prior_amount_median = amount.shift(1).rolling(20, min_periods=20).median()
-    amount_ratio = amount / prior_amount_median
+    amount_ratio = (amount / prior_amount_median).where(amount.gt(0) & prior_amount_median.gt(0))
     relative_amount_impulse = np.log(amount_ratio[TRADE_SYMBOL]) - np.log(
         amount_ratio.loc[:, REFERENCE_SYMBOLS]
     ).mean(axis=1)

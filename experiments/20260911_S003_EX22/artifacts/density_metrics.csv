@@ -1,0 +1,4 @@
+mechanism,event_count,rolling_60_median,rolling_60_p10,rolling_60_min,density_eligible
+RELATIVE_STRENGTH_CONTINUATION,375,16.0,9.0,0.0,True
+RELATIVE_RESIDUAL_REVERSION,350,15.5,8.0,0.0,True
+OPENING_GAP_REVERSION,349,15.0,11.0,0.0,True

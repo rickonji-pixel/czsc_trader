@@ -4,7 +4,12 @@
   "strategy_id": "S003",
   "symbol": "510500.SH",
   "development_cutoff": "2026-09-08",
-  "status": "PREREGISTERED",
+  "status": "PASS",
+  "eligible_mechanisms": [
+    "RELATIVE_STRENGTH_CONTINUATION",
+    "RELATIVE_RESIDUAL_REVERSION",
+    "OPENING_GAP_REVERSION"
+  ],
   "conditional_return_analysis": false,
   "candidate_generation": false,
   "files": {
@@ -17,16 +22,40 @@
       "sha256": "337ec6a6459038cc0622ecb651abf007cfb018858b28e10ccd58c788f02ce96e"
     },
     "03_execution.md": {
-      "bytes": 54,
-      "sha256": "0d6c17cc6ff5defde8bdaaf1c5e3d5d7c995b80fd2fe557e825e8f044c420803"
+      "bytes": 479,
+      "sha256": "cf81452a24470b45f803df49dc1c458121a374851f19bb22ce8e39559fd527bb"
     },
     "04_conclusion.md": {
-      "bytes": 33,
-      "sha256": "700166b5f6538bd6a9898d5d67ad1558525e929854a8f05637426d02be9bc9e6"
+      "bytes": 247,
+      "sha256": "541b53e2eac78b354c19317fb9a2d943082a81617c500998b9f34f3d9fef040f"
+    },
+    "artifacts/annual_event_counts.csv": {
+      "bytes": 657,
+      "sha256": "a39066fb4d3da22913ead1f76499d9cea24238d890de10e362dde2fbf3c325e7"
+    },
+    "artifacts/census_summary.json": {
+      "bytes": 263,
+      "sha256": "c1a1d3c935d5dc78fda719a4fc8f32f3ed6409dd5cd411cfa52c7f8953994a8b"
+    },
+    "artifacts/density_metrics.csv": {
+      "bytes": 235,
+      "sha256": "f1800218caef98936bb0e1c00cc57017138aa228c26b2d289540a229c40326cd"
+    },
+    "artifacts/event_overlap.csv": {
+      "bytes": 295,
+      "sha256": "ceec217f63fcd7408974fa6c9d99be23b8b262590609a967d4ea21f560d30da2"
+    },
+    "artifacts/mechanism_events.csv": {
+      "bytes": 122384,
+      "sha256": "b0ff068647e99063f89a5ab53f1941b66f8ee4c05951623c333302ac72b94eee"
     },
     "artifacts/protocol.json": {
       "bytes": 1702,
       "sha256": "bd7e3d9de57534cc1489fd665ed250917e911583043871b76669a0fe759833d3"
+    },
+    "artifacts/relative_features.csv.gz": {
+      "bytes": 118260,
+      "sha256": "e6138d011f7609a6b64bf21af7dd4f0d8ffea1e76caf276d42ce97221c90b80c"
     },
     "run_experiment.py": {
       "bytes": 4874,

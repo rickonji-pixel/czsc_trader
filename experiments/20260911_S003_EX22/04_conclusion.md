@@ -1,3 +1,3 @@
 # S003 EX22 结论
 
-待执行。
+共有3条机制通过密度门：['RELATIVE_STRENGTH_CONTINUATION', 'RELATIVE_RESIDUAL_REVERSION', 'OPENING_GAP_REVERSION']。通过者只获得下一轮收益评价资格。当前没有任何盈利、稳健或候选结论。

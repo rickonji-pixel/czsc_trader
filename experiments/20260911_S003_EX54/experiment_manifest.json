@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX54",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "candidate_id": "S003-C001",
+  "development_cutoff": "2026-09-08",
+  "status": "BLOCKED",
+  "formal_pk_allowed": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 148,
+      "sha256": "9161f08c3c5608732bed86862d41253899acd1b0a84b5682ea156320937c977f"
+    },
+    "02_design.md": {
+      "bytes": 465,
+      "sha256": "cb02eafd59b1b82083d3829bd895b249edbedff80f3fc355230017d4c7a5abe7"
+    },
+    "03_execution.md": {
+      "bytes": 336,
+      "sha256": "e1ad2ad55bd144eff88ea0ddc9a327034010339077f9849713ea57bdadf6b660"
+    },
+    "04_conclusion.md": {
+      "bytes": 328,
+      "sha256": "f0f109c20032ea81af93fd1664bb312899209dae956f3cd38ac3f1b04a2b8a87"
+    },
+    "artifacts/execution_compatibility.json": {
+      "bytes": 549,
+      "sha256": "c41dc3981e24162427c1b997d2f2f643037207e99d830d7a1bf4a70d2cf300cf"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1024,
+      "sha256": "05a334080bb0496477555b6ce62c2f432bb63e785be8e508ceb003e5e01f7ad7"
+    },
+    "run_experiment.py": {
+      "bytes": 5136,
+      "sha256": "eff0ecfb128fb711c9b20447ed3db3a32760e920598e90303ff5fc28af6529ab"
+    }
+  }
+}

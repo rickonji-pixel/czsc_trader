@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX49",
+  "experiment_type": "cross_section_point_in_time_moneyflow_data_gate",
+  "inherits": ["20260911_S003_EX48"],
+  "research_target": {
+    "strategy_id": "S003",
+    "trade_symbol": "512100.SH",
+    "index_code": "000852.SH",
+    "index_name": "中证1000",
+    "purpose": "INDEPENDENT_CROSS_SECTION_REPLICATION"
+  },
+  "dataset": {
+    "membership_query_start": "2020-12-01",
+    "start": "2021-01-04",
+    "development_cutoff": "2026-09-08",
+    "calendar_experiment": "20260911_S003_EX48",
+    "calendar_manifest_sha256": "ffed63aba41c65a276a732dead410c44e4382b9abd65249e5e56e6d7bfad9206",
+    "calendar_quality_sha256": "4ffffc3c5291d33f215dd0fb4881178966078efcd90b60c975aab557e5369012",
+    "calendar_daily_sha256": "c1dbc420256dc361069b81b4ebcc7888be98cbdd4e5679419ec13509b1f3051f"
+  },
+  "source": {
+    "vendor": "tushare",
+    "membership_endpoint": "index_weight",
+    "moneyflow_endpoint": "moneyflow",
+    "moneyflow_fields": ["ts_code", "trade_date", "net_mf_amount"]
+  },
+  "membership_rule": {
+    "frequency": "monthly",
+    "snapshot_known": "TRADE_DATE_POST_CLOSE",
+    "effective_from": "NEXT_512100_SESSION",
+    "current_members_backfill_forbidden": true
+  },
+  "quality_gate": {
+    "members_per_snapshot": 1000,
+    "weight_sum_min": 99.5,
+    "weight_sum_max": 100.5,
+    "positive_weights": true,
+    "unique_snapshot_members": true,
+    "historical_union_min_exclusive": 1000,
+    "minimum_overall_member_coverage_ratio": 0.98,
+    "minimum_daily_member_coverage_p10": 0.97,
+    "minimum_daily_observed_weight_p10": 0.97,
+    "minimum_daily_observed_weight_min": 0.90,
+    "require_first_and_last_session": true,
+    "finite_observed_net_mf_amount": true,
+    "maximum_total_api_calls": 1600,
+    "maximum_daily_incremental_calls": 1
+  },
+  "breadth_feature_generation": false,
+  "event_generation": false,
+  "conditional_return_analysis": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

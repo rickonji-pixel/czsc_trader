@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX62",
+  "status": "PASS",
+  "event_count": 276,
+  "non_event_count": 1035,
+  "absolute_timing_label": "ABSOLUTE_RETURN_MORNING_PEAK",
+  "competing_explanation_label": "WEIGHTING_BALANCE_FAILED",
+  "metrics": {
+    "raw_event_peak_clock": "11:30",
+    "raw_event_peak_return": 0.002178637216974138,
+    "raw_event_return_11_30": 0.002178637216974138,
+    "raw_event_return_15_00": 0.0020451808151508277,
+    "raw_post_11_30_increment": -0.00013345640182331052,
+    "gap_model_effect_11_30": 0.0018642532175687382,
+    "gap_model_lower_90": 0.00037264112324653337,
+    "gap_model_upper_90": 0.0032390116878915844,
+    "gap_model_positive_probability": 0.986,
+    "gap_model_maximum_absolute_smd": 0.14063544933180136,
+    "gap_model_treated_ess": 175.27985020198628,
+    "gap_model_control_ess": 293.8800431505595
+  },
+  "candidate_changed": false,
+  "sm_changed": false,
+  "pte_changed": false
+}

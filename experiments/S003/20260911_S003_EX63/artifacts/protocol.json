@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX63",
+  "experiment_type": "frozen_strategy_portfolio_structure_attribution",
+  "inherits": ["20260911_S003_EX56", "20260911_S003_EX62"],
+  "research_target": {
+    "strategy_id": "S003",
+    "release_id": "S003-v1",
+    "symbol": "510500.SH"
+  },
+  "dataset": {
+    "evaluation_start": "2021-04-15",
+    "development_cutoff": "2026-09-08",
+    "ex56_manifest_sha256": "d882be4269167781857e6938231c34b5179dc99e04fef33b732998e9b854d116",
+    "candidate_payload_sha256": "5627a69057b66dff61075e0e8ee31c548b926d33231daecdaaba689b1f102c1f",
+    "account_daily_sha256": "750db3ca6ddb794357ab9e62f8df29ef69af04a82a77945f796009460f611304",
+    "trades_sha256": "dec5114b72c01ebf6b8314d2661e9240a1c8afb5592bfe7cb4a6a9ac4e04a976",
+    "ex62_manifest_sha256": "86129d614029f8eee10d6beccc394053308a00fdad9214fb0a0fc442107cc6cc"
+  },
+  "execution": {
+    "initial_cash": 100000,
+    "one_way_cost": 0.00012,
+    "ratios": [
+      {"core_fraction": 0.5, "event_fraction": 0.5, "role": "FROZEN_AUTHORITY"},
+      {"core_fraction": 0.6, "event_fraction": 0.4, "role": "DIAGNOSTIC_ONLY"},
+      {"core_fraction": 0.7, "event_fraction": 0.3, "role": "DIAGNOSTIC_ONLY"}
+    ]
+  },
+  "interpretation": {
+    "event_alpha": "formal_account_terminal_equity_minus_same_core_static_terminal_equity",
+    "event_alpha_drawdown": "drawdown_of_initial_cash_plus_event_alpha_equity_difference",
+    "no_ratio_ranking": true
+  },
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

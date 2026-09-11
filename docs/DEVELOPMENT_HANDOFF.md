@@ -220,4 +220,6 @@ git pull --ff-only origin master
 - 已批准设计与实施计划：`docs/superpowers/specs/`、`docs/superpowers/plans/`
 
 当前限制：PTE只实现Futu模拟交易渠道；控制台只监听localhost；同一观察序列的SQLite
-跨机迁移仍需人工完成渠道核对。
+跨机迁移仍需人工完成渠道核对。未复权正式账本尚未建模ETF现金分红、份额拆分等公司行动；
+此类非交易变动发生时必须保持渠道差异告警并人工归属，禁止按交易费用自动调账。长期经济
+绩效使用后复权研究口径，待公司行动契约完成后再与PTE账本做完整对齐。

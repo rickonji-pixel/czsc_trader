@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX62",
+  "experiment_type": "frozen_mechanism_overlap_weighting_robustness",
+  "inherits": ["20260911_S003_EX61"],
+  "research_target": {
+    "strategy_id": "S003",
+    "release_id": "S003-v1",
+    "symbol": "510500.SH"
+  },
+  "dataset": {
+    "evaluation_start": "2021-04-15",
+    "development_cutoff": "2026-09-08",
+    "event_experiment": "20260911_S003_EX44",
+    "event_file_sha256": "d60067510c731d7df8bf8034bea4142017f055f23791ceb97687fe27be89a553",
+    "ex61_manifest_sha256": "af2f34240ac2d53c38c6c3f9e6e78ed1513d0222f447cd2f9418f818cb492d1b",
+    "intraday_manifest_sha256": "0406d4366f13a93135e137aaed57bbb33c25361e0a005103e8f29ccf4eca874f",
+    "daily_manifest_sha256": "e22ef09a5b33471cd9e84e01d3d386acd5205224b464053839f67f6160a59358"
+  },
+  "models": {
+    "propensity": "LOGISTIC_REGRESSION_C_1",
+    "base_features": ["prior_return_1d", "prior_return_5d", "prior_volatility_20d", "prior_trend_60d", "prior_amount_ratio_20d", "calendar_year"],
+    "gap_model_adds": ["opening_gap"],
+    "weighting": "OVERLAP_WEIGHTING",
+    "probability_clip": [0.01, 0.99]
+  },
+  "bootstrap": {
+    "unit": "NATURAL_MONTH_BLOCK",
+    "iterations": 1000,
+    "confidence": 0.90,
+    "seed": 20260911
+  },
+  "interpretation": {
+    "balance_max_absolute_smd": 0.10,
+    "incremental_evidence": "gap_model_balanced AND effect_lower_90_gt_0",
+    "unresolved": "balanced AND effect_interval_includes_0",
+    "absolute_morning_peak": "raw_event_peak_checkpoint_le_11_30 AND raw_post_11_30_mean_le_0"
+  },
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

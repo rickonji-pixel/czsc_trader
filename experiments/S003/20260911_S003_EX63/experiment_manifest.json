@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX63",
+  "strategy_id": "S003",
+  "release_id": "S003-v1",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "event_alpha_positive_in_all_fixed_ratios": true,
+  "ratio_selected": false,
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 316,
+      "sha256": "6eb56d73d48646113b70a31a785d050429ede20e394d7dbb39764fdca3b0aec8"
+    },
+    "02_design.md": {
+      "bytes": 860,
+      "sha256": "c61b150cb4c50a77277049e5e650fe57ae59e3ea52bfc3f05bc3d78cb45a4d7c"
+    },
+    "03_execution.md": {
+      "bytes": 260,
+      "sha256": "d92b2f6955ed8e1e8e6990f4e84b11776e6103446f25c08d52391695a5bbf2da"
+    },
+    "04_conclusion.md": {
+      "bytes": 266,
+      "sha256": "97fc82835689a136d1a8f59b2072b304adde1e6ee1c730e036df594ed4e140ce"
+    },
+    "artifacts/allocation_attribution.csv": {
+      "bytes": 1090,
+      "sha256": "752e5f3869c3a766a852ee23a0e25dc8bd76ed7815823876c6e0943bf0f6d1d0"
+    },
+    "artifacts/allocation_equity.csv.gz": {
+      "bytes": 57807,
+      "sha256": "03a00dd78abbe1af65eaaee751d1591604d649d4f8415e60401e7e73c3955b84"
+    },
+    "artifacts/attribution_summary.json": {
+      "bytes": 679,
+      "sha256": "a2241078261b5ab103c3d0b27c0ac6b22bcd8d76edf7659ebcc25abea463cabf"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1619,
+      "sha256": "4bba94c23cd9594acb0c6fbe579fcb49af00c0b918ce91ced0986c6f7ba4077a"
+    },
+    "run_experiment.py": {
+      "bytes": 12256,
+      "sha256": "c7d512c4dbdfbbfcf4dd0ddd49e85a22ff3012c472acbf1c10b7e292bb9b8d45"
+    }
+  }
+}

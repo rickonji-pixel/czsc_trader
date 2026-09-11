@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX61",
+  "status": "PASS",
+  "event_count": 276,
+  "matched_control_rows": 1380,
+  "timing_label": "NOT_CONFINED_TO_MORNING",
+  "competing_explanation_label": "STATE_OR_GAP_MAY_EXPLAIN",
+  "metrics": {
+    "event_return_11_30": 0.002178637216974138,
+    "matched_control_return_11_30": -0.0017032848536224934,
+    "abnormal_return_11_30": 0.0038819220705966313,
+    "abnormal_return_11_30_lower_90": 0.002969639911625748,
+    "abnormal_return_15_00": 0.00418385269376443,
+    "peak_abnormal_clock": "14:45",
+    "peak_abnormal_return": 0.004277085252398621,
+    "post_11_30_abnormal_return": 0.00029473818470991545,
+    "post_11_30_abnormal_lower_90": -0.0003189902529073784,
+    "event_amount_share_11_30": 0.5598878632632222,
+    "control_amount_share_11_30": 0.5342044871285851,
+    "gap_controlled_event_coefficient": 0.0012719499136585252,
+    "gap_controlled_event_coefficient_lower_90": -0.00015260942361115383
+  },
+  "candidate_changed": false,
+  "sm_changed": false,
+  "pte_changed": false
+}

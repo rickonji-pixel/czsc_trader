@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX63",
+  "status": "PASS",
+  "frozen_ratio": "50/50",
+  "event_alpha_positive_in_all_fixed_ratios": true,
+  "frozen_attribution": {
+    "account_total_return": 0.2881573019599988,
+    "static_core_total_return": 0.05901273488000003,
+    "event_alpha_terminal_return_on_account": 0.2291445670799988,
+    "account_maximum_drawdown": -0.1879988786368879,
+    "static_core_maximum_drawdown": -0.25848670997025136,
+    "event_alpha_maximum_drawdown_on_account": -0.025877580632464592,
+    "event_fees": 3101.243292
+  },
+  "ratio_selected": false,
+  "candidate_changed": false,
+  "sm_changed": false,
+  "pte_changed": false
+}

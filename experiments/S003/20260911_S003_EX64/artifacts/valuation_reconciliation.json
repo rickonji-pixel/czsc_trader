@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX64",
+  "status": "PASS",
+  "direction_consistent": true,
+  "research_economic_stress": {
+    "account_total_return": 0.3231854883149501,
+    "static_core_total_return": 0.1785519238865605,
+    "event_alpha_absolute_return_on_account": 0.1446335644283896,
+    "event_alpha_relative_to_static_terminal": 0.1227214189693275,
+    "account_maximum_drawdown": -0.1901364106677832,
+    "static_core_maximum_drawdown": -0.2179269890528696
+  },
+  "formal_price_only_baseline_cost": {
+    "account_total_return": 0.2881573019599988,
+    "static_core_total_return": 0.05901273488000003,
+    "event_alpha_absolute_return_on_account": 0.2291445670799988,
+    "account_maximum_drawdown": -0.1879988786368879,
+    "static_core_maximum_drawdown": -0.25848670997025136,
+    "event_alpha_maximum_drawdown_on_account": -0.025877580632464592
+  },
+  "boundary": {
+    "economic_total_return_authority": "EX45",
+    "deterministic_order_and_ledger_authority": "EX56_EX63",
+    "formal_ledger_includes_distribution_cashflow": false,
+    "pte_corporate_action_allocation_required": true
+  },
+  "candidate_changed": false,
+  "sm_changed": false,
+  "pte_changed": false
+}

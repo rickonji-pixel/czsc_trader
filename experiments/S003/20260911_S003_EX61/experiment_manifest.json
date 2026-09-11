@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX61",
+  "strategy_id": "S003",
+  "release_id": "S003-v1",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "timing_label": "NOT_CONFINED_TO_MORNING",
+  "competing_explanation_label": "STATE_OR_GAP_MAY_EXPLAIN",
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 335,
+      "sha256": "0226ef7fe4fbcd4fe0539024a7b02a7d4b20adaedf44bbf52f9f2087b50a9083"
+    },
+    "02_design.md": {
+      "bytes": 1231,
+      "sha256": "7630c8e29192bc7117a5ba215984f0acef156a2c5429596f81990af2917efe50"
+    },
+    "03_execution.md": {
+      "bytes": 255,
+      "sha256": "696cbf5955ee69282167049ca2932431352f2f3f3c62468869eb65ecfbb08302"
+    },
+    "04_conclusion.md": {
+      "bytes": 270,
+      "sha256": "473933db600c171a923dbc8bb8a58150fcdf7c91a904b8374277324f8b0b7273"
+    },
+    "artifacts/competition_models.csv": {
+      "bytes": 272,
+      "sha256": "6de494ee53fddbccc5dbe112821cfa6df6d7bd49aed84bc2f93bdc5b9000818a"
+    },
+    "artifacts/intraday_path.csv": {
+      "bytes": 7703,
+      "sha256": "0987109a8b7d3d01eb260f40537425a27fc245a9d627a45f018b88f1e71a3967"
+    },
+    "artifacts/matched_controls.csv.gz": {
+      "bytes": 20113,
+      "sha256": "3d0f3f7d084685822801cebdc7ffe239e7f101e91711fa791796fc5ccb1e0b74"
+    },
+    "artifacts/mechanism_summary.json": {
+      "bytes": 1060,
+      "sha256": "0216c96205ddb3b28094cd9d8e83e6e11da76140fb4d094f8c17b7ac425765c1"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1850,
+      "sha256": "b45d82c3fdfc97aa81a839f10ed1571ff3a6810d8538259e92203e667551cb39"
+    },
+    "run_experiment.py": {
+      "bytes": 15730,
+      "sha256": "28935be6df873b8779ec8adea043d14a2eed9bae916be35a815f8501b353fee2"
+    }
+  }
+}

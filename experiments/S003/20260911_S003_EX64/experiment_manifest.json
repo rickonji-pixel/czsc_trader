@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX64",
+  "strategy_id": "S003",
+  "release_id": "S003-v1",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "direction_consistent": true,
+  "formal_ledger_includes_distribution_cashflow": false,
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 206,
+      "sha256": "d926227c1e58bb3a2c004bf6373bd0265f5ec8153f64a78d3f5172d46dc13df4"
+    },
+    "02_design.md": {
+      "bytes": 707,
+      "sha256": "11cb89fa8e66b28cce33413386f2cccac7e8ec22e48b453597a029375f22bf33"
+    },
+    "03_execution.md": {
+      "bytes": 265,
+      "sha256": "a85303975ed9e43167e9fdc767cdef9eee3726dfbf9366563949d39189b8fa75"
+    },
+    "04_conclusion.md": {
+      "bytes": 371,
+      "sha256": "3db028ee8a1e6257b31bb3dab5d4e54853f9e0902efe137e2a31e0ec4c04a9f3"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1005,
+      "sha256": "4be630295d7f22b6a6ad398d11756299261998cca33994d68f8c163fd29a8529"
+    },
+    "artifacts/valuation_reconciliation.json": {
+      "bytes": 1207,
+      "sha256": "89eac4cce00441f761aef81a75e44a332eeff2b2d81b33d8852725bd9d5d5128"
+    },
+    "run_experiment.py": {
+      "bytes": 6011,
+      "sha256": "29db8598dba543fa1dfdbf783bcdcc67341f756272115c1d7566e7f3495ece01"
+    }
+  }
+}

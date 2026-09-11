@@ -312,6 +312,10 @@ def prepare_market_data(
     next_session, calendar_metadata = effective_calendar_fetcher(last_session)
     if next_session <= last_session:
         raise ValueError("next trading session must be after the latest complete close")
+    if next_session <= end:
+        raise ValueError(
+            f"latest complete close {last_session} is behind requested end {end}"
+        )
     if execution_metadata.get("vendor_symbol") != normalized_symbol:
         raise ValueError("execution daily: vendor symbol does not match request")
     if execution_metadata.get("asset_type") != normalized_asset:
@@ -469,6 +473,7 @@ def prepare_market_data(
         "symbol": normalized_symbol,
         "asset_type": normalized_asset,
         "validation_status": "PASS",
+        "data_cutoff": last_session.isoformat(),
         "manifest": str((data_dir / f"{code}_manifest.json").resolve()),
         "execution_price_manifest": str(
             (data_dir / f"{code}_execution_manifest.json").resolve()

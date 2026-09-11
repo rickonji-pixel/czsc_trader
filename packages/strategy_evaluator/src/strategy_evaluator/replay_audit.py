@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
+from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 from hashlib import sha256
 import json
 from typing import Any, Mapping
@@ -69,6 +69,13 @@ def _nearest(price: float, tick: float) -> float:
     )
 
 
+def _ceil(price: float, tick: float) -> float:
+    return float(
+        (Decimal(str(price)) / Decimal(str(tick))).to_integral_value(rounding=ROUND_CEILING)
+        * Decimal(str(tick))
+    )
+
+
 def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAuditResult:
     """Independently recompute causal order, fill, and account invariants."""
     digest = hash_replay_evidence(evidence)
@@ -79,6 +86,7 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
     fee_rate = float(spec["fee_rate"])
     lot_size = int(instrument["lot_size"])
     tick = float(instrument["price_tick"])
+    price_limit_ratio = float(instrument["price_limit_ratio"])
     daily = {str(row["date"])[:10]: row for row in evidence.execution_daily}
     intraday_by_day: dict[str, list[Mapping[str, Any]]] = {}
     for row in evidence.execution_intraday:
@@ -115,13 +123,18 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
             reasons.append("MISSING_EXECUTION_PRICE")
             continue
         if order["side"] == "BUY":
-            expected_limit = _floor(
-                float(signal["close"]) * (1 + float(spec["entry_limit_parameter"])), tick
+            expected_order_type = "LIMIT"
+            signal_close = float(signal["close"])
+            expected_limit = min(
+                _floor(signal_close * (1 + float(spec["entry_limit_parameter"])), tick),
+                _floor(signal_close * (1 + price_limit_ratio), tick) - tick,
             )
         else:
-            expected_limit = _nearest(
-                float(signal["close"]) * (1 - float(spec["exit_limit_ratio"])), tick
-            )
+            expected_order_type = "MARKET"
+            signal_close = float(signal["close"])
+            expected_limit = _nearest(signal_close, tick)
+        if str(order.get("order_type", "LIMIT")) != expected_order_type:
+            reasons.append("ORDER_TYPE_MISMATCH")
         if abs(float(order["limit_price"]) - expected_limit) > tolerance:
             reasons.append("ORDER_LIMIT_MISMATCH")
         fill = fills_by_order.get(order_id)
@@ -132,8 +145,16 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
             reasons.append("UNFILLED_ORDER_HAS_FILL")
             continue
         if fill is None:
-            if order["side"] == "SELL":
-                reasons.append("MISSED_PRIORITY_EXIT")
+            if order["side"] == "SELL" and expected_order_type == "MARKET":
+                reasons.append("MISSED_ELIGIBLE_FILL")
+            elif order["side"] == "SELL":
+                bars = intraday_by_day.get(str(order["execution_date"])[:10], [])
+                eligible_price = (
+                    float(execution["open"]) >= expected_limit - tolerance
+                    or any(float(bar["high"]) > expected_limit for bar in bars)
+                )
+                if eligible_price:
+                    reasons.append("MISSED_ELIGIBLE_FILL")
             else:
                 bars = intraday_by_day.get(str(order["execution_date"])[:10], [])
                 eligible_price = (
@@ -152,8 +173,22 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
             reasons.append("FILL_ORDER_MISMATCH")
         price = float(fill["price"])
         trigger = str(fill["trigger"])
-        if order["side"] == "SELL":
-            eligible = trigger == "OPEN" and abs(price - float(execution["open"])) <= tolerance
+        if order["side"] == "SELL" and expected_order_type == "MARKET":
+            eligible = (
+                trigger == "OPEN_MARKET"
+                and abs(price - float(execution["open"])) <= tolerance
+            )
+        elif order["side"] == "SELL":
+            bars = intraday_by_day.get(str(order["execution_date"])[:10], [])
+            eligible = (
+                trigger == "OPEN"
+                and float(execution["open"]) >= expected_limit - tolerance
+                and abs(price - float(execution["open"])) <= tolerance
+            ) or (
+                trigger == "INTRADAY_LIMIT"
+                and any(float(bar["high"]) > expected_limit for bar in bars)
+                and abs(price - expected_limit) <= tolerance
+            )
         elif trigger == "OPEN":
             eligible = (
                 float(execution["open"]) <= expected_limit + tolerance

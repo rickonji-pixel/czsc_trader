@@ -11,8 +11,10 @@ from .audit import AuditRecorder
 from .broker import (
     BrokerAccount,
     BrokerOrder,
+    BrokerOrderRejectedError,
     BrokerPosition,
     BrokerSnapshot,
+    BrokerSubmissionUncertainError,
     OrderIntent,
     PaperTradingSafetyError,
 )
@@ -20,6 +22,29 @@ from .broker import (
 
 class FutuGatewayError(RuntimeError):
     pass
+
+
+_DEFINITE_REJECTION_MARKERS = (
+    "报单价格",
+    "涨跌停",
+    "购买力不足",
+    "持仓不足",
+    "交易权限",
+    "市场未开放",
+    "参数错误",
+    "invalid price",
+    "insufficient",
+    "not tradable",
+    "rejected",
+)
+
+
+def _submission_error(operation: str, value: object) -> RuntimeError:
+    message = f"{operation} failed: {value}"
+    lowered = str(value).lower()
+    if any(marker in lowered for marker in _DEFINITE_REJECTION_MARKERS):
+        return BrokerOrderRejectedError(message)
+    return BrokerSubmissionUncertainError(message)
 
 
 def _records(value: object) -> list[dict[str, Any]]:
@@ -161,7 +186,23 @@ class FutuGateway:
         )
         return tuple(self._map_order(row) for row in rows)
 
+    def historical_order_snapshot(self, start: str, end: str) -> tuple[BrokerOrder, ...]:
+        rows = _records(
+            self._ok(
+                "history_order_list_query",
+                self.trade_context.history_order_list_query(
+                    start=start,
+                    end=end,
+                    trd_env=self.sdk.TrdEnv.SIMULATE,
+                    acc_id=self._account(),
+                ),
+            )
+        )
+        return tuple(self._map_order(row) for row in rows)
+
     def _map_order(self, row: dict[str, Any]) -> BrokerOrder:
+        raw_order_type = str(row.get("order_type", "NORMAL")).upper()
+        order_type = "MARKET" if "MARKET" in raw_order_type else "LIMIT"
         return BrokerOrder(
             channel_order_id=str(row["order_id"]),
             symbol=_project_symbol(str(row["code"])),
@@ -172,6 +213,10 @@ class FutuGateway:
             cumulative_filled_quantity=int(row.get("dealt_qty", 0)),
             average_fill_price=float(row.get("dealt_avg_price", 0.0)),
             remark=str(row.get("remark", "")),
+            last_error=str(row.get("last_err_msg", "")),
+            created_at=str(row.get("create_time", "")),
+            updated_at=str(row.get("updated_time", "")),
+            order_type=order_type,
         )
 
     def place_order(self, intent: OrderIntent) -> BrokerOrder:
@@ -179,28 +224,39 @@ class FutuGateway:
             raise PaperTradingSafetyError("order symbol is not a supported China-market code")
         if intent.quantity <= 0 or intent.quantity % 100:
             raise PaperTradingSafetyError("order quantity must use positive 100-share lots")
-        if intent.order_type != "LIMIT" or intent.time_in_force != "DAY":
-            raise PaperTradingSafetyError("gateway accepts DAY limit orders only")
+        if intent.side not in {"BUY", "SELL"}:
+            raise PaperTradingSafetyError("order side must be BUY or SELL")
+        if intent.time_in_force != "DAY":
+            raise PaperTradingSafetyError("gateway accepts DAY orders only")
+        if (intent.side, intent.order_type) not in {
+            ("BUY", "LIMIT"), ("SELL", "MARKET"),
+        }:
+            raise PaperTradingSafetyError(
+                "gateway requires LIMIT buys and MARKET sells"
+            )
         side = self.sdk.TrdSide.BUY if intent.side == "BUY" else self.sdk.TrdSide.SELL
+        order_type = (
+            self.sdk.OrderType.NORMAL
+            if intent.order_type == "LIMIT"
+            else self.sdk.OrderType.MARKET
+        )
         started = time.perf_counter()
         try:
-            rows = _records(
-                self._ok(
-                    "place_order",
-                    self.trade_context.place_order(
-                        price=intent.limit_price,
-                        qty=intent.quantity,
-                        code=_broker_code(intent.symbol),
-                        trd_side=side,
-                        order_type=self.sdk.OrderType.NORMAL,
-                        adjust_limit=0,
-                        trd_env=self.sdk.TrdEnv.SIMULATE,
-                        acc_id=self._account(),
-                        remark=intent.intent_id,
-                        time_in_force=self.sdk.TimeInForce.DAY,
-                    ),
-                )
+            code, value = self.trade_context.place_order(
+                price=intent.limit_price,
+                qty=intent.quantity,
+                code=_broker_code(intent.symbol),
+                trd_side=side,
+                order_type=order_type,
+                adjust_limit=0,
+                trd_env=self.sdk.TrdEnv.SIMULATE,
+                acc_id=self._account(),
+                remark=intent.intent_id,
+                time_in_force=self.sdk.TimeInForce.DAY,
             )
+            if code != self.sdk.RET_OK:
+                raise _submission_error("place_order", value)
+            rows = _records(value)
             if len(rows) != 1:
                 raise FutuGatewayError("place_order did not return exactly one order")
             order = self._map_order(rows[0])

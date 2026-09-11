@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, displayFillId, formatBeijingTime, navigationOptions, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, displayFillId, formatBeijingTime, navigationOptions, orderPriceLabel, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -26,6 +26,9 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(channelOrderAccountLabel({account_id: 's001-v2'}), 's001-v2');
   assert.equal(formatBeijingTime('2026-09-03T11:00:11.806715+00:00'), '2026-09-03 19:00:11');
   assert.equal(displayFillId('9bce6fda-3e47-53b9-b4a6-f52410c6264a'), 'FIL-9BCE6FDA');
+  assert.equal(orderPriceLabel({order_type: 'MARKET', limit_price: 0}), '市价');
+  assert.equal(orderPriceLabel({payload: {order_type: 'MARKET'}, limit_price: '1.6090'}), '市价');
+  assert.equal(orderPriceLabel({order_type: 'LIMIT', limit_price: '1.6500'}), '1.6500');
   assert.equal(actionLabel('WAIT'), '等待');
   assert.equal(actionLabel('HOLD'), '持有');
   assert.equal(chartShouldReload(null, {scope: {account_id: 'a'}, fingerprint: 'f1'}), true);

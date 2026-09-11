@@ -7,9 +7,11 @@ import pytest
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.cli import PortUnavailableError, _record_service_lifecycle, probe_port
 from paper_trading_engine.service_config import ServiceConfig
-from paper_trading_engine.store import PaperStore
-from paper_trading_engine.watchdog import Watchdog
+from paper_trading_engine.store import PaperStore, backup_runtime_database
+from paper_trading_engine.runtime_lock import RuntimeAlreadyOwnedError, RuntimeDatabaseLock
+from paper_trading_engine.watchdog import Watchdog, rotate_log
 from paper_trading_engine.windows_service import service_commands
+from paper_trading_engine.web_api import PteWebApi
 
 
 class Process:
@@ -30,6 +32,26 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
     assert lifecycle["actor_type"] == "ENGINE"
     assert lifecycle["actor_id"] == "instance-1"
     audit_store.close()
+    backup = backup_runtime_database(tmp_path / "lifecycle.db", retention=2)
+    assert backup is not None and backup.is_file()
+    reopened = PaperStore(backup)
+    assert reopened.recent_events(1)[0]["event_type"] == "SERVICE_STARTED"
+    reopened.close()
+
+    child_log = tmp_path / "pte.log"
+    child_log.write_bytes(b"x" * 32)
+    rotate_log(child_log, max_bytes=16, backups=2)
+    assert not child_log.exists()
+    assert (tmp_path / "pte.log.1").read_bytes() == b"x" * 32
+
+    owner = RuntimeDatabaseLock(tmp_path / "runtime.db").acquire()
+    try:
+        with pytest.raises(RuntimeAlreadyOwnedError, match="already owned"):
+            RuntimeDatabaseLock(tmp_path / "runtime.db").acquire()
+    finally:
+        owner.release()
+    second_owner = RuntimeDatabaseLock(tmp_path / "runtime.db").acquire()
+    second_owner.release()
 
     config = ServiceConfig(repo_root=tmp_path.resolve())
     path = tmp_path / "service.json"
@@ -68,3 +90,28 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
             probe_port("127.0.0.1", occupied.getsockname()[1])
     finally:
         occupied.close()
+
+
+def test_ft_pte06_business_health_exposes_stalled_scheduler(tmp_path):
+    store = PaperStore(tmp_path / "health.db")
+    store.set_setting("scheduler_heartbeat_at", "2026-09-01T00:00:00+00:00")
+
+    class Channel:
+        @staticmethod
+        def status():
+            return {
+                "alerts": [], "scheduler_failures": [],
+                "reconciliation_status": "OK", "account": None,
+            }
+
+    class Operations:
+        def __init__(self):
+            self.store = store
+            self.channel = Channel()
+            self.virtual = object()
+
+    status = PteWebApi(Operations()).system_status()
+    assert status["runtime"] == "RUNNING"
+    assert status["watchdog_healthy"] is False
+    assert "SCHEDULER_STALLED" in status["alerts"]
+    store.close()

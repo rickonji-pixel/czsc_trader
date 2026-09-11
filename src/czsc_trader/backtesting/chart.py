@@ -26,7 +26,10 @@ def _dated_fills(fills: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
 def _dated_signal_events(decisions: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
     dated = decisions.copy().sort_values("signal_date")
     dated["date"] = pd.to_datetime(dated["signal_date"]).dt.normalize()
-    changed = dated["target_position"].ne(dated["target_position"].shift())
+    if "action" in dated and dated["action"].eq("INTRADAY_LONG_OVERLAY").all():
+        changed = pd.Series(True, index=dated.index)
+    else:
+        changed = dated["target_position"].ne(dated["target_position"].shift())
     return dated.loc[changed & dated["date"].isin(prices.index)]
 
 
@@ -68,6 +71,8 @@ def _daily_hover_text(
                 f"策略得分 {float(decision['factor_score']):.3f}",
                 f"行情状态 {regime}",
             ])
+            if "threshold" in decision and pd.notna(decision["threshold"]):
+                lines.append(f"动态触发阈值 {float(decision['threshold']):.3f}")
             if event_hold:
                 lines.append(f"信号激活值 {float(entry_threshold):.3f}")
             else:
@@ -238,8 +243,12 @@ def render_backtest_chart_html(
     ]
     resolved = signal_replay.snapshot.resolved_rule
     rule = resolved.rule
-    event_hold = resolved.strategy == "czsc_event_hold"
-    if event_hold:
+    overlay = resolved.constituent_moneyflow_intraday is not None
+    event_hold = resolved.strategy == "czsc_event_hold" or overlay
+    if overlay:
+        entry_threshold = float(result.decisions["threshold"].median())
+        exit_threshold = 0.0
+    elif event_hold:
         entry_threshold, exit_threshold = 1.0, 0.0
     else:
         if rule is None:
@@ -332,8 +341,23 @@ def render_backtest_chart_html(
         row=2,
         col=1,
     )
+    if overlay:
+        figure.add_trace(
+            go.Scatter(
+                x=score_rows["date"],
+                y=score_rows["threshold"].astype(float),
+                mode="lines",
+                name="动态触发阈值",
+                line={"color": "#ef4444", "dash": "dash", "width": 1},
+                hoverinfo="skip",
+            ),
+            row=2,
+            col=1,
+        )
     guides = (
-        (("信号激活值", entry_threshold, "#ef4444"),)
+        ()
+        if overlay
+        else (("信号激活值", entry_threshold, "#ef4444"),)
         if event_hold
         else (
             ("买入阈值", entry_threshold, "#ef4444"),
@@ -354,7 +378,7 @@ def render_backtest_chart_html(
             col=1,
         )
     figure.update_traces(xaxis="x", row=2, col=1)
-    backtest_symbol = signal_replay.snapshot.resolved_rule.execution.instrument.symbol
+    backtest_symbol = str(signal_replay.snapshot.resolved_rule.symbol)
     figure.update_layout(
         title=(
             f"{backtest_symbol} | {result.identity.reference} | "

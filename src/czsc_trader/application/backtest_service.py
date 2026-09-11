@@ -46,7 +46,8 @@ def run_backtest(
         snapshot = resolve_registered_strategy(
             context, request.strategy_id, request.strategy_version
         )
-        if snapshot.resolved_rule.execution is None:
+        overlay = snapshot.resolved_rule.constituent_moneyflow_intraday
+        if snapshot.resolved_rule.execution is None and overlay is None:
             raise ValueError("strategy has no complete execution rule")
         data = load_replay_data(
             context,
@@ -54,6 +55,7 @@ def run_backtest(
             request.symbol,
             request.asset_type,
             request.end,
+            include_five_minute=overlay is not None,
         )
         summary = run_backtest_v2(
             snapshot=snapshot,
@@ -68,6 +70,7 @@ def run_backtest(
             ),
             outputs_root=_repository_path(context, request.outputs_root) or context.outputs_root,
             run_date=run_date or datetime.now().astimezone().date(),
+            repository_root=context.root,
         )
     except Exception as exc:
         raise ExecutionError(

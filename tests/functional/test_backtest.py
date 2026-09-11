@@ -4,6 +4,7 @@ from dataclasses import replace
 import json
 from pathlib import Path
 import shutil
+from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -281,6 +282,96 @@ def test_ft_t03_s002_event_hold_replays_with_formal_execution() -> None:
     assert metrics["return"] == pytest.approx(0.2514063685)
     evidence = build_replay_evidence(deployed_signals, data, result, 100_000, metrics)
     assert audit_replay(evidence).status is AuditStatus.PASS
+
+
+def test_ft_t03_s003_intraday_overlay_replays_frozen_candidate_contract() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    context = RepositoryContext.discover(repo)
+    payload = {
+        "schema_version": 1,
+        "strategy_kind": "constituent_moneyflow_intraday_overlay",
+        "symbol": "510500.SH",
+        "rule": {
+            "symbol": "510500.SH",
+            "data_source": {
+                "path": (
+                    "experiments/S003/20260911_S003_EX43/artifacts/"
+                    "constituent_moneyflow_panel.csv.gz"
+                ),
+                "sha256": "c67f3a21e4180751e65733173d2e2072fccc4011ded14c1fa36d0611fa467062",
+            },
+            "feature": {
+                "minimum_observed_weight_ratio": 0.95,
+                "threshold_lookback_sessions": 60,
+                "threshold_quantile": 0.80,
+                "threshold_excludes_current_session": True,
+                "comparison": "GREATER_THAN_OR_EQUAL",
+            },
+            "execution": {
+                "core_fraction": 0.50,
+                "event_fraction": 0.50,
+                "entry_checkpoint": "OPEN",
+                "exit_checkpoint": "11:30_CLOSE",
+                "one_way_cost": 0.00012,
+                "lot_size": 100,
+                "maximum_events_per_day": 1,
+                "t_plus_one_inventory_rotation": True,
+            },
+        },
+    }
+    snapshot = resolve_candidate_snapshot(
+        context,
+        "S003-C001-EXECUTION",
+        payload,
+        canonical_json_sha256(payload),
+        "formal-execution-test",
+    )
+    data = load_replay_data(
+        context,
+        "research",
+        "510500.SH",
+        "etf",
+        pd.Timestamp("2026-09-08").date(),
+        include_five_minute=True,
+    )
+    outputs_root = repo / ".tmp" / f"s003-e2e-{uuid4().hex}"
+    summary = run_backtest_v2(
+        snapshot=snapshot,
+        replay_data=data,
+        request=BacktestRequestV2(
+            symbol="510500.SH",
+            asset_type="etf",
+            dataset="research",
+            start=pd.Timestamp("2021-04-15").date(),
+            end=pd.Timestamp("2026-09-08").date(),
+            initial_cash=100_000,
+        ),
+        outputs_root=outputs_root,
+        run_date=pd.Timestamp("2026-09-11").date(),
+        repository_root=repo,
+    )
+    decisions = pd.read_csv(summary.output_dir / "decisions.csv")
+    orders = pd.read_csv(summary.output_dir / "orders.csv")
+    account = pd.read_csv(summary.output_dir / "account_daily.csv")
+    audit = json.loads((summary.output_dir / "audit.json").read_text(encoding="utf-8"))
+    metrics = summary.metrics["strategy"]["metrics"]
+    assert len(decisions) == 276
+    assert metrics["closed_trades"] == 276
+    assert len(orders) == 552
+    assert orders["quantity"].mod(100).eq(0).all()
+    assert account["quantity"].eq(account["quantity"].iloc[0]).all()
+    assert orders.groupby("execution_date")["checkpoint"].agg(list).apply(
+        lambda value: value == ["OPEN", "11:30_CLOSE"]
+    ).all()
+    assert audit["status"] == "PASS"
+    assert set(audit["checks"]) == {
+        "INTRADAY_ORDER_CONTRACT",
+        "INTRADAY_CHECKPOINT_PRICES",
+        "T_PLUS_ONE_CORE_ROTATION_LEDGER",
+        "INTRADAY_TRADE_PAIRING",
+        "INTRADAY_METRICS",
+    }
+    shutil.rmtree(outputs_root)
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(

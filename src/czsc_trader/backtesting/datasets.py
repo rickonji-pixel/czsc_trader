@@ -10,6 +10,7 @@ import pandas as pd
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.data import MarketData, load_execution_prices, load_market_data
+from czsc_trader.intraday_data import load_intraday_research_data
 
 
 DatasetName = Literal["research", "backtest"]
@@ -24,6 +25,7 @@ class ReplayData:
     execution_intraday: pd.DataFrame
     fingerprint: str
     cutoff: date
+    execution_five_minute: pd.DataFrame | None = None
 
 
 def _frame_bytes(frame: pd.DataFrame) -> bytes:
@@ -38,6 +40,7 @@ def _fingerprint(
     adjusted: MarketData,
     execution_daily: pd.DataFrame,
     execution_intraday: pd.DataFrame,
+    execution_five_minute: pd.DataFrame | None = None,
 ) -> str:
     digest = hashlib.sha256()
     for value in (dataset, adjusted.symbol, adjusted.asset_type):
@@ -51,6 +54,9 @@ def _fingerprint(
         execution_intraday,
     ):
         digest.update(_frame_bytes(frame))
+        digest.update(b"\0")
+    if execution_five_minute is not None:
+        digest.update(_frame_bytes(execution_five_minute))
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -76,12 +82,45 @@ def _execution_intraday(
     return result
 
 
+def _execution_five_minute(
+    root: Path,
+    adjusted: MarketData,
+    execution_daily: pd.DataFrame,
+    cutoff: date,
+) -> pd.DataFrame:
+    source = load_intraday_research_data(root, adjusted.symbol).frames["5m"].copy()
+    source = source.loc[source["Date"].dt.normalize() <= pd.Timestamp(cutoff)].copy()
+    adjusted_daily = adjusted.daily.set_index(pd.to_datetime(adjusted.daily["dt"]).dt.normalize())
+    raw_daily = execution_daily.set_index(pd.to_datetime(execution_daily["dt"]).dt.normalize())
+    factors = adjusted_daily["close"].astype(float).div(raw_daily["close"].astype(float))
+    sessions = source["Date"].dt.normalize()
+    row_factors = sessions.map(factors)
+    if row_factors.isna().any() or row_factors.le(0).any():
+        raise ValueError("5m execution prices have no positive daily adjustment factor")
+    result = source.rename(
+        columns={
+            "Date": "dt",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "vol",
+            "Amount": "amount",
+        }
+    )
+    for column in ("open", "high", "low", "close"):
+        result[column] = result[column].astype(float).div(row_factors.to_numpy(dtype=float))
+    return result[["dt", "open", "high", "low", "close", "vol", "amount"]].reset_index(drop=True)
+
+
 def load_replay_data(
     context: RepositoryContext,
     dataset: DatasetName,
     symbol: str,
     asset_type: str,
     cutoff: date,
+    *,
+    include_five_minute: bool = False,
 ) -> ReplayData:
     if dataset not in {"research", "backtest"}:
         raise ValueError(f"unknown replay dataset: {dataset}")
@@ -94,6 +133,11 @@ def load_replay_data(
         cutoff=pd.Timestamp(cutoff),
     )
     execution_intraday = _execution_intraday(adjusted, execution_daily)
+    execution_five_minute = (
+        _execution_five_minute(root, adjusted, execution_daily, cutoff)
+        if include_five_minute
+        else None
+    )
     return ReplayData(
         dataset=dataset,
         root=root,
@@ -105,6 +149,8 @@ def load_replay_data(
             adjusted,
             execution_daily,
             execution_intraday,
+            execution_five_minute,
         ),
         cutoff=cutoff,
+        execution_five_minute=execution_five_minute,
     )

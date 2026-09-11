@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX56",
+  "status": "PASS",
+  "checks": {
+    "candidate_identity_preserved": true,
+    "event_dates_exact": true,
+    "event_count_276": true,
+    "episode_returns_exact": true,
+    "two_fills_per_event": true,
+    "round_lots_only": true,
+    "end_of_day_core_quantity_constant": true,
+    "no_negative_cash": true,
+    "all_cycles_closed": true,
+    "se_independent_audit_pass": true
+  },
+  "metrics": {
+    "max_drawdown": -0.1879988786368879,
+    "calmar": 0.2653017530593495,
+    "win_loss_ratio": 1.4754696836023928,
+    "win_loss_ratio_status": "VALID",
+    "return": 0.2881573019599988,
+    "sharpe": 0.4937064219219444,
+    "closed_trades": 276
+  },
+  "dataset_fingerprint": "ead54c03900927db10eaedd2ee66eafc8141ca2a5e3cb870d9c739d8424b547a",
+  "candidate_payload_sha256": "4044a5a7097e3ab687827150ac99eda1b9d0dfdc3325aa32ad96d8125840b538"
+}

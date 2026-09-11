@@ -29,6 +29,42 @@ def build_replay_evidence(
     metrics: dict[str, object],
 ) -> ReplayEvidence:
     spec = signals.snapshot.resolved_rule.execution
+    overlay = signals.snapshot.resolved_rule.constituent_moneyflow_intraday
+    if overlay is not None:
+        if data.execution_five_minute is None:
+            raise ValueError("intraday overlay audit requires 5m execution data")
+        daily = data.execution_daily.loc[
+            data.execution_daily["dt"].le(signals.evaluation_end)
+        ].rename(columns={"dt": "date"})
+        intraday = data.execution_five_minute.loc[
+            data.execution_five_minute["dt"].between(
+                signals.evaluation_start,
+                signals.evaluation_end + pd.Timedelta(days=1),
+            )
+        ].rename(columns={"dt": "time"})
+        return ReplayEvidence(
+            strategy_hash=signals.snapshot.content_hash,
+            data_hash=data.fingerprint,
+            initial_cash=float(initial_cash),
+            execution_spec={
+                "mode": "CORE_EVENT_INTRADAY_ROTATION",
+                "fee_rate": overlay.one_way_cost,
+                "lot_size": overlay.lot_size,
+                "core_fraction": overlay.core_fraction,
+                "event_fraction": overlay.event_fraction,
+                "entry_checkpoint": overlay.entry_checkpoint,
+                "exit_checkpoint": overlay.exit_checkpoint,
+                "t_plus_one_inventory_rotation": overlay.t_plus_one_inventory_rotation,
+            },
+            decisions=_records(result.decisions, ("signal_date", "valid_session")),
+            orders=_records(result.orders, ("signal_date", "execution_date")),
+            fills=_records(result.fills, ("signal_date", "fill_time")),
+            account_daily=_records(result.account_daily, ("date", "signal_date")),
+            trades=_records(result.trades, ("entry_date", "exit_date")),
+            metrics=metrics,
+            execution_daily=_records(daily, ("date",)),
+            execution_intraday=_records(intraday, ("time",)),
+        )
     if spec is None:
         raise ValueError("strategy snapshot has no execution specification")
     start = signals.calculation_start

@@ -12,7 +12,7 @@ import numpy as np
 
 from .experiment_archive import resolve_repository_experiment_reference
 from .rules import Rule
-from .identity import canonical_json_sha256
+from .identity import canonical_json_sha256, raw_file_sha256
 
 
 _VERSION_PATTERN = re.compile(r"baseline_(\d{8})$")
@@ -40,6 +40,7 @@ class ResolvedBaseline:
     forward_validation_start: str = ""
     execution: ExecutionSpec | None = None
     event_hold: EventHoldSpec | None = None
+    constituent_moneyflow_intraday: ConstituentMoneyflowIntradaySpec | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,26 @@ class EventHoldSpec:
     holding_sessions: int
     target_position: float
     warmup_bars: int = 250
+
+
+@dataclass(frozen=True)
+class ConstituentMoneyflowIntradaySpec:
+    """Historical-constituent breadth signal with an intraday T+1 overlay."""
+
+    symbol: str
+    source_path: str
+    source_sha256: str
+    minimum_observed_weight_ratio: float
+    threshold_lookback_sessions: int
+    threshold_quantile: float
+    core_fraction: float
+    event_fraction: float
+    entry_checkpoint: str
+    exit_checkpoint: str
+    one_way_cost: float
+    lot_size: int
+    maximum_events_per_day: int
+    t_plus_one_inventory_rotation: bool
 
 
 @dataclass(frozen=True)
@@ -411,6 +432,78 @@ def _parse_event_hold(
     )
 
 
+def _parse_constituent_moneyflow_intraday(
+    payload: dict[str, object],
+    *,
+    symbol: str,
+    repository_root: Path | None,
+) -> ConstituentMoneyflowIntradaySpec:
+    rule = payload.get("rule")
+    if not isinstance(rule, dict):
+        raise ValueError("constituent-moneyflow strategy must contain a rule object")
+    declared_symbol = str(rule.get("symbol", payload.get("symbol", ""))).upper()
+    if declared_symbol != symbol.upper():
+        raise ValueError("constituent-moneyflow symbol differs from requested symbol")
+    source = rule.get("data_source")
+    feature = rule.get("feature")
+    execution = rule.get("execution")
+    if not isinstance(source, dict) or not isinstance(feature, dict) or not isinstance(execution, dict):
+        raise ValueError("constituent-moneyflow data source, feature or execution is missing")
+    source_path = str(source.get("path", ""))
+    source_sha256 = str(source.get("sha256", "")).lower()
+    if not source_path or len(source_sha256) != 64:
+        raise ValueError("constituent-moneyflow source identity is incomplete")
+    if repository_root is None:
+        raise ValueError("constituent-moneyflow strategy requires a repository root")
+    resolved_source = resolve_repository_experiment_reference(repository_root, source_path)
+    if not resolved_source.is_file():
+        raise ValueError(f"constituent-moneyflow source is missing: {source_path}")
+    if raw_file_sha256(resolved_source) != source_sha256:
+        raise ValueError("constituent-moneyflow source SHA-256 differs")
+
+    observed_ratio = float(feature.get("minimum_observed_weight_ratio", 0))
+    lookback = int(feature.get("threshold_lookback_sessions", 0))
+    quantile = float(feature.get("threshold_quantile", -1))
+    if not 0 < observed_ratio <= 1 or lookback < 2 or not 0 < quantile < 1:
+        raise ValueError("constituent-moneyflow feature parameters are invalid")
+    if feature.get("threshold_excludes_current_session") is not True:
+        raise ValueError("constituent-moneyflow threshold must exclude the current session")
+    if str(feature.get("comparison", "")) != "GREATER_THAN_OR_EQUAL":
+        raise ValueError("constituent-moneyflow comparison is unsupported")
+
+    core_fraction = float(execution.get("core_fraction", 0))
+    event_fraction = float(execution.get("event_fraction", 0))
+    if abs(core_fraction + event_fraction - 1.0) > 1e-12 or min(core_fraction, event_fraction) <= 0:
+        raise ValueError("intraday overlay fractions must be positive and sum to one")
+    entry_checkpoint = str(execution.get("entry_checkpoint", ""))
+    exit_checkpoint = str(execution.get("exit_checkpoint", ""))
+    if entry_checkpoint != "OPEN" or exit_checkpoint != "11:30_CLOSE":
+        raise ValueError("intraday overlay execution checkpoints are unsupported")
+    one_way_cost = float(execution.get("one_way_cost", -1))
+    lot_size = int(execution.get("lot_size", 0))
+    maximum_events = int(execution.get("maximum_events_per_day", 0))
+    if not 0 <= one_way_cost < 0.01 or lot_size < 1 or maximum_events != 1:
+        raise ValueError("intraday overlay execution parameters are invalid")
+    if execution.get("t_plus_one_inventory_rotation") is not True:
+        raise ValueError("intraday overlay requires T+1 inventory rotation")
+    return ConstituentMoneyflowIntradaySpec(
+        symbol=declared_symbol,
+        source_path=source_path,
+        source_sha256=source_sha256,
+        minimum_observed_weight_ratio=observed_ratio,
+        threshold_lookback_sessions=lookback,
+        threshold_quantile=quantile,
+        core_fraction=core_fraction,
+        event_fraction=event_fraction,
+        entry_checkpoint=entry_checkpoint,
+        exit_checkpoint=exit_checkpoint,
+        one_way_cost=one_way_cost,
+        lot_size=lot_size,
+        maximum_events_per_day=maximum_events,
+        t_plus_one_inventory_rotation=True,
+    )
+
+
 def resolve_baseline(
     root: Path,
     version: str | None = None,
@@ -550,6 +643,25 @@ def resolve_strategy_payload(
 ) -> ResolvedBaseline:
     """Parse a frozen Strategy Manager payload without creating another baseline."""
     strategy_kind = str(strategy_payload.get("strategy_kind", ""))
+    if strategy_kind == "constituent_moneyflow_intraday_overlay":
+        spec = _parse_constituent_moneyflow_intraday(
+            strategy_payload,
+            symbol=symbol,
+            repository_root=repository_root,
+        )
+        rule_payload = strategy_payload.get("rule")
+        assert isinstance(rule_payload, dict)
+        return ResolvedBaseline(
+            version=release_id,
+            rule=None,
+            rule_payload=dict(rule_payload),
+            sha256=release_hash,
+            strategy=strategy_kind,
+            status="active",
+            scope="symbol",
+            symbol=symbol,
+            constituent_moneyflow_intraday=spec,
+        )
     if strategy_kind == "czsc_event_hold":
         nested = strategy_payload.get("rule")
         rule_payload = dict(nested) if isinstance(nested, dict) else dict(strategy_payload)

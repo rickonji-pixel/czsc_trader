@@ -54,9 +54,13 @@ def replay_benchmarks(
 ) -> BenchmarkReplay:
     """Run independently funded BuyHold and MA5/MA20 next-open benchmarks."""
     spec = signals.snapshot.resolved_rule.execution
-    if spec is None:
+    overlay = signals.snapshot.resolved_rule.constituent_moneyflow_intraday
+    if spec is not None:
+        fee_rate = float(spec.capital.fee_rate)
+    elif overlay is not None:
+        fee_rate = float(overlay.one_way_cost)
+    else:
         raise ValueError("strategy snapshot has no execution specification")
-    fee_rate = float(spec.capital.fee_rate)
     execution = replay_data.execution_daily.copy()
     execution["dt"] = pd.to_datetime(execution["dt"]).dt.normalize()
     evaluation = execution.loc[

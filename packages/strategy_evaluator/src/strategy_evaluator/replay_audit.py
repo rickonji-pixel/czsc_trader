@@ -76,9 +76,242 @@ def _ceil(price: float, tick: float) -> float:
     )
 
 
+def _audit_intraday_overlay(
+    evidence: ReplayEvidence,
+    digest: str,
+    tolerance: float,
+) -> ReplayAuditResult:
+    """Independently audit a sellable-core intraday rotation replay."""
+    reasons: list[str] = []
+    checks: list[str] = []
+    spec = evidence.execution_spec
+    fee_rate = float(spec["fee_rate"])
+    lot_size = int(spec["lot_size"])
+    core_fraction = float(spec["core_fraction"])
+    if (
+        not 0 < core_fraction < 1
+        or str(spec.get("entry_checkpoint")) != "OPEN"
+        or str(spec.get("exit_checkpoint")) != "11:30_CLOSE"
+        or spec.get("t_plus_one_inventory_rotation") is not True
+    ):
+        reasons.append("INVALID_INTRADAY_OVERLAY_SPEC")
+    if any(
+        len(value) != 64 or any(char not in "0123456789abcdef" for char in value.lower())
+        for value in (evidence.strategy_hash, evidence.data_hash)
+    ):
+        reasons.append("INVALID_EVIDENCE_IDENTITY")
+
+    decisions = {str(row["decision_id"]): row for row in evidence.decisions}
+    if len(decisions) != len(evidence.decisions):
+        reasons.append("DUPLICATE_DECISION_ID")
+    orders_by_decision: dict[str, list[Mapping[str, Any]]] = {}
+    fills_by_order: dict[str, Mapping[str, Any]] = {}
+    for fill in evidence.fills:
+        order_id = str(fill["order_id"])
+        if order_id in fills_by_order:
+            reasons.append("DUPLICATE_ORDER_FILL")
+        fills_by_order[order_id] = fill
+    order_ids: set[str] = set()
+    for order in evidence.orders:
+        order_id = str(order["order_id"])
+        if order_id in order_ids:
+            reasons.append("DUPLICATE_ORDER_ID")
+        order_ids.add(order_id)
+        decision_id = str(order["decision_id"])
+        orders_by_decision.setdefault(decision_id, []).append(order)
+        decision = decisions.get(decision_id)
+        if (
+            decision is None
+            or str(decision["valid_session"])[:10] != str(order["execution_date"])[:10]
+            or str(decision["signal_date"])[:10] >= str(order["execution_date"])[:10]
+        ):
+            reasons.append("ORDER_DECISION_MISMATCH")
+        quantity = int(order["quantity"])
+        if quantity <= 0 or quantity % lot_size:
+            reasons.append("INVALID_ORDER_LOT")
+        if str(order["status"]) != "FILLED" or order_id not in fills_by_order:
+            reasons.append("INTRADAY_ORDER_NOT_FILLED")
+    for decision_id, decision in decisions.items():
+        linked = orders_by_decision.get(decision_id, [])
+        sides = [str(item["side"]) for item in linked]
+        checkpoints = [str(item.get("checkpoint")) for item in linked]
+        quantities = [int(item["quantity"]) for item in linked]
+        if (
+            sides != ["BUY", "SELL"]
+            or checkpoints != ["OPEN", "11:30_CLOSE"]
+            or len(set(quantities)) != 1
+            or str(decision.get("action")) != "INTRADAY_LONG_OVERLAY"
+        ):
+            reasons.append("INVALID_INTRADAY_ORDER_PAIR")
+    checks.append("INTRADAY_ORDER_CONTRACT")
+
+    bars_by_time = {str(row["time"])[0:16]: row for row in evidence.execution_intraday}
+    for order in evidence.orders:
+        fill = fills_by_order.get(str(order["order_id"]))
+        if fill is None:
+            continue
+        day = str(order["execution_date"])[:10]
+        side = str(order["side"])
+        checkpoint = str(order.get("checkpoint"))
+        key = f"{day}T09:35" if checkpoint == "OPEN" else f"{day}T11:30"
+        bar = bars_by_time.get(key)
+        if bar is None:
+            reasons.append("MISSING_INTRADAY_CHECKPOINT")
+            continue
+        expected_price = float(bar["open"] if checkpoint == "OPEN" else bar["close"])
+        quantity = int(order["quantity"])
+        if (
+            str(fill["side"]) != side
+            or int(fill["quantity"]) != quantity
+            or abs(float(fill["price"]) - expected_price) > tolerance
+            or abs(float(order["limit_price"]) - expected_price) > tolerance
+            or abs(float(fill["fees"]) - quantity * expected_price * fee_rate) > tolerance
+        ):
+            reasons.append("INTRADAY_FILL_MISMATCH")
+    checks.append("INTRADAY_CHECKPOINT_PRICES")
+
+    daily_rows = sorted(evidence.execution_daily, key=lambda row: str(row["date"]))
+    account_rows = list(evidence.account_daily)
+    if not account_rows:
+        reasons.append("EMPTY_ACCOUNT_LEDGER")
+    else:
+        first_day = str(account_rows[0]["date"])[:10]
+        prior_rows = [row for row in daily_rows if str(row["date"])[:10] < first_day]
+        if not prior_rows:
+            reasons.append("MISSING_SELLABLE_CORE_CONTEXT")
+        else:
+            core_price = float(prior_rows[-1]["close"])
+            quantity = int(
+                evidence.initial_cash * core_fraction / (core_price * (1 + fee_rate))
+                // lot_size * lot_size
+            )
+            cash = evidence.initial_cash - quantity * core_price * (1 + fee_rate)
+            fills_by_day: dict[str, list[Mapping[str, Any]]] = {}
+            for fill in evidence.fills:
+                fills_by_day.setdefault(str(fill["fill_time"])[:10], []).append(fill)
+            previous_day = ""
+            core_quantity = quantity
+            for row in account_rows:
+                day = str(row["date"])[:10]
+                if day <= previous_day:
+                    reasons.append("INVALID_ACCOUNT_INDEX")
+                previous_day = day
+                if (
+                    abs(float(row["cash_before"]) - cash) > tolerance
+                    or int(row["quantity_before"]) != quantity
+                ):
+                    reasons.append("ACCOUNT_OPENING_STATE_MISMATCH")
+                for fill in sorted(fills_by_day.get(day, []), key=lambda item: str(item["fill_time"])):
+                    gross = int(fill["quantity"]) * float(fill["price"])
+                    fees = float(fill["fees"])
+                    if str(fill["side"]) == "BUY":
+                        cash -= gross + fees
+                        quantity += int(fill["quantity"])
+                    else:
+                        cash += gross - fees
+                        quantity -= int(fill["quantity"])
+                expected_equity = cash + quantity * float(row["close"])
+                if (
+                    abs(float(row["cash"]) - cash) > tolerance
+                    or int(row["quantity"]) != quantity
+                    or quantity != core_quantity
+                    or cash < -tolerance
+                    or abs(float(row["equity"]) - expected_equity) > tolerance
+                ):
+                    reasons.append("INTRADAY_ACCOUNT_LEDGER_MISMATCH")
+    checks.append("T_PLUS_ONE_CORE_ROTATION_LEDGER")
+
+    cycles: dict[str, list[Mapping[str, Any]]] = {}
+    for fill in evidence.fills:
+        cycles.setdefault(str(fill["cycle_id"]), []).append(fill)
+    trades = {str(row["cycle_id"]): row for row in evidence.trades}
+    if set(cycles) != set(trades):
+        reasons.append("TRADE_PAIRING_MISMATCH")
+    else:
+        for cycle_id, cycle_fills in cycles.items():
+            ordered = sorted(cycle_fills, key=lambda item: str(item["fill_time"]))
+            if len(ordered) != 2 or [str(item["side"]) for item in ordered] != ["BUY", "SELL"]:
+                reasons.append("TRADE_PAIRING_MISMATCH")
+                continue
+            buy, sell = ordered
+            expected_return = float(sell["price"]) * (1 - fee_rate) / (
+                float(buy["price"]) * (1 + fee_rate)
+            ) - 1
+            trade = trades[cycle_id]
+            if (
+                str(trade["status"]) != "CLOSED"
+                or int(trade["quantity"]) != int(buy["quantity"])
+                or int(buy["quantity"]) != int(sell["quantity"])
+                or abs(float(trade["net_return"]) - expected_return) > tolerance
+            ):
+                reasons.append("TRADE_VALUE_MISMATCH")
+    checks.append("INTRADAY_TRADE_PAIRING")
+
+    if account_rows:
+        equity = pd.Series([float(row["equity"]) for row in account_rows], dtype=float)
+        total_return = float(equity.iloc[-1] / evidence.initial_cash - 1)
+        max_drawdown = float(equity.div(equity.cummax()).sub(1).min())
+        annualized = float((equity.iloc[-1] / evidence.initial_cash) ** (252 / len(equity)) - 1)
+        calmar = annualized / abs(max_drawdown) if abs(max_drawdown) > 1e-12 else None
+        previous = equity.shift(1)
+        previous.iloc[0] = evidence.initial_cash
+        returns = equity.div(previous).sub(1)
+        volatility = float(returns.std(ddof=1))
+        sharpe = (
+            float(np.sqrt(252) * returns.mean() / volatility)
+            if np.isfinite(volatility) and volatility > 0 else None
+        )
+        closed_returns = [
+            float(row["net_return"])
+            for row in evidence.trades
+            if str(row["status"]) == "CLOSED"
+        ]
+        wins = [value for value in closed_returns if value > 0]
+        losses = [value for value in closed_returns if value < 0]
+        ratio = (
+            (sum(wins) / len(wins)) / abs(sum(losses) / len(losses))
+            if wins and losses else None
+        )
+        ratio_status = (
+            "NO_CLOSED_TRADES" if not closed_returns else
+            "NO_WINS" if not wins else
+            "NO_LOSSES" if not losses else
+            "VALID"
+        )
+        expected_metrics = {
+            "max_drawdown": max_drawdown,
+            "calmar": calmar,
+            "win_loss_ratio": ratio,
+            "win_loss_ratio_status": ratio_status,
+            "return": total_return,
+            "sharpe": sharpe,
+            "closed_trades": len(closed_returns),
+        }
+        for name, expected in expected_metrics.items():
+            actual = evidence.metrics.get(name)
+            if isinstance(expected, str) or isinstance(expected, int):
+                if actual != expected:
+                    reasons.append("METRIC_MISMATCH")
+            elif expected is None:
+                if actual is not None:
+                    reasons.append("METRIC_MISMATCH")
+            elif actual is None or abs(float(actual) - expected) > tolerance:
+                reasons.append("METRIC_MISMATCH")
+    checks.append("INTRADAY_METRICS")
+    unique_reasons = tuple(dict.fromkeys(reasons))
+    return ReplayAuditResult(
+        status=AuditStatus.PASS if not unique_reasons else AuditStatus.FAIL,
+        evidence_hash=digest,
+        checks=tuple(checks),
+        reason_codes=unique_reasons,
+    )
+
+
 def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAuditResult:
     """Independently recompute causal order, fill, and account invariants."""
     digest = hash_replay_evidence(evidence)
+    if evidence.execution_spec.get("mode") == "CORE_EVENT_INTRADAY_ROTATION":
+        return _audit_intraday_overlay(evidence, digest, tolerance)
     reasons: list[str] = []
     checks: list[str] = []
     spec = evidence.execution_spec

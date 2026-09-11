@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 
+import pandas as pd
 from strategy_evaluator import AuditStatus, audit_replay
 
 from czsc_trader.reporting.publication import publish_run_directory
@@ -18,6 +19,10 @@ from .audit_adapter import build_replay_evidence
 from .chart import render_backtest_chart_html
 from .evidence import build_manifest
 from .execution_replay import replay_account
+from .intraday_overlay_replay import (
+    build_moneyflow_breadth_signals,
+    replay_intraday_overlay,
+)
 from .metrics import calculate_metrics
 from .models import StrategySnapshot
 from .report import render_report
@@ -46,6 +51,21 @@ def _bind_backtest_symbol(
     request: BacktestRequestV2,
 ) -> tuple[StrategySnapshot, dict[str, str]]:
     spec = snapshot.resolved_rule.execution
+    overlay = snapshot.resolved_rule.constituent_moneyflow_intraday
+    if overlay is not None:
+        requested_symbol = request.symbol.upper()
+        reference_symbol = overlay.symbol.upper()
+        if request.asset_type != "etf":
+            raise ValueError("constituent-moneyflow intraday strategy requires an ETF")
+        if requested_symbol != reference_symbol:
+            raise ValueError(
+                "constituent-moneyflow intraday strategy cannot be rebound to another symbol"
+            )
+        return snapshot, {
+            "mode": "native_symbol",
+            "strategy_reference_symbol": reference_symbol,
+            "backtest_symbol": requested_symbol,
+        }
     if spec is None:
         raise ValueError("strategy snapshot has no execution specification")
     requested_symbol = request.symbol.upper()
@@ -85,6 +105,7 @@ def run_backtest_v2(
     request: BacktestRequestV2,
     outputs_root: Path,
     run_date: date,
+    repository_root: Path | None = None,
 ) -> BacktestRunSummary:
     """Run, validate, and atomically publish one immutable replay."""
     if request.dataset != replay_data.dataset:
@@ -95,8 +116,20 @@ def run_backtest_v2(
     if replay_data.adjusted.asset_type != request.asset_type:
         raise ValueError("request asset type differs from loaded replay data")
     applied_snapshot, application = _bind_backtest_symbol(snapshot, request)
-    signals = replay_signals(applied_snapshot, replay_data, request.start, request.end)
-    result = replay_account(signals, replay_data, request.initial_cash)
+    if applied_snapshot.resolved_rule.constituent_moneyflow_intraday is not None:
+        if repository_root is None:
+            raise ValueError("intraday overlay backtest requires a repository root")
+        signals = build_moneyflow_breadth_signals(
+            applied_snapshot,
+            replay_data,
+            repository_root,
+            pd.Timestamp(request.start),
+            pd.Timestamp(request.end),
+        )
+        result = replay_intraday_overlay(signals, replay_data, request.initial_cash)
+    else:
+        signals = replay_signals(applied_snapshot, replay_data, request.start, request.end)
+        result = replay_account(signals, replay_data, request.initial_cash)
     strategy_metrics = calculate_metrics(result, request.initial_cash)
     evidence = build_replay_evidence(
         signals, replay_data, result, request.initial_cash, strategy_metrics

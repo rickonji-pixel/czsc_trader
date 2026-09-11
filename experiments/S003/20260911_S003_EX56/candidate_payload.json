@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "candidate_id": "S003-C001",
+  "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+  "strategy_kind": "constituent_moneyflow_intraday_overlay",
+  "symbol": "510500.SH",
+  "rule": {
+    "symbol": "510500.SH",
+    "data_source": {
+      "path": "experiments/S003/20260911_S003_EX43/artifacts/constituent_moneyflow_panel.csv.gz",
+      "sha256": "c67f3a21e4180751e65733173d2e2072fccc4011ded14c1fa36d0611fa467062"
+    },
+    "feature": {
+      "minimum_observed_weight_ratio": 0.95,
+      "threshold_lookback_sessions": 60,
+      "threshold_quantile": 0.8,
+      "threshold_excludes_current_session": true,
+      "comparison": "GREATER_THAN_OR_EQUAL"
+    },
+    "execution": {
+      "core_fraction": 0.5,
+      "event_fraction": 0.5,
+      "entry_checkpoint": "OPEN",
+      "exit_checkpoint": "11:30_CLOSE",
+      "one_way_cost": 0.00012,
+      "lot_size": 100,
+      "maximum_events_per_day": 1,
+      "t_plus_one_inventory_rotation": true
+    }
+  }
+}

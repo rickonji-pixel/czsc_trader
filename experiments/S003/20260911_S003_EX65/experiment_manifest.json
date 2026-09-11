@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX65",
+  "strategy_id": "S003",
+  "release_id": "S003-v1",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "competing_explanation_label": "BALANCE_OR_OVERLAP_FAILED",
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 288,
+      "sha256": "eafcd59bd2a56408172873b47a0907cd8e43ea2bb7e85ef83ef686a91e927ff2"
+    },
+    "02_design.md": {
+      "bytes": 1040,
+      "sha256": "2f27f47ea48e2ee929412b03a0ebed96e6cad66bc799966987fed78019536708"
+    },
+    "03_execution.md": {
+      "bytes": 211,
+      "sha256": "adc243a1e7dcf03c9caf4a9ae6d825739e052792615cb63690dc6dead2841427"
+    },
+    "04_conclusion.md": {
+      "bytes": 391,
+      "sha256": "45d43b5b843a458c31adbb32e920424170b9b27864be8fe92957ace54bb031d9"
+    },
+    "artifacts/common_support_diagnostics.csv": {
+      "bytes": 581,
+      "sha256": "0cadc2bac91cfc18ff625402b7d62ad231f74ddb899f6b7c09ab414d5c63019d"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1986,
+      "sha256": "29108201376b490f8b404f49b657d89677bad6103de959cdb95ec42ef53f2055"
+    },
+    "artifacts/robustness_summary.json": {
+      "bytes": 880,
+      "sha256": "c52dd34ce7900577d5eb3848018bf229ab7c470322b5a24d302dbd898b27677f"
+    },
+    "run_experiment.py": {
+      "bytes": 18828,
+      "sha256": "a8a9a2fd68a9e90d50637267b04f75d596fd903128c1ad785e760c36ec1bf97d"
+    }
+  }
+}

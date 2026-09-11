@@ -6,6 +6,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import linprog, minimize
+from scipy.special import logsumexp
 
 from czsc_trader.data import load_market_data
 from czsc_trader.experiment_archive import build_experiment_manifest, validate_experiment_archive
@@ -44,7 +46,7 @@ def _design(frame: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
     prior = standardized["prior_return_1d"]
     values = pd.DataFrame(index=frame.index)
     values["prior_return_1d_z"] = prior
-    values["prior_return_1d_z2"] = prior.square()
+    values["prior_return_1d_z2"] = prior.pow(2)
     values["prior_return_1d_z3"] = prior.pow(3)
     for name in CONTINUOUS[1:]:
         values[f"{name}_z"] = standardized[name]
@@ -58,50 +60,80 @@ def _design(frame: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
     return values.to_numpy(dtype=float), list(values.columns)
 
 
-def _dual_objective(x: np.ndarray, target: np.ndarray, coefficient: np.ndarray) -> float:
-    logits = x @ coefficient
-    maximum = float(logits.max())
-    return maximum + float(np.log(np.exp(logits - maximum).mean())) - float(target @ coefficient)
-
-
 def _entropy_weights(frame: pd.DataFrame) -> tuple[np.ndarray, list[str], float]:
     design, names = _design(frame)
     treated = frame["event"].to_numpy(dtype=int).astype(bool)
     controls = ~treated
     target = design[treated].mean(axis=0)
     control = design[controls]
-    coefficient = np.zeros(control.shape[1], dtype=float)
-    gradient_error = float("inf")
-    for _ in range(200):
+    feasibility = linprog(
+        np.zeros(len(control), dtype=float),
+        A_eq=np.vstack([np.ones(len(control), dtype=float), control.T]),
+        b_eq=np.concatenate([[1.0], target]),
+        bounds=(0.0, None),
+        method="highs",
+    )
+    if not feasibility.success:
+        raise ValueError(f"entropy balance has no exact common support: {feasibility.message}")
+    def objective(coefficient: np.ndarray) -> tuple[float, np.ndarray]:
         logits = control @ coefficient
-        logits -= logits.max()
-        weights = np.exp(logits)
-        weights /= weights.sum()
-        mean = weights @ control
-        gradient = mean - target
-        gradient_error = float(np.max(np.abs(gradient)))
-        if gradient_error <= 1e-9:
-            break
-        centered = control - mean
-        hessian = (centered * weights[:, None]).T @ centered
-        step = np.linalg.solve(hessian + np.eye(hessian.shape[0]) * 1e-8, gradient)
-        current = _dual_objective(control, target, coefficient)
-        scale = 1.0
-        while scale >= 1e-6:
-            proposal = coefficient - scale * step
-            if _dual_objective(control, target, proposal) < current:
-                coefficient = proposal
-                break
-            scale *= 0.5
-        else:
-            raise ValueError("entropy balancing line search did not converge")
+        weights = np.exp(logits - logsumexp(logits))
+        value = float(logsumexp(logits) - np.log(len(control)) - target @ coefficient)
+        gradient = control.T @ weights - target
+        return value, gradient
+
+    fitted = minimize(
+        objective,
+        np.zeros(control.shape[1], dtype=float),
+        method="L-BFGS-B",
+        jac=True,
+        options={"maxiter": 2000, "ftol": 1e-14, "gtol": 1e-10, "maxls": 50},
+    )
+    coefficient = fitted.x
+    _, gradient = objective(coefficient)
+    gradient_error = float(np.max(np.abs(gradient)))
     if gradient_error > 1e-6:
-        raise ValueError(f"entropy balancing did not converge: {gradient_error}")
+        raise ValueError(
+            f"entropy balancing did not converge: {fitted.message}; {gradient_error}"
+        )
     logits = control @ coefficient
     logits -= logits.max()
     weights = np.exp(logits)
     weights /= weights.sum()
     return weights, names, gradient_error
+
+
+def _support_diagnostics(frame: pd.DataFrame) -> pd.DataFrame:
+    design, names = _design(frame)
+    treated = frame["event"].to_numpy(dtype=int).astype(bool)
+    control = design[~treated]
+    target = design[treated].mean(axis=0)
+    groups = [
+        ("PRIOR_RETURN_MOMENTS", [name.startswith("prior_return_1d_z") for name in names]),
+        (
+            "PRIOR_RETURN_MOMENTS_AND_DECILES",
+            [name.startswith("prior_return_1d_z") or name.startswith("prior_return_bin_") for name in names],
+        ),
+        ("ALL_PRE_OPEN_STATE", [not name.startswith("year_") for name in names]),
+        ("ALL_FEATURES", [True] * len(names)),
+    ]
+    rows = []
+    for label, mask in groups:
+        indexes = np.flatnonzero(mask)
+        result = linprog(
+            np.zeros(len(control), dtype=float),
+            A_eq=np.vstack([np.ones(len(control), dtype=float), control[:, indexes].T]),
+            b_eq=np.concatenate([[1.0], target[indexes]]),
+            bounds=(0.0, None),
+            method="highs",
+        )
+        rows.append({
+            "constraint_set": label,
+            "constraint_count": int(len(indexes)),
+            "exact_common_support": bool(result.success),
+            "solver_message": str(result.message),
+        })
+    return pd.DataFrame(rows)
 
 
 def _weighted_ks(treated: np.ndarray, controls: np.ndarray, weights: np.ndarray) -> float:
@@ -247,7 +279,69 @@ def main() -> None:
         subset=[*CONTINUOUS, "return_1130"]
     )
 
-    result = _estimate(frame)
+    try:
+        result = _estimate(frame)
+    except ValueError as exc:
+        if "no exact common support" not in str(exc):
+            raise
+        diagnostics = _support_diagnostics(frame)
+        diagnostics.to_csv(artifacts / "common_support_diagnostics.csv", index=False, lineterminator="\n")
+        summary = {
+            "schema_version": 1,
+            "experiment_id": EXPERIMENT_ID,
+            "status": "PASS",
+            "event_count": int(frame["event"].sum()),
+            "non_event_count": int(frame["event"].eq(0).sum()),
+            "competing_explanation_label": "BALANCE_OR_OVERLAP_FAILED",
+            "gates": {
+                "exact_common_support": False,
+                "prior_return_smd": False,
+                "continuous_smd": False,
+                "prior_return_ks": False,
+                "control_ess": False,
+                "maximum_control_weight": False,
+            },
+            "metrics": {
+                "solver_reason": str(exc),
+                "event_prior_return_min": float(frame.loc[frame["event"].eq(1), "prior_return_1d"].min()),
+                "event_prior_return_max": float(frame.loc[frame["event"].eq(1), "prior_return_1d"].max()),
+                "control_prior_return_min": float(frame.loc[frame["event"].eq(0), "prior_return_1d"].min()),
+                "control_prior_return_max": float(frame.loc[frame["event"].eq(0), "prior_return_1d"].max()),
+            },
+            "candidate_changed": False,
+            "sm_changed": False,
+            "pte_changed": False,
+        }
+        _write_json(artifacts / "robustness_summary.json", summary)
+        (experiment / "03_execution.md").write_text(
+            "# S003 EX65 执行\n\n"
+            f"严格熵平衡复核已执行。事件{summary['event_count']}日、非事件"
+            f"{summary['non_event_count']}日；完整事件样本不存在满足预注册约束的非负控制权重，"
+            "因此不计算调整后收益和Bootstrap区间。\n",
+            encoding="utf-8",
+        )
+        (experiment / "04_conclusion.md").write_text(
+            "# S003 EX65 结论\n\n"
+            "竞争解释标签：`BALANCE_OR_OVERLAP_FAILED`。完整事件总体与非事件总体缺少严格共同"
+            "支持，现有开发池无法在保留全部事件的同时分离资金流宽度与短期动量。该结果不证明"
+            "资金流增量不存在，也不支持其已经独立；下一步只能在预先定义的共同支持子样本内估计。"
+            "结果不修改S003-v1。\n",
+            encoding="utf-8",
+        )
+        build_experiment_manifest(experiment, {
+            "experiment_id": EXPERIMENT_ID,
+            "strategy_id": "S003",
+            "release_id": "S003-v1",
+            "symbol": "510500.SH",
+            "development_cutoff": str(cutoff.date()),
+            "status": "PASS",
+            "competing_explanation_label": "BALANCE_OR_OVERLAP_FAILED",
+            "candidate_generation": False,
+            "mutates_strategy_manager": False,
+            "mutates_pte": False,
+        })
+        validate_experiment_archive(experiment)
+        return
     balance = result.pop("balance")
     control_weights = result.pop("control_weights")
     bootstrap = protocol["bootstrap"]

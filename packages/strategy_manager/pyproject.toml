@@ -17,6 +17,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/functional"]
+addopts = "--tb=short -p no:cacheprovider"
 
 [tool.ruff]
 target-version = "py312"

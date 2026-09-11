@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, time
 import math
 import re
 from typing import Any
@@ -71,6 +71,61 @@ class OrderSpec:
 
 
 @dataclass(frozen=True)
+class PlanLegSpec:
+    sequence: int
+    role: str
+    checkpoint: str
+    submit_after: time
+    submit_before: time
+    dependency_sequence: int | None
+    dependency_required_status: str | None
+    order: OrderSpec
+
+    @classmethod
+    def from_payload(cls, payload: object) -> "PlanLegSpec":
+        value = _object(payload, "execution plan leg")
+        sequence = _integer(value.get("sequence"), "execution plan leg sequence")
+        if sequence < 0:
+            raise AdviceContractError("execution plan leg sequence must be non-negative")
+        role = str(value.get("role", ""))
+        checkpoint = str(value.get("checkpoint", ""))
+        allowed = {
+            "CORE_SETUP": "OPEN",
+            "ROTATION_ENTRY": "OPEN",
+            "ROTATION_EXIT": "11:30_CLOSE",
+        }
+        if role not in allowed or checkpoint != allowed[role]:
+            raise AdviceContractError("execution plan leg role or checkpoint is invalid")
+        try:
+            submit_after = time.fromisoformat(str(value["submit_after"]))
+            submit_before = time.fromisoformat(str(value["submit_before"]))
+        except (KeyError, ValueError) as exc:
+            raise AdviceContractError("execution plan times must use ISO format") from exc
+        if submit_after >= submit_before:
+            raise AdviceContractError("execution plan submission window is empty")
+        dependency = value.get("dependency_sequence")
+        if dependency is not None:
+            dependency = _integer(dependency, "execution plan dependency sequence")
+            if dependency < 0 or dependency >= sequence:
+                raise AdviceContractError("execution plan dependency must reference an earlier leg")
+        required_status = value.get("dependency_required_status")
+        required_status = None if required_status is None else str(required_status)
+        if (dependency is None) != (required_status is None):
+            raise AdviceContractError("execution plan dependency status is incomplete")
+        if required_status not in {None, "FILLED_ALL"}:
+            raise AdviceContractError("execution plan dependency must require FILLED_ALL")
+        order = OrderSpec.from_payload(value.get("order"))
+        if role in {"CORE_SETUP", "ROTATION_ENTRY"} and order.side != "BUY":
+            raise AdviceContractError("entry execution plan legs must buy")
+        if role == "ROTATION_EXIT" and order.side != "SELL":
+            raise AdviceContractError("exit execution plan leg must sell")
+        return cls(
+            sequence, role, checkpoint, submit_after, submit_before,
+            dependency, required_status, order,
+        )
+
+
+@dataclass(frozen=True)
 class AdviceDecision:
     contract_version: str
     decision_id: str
@@ -93,6 +148,8 @@ class AdviceDecision:
     estimated_order_cost: float = 0.0
     unallocated_cash: float = 0.0
     source_decision_id: str = ""
+    plan_mode: str = "NONE"
+    plan_legs: tuple[PlanLegSpec, ...] = ()
 
     @classmethod
     def from_cli_payload(cls, payload: object) -> "AdviceDecision":
@@ -101,7 +158,7 @@ class AdviceDecision:
             raise AdviceContractError("advice command failed")
         value = _object(outer.get("result"), "result")
         version = str(value.get("contract_version", ""))
-        if version != "advice.v4":
+        if version not in {"advice.v4", "advice.v5"}:
             raise AdviceContractError(f"unsupported advice contract version: {version}")
         try:
             signal_date = date.fromisoformat(str(value["signal_date"]))
@@ -124,14 +181,50 @@ class AdviceDecision:
             raise AdviceContractError("orders must be a list")
         orders = tuple(OrderSpec.from_payload(item) for item in orders_value)
         action = str(value.get("action", ""))
-        if (delta == 0) != (len(orders) == 0):
-            raise AdviceContractError("orders presence does not match quantity delta")
-        if orders:
-            expected_side = "BUY" if delta > 0 else "SELL"
-            if any(item.side != expected_side for item in orders) or sum(item.quantity for item in orders) != abs(delta) or action != expected_side:
-                raise AdviceContractError("order does not match action and quantity delta")
-        if (len(orders) == 1 and order != orders[0]) or (len(orders) != 1 and order is not None):
-            raise AdviceContractError("order shortcut does not match orders")
+        plan_mode = str(value.get("plan_mode", "NONE"))
+        plan_value = value.get("plan_legs", [])
+        if not isinstance(plan_value, list):
+            raise AdviceContractError("plan_legs must be a list")
+        plan_legs = tuple(PlanLegSpec.from_payload(item) for item in plan_value)
+        if tuple(item.sequence for item in plan_legs) != tuple(range(len(plan_legs))):
+            raise AdviceContractError("execution plan leg sequences must be contiguous")
+        if version == "advice.v4":
+            if plan_mode != "NONE" or plan_legs:
+                raise AdviceContractError("advice.v4 cannot contain an execution plan")
+            if (delta == 0) != (len(orders) == 0):
+                raise AdviceContractError("orders presence does not match quantity delta")
+            if orders:
+                expected_side = "BUY" if delta > 0 else "SELL"
+                if any(item.side != expected_side for item in orders) or sum(item.quantity for item in orders) != abs(delta) or action != expected_side:
+                    raise AdviceContractError("order does not match action and quantity delta")
+            if (len(orders) == 1 and order != orders[0]) or (len(orders) != 1 and order is not None):
+                raise AdviceContractError("order shortcut does not match orders")
+        else:
+            if orders or order is not None:
+                raise AdviceContractError("advice.v5 planned decisions cannot contain immediate orders")
+            if plan_mode == "NONE":
+                if plan_legs or action not in {"HOLD", "WAIT"} or delta != 0:
+                    raise AdviceContractError("empty execution plan must be a zero-delta hold")
+            elif plan_mode == "CORE_SETUP":
+                if (
+                    action != "BUY" or delta <= 0 or len(plan_legs) != 1
+                    or plan_legs[0].role != "CORE_SETUP"
+                    or plan_legs[0].order.quantity != delta
+                    or plan_legs[0].dependency_sequence is not None
+                ):
+                    raise AdviceContractError("core setup execution plan is inconsistent")
+            elif plan_mode == "CORE_EVENT_INTRADAY_ROTATION":
+                if (
+                    action != "ROTATE" or delta != 0 or len(plan_legs) != 2
+                    or tuple(item.role for item in plan_legs)
+                    != ("ROTATION_ENTRY", "ROTATION_EXIT")
+                    or plan_legs[1].dependency_sequence != 0
+                    or plan_legs[1].dependency_required_status != "FILLED_ALL"
+                    or plan_legs[0].order.quantity != plan_legs[1].order.quantity
+                ):
+                    raise AdviceContractError("intraday rotation execution plan is inconsistent")
+            else:
+                raise AdviceContractError("unsupported execution plan mode")
         strategy = _object(value.get("strategy"), "strategy")
         expected_strategy_fields = {
             "strategy_id",
@@ -205,4 +298,6 @@ class AdviceDecision:
             estimated_order_cost=estimated_cost,
             unallocated_cash=unallocated_cash,
             source_decision_id=str(value.get("decision_id", "")),
+            plan_mode=plan_mode,
+            plan_legs=plan_legs,
         )

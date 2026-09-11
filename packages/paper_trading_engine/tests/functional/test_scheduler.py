@@ -122,8 +122,14 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
         )
 
     cli_store.accounts = [
-        {"symbol": "588080.SH", "asset_type": "etf", "status": "RUNNING"},
-        {"symbol": "510500.SH", "asset_type": "etf", "status": "RUNNING"},
+        {
+            "symbol": "588080.SH", "asset_type": "etf", "status": "RUNNING",
+            "strategy_id": "S001", "strategy_version": "v1",
+        },
+        {
+            "symbol": "510500.SH", "asset_type": "etf", "status": "RUNNING",
+            "strategy_id": "S003", "strategy_version": "v1",
+        },
     ]
     multi = AccountDataPublisher(
         store=cli_store,
@@ -138,9 +144,16 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
     published_symbols = [
         args[args.index("--symbol") + 1]
         for args in calls
+        if "--symbol" in args
     ]
     assert published_symbols == ["510500.SH", "588080.SH"]
     assert [item["symbol"] for item in multi_result["instruments"]] == published_symbols
+    support_releases = [
+        (args[args.index("--strategy") + 1], args[args.index("--strategy-version") + 1])
+        for args in calls
+        if "prepare-strategy-support" in args
+    ]
+    assert support_releases == [("S001", "v1"), ("S003", "v1")]
 
 
 def test_ft_pte04_failed_account_batch_is_not_marked_complete():

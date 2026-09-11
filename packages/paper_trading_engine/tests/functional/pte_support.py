@@ -43,10 +43,10 @@ def decision(order: OrderSpec | None = None) -> AdviceDecision:
     )
 
 
-def broker_snapshot(*, orders=(), quantity=0) -> BrokerSnapshot:
+def broker_snapshot(*, orders=(), quantity=0, symbol="588080.SH") -> BrokerSnapshot:
     from paper_trading_engine.broker import BrokerPosition
 
-    positions = () if quantity == 0 else (BrokerPosition("588080.SH", quantity),)
+    positions = () if quantity == 0 else (BrokerPosition(symbol, quantity),)
     return BrokerSnapshot(
         BrokerAccount("SIMULATE", "CN", 1_000_000, 1_000_000, 0),
         positions,

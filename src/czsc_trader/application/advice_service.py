@@ -10,6 +10,7 @@ import json
 import pandas as pd
 
 from czsc_trader.baselines import ResolvedBaseline, resolve_strategy_payload
+from czsc_trader.constituent_moneyflow_runtime import latest_breadth_signal
 from czsc_trader.data import load_execution_manifest, load_execution_prices, load_market_data
 from czsc_trader.execution_policies import ResolvedExecutionPolicy
 from czsc_trader.execution_policy import floor_to_tick, round_to_tick
@@ -332,6 +333,146 @@ def build_advice_v4(
     }
 
 
+def build_intraday_overlay_advice_v5(
+    *,
+    strategy: dict[str, object],
+    baseline: ResolvedBaseline,
+    signal_date: pd.Timestamp,
+    valid_session: pd.Timestamp,
+    signal_close: float,
+    actual_quantity: int,
+    available_cash: float,
+    cycle_target_quantity: int | None,
+    event_triggered: bool,
+) -> dict[str, object]:
+    """Build a durable open-entry/11:30-exit plan for the S003 overlay contract."""
+    spec = baseline.constituent_moneyflow_intraday
+    if spec is None or baseline.strategy != "constituent_moneyflow_intraday_overlay":
+        raise ValueError("intraday overlay advice requires a complete overlay strategy")
+    if actual_quantity < 0 or actual_quantity % spec.lot_size:
+        raise ValueError("intraday overlay actual quantity violates lot size")
+    signal_day = pd.Timestamp(signal_date).normalize()
+    valid_day = pd.Timestamp(valid_session).normalize()
+    if valid_day <= signal_day:
+        raise ValueError("intraday overlay valid session must follow signal date")
+    fee_rate = Decimal("0.0005")
+    cash = Decimal(str(available_cash))
+    if cash < 0:
+        raise ValueError("intraday overlay available cash must be non-negative")
+    # OPEN is implemented as a strategy-owned marketable limit. PTE passes this exact
+    # value to Futu with adjust_limit disabled; the broker never invents the price.
+    buy_limit = Decimal(str(floor_to_tick(float(signal_close) * 1.10, 0.001)))
+
+    def affordable(budget: Decimal) -> int:
+        raw = int(budget / (buy_limit * (Decimal("1") + fee_rate)))
+        return raw // spec.lot_size * spec.lot_size
+
+    plan_mode = "NONE"
+    action = "HOLD"
+    target_quantity = actual_quantity
+    cycle_target = cycle_target_quantity or 0
+    plan_legs: list[dict[str, object]] = []
+    reserve = Decimal("0")
+    if cycle_target_quantity is None:
+        if actual_quantity != 0:
+            raise ValueError("intraday overlay core identity is missing for a non-flat account")
+        core_quantity = affordable(cash * Decimal(str(spec.core_fraction)))
+        if core_quantity <= 0:
+            raise ValueError("intraday overlay account cannot afford one core lot")
+        target_quantity = core_quantity
+        cycle_target = core_quantity
+        action = "BUY"
+        plan_mode = "CORE_SETUP"
+        reserve = buy_limit * core_quantity * (Decimal("1") + fee_rate)
+        plan_legs = [{
+            "sequence": 0,
+            "role": "CORE_SETUP",
+            "checkpoint": "OPEN",
+            "submit_after": "09:30:00",
+            "submit_before": "09:35:00",
+            "dependency_sequence": None,
+            "dependency_required_status": None,
+            "order": {
+                "side": "BUY", "quantity": core_quantity, "order_type": "LIMIT",
+                "limit_price": float(buy_limit), "time_in_force": "DAY",
+            },
+        }]
+    else:
+        if cycle_target_quantity <= 0 or cycle_target_quantity % spec.lot_size:
+            raise ValueError("intraday overlay core quantity is invalid")
+        if actual_quantity != cycle_target_quantity:
+            raise ValueError("intraday overlay account differs from its settled core quantity")
+        if event_triggered:
+            event_quantity = min(cycle_target_quantity, affordable(cash))
+            if event_quantity <= 0:
+                raise ValueError("intraday overlay event cash cannot afford one lot")
+            action = "ROTATE"
+            plan_mode = "CORE_EVENT_INTRADAY_ROTATION"
+            reserve = buy_limit * event_quantity * (Decimal("1") + fee_rate)
+            plan_legs = [
+                {
+                    "sequence": 0,
+                    "role": "ROTATION_ENTRY",
+                    "checkpoint": "OPEN",
+                    "submit_after": "09:30:00",
+                    "submit_before": "09:35:00",
+                    "dependency_sequence": None,
+                    "dependency_required_status": None,
+                    "order": {
+                        "side": "BUY", "quantity": event_quantity,
+                        "order_type": "LIMIT", "limit_price": float(buy_limit),
+                        "time_in_force": "DAY",
+                    },
+                },
+                {
+                    "sequence": 1,
+                    "role": "ROTATION_EXIT",
+                    "checkpoint": "11:30_CLOSE",
+                    "submit_after": "11:29:00",
+                    "submit_before": "11:30:00",
+                    "dependency_sequence": 0,
+                    "dependency_required_status": "FILLED_ALL",
+                    "order": {
+                        "side": "SELL", "quantity": event_quantity,
+                        "order_type": "MARKET", "limit_price": float(signal_close),
+                        "time_in_force": "DAY",
+                    },
+                },
+            ]
+    delta = target_quantity - actual_quantity
+    identity = {
+        "contract_version": "advice.v5",
+        "symbol": spec.symbol,
+        "signal_date": str(signal_day.date()),
+        "valid_session": str(valid_day.date()),
+        "actual_quantity": actual_quantity,
+        "cycle_target_quantity": cycle_target,
+        "target_quantity": target_quantity,
+        "strategy": {
+            "strategy_id": strategy["strategy_id"],
+            "version": strategy["version"],
+            "release_hash": strategy["release_hash"],
+        },
+        "plan_mode": plan_mode,
+        "plan_legs": plan_legs,
+    }
+    return {
+        **identity,
+        "decision_id": _decision_id(identity),
+        "delta_quantity": delta,
+        "action": action,
+        "strategy": dict(strategy),
+        "signal_reference_price": float(signal_close),
+        "execution_reference_price": float(signal_close),
+        "order": None,
+        "orders": [],
+        "available_cash": float(cash),
+        "fee_rate": float(fee_rate),
+        "estimated_order_cost": float(reserve.quantize(Decimal("0.0001"))),
+        "unallocated_cash": float((cash - reserve).quantize(Decimal("0.0001"))),
+    }
+
+
 def build_advice(
     *,
     signal_date: pd.Timestamp,
@@ -451,29 +592,61 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
             index=pd.DatetimeIndex(pd.to_datetime(data.daily["dt"]), name="dt"),
             name="close",
         )
-        applied = apply_resolved_strategy(data, baseline)
         signal_date = pd.Timestamp(close.index[-1])
         execution_rows = execution_prices.loc[execution_prices["dt"].eq(signal_date)]
         if len(execution_rows) != 1:
             raise ValueError(
                 f"execution price must contain exactly one row for {signal_date.date()}"
             )
-        advice = build_advice_v4(
-            strategy=strategy_identity,
-            baseline=baseline,
-            signal_date=signal_date,
-            valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
-            signal_close=float(close.loc[signal_date]),
-            execution_close=float(execution_rows.iloc[0]["close"]),
-            target_position=int(applied.target_position.loc[signal_date]),
-            actual_quantity=request.actual_quantity,
-            available_cash=float(request.available_cash),
-            cycle_target_quantity=request.cycle_target_quantity,
-        )
+        if baseline.strategy == "constituent_moneyflow_intraday_overlay":
+            spec = baseline.constituent_moneyflow_intraday
+            if spec is None:
+                raise ValueError("intraday overlay strategy specification is missing")
+            triggered, breadth, threshold, coverage = latest_breadth_signal(
+                context.raw_dir,
+                str(strategy_identity["release_id"]),
+                spec,
+                signal_date,
+            )
+            advice = build_intraday_overlay_advice_v5(
+                strategy=strategy_identity,
+                baseline=baseline,
+                signal_date=signal_date,
+                valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
+                signal_close=float(close.loc[signal_date]),
+                actual_quantity=request.actual_quantity,
+                available_cash=float(request.available_cash),
+                cycle_target_quantity=request.cycle_target_quantity,
+                event_triggered=triggered,
+            )
+            factor_score = breadth
+            feature_evidence = {
+                "moneyflow_breadth": breadth,
+                "prior_threshold": threshold,
+                "observed_weight_ratio": coverage,
+                "event_triggered": triggered,
+            }
+        else:
+            applied = apply_resolved_strategy(data, baseline)
+            advice = build_advice_v4(
+                strategy=strategy_identity,
+                baseline=baseline,
+                signal_date=signal_date,
+                valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
+                signal_close=float(close.loc[signal_date]),
+                execution_close=float(execution_rows.iloc[0]["close"]),
+                target_position=int(applied.target_position.loc[signal_date]),
+                actual_quantity=request.actual_quantity,
+                available_cash=float(request.available_cash),
+                cycle_target_quantity=request.cycle_target_quantity,
+            )
+            factor_score = float(applied.scores.loc[signal_date])
+            feature_evidence = None
         result = {
             **advice,
             "data_cutoff": str(signal_date.date()),
-            "factor_score": float(applied.scores.loc[signal_date]),
+            "factor_score": factor_score,
+            **({"feature_evidence": feature_evidence} if feature_evidence else {}),
             "confirmation_rule": "未收到明确成交回报时，实际持仓数量保持不变。",
             "scope": "机器可读交易决策；订单执行由独立运行引擎负责。",
         }

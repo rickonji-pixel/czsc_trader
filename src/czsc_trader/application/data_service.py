@@ -29,6 +29,13 @@ class UpdateBacktestDataCommand:
     through: date
 
 
+@dataclass(frozen=True)
+class PrepareStrategySupportCommand:
+    strategy_id: str
+    strategy_version: str
+    through: date
+
+
 def _assert_append_only(
     current: Path,
     proposed: Path,
@@ -202,6 +209,66 @@ def prepare_data(
         command="data.prepare",
         result=summary,
         artifacts={"manifest": summary["manifest"]},
+    )
+
+
+def prepare_strategy_support_data(
+    context: RepositoryContext,
+    request: PrepareStrategySupportCommand,
+) -> CommandResult:
+    """Publish extra point-in-time inputs required by one deployable strategy release."""
+    from strategy_manager import StrategyRegistry
+
+    from czsc_trader.baselines import resolve_strategy_payload
+    from czsc_trader.constituent_moneyflow_runtime import publish_support_data
+
+    try:
+        registry = StrategyRegistry(context.strategy_root)
+        release = registry.resolve_strategy(request.strategy_id, request.strategy_version)
+        registry.assert_deployable(release.strategy_id, release.version, "PAPER")
+        if release.release_hash is None:
+            raise ValueError("deployable strategy version must have a release hash")
+        resolved = resolve_strategy_payload(
+            context.strategy_dependency_root,
+            release.strategy_payload,
+            release_id=release.release_id,
+            release_hash=release.release_hash,
+            repository_root=context.root,
+        )
+        if resolved.strategy != "constituent_moneyflow_intraday_overlay":
+            result = {
+                "release_id": release.release_id,
+                "data_cutoff": request.through.isoformat(),
+                "support_required": False,
+            }
+        else:
+            spec = resolved.constituent_moneyflow_intraday
+            if spec is None:
+                raise ValueError("intraday overlay strategy support specification is missing")
+            result = {
+                **publish_support_data(
+                    context.root,
+                    context.raw_dir,
+                    release.release_id,
+                    spec,
+                    request.through.isoformat(),
+                ),
+                "support_required": True,
+            }
+    except Exception as exc:
+        raise ValidationError(
+            "strategy_support_data_preparation_failed",
+            str(exc),
+            context={
+                "strategy": request.strategy_id,
+                "strategy_version": request.strategy_version,
+                "through": request.through.isoformat(),
+            },
+        ) from exc
+    return CommandResult(
+        status="PASS",
+        command="data.prepare-strategy-support",
+        result=result,
     )
 
 

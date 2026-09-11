@@ -1238,6 +1238,211 @@ class PaperStore:
             ).fetchone()
         return self._account_intent_row(row)
 
+    def create_account_plan_intents(
+        self, *, account_id: str, decision_id: str, symbol: str,
+        valid_session: str, fee_rate, legs: list[dict[str, object]],
+        audit_events: list[AuditEvent] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Atomically persist every leg of one durable dependent execution plan."""
+        from decimal import Decimal
+
+        if not legs:
+            return []
+        sequences = [int(leg["sequence"]) for leg in legs]
+        if sequences != list(range(len(legs))):
+            raise ValueError("plan leg sequences must be contiguous")
+        if audit_events is not None and len(audit_events) != len(legs):
+            raise ValueError("plan audit event count differs from plan legs")
+        fee = Decimal(str(fee_rate))
+        now = _utc_now()
+        intent_ids = {
+            sequence: "PTE-" + hashlib.sha256(
+                f"{account_id}\0{decision_id}\0{sequence}".encode("utf-8")
+            ).hexdigest()[:20].upper()
+            for sequence in sequences
+        }
+        with self._lock, self._connection:
+            existing = self._connection.execute(
+                "SELECT * FROM intents WHERE account_id=? AND decision_id=? "
+                "ORDER BY order_sequence",
+                (account_id, decision_id),
+            ).fetchall()
+            if existing:
+                if len(existing) != len(legs):
+                    raise ValueError("stored execution plan is incomplete")
+                rows = [self._account_intent_row(row) for row in existing]
+                expected = [
+                    {
+                        "sequence": int(leg["sequence"]),
+                        "side": str(leg["side"]).upper(),
+                        "quantity": int(leg["quantity"]),
+                        "order_type": str(leg["order_type"]).upper(),
+                        "limit_price": str(
+                            Decimal(str(leg["limit_price"])).quantize(Decimal("0.0001"))
+                        ),
+                        "submit_after": str(leg["submit_after"]),
+                        "submit_before": str(leg["submit_before"]),
+                        "dependency_intent_id": (
+                            None
+                            if leg.get("dependency_sequence") is None
+                            else intent_ids[int(leg["dependency_sequence"])]
+                        ),
+                    }
+                    for leg in legs
+                ]
+                actual = [
+                    {
+                        "sequence": int(row["order_sequence"]),
+                        "side": row["side"],
+                        "quantity": int(row["quantity"]),
+                        "order_type": str(row["payload"].get("order_type")),
+                        "limit_price": row["limit_price"],
+                        "submit_after": row["payload"].get("submit_after"),
+                        "submit_before": row["payload"].get("submit_before"),
+                        "dependency_intent_id": row["payload"].get("dependency_intent_id"),
+                    }
+                    for row in rows
+                ]
+                if actual != expected:
+                    raise ValueError("existing execution plan differs from idempotent request")
+                return rows
+
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+            if account is None:
+                raise KeyError(account_id)
+            if account["channel_id"] != "futu":
+                raise ValueError("account execution channel must be futu")
+            buy_reserve = Decimal("0")
+            planned_sell = 0
+            normalized: list[dict[str, object]] = []
+            for leg in legs:
+                sequence = int(leg["sequence"])
+                side = str(leg["side"]).upper()
+                order_type = str(leg["order_type"]).upper()
+                quantity = int(leg["quantity"])
+                price = Decimal(str(leg["limit_price"])).quantize(Decimal("0.0001"))
+                dependency_sequence = leg.get("dependency_sequence")
+                if side not in {"BUY", "SELL"}:
+                    raise ValueError("plan intent side must be BUY or SELL")
+                if (side, order_type) not in {("BUY", "LIMIT"), ("SELL", "MARKET")}:
+                    raise ValueError("plan buys must be LIMIT and plan sells must be MARKET")
+                if quantity <= 0 or quantity % 100:
+                    raise ValueError("plan intent quantity must use positive 100-share lots")
+                if price <= 0:
+                    raise ValueError("plan intent price must be positive")
+                if dependency_sequence is not None:
+                    dependency_sequence = int(dependency_sequence)
+                    if dependency_sequence < 0 or dependency_sequence >= sequence:
+                        raise ValueError("plan dependency must reference an earlier leg")
+                if str(leg.get("submit_after", "")) >= str(leg.get("submit_before", "")):
+                    raise ValueError("plan submission window is empty")
+                if side == "BUY":
+                    buy_reserve += price * quantity * (Decimal("1") + fee)
+                else:
+                    planned_sell += quantity
+                normalized.append({
+                    **leg,
+                    "sequence": sequence,
+                    "side": side,
+                    "order_type": order_type,
+                    "quantity": quantity,
+                    "limit_price": str(price),
+                    "dependency_sequence": dependency_sequence,
+                })
+            buy_reserve = buy_reserve.quantize(Decimal("0.0001"))
+            cash = Decimal(account["cash"])
+            if buy_reserve > cash:
+                raise ValueError("execution plan buy legs exceed account cash")
+            reserved_rows = self._connection.execute(
+                "SELECT i.quantity,COALESCE(o.cumulative_filled_quantity,0) AS filled "
+                "FROM intents i LEFT JOIN orders o ON o.intent_id=i.intent_id "
+                "WHERE i.account_id=? AND i.side='SELL' AND i.status NOT IN "
+                "('REJECTED','SUBMISSION_FAILED','SUBMIT_FAILED','EXPIRED',"
+                "'CANCELLED_ALL','FAILED','DISABLED','DELETED','FILL_CANCELLED','FILLED_ALL')",
+                (account_id,),
+            ).fetchall()
+            reserved_sell = sum(
+                max(0, int(row["quantity"]) - int(row["filled"])) for row in reserved_rows
+            )
+            if reserved_sell + planned_sell > int(account["quantity"]):
+                raise ValueError("execution plan sell legs exceed available position")
+            self._connection.execute(
+                "UPDATE virtual_accounts SET cash=?,frozen_cash=?,updated_at=? WHERE account_id=?",
+                (
+                    str((cash - buy_reserve).quantize(Decimal("0.0001"))),
+                    str((Decimal(account["frozen_cash"]) + buy_reserve).quantize(Decimal("0.0001"))),
+                    now,
+                    account_id,
+                ),
+            )
+            running_cash = cash
+            for leg in normalized:
+                sequence = int(leg["sequence"])
+                dependency_sequence = leg.get("dependency_sequence")
+                dependency_id = (
+                    None
+                    if dependency_sequence is None
+                    else intent_ids[int(dependency_sequence)]
+                )
+                status = "PENDING_SUBMIT" if dependency_id is None else "WAITING_DEPENDENCY"
+                payload = {
+                    "account_id": account_id,
+                    "decision_id": decision_id,
+                    "order_sequence": sequence,
+                    "channel_id": "futu",
+                    "symbol": symbol.upper(),
+                    "side": leg["side"],
+                    "quantity": leg["quantity"],
+                    "limit_price": leg["limit_price"],
+                    "valid_session": valid_session,
+                    "fee_rate": str(fee),
+                    "order_type": leg["order_type"],
+                    "plan_mode": str(leg["plan_mode"]),
+                    "role": str(leg["role"]),
+                    "checkpoint": str(leg["checkpoint"]),
+                    "submit_after": str(leg["submit_after"]),
+                    "submit_before": str(leg["submit_before"]),
+                    "dependency_intent_id": dependency_id,
+                    "dependency_required_status": leg.get("dependency_required_status"),
+                }
+                self._connection.execute(
+                    "INSERT INTO intents(intent_id,account_id,decision_id,order_sequence,channel_id,"
+                    "symbol,side,quantity,limit_price,valid_session,payload,status,created_at,updated_at) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        intent_ids[sequence], account_id, decision_id, sequence, "futu",
+                        symbol.upper(), leg["side"], leg["quantity"], leg["limit_price"],
+                        valid_session, json.dumps(payload, ensure_ascii=False), status, now, now,
+                    ),
+                )
+                if leg["side"] == "BUY":
+                    reserve = (
+                        Decimal(str(leg["limit_price"])) * int(leg["quantity"])
+                        * (Decimal("1") + fee)
+                    ).quantize(Decimal("0.0001"))
+                    running_cash -= reserve
+                    self._connection.execute(
+                        "INSERT INTO account_ledger(ledger_entry_id,account_id,entry_type,order_id,"
+                        "fill_id,cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,"
+                        "quantity_after,occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (
+                            str(uuid5(NAMESPACE_URL, f"pte-reserve:{intent_ids[sequence]}")),
+                            account_id, "INTENT_RESERVE", None, None, str(-reserve), str(reserve),
+                            0, "0.0000", str(running_cash.quantize(Decimal("0.0001"))),
+                            int(account["quantity"]), now,
+                        ),
+                    )
+            for event in audit_events or []:
+                self._insert_audit_event(event)
+            rows = self._connection.execute(
+                "SELECT * FROM intents WHERE account_id=? AND decision_id=? "
+                "ORDER BY order_sequence",
+                (account_id, decision_id),
+            ).fetchall()
+        return [self._account_intent_row(row) for row in rows]
+
     def save_account_decision(self, account_id: str, payload: dict[str, object]) -> dict[str, Any]:
         decision_id = str(payload["decision_id"])
         signal_date = str(payload["signal_date"])
@@ -1245,6 +1450,10 @@ class PaperStore:
         now = _utc_now()
         encoded = json.dumps(payload, ensure_ascii=False, default=str)
         cycle_target = int(payload.get("cycle_target_quantity") or 0) or None
+        if payload.get("plan_mode") == "CORE_SETUP":
+            # A core identity exists only after the setup order is fully filled.
+            # The planned quantity remains available in the immutable decision payload.
+            cycle_target = None
         with self._lock, self._connection:
             existing = self._connection.execute(
                 "SELECT payload FROM decisions WHERE account_id=? AND decision_id=?",
@@ -1343,6 +1552,23 @@ class PaperStore:
                 "ORDER BY account_id,decision_id,order_sequence"
             ).fetchall()
         return [self._account_intent_row(row) for row in rows]
+
+    def waiting_dependency_intents(self) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT * FROM intents WHERE status='WAITING_DEPENDENCY' "
+                "ORDER BY account_id,decision_id,order_sequence"
+            ).fetchall()
+        return [self._account_intent_row(row) for row in rows]
+
+    def activate_dependency_intent(self, intent_id: str) -> bool:
+        with self._lock, self._connection:
+            changed = self._connection.execute(
+                "UPDATE intents SET status='PENDING_SUBMIT',updated_at=? "
+                "WHERE intent_id=? AND status='WAITING_DEPENDENCY'",
+                (_utc_now(), intent_id),
+            ).rowcount
+        return bool(changed)
 
     def unresolved_account_intents(
         self, account_id: str | None = None,
@@ -1712,12 +1938,20 @@ class PaperStore:
             total_assets = (
                 cash + frozen + Decimal(quantity) * incremental_price
             ).quantize(Decimal("0.0001"))
+            cycle_target = account["cycle_target"]
+            if (
+                intent_payload.get("role") == "CORE_SETUP"
+                and cumulative_quantity == int(intent["quantity"])
+            ):
+                if old_quantity != 0:
+                    raise ValueError("core setup fill requires an initially flat account")
+                cycle_target = quantity
             self._connection.execute(
                 "UPDATE virtual_accounts SET cash=?,frozen_cash=?,quantity=?,average_cost=?,"
-                "realized_pnl=?,total_assets=?,updated_at=? WHERE account_id=?",
+                "realized_pnl=?,total_assets=?,cycle_target=?,updated_at=? WHERE account_id=?",
                 (
                     str(cash), str(frozen), quantity, str(cost), str(realized),
-                    str(total_assets), _utc_now(), order["account_id"],
+                    str(total_assets), cycle_target, _utc_now(), order["account_id"],
                 ),
             )
             order_payload["cumulative_filled_quantity"] = cumulative_quantity

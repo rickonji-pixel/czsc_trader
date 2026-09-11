@@ -134,6 +134,115 @@ class FutuExecution:
                 details={"reason": "transient_order_state_resolved"},
             )
 
+    @staticmethod
+    def _planned_clock(intent, field: str) -> time | None:
+        value = intent["payload"].get(field)
+        return None if value is None else time.fromisoformat(str(value))
+
+    def _expire_planned_intent(self, intent, message: str) -> None:
+        self.store.release_account_intent(
+            intent["intent_id"], "EXPIRED", attention_reason=message,
+        )
+        self.store.set_virtual_health(intent["account_id"], "BLOCKED", message)
+        self.audit.record(
+            "EXECUTION_PLAN_BLOCKED", source="futu_execution", outcome="FAILURE",
+            account_id=intent["account_id"], channel="futu",
+            decision_id=intent["decision_id"], correlation_id=intent["decision_id"],
+            details={
+                "intent_id": intent["intent_id"],
+                "role": intent["payload"].get("role"),
+                "reason": message,
+            },
+        )
+
+    def _activate_dependency_intents(self, moment: datetime) -> None:
+        local = moment.astimezone(SHANGHAI)
+        session = local.date().isoformat()
+        clock = local.time().replace(tzinfo=None)
+        for intent in self.store.waiting_dependency_intents():
+            if intent["valid_session"] < session:
+                self._expire_planned_intent(intent, "依赖订单未在计划交易日完成")
+                continue
+            if intent["valid_session"] > session:
+                continue
+            deadline = self._planned_clock(intent, "submit_before")
+            if deadline is not None and clock > deadline:
+                self._expire_planned_intent(intent, "依赖订单未在计划退出截止前完成")
+                continue
+            dependency_id = intent["payload"].get("dependency_intent_id")
+            dependency = self.store.account_intent(str(dependency_id))
+            if dependency is None:
+                self._block_reconciliation(
+                    "plan_dependency_missing",
+                    f"执行计划依赖意图不存在: {dependency_id}",
+                    intent=intent,
+                )
+            required = intent["payload"].get("dependency_required_status")
+            if dependency["status"] == required:
+                if self.store.activate_dependency_intent(intent["intent_id"]):
+                    self.audit.record(
+                        "EXECUTION_PLAN_LEG_READY", source="futu_execution",
+                        account_id=intent["account_id"], channel="futu",
+                        decision_id=intent["decision_id"],
+                        correlation_id=intent["decision_id"],
+                        details={
+                            "intent_id": intent["intent_id"],
+                            "dependency_intent_id": dependency_id,
+                            "role": intent["payload"].get("role"),
+                        },
+                    )
+            elif dependency["status"] in TERMINAL_INTENT_STATUSES:
+                self._expire_planned_intent(
+                    intent,
+                    f"依赖订单未完整成交（{dependency['status']}），计划退出不得执行",
+                )
+
+    def _cancel_expired_planned_orders(self, moment: datetime) -> None:
+        local = moment.astimezone(SHANGHAI)
+        session = local.date().isoformat()
+        clock = local.time().replace(tzinfo=None)
+        cancellable = {
+            "UNSUBMITTED", "WAITING_SUBMIT", "SUBMITTED", "FILLED_PART",
+        }
+        for intent in self.store.account_intents():
+            deadline = self._planned_clock(intent, "submit_before")
+            if (
+                deadline is None
+                or intent["valid_session"] != session
+                or clock <= deadline
+                or intent["status"] not in cancellable
+                or not intent.get("channel_order_id")
+            ):
+                continue
+            account = self.store.virtual_account(intent["account_id"])
+            try:
+                self.broker.cancel_order(intent["channel_order_id"])
+            except Exception as exc:
+                self.store.set_virtual_health(
+                    intent["account_id"], "BLOCKED",
+                    "计划订单到期但撤单结果不确定，等待渠道对账",
+                )
+                self.audit.record(
+                    "CANCEL_FAILED", source="futu_execution", outcome="FAILURE",
+                    account_id=intent["account_id"], channel="futu",
+                    decision_id=intent["decision_id"],
+                    order_id=intent["channel_order_id"],
+                    correlation_id=intent["decision_id"],
+                    details={"reason": "planned_deadline", "error": str(exc)},
+                )
+                raise
+            self.store.update_account_intent_status(intent["intent_id"], "CANCELLING_ALL")
+            self.audit.record(
+                "CANCEL_REQUESTED", source="futu_execution",
+                account_id=intent["account_id"], channel="futu",
+                strategy_id=account["strategy_id"],
+                strategy_version=account["strategy_version"],
+                release_hash=account["release_hash"],
+                decision_id=intent["decision_id"], order_id=intent["channel_order_id"],
+                correlation_id=intent["decision_id"],
+                details={"reason": "planned_deadline", "deadline": deadline.isoformat()},
+            )
+
     def _reconcile_broker_fees(self) -> None:
         """Correct estimated fees from aggregate Futu cash when ownership is unambiguous."""
         if self._snapshot is None:
@@ -394,10 +503,11 @@ class FutuExecution:
                         "cumulative_quantity": order.cumulative_filled_quantity,
                     },
                 )
+        self._cancel_expired_planned_orders(self.now())
         missing = [
             row for row in self.store.account_intents()
             if row["status"] not in TERMINAL_INTENT_STATUSES
-            and row["status"] != "PENDING_SUBMIT"
+            and row["status"] not in {"PENDING_SUBMIT", "WAITING_DEPENDENCY"}
             and row["intent_id"] not in seen_intents
         ]
         if missing:
@@ -496,6 +606,7 @@ class FutuExecution:
         if moment.tzinfo is None:
             raise ValueError("submission clock must be timezone-aware")
         session = moment.astimezone(SHANGHAI).date().isoformat()
+        self._activate_dependency_intents(moment)
         for row in self.store.pending_account_intents():
             account = self.store.virtual_account(row["account_id"])
             if (
@@ -517,7 +628,17 @@ class FutuExecution:
                     details={"intent_id": row["intent_id"], "valid_session": row["valid_session"]},
                 )
                 continue
-            if row["valid_session"] != session or not is_submission_window(moment):
+            local_clock = moment.astimezone(SHANGHAI).time().replace(tzinfo=None)
+            submit_after = self._planned_clock(row, "submit_after")
+            submit_before = self._planned_clock(row, "submit_before")
+            if submit_before is not None and local_clock > submit_before:
+                self._expire_planned_intent(row, "计划订单错过提交截止时间")
+                continue
+            if (
+                row["valid_session"] != session
+                or (submit_after is not None and local_clock < submit_after)
+                or not is_submission_window(moment)
+            ):
                 continue
             if not self.store.claim_account_intent(row["intent_id"]):
                 continue

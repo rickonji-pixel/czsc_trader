@@ -89,6 +89,18 @@ def _data_update_backtest(args: argparse.Namespace):
     )
 
 
+def _data_prepare_strategy_support(args: argparse.Namespace):
+    from czsc_trader.application.data_service import (
+        PrepareStrategySupportCommand,
+        prepare_strategy_support_data,
+    )
+
+    return prepare_strategy_support_data(
+        _context(args),
+        PrepareStrategySupportCommand(args.strategy, args.strategy_version, args.through),
+    )
+
+
 def _backtest_run(args: argparse.Namespace):
     from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
 
@@ -195,6 +207,16 @@ def build_parser() -> argparse.ArgumentParser:
     data_prepare.set_defaults(
         command_handler=_data_prepare,
         command_name="data.prepare",
+    )
+    data_support = data_actions.add_parser("prepare-strategy-support")
+    data_support.add_argument("--strategy", required=True)
+    data_support.add_argument("--strategy-version", required=True)
+    data_support.add_argument("--through", required=True, type=date.fromisoformat)
+    data_support.add_argument("--data-dir", type=Path)
+    _add_repository_root(data_support)
+    data_support.set_defaults(
+        command_handler=_data_prepare_strategy_support,
+        command_name="data.prepare-strategy-support",
     )
     data_validate = data_actions.add_parser("validate")
     data_validate.add_argument("--symbol", required=True)

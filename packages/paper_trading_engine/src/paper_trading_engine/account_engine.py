@@ -157,16 +157,22 @@ class AccountEngine:
                     "valid_session": decision.valid_session.isoformat(),
                 },
             )
-            if decision.action in {"BUY", "SELL"}:
+            if decision.action in {"BUY", "SELL", "ROTATE"}:
                 self.audit.record(
                     "SIGNAL_TRIGGERED", source="account_engine", **scope,
                     details={
-                        "side": decision.action, "quantity": abs(decision.delta_quantity),
+                        "side": decision.action,
+                        "quantity": (
+                            decision.plan_legs[0].order.quantity
+                            if decision.plan_legs else abs(decision.delta_quantity)
+                        ),
                         "target_quantity": decision.target_quantity,
                         "valid_session": decision.valid_session.isoformat(),
                     },
                 )
-            elif decision.action == "WAIT" and previous_action in {"BUY", "SELL"}:
+            elif decision.action in {"WAIT", "HOLD"} and previous_action in {
+                "BUY", "SELL", "ROTATE",
+            }:
                 self.audit.record(
                     "SIGNAL_CLEARED", source="account_engine", **scope,
                     details={
@@ -182,6 +188,52 @@ class AccountEngine:
             and account["health"] != "BLOCKED"
             and not self._draining
         ):
+            if decision.plan_legs:
+                plan_events = []
+                plan_rows = []
+                for leg in decision.plan_legs:
+                    order = leg.order
+                    plan_events.append(self.audit.build(
+                        "ORDER_INTENT_CREATED", source="account_engine", channel="futu",
+                        **scope,
+                        details={
+                            "side": order.side,
+                            "quantity": order.quantity,
+                            "order_type": order.order_type,
+                            "limit_price": order.limit_price,
+                            "valid_session": decision.valid_session.isoformat(),
+                            "order_sequence": leg.sequence,
+                            "plan_mode": decision.plan_mode,
+                            "role": leg.role,
+                            "checkpoint": leg.checkpoint,
+                            "submit_after": leg.submit_after.isoformat(),
+                            "submit_before": leg.submit_before.isoformat(),
+                            "dependency_sequence": leg.dependency_sequence,
+                        },
+                    ))
+                    plan_rows.append({
+                        "sequence": leg.sequence,
+                        "plan_mode": decision.plan_mode,
+                        "role": leg.role,
+                        "checkpoint": leg.checkpoint,
+                        "submit_after": leg.submit_after.isoformat(),
+                        "submit_before": leg.submit_before.isoformat(),
+                        "dependency_sequence": leg.dependency_sequence,
+                        "dependency_required_status": leg.dependency_required_status,
+                        "side": order.side,
+                        "quantity": order.quantity,
+                        "order_type": order.order_type,
+                        "limit_price": order.limit_price,
+                    })
+                self.store.create_account_plan_intents(
+                    account_id=account_id,
+                    decision_id=decision.decision_id,
+                    symbol=decision.symbol,
+                    valid_session=decision.valid_session.isoformat(),
+                    fee_rate=decision.fee_rate,
+                    legs=plan_rows,
+                    audit_events=plan_events,
+                )
             for sequence, order in enumerate(decision.orders):
                 intent_event = self.audit.build(
                     "ORDER_INTENT_CREATED", source="account_engine", channel="futu", **scope,

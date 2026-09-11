@@ -1,0 +1,74 @@
+{
+  "source": {
+    "schema_version": 1,
+    "experiment_id": "20260911_S003_EX60",
+    "candidate_id": "S003-C001",
+    "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+    "request": {
+      "candidate_id": "S003-C001",
+      "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+      "candidate_readiness": "PASS",
+      "benchmark_challenge": "RECOMMEND_HEALTH_CHECK",
+      "evidence_integrity": "PASS",
+      "reproducibility": "PASS",
+      "technical_replay": "PASS",
+      "cost_stress": "PASS",
+      "monitoring_plan": "PASS",
+      "mechanism_evidence": "FAVORABLE",
+      "statistical_evidence": "MIXED",
+      "parameter_robustness": "FAVORABLE",
+      "external_validation": "FAVORABLE",
+      "execution_evidence": "FAVORABLE",
+      "blocking_findings": []
+    },
+    "result": {
+      "candidate_id": "S003-C001",
+      "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+      "decision": "RECOMMEND_FREEZE",
+      "risk_label": "MIXED",
+      "reason_codes": [
+        "CANDIDATE_REGISTERED",
+        "BENCHMARK_CHALLENGE_PASSED",
+        "REQUIRED_AUDITS_PASSED",
+        "MONITORING_PLAN_APPROVED",
+        "NO_BLOCKING_FINDINGS"
+      ]
+    },
+    "evidence_index": {
+      "previous_health": {
+        "path": "experiments/S003/20260911_S003_EX58/artifacts/freeze_health.json",
+        "sha256": "51ef73c8059b055517dfe062e3231904221ce8284a7fb1011032578ac340ec76"
+      },
+      "pte_compatibility": {
+        "path": "experiments/S003/20260911_S003_EX59/artifacts/pte_compatibility.json",
+        "sha256": "67be69b0ecfbce1a0dfcf020b3cf3a9987c76a461ceb71369594f31ccbf571f4"
+      }
+    },
+    "resolved_blocking_findings": [
+      "PTE_INTRADAY_DEPENDENT_EXIT_NOT_IMPLEMENTED"
+    ],
+    "remaining_risk_disclosures": [
+      "全路径有效试验数修正后的DSR概率为11.55%",
+      "正式账户口径卡玛为0.27",
+      "BuyHold PK的年化收益胜出概率为68.64%，其95%区间跨零",
+      "模拟盘证据尚未产生"
+    ],
+    "lifecycle_effects": {
+      "strategy_version_created": false,
+      "strategy_frozen": false,
+      "pte_deployed": false
+    }
+  },
+  "approval": {
+    "schema_version": 1,
+    "assessment_id": "FHC-20260911-S003-C001-R2",
+    "strategy_id": "S003",
+    "candidate_id": "S003-C001",
+    "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+    "decision": "RECOMMEND_FREEZE",
+    "risk_label": "MIXED",
+    "source_experiment": "experiments/S003/20260911_S003_EX60",
+    "source_hash": "78f55ab481350105b78433e8d27f7c9ac6a52dfe8ddef64ada157469f2cad8d4",
+    "assessed_at": "2026-09-11T23:30:00+08:00"
+  }
+}

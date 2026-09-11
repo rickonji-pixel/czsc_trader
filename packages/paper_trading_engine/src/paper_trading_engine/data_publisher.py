@@ -134,6 +134,79 @@ class AccountDataPublisher:
         self.runner = runner
         self.audit = audit
 
+    def _publish_strategy_support(
+        self, strategy_id: str, strategy_version: str, end_date: str,
+    ) -> dict[str, object]:
+        started = time.perf_counter()
+        arguments = [
+            str(self.executable), "data", "prepare-strategy-support",
+            "--strategy", strategy_id,
+            "--strategy-version", strategy_version,
+            "--through", end_date,
+            "--repo-root", str(self.repo_root),
+            "--data-dir", str(self.data_dir),
+            "--format", "json",
+        ]
+        try:
+            completed = self.runner(
+                arguments,
+                cwd=self.repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=600,
+                shell=False,
+            )
+            if completed.returncode != 0 or len(completed.stdout.splitlines()) != 1:
+                raise DataPublicationError(
+                    f"{strategy_id}-{strategy_version}: strategy support publication failed: "
+                    f"{completed.stderr.strip()}"
+                )
+            payload = json.loads(completed.stdout)
+            if payload.get("status") != "PASS" or not isinstance(payload.get("result"), dict):
+                raise DataPublicationError(
+                    f"{strategy_id}-{strategy_version}: strategy support command did not pass"
+                )
+        except Exception as exc:
+            if self.audit is not None:
+                self.audit.record(
+                    "EXTERNAL_CALL_FAILED",
+                    source="data_publisher",
+                    outcome="FAILURE",
+                    actor_type="EXTERNAL",
+                    actor_id="trader",
+                    strategy_id=strategy_id,
+                    strategy_version=strategy_version,
+                    correlation_id=f"publication:{end_date}",
+                    details={
+                        "service": "trader",
+                        "upstream_service": "tushare",
+                        "operation": "data.prepare-strategy-support",
+                        "duration_ms": round((time.perf_counter() - started) * 1000, 3),
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
+            raise
+        if self.audit is not None:
+            self.audit.record(
+                "EXTERNAL_CALL_SUCCEEDED",
+                source="data_publisher",
+                actor_type="EXTERNAL",
+                actor_id="trader",
+                strategy_id=strategy_id,
+                strategy_version=strategy_version,
+                correlation_id=f"publication:{end_date}",
+                details={
+                    "service": "trader",
+                    "upstream_service": "tushare",
+                    "operation": "data.prepare-strategy-support",
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 3),
+                },
+            )
+        return payload["result"]
+
     def publish(self, end_date: str) -> dict[str, object]:
         instruments = sorted({
             (str(account["symbol"]).upper(), str(account["asset_type"]))
@@ -162,4 +235,23 @@ class AccountDataPublisher:
             published.append({"symbol": symbol, "asset_type": asset, "result": result})
         if len(cutoffs) != 1:
             raise DataPublicationError("published instruments have different data cutoffs")
-        return {"data_cutoff": cutoffs.pop(), "instruments": published}
+        data_cutoff = cutoffs.pop()
+        releases = sorted({
+            (str(account["strategy_id"]), str(account["strategy_version"]))
+            for account in self.store.virtual_accounts()
+            if account.get("status") != "RETIRED"
+        })
+        support = [
+            self._publish_strategy_support(strategy_id, strategy_version, data_cutoff)
+            for strategy_id, strategy_version in releases
+        ]
+        support_cutoffs = {
+            str(item["data_cutoff"]) for item in support if item.get("support_required")
+        }
+        if support_cutoffs and support_cutoffs != {data_cutoff}:
+            raise DataPublicationError("strategy support cutoff differs from market data cutoff")
+        return {
+            "data_cutoff": data_cutoff,
+            "instruments": published,
+            "strategy_support": support,
+        }

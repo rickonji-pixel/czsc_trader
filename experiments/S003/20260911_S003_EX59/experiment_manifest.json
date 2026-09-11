@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX59",
+  "status": "COMPLETE",
+  "experiment_type": "pte_compatibility_gate",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "candidate_id": "S003-C001",
+  "development_cutoff": "2026-09-08",
+  "decision": "PASS",
+  "strategy_frozen": false,
+  "pte_runtime_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 138,
+      "sha256": "8c2afec38ec7ce2594b6ad5702aa562d19de1b4cfe093558fdd7707afd6bcf4d"
+    },
+    "02_design.md": {
+      "bytes": 521,
+      "sha256": "b702d30ecbce7c5d5733e93e1838ce63b90347682f2e72ffaf55e8dc9eef96ae"
+    },
+    "03_execution.md": {
+      "bytes": 233,
+      "sha256": "19dfb92ebfa2570479d71b002b07cef77aa63344a97aacbecdf4d98b5fd97d2d"
+    },
+    "04_conclusion.md": {
+      "bytes": 313,
+      "sha256": "3d996c856a161e2d3347c65a68dcb604890c1500c0f903fa5a0f08fdf6f13671"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 315,
+      "sha256": "9377e78fdc7bf1df572302029e09a322fb27eef809b192143b6b728532f8e64d"
+    },
+    "artifacts/pte_compatibility.json": {
+      "bytes": 2750,
+      "sha256": "d03e8cf7f7078fed750d70641ea17cd601c7e51e28ebf23262f5fb9a0bb669b6"
+    },
+    "run_experiment.py": {
+      "bytes": 8914,
+      "sha256": "8c2e199a32f7e73081098f250376b35e6c6cb1d1f2d3504012036094e8eb6c79"
+    }
+  }
+}

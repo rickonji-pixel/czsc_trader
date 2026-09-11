@@ -14,7 +14,8 @@
 | PTE Watchdog | WDG | PTE包内 | PTE进程开机自启、探活和故障拉起 |
 | Dataflows | — | `packages/dataflows/` | Tushare行情获取、复权、多频发布和清单 |
 
-TDR通过`advice.v4` JSON契约向PTE提供交易决策。PTE通过CLI调用TDR，不导入TDR、SM
+TDR通过`advice.v4/advice.v5` JSON契约向PTE提供普通调仓决策或带时点依赖的执行计划。
+PTE通过CLI调用TDR，不导入TDR、SM
 或SE；Futu渠道只负责执行、回报和对账，不参与策略计算、定价或改量。WDG只管理PTE
 进程生命周期和健康探测，不持有交易业务配置。
 

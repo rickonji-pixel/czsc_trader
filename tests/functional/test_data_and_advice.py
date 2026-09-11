@@ -1,22 +1,38 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
 from czsc_trader import market_data_prep
-from czsc_trader.application.advice_service import build_advice_v4
+from czsc_trader.application.advice_service import (
+    build_advice_v4,
+    build_intraday_overlay_advice_v5,
+)
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.data_service import _assert_append_only
 from czsc_trader.backtesting.datasets import load_replay_data
 from czsc_trader.backtesting.strategy_source import resolve_registered_strategy
-from czsc_trader.baselines import resolve_baseline
+from czsc_trader.baselines import (
+    ConstituentMoneyflowIntradaySpec,
+    resolve_baseline,
+    resolve_strategy_payload,
+)
+from czsc_trader.constituent_moneyflow_runtime import (
+    latest_breadth_signal,
+    publish_support_data,
+    seed_support_panel,
+)
 from czsc_trader.data import load_execution_prices
 from czsc_trader.execution_policy import floor_to_tick, simulate_limit_policy
 from czsc_trader.execution_intent import decide_order_intent
+from czsc_trader.identity import raw_file_sha256
 from dataflows import tushare_etf
+from paper_trading_engine.contracts import AdviceDecision
 
 from functional_support import invoke_main, vendor_frame
 
@@ -418,3 +434,165 @@ def test_ft_t02_advice_covers_entry_retry_hold_exit_and_fill_rules(
     assert result.orders.iloc[0]["size"] % 100 == 0
     assert result.orders.iloc[0]["price"] > result.orders.iloc[0]["entry_limit"]
     assert result.orders.iloc[1]["price"] < daily.iloc[-1]["open"]
+
+
+def test_s003_runtime_signal_and_planned_advice_contract(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    payload = json.loads(
+        (repo / "experiments/S003/20260911_S003_EX56/candidate_payload.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    baseline = resolve_strategy_payload(
+        repo / "strategies/dependencies",
+        payload,
+        release_id="S003-v1",
+        release_hash="c" * 64,
+        symbol="510500.SH",
+        repository_root=repo,
+    )
+    spec = baseline.constituent_moneyflow_intraday
+    assert spec is not None
+    seed_support_panel(repo, tmp_path, "S003-v1", spec)
+    triggered, breadth, threshold, coverage = latest_breadth_signal(
+        tmp_path, "S003-v1", spec, pd.Timestamp("2026-09-08")
+    )
+    assert isinstance(triggered, bool)
+    assert 0 <= breadth <= 1
+    assert 0 <= threshold <= 1
+    assert coverage >= 0.95
+
+    strategy = {
+        "strategy_id": "S003",
+        "name": "成分资金流宽度早盘延续",
+        "version": "v1",
+        "release_id": "S003-v1",
+        "release_hash": "c" * 64,
+        "qualification": "PAPER_READY",
+    }
+    setup = build_intraday_overlay_advice_v5(
+        strategy=strategy,
+        baseline=baseline,
+        signal_date=pd.Timestamp("2026-09-08"),
+        valid_session=pd.Timestamp("2026-09-09"),
+        signal_close=6.20,
+        actual_quantity=0,
+        available_cash=100_000,
+        cycle_target_quantity=None,
+        event_triggered=triggered,
+    )
+    parsed_setup = AdviceDecision.from_cli_payload({
+        "status": "PASS",
+        "result": {**setup, "data_cutoff": "2026-09-08"},
+    })
+    assert parsed_setup.plan_mode == "CORE_SETUP"
+    assert parsed_setup.plan_legs[0].order.limit_price == pytest.approx(6.82)
+
+    rotation = build_intraday_overlay_advice_v5(
+        strategy=strategy,
+        baseline=baseline,
+        signal_date=pd.Timestamp("2026-09-08"),
+        valid_session=pd.Timestamp("2026-09-09"),
+        signal_close=6.20,
+        actual_quantity=parsed_setup.cycle_target_quantity,
+        available_cash=50_000,
+        cycle_target_quantity=parsed_setup.cycle_target_quantity,
+        event_triggered=True,
+    )
+    parsed_rotation = AdviceDecision.from_cli_payload({
+        "status": "PASS",
+        "result": {**rotation, "data_cutoff": "2026-09-08"},
+    })
+    assert parsed_rotation.action == "ROTATE"
+    assert [leg.order.side for leg in parsed_rotation.plan_legs] == ["BUY", "SELL"]
+    assert parsed_rotation.plan_legs[1].dependency_required_status == "FILLED_ALL"
+
+
+def test_s003_runtime_support_appends_one_published_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sessions = pd.bdate_range("2026-01-02", periods=61)
+    source = tmp_path / "source.csv.gz"
+    rows = [
+        {
+            "dt": session.date().isoformat(),
+            "con_code": code,
+            "snapshot_date": sessions[0].date().isoformat(),
+            "weight": 50.0,
+            "net_mf_amount": amount,
+            "observed_moneyflow": True,
+        }
+        for session in sessions[:60]
+        for code, amount in (("000001.SZ", 1.0), ("600000.SH", -1.0))
+    ]
+    pd.DataFrame(rows).to_csv(
+        source,
+        index=False,
+        compression={"method": "gzip", "compresslevel": 9, "mtime": 0},
+    )
+    spec = ConstituentMoneyflowIntradaySpec(
+        symbol="510500.SH",
+        source_path=source.name,
+        source_sha256=raw_file_sha256(source),
+        minimum_observed_weight_ratio=0.95,
+        threshold_lookback_sessions=5,
+        threshold_quantile=0.8,
+        core_fraction=0.5,
+        event_fraction=0.5,
+        entry_checkpoint="OPEN",
+        exit_checkpoint="11:30_CLOSE",
+        one_way_cost=0.00012,
+        lot_size=100,
+        maximum_events_per_day=1,
+        t_plus_one_inventory_rotation=True,
+    )
+
+    class FakePro:
+        def index_weight(self, **kwargs):
+            return pd.DataFrame([
+                {
+                    "index_code": "000905.SH", "con_code": "000001.SZ",
+                    "trade_date": sessions[0].strftime("%Y%m%d"), "weight": 50.0,
+                },
+                {
+                    "index_code": "000905.SH", "con_code": "600000.SH",
+                    "trade_date": sessions[0].strftime("%Y%m%d"), "weight": 50.0,
+                },
+            ])
+
+        def moneyflow(self, **kwargs):
+            return pd.DataFrame([
+                {
+                    "ts_code": "000001.SZ",
+                    "trade_date": sessions[-1].strftime("%Y%m%d"),
+                    "net_mf_amount": 2.0,
+                },
+                {
+                    "ts_code": "600000.SH",
+                    "trade_date": sessions[-1].strftime("%Y%m%d"),
+                    "net_mf_amount": 3.0,
+                },
+            ])
+
+    monkeypatch.setattr(
+        "czsc_trader.data.load_market_data",
+        lambda *args, **kwargs: SimpleNamespace(
+            daily=pd.DataFrame({"dt": sessions})
+        ),
+    )
+    result = publish_support_data(
+        tmp_path,
+        tmp_path / "runtime",
+        "S003-v1",
+        spec,
+        sessions[-1].date().isoformat(),
+        pro=FakePro(),
+    )
+    assert result["appended_sessions"] == 1
+    assert result["coverage"] == {sessions[-1].date().isoformat(): 1.0}
+    triggered, breadth, _, coverage = latest_breadth_signal(
+        tmp_path / "runtime", "S003-v1", spec, sessions[-1]
+    )
+    assert triggered
+    assert breadth == pytest.approx(1.0)
+    assert coverage == pytest.approx(1.0)

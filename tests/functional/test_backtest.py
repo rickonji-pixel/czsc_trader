@@ -62,7 +62,17 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert result.identity.reference == "S001-v1"
     assert result.account_daily.iloc[0]["cash_before"] == 100_000
     assert result.orders["quantity"].mod(100).eq(0).all()
-    assert set(result.fills["trigger"]) <= {"OPEN", "INTRADAY_LIMIT"}
+    assert set(result.orders.loc[result.orders["side"].eq("BUY"), "order_type"]) == {
+        "LIMIT"
+    }
+    assert set(result.orders.loc[result.orders["side"].eq("SELL"), "order_type"]) == {
+        "MARKET"
+    }
+    assert set(result.fills["trigger"]) <= {
+        "OPEN",
+        "OPEN_MARKET",
+        "INTRADAY_LIMIT",
+    }
     assert result.decisions["signal_date"].max() <= pd.Timestamp("2026-09-02")
     assert set(result.decisions["regime"].dropna()) <= {"trend", "range", "warmup"}
     assert result.account_daily["equity"].gt(0).all()
@@ -100,6 +110,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         "ma_trades.csv", "ma_chart.html",
     }
     assert required == {path.name for path in summary.output_dir.iterdir()}
+    assert not any((functional_repo / ".tmp" / "backtest").iterdir())
     assert set(summary.metrics) == {"strategy", "benchmarks"}
     assert summary.metrics["strategy"]["reference"] == "S001-v1"
     assert METRIC_KEYS < set(summary.metrics["strategy"]["metrics"])

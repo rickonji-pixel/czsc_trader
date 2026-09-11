@@ -231,7 +231,8 @@ def replay_account(
             order_rows,
             [
                 "order_id", "decision_id", "cycle_id", "signal_date",
-                "execution_date", "side", "quantity", "limit_price", "status",
+                "execution_date", "side", "quantity", "order_type", "limit_price",
+                "status",
             ],
         ),
         fills=_frame(

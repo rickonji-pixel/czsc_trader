@@ -22,7 +22,7 @@ from strategy_evaluator import (
 
 
 def _write_evaluation_bundle(root: Path) -> Path:
-    experiment = root / "experiments" / "0904_TEST"
+    experiment = root / "experiments" / "S001" / "0904_TEST"
     experiment.mkdir(parents=True)
     protocol = {
         "schema_version": 1,

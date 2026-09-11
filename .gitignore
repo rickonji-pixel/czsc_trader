@@ -17,7 +17,7 @@ state/
 /.env
 
 # Runtime-only Optuna studies; formal trial exports live in experiment artifacts.
-experiments/*/runtime/*.db
-experiments/*/runtime/*.db-wal
-experiments/*/runtime/*.db-shm
-experiments/*/runtime/*.db-journal
+experiments/*/*/runtime/*.db
+experiments/*/*/runtime/*.db-wal
+experiments/*/*/runtime/*.db-shm
+experiments/*/*/runtime/*.db-journal

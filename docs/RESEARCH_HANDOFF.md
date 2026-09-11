@@ -43,8 +43,9 @@
 
 ### 2. 创建不可变实验
 
-新实验使用`experiments/YYYYMMDD_策略ID_EXnn/`编号。同一策略同一天从`EX01`开始递增，
-例如`20260909_S002_EX02`。历史`MMDD_EXXX`目录保持原样。建议结构：
+新实验使用`experiments/策略ID/YYYYMMDD_策略ID_EXnn/`编号。同一策略同一天从`EX01`
+开始递增，例如`experiments/S002/20260909_S002_EX02/`。历史实验ID保持原样，并统一归入
+所属策略目录。目录契约见[实验档案说明](../experiments/README.md)。实验内部建议结构：
 
 ```text
 01_goal.md                 研究问题和成功口径

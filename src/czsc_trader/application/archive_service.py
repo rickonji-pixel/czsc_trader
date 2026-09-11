@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from czsc_trader.experiment_archive import validate_experiment_archive
+from czsc_trader.experiment_archive import (
+    iter_experiment_dirs,
+    validate_experiment_archive,
+)
 
 from .context import RepositoryContext
 from .errors import UsageError, ValidationError
@@ -20,12 +23,12 @@ def validate_archives(
             "archive_selection_invalid",
             "select exactly one archive or --all",
         )
-    paths = (
-        sorted(path for path in context.experiments_root.iterdir() if path.is_dir())
-        if all_archives
-        else [Path(archive).resolve()]
-    )
     try:
+        paths = (
+            list(iter_experiment_dirs(context.experiments_root))
+            if all_archives
+            else [Path(archive).resolve()]
+        )
         manifests = [validate_experiment_archive(path) for path in paths]
     except (OSError, ValueError) as exc:
         raise ValidationError(

@@ -10,6 +10,7 @@ import re
 
 import numpy as np
 
+from .experiment_archive import resolve_repository_experiment_reference
 from .rules import Rule
 from .identity import canonical_json_sha256
 
@@ -469,7 +470,7 @@ def resolve_baseline(
         if not source_path or not source_digest:
             raise ValueError(f"{selected_version}: four-layer source identity is missing")
         source_root = _repository_root(root, repository_root)
-        source = source_root / source_path
+        source = resolve_repository_experiment_reference(source_root, source_path)
         if not source.is_file():
             raise ValueError(f"{selected_version}: missing four-layer source {source}")
         if canonical_json_sha256(source) != source_digest:
@@ -489,7 +490,7 @@ def resolve_baseline(
         if not source_path or not source_digest:
             raise ValueError(f"{selected_version}: regime-weight source identity is missing")
         source_root = _repository_root(root, repository_root)
-        source = source_root / source_path
+        source = resolve_repository_experiment_reference(source_root, source_path)
         if not source.is_file():
             raise ValueError(f"{selected_version}: missing regime-weight source {source}")
         if canonical_json_sha256(source) != source_digest:

@@ -69,6 +69,9 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 - **WDG**位于PTE包内。它只负责PTE子进程生命周期和HTTP探活，不包含交易业务逻辑。
 - **dataflows**负责Tushare数据获取、复权、多频发布和清单；TDR消费已发布数据。
 
+正式实验档案按`experiments/<策略ID>/<实验ID>/`保存。实验ID全局唯一，TDR按ID定位
+嵌套档案；历史SM证据中的旧路径字符串保持不变，并由兼容解析器映射到当前目录。
+
 依赖方向保持为：`TDR → SM/SE`、`PTE → TDR CLI`、`WDG → PTE进程`。
 
 ## 关键业务不变量

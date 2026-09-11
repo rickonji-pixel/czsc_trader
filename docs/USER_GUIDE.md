@@ -113,7 +113,7 @@ Backtest v2每次回放一个不可变策略快照、一个标的、一个明确
 卡玛比率、盈亏比、收益率和夏普率。参照策略不参与当前策略的SE审计或通过判定。
 
 结果写入被Git忽略的`outputs/`，包括报告、账本、审计证据和交互图表。正式研究证据必须
-归档到`experiments/YYYYMMDD_策略ID_EXnn/`；历史`MMDD_EXXX`目录继续有效。验证全部实验档案：
+归档到`experiments/策略ID/YYYYMMDD_策略ID_EXnn/`；历史实验ID继续有效。验证全部实验档案：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe archive validate --all

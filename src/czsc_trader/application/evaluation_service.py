@@ -44,6 +44,10 @@ from czsc_trader.evaluation_artifacts import (
     ReuseLedgerRow,
     load_reusable_observations,
 )
+from czsc_trader.experiment_archive import (
+    experiment_repository_reference,
+    resolve_experiment_dir,
+)
 from czsc_trader.identity import canonical_json_sha256
 
 from .context import RepositoryContext
@@ -93,12 +97,7 @@ def _validate_screening_audit(artifact_dir: Path, result: dict[str, Any]) -> Non
 
 
 def _experiment_path(context: RepositoryContext, experiment_id: str) -> Path:
-    if not experiment_id or Path(experiment_id).name != experiment_id:
-        raise ValueError("experiment must be one direct child name")
-    path = (context.experiments_root / experiment_id).resolve()
-    if path.parent != context.experiments_root.resolve() or not path.is_dir():
-        raise ValueError(f"experiment does not exist: {experiment_id}")
-    return path
+    return resolve_experiment_dir(context.experiments_root, experiment_id)
 
 
 def _descriptor(value: dict[str, Any]) -> CandidateDescriptor:
@@ -128,7 +127,7 @@ def _execution_settings(manifest: dict[str, Any]) -> tuple[int, bool, tuple[str,
         not isinstance(item, str) or not item or Path(item).name != item
         for item in raw_sources
     ):
-        raise ValueError("reuse_source_experiments must contain direct experiment names")
+        raise ValueError("reuse_source_experiments must contain experiment IDs")
     sources = tuple(raw_sources)
     if reuse and not sources:
         raise ValueError("reuse_source_experiments is required when reuse is enabled")
@@ -575,7 +574,12 @@ def _winning_payload(experiment: Path, result: dict[str, Any]) -> tuple[dict[str
     return manifest, match
 
 
-def _find_source_version(registry: StrategyRegistry, strategy_id: str, experiment_id: str, candidate_id: str) -> StrategyVersion | None:
+def _find_source_version(
+    registry: StrategyRegistry,
+    strategy_id: str,
+    experiment_references: tuple[str, ...],
+    candidate_id: str,
+) -> StrategyVersion | None:
     try:
         registry.get_strategy(strategy_id)
     except StrategyManagerError:
@@ -583,7 +587,10 @@ def _find_source_version(registry: StrategyRegistry, strategy_id: str, experimen
     directory = registry.root / strategy_id / "versions"
     for path in sorted(directory.glob("v*.json")):
         version = registry.get_version(strategy_id, path.stem)
-        if version.source_experiment == f"experiments/{experiment_id}" and str(version.source_candidate) == candidate_id:
+        if (
+            version.source_experiment in experiment_references
+            and str(version.source_candidate) == candidate_id
+        ):
             return version
     return None
 
@@ -606,6 +613,11 @@ def _ensure_frozen(
     actor: str,
     reason: str,
 ) -> StrategyVersion:
+    experiment = _experiment_path(context, experiment_id)
+    experiment_reference = experiment_repository_reference(
+        context.experiments_root, experiment
+    )
+    historical_reference = f"experiments/{experiment_id}"
     registry = StrategyRegistry(context.strategy_root)
     strategy_id = str(winner.get("strategy_id", ""))
     if not strategy_id:
@@ -623,7 +635,12 @@ def _ensure_frozen(
             }), actor=actor, reason=reason,
         )
     candidate_id = str(winner["candidate_id"])
-    version = _find_source_version(registry, strategy_id, experiment_id, candidate_id)
+    version = _find_source_version(
+        registry,
+        strategy_id,
+        (experiment_reference, historical_reference),
+        candidate_id,
+    )
     expected_payload = winner.get("strategy_payload")
     if version is not None and version.strategy_payload != expected_payload:
         raise ValueError("existing source version payload does not match the winning candidate")
@@ -631,7 +648,9 @@ def _ensure_frozen(
         version_count = len(list((context.strategy_root / strategy_id / "versions").glob("v*.json")))
         version_name = f"v{version_count + 1}"
         parent = None if version_count == 0 else f"v{version_count}"
-        cutoff = date.fromisoformat(str(_read_object(context.experiments_root / experiment_id / "evaluation_protocol.json")["development_cutoff"]))
+        cutoff = date.fromisoformat(
+            str(_read_object(experiment / "evaluation_protocol.json")["development_cutoff"])
+        )
         payload = winner.get("strategy_payload")
         if not isinstance(payload, dict):
             raise ValueError("winning candidate requires complete strategy_payload")
@@ -640,7 +659,7 @@ def _ensure_frozen(
                 "schema_version": 1, "strategy_id": strategy_id, "version": version_name,
                 "release_id": f"{strategy_id}-{version_name}", "parent_version": parent,
                 "change_summary": f"Accept evaluation champion {candidate_id}",
-                "source_experiment": f"experiments/{experiment_id}", "source_candidate": candidate_id,
+                "source_experiment": experiment_reference, "source_candidate": candidate_id,
                 "selection_data_cutoff": cutoff.isoformat(),
                 "forward_start": str(manifest.get("forward_start", (cutoff + timedelta(days=1)).isoformat())),
                 "strategy_payload": payload, "release_hash": None,
@@ -649,7 +668,7 @@ def _ensure_frozen(
     qualification = registry.current_qualification(strategy_id, version.version)
     if qualification.value == "PAPER_READY":
         return registry.get_version(strategy_id, version.version)
-    metric = _full_metric(context.experiments_root / experiment_id, candidate_id)
+    metric = _full_metric(experiment, candidate_id)
     calmar = metric.get("calmar")
     if calmar in {None, "", "None"}:
         raise ValueError("winning candidate requires a valid Calmar ratio")
@@ -663,7 +682,7 @@ def _ensure_frozen(
         "maximum_drawdown": float(metric["max_drawdown"]), "calmar_ratio": float(calmar),
         "win_loss_ratio": None, "win_loss_ratio_status": "UNAVAILABLE", "total_return": float(metric["total_return"]),
         "sharpe_ratio": None, "closed_trades": int(metric["closed_trades"]),
-        "source_path": f"experiments/{experiment_id}/artifacts/evaluation_result.json", "source_hash": canonical_sha256(source),
+        "source_path": f"{experiment_reference}/artifacts/evaluation_result.json", "source_hash": canonical_sha256(source),
         "recorded_at": datetime.now().astimezone().isoformat(), "recorded_by": actor,
     }
     candidate_hash = str(winner.get("strategy_hash", winner.get("candidate_hash", "")))
@@ -677,7 +696,7 @@ def _ensure_frozen(
         "candidate_hash": candidate_hash,
         "decision": "RECOMMEND_FREEZE",
         "risk_label": str(result.get("audit", {}).get("risk_label", "MIXED")),
-        "source_experiment": f"experiments/{experiment_id}",
+        "source_experiment": experiment_reference,
         "source_hash": canonical_sha256(result),
         "assessed_at": datetime.now().astimezone().isoformat(),
     }

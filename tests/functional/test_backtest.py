@@ -241,14 +241,14 @@ def test_ft_t03_s002_event_hold_replays_with_formal_execution() -> None:
     repo = Path(__file__).resolve().parents[2]
     context = RepositoryContext.discover(repo)
     candidate = json.loads(
-        (repo / "experiments/20260910_S002_EX12/candidate_payload.json").read_text(
+        (repo / "experiments/S002/20260910_S002_EX12/candidate_payload.json").read_text(
             encoding="utf-8"
         )
     )
     proposed = json.loads(
         (
             repo
-            / "experiments/20260910_S002_EX14/artifacts/proposed_strategy_payload.json"
+            / "experiments/S002/20260910_S002_EX14/artifacts/proposed_strategy_payload.json"
         ).read_text(encoding="utf-8")
     )
     candidate_hash = canonical_json_sha256(candidate)

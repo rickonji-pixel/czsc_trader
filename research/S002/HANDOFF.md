@@ -8,7 +8,7 @@
 - 发布资格：EX16冻结前体检经人工确认，`S002-v1`已进入PTE前瞻观察；
 - 研究数据：`2019-10-08`至`2026-09-08`；
 - 当前开发截止：`2026-09-08`；
-- 最近实验：`experiments/20260910_S002_EX16`。
+- 最近实验：`experiments/S002/20260910_S002_EX16`。
 
 ## 当前结论
 
@@ -126,5 +126,5 @@ EX16执行独立冻结前体检。候选登记、BuyHold PK、证据完整性、
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 510500.SH
 .\.venv\Scripts\czsc-trader.exe strategy show --strategy S002
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/20260910_S002_EX10'), Path('experiments/20260910_S002_EX11'), Path('experiments/20260910_S002_EX12'), Path('experiments/20260910_S002_EX13'), Path('experiments/20260910_S002_EX14'))]"
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from czsc_trader.experiment_archive import validate_experiment_archive; [print(p.name, validate_experiment_archive(p)['status']) for p in (Path('experiments/S002/20260910_S002_EX10'), Path('experiments/S002/20260910_S002_EX11'), Path('experiments/S002/20260910_S002_EX12'), Path('experiments/S002/20260910_S002_EX13'), Path('experiments/S002/20260910_S002_EX14'))]"
 ```

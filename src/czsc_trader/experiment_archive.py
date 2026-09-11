@@ -22,25 +22,94 @@ TEXT_SUFFIXES = {".csv", ".html", ".json", ".md", ".py", ".txt"}
 STRATEGY_EXPERIMENT_PATTERN = re.compile(
     r"(?P<date>[0-9]{8})_(?P<strategy_id>S[0-9]{3})_EX[0-9]{2}$"
 )
+STRATEGY_ID_PATTERN = re.compile(r"S[0-9]{3}$")
+
+
+def iter_experiment_dirs(root: Path) -> tuple[Path, ...]:
+    """Return every archive below the strategy-organized experiment root."""
+    root = Path(root).resolve()
+    if not root.is_dir():
+        return ()
+    directories = sorted(
+        {path.parent for path in root.rglob(MANIFEST_NAME)},
+        key=lambda path: path.relative_to(root).as_posix(),
+    )
+    identities: dict[str, Path] = {}
+    for directory in directories:
+        relative = directory.relative_to(root)
+        if len(relative.parts) > 2:
+            raise ValueError(f"experiment archive is nested too deeply: {relative.as_posix()}")
+        previous = identities.setdefault(directory.name, directory)
+        if previous != directory:
+            raise ValueError(f"duplicate experiment_id directory: {directory.name}")
+    return tuple(directories)
+
+
+def resolve_experiment_dir(root: Path, experiment_id: str) -> Path:
+    """Resolve one globally unique experiment ID without exposing path traversal."""
+    if not experiment_id or Path(experiment_id).name != experiment_id:
+        raise ValueError("experiment must be a single experiment ID")
+    root = Path(root).resolve()
+    direct = root / experiment_id
+    matches = (
+        [direct] if direct.is_dir() and not STRATEGY_ID_PATTERN.fullmatch(experiment_id) else []
+    )
+    matches.extend(
+        strategy_root / experiment_id
+        for strategy_root in root.iterdir()
+        if strategy_root.is_dir() and (strategy_root / experiment_id).is_dir()
+    )
+    if not matches:
+        raise ValueError(f"experiment does not exist: {experiment_id}")
+    if len(matches) > 1:
+        raise ValueError(f"experiment ID is ambiguous: {experiment_id}")
+    return matches[0]
+
+
+def experiment_repository_reference(experiments_root: Path, experiment_dir: Path) -> str:
+    """Return the repository-relative reference for an archive directory."""
+    root = Path(experiments_root).resolve()
+    directory = Path(experiment_dir).resolve()
+    relative = directory.relative_to(root)
+    return f"experiments/{relative.as_posix()}"
+
+
+def resolve_repository_experiment_reference(repository_root: Path, reference: str) -> Path:
+    """Resolve current and historical ``experiments/<id>/...`` references."""
+    root = Path(repository_root).resolve()
+    relative = Path(reference)
+    if ".." in relative.parts:
+        raise ValueError("repository reference must not contain parent traversal")
+    if relative.is_absolute() or not relative.parts or relative.parts[0] != "experiments":
+        return (root / relative).resolve()
+    direct = (root / relative).resolve()
+    if direct.exists() or len(relative.parts) < 2:
+        return direct
+    experiment = resolve_experiment_dir(root / "experiments", relative.parts[1])
+    resolved = experiment.joinpath(*relative.parts[2:]).resolve()
+    resolved.relative_to(experiment)
+    return resolved
 
 
 def create_experiment_dir(root: Path, run_date: date, strategy_id: str) -> Path:
     """Create the next strategy-owned ``YYYYMMDD_SXXX_EXnn`` directory."""
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
-    if not re.fullmatch(r"S[0-9]{3}", strategy_id):
+    if not STRATEGY_ID_PATTERN.fullmatch(strategy_id):
         raise ValueError("strategy_id must match S plus three digits")
+    strategy_root = root / strategy_id
+    strategy_root.mkdir(exist_ok=True)
     prefix = f"{run_date:%Y%m%d}_{strategy_id}_EX"
     pattern = re.compile(rf"{re.escape(prefix)}(\d{{2}})")
     numbers = [
         int(match.group(1))
-        for path in root.iterdir()
+        for path in strategy_root.iterdir()
         if path.is_dir() and (match := pattern.fullmatch(path.name))
     ]
     revision = max(numbers, default=0) + 1
     if revision > 99:
         raise RuntimeError(f"{prefix} has already reached EX99")
-    experiment_dir = root / f"{prefix}{revision:02d}"
+    experiment_dir = strategy_root / f"{prefix}{revision:02d}"
     experiment_dir.mkdir(exist_ok=False)
     return experiment_dir
 
@@ -74,6 +143,10 @@ def _validate_strategy_experiment_identity(
         raise ValueError("experiment_id must equal the strategy experiment directory")
     if metadata.get("strategy_id") != match.group("strategy_id"):
         raise ValueError("strategy_id must equal the strategy experiment owner")
+    if STRATEGY_ID_PATTERN.fullmatch(experiment_dir.parent.name) and (
+        experiment_dir.parent.name != match.group("strategy_id")
+    ):
+        raise ValueError("strategy experiment directory must match the strategy owner")
     if not isinstance(metadata.get("symbol"), str) or not metadata["symbol"]:
         raise ValueError("strategy experiment must declare symbol")
     try:

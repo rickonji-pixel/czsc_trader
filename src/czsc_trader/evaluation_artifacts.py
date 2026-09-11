@@ -12,7 +12,7 @@ from typing import Any
 from strategy_evaluator import MetricObservation
 
 from .candidate_evaluation import METRIC_SEMANTICS_VERSION
-from .experiment_archive import validate_experiment_archive
+from .experiment_archive import resolve_experiment_dir, validate_experiment_archive
 from .identity import canonical_json_sha256
 
 
@@ -159,11 +159,8 @@ def load_reusable_observations(
     diagnostics: list[str] = []
     root = Path(experiments_root).resolve()
     for source_id in source_ids:
-        experiment = (root / source_id).resolve()
-        if experiment.parent != root:
-            diagnostics.append(f"{source_id}: source path is not a direct experiment child")
-            continue
         try:
+            experiment = resolve_experiment_dir(root, source_id)
             collections = _source_rows(experiment)
         except (OSError, ValueError, KeyError, json.JSONDecodeError, csv.Error) as exc:
             diagnostics.append(f"{source_id}: {exc}")

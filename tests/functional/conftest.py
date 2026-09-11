@@ -24,10 +24,10 @@ def functional_repo(tmp_path: Path) -> Path:
         shutil.copy2(source, raw_dir / source.name)
     shutil.copytree(raw_dir, root / "data" / "backtest")
     for relative in (
-        Path("0824_EX04/artifacts/frozen_challenger.json"),
-        Path("0901_EX20/artifacts/frozen_challenger.json"),
-        Path("0902_EX02/artifacts/frozen_execution_policy.json"),
-        Path("0903_EX06/artifacts/frozen_challenger.json"),
+        Path("S001/0824_EX04/artifacts/frozen_challenger.json"),
+        Path("S001/0901_EX20/artifacts/frozen_challenger.json"),
+        Path("S001/0902_EX02/artifacts/frozen_execution_policy.json"),
+        Path("S001/0903_EX06/artifacts/frozen_challenger.json"),
     ):
         source = REPO_ROOT / "experiments" / relative
         if source.is_file():

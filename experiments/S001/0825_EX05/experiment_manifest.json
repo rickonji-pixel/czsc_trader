@@ -41,8 +41,8 @@
       "sha256": "c2e082170a5fbfbc67af1de8e07126abe90ef92443d249e574360dd1ed8a2dfc"
     },
     "artifacts/dominant_event_panels.svg": {
-      "bytes": 3098,
-      "sha256": "56711fe4c2e1be8b9d82e9f25845d557756e12f64183e1904b6beb8ff2f61c73"
+      "bytes": 3097,
+      "sha256": "b7ccabd5b33443f822e2c1a8aa88e0305784511b53a7055887a10e5eaaf1771b"
     },
     "artifacts/event_descriptor_matrix.csv": {
       "bytes": 26921,

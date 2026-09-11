@@ -18,7 +18,7 @@ REQUIRED_DOCUMENTS = (
 )
 MANIFEST_NAME = "experiment_manifest.json"
 GOVERNANCE_SIDECARS = {"evaluation_acceptance.json"}
-TEXT_SUFFIXES = {".csv", ".html", ".json", ".md", ".py", ".txt"}
+TEXT_SUFFIXES = {".csv", ".html", ".json", ".md", ".py", ".svg", ".txt"}
 STRATEGY_EXPERIMENT_PATTERN = re.compile(
     r"(?P<date>[0-9]{8})_(?P<strategy_id>S[0-9]{3})_EX[0-9]{2}$"
 )

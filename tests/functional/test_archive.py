@@ -21,6 +21,8 @@ def test_ft_t07_archive_validation_is_portable_and_detects_tampering(
         (archive / name).write_text("document\n", encoding="utf-8")
     runner = archive / "run_experiment.py"
     runner.write_bytes(b"print('research')\n")
+    chart = archive / "diagnostic.svg"
+    chart.write_bytes(b"<svg>\n<text>research</text>\n</svg>\n")
     cache = archive / "__pycache__"
     cache.mkdir()
     bytecode = cache / "run_experiment.cpython-312.pyc"
@@ -29,6 +31,7 @@ def test_ft_t07_archive_validation_is_portable_and_detects_tampering(
         archive, {"experiment_id": "0904_ARCHIVE", "status": "COMPLETE"}
     )
     runner.write_bytes(b"print('research')\r\n")
+    chart.write_bytes(b"<svg>\r\n<text>research</text>\r\n</svg>\r\n")
     command = [
         "archive",
         "validate",

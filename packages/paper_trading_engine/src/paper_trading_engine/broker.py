@@ -4,8 +4,27 @@ from dataclasses import dataclass
 
 
 TERMINAL_ORDER_STATUSES = {
-    "SUBMIT_FAILED", "FILLED_ALL", "CANCELLED_ALL", "FAILED", "DISABLED",
-    "DELETED", "FILL_CANCELLED",
+    "SUBMIT_FAILED", "FILLED_ALL", "CANCELLED_PART", "CANCELLED_ALL", "FAILED",
+    "DISABLED", "DELETED", "FILL_CANCELLED",
+}
+
+# Futu explicitly defines TIMEOUT as an unknown result.  It must remain visible to
+# reconciliation and must never be treated as either success or a safe terminal state.
+UNRESOLVED_INTENT_STATUSES = {
+    "SUBMITTING", "SUBMISSION_UNCERTAIN", "TIMEOUT",
+}
+
+ACTIVE_ORDER_STATUSES = {
+    "UNSUBMITTED", "WAITING_SUBMIT", "SUBMITTING", "SUBMITTED", "FILLED_PART",
+    "CANCELLING_PART", "CANCELLING_ALL", "TIMEOUT",
+}
+
+KNOWN_ORDER_STATUSES = TERMINAL_ORDER_STATUSES | ACTIVE_ORDER_STATUSES
+
+# These terminal outcomes leave the strategy decision incompletely executed.  They
+# require an operator acknowledgement before the virtual account may trade again.
+ATTENTION_REQUIRED_INTENT_STATUSES = TERMINAL_ORDER_STATUSES - {"FILLED_ALL"} | {
+    "REJECTED", "SUBMISSION_FAILED", "EXPIRED",
 }
 
 TERMINAL_INTENT_STATUSES = TERMINAL_ORDER_STATUSES | {

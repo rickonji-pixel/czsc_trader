@@ -3,6 +3,7 @@
 from threading import RLock
 
 from .audit import AuditRecorder
+from .futu_gateway import FutuGatewayError
 
 
 class UnavailableExecution:
@@ -30,6 +31,8 @@ class UnavailableExecution:
     def resume(self): raise RuntimeError("successful channel reconciliation required before resume")
     def issue_cancel_token(self, account_id, channel_order_id): raise RuntimeError("channel is unavailable")
     def confirm_cancel(self, account_id, channel_order_id, token): raise RuntimeError("channel is unavailable")
+    def acknowledge_execution_gap(self, account_id, intent_id, resolution_note):
+        raise RuntimeError("channel is unavailable")
     def begin_shutdown(self): return None
     def close(self): self.store.close()
 
@@ -56,11 +59,25 @@ class ReconnectableExecution:
                 self._last_error = None
             return self._delegate
 
-    def refresh(self): return self._execution().refresh()
-    def refresh_account(self): return self._execution().refresh_account()
-    def refresh_orders(self): return self._execution().refresh_orders()
+    def _call(self, method: str, *args, **kwargs):
+        delegate = self._execution()
+        try:
+            return getattr(delegate, method)(*args, **kwargs)
+        except FutuGatewayError as exc:
+            with self._lock:
+                if self._delegate is delegate:
+                    close = getattr(getattr(delegate, "broker", None), "close", None)
+                    if close is not None:
+                        close()
+                    self._delegate = None
+                    self._last_error = str(exc)
+            raise
+
+    def refresh(self): return self._call("refresh")
+    def refresh_account(self): return self._call("refresh_account")
+    def refresh_orders(self): return self._call("refresh_orders")
     def submit_pending(self, *, reconcile=True):
-        return self._execution().submit_pending(reconcile=reconcile)
+        return self._call("submit_pending", reconcile=reconcile)
 
     def status(self):
         if self._delegate is not None:
@@ -78,11 +95,13 @@ class ReconnectableExecution:
         self.store.set_paused(True)
         return self.status()
 
-    def resume(self): return self._execution().resume()
+    def resume(self): return self._call("resume")
     def issue_cancel_token(self, account_id, channel_order_id):
-        return self._execution().issue_cancel_token(account_id, channel_order_id)
+        return self._call("issue_cancel_token", account_id, channel_order_id)
     def confirm_cancel(self, account_id, channel_order_id, token):
-        return self._execution().confirm_cancel(account_id, channel_order_id, token)
+        return self._call("confirm_cancel", account_id, channel_order_id, token)
+    def acknowledge_execution_gap(self, account_id, intent_id, resolution_note):
+        return self._call("acknowledge_execution_gap", account_id, intent_id, resolution_note)
     def begin_shutdown(self):
         if self._delegate is not None:
             self._delegate.begin_shutdown()
@@ -167,6 +186,8 @@ class PteCoordinator:
         return self.execution.issue_cancel_token(account_id, channel_order_id)
     def confirm_cancel(self, account_id, channel_order_id, token):
         return self.execution.confirm_cancel(account_id, channel_order_id, token)
+    def acknowledge_execution_gap(self, account_id, intent_id, resolution_note):
+        return self.execution.acknowledge_execution_gap(account_id, intent_id, resolution_note)
 
     def _set_virtual_paused(self, account_id, paused):
         account = self.store.set_virtual_paused(account_id, paused)

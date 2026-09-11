@@ -17,6 +17,10 @@ class AccountRefreshBatchError(RuntimeError):
     """One or more active virtual accounts failed to refresh."""
 
 
+class ActiveOrderPendingError(RuntimeError):
+    """A newer decision must wait until an older order reaches a known terminal state."""
+
+
 class AccountEngine:
     _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 
@@ -61,6 +65,29 @@ class AccountEngine:
     def refresh_account(self, account_id: str, *, force: bool = False):
         account = self.store.virtual_account(account_id)
         previous_payload = account.get("last_decision_payload")
+        active_intents = [
+            row for row in self.store.account_intents(account_id)
+            if row["status"] not in TERMINAL_INTENT_STATUSES
+        ]
+        if active_intents:
+            previous = json.loads(previous_payload) if previous_payload else {}
+            published_date = self.store.get_setting("last_data_publish_date")
+            if published_date and published_date != previous.get("signal_date"):
+                message = "存在未完成订单，新数据决策暂缓生成并等待对账"
+                self.audit.record(
+                    "ORDER_SUBMISSION_BLOCKED", source="account_engine", outcome="SKIPPED",
+                    account_id=account_id, strategy_id=account["strategy_id"],
+                    strategy_version=account["strategy_version"],
+                    release_hash=account["release_hash"], symbol=account["symbol"],
+                    correlation_id=f"publication:{published_date}",
+                    details={
+                        "reason": "previous_order_active",
+                        "published_date": published_date,
+                        "active_intent_ids": [row["intent_id"] for row in active_intents],
+                    },
+                )
+                raise ActiveOrderPendingError(message)
+            return self.status(account_id)
         previous_action = (
             json.loads(previous_payload).get("action") if previous_payload else None
         )
@@ -91,15 +118,6 @@ class AccountEngine:
             raise ValueError("advice symbol differs from account")
         if decision.actual_quantity != int(account["quantity"]):
             raise ValueError("advice quantity differs from account")
-
-        execution_in_flight = any(
-            row["status"] not in TERMINAL_INTENT_STATUSES
-            and row["status"] != "PENDING_SUBMIT"
-            for row in self.store.account_intents(account_id)
-        )
-        if account["health"] == "BLOCKED" and not execution_in_flight:
-            self.store.set_virtual_health(account_id, "OK")
-            account["health"] = "OK"
 
         payload = asdict(decision)
         self.store.save_account_decision(account_id, payload)

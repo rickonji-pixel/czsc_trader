@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
-from threading import Event
+from datetime import datetime, time, timedelta, timezone
+from threading import Event, Thread
 
 from .audit import AuditRecorder
 from .trading_window import SHANGHAI, shanghai_now
@@ -36,8 +36,13 @@ class RuntimeScheduler:
         )
         self._last_order: datetime | None = None
         self._last_account: datetime | None = None
+        self._last_heartbeat: datetime | None = None
+        self._daily_thread: Thread | None = None
+        self.shutdown_clean = True
         self._failures = self._restore_failures()
         self._retry_delays = (5, 15, 30, 60, 300)
+        self.store.set_setting("scheduler_started_at", datetime.now(timezone.utc).isoformat())
+        self.store.set_setting("scheduler_heartbeat_at", datetime.now(timezone.utc).isoformat())
 
     def _restore_failures(self) -> dict[str, dict[str, object]]:
         load = getattr(self.store, "operation_failures", None)
@@ -92,6 +97,7 @@ class RuntimeScheduler:
                     self.store.add_event("SCHEDULER_OPERATION_FAILED", details)
             return False
         else:
+            self.store.set_setting(f"last_{name}_success_at", now.isoformat())
             if name in self._failures:
                 previous = self._failures.pop(name)
                 details = {"operation": name, "previous_error": previous["fingerprint"],
@@ -115,13 +121,25 @@ class RuntimeScheduler:
         return last is None or (now - last).total_seconds() >= seconds
 
     def tick(self, now: datetime) -> None:
-        local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
+        self.tick_fast(now)
+        self.tick_daily(now)
+
+    def _heartbeat(self, now: datetime) -> None:
+        if self._due(self._last_heartbeat, now, 10):
+            self.store.set_setting("scheduler_heartbeat_at", now.isoformat())
+            self._last_heartbeat = now
+
+    def tick_fast(self, now: datetime) -> None:
+        self._heartbeat(now)
         if self._due(self._last_account, now, self.account_interval):
             self._guard("account", now, self.engine.refresh_account)
             self._last_account = now
         if self._due(self._last_order, now, self.order_interval):
             self._guard("orders", now, self.engine.refresh_orders)
             self._last_order = now
+
+    def tick_daily(self, now: datetime) -> None:
+        local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
         today = local_now.date().isoformat()
         if (
             local_now.time().replace(tzinfo=None) >= self.publish_time
@@ -151,6 +169,7 @@ class RuntimeScheduler:
                 cutoff = str(result.get("data_cutoff") or today)
                 self.store.set_setting("last_data_publish_date", cutoff)
                 self.store.set_setting("last_data_publish_attempt_date", today)
+                self.store.set_setting("last_data_publication", now.isoformat())
                 self.store.set_setting("data_publication_error", "")
                 if self.audit is not None:
                     self.audit.record(
@@ -170,16 +189,35 @@ class RuntimeScheduler:
             self._guard("account_decisions", now, refresh_accounts)
 
     def run(self, stopped: Event) -> None:
+        def run_daily() -> None:
+            while not stopped.is_set():
+                try:
+                    self.tick_daily(shanghai_now())
+                except Exception as exc:
+                    self._record_cycle_failure(exc, "daily")
+                stopped.wait(0.5)
+
+        self._daily_thread = Thread(
+            target=run_daily, name="pte-daily-scheduler", daemon=True,
+        )
+        self._daily_thread.start()
         while not stopped.is_set():
             try:
-                self.tick(shanghai_now())
+                self.tick_fast(shanghai_now())
             except Exception as exc:
-                details = {"error": str(exc), "error_type": type(exc).__name__}
-                if self.audit is not None:
-                    self.audit.record(
-                        "SCHEDULER_CYCLE_FAILED", source="scheduler", outcome="FAILURE",
-                        actor_type="SCHEDULER", details=details,
-                    )
-                else:
-                    self.store.add_event("SCHEDULER_CYCLE_FAILED", details)
+                self._record_cycle_failure(exc, "fast")
             stopped.wait(0.5)
+        self._daily_thread.join(timeout=25.0)
+        self.shutdown_clean = not self._daily_thread.is_alive()
+
+    def _record_cycle_failure(self, exc: Exception, lane: str) -> None:
+        details = {
+            "error": str(exc), "error_type": type(exc).__name__, "lane": lane,
+        }
+        if self.audit is not None:
+            self.audit.record(
+                "SCHEDULER_CYCLE_FAILED", source="scheduler", outcome="FAILURE",
+                actor_type="SCHEDULER", details=details,
+            )
+        else:
+            self.store.add_event("SCHEDULER_CYCLE_FAILED", details)

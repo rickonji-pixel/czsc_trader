@@ -25,7 +25,11 @@ def http_is_healthy(url: str, timeout: float) -> bool:
             if response.status != 200:
                 return False
             payload = json.loads(response.read())
-        return bool(isinstance(payload, dict) and payload.get("runtime") == "RUNNING")
+        return bool(
+            isinstance(payload, dict)
+            and payload.get("runtime") == "RUNNING"
+            and payload.get("watchdog_healthy", True) is True
+        )
     except (OSError, ValueError, TypeError):
         return False
 
@@ -38,6 +42,16 @@ def spawn_pte(command: Sequence[str], cwd: Path, log_path: Path) -> subprocess.P
             list(command), cwd=cwd, stdout=output, stderr=subprocess.STDOUT,
             creationflags=flags,
         )
+
+
+def rotate_log(path: Path, *, max_bytes: int = 10 * 1024 * 1024, backups: int = 5) -> None:
+    if not path.is_file() or path.stat().st_size < max_bytes:
+        return
+    for index in range(max(1, backups), 0, -1):
+        source = path if index == 1 else path.with_name(f"{path.name}.{index - 1}")
+        target = path.with_name(f"{path.name}.{index}")
+        if source.exists():
+            source.replace(target)
 
 
 class Watchdog:
@@ -72,6 +86,7 @@ class Watchdog:
         self.restart_index = 0
 
     def start_child(self) -> ChildProcess:
+        rotate_log(self.log_path)
         self.child = self.process_factory(self.command, self.working_directory, self.log_path)
         self.logger.info("PTE child started")
         return self.child

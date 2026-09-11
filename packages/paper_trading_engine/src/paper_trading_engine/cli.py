@@ -24,10 +24,11 @@ from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
 from .futu_gateway import FutuGateway
-from .store import PaperStore
+from .store import PaperStore, backup_runtime_database
 from .scheduler import RuntimeScheduler
 from .web import create_server
 from .coordinator import PteCoordinator, ReconnectableExecution
+from .runtime_lock import RuntimeDatabaseLock
 
 
 class PortUnavailableError(RuntimeError):
@@ -141,6 +142,8 @@ def _default_executable(repo_root: Path) -> Path:
 
 
 def build_engine(args: argparse.Namespace):
+    if getattr(args, "action", None) == "serve":
+        backup_runtime_database(args.database)
     store = PaperStore(args.database)
     audit = AuditRecorder(store)
     advice = CliAdviceClient(
@@ -469,6 +472,8 @@ def main(
 ) -> int:
     args = build_parser().parse_args(argv)
     engine = None
+    runtime_lock = None
+    close_engine = True
     try:
         if args.action == "performance":
             from .performance_export import export_performance
@@ -497,6 +502,8 @@ def main(
             return 0
         if args.action == "serve":
             probe_port(args.host, args.port)
+        if args.action in {"serve", "once"}:
+            runtime_lock = RuntimeDatabaseLock(args.database).acquire()
         engine = engine_factory(args)
         if args.action == "once":
             result = engine.refresh()
@@ -542,7 +549,14 @@ def main(
             stopped.set()
             worker.join(timeout=30.0)
             server.server_close()
-            _record_service_lifecycle(audit, "SERVICE_STOPPED", instance_id)
+            close_engine = not worker.is_alive() and scheduler.shutdown_clean
+            if close_engine:
+                _record_service_lifecycle(audit, "SERVICE_STOPPED", instance_id)
+            else:
+                sys.stderr.write(
+                    "PTE daily operation did not quiesce before shutdown; "
+                    "database close is delegated to process exit.\n"
+                )
         return 0
     except KeyboardInterrupt:
         return 130
@@ -556,8 +570,12 @@ def main(
         )
         return 5
     finally:
-        if engine is not None:
-            engine.close()
+        try:
+            if engine is not None and close_engine:
+                engine.close()
+        finally:
+            if runtime_lock is not None and close_engine:
+                runtime_lock.release()
 
 
 if __name__ == "__main__":

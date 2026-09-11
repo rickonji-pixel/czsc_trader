@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 
 from .audit import AuditCategory, AuditOutcome, AuditSeverity, EVENT_CATALOG
 from .store import DEFAULT_FUTU_CAPITAL_POOL
+from .trading_window import SHANGHAI
 
 
 class ResourceNotFound(KeyError):
@@ -14,6 +15,18 @@ class ResourceNotFound(KeyError):
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _is_stale(value: str | None, *, seconds: float) -> bool:
+    if not value:
+        return False
+    try:
+        observed = datetime.fromisoformat(value)
+    except ValueError:
+        return True
+    if observed.tzinfo is None:
+        observed = observed.replace(tzinfo=SHANGHAI)
+    return (datetime.now(timezone.utc) - observed.astimezone(timezone.utc)).total_seconds() > seconds
 
 
 class PteWebApi:
@@ -33,12 +46,28 @@ class PteWebApi:
             alerts.append("VIRTUAL_ACCOUNT_BLOCKED")
         if self.store.unresolved_account_intents():
             alerts.append("ORDER_SUBMISSION_UNRESOLVED")
+        heartbeat = self.store.get_setting("scheduler_heartbeat_at")
+        scheduler_stalled = _is_stale(heartbeat, seconds=45)
+        if scheduler_stalled:
+            alerts.append("SCHEDULER_STALLED")
+        published = self.store.get_setting("last_data_publish_date")
+        decided = self.store.get_setting("last_account_decision_date")
+        if published and published != decided:
+            alerts.append("DECISION_GENERATION_OVERDUE")
+        local_now = datetime.now(SHANGHAI)
+        if (
+            local_now.time() >= time(21, 0)
+            and self.store.get_setting("last_data_publish_attempt_date") != local_now.date().isoformat()
+        ):
+            alerts.append("DATA_PUBLICATION_OVERDUE")
         alerts = list(dict.fromkeys(alerts))
         return {
             "scope": {"system": "pte"},
             "as_of": _now(),
             "runtime": "RUNNING",
-            "data_cutoff": self.store.get_setting("last_data_publish_date"),
+            "watchdog_healthy": not scheduler_stalled,
+            "scheduler_heartbeat_at": heartbeat,
+            "data_cutoff": published,
             "last_publication": self.store.get_setting("last_data_publication"),
             "scheduler_failures": failures,
             "futu_connection": "UNAVAILABLE" if "CHANNEL_UNAVAILABLE" in channel.get("alerts", []) else "CONNECTED",

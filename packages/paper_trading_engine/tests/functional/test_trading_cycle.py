@@ -5,7 +5,7 @@ from subprocess import CompletedProcess
 
 import pytest
 
-from paper_trading_engine.account_engine import AccountEngine
+from paper_trading_engine.account_engine import AccountEngine, AccountRefreshBatchError
 from paper_trading_engine.advice_client import AdviceClientError, CliAdviceClient
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.contracts import OrderSpec
@@ -60,6 +60,23 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     assert store.virtual_account("s001-v1")["quantity"] == 400
     assert len(store.account_fills("s001-v1")) == 1
 
+    next_advice = FakeAdvice(replace(
+        decision(), decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+        signal_date=date(2026, 9, 2), valid_session=date(2026, 9, 3),
+        data_cutoff=date(2026, 9, 2), target_quantity=1000,
+        cycle_target_quantity=1000,
+    ))
+    next_accounts = AccountEngine(store, next_advice)
+    store.set_setting("last_data_publish_date", "2026-09-02")
+    with pytest.raises(AccountRefreshBatchError, match="存在未完成订单"):
+        next_accounts.refresh_all()
+    assert next_advice.calls == []
+    assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
+    assert len(store.account_intents("s001-v1")) == 1
+    assert len(store.query_audit_events(event_type="ORDER_SUBMISSION_BLOCKED")) == 1
+    execution.refresh_orders()
+    assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
+
     broker.value = broker_snapshot(
         orders=(replace(
             submitted, status="FILLED_ALL", cumulative_filled_quantity=1000,
@@ -68,6 +85,11 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     )
     execution.refresh_orders()
     assert store.virtual_account("s001-v1")["quantity"] == 1000
+    assert store.virtual_account("s001-v1")["health"] == "OK"
+    next_accounts.refresh_all()
+    assert len(next_advice.calls) == 1
+    assert len(store.account_decisions("s001-v1")) == 2
+    assert len(store.account_intents("s001-v1")) == 1
     assert sum(row["quantity"] for row in store.account_fills("s001-v1")) == 1000
     assert len(store.query_audit_events(event_type="ORDER_FILLED", account_id="s001-v1")) == 1
     store.close()
@@ -119,4 +141,8 @@ def test_existing_decision_id_is_preserved_when_same_decision_is_recomputed(tmp_
     assert len(saved) == 1
     assert saved[0]["decision_id"] == "DEC-ONE"
     assert store.virtual_account("s001-v1")["last_decision_id"] == "DEC-ONE"
+    conflicting = dict(old_payload)
+    conflicting["target_quantity"] = 100
+    with pytest.raises(ValueError, match="idempotent"):
+        store.save_account_decision("s001-v1", conflicting)
     store.close()

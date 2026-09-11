@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from subprocess import CompletedProcess
+from threading import Event, Thread
+import time
 
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.data_publisher import AccountDataPublisher, CliDataPublisher
@@ -161,3 +163,30 @@ def test_ft_pte04_failed_account_batch_is_not_marked_complete():
     assert store.get_setting("last_account_decision_date") is None
     scheduler.tick(datetime(2026, 9, 3, 10, 0, 5))
     assert store.get_setting("last_account_decision_date") == "2026-09-02"
+
+
+def test_ft_pte04_slow_daily_publication_does_not_stop_order_reconciliation():
+    entered, release, stopped = Event(), Event(), Event()
+
+    class SlowPublisher:
+        def publish(self, end_date):
+            entered.set()
+            assert release.wait(2)
+            return {"data_cutoff": end_date}
+
+    engine, store = Engine(), Store()
+    scheduler = RuntimeScheduler(
+        engine, SlowPublisher(), store,
+        order_interval=0.01, account_interval=0.02, publish_time="00:00",
+    )
+    worker = Thread(target=scheduler.run, args=(stopped,))
+    worker.start()
+    assert entered.wait(1)
+    time.sleep(0.65)
+    order_calls_while_publication_blocked = engine.calls.count("orders")
+    release.set()
+    stopped.set()
+    worker.join(2)
+    assert not worker.is_alive()
+    assert order_calls_while_publication_blocked >= 2
+    assert store.get_setting("scheduler_heartbeat_at") is not None

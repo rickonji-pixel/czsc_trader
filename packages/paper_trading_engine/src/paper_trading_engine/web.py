@@ -37,15 +37,19 @@ def create_server(
             self, status: int, body: bytes, content_type: str, *,
             cache_control: str = "no-store", etag: str | None = None,
         ) -> None:
-            self.send_response(status)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", cache_control)
-            if etag is not None:
-                self.send_header("ETag", etag)
-            self.end_headers()
-            if body:
-                self.wfile.write(body)
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", cache_control)
+                if etag is not None:
+                    self.send_header("ETag", etag)
+                self.end_headers()
+                if body:
+                    self.wfile.write(body)
+            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                # Browser polling and chart navigation legitimately cancel stale requests.
+                return
 
         def _json(self, status: int, payload: object) -> None:
             self._send(status, json.dumps(payload, ensure_ascii=False, default=str).encode(),
@@ -191,6 +195,18 @@ def create_server(
                     else:
                         self._json(404, {"error": "not found"})
                         return
+                    result = api.virtual_account_snapshot(account_id)
+                elif (
+                    parts[:2] == ["api", "virtual-accounts"]
+                    and len(parts) == 6
+                    and parts[3] == "intents"
+                    and parts[5] == "acknowledge"
+                ):
+                    account_id = unquote(parts[2])
+                    intent_id = unquote(parts[4])
+                    operations.acknowledge_execution_gap(
+                        account_id, intent_id, str(body.get("resolution_note") or ""),
+                    )
                     result = api.virtual_account_snapshot(account_id)
                 else:
                     self._json(404, {"error": "not found"})

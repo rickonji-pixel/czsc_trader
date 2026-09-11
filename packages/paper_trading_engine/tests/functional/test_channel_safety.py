@@ -1,11 +1,13 @@
 from dataclasses import replace
 from datetime import date, datetime
 from concurrent.futures import ThreadPoolExecutor
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
 
 from paper_trading_engine.audit import AuditRecorder
+from paper_trading_engine.account_engine import AccountEngine
 from paper_trading_engine.broker import (
     BrokerOrder,
     BrokerOrderRejectedError,
@@ -15,10 +17,11 @@ from paper_trading_engine.broker import (
     PaperTradingSafetyError,
 )
 from paper_trading_engine.futu_execution import ChannelReconciliationError, FutuExecution
-from paper_trading_engine.futu_gateway import FutuGateway
+from paper_trading_engine.futu_gateway import FutuGateway, FutuGatewayError
 from paper_trading_engine.coordinator import ReconnectableExecution
 from paper_trading_engine.store import PaperStore
-from pte_support import FakeBroker
+from paper_trading_engine.contracts import OrderSpec
+from pte_support import FakeAdvice, FakeBroker, decision
 
 
 def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
@@ -258,7 +261,7 @@ def test_ft_pte03_explicit_rejection_releases_cash_and_duplicate_submit_is_atomi
 
     store.set_virtual_health("s001-v1", "OK")
     second = store.create_account_intent(
-        account_id="s001-v1", decision_id="DEC-ATOMIC", order_sequence=0,
+        account_id="s001-v1", decision_id="DEC-REJECT", order_sequence=1,
         symbol="588080.SH", side="BUY", quantity=1000,
         limit_price="1.680", valid_session="2026-09-04",
     )
@@ -275,6 +278,160 @@ def test_ft_pte03_explicit_rejection_releases_cash_and_duplicate_submit_is_atomi
         list(pool.map(lambda runner: runner.submit_pending(reconcile=False), (first, second_runner)))
     assert len(safe_broker.placed) == 1
     assert store.account_intent(second["intent_id"])["status"] == "SUBMITTED"
+    filled = replace(
+        safe_broker.value.orders[0], status="FILLED_ALL",
+        cumulative_filled_quantity=1000, average_fill_price=1.67,
+    )
+    safe_broker.value = BrokerSnapshot(
+        safe_broker.value.account, (BrokerPosition("588080.SH", 1000),), (filled,),
+    )
+    first.refresh_orders()
+    store.close()
+
+    # A pre-v2 failed attempt followed by a completed retry remains resolved on migration.
+    with sqlite3.connect(tmp_path / "reject.db") as connection:
+        connection.execute(
+            "UPDATE intents SET attention_required=0,attention_reason=NULL,"
+            "resolved_at=NULL,resolution_note=NULL WHERE intent_id=?",
+            (rejected["intent_id"],),
+        )
+    migrated = PaperStore(tmp_path / "reject.db")
+    migrated_rejection = migrated.account_intent(rejected["intent_id"])
+    assert migrated_rejection["attention_required"] is False
+    assert second["intent_id"] in migrated_rejection["resolution_note"]
+    assert migrated.attention_account_intents("s001-v1") == []
+    migrated.close()
+
+
+def test_ft_pte03_incomplete_and_unknown_orders_never_silently_recover(tmp_path):
+    partial_store = PaperStore(tmp_path / "partial-cancel.db")
+    partial_store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    partial = partial_store.create_account_intent(
+        account_id="s001-v1", decision_id="DEC-PARTIAL", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000,
+        limit_price="1.680", valid_session="2026-09-02",
+    )
+    partial_broker = FakeBroker()
+    partial_execution = FutuExecution(
+        partial_store, partial_broker, today=lambda: date(2026, 9, 2),
+    )
+    partial_execution.submit_pending()
+    cancelled = replace(
+        partial_broker.value.orders[0], status="CANCELLED_PART",
+        cumulative_filled_quantity=400, average_fill_price=1.67,
+    )
+    partial_broker.value = BrokerSnapshot(
+        partial_broker.value.account, (BrokerPosition("588080.SH", 400),), (cancelled,),
+    )
+    partial_execution.refresh_orders()
+    account = partial_store.virtual_account("s001-v1")
+    intent = partial_store.account_intent(partial["intent_id"])
+    assert intent["status"] == "CANCELLED_PART"
+    assert intent["attention_required"] is True
+    assert account["health"] == "BLOCKED"
+    assert float(account["frozen_cash"]) == 0
+    assert partial_store.account_invariant_violations() == []
+    partial_execution.acknowledge_execution_gap(
+        "s001-v1", partial["intent_id"], "已确认部分成交，保留实际400股持仓",
+    )
+    assert partial_store.virtual_account("s001-v1")["health"] == "OK"
+    assert partial_store.attention_account_intents("s001-v1") == []
+    partial_store.create_account_intent(
+        account_id="s001-v1", decision_id="DEC-CLOSE", order_sequence=0,
+        symbol="588080.SH", side="SELL", quantity=400,
+        limit_price="1.600", valid_session="2026-09-02", order_type="MARKET",
+    )
+    partial_execution.submit_pending()
+    sell_order = next(order for order in partial_broker.value.orders if order.side == "SELL")
+    sold = replace(
+        sell_order, status="FILLED_ALL", cumulative_filled_quantity=400,
+        average_fill_price=1.60,
+    )
+    partial_broker.value = BrokerSnapshot(
+        partial_broker.value.account, (), (cancelled, sold),
+    )
+    partial_execution.refresh_orders()
+    closed = partial_store.virtual_account("s001-v1")
+    assert closed["quantity"] == 0
+    assert float(closed["cash"]) - 100_000 == pytest.approx(float(closed["realized_pnl"]))
+    assert partial_store.account_invariant_violations() == []
+    partial_store.close()
+
+    timeout_store = PaperStore(tmp_path / "timeout.db")
+    timeout_store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    timeout = timeout_store.create_account_intent(
+        account_id="s001-v1", decision_id="DEC-TIMEOUT", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000,
+        limit_price="1.680", valid_session="2026-09-02",
+    )
+    timeout_broker = FakeBroker()
+    timeout_execution = FutuExecution(
+        timeout_store, timeout_broker, today=lambda: date(2026, 9, 2),
+    )
+    timeout_execution.submit_pending()
+    unknown = replace(timeout_broker.value.orders[0], status="TIMEOUT")
+    timeout_broker.value = replace(
+        timeout_broker.value,
+        orders=(replace(unknown, status="FUTURE_UNKNOWN_STATUS"),),
+    )
+    with pytest.raises(ChannelReconciliationError, match="不一致"):
+        timeout_execution.refresh_orders()
+    timeout_broker.value = replace(timeout_broker.value, orders=(unknown,))
+    timeout_execution.refresh_orders()
+    assert timeout_store.virtual_account("s001-v1")["health"] == "BLOCKED"
+    assert [row["intent_id"] for row in timeout_store.unresolved_account_intents()] == [
+        timeout["intent_id"]
+    ]
+    filled = replace(
+        unknown, status="FILLED_ALL", cumulative_filled_quantity=1000,
+        average_fill_price=1.67,
+    )
+    timeout_broker.value = BrokerSnapshot(
+        timeout_broker.value.account, (BrokerPosition("588080.SH", 1000),), (filled,),
+    )
+    timeout_execution.refresh_orders()
+    assert timeout_store.virtual_account("s001-v1")["health"] == "OK"
+    assert timeout_store.unresolved_account_intents() == []
+    assert timeout_store.account_invariant_violations() == []
+    timeout_store.close()
+
+
+def test_ft_pte03_rejected_decision_remains_blocked_until_operator_review(tmp_path):
+    class RejectingBroker(FakeBroker):
+        def place_order(self, intent):
+            self.placed.append(intent)
+            raise BrokerOrderRejectedError("模拟拒单")
+
+    store = PaperStore(tmp_path / "persistent-rejection.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    accounts = AccountEngine(
+        store, FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY"))),
+        now=lambda: datetime.fromisoformat("2026-09-01T20:30:00+08:00"),
+    )
+    accounts.refresh_account("s001-v1")
+    execution = FutuExecution(
+        store, RejectingBroker(), now=lambda: datetime.fromisoformat("2026-09-02T10:00:00+08:00"),
+    )
+    execution.submit_pending()
+    accounts.refresh_account("s001-v1")
+    assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
+    assert len(store.account_intents("s001-v1")) == 1
+    assert len(store.attention_account_intents("s001-v1")) == 1
     store.close()
 
 
@@ -339,3 +496,25 @@ def test_ft_pte03_opend_can_reconnect_without_restarting_pte(tmp_path):
     assert execution.status()["reconciliation_status"] != "UNAVAILABLE"
     assert attempts == 2
     execution.close()
+
+    recovered_store = PaperStore(tmp_path / "reconnect-established.db")
+    replacement = FutuExecution(recovered_store, FakeBroker())
+
+    class BrokenBroker:
+        def __init__(self): self.closed = False
+        def close(self): self.closed = True
+
+    class BrokenExecution:
+        def __init__(self): self.broker = BrokenBroker()
+        def refresh_account(self): raise FutuGatewayError("connection permanently lost")
+        def status(self): return {"reconciliation_status": "UNAVAILABLE"}
+
+    broken = BrokenExecution()
+    established = ReconnectableExecution(
+        recovered_store, "588080.SH", lambda: replacement, initial=broken,
+    )
+    with pytest.raises(FutuGatewayError, match="permanently lost"):
+        established.refresh_account()
+    assert broken.broker.closed is True
+    assert established.refresh_account()["account"]["environment"] == "SIMULATE"
+    established.close()

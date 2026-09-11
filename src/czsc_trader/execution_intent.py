@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from decimal import Decimal, ROUND_FLOOR
 
 from .baselines import ExecutionSpec
-from .execution_policy import floor_to_tick, round_to_tick
+from .execution_policy import ceil_to_tick, floor_to_tick, round_to_tick
 
 
 @dataclass(frozen=True)
@@ -28,11 +28,37 @@ class OrderIntent:
 
 
 def calculate_entry_limit(execution_close: float, execution_spec: ExecutionSpec) -> float:
-    """Calculate the exchange-valid entry cap from an unadjusted close."""
-    return floor_to_tick(
+    """Calculate an entry cap one tick inside the internal exchange boundary."""
+    requested = floor_to_tick(
         float(execution_close) * (1.0 + execution_spec.entry_limit_parameter),
         execution_spec.instrument.price_tick,
     )
+    tick = execution_spec.instrument.price_tick
+    upper_guard = round_to_tick(
+        floor_to_tick(
+            float(execution_close) * (1.0 + execution_spec.instrument.price_limit_ratio),
+            tick,
+        ) - tick,
+        tick,
+    )
+    return min(requested, upper_guard)
+
+
+def calculate_exit_limit(execution_close: float, execution_spec: ExecutionSpec) -> float:
+    """Calculate an exit floor one tick inside the internal exchange boundary."""
+    tick = execution_spec.instrument.price_tick
+    requested = round_to_tick(
+        float(execution_close) * (1.0 - execution_spec.exit_limit_ratio),
+        tick,
+    )
+    lower_guard = round_to_tick(
+        ceil_to_tick(
+            float(execution_close) * (1.0 - execution_spec.instrument.price_limit_ratio),
+            tick,
+        ) + tick,
+        tick,
+    )
+    return max(requested, lower_guard)
 
 
 def calculate_target_quantity(
@@ -97,10 +123,7 @@ def decide_order_intent(
         action = "BUY" if delta else ("HOLD" if actual_quantity else "WAIT")
         side = "BUY"
     else:
-        price = round_to_tick(
-            float(execution_close) * (1.0 - execution_spec.exit_limit_ratio),
-            instrument.price_tick,
-        )
+        price = calculate_exit_limit(execution_close, execution_spec)
         target = 0
         delta = -actual_quantity
         action = "SELL" if actual_quantity else "WAIT"

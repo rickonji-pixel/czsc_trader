@@ -36,6 +36,7 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
         symbol="588080.SH", side="BUY", quantity=1000,
         limit_price="1.680", valid_session="2026-09-04", fee_rate="0.0005",
     )
+    assert store.claim_account_intent(intent["intent_id"])
     store.bind_channel_order(intent["intent_id"], "1001", {
         "channel_order_id": "1001", "symbol": "588080.SH", "side": "BUY",
         "quantity": 1000, "limit_price": 1.68, "status": "SUBMITTED",

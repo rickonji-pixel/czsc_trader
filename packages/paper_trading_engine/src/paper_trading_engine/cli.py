@@ -27,7 +27,7 @@ from .futu_gateway import FutuGateway
 from .store import PaperStore
 from .scheduler import RuntimeScheduler
 from .web import create_server
-from .coordinator import PteCoordinator, UnavailableExecution
+from .coordinator import PteCoordinator, ReconnectableExecution
 
 
 class PortUnavailableError(RuntimeError):
@@ -150,19 +150,25 @@ def build_engine(args: argparse.Namespace):
         asset=args.asset,
         audit=audit,
     )
+    def connect_execution():
+        gateway = FutuGateway(host=args.opend_host, port=args.opend_port, audit=audit)
+        return FutuExecution(store, gateway, audit=audit)
+
     try:
-        gateway = FutuGateway(
-            host=args.opend_host, port=args.opend_port, audit=audit
-        )
+        initial_execution = connect_execution()
     except Exception as exc:
         audit.record(
             "DEPENDENCY_DEGRADED", source="cli", outcome="FAILURE",
             actor_type="EXTERNAL", actor_id="futu", channel="futu",
             details={"service": "futu", "operation": "initialize", "error": str(exc)},
         )
-        execution = UnavailableExecution(store, args.symbol, exc)
+        execution = ReconnectableExecution(
+            store, args.symbol, connect_execution, error=exc,
+        )
     else:
-        execution = FutuExecution(store, gateway, audit=audit)
+        execution = ReconnectableExecution(
+            store, args.symbol, connect_execution, initial=initial_execution,
+        )
     try:
         store.virtual_account("baseline-143")
     except KeyError:

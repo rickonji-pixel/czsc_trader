@@ -6,6 +6,7 @@ from datetime import datetime, time, timedelta
 from threading import Event
 
 from .audit import AuditRecorder
+from .trading_window import SHANGHAI, shanghai_now
 
 
 class RuntimeScheduler:
@@ -114,16 +115,17 @@ class RuntimeScheduler:
         return last is None or (now - last).total_seconds() >= seconds
 
     def tick(self, now: datetime) -> None:
+        local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
         if self._due(self._last_account, now, self.account_interval):
             self._guard("account", now, self.engine.refresh_account)
             self._last_account = now
         if self._due(self._last_order, now, self.order_interval):
             self._guard("orders", now, self.engine.refresh_orders)
             self._last_order = now
-        today = now.date().isoformat()
+        today = local_now.date().isoformat()
         if (
-            now.time() >= self.publish_time
-            and self.store.get_setting("last_data_publish_date") != today
+            local_now.time().replace(tzinfo=None) >= self.publish_time
+            and self.store.get_setting("last_data_publish_attempt_date") != today
         ):
             def publish():
                 correlation_id = f"publication:{today}"
@@ -146,13 +148,15 @@ class RuntimeScheduler:
                                      "error": str(exc)},
                         )
                     raise
-                self.store.set_setting("last_data_publish_date", today)
+                cutoff = str(result.get("data_cutoff") or today)
+                self.store.set_setting("last_data_publish_date", cutoff)
+                self.store.set_setting("last_data_publish_attempt_date", today)
                 self.store.set_setting("data_publication_error", "")
                 if self.audit is not None:
                     self.audit.record(
                         "MARKET_DATA_PUBLISHED", source="scheduler", actor_type="SCHEDULER",
                         correlation_id=correlation_id,
-                        details={"target_date": today, "result": result},
+                        details={"target_date": today, "data_cutoff": cutoff, "result": result},
                     )
             self._guard("publication", now, publish)
         published_date = self.store.get_setting("last_data_publish_date")
@@ -168,7 +172,7 @@ class RuntimeScheduler:
     def run(self, stopped: Event) -> None:
         while not stopped.is_set():
             try:
-                self.tick(datetime.now())
+                self.tick(shanghai_now())
             except Exception as exc:
                 details = {"error": str(exc), "error_type": type(exc).__name__}
                 if self.audit is not None:

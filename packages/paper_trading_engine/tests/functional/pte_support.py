@@ -89,6 +89,9 @@ class FakeBroker:
     def order_snapshot(self):
         return self.value.orders
 
+    def historical_order_snapshot(self, start, end):
+        return self.value.orders
+
     def place_order(self, intent):
         self.placed.append(intent)
         order = BrokerOrder(

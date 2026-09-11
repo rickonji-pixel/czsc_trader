@@ -25,6 +25,16 @@ def _integer(value: object, name: str) -> int:
     return value
 
 
+def _finite_number(value: object, name: str, *, nonnegative: bool = False) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AdviceContractError(f"{name} must be numeric")
+    number = float(value)
+    if not math.isfinite(number) or (number < 0 if nonnegative else number <= 0):
+        qualifier = "non-negative" if nonnegative else "positive"
+        raise AdviceContractError(f"{name} must be {qualifier} and finite")
+    return number
+
+
 @dataclass(frozen=True)
 class OrderSpec:
     side: str
@@ -143,6 +153,31 @@ class AdviceDecision:
             raise AdviceContractError("strategy qualification does not permit paper trading")
         if not str(strategy["name"]).strip():
             raise AdviceContractError("strategy name is required")
+        signal_reference = _finite_number(
+            value.get("signal_reference_price"), "signal reference price"
+        )
+        execution_reference = _finite_number(
+            value.get("execution_reference_price"), "execution reference price"
+        )
+        available_cash = _finite_number(
+            value.get("available_cash"), "available cash", nonnegative=True
+        )
+        fee_rate = _finite_number(value.get("fee_rate"), "fee rate", nonnegative=True)
+        estimated_cost = _finite_number(
+            value.get("estimated_order_cost", 0.0), "estimated order cost", nonnegative=True
+        )
+        unallocated_cash = _finite_number(
+            value.get("unallocated_cash", available_cash),
+            "unallocated cash", nonnegative=True,
+        )
+        if valid_session <= signal_date:
+            raise AdviceContractError("valid session must be after signal date")
+        if data_cutoff != signal_date:
+            raise AdviceContractError("data cutoff must equal signal date")
+        if not str(value.get("decision_id", "")).strip():
+            raise AdviceContractError("decision id is required")
+        if re.fullmatch(r"[0-9]{6}\.(SH|SZ)", str(value.get("symbol", "")).upper()) is None:
+            raise AdviceContractError("advice symbol has invalid format")
         return cls(
             contract_version=version,
             decision_id=str(value.get("decision_id", "")),
@@ -155,14 +190,14 @@ class AdviceDecision:
             delta_quantity=delta,
             action=action,
             strategy={key: str(strategy[key]) for key in expected_strategy_fields},
-            signal_reference_price=float(value["signal_reference_price"]),
-            execution_reference_price=float(value["execution_reference_price"]),
+            signal_reference_price=signal_reference,
+            execution_reference_price=execution_reference,
             data_cutoff=data_cutoff,
             order=order,
             orders=orders,
-            available_cash=float(value["available_cash"]),
-            fee_rate=float(value["fee_rate"]),
-            estimated_order_cost=float(value.get("estimated_order_cost", 0.0)),
-            unallocated_cash=float(value.get("unallocated_cash", value["available_cash"])),
+            available_cash=available_cash,
+            fee_rate=fee_rate,
+            estimated_order_cost=estimated_cost,
+            unallocated_cash=unallocated_cash,
             source_decision_id=str(value.get("decision_id", "")),
         )

@@ -26,7 +26,14 @@ class PteWebApi:
     def system_status(self) -> dict[str, object]:
         channel = self.channel.status()
         failures = channel.get("scheduler_failures", self.store.operation_failures())
-        alerts = [item for item in channel.get("alerts", []) if str(item).startswith("DATA_")]
+        alerts = list(channel.get("alerts", []))
+        if self.store.get_setting("data_publication_error"):
+            alerts.append("DATA_PUBLICATION_FAILED")
+        if any(row.get("health") == "BLOCKED" for row in self.store.virtual_accounts()):
+            alerts.append("VIRTUAL_ACCOUNT_BLOCKED")
+        if self.store.unresolved_account_intents():
+            alerts.append("ORDER_SUBMISSION_UNRESOLVED")
+        alerts = list(dict.fromkeys(alerts))
         return {
             "scope": {"system": "pte"},
             "as_of": _now(),
@@ -129,6 +136,7 @@ class PteWebApi:
             "account": {key: status.get(key) for key in account_keys},
             "decision": status.get("last_decision"),
             "orders": [row for row in status.get("orders", []) if row.get("account_id") == account_id],
+            "intents": self.store.account_intents(account_id),
             "fills": [row for row in status.get("fills", []) if row.get("account_id") == account_id],
             "metrics": status.get("metrics", {}),
             "alerts": ([{"code": "ACCOUNT_BLOCKED", "message": status["last_error"]}]

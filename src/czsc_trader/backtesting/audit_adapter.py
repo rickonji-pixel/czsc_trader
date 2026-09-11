@@ -50,6 +50,7 @@ def build_replay_evidence(
             "instrument": {
                 "lot_size": spec.instrument.lot_size,
                 "price_tick": spec.instrument.price_tick,
+                "price_limit_ratio": spec.instrument.price_limit_ratio,
                 "maximum_order_quantity": spec.instrument.maximum_order_quantity,
             },
         },

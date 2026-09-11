@@ -139,3 +139,25 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
     ]
     assert published_symbols == ["510500.SH", "588080.SH"]
     assert [item["symbol"] for item in multi_result["instruments"]] == published_symbols
+
+
+def test_ft_pte04_failed_account_batch_is_not_marked_complete():
+    class RetryingEngine(Engine):
+        def __init__(self):
+            super().__init__()
+            self.decision_attempts = 0
+
+        def refresh_decisions(self):
+            self.decision_attempts += 1
+            if self.decision_attempts == 1:
+                raise RuntimeError("one account failed")
+            self.calls.append("decisions")
+
+    store = Store()
+    store.values["last_data_publish_date"] = "2026-09-02"
+    engine = RetryingEngine()
+    scheduler = RuntimeScheduler(engine, object(), store)
+    scheduler.tick(datetime(2026, 9, 3, 10, 0, 0))
+    assert store.get_setting("last_account_decision_date") is None
+    scheduler.tick(datetime(2026, 9, 3, 10, 0, 5))
+    assert store.get_setting("last_account_decision_date") == "2026-09-02"

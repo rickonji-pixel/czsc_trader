@@ -8,9 +8,21 @@ TERMINAL_ORDER_STATUSES = {
     "DELETED", "FILL_CANCELLED",
 }
 
+TERMINAL_INTENT_STATUSES = TERMINAL_ORDER_STATUSES | {
+    "REJECTED", "SUBMISSION_FAILED", "EXPIRED",
+}
+
 
 class PaperTradingSafetyError(RuntimeError):
     pass
+
+
+class BrokerOrderRejectedError(RuntimeError):
+    """The broker definitively rejected an order before accepting it."""
+
+
+class BrokerSubmissionUncertainError(RuntimeError):
+    """The submit call may have reached the broker but no result was confirmed."""
 
 
 @dataclass(frozen=True)
@@ -39,6 +51,9 @@ class BrokerOrder:
     cumulative_filled_quantity: int
     average_fill_price: float
     remark: str
+    last_error: str = ""
+    created_at: str = ""
+    updated_at: str = ""
 
 
 @dataclass(frozen=True)

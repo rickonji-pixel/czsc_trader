@@ -55,6 +55,7 @@ def test_ft_pte07_performance_evidence_is_self_contained_and_release_bound(tmp_p
             symbol="588080.SH", side=side, quantity=1000,
             limit_price=price, valid_session=session, fee_rate="0.0005",
         )
+        assert store.claim_account_intent(intent["intent_id"])
         store.bind_channel_order(intent["intent_id"], order_id, {
             "channel_order_id": order_id, "symbol": "588080.SH", "side": side,
             "quantity": 1000, "limit_price": float(price), "status": "FILLED_ALL",

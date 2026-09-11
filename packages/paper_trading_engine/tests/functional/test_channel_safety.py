@@ -1,11 +1,14 @@
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
 
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.broker import (
+    BrokerOrder,
+    BrokerOrderRejectedError,
     BrokerPosition,
     BrokerSnapshot,
     OrderIntent,
@@ -13,6 +16,7 @@ from paper_trading_engine.broker import (
 )
 from paper_trading_engine.futu_execution import ChannelReconciliationError, FutuExecution
 from paper_trading_engine.futu_gateway import FutuGateway
+from paper_trading_engine.coordinator import ReconnectableExecution
 from paper_trading_engine.store import PaperStore
 from pte_support import FakeBroker
 
@@ -145,6 +149,7 @@ def test_ft_pte03_failed_or_cancelled_buy_releases_reserved_cash(tmp_path):
         symbol="588080.SH", side="BUY", quantity=1000,
         limit_price="1.680", valid_session="2026-09-04",
     )
+    assert store.claim_account_intent(second["intent_id"])
     store.bind_channel_order(second["intent_id"], "2001", {
         "channel_order_id": "2001", "symbol": "588080.SH", "side": "BUY",
         "quantity": 1000, "limit_price": 1.68, "status": "SUBMITTED",
@@ -216,3 +221,115 @@ def test_ft_pte03_uncertain_submission_keeps_reservation_and_blocks_account(tmp_
     assert account["health"] == "BLOCKED"
     assert store.account_intent(intent["intent_id"])["status"] == "SUBMISSION_UNCERTAIN"
     store.close()
+
+
+def test_ft_pte03_explicit_rejection_releases_cash_and_duplicate_submit_is_atomic(tmp_path):
+    class RejectingBroker(FakeBroker):
+        def place_order(self, intent):
+            self.placed.append(intent)
+            raise BrokerOrderRejectedError("报单价格不在涨跌停区间")
+
+    store = PaperStore(tmp_path / "reject.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="a" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
+    )
+    rejected = store.create_account_intent(
+        account_id="s001-v1", decision_id="DEC-REJECT", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000,
+        limit_price="1.680", valid_session="2026-09-04",
+    )
+    broker = RejectingBroker()
+    execution = FutuExecution(
+        store, broker, now=lambda: datetime.fromisoformat("2026-09-04T10:00:00+08:00")
+    )
+    execution.submit_pending()
+    assert store.account_intent(rejected["intent_id"])["status"] == "REJECTED"
+    assert float(store.virtual_account("s001-v1")["frozen_cash"]) == 0
+    assert len(store.query_audit_events(event_type="ORDER_REJECTED")) == 1
+
+    store.set_virtual_health("s001-v1", "OK")
+    second = store.create_account_intent(
+        account_id="s001-v1", decision_id="DEC-ATOMIC", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000,
+        limit_price="1.680", valid_session="2026-09-04",
+    )
+    safe_broker = FakeBroker()
+    first = FutuExecution(
+        store, safe_broker, now=lambda: datetime.fromisoformat("2026-09-04T10:00:00+08:00")
+    )
+    second_runner = FutuExecution(
+        store, safe_broker, now=lambda: datetime.fromisoformat("2026-09-04T10:00:00+08:00")
+    )
+    first.refresh_account()
+    second_runner.refresh_account()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(lambda runner: runner.submit_pending(reconcile=False), (first, second_runner)))
+    assert len(safe_broker.placed) == 1
+    assert store.account_intent(second["intent_id"])["status"] == "SUBMITTED"
+    store.close()
+
+
+def test_ft_pte03_missing_broker_order_and_overfill_block_without_mutating_ledger(tmp_path):
+    store = PaperStore(tmp_path / "reconcile.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="a" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
+    )
+    intent = store.create_account_intent(
+        account_id="s001-v1", decision_id="DEC-MISSING", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000,
+        limit_price="1.680", valid_session="2026-09-04",
+    )
+    assert store.claim_account_intent(intent["intent_id"])
+    order = BrokerOrder(
+        "3001", "588080.SH", "BUY", 1000, 1.68,
+        "SUBMITTED", 0, 0, intent["intent_id"],
+    )
+    store.bind_channel_order(intent["intent_id"], "3001", order.__dict__)
+    account_before = store.virtual_account("s001-v1")
+    with pytest.raises(ValueError, match="exceeds intent quantity"):
+        store.apply_fill_increment(
+            "3001", cumulative_quantity=1100, average_price=1.67,
+            occurred_at="2026-09-04T10:01:00+08:00",
+        )
+    account_after = store.virtual_account("s001-v1")
+    assert account_after["cash"] == account_before["cash"]
+    assert account_after["frozen_cash"] == account_before["frozen_cash"]
+    assert account_after["quantity"] == 0
+    assert store.account_fills("s001-v1") == []
+
+    execution = FutuExecution(
+        store, FakeBroker(), now=lambda: datetime.fromisoformat("2026-09-04T10:00:00+08:00")
+    )
+    with pytest.raises(ChannelReconciliationError, match="不存在"):
+        execution.refresh_orders()
+    assert store.get_setting("channel_reconciliation_status") == "BLOCKED"
+    assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
+    store.close()
+
+
+def test_ft_pte03_opend_can_reconnect_without_restarting_pte(tmp_path):
+    store = PaperStore(tmp_path / "reconnect.db")
+    attempts = 0
+
+    def factory():
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise ConnectionError("OpenD unavailable")
+        return FutuExecution(store, FakeBroker())
+
+    execution = ReconnectableExecution(store, "588080.SH", factory)
+    with pytest.raises(ConnectionError, match="OpenD unavailable"):
+        execution.refresh_account()
+    assert execution.status()["reconciliation_status"] == "UNAVAILABLE"
+    status = execution.refresh_account()
+    assert status["account"]["environment"] == "SIMULATE"
+    assert execution.status()["reconciliation_status"] != "UNAVAILABLE"
+    assert attempts == 2
+    execution.close()

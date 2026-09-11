@@ -143,6 +143,7 @@ class AccountDataPublisher:
         if not instruments:
             raise DataPublicationError("no active virtual-account instrument to publish")
         published = []
+        cutoffs = set()
         for symbol, asset in instruments:
             result = CliDataPublisher(
                 executable=self.executable,
@@ -154,5 +155,11 @@ class AccountDataPublisher:
                 runner=self.runner,
                 audit=self.audit,
             ).publish(end_date)
+            cutoff = result.get("data_cutoff")
+            if not isinstance(cutoff, str) or not cutoff:
+                raise DataPublicationError(f"{symbol}: publication result missing data_cutoff")
+            cutoffs.add(cutoff)
             published.append({"symbol": symbol, "asset_type": asset, "result": result})
-        return {"instruments": published}
+        if len(cutoffs) != 1:
+            raise DataPublicationError("published instruments have different data cutoffs")
+        return {"data_cutoff": cutoffs.pop(), "instruments": published}

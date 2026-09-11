@@ -127,6 +127,17 @@ def test_shared_order_intent_uses_unadjusted_close_and_full_cash(
     assert retry.cycle_target_quantity == 72_800
     assert sum(order.quantity for order in retry.orders) == 69_800
 
+    guarded_snapshot = resolve_registered_strategy(context, "S001", "v2")
+    exit_intent = decide_order_intent(
+        target_position=0,
+        actual_quantity=1000,
+        cycle_target_quantity=1000,
+        available_cash=0,
+        execution_close=1.609,
+        execution_spec=guarded_snapshot.resolved_rule.execution,
+    )
+    assert exit_intent.limit_price == 1.289
+
 
 def test_ft_t01_data_prepare_validate_and_tamper_detection(
     functional_repo: Path, capsys, monkeypatch
@@ -216,9 +227,15 @@ def test_ft_t01_data_prepare_validate_and_tamper_detection(
 
     execution_manifest = functional_repo / "data" / "raw" / "588080_execution_manifest.json"
     assert Path(prepared["result"]["execution_price_manifest"]) == execution_manifest
+    assert prepared["result"]["data_cutoff"] == day
     execution_metadata = pd.read_json(execution_manifest, typ="series")
     assert execution_metadata["next_trading_session"] == "2026-09-02"
     assert validated["result"]["frequencies"] == ["30m", "daily", "weekly"]
+    with pytest.raises(ValueError, match="behind requested end"):
+        offline_prepare(
+            "588080.SH", "etf", date(2026, 9, 1), date(2026, 9, 2),
+            functional_repo / "state" / "stale-data",
+        )
     execution_csv = functional_repo / "data" / "raw" / "588080_execution_daily_2026.csv"
     execution_csv.write_bytes(execution_csv.read_bytes() + b"\n")
     with pytest.raises(ValueError, match="SHA-256 differs"):

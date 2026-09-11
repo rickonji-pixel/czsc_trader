@@ -9,7 +9,12 @@ from hashlib import sha256
 import json
 
 from .audit import AuditRecorder
+from .broker import TERMINAL_INTENT_STATUSES
 from .store import PaperStore
+
+
+class AccountRefreshBatchError(RuntimeError):
+    """One or more active virtual accounts failed to refresh."""
 
 
 class AccountEngine:
@@ -87,11 +92,12 @@ class AccountEngine:
         if decision.actual_quantity != int(account["quantity"]):
             raise ValueError("advice quantity differs from account")
 
-        uncertain_submission = any(
-            row["status"] == "SUBMISSION_UNCERTAIN"
+        execution_in_flight = any(
+            row["status"] not in TERMINAL_INTENT_STATUSES
+            and row["status"] != "PENDING_SUBMIT"
             for row in self.store.account_intents(account_id)
         )
-        if account["health"] == "BLOCKED" and not uncertain_submission:
+        if account["health"] == "BLOCKED" and not execution_in_flight:
             self.store.set_virtual_health(account_id, "OK")
             account["health"] = "OK"
 
@@ -179,12 +185,14 @@ class AccountEngine:
 
     def refresh_all(self):
         results = []
+        failures = []
         for account in self.store.virtual_accounts():
             if account.get("status") == "RETIRED":
                 continue
             try:
                 results.append(self.refresh_account(account["account_id"]))
             except Exception as exc:
+                failures.append((account["account_id"], exc))
                 self.store.set_virtual_health(account["account_id"], "BLOCKED", str(exc))
                 self.audit.record(
                     "VIRTUAL_ACCOUNT_FAILED", source="account_engine", outcome="FAILURE",
@@ -193,6 +201,14 @@ class AccountEngine:
                     release_hash=account.get("release_hash"),
                     details={"error": str(exc), "error_type": type(exc).__name__},
                 )
+        if failures:
+            summary = "; ".join(
+                f"{account_id}: {type(exc).__name__}: {exc}"
+                for account_id, exc in failures
+            )
+            raise AccountRefreshBatchError(
+                f"{len(failures)} virtual account refresh(es) failed: {summary}"
+            )
         return results
 
     def status(self, account_id: str):

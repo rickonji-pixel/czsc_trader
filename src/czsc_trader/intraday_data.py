@@ -10,7 +10,6 @@ import json
 from pathlib import Path
 import re
 import shutil
-import tempfile
 from typing import TypeAlias
 
 import pandas as pd
@@ -21,6 +20,7 @@ from dataflows.bar_utils import (
 )
 
 from .identity import raw_file_sha256
+from .temp_workspace import create_temporary_directory
 
 
 INTRADAY_RESEARCH_FREQUENCIES = ("15m", "5m", "1m")
@@ -215,7 +215,9 @@ def prepare_intraday_research_data(
 
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f".{code}_intraday_", dir=data_dir))
+    staging = create_temporary_directory(
+        data_dir, "intraday-data", prefix=f"{code.lower()}-"
+    )
     try:
         file_records: dict[str, dict[str, object]] = {}
         for period, frame in frames.items():

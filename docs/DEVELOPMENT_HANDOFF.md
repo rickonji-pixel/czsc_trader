@@ -139,6 +139,7 @@ git pull --ff-only origin master
 
 - `.venv/`：解释器和依赖；
 - `.env`：本机凭据；
+- `.tmp/`：测试缓存、测试运行目录和业务发布前的暂存工作区；
 - `outputs/`：普通回测输出；
 - `state/paper_trading/runtime.db`：账户、订单、成交、暂停状态和审计事件；
 - `state/paper_trading/backups/`：PTE启动前生成的SQLite滚动备份；
@@ -157,6 +158,11 @@ git pull --ff-only origin master
 
 用例准入、收敛与删除条件、分级回归命令、月度及触发式审查流程统一见
 [测试用例治理](TEST_GOVERNANCE.md)。该文档是后续周期性治理的唯一操作规范。
+
+仓库内临时文件统一进入根目录`.tmp/`并按用途分区。业务代码通过
+`czsc_trader.temp_workspace`创建临时目录；测试与Ruff分别使用`.tmp/pytest`和
+`.tmp/ruff`。禁止在根目录、`data/`、`outputs/`、`experiments/`或各包目录新增临时
+工作区。
 
 ## 开发与交付规则
 

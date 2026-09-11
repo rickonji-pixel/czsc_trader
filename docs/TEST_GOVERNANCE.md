@@ -23,6 +23,18 @@ TDR、SM、SE、PTE关键业务能力的同时，控制TDD带来的用例数量�
 7. **用例规模是观测项。** 关注新增原因、重复程度、运行时间和诊断价值，不设置僵硬的数量
    或覆盖率门槛。
 
+### 临时目录约定
+
+- 仓库内临时产物统一写入根目录`.tmp/`，该目录整体由Git忽略；
+- Pytest每个进程使用`.tmp/pytest/run-<随机ID>`，结束时清理；Ruff缓存写入
+  `.tmp/ruff/cache`；
+- TDR发布前暂存目录通过`czsc_trader.temp_workspace`创建，并按`backtest`、
+  `market-data`、`backtest-update`、`intraday-data`和`evaluation`分区；
+- 禁止新建`.pytest-*`、`.test-tmp`、包内`.pytest_cache`，也禁止把暂存目录放进
+  `data/`、`outputs/`或实验档案目录；
+- 操作系统及第三方库自行管理的系统临时目录不属于仓库资产。实验正式产物必须进入实验
+  清单，不能放在`.tmp/`充当证据。
+
 ## 2. 用例类型与生命周期
 
 ### 2.1 临时TDD用例

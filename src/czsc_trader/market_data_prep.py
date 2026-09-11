@@ -9,13 +9,13 @@ import json
 from pathlib import Path
 import re
 import shutil
-import tempfile
 from typing import TypeAlias
 
 import numpy as np
 import pandas as pd
 
 from .identity import raw_file_sha256
+from .temp_workspace import create_temporary_directory
 
 from .data import (
     AMOUNT_RELATIVE_TOLERANCE,
@@ -353,7 +353,9 @@ def prepare_market_data(
 
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f".{code}_staging_", dir=data_dir))
+    staging = create_temporary_directory(
+        data_dir, "market-data", prefix=f"{code.lower()}-"
+    )
     published: list[Path] = []
     backups: dict[Path, Path] = {}
     try:

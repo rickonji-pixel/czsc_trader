@@ -5,12 +5,12 @@ from datetime import date
 import json
 from pathlib import Path
 import shutil
-import tempfile
 
 from strategy_evaluator import AuditStatus, audit_replay
 
 from czsc_trader.reporting.publication import publish_run_directory
 from czsc_trader.ma_charting import write_ma_chart
+from czsc_trader.temp_workspace import create_temporary_directory
 
 from .benchmarks import replay_benchmarks
 from .datasets import DatasetName, ReplayData
@@ -125,7 +125,7 @@ def run_backtest_v2(
     )
     root = Path(outputs_root)
     root.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=".backtest_v2_", dir=root))
+    staging = create_temporary_directory(root, "backtest", prefix="run-")
     try:
         for name, frame in (
             ("decisions.csv", result.decisions),

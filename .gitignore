@@ -1,9 +1,6 @@
 .venv/
 __pycache__/
-.pytest_cache/
-.pytest-functional-debug/
-.test-tmp/
-.ruff_cache/
+/.tmp/
 .worktrees/
 *.py[cod]
 *.egg-info/

@@ -7,7 +7,6 @@ import hashlib
 import json
 import shutil
 import subprocess
-import tempfile
 from collections.abc import Callable
 from dataclasses import asdict
 from datetime import date, datetime, timedelta
@@ -15,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from czsc_trader.temp_workspace import create_temporary_directory
 from strategy_manager import Strategy, StrategyManagerError, StrategyRegistry, StrategyVersion, canonical_sha256
 from strategy_evaluator import (
     CandidateDescriptor,
@@ -533,7 +533,12 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         **documents,
     }
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    temporary = Path(tempfile.mkdtemp(prefix=".evaluation-", dir=experiment))
+    temporary = create_temporary_directory(
+        experiment,
+        "evaluation",
+        prefix=f"{experiment.name.lower()}-",
+        repository_root=context.root,
+    )
     try:
         for name, text in documents.items():
             (temporary / name).write_text(text, encoding="utf-8", newline="\n")

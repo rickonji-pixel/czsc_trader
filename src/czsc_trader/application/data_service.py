@@ -5,9 +5,9 @@ from datetime import date
 import json
 from pathlib import Path
 import shutil
-import tempfile
 
 from czsc_trader.data import load_market_data
+from czsc_trader.temp_workspace import create_temporary_directory
 
 from .context import RepositoryContext
 from .errors import ValidationError
@@ -109,7 +109,9 @@ def update_backtest_data(
         start = date(2010, 1, 1)
     data_parent = context.root / "data"
     data_parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=".backtest_update_", dir=data_parent))
+    staging = create_temporary_directory(
+        data_parent, "backtest-update", repository_root=context.root
+    )
     backup = staging / "backup"
     backup.mkdir()
     published: list[Path] = []

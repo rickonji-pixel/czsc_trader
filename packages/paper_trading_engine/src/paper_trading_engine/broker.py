@@ -54,6 +54,7 @@ class BrokerOrder:
     last_error: str = ""
     created_at: str = ""
     updated_at: str = ""
+    order_type: str = "LIMIT"
 
 
 @dataclass(frozen=True)

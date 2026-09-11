@@ -63,7 +63,7 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     broker.value = broker_snapshot(
         orders=(replace(
             submitted, status="FILLED_ALL", cumulative_filled_quantity=1000,
-            average_fill_price=1.68,
+            average_fill_price=1.676,
         ),), quantity=1000,
     )
     execution.refresh_orders()

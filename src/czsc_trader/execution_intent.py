@@ -14,6 +14,7 @@ class OrderSlice:
     side: str
     quantity: int
     limit_price: float
+    order_type: str = "LIMIT"
 
 
 @dataclass(frozen=True)
@@ -74,12 +75,14 @@ def calculate_target_quantity(
     return max(0, int(lots) * int(lot_size))
 
 
-def _slices(side: str, quantity: int, price: float, maximum: int) -> tuple[OrderSlice, ...]:
+def _slices(
+    side: str, quantity: int, price: float, maximum: int, order_type: str = "LIMIT",
+) -> tuple[OrderSlice, ...]:
     result: list[OrderSlice] = []
     remaining = int(quantity)
     while remaining:
         selected = min(remaining, int(maximum))
-        result.append(OrderSlice(side, selected, price))
+        result.append(OrderSlice(side, selected, price, order_type))
         remaining -= selected
     return tuple(result)
 
@@ -123,12 +126,15 @@ def decide_order_intent(
         action = "BUY" if delta else ("HOLD" if actual_quantity else "WAIT")
         side = "BUY"
     else:
-        price = calculate_exit_limit(execution_close, execution_spec)
+        # A target-zero decision means exit promptly. PTE executes simulated
+        # sells as DAY market orders; the reference price remains evidence only.
+        price = round_to_tick(float(execution_close), instrument.price_tick)
         target = 0
         delta = -actual_quantity
         action = "SELL" if actual_quantity else "WAIT"
         cycle_target = 0 if not actual_quantity else cycle_target_quantity
         side = "SELL"
+    order_type = "LIMIT" if side == "BUY" else "MARKET"
     return OrderIntent(
         action=action,
         target_position=target_position,
@@ -136,5 +142,7 @@ def decide_order_intent(
         cycle_target_quantity=cycle_target,
         delta_quantity=delta,
         limit_price=price,
-        orders=_slices(side, abs(delta), price, instrument.maximum_order_quantity),
+        orders=_slices(
+            side, abs(delta), price, instrument.maximum_order_quantity, order_type,
+        ),
     )

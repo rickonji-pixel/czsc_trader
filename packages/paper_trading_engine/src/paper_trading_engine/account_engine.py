@@ -169,6 +169,7 @@ class AccountEngine:
                     "ORDER_INTENT_CREATED", source="account_engine", channel="futu", **scope,
                     details={
                         "side": order.side, "quantity": order.quantity,
+                        "order_type": order.order_type,
                         "limit_price": order.limit_price,
                         "valid_session": decision.valid_session.isoformat(),
                         "order_sequence": sequence,
@@ -179,6 +180,7 @@ class AccountEngine:
                     order_sequence=sequence, symbol=decision.symbol, side=order.side,
                     quantity=order.quantity, limit_price=order.limit_price,
                     valid_session=decision.valid_session.isoformat(), fee_rate=decision.fee_rate,
+                    order_type=order.order_type,
                     audit_event=intent_event,
                 )
         return self.status(account_id)

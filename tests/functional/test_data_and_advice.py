@@ -136,7 +136,8 @@ def test_shared_order_intent_uses_unadjusted_close_and_full_cash(
         execution_close=1.609,
         execution_spec=guarded_snapshot.resolved_rule.execution,
     )
-    assert exit_intent.limit_price == 1.289
+    assert exit_intent.limit_price == 1.609
+    assert exit_intent.orders[0].order_type == "MARKET"
 
 
 def test_ft_t01_data_prepare_validate_and_tamper_detection(
@@ -357,6 +358,7 @@ def test_ft_t02_advice_covers_entry_retry_hold_exit_and_fill_rules(
     assert holding["order"] is None
     assert exit_advice["order"]["side"] == "SELL"
     assert exit_advice["order"]["quantity"] == target
+    assert exit_advice["order"]["order_type"] == "MARKET"
     assert entry["decision_id"] == build_advice_v4(
         signal_date=pd.Timestamp("2026-09-01"),
         valid_session=pd.Timestamp("2026-09-02"),

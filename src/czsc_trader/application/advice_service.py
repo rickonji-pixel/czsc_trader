@@ -237,7 +237,7 @@ def build_advice_v3(
         {
             "side": order.side,
             "quantity": order.quantity,
-            "order_type": "LIMIT",
+            "order_type": order.order_type,
             "limit_price": order.limit_price,
             "time_in_force": "DAY",
         }

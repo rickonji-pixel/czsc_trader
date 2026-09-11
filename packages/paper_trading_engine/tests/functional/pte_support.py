@@ -97,6 +97,7 @@ class FakeBroker:
         order = BrokerOrder(
             str(1000 + len(self.placed)), intent.symbol, intent.side, intent.quantity,
             intent.limit_price, "SUBMITTED", 0, 0, intent.intent_id,
+            order_type=intent.order_type,
         )
         self.value = replace(self.value, orders=(*self.value.orders, order))
         return order

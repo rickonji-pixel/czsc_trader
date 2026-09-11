@@ -91,7 +91,7 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
         def order_list_query(self, **kwargs): return 0, []
         def place_order(self, **kwargs):
             self.place_calls.append(kwargs)
-            return 0, [{"order_id": "124", "code": kwargs["code"], "trd_side": kwargs["trd_side"], "qty": kwargs["qty"], "price": kwargs["price"], "order_status": "SUBMITTING", "dealt_qty": 0, "dealt_avg_price": 0, "remark": kwargs["remark"]}]
+            return 0, [{"order_id": "124", "code": kwargs["code"], "trd_side": kwargs["trd_side"], "qty": kwargs["qty"], "price": kwargs["price"], "order_type": kwargs["order_type"], "order_status": "SUBMITTING", "dealt_qty": 0, "dealt_avg_price": 0, "remark": kwargs["remark"]}]
         def modify_order(self, **kwargs):
             self.modify_calls.append(kwargs)
             return 0, []
@@ -101,7 +101,8 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     sdk = SimpleNamespace(
         RET_OK=0, TrdEnv=SimpleNamespace(SIMULATE="SIMULATE"),
         TrdMarket=SimpleNamespace(CN="CN"), TrdSide=SimpleNamespace(BUY="BUY", SELL="SELL"),
-        OrderType=SimpleNamespace(NORMAL="NORMAL"), TimeInForce=SimpleNamespace(DAY="DAY"),
+        OrderType=SimpleNamespace(NORMAL="NORMAL", MARKET="MARKET"),
+        TimeInForce=SimpleNamespace(DAY="DAY"),
         ModifyOrderOp=SimpleNamespace(CANCEL="CANCEL"),
         SysConfig=SimpleNamespace(enable_console_log=lambda enabled: None),
     )
@@ -118,6 +119,11 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     assert trade.place_calls[0]["adjust_limit"] == 0
     gateway.place_order(OrderIntent("PTE-s002-v1-X", "DEC-Y", "510500.SH", "BUY", 1000, 7.5))
     assert trade.place_calls[1]["code"] == "SH.510500"
+    gateway.place_order(OrderIntent(
+        "PTE-s001-v2-X", "DEC-M", "588080.SH", "SELL", 1000, 1.6,
+        order_type="MARKET",
+    ))
+    assert trade.place_calls[2]["order_type"] == "MARKET"
     with pytest.raises(PaperTradingSafetyError, match="China-market"):
         gateway.place_order(OrderIntent("PTE-X", "DEC-Z", "AAPL.US", "BUY", 1000, 1.0))
     audit_store.close()

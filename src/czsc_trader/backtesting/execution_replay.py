@@ -102,7 +102,11 @@ def replay_account(
                     fill_price = None
                     fill_time = None
             elif order.side == "SELL":
-                if float(price_row["open"]) >= order.limit_price:
+                if order.order_type == "MARKET":
+                    trigger = "OPEN_MARKET"
+                    fill_price = float(price_row["open"])
+                    fill_time = execution_date
+                elif float(price_row["open"]) >= order.limit_price:
                     trigger = "OPEN"
                     fill_price = float(price_row["open"])
                     fill_time = execution_date
@@ -124,6 +128,7 @@ def replay_account(
                     "execution_date": execution_date,
                     "side": order.side,
                     "quantity": order.quantity,
+                    "order_type": order.order_type,
                     "limit_price": order.limit_price,
                     "status": status,
                 }

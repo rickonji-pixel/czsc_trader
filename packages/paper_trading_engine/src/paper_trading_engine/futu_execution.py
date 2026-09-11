@@ -101,6 +101,7 @@ class FutuExecution:
 
     @staticmethod
     def _validate_order(intent, order) -> None:
+        intent_order_type = str(intent["payload"].get("order_type", "LIMIT")).upper()
         if order.remark != intent["intent_id"]:
             raise ValueError("order remark differs from intent")
         if order.symbol.upper() != intent["symbol"].upper():
@@ -109,7 +110,11 @@ class FutuExecution:
             raise ValueError("order side differs from intent")
         if order.quantity != int(intent["quantity"]):
             raise ValueError("order quantity differs from intent")
-        if not math.isclose(order.limit_price, float(intent["limit_price"]), abs_tol=1e-9):
+        if order.order_type != intent_order_type:
+            raise ValueError("order type differs from intent")
+        if intent_order_type == "LIMIT" and not math.isclose(
+            order.limit_price, float(intent["limit_price"]), abs_tol=1e-9,
+        ):
             raise ValueError("order limit price differs from intent")
         if order.cumulative_filled_quantity < 0:
             raise ValueError("order cumulative fill cannot be negative")
@@ -121,12 +126,14 @@ class FutuExecution:
             raise ValueError("filled order average price must be positive and finite")
         if (
             order.cumulative_filled_quantity
+            and intent_order_type == "LIMIT"
             and order.side.upper() == "BUY"
             and order.average_fill_price > order.limit_price + 1e-9
         ):
             raise ValueError("buy average fill price exceeds limit")
         if (
             order.cumulative_filled_quantity
+            and intent_order_type == "LIMIT"
             and order.side.upper() == "SELL"
             and order.average_fill_price < order.limit_price - 1e-9
         ):
@@ -332,7 +339,9 @@ class FutuExecution:
                 continue
             intent = OrderIntent(
                 row["intent_id"], row["decision_id"], row["symbol"], row["side"],
-                int(row["quantity"]), float(row["limit_price"]), account_id=row["account_id"],
+                int(row["quantity"]), float(row["limit_price"]),
+                order_type=str(row["payload"].get("order_type", "LIMIT")),
+                account_id=row["account_id"],
             )
             try:
                 order = self.broker.place_order(intent)
@@ -373,6 +382,17 @@ class FutuExecution:
                     details={"side": row["side"], "quantity": row["quantity"], "error": str(exc)},
                 )
                 raise
+            try:
+                self._validate_order(row, order)
+            except ValueError as exc:
+                self.store.update_account_intent_status(
+                    row["intent_id"], "SUBMISSION_UNCERTAIN"
+                )
+                self.store.set_virtual_health(
+                    row["account_id"], "BLOCKED",
+                    f"Futu已返回订单，但订单回报与意图不一致：{exc}",
+                )
+                raise
             submitted_event = self.audit.build(
                 "ORDER_SUBMITTED", source="futu_execution", account_id=row["account_id"],
                 strategy_id=account["strategy_id"], strategy_version=account["strategy_version"],
@@ -381,6 +401,7 @@ class FutuExecution:
                 correlation_id=row["decision_id"],
                 details={
                     "side": row["side"], "quantity": row["quantity"],
+                    "order_type": row["payload"].get("order_type", "LIMIT"),
                     "limit_price": row["limit_price"], "status": order.status,
                 },
             )

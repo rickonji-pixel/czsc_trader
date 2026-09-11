@@ -123,17 +123,18 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
             reasons.append("MISSING_EXECUTION_PRICE")
             continue
         if order["side"] == "BUY":
+            expected_order_type = "LIMIT"
             signal_close = float(signal["close"])
             expected_limit = min(
                 _floor(signal_close * (1 + float(spec["entry_limit_parameter"])), tick),
                 _floor(signal_close * (1 + price_limit_ratio), tick) - tick,
             )
         else:
+            expected_order_type = "MARKET"
             signal_close = float(signal["close"])
-            expected_limit = max(
-                _nearest(signal_close * (1 - float(spec["exit_limit_ratio"])), tick),
-                _ceil(signal_close * (1 - price_limit_ratio), tick) + tick,
-            )
+            expected_limit = _nearest(signal_close, tick)
+        if str(order.get("order_type", "LIMIT")) != expected_order_type:
+            reasons.append("ORDER_TYPE_MISMATCH")
         if abs(float(order["limit_price"]) - expected_limit) > tolerance:
             reasons.append("ORDER_LIMIT_MISMATCH")
         fill = fills_by_order.get(order_id)
@@ -144,7 +145,9 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
             reasons.append("UNFILLED_ORDER_HAS_FILL")
             continue
         if fill is None:
-            if order["side"] == "SELL":
+            if order["side"] == "SELL" and expected_order_type == "MARKET":
+                reasons.append("MISSED_ELIGIBLE_FILL")
+            elif order["side"] == "SELL":
                 bars = intraday_by_day.get(str(order["execution_date"])[:10], [])
                 eligible_price = (
                     float(execution["open"]) >= expected_limit - tolerance
@@ -170,7 +173,12 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
             reasons.append("FILL_ORDER_MISMATCH")
         price = float(fill["price"])
         trigger = str(fill["trigger"])
-        if order["side"] == "SELL":
+        if order["side"] == "SELL" and expected_order_type == "MARKET":
+            eligible = (
+                trigger == "OPEN_MARKET"
+                and abs(price - float(execution["open"])) <= tolerance
+            )
+        elif order["side"] == "SELL":
             bars = intraday_by_day.get(str(order["execution_date"])[:10], [])
             eligible = (
                 trigger == "OPEN"

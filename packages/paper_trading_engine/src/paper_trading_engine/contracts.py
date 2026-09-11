@@ -58,11 +58,16 @@ class OrderSpec:
         side = str(value.get("side", ""))
         if side not in {"BUY", "SELL"}:
             raise AdviceContractError("order side must be BUY or SELL")
-        if value.get("order_type") != "LIMIT":
-            raise AdviceContractError("order type must be LIMIT")
+        order_type = str(value.get("order_type", ""))
+        if order_type not in {"LIMIT", "MARKET"}:
+            raise AdviceContractError("order type must be LIMIT or MARKET")
+        if side == "BUY" and order_type != "LIMIT":
+            raise AdviceContractError("buy orders must use LIMIT")
+        if side == "SELL" and order_type != "MARKET":
+            raise AdviceContractError("sell orders must use MARKET")
         if value.get("time_in_force") != "DAY":
             raise AdviceContractError("order time in force must be DAY")
-        return cls(side, quantity, "LIMIT", price, "DAY")
+        return cls(side, quantity, order_type, price, "DAY")
 
 
 @dataclass(frozen=True)

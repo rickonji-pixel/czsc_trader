@@ -901,16 +901,19 @@ class PaperStore:
     def create_account_intent(
         self, *, account_id: str, decision_id: str, order_sequence: int,
         symbol: str, side: str, quantity: int, limit_price, valid_session: str,
-        fee_rate="0.0005", audit_event: AuditEvent | None = None,
+        fee_rate="0.0005", order_type=None, audit_event: AuditEvent | None = None,
     ) -> dict[str, Any]:
         """Persist one idempotent account order intent and reserve its cash."""
         from decimal import Decimal
 
         side = str(side).upper()
+        order_type = str(order_type or ("LIMIT" if side == "BUY" else "MARKET")).upper()
         price = Decimal(str(limit_price)).quantize(Decimal("0.0001"))
         fee = Decimal(str(fee_rate))
         if side not in {"BUY", "SELL"}:
             raise ValueError("intent side must be BUY or SELL")
+        if (side, order_type) not in {("BUY", "LIMIT"), ("SELL", "MARKET")}:
+            raise ValueError("buy intents must be LIMIT and sell intents must be MARKET")
         if quantity <= 0 or quantity % 100:
             raise ValueError("intent quantity must use positive 100-share lots")
         identity = f"{account_id}\0{decision_id}\0{order_sequence}".encode("utf-8")
@@ -928,8 +931,13 @@ class PaperStore:
                     "quantity": int(quantity),
                     "limit_price": str(price),
                     "valid_session": valid_session,
+                    "order_type": order_type,
                 }
-                actual = {key: existing[key] for key in expected}
+                stored_payload = json.loads(existing["payload"])
+                actual = {
+                    key: (stored_payload.get(key, "LIMIT") if key == "order_type" else existing[key])
+                    for key in expected
+                }
                 if actual != expected:
                     raise ValueError("existing intent differs from the idempotent request")
                 return self._account_intent_row(existing)
@@ -947,7 +955,8 @@ class PaperStore:
                     "SELECT i.quantity,COALESCE(o.cumulative_filled_quantity,0) AS filled "
                     "FROM intents i LEFT JOIN orders o ON o.intent_id=i.intent_id "
                     "WHERE i.account_id=? AND i.side='SELL' AND i.status NOT IN "
-                    "('SUBMISSION_FAILED','EXPIRED','CANCELLED_ALL','FAILED','DISABLED',"
+                    "('REJECTED','SUBMISSION_FAILED','SUBMIT_FAILED','EXPIRED',"
+                    "'CANCELLED_ALL','FAILED','DISABLED',"
                     "'DELETED','FILL_CANCELLED','FILLED_ALL')",
                     (account_id,),
                 ).fetchall()
@@ -974,7 +983,7 @@ class PaperStore:
                 "order_sequence": order_sequence, "channel_id": "futu",
                 "symbol": symbol.upper(), "side": side, "quantity": quantity,
                 "limit_price": str(price), "valid_session": valid_session,
-                "fee_rate": str(fee),
+                "fee_rate": str(fee), "order_type": order_type,
             }
             self._connection.execute(
                 "INSERT INTO intents(intent_id,account_id,decision_id,order_sequence,channel_id,"

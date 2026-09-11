@@ -201,6 +201,8 @@ class FutuGateway:
         return tuple(self._map_order(row) for row in rows)
 
     def _map_order(self, row: dict[str, Any]) -> BrokerOrder:
+        raw_order_type = str(row.get("order_type", "NORMAL")).upper()
+        order_type = "MARKET" if "MARKET" in raw_order_type else "LIMIT"
         return BrokerOrder(
             channel_order_id=str(row["order_id"]),
             symbol=_project_symbol(str(row["code"])),
@@ -214,6 +216,7 @@ class FutuGateway:
             last_error=str(row.get("last_err_msg", "")),
             created_at=str(row.get("create_time", "")),
             updated_at=str(row.get("updated_time", "")),
+            order_type=order_type,
         )
 
     def place_order(self, intent: OrderIntent) -> BrokerOrder:
@@ -223,9 +226,20 @@ class FutuGateway:
             raise PaperTradingSafetyError("order quantity must use positive 100-share lots")
         if intent.side not in {"BUY", "SELL"}:
             raise PaperTradingSafetyError("order side must be BUY or SELL")
-        if intent.order_type != "LIMIT" or intent.time_in_force != "DAY":
-            raise PaperTradingSafetyError("gateway accepts DAY limit orders only")
+        if intent.time_in_force != "DAY":
+            raise PaperTradingSafetyError("gateway accepts DAY orders only")
+        if (intent.side, intent.order_type) not in {
+            ("BUY", "LIMIT"), ("SELL", "MARKET"),
+        }:
+            raise PaperTradingSafetyError(
+                "gateway requires LIMIT buys and MARKET sells"
+            )
         side = self.sdk.TrdSide.BUY if intent.side == "BUY" else self.sdk.TrdSide.SELL
+        order_type = (
+            self.sdk.OrderType.NORMAL
+            if intent.order_type == "LIMIT"
+            else self.sdk.OrderType.MARKET
+        )
         started = time.perf_counter()
         try:
             code, value = self.trade_context.place_order(
@@ -233,7 +247,7 @@ class FutuGateway:
                 qty=intent.quantity,
                 code=_broker_code(intent.symbol),
                 trd_side=side,
-                order_type=self.sdk.OrderType.NORMAL,
+                order_type=order_type,
                 adjust_limit=0,
                 trd_env=self.sdk.TrdEnv.SIMULATE,
                 acc_id=self._account(),

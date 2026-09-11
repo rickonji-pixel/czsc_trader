@@ -62,6 +62,8 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(auditCategoryLabel('OTHER'), '其他事件');
   assert.equal(auditEventLabel('DECISION_GENERATED'), '生成决策');
   assert.equal(auditEventLabel('ORDER_FILLED'), '订单成交');
+  assert.equal(auditEventLabel('BROKER_FEE_RECONCILED'), 'Futu费用对账');
+  assert.equal(auditSummary({event_type:'BROKER_FEE_RECONCILED',details:{modeled_fee:'98.0403',actual_fee:'202.4380',adjustment:'-104.3977'}}), '估算费用 98.04，Futu实际费用 202.44，账务调整 -104.40');
   const accounts = [{account_id: 's001-v2', name: 'S001-v2模拟账户'}];
   assert.equal(
     auditScopeLabel({account_id: 's001-v2', channel: 'futu'}, accounts),

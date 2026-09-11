@@ -311,6 +311,13 @@ class PaperStore:
             "WHERE quantity=0 AND ABS(CAST(total_assets AS REAL)-"
             "CAST(cash AS REAL)-CAST(frozen_cash AS REAL))>0.00005"
         )
+        pnl_repairs = self._repair_flat_realized_pnl()
+        if pnl_repairs:
+            self._insert_audit_event(self._new_audit_event(
+                "ACCOUNT_EXECUTION_MIGRATED", source="store", actor_type="ENGINE",
+                correlation_id="flat-realized-pnl-v1",
+                details={"schema": "flat_realized_pnl.v1", "accounts": pnl_repairs},
+            ))
         self._connection.execute(
             "UPDATE virtual_accounts SET strategy_id='S001',strategy_name_snapshot='综合基线策略',"
             "strategy_version='v1',release_hash=?,qualification_snapshot='PAPER_READY' "
@@ -389,6 +396,44 @@ class PaperStore:
                         (str(cash.quantize(Decimal("0.0001"))), quantity, entry["rowid"]),
                     )
         return inserted
+
+    def _repair_flat_realized_pnl(self) -> list[dict[str, str]]:
+        """Repair legacy rounded cost bases once a virtual account is fully flat."""
+        from decimal import Decimal
+
+        repairs: list[dict[str, str]] = []
+        accounts = self._connection.execute(
+            "SELECT account_id,initial_cash,cash,realized_pnl FROM virtual_accounts "
+            "WHERE quantity=0 AND CAST(frozen_cash AS REAL)=0"
+        ).fetchall()
+        for account in accounts:
+            expected = (
+                Decimal(account["cash"]) - Decimal(account["initial_cash"])
+            ).quantize(Decimal("0.0001"))
+            current = Decimal(account["realized_pnl"]).quantize(Decimal("0.0001"))
+            delta = expected - current
+            if abs(delta) <= Decimal("0.00005"):
+                continue
+            fill = self._connection.execute(
+                "SELECT fill_id,realized_pnl FROM fills WHERE account_id=? AND side='SELL' "
+                "ORDER BY rowid DESC LIMIT 1", (account["account_id"],),
+            ).fetchone()
+            if fill is None:
+                continue
+            self._connection.execute(
+                "UPDATE virtual_accounts SET realized_pnl=? WHERE account_id=?",
+                (str(expected), account["account_id"]),
+            )
+            self._connection.execute(
+                "UPDATE fills SET realized_pnl=? WHERE fill_id=?",
+                (str((Decimal(fill["realized_pnl"]) + delta).quantize(Decimal("0.0001"))),
+                 fill["fill_id"]),
+            )
+            repairs.append({
+                "account_id": str(account["account_id"]), "delta": str(delta),
+                "fill_id": str(fill["fill_id"]),
+            })
+        return repairs
 
     def _backfill_intent_attention(self) -> dict[str, int]:
         """Expose unresolved legacy terminal attempts without reopening completed retries."""
@@ -1714,6 +1759,109 @@ class PaperStore:
         sql += " ORDER BY occurred_at DESC"
         with self._lock:
             return [dict(row) for row in self._connection.execute(sql, values).fetchall()]
+
+    def account_fills_after_rowid(self, rowid: int = 0) -> list[dict[str, Any]]:
+        """Return append-only fills after a cash-reconciliation checkpoint."""
+        if isinstance(rowid, bool) or not isinstance(rowid, int) or rowid < 0:
+            raise ValueError("fill rowid checkpoint must be a non-negative integer")
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT rowid AS fill_rowid,* FROM fills WHERE rowid>? ORDER BY rowid",
+                (rowid,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def apply_broker_fee_reconciliation(
+        self, account_id: str, adjustment, *, reference: str,
+        treatment: str, occurred_at: str, event: AuditEvent,
+        realized_fill_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply one idempotent broker-cash fee correction to an owning account."""
+        from decimal import Decimal
+
+        amount = Decimal(str(adjustment)).quantize(Decimal("0.0001"))
+        if not amount.is_finite() or amount == 0:
+            raise ValueError("fee reconciliation adjustment must be finite and non-zero")
+        if treatment not in {"COST_BASIS", "REALIZED"}:
+            raise ValueError("fee reconciliation treatment is invalid")
+        if not str(reference).strip():
+            raise ValueError("fee reconciliation reference is required")
+        if event.event_type != "BROKER_FEE_RECONCILED" or event.account_id != account_id:
+            raise ValueError("fee reconciliation audit event does not match the account")
+        ledger_id = str(uuid5(NAMESPACE_URL, f"pte-broker-fee:{reference}"))
+        with self._lock, self._connection:
+            existing = self._connection.execute(
+                "SELECT 1 FROM account_ledger WHERE ledger_entry_id=?", (ledger_id,),
+            ).fetchone()
+            if existing is not None:
+                return {
+                    "applied": False, "ledger_entry_id": ledger_id,
+                    "account": self.virtual_account(account_id),
+                }
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,),
+            ).fetchone()
+            if account is None:
+                raise KeyError(account_id)
+            cash = (Decimal(account["cash"]) + amount).quantize(Decimal("0.0001"))
+            total_assets = (
+                Decimal(account["total_assets"]) + amount
+            ).quantize(Decimal("0.0001"))
+            if cash < 0 or total_assets < 0:
+                raise ValueError("fee reconciliation would make account balances negative")
+            quantity = int(account["quantity"])
+            cost = Decimal(account["average_cost"])
+            realized = Decimal(account["realized_pnl"])
+            if treatment == "COST_BASIS":
+                if quantity <= 0:
+                    raise ValueError("cost-basis reconciliation requires an open position")
+                cost = (cost - amount / quantity).quantize(Decimal("0.000000000001"))
+                if cost < 0:
+                    raise ValueError("fee reconciliation would make average cost negative")
+            else:
+                pnl_delta = amount
+                if quantity == 0:
+                    pnl_delta = (
+                        cash - Decimal(account["initial_cash"]) - realized
+                    ).quantize(Decimal("0.0001"))
+                if realized_fill_id is None:
+                    raise ValueError("realized reconciliation requires an owning sell fill")
+                fill = self._connection.execute(
+                    "SELECT account_id,side,realized_pnl FROM fills WHERE fill_id=?",
+                    (realized_fill_id,),
+                ).fetchone()
+                if (
+                    fill is None or fill["account_id"] != account_id
+                    or str(fill["side"]).upper() != "SELL"
+                ):
+                    raise ValueError("realized reconciliation sell fill is invalid")
+                realized = (realized + pnl_delta).quantize(Decimal("0.0001"))
+                self._connection.execute(
+                    "UPDATE fills SET realized_pnl=? WHERE fill_id=?",
+                    (str((Decimal(fill["realized_pnl"]) + pnl_delta).quantize(
+                        Decimal("0.0001")
+                    )), realized_fill_id),
+                )
+            now = _utc_now()
+            self._connection.execute(
+                "UPDATE virtual_accounts SET cash=?,total_assets=?,average_cost=?,realized_pnl=?,"
+                "updated_at=? WHERE account_id=?",
+                (str(cash), str(total_assets), str(cost), str(realized), now, account_id),
+            )
+            self._connection.execute(
+                "INSERT INTO account_ledger(ledger_entry_id,account_id,entry_type,order_id,fill_id,"
+                "cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,quantity_after,"
+                "occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    ledger_id, account_id, "BROKER_FEE_RECONCILIATION", None, None,
+                    str(amount), "0.0000", 0, str(-amount), str(cash), quantity, occurred_at,
+                ),
+            )
+            self._insert_audit_event(event)
+        return {
+            "applied": True, "ledger_entry_id": ledger_id,
+            "account": self.virtual_account(account_id),
+        }
 
     def account_invariant_violations(self) -> list[dict[str, object]]:
         """Return ledger/account disagreements without mutating runtime state."""

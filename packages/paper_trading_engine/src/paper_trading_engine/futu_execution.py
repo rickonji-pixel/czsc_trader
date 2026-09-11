@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import datetime, time, timedelta, timezone
+from decimal import Decimal
+import json
 import math
 import secrets
 
@@ -131,6 +133,117 @@ class FutuExecution:
                 release_hash=account.get("release_hash"), channel="futu",
                 details={"reason": "transient_order_state_resolved"},
             )
+
+    def _reconcile_broker_fees(self) -> None:
+        """Correct estimated fees from aggregate Futu cash when ownership is unambiguous."""
+        if self._snapshot is None:
+            return
+        accounts = [
+            row for row in self.store.virtual_accounts() if row.get("status") != "RETIRED"
+        ]
+        if self.store.unresolved_account_intents() or any(
+            Decimal(row["frozen_cash"]) != 0 for row in accounts
+        ):
+            return
+        capital_pool = Decimal(self.store.get_setting("futu_capital_pool") or "0")
+        allocated = sum((Decimal(row["initial_cash"]) for row in accounts), Decimal("0"))
+        logical_cash = capital_pool - allocated + sum(
+            (Decimal(row["cash"]) for row in accounts), Decimal("0")
+        )
+        broker_cash = Decimal(str(self._snapshot.account.cash)).quantize(Decimal("0.0001"))
+        difference = (broker_cash - logical_cash).quantize(Decimal("0.0001"))
+
+        raw_checkpoint = self.store.get_setting("futu_cash_reconciliation_checkpoint")
+        checkpoint = json.loads(raw_checkpoint) if raw_checkpoint else {}
+        fill_rowid = int(checkpoint.get("fill_rowid", 0))
+        fills = self.store.account_fills_after_rowid(fill_rowid)
+        latest_rowid = fills[-1]["fill_rowid"] if fills else fill_rowid
+        if abs(difference) <= Decimal("0.01"):
+            self.store.set_setting(
+                "futu_cash_reconciliation_checkpoint",
+                json.dumps({
+                    "schema": "futu_cash_reconciliation.v1",
+                    "fill_rowid": latest_rowid, "broker_cash": str(broker_cash),
+                    "reconciled_at": datetime.now(timezone.utc).isoformat(),
+                }),
+            )
+            self.store.set_setting("futu_cash_reconciliation_status", "OK")
+            return
+        if not fills:
+            self.store.set_setting("futu_cash_reconciliation_status", "UNATTRIBUTED")
+            return
+        account_ids = {str(fill["account_id"]) for fill in fills}
+        if len(account_ids) != 1:
+            self.store.set_setting("futu_cash_reconciliation_status", "AMBIGUOUS")
+            return
+        account_id = next(iter(account_ids))
+        account = self.store.virtual_account(account_id)
+        sides = {str(fill["side"]).upper() for fill in fills}
+        if int(account["quantity"]) == 0:
+            treatment = "REALIZED"
+        elif sides == {"BUY"}:
+            treatment = "COST_BASIS"
+        elif sides == {"SELL"}:
+            treatment = "REALIZED"
+        else:
+            self.store.set_setting("futu_cash_reconciliation_status", "AMBIGUOUS")
+            return
+
+        turnover = sum(
+            (Decimal(str(fill["price"])) * int(fill["quantity"]) for fill in fills),
+            Decimal("0"),
+        )
+        modeled_fee = sum((Decimal(fill["fee"]) for fill in fills), Decimal("0"))
+        previous_broker_cash = Decimal(str(checkpoint.get("broker_cash", capital_pool)))
+        gross_cash_change = sum(
+            (
+                Decimal(str(fill["price"])) * int(fill["quantity"])
+                * (Decimal("-1") if str(fill["side"]).upper() == "BUY" else Decimal("1"))
+                for fill in fills
+            ),
+            Decimal("0"),
+        )
+        actual_fee = (gross_cash_change - (broker_cash - previous_broker_cash)).quantize(
+            Decimal("0.0001")
+        )
+        maximum_fee = (turnover * Decimal("0.005") + Decimal("1")).quantize(
+            Decimal("0.0001")
+        )
+        if actual_fee < Decimal("-0.01") or actual_fee > maximum_fee:
+            self.store.set_setting("futu_cash_reconciliation_status", "OUT_OF_RANGE")
+            return
+        reference = f"futu:{fill_rowid + 1}-{latest_rowid}:{broker_cash}"
+        event = self.audit.build(
+            "BROKER_FEE_RECONCILED", source="futu_execution", account_id=account_id,
+            strategy_id=account.get("strategy_id"),
+            strategy_version=account.get("strategy_version"),
+            release_hash=account.get("release_hash"), symbol=account.get("symbol"),
+            channel="futu", correlation_id=reference,
+            details={
+                "adjustment": str(difference), "modeled_fee": str(modeled_fee),
+                "actual_fee": str(actual_fee), "fill_count": len(fills),
+                "fill_rowid_from": fill_rowid + 1, "fill_rowid_to": latest_rowid,
+                "treatment": treatment,
+            },
+        )
+        self.store.apply_broker_fee_reconciliation(
+            account_id, difference, reference=reference, treatment=treatment,
+            occurred_at=datetime.now(timezone.utc).isoformat(), event=event,
+            realized_fill_id=next(
+                (str(fill["fill_id"]) for fill in reversed(fills)
+                 if str(fill["side"]).upper() == "SELL"),
+                None,
+            ),
+        )
+        self.store.set_setting(
+            "futu_cash_reconciliation_checkpoint",
+            json.dumps({
+                "schema": "futu_cash_reconciliation.v1",
+                "fill_rowid": latest_rowid, "broker_cash": str(broker_cash),
+                "reconciled_at": datetime.now(timezone.utc).isoformat(),
+            }),
+        )
+        self.store.set_setting("futu_cash_reconciliation_status", "OK")
 
     @staticmethod
     def _validate_order(intent, order) -> None:
@@ -342,6 +455,7 @@ class FutuExecution:
                         f"Futu持仓与虚拟账户分账不一致({symbol}): "
                         f"{broker_quantity}!={logical_quantity}"
                     )
+        self._reconcile_broker_fees()
         violations = self.store.account_invariant_violations()
         if violations:
             first = violations[0]

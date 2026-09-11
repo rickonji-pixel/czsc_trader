@@ -9,6 +9,7 @@ import pytest
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.account_engine import AccountEngine
 from paper_trading_engine.broker import (
+    BrokerAccount,
     BrokerOrder,
     BrokerOrderRejectedError,
     BrokerPosition,
@@ -22,6 +23,91 @@ from paper_trading_engine.coordinator import ReconnectableExecution
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.contracts import OrderSpec
 from pte_support import FakeAdvice, FakeBroker, decision
+
+
+def test_ft_pte03_estimated_fees_reconcile_to_futu_cash_exactly_once(tmp_path):
+    store = PaperStore(tmp_path / "fee-reconciliation.db")
+    store.create_virtual_account(
+        "s001-v2", "S001-v2模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v2", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
+    )
+    buy = store.create_account_intent(
+        account_id="s001-v2", decision_id="DEC-BUY", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000,
+        limit_price="1.680", valid_session="2026-09-04", fee_rate="0.0005",
+    )
+    broker = FakeBroker()
+    execution = FutuExecution(
+        store, broker, now=lambda: datetime.fromisoformat("2026-09-04T10:00:00+08:00"),
+    )
+    execution.submit_pending()
+    filled_buy = replace(
+        broker.value.orders[0], status="FILLED_ALL",
+        cumulative_filled_quantity=1000, average_fill_price=1.67,
+    )
+    broker.value = BrokerSnapshot(
+        BrokerAccount("SIMULATE", "CN", 998_326.66, 999_996.66, 0),
+        (BrokerPosition("588080.SH", 1000),), (filled_buy,),
+    )
+    execution.refresh_orders()
+    bought = store.virtual_account("s001-v2")
+    assert float(bought["cash"]) == pytest.approx(98_326.66)
+    assert float(bought["average_cost"]) == pytest.approx(1.67334)
+    assert store.get_setting("futu_cash_reconciliation_status") == "OK"
+    assert len(store.query_audit_events(event_type="BROKER_FEE_RECONCILED")) == 1
+
+    # Repeating the same broker snapshot is idempotent.
+    execution.refresh_orders()
+    assert float(store.virtual_account("s001-v2")["cash"]) == pytest.approx(98_326.66)
+    assert len(store.query_audit_events(event_type="BROKER_FEE_RECONCILED")) == 1
+
+    store.create_account_intent(
+        account_id="s001-v2", decision_id="DEC-SELL", order_sequence=0,
+        symbol="588080.SH", side="SELL", quantity=1000,
+        limit_price="1.600", valid_session="2026-09-04", fee_rate="0.0005",
+    )
+    execution.submit_pending()
+    sell_order = next(row for row in broker.value.orders if row.side == "SELL")
+    filled_sell = replace(
+        sell_order, status="FILLED_ALL",
+        cumulative_filled_quantity=1000, average_fill_price=1.60,
+    )
+    broker.value = BrokerSnapshot(
+        BrokerAccount("SIMULATE", "CN", 999_923.46, 999_923.46, 0),
+        (), (filled_buy, filled_sell),
+    )
+    execution.refresh_orders()
+    closed = store.virtual_account("s001-v2")
+    assert float(closed["cash"]) == pytest.approx(99_923.46)
+    assert float(closed["total_assets"]) == pytest.approx(99_923.46)
+    assert float(closed["realized_pnl"]) == pytest.approx(-76.54)
+    assert store.account_invariant_violations() == []
+    assert len(store.query_audit_events(event_type="BROKER_FEE_RECONCILED")) == 2
+    assert store.account_intent(buy["intent_id"])["status"] == "FILLED_ALL"
+    store.close()
+
+    # Legacy four-decimal cost bases are repaired once after an account is flat.
+    with sqlite3.connect(tmp_path / "fee-reconciliation.db") as connection:
+        connection.execute(
+            "UPDATE virtual_accounts SET realized_pnl='-75.0000' WHERE account_id='s001-v2'"
+        )
+        connection.execute(
+            "UPDATE fills SET realized_pnl='-75.0000' WHERE account_id='s001-v2' AND side='SELL'"
+        )
+    migrated = PaperStore(tmp_path / "fee-reconciliation.db")
+    assert float(migrated.virtual_account("s001-v2")["realized_pnl"]) == pytest.approx(-76.54)
+    assert sum(float(row["realized_pnl"]) for row in migrated.account_fills("s001-v2")) == (
+        pytest.approx(-76.54)
+    )
+    migration_count = len(migrated.query_audit_events(event_type="ACCOUNT_EXECUTION_MIGRATED"))
+    migrated.close()
+    reopened = PaperStore(tmp_path / "fee-reconciliation.db")
+    assert len(reopened.query_audit_events(event_type="ACCOUNT_EXECUTION_MIGRATED")) == (
+        migration_count
+    )
+    reopened.close()
 
 
 def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):

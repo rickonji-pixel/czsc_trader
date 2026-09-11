@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX57",
+  "experiment_type": "benchmark_freeze_qualification",
+  "strategy_id": "S003",
+  "candidate_id": "S003-C001",
+  "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+  "benchmark_id": "BuyHold-510500",
+  "development_cutoff": "2026-09-08",
+  "evaluation_start": "2021-04-15",
+  "evaluation_end": "2026-09-08",
+  "primary_mean_block_length": 21,
+  "sensitivity_mean_block_lengths": [
+    10,
+    42
+  ],
+  "bootstrap_repetitions": 10000,
+  "seed": 20260911,
+  "freezes_strategy": false,
+  "mutates_pte": false
+}

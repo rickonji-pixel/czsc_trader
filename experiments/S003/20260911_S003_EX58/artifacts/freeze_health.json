@@ -1,0 +1,129 @@
+{
+  "source": {
+    "schema_version": 1,
+    "experiment_id": "20260911_S003_EX58",
+    "candidate_id": "S003-C001",
+    "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+    "conditional_request": {
+      "candidate_id": "S003-C001",
+      "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+      "candidate_readiness": "PASS",
+      "benchmark_challenge": "RECOMMEND_HEALTH_CHECK",
+      "evidence_integrity": "PASS",
+      "reproducibility": "PASS",
+      "technical_replay": "PASS",
+      "cost_stress": "PASS",
+      "monitoring_plan": "PASS",
+      "mechanism_evidence": "FAVORABLE",
+      "statistical_evidence": "MIXED",
+      "parameter_robustness": "FAVORABLE",
+      "external_validation": "FAVORABLE",
+      "execution_evidence": "FAVORABLE",
+      "blocking_findings": []
+    },
+    "conditional_result": {
+      "candidate_id": "S003-C001",
+      "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+      "decision": "RECOMMEND_FREEZE",
+      "risk_label": "MIXED",
+      "reason_codes": [
+        "CANDIDATE_REGISTERED",
+        "BENCHMARK_CHALLENGE_PASSED",
+        "REQUIRED_AUDITS_PASSED",
+        "MONITORING_PLAN_APPROVED",
+        "NO_BLOCKING_FINDINGS"
+      ]
+    },
+    "current_request": {
+      "candidate_id": "S003-C001",
+      "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+      "candidate_readiness": "PASS",
+      "benchmark_challenge": "RECOMMEND_HEALTH_CHECK",
+      "evidence_integrity": "PASS",
+      "reproducibility": "PASS",
+      "technical_replay": "PASS",
+      "cost_stress": "PASS",
+      "monitoring_plan": "PASS",
+      "mechanism_evidence": "FAVORABLE",
+      "statistical_evidence": "MIXED",
+      "parameter_robustness": "FAVORABLE",
+      "external_validation": "FAVORABLE",
+      "execution_evidence": "FAVORABLE",
+      "blocking_findings": [
+        "PTE_INTRADAY_DEPENDENT_EXIT_NOT_IMPLEMENTED"
+      ]
+    },
+    "current_result": {
+      "candidate_id": "S003-C001",
+      "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+      "decision": "KEEP_RESEARCHING",
+      "risk_label": "WEAK",
+      "reason_codes": [
+        "BLOCKING_FINDINGS"
+      ]
+    },
+    "evidence_index": {
+      "candidate_readiness": {
+        "path": "experiments/S003/20260911_S003_EX53/artifacts/candidate_readiness.json",
+        "sha256": "ece65f91edc43643f75fe73fc7eee2e88ff9d5301bf185399699e4ae0bd54d82"
+      },
+      "statistical": {
+        "path": "experiments/S003/20260911_S003_EX47/artifacts/corrected_statistical_summary.json",
+        "sha256": "f176d1e7c2addf4681b1f70d02a1ca19fab33a0511e8f32828abccf18f810209"
+      },
+      "cross_market": {
+        "path": "experiments/S003/20260911_S003_EX52/artifacts/synthesis_summary.json",
+        "sha256": "4d9f6883e143bdf98ddd0eb0d68d2cd3c6cd8e2d6034187156fcac26487873d0"
+      },
+      "formal_replay": {
+        "path": "experiments/S003/20260911_S003_EX56/artifacts/formal_replay_summary.json",
+        "sha256": "d0bc68084e0a3bbe7dba898acf297110928d6452a426bb27c871ef1892356c97"
+      },
+      "formal_replay_audit": {
+        "path": "experiments/S003/20260911_S003_EX56/artifacts/audit.json",
+        "sha256": "3c1d0e19ee8565818965f18795a35e7e47194ead691984b5de21934fb760bd89"
+      },
+      "benchmark_challenge": {
+        "path": "experiments/S003/20260911_S003_EX57/artifacts/benchmark_assessment.json",
+        "sha256": "6967be7b5bd5fb130a45c60b4c58d69185fdb6c7afbf2ebf128b7b8787685d85"
+      },
+      "monitoring_plan": {
+        "path": "research/S003/candidates/S003-C001_MONITORING.md",
+        "sha256": "412ec8f2f0e5257beb6fed22c6e1a476e5da7275773fb7c41d317b71ffdd098f"
+      }
+    },
+    "blocking_findings": [
+      {
+        "code": "PTE_INTRADAY_DEPENDENT_EXIT_NOT_IMPLEMENTED",
+        "meaning": "PTE尚不能持久化并恢复开盘买入成交后于11:30卖出等量旧库存的依赖计划",
+        "scope": "deployment_engineering",
+        "candidate_evidence_affected": false
+      }
+    ],
+    "risk_disclosures": [
+      "全路径有效试验数修正后的DSR概率为11.55%",
+      "正式账户口径卡玛为0.27",
+      "BuyHold PK的年化收益胜出概率为68.64%，其95%区间跨零",
+      "模拟盘证据尚未产生"
+    ],
+    "lifecycle_effects": {
+      "strategy_version_created": false,
+      "strategy_frozen": false,
+      "pte_deployed": false
+    }
+  },
+  "approval": {
+    "schema_version": 1,
+    "assessment_id": "FHC-20260911-S003-C001",
+    "strategy_id": "S003",
+    "candidate_id": "S003-C001",
+    "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+    "decision": "KEEP_RESEARCHING",
+    "risk_label": "WEAK",
+    "conditional_decision": "RECOMMEND_FREEZE",
+    "conditional_risk_label": "MIXED",
+    "source_experiment": "experiments/S003/20260911_S003_EX58",
+    "source_hash": "c3b3f5eba5c1375114195b7c0008c4811baa4d82fba75c82ff8a12fbe4e26e02",
+    "assessed_at": "2026-09-11T22:00:00+08:00"
+  }
+}

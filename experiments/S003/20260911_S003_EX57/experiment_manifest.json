@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX57",
+  "status": "COMPLETE",
+  "experiment_type": "benchmark_freeze_qualification",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "candidate_id": "S003-C001",
+  "benchmark_id": "BuyHold-510500",
+  "development_cutoff": "2026-09-08",
+  "decision": "RECOMMEND_HEALTH_CHECK",
+  "risk_label": "MIXED",
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 262,
+      "sha256": "c8b4e4e199c72f64a034f92108f94fef18c2f21669112145f275e1e4c5da3975"
+    },
+    "02_design.md": {
+      "bytes": 493,
+      "sha256": "2a28c28c7fd18b5e30b36ecda0695836862b94b11dc62fd13665c3a8ea128e12"
+    },
+    "03_execution.md": {
+      "bytes": 171,
+      "sha256": "f0276c2c52212a2e1d5121e380a8258998b8d68f71fe1d9aa744845e72f98700"
+    },
+    "04_conclusion.md": {
+      "bytes": 405,
+      "sha256": "a858f80d32c775e3a82e03279705696e062fbd489f10e7d1867df47d9394eec8"
+    },
+    "artifacts/benchmark_assessment.json": {
+      "bytes": 2531,
+      "sha256": "8e8f9e27baebb461181fa1e952f6428389648430095a3abf1310959cc238fafe"
+    },
+    "artifacts/buyhold_account_daily.csv": {
+      "bytes": 65821,
+      "sha256": "abd9fbb7bc78ca458eebedeb6b390ac95fe6c7ff8aaae072d7eca751669e6f63"
+    },
+    "artifacts/daily_return_matrix.csv": {
+      "bytes": 71287,
+      "sha256": "18b4bf1d9ba28a15eff62c5ec6939d1fa2ce08c59ceb7d656bf8c87d6cb60957"
+    },
+    "artifacts/paired_bootstrap.json": {
+      "bytes": 2871,
+      "sha256": "1f0ee75a20c8c4ca3d43f19ce9f53ac2be49d962cec48f669a536c41fa3ca5e0"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 610,
+      "sha256": "83dcea498dbd2edd498687eb0aba5de27f20dabf2ad6b1680f371bca087a5db3"
+    },
+    "artifacts/return_matrix_evidence.json": {
+      "bytes": 114709,
+      "sha256": "facb40ef2753d36fd1c093af6d203b6330190cde897eada26bc3183c8b4f61d9"
+    },
+    "run_experiment.py": {
+      "bytes": 8759,
+      "sha256": "644a72dc09c19a9e39bb6b3e623fa356825793a844815596b19afb29e1e8f8ec"
+    }
+  }
+}

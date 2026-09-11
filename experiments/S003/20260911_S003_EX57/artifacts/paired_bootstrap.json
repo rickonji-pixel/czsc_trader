@@ -1,0 +1,94 @@
+{
+  "comparisons": [
+    {
+      "champion_id": "S003-C001",
+      "comparator_id": "BuyHold-510500",
+      "repetitions": 10000,
+      "mean_block_length": 21,
+      "cagr": {
+        "metric": "cagr",
+        "direction": "higher_is_better",
+        "point_difference": 0.027662954713136845,
+        "lower_95": -0.09763001483048198,
+        "upper_95": 0.12013798272042307,
+        "probability_favorable": 0.6864
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "direction": "higher_is_better",
+        "point_difference": 0.285145709502461,
+        "lower_95": 0.11826590794034152,
+        "upper_95": 0.37527242252650744,
+        "probability_favorable": 1.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "direction": "higher_is_better",
+        "point_difference": 0.2183531502025067,
+        "lower_95": 0.04741151611678167,
+        "upper_95": 0.5463563927623422,
+        "probability_favorable": 0.9929
+      }
+    },
+    {
+      "champion_id": "S003-C001",
+      "comparator_id": "BuyHold-510500",
+      "repetitions": 10000,
+      "mean_block_length": 10,
+      "cagr": {
+        "metric": "cagr",
+        "direction": "higher_is_better",
+        "point_difference": 0.027662954713136845,
+        "lower_95": -0.10556700886447075,
+        "upper_95": 0.12322060366748114,
+        "probability_favorable": 0.6852
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "direction": "higher_is_better",
+        "point_difference": 0.285145709502461,
+        "lower_95": 0.11595492438652034,
+        "upper_95": 0.3743208499916895,
+        "probability_favorable": 1.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "direction": "higher_is_better",
+        "point_difference": 0.2183531502025067,
+        "lower_95": 0.03832347427355664,
+        "upper_95": 0.5510888775899597,
+        "probability_favorable": 0.9907
+      }
+    },
+    {
+      "champion_id": "S003-C001",
+      "comparator_id": "BuyHold-510500",
+      "repetitions": 10000,
+      "mean_block_length": 42,
+      "cagr": {
+        "metric": "cagr",
+        "direction": "higher_is_better",
+        "point_difference": 0.027662954713136845,
+        "lower_95": -0.094542730591449,
+        "upper_95": 0.11702656809485039,
+        "probability_favorable": 0.6921
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "direction": "higher_is_better",
+        "point_difference": 0.285145709502461,
+        "lower_95": 0.12023270663110952,
+        "upper_95": 0.3726854453211919,
+        "probability_favorable": 1.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "direction": "higher_is_better",
+        "point_difference": 0.2183531502025067,
+        "lower_95": 0.05252794984921171,
+        "upper_95": 0.534052049006636,
+        "probability_favorable": 0.9921
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX58",
+  "status": "COMPLETE",
+  "experiment_type": "freeze_health_check",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "candidate_id": "S003-C001",
+  "development_cutoff": "2026-09-08",
+  "decision": "KEEP_RESEARCHING",
+  "conditional_decision": "RECOMMEND_FREEZE",
+  "risk_label": "WEAK",
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 153,
+      "sha256": "ec72db2a9583bd7734f47f1cd7dd645c967f7085387558b100caafcaa31053f7"
+    },
+    "02_design.md": {
+      "bytes": 590,
+      "sha256": "0c9ea1c3321bb3955e883eceb6e88d4d42276040cfc729ef6518ae9b2f9ea603"
+    },
+    "03_execution.md": {
+      "bytes": 226,
+      "sha256": "9ab3b2144d6d167ef9666976022179841e6819a08c44f879c0fb6a670d338cca"
+    },
+    "04_conclusion.md": {
+      "bytes": 456,
+      "sha256": "5e4cd894db38ea7768aab95cd31865769cf59a039e57deb3901be3465490ec8f"
+    },
+    "artifacts/freeze_health.json": {
+      "bytes": 5077,
+      "sha256": "83b9b58ec4e37924d034975065bdba7977efd64a94a15abbb85896112520e4b0"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 401,
+      "sha256": "5a64005d3edef409f66d04cba62541f54a0d0043527f2eae0cb92f420da6dee8"
+    },
+    "run_experiment.py": {
+      "bytes": 9302,
+      "sha256": "1c42529f3f2e0ee88866fee3734c4364a6284e7f8b1471357ce3db35c11be5a6"
+    }
+  }
+}

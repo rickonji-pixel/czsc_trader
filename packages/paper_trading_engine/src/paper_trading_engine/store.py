@@ -1331,12 +1331,15 @@ class PaperStore:
                 or incremental_price <= 0
             ):
                 raise ValueError("incremental fill value must be positive and finite")
+            intent_payload = json.loads(intent["payload"])
+            order_type = str(intent_payload.get("order_type", "LIMIT")).upper()
             limit_price = Decimal(intent["limit_price"])
-            if intent["side"] == "BUY" and incremental_price > limit_price:
-                raise ValueError("buy fill price exceeds intent limit")
-            if intent["side"] == "SELL" and incremental_price < limit_price:
-                raise ValueError("sell fill price is below intent limit")
-            fee_rate = Decimal(json.loads(intent["payload"]).get("fee_rate", "0.0005"))
+            if order_type == "LIMIT":
+                if intent["side"] == "BUY" and incremental_price > limit_price:
+                    raise ValueError("buy fill price exceeds intent limit")
+                if intent["side"] == "SELL" and incremental_price < limit_price:
+                    raise ValueError("sell fill price is below intent limit")
+            fee_rate = Decimal(intent_payload.get("fee_rate", "0.0005"))
             fee = (incremental_value * fee_rate).quantize(Decimal("0.0001"))
             old_cash = Decimal(account["cash"])
             old_frozen = Decimal(account["frozen_cash"])

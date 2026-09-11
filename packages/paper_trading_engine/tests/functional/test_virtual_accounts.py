@@ -51,6 +51,27 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     assert store.virtual_account("s001-v2")["quantity"] == 1000
     assert store.virtual_account("s001-v2")["cash"] == "98329.1650"
     assert store.account_fills("s001-v2")[0]["channel_id"] == "futu"
+
+    sell_intent = store.create_account_intent(
+        account_id="s001-v2", decision_id="DEC-3", order_sequence=0,
+        symbol="588080.SH", side="SELL", quantity=1000,
+        limit_price="1.650", valid_session="2026-09-04", fee_rate="0.0005",
+        order_type="MARKET",
+    )
+    assert store.claim_account_intent(sell_intent["intent_id"])
+    store.bind_channel_order(sell_intent["intent_id"], "1002", {
+        "channel_order_id": "1002", "symbol": "588080.SH", "side": "SELL",
+        "quantity": 1000, "limit_price": 1.65, "status": "SUBMITTED",
+        "cumulative_filled_quantity": 0, "average_fill_price": 0,
+        "remark": sell_intent["intent_id"], "order_type": "MARKET",
+    })
+    store.apply_fill_increment(
+        "1002", cumulative_quantity=1000, average_price="1.600",
+        occurred_at="2026-09-04T01:32:00+00:00",
+    )
+    assert store.virtual_account("s001-v2")["quantity"] == 0
+    assert store.virtual_account("s001-v2")["cash"] == "99928.3650"
+    assert store.account_fills("s001-v2")[0]["price"] == "1.600"
     store.close()
 
 

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX66",
+  "experiment_type": "frozen_mechanism_common_support_pair_matching",
+  "inherits": ["20260911_S003_EX65"],
+  "research_target": {
+    "strategy_id": "S003",
+    "release_id": "S003-v1",
+    "symbol": "510500.SH"
+  },
+  "dataset": {
+    "evaluation_start": "2021-04-15",
+    "development_cutoff": "2026-09-08",
+    "event_experiment": "20260911_S003_EX44",
+    "event_file_sha256": "d60067510c731d7df8bf8034bea4142017f055f23791ceb97687fe27be89a553",
+    "ex65_manifest_sha256": "c97724b94ecd59ed38c01d63c3012222bee58b4abc3f0a263a93da03b1ad624d",
+    "intraday_manifest_sha256": "0406d4366f13a93135e137aaed57bbb33c25361e0a005103e8f29ccf4eca874f",
+    "daily_manifest_sha256": "e22ef09a5b33471cd9e84e01d3d386acd5205224b464053839f67f6160a59358"
+  },
+  "method": {
+    "estimand": "COMMON_SUPPORT_ATT_OPEN_TO_11_30",
+    "matching": "ONE_TO_ONE_WITHOUT_REPLACEMENT_MINIMUM_TOTAL_DISTANCE",
+    "exact_group": "CALENDAR_YEAR",
+    "prior_return_caliper_standard_deviation": 0.10,
+    "distance_features": [
+      "prior_return_1d",
+      "prior_return_5d",
+      "prior_volatility_20d",
+      "prior_trend_60d",
+      "prior_amount_ratio_20d",
+      "opening_gap"
+    ]
+  },
+  "bootstrap": {
+    "unit": "MATCHED_PAIR_EVENT_NATURAL_MONTH_BLOCK",
+    "iterations": 1000,
+    "confidence": 0.90,
+    "seed": 20260911
+  },
+  "interpretation": {
+    "minimum_event_retention": 0.70,
+    "maximum_pair_prior_return_distance_sd": 0.10,
+    "prior_return_max_absolute_smd": 0.02,
+    "continuous_max_absolute_smd": 0.10,
+    "incremental_evidence": "all_matching_gates_pass AND paired_effect_lower_90_gt_0",
+    "unresolved": "all_matching_gates_pass AND paired_effect_interval_includes_0",
+    "momentum_explanation": "all_matching_gates_pass AND paired_effect_upper_90_le_0"
+  },
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

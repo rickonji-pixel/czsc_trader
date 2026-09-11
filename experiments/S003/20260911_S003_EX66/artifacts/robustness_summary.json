@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX66",
+  "status": "PASS",
+  "event_count": 276,
+  "matched_pair_count": 159,
+  "competing_explanation_label": "MATCHING_QUALITY_FAILED",
+  "gates": {
+    "event_retention": false,
+    "pair_prior_return_distance": true,
+    "prior_return_smd": false,
+    "continuous_smd": false
+  },
+  "metrics": {
+    "event_retention": 0.5760869565217391,
+    "paired_effect": 0.0026334176310015243,
+    "effect_lower_90": 0.0014310453538997536,
+    "effect_upper_90": 0.0038344432145360125,
+    "effect_positive_probability": 1.0,
+    "event_mean_return_11_30": 0.002122915927556703,
+    "control_mean_return_11_30": -0.0005105017034448213,
+    "maximum_pair_prior_return_distance_sd": 0.09928352547194841,
+    "prior_return_absolute_smd": 0.05800944710633325,
+    "continuous_maximum_absolute_smd": 0.38929562420352865
+  },
+  "scope": "COMMON_SUPPORT_SUBSET_ONLY",
+  "candidate_changed": false,
+  "sm_changed": false,
+  "pte_changed": false
+}

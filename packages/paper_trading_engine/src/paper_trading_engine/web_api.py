@@ -243,7 +243,13 @@ class PteWebApi:
         )
         allocated = sum(float(row["initial_cash"]) for row in accounts)
         unallocated = capital_pool - allocated
-        logical_cash = unallocated + sum(float(row["cash"]) for row in accounts)
+        # PTE reserves cash before a future-session order reaches Futu.  The
+        # reservation changes the virtual account's available cash, but the
+        # money is still present in the shared broker account.  Include both
+        # available and internally frozen cash when reconciling with Futu.
+        logical_cash = unallocated + sum(
+            float(row["cash"]) + float(row["frozen_cash"]) for row in accounts
+        )
         logical_total_assets = unallocated + sum(float(row["total_assets"]) for row in accounts)
         broker_account = status.get("account") or {}
         broker_cash = broker_account.get("cash")

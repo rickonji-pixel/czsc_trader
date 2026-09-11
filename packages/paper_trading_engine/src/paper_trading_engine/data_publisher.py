@@ -207,6 +207,12 @@ class AccountDataPublisher:
             )
         return payload["result"]
 
+    def publish_strategy_support(
+        self, strategy_id: str, strategy_version: str, end_date: str,
+    ) -> dict[str, object]:
+        """Publish one release's support data when an account joins after daily publication."""
+        return self._publish_strategy_support(strategy_id, strategy_version, end_date)
+
     def publish(self, end_date: str) -> dict[str, object]:
         instruments = sorted({
             (str(account["symbol"]).upper(), str(account["asset_type"]))
@@ -242,7 +248,7 @@ class AccountDataPublisher:
             if account.get("status") != "RETIRED"
         })
         support = [
-            self._publish_strategy_support(strategy_id, strategy_version, data_cutoff)
+            self.publish_strategy_support(strategy_id, strategy_version, data_cutoff)
             for strategy_id, strategy_version in releases
         ]
         support_cutoffs = {

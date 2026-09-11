@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta, timezone
+import json
 from threading import Event, Thread
 
 from .audit import AuditRecorder
@@ -187,6 +188,28 @@ class RuntimeScheduler:
                 self.engine.refresh_decisions()
                 self.store.set_setting("last_account_decision_date", published_date)
             self._guard("account_decisions", now, refresh_accounts)
+        elif published_date is not None:
+            pending = []
+            for account in self.store.virtual_accounts():
+                if account.get("status") == "RETIRED":
+                    continue
+                payload = account.get("last_decision_payload")
+                try:
+                    signal_date = json.loads(payload).get("signal_date") if payload else None
+                except (json.JSONDecodeError, TypeError):
+                    signal_date = None
+                if signal_date is None:
+                    pending.append(account)
+            if pending:
+                def onboard_accounts():
+                    for account in pending:
+                        self.publisher.publish_strategy_support(
+                            str(account["strategy_id"]),
+                            str(account["strategy_version"]),
+                            published_date,
+                        )
+                        self.engine.refresh_decision(str(account["account_id"]))
+                self._guard("account_onboarding", now, onboard_accounts)
 
     def run(self, stopped: Event) -> None:
         def run_daily() -> None:

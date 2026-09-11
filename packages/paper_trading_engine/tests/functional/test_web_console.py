@@ -248,3 +248,38 @@ def test_channel_capital_uses_static_principal_allocations(tmp_path):
     assert {row["symbol"] for row in snapshot["accounts"]} == {"588080.SH"}
     assert {row["asset_type"] for row in snapshot["accounts"]} == {"etf"}
     store.close()
+
+
+def test_channel_cash_reconciliation_includes_internal_frozen_cash(tmp_path):
+    store = PaperStore(tmp_path / "frozen-cash.db")
+    store.create_virtual_account(
+        "s003-v1", "S003-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S003", strategy_name_snapshot="成分资金流宽度早盘延续",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-08",
+        symbol="510500.SH", asset_type="etf",
+    )
+    with store._lock, store._connection:
+        store._connection.execute(
+            "UPDATE virtual_accounts SET cash='50152.5888',frozen_cash='49847.4112' "
+            "WHERE account_id='s003-v1'"
+        )
+    status = {
+        "account": {
+            "environment": "SIMULATE", "market": "CN",
+            "cash": 1_000_000.0, "frozen_cash": 0.0,
+            "total_assets": 1_000_000.0,
+        },
+        "orders": [], "actual_quantity": 0,
+    }
+    api = PteWebApi(SimpleNamespace(
+        store=store, virtual=None,
+        channel=SimpleNamespace(status=lambda: status),
+    ))
+
+    snapshot = api.channel_snapshot("futu")
+
+    assert snapshot["logical_cash"] == pytest.approx(1_000_000.0)
+    assert snapshot["cash_difference"] == pytest.approx(0.0)
+    assert "CHANNEL_CASH_MISMATCH" not in snapshot["alerts"]
+    store.close()

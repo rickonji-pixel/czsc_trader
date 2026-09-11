@@ -228,11 +228,21 @@ def prepare_strategy_support_data(
         registry.assert_deployable(release.strategy_id, release.version, "PAPER")
         if release.release_hash is None:
             raise ValueError("deployable strategy version must have a release hash")
+        rule = release.strategy_payload.get("rule")
+        rule_symbol = rule.get("symbol") if isinstance(rule, dict) else None
+        strategy_symbol = release.strategy_payload.get("symbol") or rule_symbol
+        if not isinstance(strategy_symbol, str) or not strategy_symbol.strip():
+            strategy = registry.get_strategy(release.strategy_id)
+            if isinstance(strategy.scope, list) and len(strategy.scope) == 1:
+                strategy_symbol = strategy.scope[0]
+        if not isinstance(strategy_symbol, str) or not strategy_symbol.strip():
+            raise ValueError("strategy support data requires one explicit symbol")
         resolved = resolve_strategy_payload(
             context.strategy_dependency_root,
             release.strategy_payload,
             release_id=release.release_id,
             release_hash=release.release_hash,
+            symbol=strategy_symbol,
             repository_root=context.root,
         )
         if resolved.strategy != "constituent_moneyflow_intraday_overlay":

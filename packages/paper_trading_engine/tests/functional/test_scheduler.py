@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 from subprocess import CompletedProcess
 from threading import Event, Thread
 import time
@@ -14,6 +15,7 @@ class Engine:
     def refresh_orders(self): self.calls.append("orders")
     def refresh_account(self): self.calls.append("account")
     def refresh_decisions(self): self.calls.append("decisions")
+    def refresh_decision(self, account_id): self.calls.append(("decision", account_id))
 
 
 class Store:
@@ -176,6 +178,40 @@ def test_ft_pte04_failed_account_batch_is_not_marked_complete():
     assert store.get_setting("last_account_decision_date") is None
     scheduler.tick(datetime(2026, 9, 3, 10, 0, 5))
     assert store.get_setting("last_account_decision_date") == "2026-09-02"
+
+
+def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
+    class Publisher:
+        def __init__(self): self.calls = []
+        def publish_strategy_support(self, strategy_id, strategy_version, cutoff):
+            self.calls.append((strategy_id, strategy_version, cutoff))
+            return {"support_required": True, "data_cutoff": cutoff}
+
+    store = Store()
+    store.values.update(
+        last_data_publish_date="2026-09-11",
+        last_account_decision_date="2026-09-11",
+    )
+    store.accounts = [{
+        "account_id": "s003-v1",
+        "strategy_id": "S003",
+        "strategy_version": "v1",
+        "status": "RUNNING",
+        "last_decision_payload": None,
+    }]
+    engine, publisher = Engine(), Publisher()
+    scheduler = RuntimeScheduler(engine, publisher, store)
+
+    scheduler.tick_daily(datetime(2026, 9, 11, 20, 45))
+
+    assert publisher.calls == [("S003", "v1", "2026-09-11")]
+    assert ("decision", "s003-v1") in engine.calls
+
+    store.accounts[0]["last_decision_payload"] = json.dumps(
+        {"signal_date": "2026-09-11"}
+    )
+    scheduler.tick_daily(datetime(2026, 9, 11, 20, 46))
+    assert publisher.calls == [("S003", "v1", "2026-09-11")]
 
 
 def test_ft_pte04_slow_daily_publication_does_not_stop_order_reconciliation():

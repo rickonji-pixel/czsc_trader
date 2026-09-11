@@ -12,6 +12,11 @@
       "aliases": [],
       "path": "S002",
       "strategy_id": "S002"
+    },
+    {
+      "aliases": [],
+      "path": "S003",
+      "strategy_id": "S003"
     }
   ]
 }

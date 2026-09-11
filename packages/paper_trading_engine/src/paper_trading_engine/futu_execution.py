@@ -155,6 +155,37 @@ class FutuExecution:
             },
         )
 
+    def _recover_future_plan_expiries(self, moment: datetime) -> None:
+        session = moment.astimezone(SHANGHAI).date().isoformat()
+        recovered_accounts: set[str] = set()
+        for intent in self.store.attention_account_intents():
+            if (
+                intent["status"] != "EXPIRED"
+                or intent.get("channel_order_id")
+                or intent["valid_session"] <= session
+                or intent.get("attention_reason") != "计划订单错过提交截止时间"
+                or not intent["payload"].get("plan_mode")
+            ):
+                continue
+            account = self.store.virtual_account(intent["account_id"])
+            event = self.audit.build(
+                "ORDER_INTENT_RECOVERED", source="futu_execution",
+                account_id=intent["account_id"], strategy_id=account.get("strategy_id"),
+                strategy_version=account.get("strategy_version"),
+                release_hash=account.get("release_hash"), channel="futu",
+                decision_id=intent["decision_id"], correlation_id=intent["decision_id"],
+                details={
+                    "intent_id": intent["intent_id"],
+                    "reason": "future_session_deadline_comparison_repaired",
+                    "valid_session": intent["valid_session"],
+                },
+            )
+            self.store.recover_future_planned_intent(intent["intent_id"], event)
+            recovered_accounts.add(intent["account_id"])
+        for account_id in recovered_accounts:
+            if not self.store.attention_account_intents(account_id):
+                self.store.set_virtual_health(account_id, "OK")
+
     def _activate_dependency_intents(self, moment: datetime) -> None:
         local = moment.astimezone(SHANGHAI)
         session = local.date().isoformat()
@@ -606,6 +637,7 @@ class FutuExecution:
         if moment.tzinfo is None:
             raise ValueError("submission clock must be timezone-aware")
         session = moment.astimezone(SHANGHAI).date().isoformat()
+        self._recover_future_plan_expiries(moment)
         self._activate_dependency_intents(moment)
         for row in self.store.pending_account_intents():
             account = self.store.virtual_account(row["account_id"])
@@ -631,12 +663,13 @@ class FutuExecution:
             local_clock = moment.astimezone(SHANGHAI).time().replace(tzinfo=None)
             submit_after = self._planned_clock(row, "submit_after")
             submit_before = self._planned_clock(row, "submit_before")
+            if row["valid_session"] > session:
+                continue
             if submit_before is not None and local_clock > submit_before:
                 self._expire_planned_intent(row, "计划订单错过提交截止时间")
                 continue
             if (
-                row["valid_session"] != session
-                or (submit_after is not None and local_clock < submit_after)
+                (submit_after is not None and local_clock < submit_after)
                 or not is_submission_window(moment)
             ):
                 continue

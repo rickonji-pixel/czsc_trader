@@ -1775,6 +1775,79 @@ class PaperStore:
         assert result is not None
         return result
 
+    def recover_future_planned_intent(
+        self, intent_id: str, audit_event: AuditEvent | None = None,
+    ) -> dict[str, Any]:
+        """Requeue an unsubmitted future plan that an older clock comparison expired."""
+        from decimal import Decimal
+
+        now = _utc_now()
+        with self._lock, self._connection:
+            intent = self._connection.execute(
+                "SELECT * FROM intents WHERE intent_id=?", (intent_id,),
+            ).fetchone()
+            if intent is None:
+                raise KeyError(intent_id)
+            if (
+                intent["status"] != "EXPIRED"
+                or not bool(intent["attention_required"])
+                or intent["channel_order_id"] is not None
+                or intent["attention_reason"] != "计划订单错过提交截止时间"
+            ):
+                raise ValueError("intent is not a recoverable future plan expiry")
+            payload = json.loads(intent["payload"])
+            if not payload.get("plan_mode"):
+                raise ValueError("recoverable intent must belong to an execution plan")
+            dependency = payload.get("dependency_intent_id")
+            status = "PENDING_SUBMIT" if dependency is None else "WAITING_DEPENDENCY"
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (intent["account_id"],),
+            ).fetchone()
+            if account is None:
+                raise KeyError(intent["account_id"])
+            reserve = Decimal("0")
+            if intent["side"] == "BUY":
+                fee = Decimal(str(payload.get("fee_rate", "0.0005")))
+                reserve = (
+                    Decimal(intent["limit_price"]) * int(intent["quantity"])
+                    * (Decimal("1") + fee)
+                ).quantize(Decimal("0.0001"))
+                cash = Decimal(account["cash"])
+                if reserve > cash:
+                    raise ValueError("account cash is below the recovered intent reservation")
+                self._connection.execute(
+                    "UPDATE virtual_accounts SET cash=?,frozen_cash=?,updated_at=? WHERE account_id=?",
+                    (
+                        str((cash - reserve).quantize(Decimal("0.0001"))),
+                        str((Decimal(account["frozen_cash"]) + reserve).quantize(Decimal("0.0001"))),
+                        now, intent["account_id"],
+                    ),
+                )
+                self._connection.execute(
+                    "INSERT INTO account_ledger(ledger_entry_id,account_id,entry_type,order_id,"
+                    "fill_id,cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,"
+                    "quantity_after,occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        str(uuid5(NAMESPACE_URL, f"pte-recover-reserve:{intent_id}")),
+                        intent["account_id"], "INTENT_RESERVE", None, None,
+                        str(-reserve), str(reserve), 0, "0.0000",
+                        str((cash - reserve).quantize(Decimal("0.0001"))),
+                        int(account["quantity"]), now,
+                    ),
+                )
+            self._connection.execute(
+                "UPDATE intents SET status=?,attention_required=0,attention_reason=NULL,"
+                "resolved_at=?,resolution_note=?,updated_at=? WHERE intent_id=?",
+                (
+                    status, now, "自动修复未来交易日时间窗误判", now, intent_id,
+                ),
+            )
+            if audit_event is not None:
+                self._insert_audit_event(audit_event)
+        result = self.account_intent(intent_id)
+        assert result is not None
+        return result
+
     def update_channel_order_report(
         self, channel_order_id: str, payload: dict[str, object],
     ) -> dict[str, Any]:

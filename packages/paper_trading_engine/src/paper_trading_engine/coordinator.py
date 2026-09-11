@@ -159,6 +159,9 @@ class PteCoordinator:
 
     def refresh_decisions(self): return self.accounts.refresh_all()
 
+    def refresh_decision(self, account_id: str):
+        return self.accounts.refresh_account(account_id)
+
     def status(self):
         channel = self.execution.status()
         accounts = [self.accounts.status(row["account_id"]) for row in self.store.virtual_accounts()]

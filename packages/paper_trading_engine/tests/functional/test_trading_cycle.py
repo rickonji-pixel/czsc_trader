@@ -313,6 +313,14 @@ def test_ft_pte11_intraday_plan_blocks_exit_when_entry_is_not_filled(tmp_path):
     plan_intents = store.account_intents("s003-v1")[-2:]
     entry, exit_leg = plan_intents
 
+    previous_evening = FutuExecution(
+        store, broker, now=lambda: datetime(2026, 9, 2, 12, 51, tzinfo=timezone.utc),
+    )
+    previous_evening.refresh_account()
+    previous_evening.submit_pending(reconcile=False)
+    assert store.account_intent(entry["intent_id"])["status"] == "PENDING_SUBMIT"
+    assert store.virtual_account("s003-v1")["health"] != "BLOCKED"
+
     open_execution = FutuExecution(
         store, broker, now=lambda: datetime(2026, 9, 3, 1, 30, 5, tzinfo=timezone.utc),
     )

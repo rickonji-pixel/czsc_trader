@@ -14,7 +14,11 @@ from czsc_trader.application.advice_service import (
     build_intraday_overlay_advice_v5,
 )
 from czsc_trader.application.context import RepositoryContext
-from czsc_trader.application.data_service import _assert_append_only
+from czsc_trader.application.data_service import (
+    PrepareStrategySupportCommand,
+    _assert_append_only,
+    prepare_strategy_support_data,
+)
 from czsc_trader.backtesting.datasets import load_replay_data
 from czsc_trader.backtesting.strategy_source import resolve_registered_strategy
 from czsc_trader.baselines import (
@@ -434,6 +438,48 @@ def test_ft_t02_advice_covers_entry_retry_hold_exit_and_fill_rules(
     assert result.orders.iloc[0]["size"] % 100 == 0
     assert result.orders.iloc[0]["price"] > result.orders.iloc[0]["entry_limit"]
     assert result.orders.iloc[1]["price"] < daily.iloc[-1]["open"]
+
+
+def test_prepare_s003_support_data_resolves_frozen_strategy_symbol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    captured: dict[str, object] = {}
+
+    def fake_publish_support_data(
+        repository_root: Path,
+        data_root: Path,
+        release_id: str,
+        spec: ConstituentMoneyflowIntradaySpec,
+        through: str,
+    ) -> dict[str, object]:
+        captured.update(
+            repository_root=repository_root,
+            data_root=data_root,
+            release_id=release_id,
+            symbol=spec.symbol,
+            through=through,
+        )
+        return {"release_id": release_id, "data_cutoff": through}
+
+    monkeypatch.setattr(
+        "czsc_trader.constituent_moneyflow_runtime.publish_support_data",
+        fake_publish_support_data,
+    )
+    result = prepare_strategy_support_data(
+        RepositoryContext.discover(repo, explicit_root=repo),
+        PrepareStrategySupportCommand("S003", "v1", date(2026, 9, 11)),
+    )
+
+    assert result.status == "PASS"
+    assert result.result["support_required"] is True
+    assert captured == {
+        "repository_root": repo,
+        "data_root": repo / "data" / "raw",
+        "release_id": "S003-v1",
+        "symbol": "510500.SH",
+        "through": "2026-09-11",
+    }
 
 
 def test_s003_runtime_signal_and_planned_advice_contract(tmp_path: Path) -> None:

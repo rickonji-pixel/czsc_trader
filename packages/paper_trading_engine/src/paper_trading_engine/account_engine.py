@@ -247,23 +247,37 @@ class AccountEngine:
         from .performance_export import calculate_metrics, closed_trade_pnl
 
         account = self.store.virtual_account(account_id)
+        all_snapshots = self.store.account_snapshots(account_id)
         snapshots = [
-            row for row in self.store.account_snapshots(account_id)
+            row for row in all_snapshots
             if (start is None or row["session"] >= start)
             and (end is None or row["session"] <= end)
         ]
-        initial = float(account["initial_cash"])
-        fills = [
+        baseline = float(account["initial_cash"])
+        if start is not None:
+            prior = [row for row in all_snapshots if row["session"] < start]
+            if prior:
+                baseline = float(prior[-1]["total_assets"])
+        effective_end = end or (snapshots[-1]["session"] if snapshots else None)
+
+        def fill_session(row) -> str:
+            value = datetime.fromisoformat(str(row["occurred_at"]).replace("Z", "+00:00"))
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=self._BEIJING)
+            return value.astimezone(self._BEIJING).date().isoformat()
+
+        fills = [] if not snapshots else [
             row for row in self.store.account_fills(account_id)
             if row["side"] == "SELL"
-            and (start is None or row["occurred_at"][:10] >= start)
-            and (end is None or row["occurred_at"][:10] <= end)
+            and (start is None or fill_session(row) >= start)
+            and fill_session(row) <= effective_end
         ]
         calculated = calculate_metrics(
-            initial, snapshots, closed_trade_pnl(fills),
+            baseline, snapshots, closed_trade_pnl(fills),
         )
         return {
             "observation_start": snapshots[0]["session"] if snapshots else None,
             "observation_end": snapshots[-1]["session"] if snapshots else None,
+            "baseline_assets": baseline,
             **calculated,
         }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, displayFillId, formatBeijingTime, navigationOptions, orderPriceLabel, parseRoute, snapshotFingerprint, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -31,6 +31,23 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(orderPriceLabel({order_type: 'LIMIT', limit_price: '1.6500'}), '1.6500');
   assert.equal(actionLabel('WAIT'), '等待');
   assert.equal(actionLabel('HOLD'), '持有');
+  assert.equal(sideLabel('SELL'), '卖出');
+  assert.equal(qualificationLabel('PAPER_READY'), '获准模拟交易');
+  assert.equal(statusLabel('CHANNEL_CASH_MISMATCH'), 'PTE账务现金与Futu现金不一致');
+  assert.equal(formatPrice('1.5899999999999999'), '1.590');
+  assert.equal(formatQuantity(60500), '60,500 股');
+  assert.equal(decisionExecutionLabel({decision_id:'D1',action:'HOLD'}, []), '本次决策无需下单');
+  assert.equal(decisionExecutionLabel(
+    {decision_id:'D2',action:'SELL'}, [{decision_id:'D2',status:'FILLED_ALL'}],
+  ), '全部成交');
+  assert.equal(decisionExecutionLabel(
+    {decision_id:'D2',action:'SELL'}, [
+      {decision_id:'D2',status:'REJECTED'}, {decision_id:'D2',status:'FILLED_ALL'},
+    ],
+  ), '全部成交（此前 1 次未成功）');
+  assert.equal(auditSummary({
+    event_type:'ORDER_FILLED',details:{side:'SELL',quantity:60500,average_fill_price:1.589999999999},
+  }), '卖出 60,500 股，成交均价 1.590');
   assert.equal(chartShouldReload(null, {scope: {account_id: 'a'}, fingerprint: 'f1'}), true);
   assert.equal(chartShouldReload(
     {account_id: 'a', fingerprint: 'f1'},

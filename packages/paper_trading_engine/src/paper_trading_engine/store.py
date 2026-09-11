@@ -306,6 +306,12 @@ class PaperStore:
             "UPDATE virtual_accounts SET total_assets=initial_cash WHERE total_assets='0.0000' AND quantity=0"
         )
         self._connection.execute(
+            "UPDATE virtual_accounts SET total_assets=printf('%.4f',"
+            "CAST(cash AS REAL)+CAST(frozen_cash AS REAL)) "
+            "WHERE quantity=0 AND ABS(CAST(total_assets AS REAL)-"
+            "CAST(cash AS REAL)-CAST(frozen_cash AS REAL))>0.00005"
+        )
+        self._connection.execute(
             "UPDATE virtual_accounts SET strategy_id='S001',strategy_name_snapshot='综合基线策略',"
             "strategy_version='v1',release_hash=?,qualification_snapshot='PAPER_READY' "
             "WHERE strategy_id IS NULL AND baseline_version='baseline_20260903' AND baseline_sha256=?",
@@ -390,7 +396,7 @@ class PaperStore:
         placeholders = ",".join("?" for _ in statuses)
         rows = self._connection.execute(
             f"SELECT * FROM intents WHERE status IN ({placeholders}) "
-            "AND attention_required=0 ORDER BY created_at,intent_id",
+            "AND attention_required=0 AND resolved_at IS NULL ORDER BY created_at,intent_id",
             statuses,
         ).fetchall()
         review_required = 0
@@ -998,6 +1004,33 @@ class PaperStore:
                 (*values, limit),
             ).fetchall()
         return [self._audit_row(row) for row in rows]
+
+    def audit_event_counts(
+        self, *, event_type=None, severity=None, outcome=None, account_id=None,
+        strategy_id=None, channel=None, decision_id=None, order_id=None,
+        correlation_id=None,
+    ) -> dict[str, int]:
+        """Count every matching event by category, independent of page size."""
+        filters = {
+            "event_type": event_type, "severity": severity, "outcome": outcome,
+            "account_id": account_id, "strategy_id": strategy_id, "channel": channel,
+            "decision_id": decision_id, "order_id": order_id,
+            "correlation_id": correlation_id,
+        }
+        clauses, values = [], []
+        for column, value in filters.items():
+            if value is not None:
+                clauses.append(f"{column}=?")
+                values.append(str(value))
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._lock:
+            rows = self._connection.execute(
+                f"SELECT category,COUNT(*) AS count FROM events{where} GROUP BY category",
+                values,
+            ).fetchall()
+        result = {name: 0 for name in ("STRATEGY", "TRADING", "SYSTEM", "OTHER")}
+        result.update({str(row["category"]): int(row["count"]) for row in rows})
+        return result
 
     def has_audit_event(
         self, event_type: str, *, account_id: str | None = None,
@@ -1631,10 +1664,16 @@ class PaperStore:
             frozen = frozen.quantize(Decimal("0.0001"))
             cost = cost.quantize(Decimal("0.000000000001"))
             realized = realized.quantize(Decimal("0.0001"))
+            total_assets = (
+                cash + frozen + Decimal(quantity) * incremental_price
+            ).quantize(Decimal("0.0001"))
             self._connection.execute(
                 "UPDATE virtual_accounts SET cash=?,frozen_cash=?,quantity=?,average_cost=?,"
-                "realized_pnl=?,updated_at=? WHERE account_id=?",
-                (str(cash), str(frozen), quantity, str(cost), str(realized), _utc_now(), order["account_id"]),
+                "realized_pnl=?,total_assets=?,updated_at=? WHERE account_id=?",
+                (
+                    str(cash), str(frozen), quantity, str(cost), str(realized),
+                    str(total_assets), _utc_now(), order["account_id"],
+                ),
             )
             order_payload["cumulative_filled_quantity"] = cumulative_quantity
             order_payload["average_fill_price"] = float(avg)

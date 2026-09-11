@@ -126,20 +126,31 @@ class AccountChartService:
 
     @staticmethod
     def _decision(row: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(row.get("payload") or {})
         return {
-            **dict(row.get("payload") or {}),
             "account_id": row["account_id"],
             "decision_id": row["decision_id"],
             "signal_date": row["signal_date"],
             "valid_session": row["valid_session"],
             "generated_at": row["generated_at"],
+            "action": payload.get("action"),
+            "target_quantity": payload.get("target_quantity"),
+            "factor_score": payload.get("factor_score"),
+            "regime": payload.get("regime"),
         }
 
     @staticmethod
     def _intent(row: dict[str, Any]) -> dict[str, Any]:
-        result = {key: value for key, value in row.items() if key != "payload"}
-        result.update(row.get("payload") or {})
-        return result
+        payload = dict(row.get("payload") or {})
+        return {
+            "account_id": row.get("account_id"),
+            "intent_id": row.get("intent_id"),
+            "decision_id": row.get("decision_id"),
+            "valid_session": row.get("valid_session") or payload.get("valid_session"),
+            "side": row.get("side") or payload.get("side"),
+            "quantity": row.get("quantity") or payload.get("quantity"),
+            "limit_price": row.get("limit_price") or payload.get("limit_price"),
+        }
 
     def _after_cutoff(
         self, rows: list[dict[str, Any]], cutoff: str, fields: tuple[str, ...],
@@ -166,19 +177,31 @@ class AccountChartService:
             cutoff,
             ("valid_session", "session"),
         )
-        orders = self._after_cutoff(
-            self.store.account_orders(account_id),
-            cutoff,
-            ("created_at", "submitted_at", "valid_session", "session"),
-        )
         fills = []
         for row in self._after_cutoff(
             self.store.account_fills(account_id), cutoff, ("occurred_at", "session"),
         ):
-            fills.append({**row, "channel_order_id": row.get("order_id")})
-        snapshots = self._after_cutoff(
-            self.store.account_snapshots(account_id), cutoff, ("session",),
-        )
+            fills.append({
+                "account_id": row.get("account_id"),
+                "fill_id": row.get("fill_id"),
+                "decision_id": row.get("decision_id"),
+                "channel_order_id": row.get("order_id"),
+                "occurred_at": row.get("occurred_at"),
+                "side": row.get("side"),
+                "quantity": row.get("quantity"),
+                "price": row.get("price"),
+                "fee": row.get("fee"),
+            })
+        snapshots = [
+            {
+                "account_id": row.get("account_id"),
+                "session": row.get("session"),
+                "quantity": row.get("quantity"),
+            }
+            for row in self._after_cutoff(
+                self.store.account_snapshots(account_id), cutoff, ("session",),
+            )
+        ]
         request = {
             "contract_version": "account_observation.v1",
             "account": {
@@ -198,7 +221,9 @@ class AccountChartService:
             },
             "decisions": decisions,
             "intents": intents,
-            "orders": orders,
+            # The renderer has no order layer. Excluding broker payloads keeps this
+            # bounded chart contract independent from opaque third-party text.
+            "orders": [],
             "fills": fills,
             "snapshots": snapshots,
         }
@@ -211,6 +236,12 @@ class AccountChartService:
         except (OSError, ValueError):
             return {}
         return value if isinstance(value, dict) else {}
+
+    def current_error(self, account_id: str) -> str | None:
+        """Return the persisted chart error without triggering a render."""
+        self._account_dir(account_id)
+        value = self._load_meta(self._meta_path(account_id)).get("error")
+        return str(value) if value else None
 
     @staticmethod
     def _atomic_write(path: Path, content: str) -> None:
@@ -273,9 +304,8 @@ class AccountChartService:
             )
             if len(encoded.encode("utf-8")) > INPUT_LIMIT:
                 raise ValueError("account observation input exceeds 5 MiB")
-            fingerprint_request = {**request, "orders": []}
             fingerprint_input = json.dumps(
-                fingerprint_request,
+                request,
                 ensure_ascii=False,
                 sort_keys=True,
                 separators=(",", ":"),

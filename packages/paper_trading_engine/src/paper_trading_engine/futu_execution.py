@@ -548,6 +548,7 @@ class FutuExecution:
             "orders": self.store.account_orders(),
             "paused": self.store.is_paused(),
             "reconciliation_status": reconciliation,
+            "last_reconcile_at": self.store.get_setting("last_reconcile_at"),
             "alerts": (["CHANNEL_RECONCILIATION_BLOCKED"] if reconciliation == "BLOCKED" else []),
             "scheduler_failures": self.store.operation_failures(),
         }

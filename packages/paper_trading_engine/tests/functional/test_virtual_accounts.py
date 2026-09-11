@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from paper_trading_engine.store import PaperStore
+from paper_trading_engine.account_engine import AccountEngine
 
 
 def create_account(store, account_id, version, marker):
@@ -50,6 +51,7 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     assert store.virtual_account("s001-v1")["quantity"] == 0
     assert store.virtual_account("s001-v2")["quantity"] == 1000
     assert store.virtual_account("s001-v2")["cash"] == "98329.1650"
+    assert store.virtual_account("s001-v2")["total_assets"] == "99999.1650"
     assert store.account_fills("s001-v2")[0]["channel_id"] == "futu"
 
     sell_intent = store.create_account_intent(
@@ -71,7 +73,29 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     )
     assert store.virtual_account("s001-v2")["quantity"] == 0
     assert store.virtual_account("s001-v2")["cash"] == "99928.3650"
+    assert store.virtual_account("s001-v2")["total_assets"] == "99928.3650"
     assert store.account_fills("s001-v2")[0]["price"] == "1.600"
+    store.close()
+
+
+def test_account_metrics_use_prior_snapshot_as_window_baseline(tmp_path):
+    store = PaperStore(tmp_path / "window-metrics.db")
+    create_account(store, "s001-v2", "v2", "b")
+    store.save_account_snapshot("s001-v2", "2026-09-09", {
+        "quantity": 0, "total_assets": "102000.0000",
+    })
+    store.save_account_snapshot("s001-v2", "2026-09-10", {
+        "quantity": 0, "total_assets": "100980.0000",
+    })
+
+    metrics = AccountEngine(store, advice=None).metrics(
+        "s001-v2", start="2026-09-10", end="2026-09-10",
+    )
+
+    assert metrics["baseline_assets"] == 102000
+    assert metrics["total_return"] == pytest.approx(-0.01)
+    assert metrics["calmar_ratio"] is None
+    assert metrics["annualization_status"] == "INSUFFICIENT_OBSERVATIONS"
     store.close()
 
 
@@ -139,6 +163,11 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     assert request["market_data"]["bars"][0]["date"] == dates[125].date().isoformat()
     assert request["market_data"]["bars"][-1]["date"] == "2026-09-04"
     assert {row["account_id"] for row in request["decisions"]} == {"s001-v2"}
+    assert request["orders"] == []
+    assert set(request["decisions"][0]) == {
+        "account_id", "decision_id", "signal_date", "valid_session", "generated_at",
+        "action", "target_quantity", "factor_score", "regime",
+    }
     assert calls[0][0] == [
         "czsc-trader",
         "chart",

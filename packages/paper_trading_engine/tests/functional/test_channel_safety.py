@@ -300,7 +300,15 @@ def test_ft_pte03_explicit_rejection_releases_cash_and_duplicate_submit_is_atomi
     assert migrated_rejection["attention_required"] is False
     assert second["intent_id"] in migrated_rejection["resolution_note"]
     assert migrated.attention_account_intents("s001-v1") == []
+    migration_count = len(migrated.query_audit_events(
+        event_type="ACCOUNT_EXECUTION_MIGRATED",
+    ))
     migrated.close()
+    reopened = PaperStore(tmp_path / "reject.db")
+    assert len(reopened.query_audit_events(
+        event_type="ACCOUNT_EXECUTION_MIGRATED",
+    )) == migration_count
+    reopened.close()
 
 
 def test_ft_pte03_incomplete_and_unknown_orders_never_silently_recover(tmp_path):

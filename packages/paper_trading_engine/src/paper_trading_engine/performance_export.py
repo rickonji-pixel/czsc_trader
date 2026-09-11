@@ -9,6 +9,9 @@ import statistics
 import uuid
 
 
+MIN_ANNUALIZATION_OBSERVATIONS = 20
+
+
 def _canonical_sha256(value: object) -> str:
     encoded = json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -27,15 +30,20 @@ def calculate_metrics(
     for value in values:
         peak = max(peak, value)
         maximum_drawdown = min(maximum_drawdown, value / peak - 1)
-    years = max(1 / 252, len(snapshots) / 252)
-    annualized = (ending / initial) ** (1 / years) - 1 if ending > 0 else None
+    enough_history = len(snapshots) >= MIN_ANNUALIZATION_OBSERVATIONS
+    years = len(snapshots) / 252
+    annualized = (
+        (ending / initial) ** (1 / years) - 1
+        if enough_history and ending > 0
+        else None
+    )
     calmar = (
         None
         if maximum_drawdown == 0 or annualized is None
         else annualized / abs(maximum_drawdown)
     )
     returns = [values[index] / values[index - 1] - 1 for index in range(1, len(values))]
-    if len(returns) > 1 and statistics.stdev(returns) > 0:
+    if enough_history and statistics.stdev(returns) > 0:
         sharpe = statistics.mean(returns) / statistics.stdev(returns) * math.sqrt(252)
     else:
         sharpe = None
@@ -57,6 +65,8 @@ def calculate_metrics(
         "total_return": total_return,
         "sharpe_ratio": sharpe,
         "closed_trades": len(pnl),
+        "observation_count": len(snapshots),
+        "annualization_status": "VALID" if enough_history else "INSUFFICIENT_OBSERVATIONS",
     }
 
 

@@ -99,6 +99,9 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         "correlation_id": "DEC-1", "limit": "20",
     })
     assert result["events"][0]["event_type"] == "DECISION_GENERATED"
+    assert result["category_counts"] == {
+        "STRATEGY": 1, "TRADING": 0, "SYSTEM": 0, "OTHER": 0,
+    }
     assert len(store.recent_events()) == count
     with pytest.raises(ValueError, match="invalid audit category"):
         audit_api.audit_events({"category": "INVALID"})
@@ -239,6 +242,9 @@ def test_channel_capital_uses_static_principal_allocations(tmp_path):
     assert snapshot["allocated_capital"] + snapshot["unallocated_capital"] == pytest.approx(
         snapshot["capital_pool"]
     )
+    assert snapshot["logical_cash"] == pytest.approx(900_064.5572)
+    assert snapshot["cash_difference"] == pytest.approx(-3.8962)
+    assert "CHANNEL_CASH_MISMATCH" in snapshot["alerts"]
     assert {row["symbol"] for row in snapshot["accounts"]} == {"588080.SH"}
     assert {row["asset_type"] for row in snapshot["accounts"]} == {"etf"}
     store.close()

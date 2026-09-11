@@ -36,8 +36,14 @@ class PteWebApi:
         self.virtual = operations.virtual
         self.channel = operations.channel
 
+    def _account_chart_error(self, account_id: str) -> str | None:
+        chart = getattr(self.operations, "account_chart", None)
+        if chart is None or not hasattr(chart, "current_error"):
+            return None
+        return chart.current_error(account_id)
+
     def system_status(self) -> dict[str, object]:
-        channel = self.channel.status()
+        channel = self.channel_snapshot("futu")
         failures = channel.get("scheduler_failures", self.store.operation_failures())
         alerts = list(channel.get("alerts", []))
         if self.store.get_setting("data_publication_error"):
@@ -46,6 +52,11 @@ class PteWebApi:
             alerts.append("VIRTUAL_ACCOUNT_BLOCKED")
         if self.store.unresolved_account_intents():
             alerts.append("ORDER_SUBMISSION_UNRESOLVED")
+        if any(
+            self._account_chart_error(row["account_id"])
+            for row in self.store.virtual_accounts()
+        ):
+            alerts.append("ACCOUNT_CHART_UNAVAILABLE")
         heartbeat = self.store.get_setting("scheduler_heartbeat_at")
         scheduler_stalled = _is_stale(heartbeat, seconds=45)
         if scheduler_stalled:
@@ -70,7 +81,13 @@ class PteWebApi:
             "data_cutoff": published,
             "last_publication": self.store.get_setting("last_data_publication"),
             "scheduler_failures": failures,
-            "futu_connection": "UNAVAILABLE" if "CHANNEL_UNAVAILABLE" in channel.get("alerts", []) else "CONNECTED",
+            "futu_connection": (
+                "UNAVAILABLE"
+                if "CHANNEL_UNAVAILABLE" in channel.get("alerts", [])
+                else "DEGRADED"
+                if channel.get("reconciliation_status") != "OK"
+                else "CONNECTED"
+            ),
             "alerts": alerts,
             "events": [
                 event for event in self.store.recent_events(200)
@@ -110,6 +127,10 @@ class PteWebApi:
                 except ValueError as exc:
                     raise ValueError(f"audit event {name} must be an integer") from exc
         events = self.store.query_audit_events(**query)
+        count_query = {
+            key: value for key, value in query.items()
+            if key not in {"category", "before_id", "limit"}
+        }
         limit = int(query.get("limit", 50))
         return {
             "scope": {"resource": "audit_events", **{
@@ -118,6 +139,7 @@ class PteWebApi:
             }},
             "as_of": _now(),
             "events": events,
+            "category_counts": self.store.audit_event_counts(**count_query),
             "next_before_id": events[-1]["id"] if len(events) == limit else None,
         }
 
@@ -126,6 +148,7 @@ class PteWebApi:
         for row in self.store.virtual_accounts():
             status = self.virtual.status(row["account_id"])
             decision = status.get("last_decision") or {}
+            chart_error = self._account_chart_error(row["account_id"])
             accounts.append({
                 "account_id": row["account_id"], "name": row["name"],
                 "strategy_id": row["strategy_id"],
@@ -133,7 +156,7 @@ class PteWebApi:
                 "release_hash": row["release_hash"], "paused": bool(row["paused"]),
                 "health": row["health"], "total_assets": row["total_assets"],
                 "quantity": row["quantity"], "latest_action": decision.get("action"),
-                "alert_count": 1 if row.get("last_error") else 0,
+                "alert_count": int(bool(row.get("last_error"))) + int(bool(chart_error)),
             })
         return {
             "scope": {"resource": "virtual_accounts"}, "as_of": _now(),
@@ -158,6 +181,17 @@ class PteWebApi:
             "selection_data_cutoff",
         }
         events = self.store.query_audit_events(account_id=account_id, limit=200)
+        chart_error = self._account_chart_error(account_id)
+        metrics = dict(status.get("metrics", {}))
+        initial_cash = float(status["initial_cash"])
+        metrics["current_total_return"] = (
+            float(status["total_assets"]) / initial_cash - 1 if initial_cash else None
+        )
+        account_alerts = []
+        if status.get("last_error"):
+            account_alerts.append({"code": "ACCOUNT_BLOCKED", "message": status["last_error"]})
+        if chart_error:
+            account_alerts.append({"code": "ACCOUNT_CHART_UNAVAILABLE", "message": chart_error})
         return {
             "scope": {"account_id": account_id, "strategy_id": strategy_id,
                       "release_id": release_id, "release_hash": status.get("release_hash")},
@@ -167,9 +201,8 @@ class PteWebApi:
             "orders": [row for row in status.get("orders", []) if row.get("account_id") == account_id],
             "intents": self.store.account_intents(account_id),
             "fills": [row for row in status.get("fills", []) if row.get("account_id") == account_id],
-            "metrics": status.get("metrics", {}),
-            "alerts": ([{"code": "ACCOUNT_BLOCKED", "message": status["last_error"]}]
-                       if status.get("last_error") else []),
+            "metrics": metrics,
+            "alerts": account_alerts,
             "events": events,
         }
 
@@ -198,7 +231,8 @@ class PteWebApi:
                 "release_id": f'{row["strategy_id"]}-{row["strategy_version"]}',
                 "symbol": row["symbol"], "asset_type": row["asset_type"],
                 "initial_cash": row["initial_cash"], "cash": row["cash"],
-                "frozen_cash": row["frozen_cash"], "quantity": row["quantity"],
+                "frozen_cash": row["frozen_cash"], "total_assets": row["total_assets"],
+                "quantity": row["quantity"],
                 "paused": bool(row["paused"]), "status": row["status"],
             }
             for row in self.store.virtual_accounts()
@@ -209,6 +243,21 @@ class PteWebApi:
         )
         allocated = sum(float(row["initial_cash"]) for row in accounts)
         unallocated = capital_pool - allocated
+        logical_cash = unallocated + sum(float(row["cash"]) for row in accounts)
+        logical_total_assets = unallocated + sum(float(row["total_assets"]) for row in accounts)
+        broker_account = status.get("account") or {}
+        broker_cash = broker_account.get("cash")
+        broker_total_assets = broker_account.get("total_assets")
+        cash_difference = (
+            float(broker_cash) - logical_cash if broker_cash is not None else None
+        )
+        asset_difference = (
+            float(broker_total_assets) - logical_total_assets
+            if broker_total_assets is not None else None
+        )
+        alerts = list(status.get("alerts", []))
+        if cash_difference is not None and abs(cash_difference) > 0.01:
+            alerts.append("CHANNEL_CASH_MISMATCH")
         return {
             "scope": {"channel": "futu", "account_type": "broker_simulation"},
             "as_of": _now(),
@@ -217,10 +266,15 @@ class PteWebApi:
             "capital_pool": capital_pool,
             "allocated_capital": allocated,
             "unallocated_capital": unallocated,
+            "logical_cash": logical_cash,
+            "logical_total_assets": logical_total_assets,
+            "cash_difference": cash_difference,
+            "asset_difference": asset_difference,
+            "last_reconcile_at": status.get("last_reconcile_at") or self.store.get_setting("last_reconcile_at"),
             "orders": status.get("orders", []), "fills": self.store.account_fills(),
             "paused": status.get("paused"),
             "reconciliation_status": status.get("reconciliation_status"),
-            "connection_error": status.get("channel_error"), "alerts": status.get("alerts", []),
+            "connection_error": status.get("channel_error"), "alerts": list(dict.fromkeys(alerts)),
             "scheduler_failures": status.get("scheduler_failures", []), "events": events,
         }
 

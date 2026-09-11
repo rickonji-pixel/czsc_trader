@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX15",
+  "status": "COMPLETE",
+  "experiment_type": "medium_frequency_direction_evaluation",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 272,
+      "sha256": "80e1701bd5e7ba65eb74aca80b9512fef6152889264c1cb3c31ed1462f613026"
+    },
+    "02_design.md": {
+      "bytes": 1038,
+      "sha256": "0c690c61c08f9d8e14d89e557d97c9bf4ae73785b388164f90dde91489ac2c29"
+    },
+    "03_execution.md": {
+      "bytes": 154,
+      "sha256": "d930f9c10b438b44f8a795a968d9cdc064014f5f5ddd4ffe1b8d073e21960504"
+    },
+    "04_conclusion.md": {
+      "bytes": 621,
+      "sha256": "80525597e73c51de1d3b6226a879b28a8c7eb7fbd816c1218bfc4c33701a18e8"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 1081,
+      "sha256": "112fc221d237ae4d7de208e0c56d560bee93871e495a8c4b8193ee0d377c83d0"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 6213,
+      "sha256": "1f074bc16b3385b3e6e8d1a28890a4274491fdba65d9591cfa48737de9a68115"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 306832,
+      "sha256": "0479ca5f30eafbeb64ccc4fa2cb3096891e441733c7cf5b36bfdac587d133127"
+    },
+    "artifacts/evaluation_summary.json": {
+      "bytes": 444,
+      "sha256": "dfe6541cd2257622ae62ee43f42801d21e86268fbe300ed66d979ed4303cb5bb"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 2181,
+      "sha256": "f44fba89bff4731a2bddfe1bc715ca5f9b84434255ca38c8620461b296cd15ce"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1406,
+      "sha256": "608731c16ad5b8c5628e25441a23b8a744861999b6d4b00009d969c9b8aa111f"
+    },
+    "artifacts/regime_metrics.csv": {
+      "bytes": 3316,
+      "sha256": "3ff2256c95b456e2cc0952a6295e414c0f41bff88455dde7e416dbc1a60351f7"
+    },
+    "run_experiment.py": {
+      "bytes": 6434,
+      "sha256": "70a3524c345c64ea514225c0fd11b71fbf930d428913b8b0d7eebd792ecf64bc"
+    }
+  }
+}

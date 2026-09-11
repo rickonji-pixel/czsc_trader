@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX03",
+  "status": "COMPLETE",
+  "experiment_type": "daily_regime_definition",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 356,
+      "sha256": "5ec005d5f2846098c5f0aaa3ff13e6f21fd5738b172ff158744e179946b815cb"
+    },
+    "02_design.md": {
+      "bytes": 1078,
+      "sha256": "463575da61eb5ace4b7b546fe02f8fac959b8c3e27edc376daf70ae24b1c75a3"
+    },
+    "03_execution.md": {
+      "bytes": 233,
+      "sha256": "06bd22579bd6c07a4b2d08a8f283482da15d110e726f60f66bb66f195f5ccd99"
+    },
+    "04_conclusion.md": {
+      "bytes": 816,
+      "sha256": "0de3155743d6de607f2bc470f9a48a64936050c4c5cb1b6c43d6ab3ad81062c4"
+    },
+    "artifacts/annual_regime_distribution.csv": {
+      "bytes": 687,
+      "sha256": "fa49c8c27bae94e46d96298c5974e03e6f3670d5949b98cc9d2dc88a72582b1c"
+    },
+    "artifacts/daily_regimes.csv": {
+      "bytes": 183750,
+      "sha256": "7f7319d7fede9c6ad2e7085da9d77aea178df94ccaaec09af05fc13888420172"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 851,
+      "sha256": "79657a26b6f8b0126aeb58b7631ac5ef352d421b30b5f9695d9e54932db1b312"
+    },
+    "artifacts/regime_summary.json": {
+      "bytes": 2273,
+      "sha256": "93de0b19decbafd3610ca15415d6911cffe30c107096d9770a49df91395b7f81"
+    },
+    "run_experiment.py": {
+      "bytes": 8610,
+      "sha256": "b17f4171d818c53b84e2cefb12977022977b746a106c445ffb6a1a3cdc84da61"
+    }
+  }
+}

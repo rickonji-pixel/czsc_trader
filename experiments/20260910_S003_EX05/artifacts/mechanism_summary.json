@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX05",
+  "status": "PASS",
+  "inputs": {
+    "census_manifest_sha": "55b39fa58308b3c90b8561ea6c4f383314e0b30b3de7a533ecfb491b94a6ffac",
+    "regime_manifest_sha": "7f7319d7fede9c6ad2e7085da9d77aea178df94ccaaec09af05fc13888420172",
+    "intraday_file_count": 24
+  },
+  "evaluated_hypotheses": 7,
+  "evaluated_exit_clocks": [
+    "09:45",
+    "10:30",
+    "11:30",
+    "15:00"
+  ],
+  "evidence_counts": {
+    "DIRECTION_FAIL": 6,
+    "EVIDENCE_RATE_FAIL": 22
+  },
+  "mechanism_evidence": {
+    "M01": [
+      "DIRECTION_FAIL",
+      "EVIDENCE_RATE_FAIL"
+    ],
+    "M02": [
+      "DIRECTION_FAIL",
+      "EVIDENCE_RATE_FAIL"
+    ],
+    "M03": [
+      "DIRECTION_FAIL",
+      "EVIDENCE_RATE_FAIL"
+    ],
+    "M04": [
+      "EVIDENCE_RATE_FAIL"
+    ],
+    "M05": [
+      "EVIDENCE_RATE_FAIL"
+    ],
+    "M06": [
+      "DIRECTION_FAIL",
+      "EVIDENCE_RATE_FAIL"
+    ],
+    "M07": [
+      "DIRECTION_FAIL",
+      "EVIDENCE_RATE_FAIL"
+    ]
+  },
+  "maximum_single_clock_share": 0.45068027210884354,
+  "candidate_created": false
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX38",
+  "experiment_type": "margin_deleveraging_return_evaluation",
+  "inherits": ["20260911_S003_EX37"],
+  "research_target": {
+    "strategy_id": "S003",
+    "symbol": "510500.SH",
+    "mechanism": "MARGIN_DELEVERAGING_REVERSAL"
+  },
+  "dataset": {
+    "evaluation_start": "2021-04-19",
+    "development_cutoff": "2026-09-08",
+    "frequency": "5m",
+    "event_experiment": "20260911_S003_EX37",
+    "event_manifest_sha256": "feec44b5698a3dbd7f01cb93bf45ad20dfd94e2a0dc7c4546f52cd72cdbb9404",
+    "event_file_sha256": "c0eb61462e92f8111f3b400f6baaaeea66c81e03aa5169b405fb37ab50ed74db",
+    "intraday_manifest_sha256": "b614d7e4dd7cfd91b624513601576f52f95aa5b77b4c965f661189d8d174f319"
+  },
+  "mechanism": {
+    "entry_checkpoint": "OPEN",
+    "exit_checkpoint": "11:30_CLOSE",
+    "direction": "LONG"
+  },
+  "execution": {
+    "base_fraction": 0.5,
+    "baseline_one_way_cost": 0.00012,
+    "stress_one_way_cost": 0.0006,
+    "t_plus_one_inventory_rotation": true
+  },
+  "acceptance": {
+    "stress_mean_return_positive": true,
+    "stress_profit_factor_min_exclusive": 1.0,
+    "beat_unconditional_same_segment": true,
+    "beat_opposite_same_dates": true,
+    "positive_years_required": 4,
+    "incremental_terminal_return_vs_static_positive": true,
+    "recent_sessions": 252,
+    "recent_stress_mean_return_positive": true
+  },
+  "tested_path_scope": "20260910_S003_EX01 through 20260911_S003_EX38",
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

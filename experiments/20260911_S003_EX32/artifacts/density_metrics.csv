@@ -1,0 +1,2 @@
+mechanism,event_count,rolling_60_median,rolling_60_p10,rolling_60_min,density_eligible
+BREADTH_THRUST_CONTINUATION,362,16.0,8.0,1.0,True

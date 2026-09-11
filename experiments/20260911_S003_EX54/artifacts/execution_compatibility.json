@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX54",
+  "candidate_id": "S003-C001",
+  "passed": false,
+  "capabilities": {
+    "tdr_strategy_kind_resolution": false,
+    "tdr_core_overlay_account": false,
+    "tdr_timed_intraday_exit": false,
+    "pte_timed_intraday_exit": false,
+    "runtime_point_in_time_moneyflow_data": false
+  },
+  "resolution_error": "strategy payload must contain a complete rule object",
+  "formal_pk_allowed": false,
+  "research_candidate_retained": true,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

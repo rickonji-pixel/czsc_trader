@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from .bar_utils import (
+    INTRADAY_PERIOD_MINUTES,
     adjustment_factor_sha256,
     apply_hfq_adjustment,
     drop_incomplete_intraday_bar,
@@ -14,7 +15,7 @@ from .bar_utils import (
     normalize_adjustment_factors,
     normalize_period,
     standardize_vendor_ohlcv,
-    validate_a_share_30m_bars,
+    validate_a_share_intraday_bars,
 )
 from .formatting import format_dataframe_report
 from .market_resolver import MARKET_A_SHARE, detect_market, normalize_symbol_for_vendor
@@ -23,6 +24,15 @@ from .tushare_common import get_tushare_pro
 
 _TUSHARE_ETF_VOLUME_X100_DATES = {
     "510500.SH": {
+        "2024-04-03",
+        "2024-04-19",
+        "2024-04-26",
+        "2024-04-30",
+        "2024-05-24",
+        "2024-05-31",
+        "2024-06-14",
+    },
+    "512100.SH": {
         "2024-04-03",
         "2024-04-19",
         "2024-04-26",
@@ -77,6 +87,22 @@ def _calendar_year_segments(
     return segments
 
 
+def _intraday_calendar_segments(
+    start_date: str, end_date: str, period: str
+) -> list[tuple[str, str]]:
+    """Keep each Tushare minute request below its silent row cap."""
+
+    segment_days = {"1m": 30, "5m": 150, "15m": 365, "30m": 365}[period]
+    current = pd.Timestamp(start_date).normalize()
+    end = pd.Timestamp(end_date).normalize()
+    segments: list[tuple[str, str]] = []
+    while current <= end:
+        segment_end = min(current + pd.Timedelta(days=segment_days - 1), end)
+        segments.append((current.date().isoformat(), segment_end.date().isoformat()))
+        current = segment_end + pd.Timedelta(days=1)
+    return segments
+
+
 def _resample_weekly(dataframe: pd.DataFrame) -> pd.DataFrame:
     if dataframe.empty:
         return dataframe
@@ -121,16 +147,23 @@ def _apply_known_intraday_volume_corrections(
     return frame, corrected_dates
 
 
-def _merge_opening_auction_into_first_30m_bar(dataframe: pd.DataFrame) -> pd.DataFrame:
+def _merge_opening_auction_into_first_bar(
+    dataframe: pd.DataFrame, period: str
+) -> pd.DataFrame:
     if dataframe.empty:
         return dataframe.copy()
 
     frame = dataframe.copy()
     timestamps = pd.to_datetime(frame["Date"], errors="coerce")
+    minutes = INTRADAY_PERIOD_MINUTES[period]
     merged_auction_indices: list[int] = []
     for auction_index in frame.index[timestamps.dt.strftime("%H:%M:%S") == "09:30:00"]:
         auction_time = timestamps.loc[auction_index]
-        target_time = auction_time.normalize() + pd.Timedelta(hours=10)
+        target_time = (
+            auction_time.normalize()
+            + pd.Timedelta(hours=9, minutes=30)
+            + pd.Timedelta(minutes=minutes)
+        )
         target_indices = frame.index[timestamps == target_time]
         if target_indices.empty:
             continue
@@ -184,16 +217,16 @@ def _fetch_tushare_etf_ohlcv(
         raise ValueError(f"{symbol} is not recognized as an A-share ETF")
 
     pro = get_tushare_pro(env_file)
-    if period == "30m":
+    if period in INTRADAY_PERIOD_MINUTES:
         pieces = [
             pro.etf_mins(
                 ts_code=ts_code,
                 start_date=_intraday_boundary(segment_start, end=False),
                 end_date=_intraday_boundary(segment_end, end=True),
-                freq="30min",
+                freq=f"{INTRADAY_PERIOD_MINUTES[period]}min",
             )
-            for segment_start, segment_end in _calendar_year_segments(
-                start_date, end_date
+            for segment_start, segment_end in _intraday_calendar_segments(
+                start_date, end_date, period
             )
         ]
         dataframe = pd.concat(
@@ -210,18 +243,20 @@ def _fetch_tushare_etf_ohlcv(
     if dataframe is None or dataframe.empty:
         return pd.DataFrame(), market, ts_code
 
-    normalized = _standardize_etf_ohlcv(dataframe, intraday=period == "30m")
+    intraday = period in INTRADAY_PERIOD_MINUTES
+    normalized = _standardize_etf_ohlcv(dataframe, intraday=intraday)
     corrected_dates: list[str] = []
     if period == "weekly":
         normalized = _resample_weekly(normalized)
-    if period == "30m":
-        normalized, corrected_dates = _apply_known_intraday_volume_corrections(
-            normalized, ts_code
-        )
-        normalized = _merge_opening_auction_into_first_30m_bar(normalized)
+    if intraday:
+        if period != "1m":
+            normalized, corrected_dates = _apply_known_intraday_volume_corrections(
+                normalized, ts_code
+            )
+        normalized = _merge_opening_auction_into_first_bar(normalized, period)
         normalized = _drop_zero_activity_days(normalized)
         normalized = drop_incomplete_intraday_bar(normalized)
-        validate_a_share_30m_bars(normalized)
+        validate_a_share_intraday_bars(normalized, period)
     if corrected_dates:
         normalized.attrs["hardcoded_volume_corrections"] = corrected_dates
     return normalized, market, ts_code

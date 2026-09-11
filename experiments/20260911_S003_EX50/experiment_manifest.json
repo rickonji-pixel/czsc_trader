@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX50",
+  "strategy_id": "S003",
+  "symbol": "512100.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "density_pass": true,
+  "conditional_return_analysis": false,
+  "candidate_generation": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 220,
+      "sha256": "18f1fae3656c325f7a165763f947aaa4c8992c51761f3b7192b0217a09c0f81d"
+    },
+    "02_design.md": {
+      "bytes": 488,
+      "sha256": "7fd80e8b7998a02296c830632c5671208a79773e8c665d5cfcde24e27245c0df"
+    },
+    "03_execution.md": {
+      "bytes": 234,
+      "sha256": "eb64ef8dfcb1e528fb0c0316fda6df05073cdc0eebe73522aeba45d103dc8795"
+    },
+    "04_conclusion.md": {
+      "bytes": 135,
+      "sha256": "93e2314b6d29ad13561a5f81bb4766dd3c4b94f5be36bab4f2b8ee823f57aba6"
+    },
+    "artifacts/census_summary.json": {
+      "bytes": 189,
+      "sha256": "b0152a0e2ef4ee3fcf034f3dbb2efd959f10b21bba6da40537e40cb98eb23de6"
+    },
+    "artifacts/density_metrics.csv": {
+      "bytes": 172,
+      "sha256": "e0e6aaaf793f7a480d1c258ac5673cf3585809b6e6f5f529ad7ed1b39054dc64"
+    },
+    "artifacts/mechanism_events.csv": {
+      "bytes": 45664,
+      "sha256": "9501d7567f9ca46105d691e25e4ef29f191a481ee6a797c26a3c460c750901a3"
+    },
+    "artifacts/moneyflow_breadth_features.csv.gz": {
+      "bytes": 33452,
+      "sha256": "e88fc9768025fcead1bf40eac305bb5640debf3c912d88fff3c9f3afc19bacf1"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1778,
+      "sha256": "203d0e050219689be2610edb31509137abb9b2394855217e393698fdc4e54a62"
+    },
+    "run_experiment.py": {
+      "bytes": 8482,
+      "sha256": "ce84c090f45e57de7709cc765531c9f5354b9b0d6489dcedf2f573698961436b"
+    }
+  }
+}

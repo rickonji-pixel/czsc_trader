@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX11",
+  "status": "COMPLETE",
+  "experiment_type": "first_hour_signed_volume_event_definition",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 331,
+      "sha256": "5b1ac7106fd6bac92dfb8fe1143b32d7e1b1c5528c6aafb9c06bbfc2b4673859"
+    },
+    "02_design.md": {
+      "bytes": 1225,
+      "sha256": "9ff1dbd39f0afbc2d31a7f20c94db7191ef0949df5cb84f513554404278246ad"
+    },
+    "03_execution.md": {
+      "bytes": 222,
+      "sha256": "58223738094662ca10e75525f6f8e9b682c2b3b5f5f4e9c3ec322e93bab019e5"
+    },
+    "04_conclusion.md": {
+      "bytes": 291,
+      "sha256": "3ac78d4bb321ab6baa5c193f98250c6746629b4f3158bd6f6392fb494cf64a3f"
+    },
+    "artifacts/density_summary.json": {
+      "bytes": 416,
+      "sha256": "49517e52fc50faea919b105a02f0f0f495ac602c5a9bd1ffe7b80603f5236a7a"
+    },
+    "artifacts/first_hour_features.csv": {
+      "bytes": 217325,
+      "sha256": "4e6a776722e5402167c2c17c2ad1e7b02281d67efdffa28e77a52a77400c881c"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1296,
+      "sha256": "a5674c4f5a7fb5a9ca5f9575700bddd49dbfb90362f573a578f7d00b9d210974"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 9756,
+      "sha256": "1dcbae8b77a625aa258de43e6d515668c0b6a9badccfc3ca4719e1299d909f62"
+    },
+    "artifacts/volume_imbalance_events.csv": {
+      "bytes": 76873,
+      "sha256": "3b109014f0c883dab1d207a525ca9103516676f68dbb3634daa878052787904c"
+    },
+    "run_experiment.py": {
+      "bytes": 5651,
+      "sha256": "95292ab5b8fb086d314a2f2ed86935c9bfbb331545d61ff89f27ada33c5d5bb1"
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX10",
+  "status": "COMPLETE",
+  "experiment_type": "opening_shock_direction_competition",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 335,
+      "sha256": "c9adf4911f9efbca95042c198955e7c3d6302c425a6c887e50795fa84f9d38dd"
+    },
+    "02_design.md": {
+      "bytes": 1240,
+      "sha256": "a7af09933fb70491ac8c595b6249f48417693574871baeafcd04e96f6d76c374"
+    },
+    "03_execution.md": {
+      "bytes": 200,
+      "sha256": "a75a6fc37f8dba1cad53da99441dbe9d4007830fcfe54d0adea737a1391b250a"
+    },
+    "04_conclusion.md": {
+      "bytes": 723,
+      "sha256": "10d2da1b9793c711add7963e460b3b9a513de7a3062c4f5948889d672bcafc76"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 960,
+      "sha256": "5d247df2ad496a425350096b20b157debb31b04afe0f49320b616aa3e2c6715f"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 5467,
+      "sha256": "3d7a12883fd63a8abffc462fa987053e10fb5a11d5ecedb74ba64376316b5db5"
+    },
+    "artifacts/direction_summary.json": {
+      "bytes": 417,
+      "sha256": "17b4060395dca1575b0e8bde95780b1006801e060166b0fc4b2aa9219922c6ce"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 272550,
+      "sha256": "b05283778eb23582a2e03ef30a9116004e199735a3e90b66e9927f3c23241cac"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 2000,
+      "sha256": "b369ed7eedd54d099dc68880e1f617903cd7970f0d85e9bf495bab3e5ab1feb6"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1565,
+      "sha256": "f049940ff8bfd6781aabf491f4150609d419a6ffec8d34ada1c12d9e036980ae"
+    },
+    "artifacts/regime_metrics.csv": {
+      "bytes": 2927,
+      "sha256": "b9d009f57be9042aa2d96ca36fa48297b2fbf12e408a63b5c144e0f7fafe4b85"
+    },
+    "run_experiment.py": {
+      "bytes": 6069,
+      "sha256": "d5829d67637cd28146a994b62df11e4c4d67ec3abde225dfebc4268d2f6d2987"
+    }
+  }
+}

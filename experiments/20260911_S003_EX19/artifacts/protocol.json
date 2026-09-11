@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX19",
+  "experiment_type": "early_session_statistical_audit",
+  "inherits": [
+    "20260911_S003_EX16",
+    "20260911_S003_EX17",
+    "20260911_S003_EX18"
+  ],
+  "research_target": {
+    "strategy_id": "S003",
+    "symbol": "510500.SH",
+    "selected_behavior": "LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG",
+    "asset_type": "etf"
+  },
+  "dataset": {
+    "cutoff": "2026-09-08",
+    "evaluation_start": "2021-01-04"
+  },
+  "source_evidence": {
+    "EX16": {
+      "experiment_id": "20260911_S003_EX16",
+      "manifest_sha256": "76f4e9a5a8a0267927f4b2d44ff047a10e7e41f94f5930d684ec829fc6d9ad43",
+      "segment_metrics_sha256": "57c5bb56bc72b71142959ef95a75dc3bbe3f2f62913d431acf128f67aa0ccdcf"
+    },
+    "EX17": {
+      "experiment_id": "20260911_S003_EX17",
+      "manifest_sha256": "a63873eb1385b6ae84703043f82c8d7928f7c7ed0d59e20e440960d87696a0d7",
+      "mechanism_events_sha256": "f6023aae144f7de9fa2f0ce6b108d814e42ac6c7f64a04dc2123ec2bc8334fbe"
+    },
+    "EX18": {
+      "experiment_id": "20260911_S003_EX18",
+      "manifest_sha256": "783b327c8e06488d5a7e1ebf5727b527b6e111fb94f03aa4dd2f2cf826081a1d",
+      "episodes_sha256": "a41842956193a3bf35a64b33ab26ef5414375601c4690a4035eb6c34cac86b7d"
+    }
+  },
+  "trial_universe": {
+    "variants": [
+      "PRIMARY",
+      "FIXED_LONG"
+    ],
+    "raw_trial_count": 6,
+    "return_basis": "baseline_cost_daily_zero_when_inactive"
+  },
+  "audit": {
+    "seed": 20260911,
+    "cscv_blocks": 10,
+    "bootstrap_repetitions": 10000,
+    "bootstrap_block_lengths": [10, 21, 42],
+    "placebo": "all_nonzero_cyclic_shifts",
+    "recent_sessions": 252,
+    "neighbor_quantiles": [0.7, 0.75, 0.8],
+    "threshold_lookback_sessions": 60,
+    "threshold_lag_sessions": 1,
+    "positive_dsr_probability": 0.9,
+    "mixed_dsr_probability": 0.5,
+    "favorable_pbo_max": 0.4,
+    "adverse_pbo_min_exclusive": 0.5,
+    "favorable_placebo_percentile": 0.95,
+    "adverse_placebo_percentile": 0.5
+  },
+  "execution": {
+    "entry": "OPEN",
+    "exit": "11:30_CLOSE",
+    "baseline_one_way_cost": 0.00012,
+    "stress_one_way_cost": 0.0006,
+    "base_fraction": 0.5
+  },
+  "se_implementation": {
+    "bootstrap_sha256": "77fb33d937589dd9d3965ab74ee6c06728a00a27add599d492195d997f9564f8",
+    "search_bias_sha256": "1607aece73b8aa2da6096670393c37cccb7253598b5deeb940a0e4cbb7a6fab9"
+  },
+  "automatic_acceptance": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

@@ -1,0 +1,2 @@
+mechanism,event_count,rolling_60_median,rolling_60_p10,rolling_60_min,rolling_60_max,density_eligible
+MARGIN_DELEVERAGING_REVERSAL,274,12.0,9.0,7.0,21.0,True

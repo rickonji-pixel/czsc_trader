@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX27",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "FAIL",
+  "eligible_for_statistical_audit": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 285,
+      "sha256": "8beff35af7a9f5fc88448354991b28c02f006623b1c1deae2139737fc6841c27"
+    },
+    "02_design.md": {
+      "bytes": 786,
+      "sha256": "25c5beb9bed53fe9135f9526e6a6796bccd71663de121857cc002996f88262a9"
+    },
+    "03_execution.md": {
+      "bytes": 350,
+      "sha256": "379d37291ec85c434ba8ee79fc38d3736aa31dab18425575d97c2a36efc5ebb6"
+    },
+    "04_conclusion.md": {
+      "bytes": 131,
+      "sha256": "80f7dee4a3f9531cf74a989b6a5a9ee670064ad33e64e946a4f343731a6e36c1"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 385,
+      "sha256": "e8756b71dd6629c6bce74761daff8e17e46c1d6e9559827a484e9db557d2089b"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 1157,
+      "sha256": "e594447d2a7e4075e96afb637d39b9f9945432b86063450888f1daf243938fea"
+    },
+    "artifacts/comparison_vs_ex23.json": {
+      "bytes": 407,
+      "sha256": "2b8be648e61063f8dc56ec83a19bd98fdcbef38e578a3503ff3a2f504fe086af"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 60080,
+      "sha256": "d932b00f71454a936451e67dd8460971401469286f1b40b2922a41ad0606a1ff"
+    },
+    "artifacts/evaluation_summary.json": {
+      "bytes": 299,
+      "sha256": "411d7e197aa1d4c61a0eac571019b4f92913a2f062c655ce823f0321d0b5f683"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 837,
+      "sha256": "189706ef255b9c46cd122c0a80fc20cda533206a7a6bb6f7715081c3816da2d6"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2094,
+      "sha256": "c13331d5162cfa1eb0e1e142f3699bf6dd9a19b547fc5d942780f7350db76019"
+    },
+    "run_experiment.py": {
+      "bytes": 6893,
+      "sha256": "2c7ee2dddf751219fd247b88eba8bcb1242b889028bc72fbdd9805bd8c2bdfb3"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX16",
+  "status": "PASS",
+  "selection_performed": false,
+  "segments": 8,
+  "best_gross_segment": "OPEN_TO_CLOSE",
+  "best_baseline_segment": "OPEN_TO_CLOSE",
+  "morning_share_of_intraday_mean": 0.7286774834797173,
+  "signal_0935_share_of_morning_mean": 0.3800316094658617,
+  "baseline_daily_overlay_increment": {
+    "OPEN_TO_1030": 0.25166387871265283,
+    "OPEN_TO_1130": 0.4522929372383282,
+    "OPEN_TO_CLOSE": 0.43563802697199283,
+    "SIGNAL_0935_TO_1030": -0.01852791246085128,
+    "SIGNAL_0935_TO_1130": 0.10271514132064463,
+    "SIGNAL_1030_TO_CLOSE": -0.03954126424316551,
+    "AFTERNOON_TO_CLOSE": -0.1365816741110366
+  },
+  "candidate_created": false
+}

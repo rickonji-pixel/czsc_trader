@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX14",
+  "status": "PASS",
+  "causal_prefix_mutation_audit": "PASS",
+  "reads_post_event_prices": false,
+  "mechanisms": 3,
+  "density_capable": 3,
+  "inside_target_band": 3,
+  "eligible_for_direction_test": [
+    "ABNORMAL_ACTIVITY_CONTINUATION",
+    "DIRECTIONAL_EFFICIENCY_CONTINUATION",
+    "VWAP_DEVIATION_REVERSION"
+  ]
+}

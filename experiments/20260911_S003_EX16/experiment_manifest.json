@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX16",
+  "status": "COMPLETE",
+  "experiment_type": "intraday_opportunity_map",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 362,
+      "sha256": "4ac3a135693764102adc7eebfb38cc854c32d0977f0cef5a18a6a1488c69e8a2"
+    },
+    "02_design.md": {
+      "bytes": 1615,
+      "sha256": "fa9a8b3fd20d408df4f006c86edbd00d503637f529f784b9e4511f4fd499cbdd"
+    },
+    "03_execution.md": {
+      "bytes": 142,
+      "sha256": "4a5a594f92570e279f13751ef931db569bad130f5f600fa0209c00b8215a7b5f"
+    },
+    "04_conclusion.md": {
+      "bytes": 1998,
+      "sha256": "fcc1b20c9c0a21cad195c4845eeca6ac04c8853e4a48c6bd594956744c12052b"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 2165,
+      "sha256": "0fbfbf89bfe968ee4308ed8a93281c72c85ab2fd3259a556a9b7b9e03d15b7a4"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 10365,
+      "sha256": "8507961da4f89cf45766d088a0b7a476c3192403059220b64257794ea938a1b8"
+    },
+    "artifacts/opportunity_summary.json": {
+      "bytes": 727,
+      "sha256": "5f99f966af944b5063d5ed40ff89ef6426987f9413646b36f2de6272a0577ec2"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1626,
+      "sha256": "cf37058722d993845a890a40c0e4c32a67336a153c460acfa6e8f6a866d6d7ee"
+    },
+    "artifacts/segment_episodes.csv.gz": {
+      "bytes": 455534,
+      "sha256": "2d37f293800bbe839c3b12e27b9b47239c47f0834d8bda86c379f89fbdcc5302"
+    },
+    "artifacts/segment_metrics.csv": {
+      "bytes": 1952,
+      "sha256": "57c5bb56bc72b71142959ef95a75dc3bbe3f2f62913d431acf128f67aa0ccdcf"
+    },
+    "run_experiment.py": {
+      "bytes": 6488,
+      "sha256": "5e891a3d1ee2c885070d229ba6963bfacacf67a45c58dc5156f620c479f84cd8"
+    }
+  }
+}

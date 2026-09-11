@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX04",
+  "status": "COMPLETE",
+  "experiment_type": "intraday_signal_density_census",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 355,
+      "sha256": "9ab8d138f576a386ce04684950fb69dd6fce9e202436a0a161d7d5b74a6dbfcb"
+    },
+    "02_design.md": {
+      "bytes": 1710,
+      "sha256": "3ed971818afc97236dd26b38d25b8cb10d48e6b68a43612644e46969e21501fc"
+    },
+    "03_execution.md": {
+      "bytes": 274,
+      "sha256": "2114c14cdec97c346f38b983905a51f1fc5828523c0430727a8ff03f6956a073"
+    },
+    "04_conclusion.md": {
+      "bytes": 601,
+      "sha256": "f1f7c27c0f5de52c27e92775250a2026f1fc75cd1fe66ac0602a0de5feba195a"
+    },
+    "artifacts/census_summary.json": {
+      "bytes": 1172,
+      "sha256": "4f23fa6ddc852f6e3d6e9e0d01a3860fefcb1c2fe136905ff05a123e3cfbd830"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1241,
+      "sha256": "6a6bd76e85e77eec13740c4b4bef594a17ab7a2ebc85cc5efcd9c0dd55380238"
+    },
+    "artifacts/redundancy_map.json": {
+      "bytes": 12908,
+      "sha256": "a5c72181844ca2c78a5a2aa4479ce5df63df11dd2f3f4432232001888a89f6ef"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 13464,
+      "sha256": "588af742314eeb3acb383e699734cddc4fc51c78621b18f9718de47e368e70f0"
+    },
+    "artifacts/signal_catalog.csv": {
+      "bytes": 46724,
+      "sha256": "ac46582d1aea2f6f3702486850e51593fc5f3cc9ee0d29ed2c56fce66e479495"
+    },
+    "artifacts/signal_events.csv.gz": {
+      "bytes": 7851226,
+      "sha256": "a4a56b90583e51d48ef453732795d5d37e23c5e7888c027b9e73d00ad4f2fb16"
+    },
+    "artifacts/state_density.csv": {
+      "bytes": 189245,
+      "sha256": "55b39fa58308b3c90b8561ea6c4f383314e0b30b3de7a533ecfb491b94a6ffac"
+    },
+    "run_experiment.py": {
+      "bytes": 6790,
+      "sha256": "7c1eb2ba610588d7b2b3c104fb11d6087492aeac41500b040e7bae9d45d02a9c"
+    }
+  }
+}

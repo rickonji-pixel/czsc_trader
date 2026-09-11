@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX52",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "evidence_label": "MIXED",
+  "eligible_for_candidate_workflow": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 187,
+      "sha256": "4f3a0337589ed56303a451e9c259a33d88791fc6c1f440903310eaac2b73374d"
+    },
+    "02_design.md": {
+      "bytes": 693,
+      "sha256": "a6eb4ce8c7506919a545b18259a80eed2100bb369d393e3badaa73fafc310bb8"
+    },
+    "03_execution.md": {
+      "bytes": 346,
+      "sha256": "f3d7094b65aef806c9476d4224115e7a79604c237950a72d8f09fabae097147b"
+    },
+    "04_conclusion.md": {
+      "bytes": 249,
+      "sha256": "f85457a10f269463d4d59166ec22119b3f9b7c87633ac5e816de4c5e187ce549"
+    },
+    "artifacts/joint_month_bootstrap.csv.gz": {
+      "bytes": 272355,
+      "sha256": "627bfb7cf69c9929ef89111a89df65590f9b3eaa83ac8f271a8cb81a93e1ea41"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2331,
+      "sha256": "5faf0d7fcd3b5ed9d844cfb7de188e084d4cd2f03cf7c92b5710c1aa8157ed42"
+    },
+    "artifacts/synthesis_summary.json": {
+      "bytes": 582,
+      "sha256": "4d9f6883e143bdf98ddd0eb0d68d2cd3c6cd8e2d6034187156fcac26487873d0"
+    },
+    "artifacts/threshold_neighborhood.csv": {
+      "bytes": 468,
+      "sha256": "5fbe0fb0b795f4e322054122b0e043e4d3055427af1cf40a386a323bfe43c65e"
+    },
+    "run_experiment.py": {
+      "bytes": 12413,
+      "sha256": "b10e2b8a7fee69a2175660cca2aea370a7c89a714bb0255c65482133ed4514d5"
+    }
+  }
+}

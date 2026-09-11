@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX52",
+  "experiment_type": "cross_market_evidence_synthesis_audit",
+  "inherits": ["20260911_S003_EX47", "20260911_S003_EX51"],
+  "research_target": {
+    "strategy_id": "S003",
+    "mechanism": "CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION",
+    "markets": ["510500.SH", "512100.SH"]
+  },
+  "sources": {
+    "510500_evaluation_manifest_sha256": "767f3a6d038d519f750f24986bf4ee95b62b523eeb264d7d67dd5658045f9c44",
+    "510500_episodes_sha256": "c9de5143786b65361c0fe3d052e2e4d36d2839186109b9a251de376c2aa58f6e",
+    "510500_metrics_sha256": "1be0b5bc095de5b58718c945b7c9bb08c19f5bec8e46b93a8d6c6dbc256ae39f",
+    "510500_features_sha256": "57b8e662627a0995d053b6807f15fb4f57cc42f876dd93ca98e80ddcf920de0e",
+    "510500_intraday_manifest_sha256": "b614d7e4dd7cfd91b624513601576f52f95aa5b77b4c965f661189d8d174f319",
+    "512100_evaluation_manifest_sha256": "bce3b877399fb6b3a812cf56ea651ea92eb44117ad3c4835a60367552778aff8",
+    "512100_episodes_sha256": "e218228a34eb072af804a36624facc69cce1c09d9763b8d1046d869324a21f64",
+    "512100_metrics_sha256": "7ea18c48d7721174afd3744b12eb31e6b075c11acc6b46c1fc01dc513fbea536",
+    "512100_features_sha256": "e88fc9768025fcead1bf40eac305bb5640debf3c912d88fff3c9f3afc19bacf1",
+    "512100_intraday_sha256": "58a72fbba7f1bb3f7cbc811f054cf8cd70eb60de701a672e6722b34d176890d8",
+    "ex47_statistical_summary_sha256": "b90f1dff8e3991c33b14b8239f47a72df0e1eecb88d2d02eae166d7ec4df9109"
+  },
+  "bootstrap": {
+    "unit": "JOINT_CALENDAR_MONTH",
+    "block_months": 3,
+    "replications": 10000,
+    "seed": 20260911,
+    "pooled_market_weighting": "EQUAL_MARKET",
+    "confidence": 0.9,
+    "pooled_mean_lower_bound_min_exclusive": 0.0,
+    "both_markets_positive_probability_min": 0.8
+  },
+  "threshold_neighborhood": {
+    "lookback_valid_sessions": 60,
+    "quantiles": [0.75, 0.8, 0.85],
+    "stress_one_way_cost": 0.0006,
+    "all_market_quantile_means_positive": true
+  },
+  "evidence_rule": {
+    "cross_market_pass_and_ex47_dsr_adverse": "MIXED",
+    "cross_market_fail": "ADVERSE",
+    "mixed_allows_candidate_workflow": true,
+    "automatic_candidate_creation": false
+  },
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

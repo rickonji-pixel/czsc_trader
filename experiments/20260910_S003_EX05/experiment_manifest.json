@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX05",
+  "status": "COMPLETE",
+  "experiment_type": "intraday_mechanism_event_study",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 360,
+      "sha256": "fe4629aaf05e34a861317ca1d5d3626fd4e6e83d70d26bb348f979f868ef0c46"
+    },
+    "02_design.md": {
+      "bytes": 2552,
+      "sha256": "831e7c8ca5a9730287249d34ac8982e9297d56c606a9286e80bf79df7e7a46e6"
+    },
+    "03_execution.md": {
+      "bytes": 286,
+      "sha256": "6c36e5b4c96b7d14c5a35a62d89faf097a337d2986d262bbb8473035103d1c42"
+    },
+    "04_conclusion.md": {
+      "bytes": 1206,
+      "sha256": "7abb75977a6e562db214e4e74152c5fb08c6689615a0bf222da4f0484dff5598"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 27283,
+      "sha256": "c08e6ceae65c00b814d4ebee78b824245ec8ad78ebf6a9bf9d284db0eae1627f"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 1156187,
+      "sha256": "e23a9afd28c880cc3aabb4b04a9cc121582eba9bd9f41edb1f9e316168ec0e40"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 7693,
+      "sha256": "a626082dbf3c25ecdfe29b72bf8412a0df93e14fa7cdfa4fbeffefc6dc9ab285"
+    },
+    "artifacts/mechanism_summary.json": {
+      "bytes": 1084,
+      "sha256": "1395322a51ae267bdbbb263c759e1f8c0252f2617f06405ee2dd95f3dc308808"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3138,
+      "sha256": "3b83eab26de0c6c600cf13cdcc9087513d76b8402d7a0b514984f60cde59f631"
+    },
+    "artifacts/regime_metrics.csv": {
+      "bytes": 14255,
+      "sha256": "abae3422949dc5aba7e5e76b18381ed4f468ef4e4cfcbd604ed7e2093de0e897"
+    },
+    "artifacts/signal_clock_distribution.csv": {
+      "bytes": 17589,
+      "sha256": "55e53f68dfe43b215d4a834fb3f0709cf5948bccdef768cf1a573ed21aa7b5e1"
+    },
+    "run_experiment.py": {
+      "bytes": 9136,
+      "sha256": "fae4e2346c6b9c1c5c9d208bf1ed9f731293fc23a96c0b12a8751d6f5a90b1ec"
+    }
+  }
+}

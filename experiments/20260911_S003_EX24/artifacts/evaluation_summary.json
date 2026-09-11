@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX24",
+  "density_pass": false,
+  "eligible_for_audit": [],
+  "route_decision": "STOP_TESTED_MECHANISM",
+  "candidate_created": false
+}

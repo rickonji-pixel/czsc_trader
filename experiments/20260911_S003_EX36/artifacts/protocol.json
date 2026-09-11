@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX36",
+  "experiment_type": "etf_margin_flow_data_feasibility_gate",
+  "research_target": {
+    "strategy_id": "S003",
+    "trade_symbol": "510500.SH"
+  },
+  "dataset": {
+    "start": "2021-01-04",
+    "development_cutoff": "2026-09-08",
+    "calendar_owner": "510500.SH",
+    "calendar_manifest": "data/raw/510500_manifest.json",
+    "calendar_manifest_sha256": "e22ef09a5b33471cd9e84e01d3d386acd5205224b464053839f67f6160a59358"
+  },
+  "source": {
+    "vendor": "tushare",
+    "endpoint": "margin_detail",
+    "fields": ["trade_date", "ts_code", "name", "rzye", "rqye", "rzmre", "rqyl", "rzche", "rqchl", "rqmcl", "rzrqye"],
+    "documented_publication": "T_PLUS_1_AROUND_08_30",
+    "earliest_strategy_use": "T_PLUS_1_OPEN"
+  },
+  "quality_gate": {
+    "access_available": true,
+    "unique_trade_dates": true,
+    "first_calendar_session_covered": true,
+    "last_calendar_session_covered": true,
+    "minimum_calendar_coverage_ratio": 0.95,
+    "finite_nonnegative_core_fields": ["rzye", "rzmre", "rzche"],
+    "no_forward_fill": true,
+    "maximum_backfill_calls": 1,
+    "maximum_daily_incremental_calls": 1
+  },
+  "diagnostics": {
+    "short_field_missingness": true,
+    "financing_balance_identity_residual": "rzye_t - rzye_t_minus_1 - rzmre_t + rzche_t"
+  },
+  "conditional_return_analysis": false,
+  "signal_generation": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

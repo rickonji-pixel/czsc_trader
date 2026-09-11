@@ -1,0 +1,6328 @@
+{
+  "return_matrix_hash": "05b0e2346c2033d1366c91c28c55e002e859b70328f084bd521dcd03a97684a7",
+  "pbo": {
+    "block_count": 10,
+    "candidate_count": 142,
+    "pbo": 0.0,
+    "median_validation_percentile": 1.0,
+    "median_logit": 5.645446897643239,
+    "selection_frequency": {
+      "20260910_S003_EX05:M01:09:45": 0,
+      "20260910_S003_EX05:M01:10:30": 0,
+      "20260910_S003_EX05:M01:11:30": 0,
+      "20260910_S003_EX05:M01:15:00": 0,
+      "20260910_S003_EX05:M02:09:45": 0,
+      "20260910_S003_EX05:M02:10:30": 0,
+      "20260910_S003_EX05:M02:11:30": 0,
+      "20260910_S003_EX05:M02:15:00": 0,
+      "20260910_S003_EX05:M03:09:45": 0,
+      "20260910_S003_EX05:M03:10:30": 0,
+      "20260910_S003_EX05:M03:11:30": 0,
+      "20260910_S003_EX05:M03:15:00": 0,
+      "20260910_S003_EX05:M04:09:45": 0,
+      "20260910_S003_EX05:M04:10:30": 0,
+      "20260910_S003_EX05:M04:11:30": 0,
+      "20260910_S003_EX05:M04:15:00": 0,
+      "20260910_S003_EX05:M05:09:45": 0,
+      "20260910_S003_EX05:M05:10:30": 0,
+      "20260910_S003_EX05:M05:11:30": 0,
+      "20260910_S003_EX05:M05:15:00": 0,
+      "20260910_S003_EX05:M06:09:45": 0,
+      "20260910_S003_EX05:M06:10:30": 0,
+      "20260910_S003_EX05:M06:11:30": 0,
+      "20260910_S003_EX05:M06:15:00": 0,
+      "20260910_S003_EX05:M07:09:45": 0,
+      "20260910_S003_EX05:M07:10:30": 0,
+      "20260910_S003_EX05:M07:11:30": 0,
+      "20260910_S003_EX05:M07:15:00": 0,
+      "20260910_S003_EX06:M01:12": 0,
+      "20260910_S003_EX06:M01:24": 0,
+      "20260910_S003_EX06:M01:3": 0,
+      "20260910_S003_EX06:M01:6": 0,
+      "20260910_S003_EX06:M02:12": 0,
+      "20260910_S003_EX06:M02:24": 0,
+      "20260910_S003_EX06:M02:3": 0,
+      "20260910_S003_EX06:M02:6": 0,
+      "20260910_S003_EX06:M03:12": 0,
+      "20260910_S003_EX06:M03:24": 0,
+      "20260910_S003_EX06:M03:3": 0,
+      "20260910_S003_EX06:M03:6": 0,
+      "20260910_S003_EX06:M04:12": 0,
+      "20260910_S003_EX06:M04:24": 0,
+      "20260910_S003_EX06:M04:3": 0,
+      "20260910_S003_EX06:M04:6": 0,
+      "20260910_S003_EX06:M05:12": 0,
+      "20260910_S003_EX06:M05:24": 0,
+      "20260910_S003_EX06:M05:3": 0,
+      "20260910_S003_EX06:M05:6": 0,
+      "20260910_S003_EX06:M06:12": 0,
+      "20260910_S003_EX06:M06:24": 0,
+      "20260910_S003_EX06:M06:3": 0,
+      "20260910_S003_EX06:M06:6": 0,
+      "20260910_S003_EX06:M07:12": 0,
+      "20260910_S003_EX06:M07:24": 0,
+      "20260910_S003_EX06:M07:3": 0,
+      "20260910_S003_EX06:M07:6": 0,
+      "20260910_S003_EX07:M01": 0,
+      "20260910_S003_EX07:M02": 0,
+      "20260910_S003_EX07:M03": 0,
+      "20260910_S003_EX07:M04": 0,
+      "20260910_S003_EX07:M05": 252,
+      "20260910_S003_EX07:M06": 0,
+      "20260910_S003_EX07:M07": 0,
+      "20260910_S003_EX08:M01": 0,
+      "20260910_S003_EX08:M02": 0,
+      "20260910_S003_EX08:M03": 0,
+      "20260910_S003_EX08:M04": 0,
+      "20260910_S003_EX08:M05": 0,
+      "20260910_S003_EX08:M06": 0,
+      "20260910_S003_EX08:M07": 0,
+      "20260910_S003_EX10:CONTINUATION:-1:10:30": 0,
+      "20260910_S003_EX10:CONTINUATION:-1:11:30": 0,
+      "20260910_S003_EX10:CONTINUATION:-1:15:00": 0,
+      "20260910_S003_EX10:CONTINUATION:1:10:30": 0,
+      "20260910_S003_EX10:CONTINUATION:1:11:30": 0,
+      "20260910_S003_EX10:CONTINUATION:1:15:00": 0,
+      "20260910_S003_EX10:REVERSAL:-1:10:30": 0,
+      "20260910_S003_EX10:REVERSAL:-1:11:30": 0,
+      "20260910_S003_EX10:REVERSAL:-1:15:00": 0,
+      "20260910_S003_EX10:REVERSAL:1:10:30": 0,
+      "20260910_S003_EX10:REVERSAL:1:11:30": 0,
+      "20260910_S003_EX10:REVERSAL:1:15:00": 0,
+      "20260910_S003_EX12:PRESSURE_CONTINUATION:-1:15:00": 0,
+      "20260910_S003_EX12:PRESSURE_CONTINUATION:1:15:00": 0,
+      "20260910_S003_EX12:PRESSURE_REVERSAL:-1:15:00": 0,
+      "20260910_S003_EX12:PRESSURE_REVERSAL:1:15:00": 0,
+      "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00": 0,
+      "20260911_S003_EX13:OPPOSITE_CONTROL:1:15:00": 0,
+      "20260911_S003_EX13:REGIME_PULLBACK:-1:15:00": 0,
+      "20260911_S003_EX13:REGIME_PULLBACK:1:15:00": 0,
+      "20260911_S003_EX15:ABNORMAL_ACTIVITY_CONTINUATION:OPPOSITE:-1": 0,
+      "20260911_S003_EX15:ABNORMAL_ACTIVITY_CONTINUATION:OPPOSITE:1": 0,
+      "20260911_S003_EX15:ABNORMAL_ACTIVITY_CONTINUATION:PRIMARY:-1": 0,
+      "20260911_S003_EX15:ABNORMAL_ACTIVITY_CONTINUATION:PRIMARY:1": 0,
+      "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:OPPOSITE:-1": 0,
+      "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:OPPOSITE:1": 0,
+      "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:PRIMARY:-1": 0,
+      "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:PRIMARY:1": 0,
+      "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:OPPOSITE:-1": 0,
+      "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:OPPOSITE:1": 0,
+      "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:PRIMARY:-1": 0,
+      "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:PRIMARY:1": 0,
+      "20260911_S003_EX16:AFTERNOON_TO_CLOSE:13:05_OPEN:15:00_CLOSE": 0,
+      "20260911_S003_EX16:OPEN_TO_1030:OPEN:10:30_CLOSE": 0,
+      "20260911_S003_EX16:OPEN_TO_1130:OPEN:11:30_CLOSE": 0,
+      "20260911_S003_EX16:OPEN_TO_CLOSE:OPEN:15:00_CLOSE": 0,
+      "20260911_S003_EX16:OVERNIGHT:PREVIOUS_CLOSE:OPEN": 0,
+      "20260911_S003_EX16:SIGNAL_0935_TO_1030:09:40_OPEN:10:30_CLOSE": 0,
+      "20260911_S003_EX16:SIGNAL_0935_TO_1130:09:40_OPEN:11:30_CLOSE": 0,
+      "20260911_S003_EX16:SIGNAL_1030_TO_CLOSE:10:35_OPEN:15:00_CLOSE": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:-1": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:OPPOSITE:-1": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:OPPOSITE:1": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:PRIMARY:-1": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:PRIMARY:1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:FIXED_LONG:-1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:FIXED_LONG:1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:OPPOSITE:-1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:OPPOSITE:1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:PRIMARY:-1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:PRIMARY:1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:-1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:OPPOSITE:-1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:OPPOSITE:1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:PRIMARY:-1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:PRIMARY:1": 0,
+      "20260911_S003_EX23:OPENING_GAP_REVERSION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX23:OPENING_GAP_REVERSION:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX23:RELATIVE_RESIDUAL_REVERSION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX23:RELATIVE_RESIDUAL_REVERSION:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX23:RELATIVE_STRENGTH_CONTINUATION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX23:RELATIVE_STRENGTH_CONTINUATION:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX27:RELATIVE_STRENGTH_WITH_BASIS_CONFIRMATION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX27:RELATIVE_STRENGTH_WITH_BASIS_CONFIRMATION:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX38:MARGIN_DELEVERAGING_REVERSAL:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX38:MARGIN_DELEVERAGING_REVERSAL:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1": 0
+    },
+    "splits": [
+      {
+        "split_id": 0,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "validation_blocks": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.99198102962168,
+        "validation_sharpe": 5.092864481310781,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 1,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          5
+        ],
+        "validation_blocks": [
+          4,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.131193267535568,
+        "validation_sharpe": 4.8426023242453295,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 2,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          6
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.822298844703256,
+        "validation_sharpe": 5.1197631436211095,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 3,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          7
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.660258042062006,
+        "validation_sharpe": 5.279482626041764,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 4,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          8
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.1637830587512505,
+        "validation_sharpe": 4.840400072888032,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 5,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          9
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.00557257179324,
+        "validation_sharpe": 4.915541743814965,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 6,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          3,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.254243650852081,
+        "validation_sharpe": 4.712015293207209,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 7,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.951046505757511,
+        "validation_sharpe": 4.99326412463695,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 8,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.791467592249729,
+        "validation_sharpe": 5.155443875493252,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 9,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.285250091280894,
+        "validation_sharpe": 4.710222333390575,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 10,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.132104002795629,
+        "validation_sharpe": 4.78523333103574,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 11,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.153181988198321,
+        "validation_sharpe": 4.756385368281127,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 12,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.993292119703236,
+        "validation_sharpe": 4.922697638991861,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 13,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.457156273841006,
+        "validation_sharpe": 4.449166358272772,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 14,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.343644506881154,
+        "validation_sharpe": 4.5520241272132695,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 15,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.696381037401155,
+        "validation_sharpe": 5.210072777358077,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 16,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.169297252000267,
+        "validation_sharpe": 4.745867315113835,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 17,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.066502979006196,
+        "validation_sharpe": 4.862526400207755,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 18,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.010848264627344,
+        "validation_sharpe": 4.912926681724001,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 19,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.902965820447516,
+        "validation_sharpe": 5.023300227287764,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 20,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.3553127918865995,
+        "validation_sharpe": 4.536064636498398,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 21,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          2,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.881931202971664,
+        "validation_sharpe": 5.100812541909498,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 22,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.5589172061212615,
+        "validation_sharpe": 5.370106592052468,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 23,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.392113186037843,
+        "validation_sharpe": 5.525433986785133,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 24,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.919620366941961,
+        "validation_sharpe": 5.09816640108106,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 25,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.745397870352788,
+        "validation_sharpe": 5.172196715206209,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 26,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.766410598354887,
+        "validation_sharpe": 5.144813681464027,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 27,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.598214160553731,
+        "validation_sharpe": 5.303268130396716,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 28,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.08785622320305,
+        "validation_sharpe": 4.8531481391943245,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 29,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.965567242807103,
+        "validation_sharpe": 4.950246146604396,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 30,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.282081231728669,
+        "validation_sharpe": 5.5781331632468145,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 31,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.7844377061088785,
+        "validation_sharpe": 5.13476506677261,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 32,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.674809844003993,
+        "validation_sharpe": 5.243352224129494,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 33,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.618211444139967,
+        "validation_sharpe": 5.29383393727068,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 34,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.501926580571947,
+        "validation_sharpe": 5.397559822531777,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 35,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.978014884444067,
+        "validation_sharpe": 4.9358600884519115,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 36,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.897036705272333,
+        "validation_sharpe": 5.018196033942493,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 37,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.731906546260714,
+        "validation_sharpe": 5.179070809531541,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 38,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.212588857415191,
+        "validation_sharpe": 4.722174068907071,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 39,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.092813772356027,
+        "validation_sharpe": 4.820368657060754,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 40,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.422490245111776,
+        "validation_sharpe": 5.457557247651134,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 41,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.914553348645772,
+        "validation_sharpe": 5.008141669834959,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 42,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.806738124563555,
+        "validation_sharpe": 5.1184803702445,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 43,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.751217547549286,
+        "validation_sharpe": 5.169657055370521,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 44,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.637251987501099,
+        "validation_sharpe": 5.274792961035287,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 45,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.105124921922215,
+        "validation_sharpe": 4.805707058808564,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 46,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.67010235928535,
+        "validation_sharpe": 5.25812950394199,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 47,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.13036940289106,
+        "validation_sharpe": 4.781314124998633,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 48,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.049331243372676,
+        "validation_sharpe": 4.935064163190844,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 49,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.968879679822253,
+        "validation_sharpe": 4.94585763595688,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 50,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.885076633090735,
+        "validation_sharpe": 5.088687736099872,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 51,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.326340053047807,
+        "validation_sharpe": 4.587219104063653,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 52,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.677166919999421,
+        "validation_sharpe": 5.238042132659742,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 53,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.605165385302822,
+        "validation_sharpe": 5.392864685726487,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 54,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.053359661082421,
+        "validation_sharpe": 4.903753305078474,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 55,
+        "training_blocks": [
+          0,
+          1,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.889240392371537,
+        "validation_sharpe": 5.06075645931736,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 56,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          1,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.367446097402864,
+        "validation_sharpe": 4.76985077672432,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 57,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.046716686115917,
+        "validation_sharpe": 5.037191515853273,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 58,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.908510903089373,
+        "validation_sharpe": 5.198377745167064,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 59,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.426418851846088,
+        "validation_sharpe": 4.773476445036901,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 60,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.183399680654796,
+        "validation_sharpe": 4.821524093944908,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 61,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.187092848156315,
+        "validation_sharpe": 4.784581797522259,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 62,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.035367164025271,
+        "validation_sharpe": 4.951252349614397,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 63,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.522542660191547,
+        "validation_sharpe": 4.502563733087041,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 64,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.354596476263524,
+        "validation_sharpe": 4.565436028846076,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 65,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.71986342583415,
+        "validation_sharpe": 5.224235264058808,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 66,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.219092626681575,
+        "validation_sharpe": 4.782603913143355,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 67,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.062745719842621,
+        "validation_sharpe": 4.857466037558979,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 68,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.071334764398,
+        "validation_sharpe": 4.949237498798925,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 69,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.902292835396631,
+        "validation_sharpe": 5.022064705646099,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 70,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.377829809773465,
+        "validation_sharpe": 4.561051150439296,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 71,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.309403873803909,
+        "validation_sharpe": 4.652970350198124,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 72,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.159300492586352,
+        "validation_sharpe": 4.822654768213377,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 73,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.638379812923116,
+        "validation_sharpe": 4.366876496067912,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 74,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.475801868943002,
+        "validation_sharpe": 4.428828678215383,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 75,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.850032590740153,
+        "validation_sharpe": 5.099406294851294,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 76,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.339896332592397,
+        "validation_sharpe": 4.651424481216234,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 77,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.188399219919031,
+        "validation_sharpe": 4.726120725392902,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 78,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.1933239308611405,
+        "validation_sharpe": 4.82103296440405,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 79,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.030378946669354,
+        "validation_sharpe": 4.893655409567734,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 80,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.498260592102127,
+        "validation_sharpe": 4.424816725463627,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 81,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.050539953260959,
+        "validation_sharpe": 4.864568424850524,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 82,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.511406034816386,
+        "validation_sharpe": 4.38736047286359,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 83,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.398437686433825,
+        "validation_sharpe": 4.490510262449938,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 84,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.360729611063128,
+        "validation_sharpe": 4.563819484621655,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 85,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.2420244327807834,
+        "validation_sharpe": 4.6617296756452165,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 86,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.684999574639845,
+        "validation_sharpe": 4.15747435327107,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 87,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.067979654363379,
+        "validation_sharpe": 4.854875679905142,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 88,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.9605374720031845,
+        "validation_sharpe": 4.965762631973887,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 89,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.41012564554059,
+        "validation_sharpe": 4.474477053040972,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 90,
+        "training_blocks": [
+          0,
+          2,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.254531315619493,
+        "validation_sharpe": 4.647202311406208,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 91,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.939373530262945,
+        "validation_sharpe": 5.044660992490214,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 92,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.784975517440583,
+        "validation_sharpe": 5.205938136287331,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 93,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.291819601143826,
+        "validation_sharpe": 4.770798145147962,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 94,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.107371135031289,
+        "validation_sharpe": 4.833930028149675,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 95,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.4539702330212405,
+        "validation_sharpe": 5.471636404513367,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 96,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.976214946530783,
+        "validation_sharpe": 5.042205587996393,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 97,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.8045664998479864,
+        "validation_sharpe": 5.115988944724917,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 98,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.827210255543445,
+        "validation_sharpe": 5.203486360147663,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 99,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.638895198874514,
+        "validation_sharpe": 5.275428777729758,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 100,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.1332043349869005,
+        "validation_sharpe": 4.829263009079049,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 101,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.65864747433578,
+        "validation_sharpe": 5.24781801697,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 102,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.144355107558592,
+        "validation_sharpe": 4.794881330363468,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 103,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.022868541698269,
+        "validation_sharpe": 4.892163610473514,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 104,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.988156543746225,
+        "validation_sharpe": 4.961252752799213,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 105,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.859129590972848,
+        "validation_sharpe": 5.054415566055443,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 106,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.322473861944169,
+        "validation_sharpe": 4.580403417859837,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 107,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.6784445508250245,
+        "validation_sharpe": 5.23845082310354,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 108,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.562834212118876,
+        "validation_sharpe": 5.342518598329693,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 109,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.035328010520943,
+        "validation_sharpe": 4.877743776249701,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 110,
+        "training_blocks": [
+          0,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.872622762451284,
+        "validation_sharpe": 5.041126605428862,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 111,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.791188117267718,
+        "validation_sharpe": 5.122812738293241,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 112,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.2682757438698475,
+        "validation_sharpe": 4.6628564136995045,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 113,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.149221207127285,
+        "validation_sharpe": 4.761250301605891,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 114,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.114145772393131,
+        "validation_sharpe": 4.832269226280845,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 115,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.988149783421293,
+        "validation_sharpe": 4.926288421537892,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 116,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.444486969390507,
+        "validation_sharpe": 4.443581415925377,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 117,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.81032541597647,
+        "validation_sharpe": 5.113471649391338,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 118,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.696964569101985,
+        "validation_sharpe": 5.218984795100566,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 119,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.1615440792223515,
+        "validation_sharpe": 4.746549481094314,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 120,
+        "training_blocks": [
+          0,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.0014425930974635,
+        "validation_sharpe": 4.912801560649966,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 121,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.026188631827258,
+        "validation_sharpe": 4.887756663472123,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 122,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.942296716322807,
+        "validation_sharpe": 5.032043457244118,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 123,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.381057306762734,
+        "validation_sharpe": 4.526110862021,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 124,
+        "training_blocks": [
+          0,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.223734812529981,
+        "validation_sharpe": 4.693953694232672,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 125,
+        "training_blocks": [
+          0,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.946639888695253,
+        "validation_sharpe": 5.003656870809108,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 126,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          0,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.003656870809108,
+        "validation_sharpe": 4.946639888695253,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 127,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.693953694232672,
+        "validation_sharpe": 5.223734812529981,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 128,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.526110862021,
+        "validation_sharpe": 5.381057306762734,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 129,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.032043457244118,
+        "validation_sharpe": 4.942296716322807,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 130,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.887756663472123,
+        "validation_sharpe": 5.026188631827258,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 131,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.912801560649966,
+        "validation_sharpe": 5.0014425930974635,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 132,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.746549481094314,
+        "validation_sharpe": 5.1615440792223515,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 133,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.218984795100566,
+        "validation_sharpe": 4.696964569101985,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 134,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.113471649391338,
+        "validation_sharpe": 4.81032541597647,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 135,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.443581415925377,
+        "validation_sharpe": 5.444486969390507,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 136,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.926288421537892,
+        "validation_sharpe": 4.988149783421293,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 137,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.832269226280845,
+        "validation_sharpe": 5.114145772393131,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 138,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.761250301605891,
+        "validation_sharpe": 5.149221207127285,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 139,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.6628564136995045,
+        "validation_sharpe": 5.2682757438698475,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 140,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.122812738293241,
+        "validation_sharpe": 4.791188117267718,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 141,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.041126605428862,
+        "validation_sharpe": 4.872622762451284,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 142,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.877743776249701,
+        "validation_sharpe": 5.035328010520943,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 143,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.342518598329693,
+        "validation_sharpe": 4.562834212118876,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 144,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.23845082310354,
+        "validation_sharpe": 4.6784445508250245,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 145,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.580403417859837,
+        "validation_sharpe": 5.322473861944169,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 146,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.054415566055443,
+        "validation_sharpe": 4.859129590972848,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 147,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.961252752799213,
+        "validation_sharpe": 4.988156543746225,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 148,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.892163610473514,
+        "validation_sharpe": 5.022868541698269,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 149,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.794881330363468,
+        "validation_sharpe": 5.144355107558592,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 150,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.24781801697,
+        "validation_sharpe": 4.65864747433578,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 151,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.829263009079049,
+        "validation_sharpe": 5.1332043349869005,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 152,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.275428777729758,
+        "validation_sharpe": 4.638895198874514,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 153,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.203486360147663,
+        "validation_sharpe": 4.827210255543445,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 154,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.115988944724917,
+        "validation_sharpe": 4.8045664998479864,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 155,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.042205587996393,
+        "validation_sharpe": 4.976214946530783,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 156,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.471636404513367,
+        "validation_sharpe": 4.4539702330212405,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 157,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.833930028149675,
+        "validation_sharpe": 5.107371135031289,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 158,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.770798145147962,
+        "validation_sharpe": 5.291819601143826,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 159,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.205938136287331,
+        "validation_sharpe": 4.784975517440583,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 160,
+        "training_blocks": [
+          1,
+          2,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.044660992490214,
+        "validation_sharpe": 4.939373530262945,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 161,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.647202311406208,
+        "validation_sharpe": 5.254531315619493,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 162,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.474477053040972,
+        "validation_sharpe": 5.41012564554059,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 163,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.965762631973887,
+        "validation_sharpe": 4.9605374720031845,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 164,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.854875679905142,
+        "validation_sharpe": 5.067979654363379,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 165,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.15747435327107,
+        "validation_sharpe": 5.684999574639845,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 166,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.6617296756452165,
+        "validation_sharpe": 5.2420244327807834,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 167,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.563819484621655,
+        "validation_sharpe": 5.360729611063128,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 168,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.490510262449938,
+        "validation_sharpe": 5.398437686433825,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 169,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.38736047286359,
+        "validation_sharpe": 5.511406034816386,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 170,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.864568424850524,
+        "validation_sharpe": 5.050539953260959,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 171,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.424816725463627,
+        "validation_sharpe": 5.498260592102127,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 172,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.893655409567734,
+        "validation_sharpe": 5.030378946669354,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 173,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.82103296440405,
+        "validation_sharpe": 5.1933239308611405,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 174,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.726120725392902,
+        "validation_sharpe": 5.188399219919031,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 175,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.651424481216234,
+        "validation_sharpe": 5.339896332592397,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 176,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.099406294851294,
+        "validation_sharpe": 4.850032590740153,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 177,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.428828678215383,
+        "validation_sharpe": 5.475801868943002,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 178,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.366876496067912,
+        "validation_sharpe": 5.638379812923116,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 179,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.822654768213377,
+        "validation_sharpe": 5.159300492586352,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 180,
+        "training_blocks": [
+          1,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.652970350198124,
+        "validation_sharpe": 5.309403873803909,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 181,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.561051150439296,
+        "validation_sharpe": 5.377829809773465,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 182,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.022064705646099,
+        "validation_sharpe": 4.902292835396631,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 183,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.949237498798925,
+        "validation_sharpe": 5.071334764398,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 184,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.857466037558979,
+        "validation_sharpe": 5.062745719842621,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 185,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.782603913143355,
+        "validation_sharpe": 5.219092626681575,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 186,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.224235264058808,
+        "validation_sharpe": 4.71986342583415,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 187,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.565436028846076,
+        "validation_sharpe": 5.354596476263524,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 188,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.502563733087041,
+        "validation_sharpe": 5.522542660191547,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 189,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.951252349614397,
+        "validation_sharpe": 5.035367164025271,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 190,
+        "training_blocks": [
+          1,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.784581797522259,
+        "validation_sharpe": 5.187092848156315,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 191,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.821524093944908,
+        "validation_sharpe": 5.183399680654796,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 192,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.773476445036901,
+        "validation_sharpe": 5.426418851846088,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 193,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.198377745167064,
+        "validation_sharpe": 4.908510903089373,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 194,
+        "training_blocks": [
+          1,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.037191515853273,
+        "validation_sharpe": 5.046716686115917,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 195,
+        "training_blocks": [
+          1,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.76985077672432,
+        "validation_sharpe": 5.367446097402864,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 196,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.06075645931736,
+        "validation_sharpe": 4.889240392371537,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 197,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.903753305078474,
+        "validation_sharpe": 5.053359661082421,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 198,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.392864685726487,
+        "validation_sharpe": 4.605165385302822,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 199,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.238042132659742,
+        "validation_sharpe": 4.677166919999421,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 200,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.587219104063653,
+        "validation_sharpe": 5.326340053047807,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 201,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.088687736099872,
+        "validation_sharpe": 4.885076633090735,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 202,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.94585763595688,
+        "validation_sharpe": 4.968879679822253,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 203,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.935064163190844,
+        "validation_sharpe": 5.049331243372676,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 204,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.781314124998633,
+        "validation_sharpe": 5.13036940289106,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 205,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.25812950394199,
+        "validation_sharpe": 4.67010235928535,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 206,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.805707058808564,
+        "validation_sharpe": 5.105124921922215,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 207,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.274792961035287,
+        "validation_sharpe": 4.637251987501099,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 208,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.169657055370521,
+        "validation_sharpe": 4.751217547549286,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 209,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.1184803702445,
+        "validation_sharpe": 4.806738124563555,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 210,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.008141669834959,
+        "validation_sharpe": 4.914553348645772,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 211,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.457557247651134,
+        "validation_sharpe": 4.422490245111776,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 212,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.820368657060754,
+        "validation_sharpe": 5.092813772356027,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 213,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.722174068907071,
+        "validation_sharpe": 5.212588857415191,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 214,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.179070809531541,
+        "validation_sharpe": 4.731906546260714,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 215,
+        "training_blocks": [
+          2,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.018196033942493,
+        "validation_sharpe": 4.897036705272333,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 216,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.9358600884519115,
+        "validation_sharpe": 4.978014884444067,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 217,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.397559822531777,
+        "validation_sharpe": 4.501926580571947,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 218,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.29383393727068,
+        "validation_sharpe": 4.618211444139967,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 219,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.243352224129494,
+        "validation_sharpe": 4.674809844003993,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 220,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.13476506677261,
+        "validation_sharpe": 4.7844377061088785,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 221,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.5781331632468145,
+        "validation_sharpe": 4.282081231728669,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 222,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.950246146604396,
+        "validation_sharpe": 4.965567242807103,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 223,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.8531481391943245,
+        "validation_sharpe": 5.08785622320305,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 224,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.303268130396716,
+        "validation_sharpe": 4.598214160553731,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 225,
+        "training_blocks": [
+          2,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.144813681464027,
+        "validation_sharpe": 4.766410598354887,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 226,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.172196715206209,
+        "validation_sharpe": 4.745397870352788,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 227,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.09816640108106,
+        "validation_sharpe": 4.919620366941961,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 228,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.525433986785133,
+        "validation_sharpe": 4.392113186037843,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 229,
+        "training_blocks": [
+          2,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.370106592052468,
+        "validation_sharpe": 4.5589172061212615,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 230,
+        "training_blocks": [
+          2,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.100812541909498,
+        "validation_sharpe": 4.881931202971664,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 231,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.536064636498398,
+        "validation_sharpe": 5.3553127918865995,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 232,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.023300227287764,
+        "validation_sharpe": 4.902965820447516,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 233,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.912926681724001,
+        "validation_sharpe": 5.010848264627344,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 234,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.862526400207755,
+        "validation_sharpe": 5.066502979006196,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 235,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.745867315113835,
+        "validation_sharpe": 5.169297252000267,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 236,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.210072777358077,
+        "validation_sharpe": 4.696381037401155,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 237,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.5520241272132695,
+        "validation_sharpe": 5.343644506881154,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 238,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.449166358272772,
+        "validation_sharpe": 5.457156273841006,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 239,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.922697638991861,
+        "validation_sharpe": 4.993292119703236,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 240,
+        "training_blocks": [
+          3,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.756385368281127,
+        "validation_sharpe": 5.153181988198321,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 241,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.78523333103574,
+        "validation_sharpe": 5.132104002795629,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 242,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.710222333390575,
+        "validation_sharpe": 5.285250091280894,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 243,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.155443875493252,
+        "validation_sharpe": 4.791467592249729,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 244,
+        "training_blocks": [
+          3,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.99326412463695,
+        "validation_sharpe": 4.951046505757511,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 245,
+        "training_blocks": [
+          3,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.712015293207209,
+        "validation_sharpe": 5.254243650852081,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 246,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.915541743814965,
+        "validation_sharpe": 5.00557257179324,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 247,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.840400072888032,
+        "validation_sharpe": 5.1637830587512505,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 248,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.279482626041764,
+        "validation_sharpe": 4.660258042062006,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 249,
+        "training_blocks": [
+          4,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.1197631436211095,
+        "validation_sharpe": 4.822298844703256,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 250,
+        "training_blocks": [
+          4,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 4.8426023242453295,
+        "validation_sharpe": 5.131193267535568,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      },
+      {
+        "split_id": 251,
+        "training_blocks": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "selected_candidate": "20260910_S003_EX07:M05",
+        "training_sharpe": 5.092864481310781,
+        "validation_sharpe": 4.99198102962168,
+        "validation_rank": 1,
+        "validation_candidate_count": 142,
+        "validation_percentile": 1.0,
+        "logit": 5.645446897643239
+      }
+    ]
+  },
+  "dsr": {
+    "raw": {
+      "observations": 1311,
+      "trial_count": 142.0,
+      "observed_sharpe": 0.6691892103675147,
+      "trial_sharpe_mean": -1.4915637145110185,
+      "trial_sharpe_std": 1.7621131017778278,
+      "expected_max_sharpe": 3.180863068096251,
+      "skew": 2.1107924169374503,
+      "pearson_kurtosis": 41.95541983421125,
+      "test_statistic": -5.940741222968967,
+      "probability": 1.4186810377941463e-09
+    },
+    "effective": {
+      "observations": 1311,
+      "trial_count": 17.36147160691503,
+      "observed_sharpe": 0.6691892103675147,
+      "trial_sharpe_mean": -1.4915637145110185,
+      "trial_sharpe_std": 1.7621131017778278,
+      "expected_max_sharpe": 1.746520617529439,
+      "skew": 2.1107924169374503,
+      "pearson_kurtosis": 41.95541983421125,
+      "test_statistic": -2.5481600971527216,
+      "probability": 0.005414638022389059
+    }
+  },
+  "bootstrap": [
+    {
+      "candidate_id": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+      "repetitions": 10000,
+      "mean_block_length": 10,
+      "cagr": {
+        "metric": "cagr",
+        "point": 0.025480993772143634,
+        "lower_90": 0.00037258437082417103,
+        "upper_90": 0.05231584340625976,
+        "lower_95": -0.0040200803143859674,
+        "upper_95": 0.05787834240910308,
+        "probability_above_zero": 0.9522
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "point": -0.04132355095855211,
+        "lower_90": -0.08944777175421427,
+        "upper_90": -0.03024736348388833,
+        "lower_95": -0.1008136223160915,
+        "upper_95": -0.02794713375536933,
+        "probability_above_zero": 0.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "point": 0.6166215918303172,
+        "lower_90": 0.00455894217279721,
+        "upper_90": 1.5002661534827049,
+        "lower_95": -0.049062909955844974,
+        "upper_95": 1.7432062793135277,
+        "probability_above_zero": 0.9522
+      }
+    },
+    {
+      "candidate_id": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+      "repetitions": 10000,
+      "mean_block_length": 21,
+      "cagr": {
+        "metric": "cagr",
+        "point": 0.025480993772143634,
+        "lower_90": 0.0022447131107762755,
+        "upper_90": 0.05079073962949717,
+        "lower_95": -0.001719950549019633,
+        "upper_95": 0.05589688990650861,
+        "probability_above_zero": 0.9651
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "point": -0.04132355095855211,
+        "lower_90": -0.08039937368976574,
+        "upper_90": -0.028746285453139522,
+        "lower_95": -0.08915209111623301,
+        "upper_95": -0.02669304029470029,
+        "probability_above_zero": 0.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "point": 0.6166215918303172,
+        "lower_90": 0.03165165428296021,
+        "upper_90": 1.4965222347359404,
+        "lower_95": -0.024877001713488337,
+        "upper_95": 1.7333851271977867,
+        "probability_above_zero": 0.9651
+      }
+    },
+    {
+      "candidate_id": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+      "repetitions": 10000,
+      "mean_block_length": 42,
+      "cagr": {
+        "metric": "cagr",
+        "point": 0.025480993772143634,
+        "lower_90": 0.0045013557402381115,
+        "upper_90": 0.047807979824551615,
+        "lower_95": 0.0007764662155791525,
+        "upper_95": 0.05275427664581082,
+        "probability_above_zero": 0.9782
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "point": -0.04132355095855211,
+        "lower_90": -0.07205920305354811,
+        "upper_90": -0.02776706788010952,
+        "lower_95": -0.08010235092636278,
+        "upper_95": -0.026299727187204393,
+        "probability_above_zero": 0.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "point": 0.6166215918303172,
+        "lower_90": 0.07220061992200387,
+        "upper_90": 1.462408222499102,
+        "lower_95": 0.01258058179522821,
+        "upper_95": 1.6674840278288938,
+        "probability_above_zero": 0.9782
+      }
+    }
+  ]
+}

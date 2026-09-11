@@ -1,0 +1,31 @@
+{
+  "target_symbol": "510500.SH",
+  "target_sessions": 1682,
+  "first_session": "2019-10-08",
+  "last_session": "2026-09-08",
+  "symbols": {
+    "510300.SH": {
+      "target_sessions": 1682,
+      "observed_sessions": 1682,
+      "carried_sessions": 0,
+      "carried_dates": [],
+      "maximum_staleness_sessions": 0
+    },
+    "510500.SH": {
+      "target_sessions": 1682,
+      "observed_sessions": 1682,
+      "carried_sessions": 0,
+      "carried_dates": [],
+      "maximum_staleness_sessions": 0
+    },
+    "512100.SH": {
+      "target_sessions": 1682,
+      "observed_sessions": 1681,
+      "carried_sessions": 1,
+      "carried_dates": [
+        "2022-09-02"
+      ],
+      "maximum_staleness_sessions": 1
+    }
+  }
+}

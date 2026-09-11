@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX36",
+  "access_available": true,
+  "master_sessions": 1378,
+  "source_rows": 1378,
+  "first_master_session": "2021-01-04",
+  "last_master_session": "2026-09-08",
+  "first_source_session": "2021-01-04",
+  "last_source_session": "2026-09-08",
+  "coverage_ratio": 1.0,
+  "missing_calendar_dates": [],
+  "extra_source_dates": [],
+  "duplicate_date_rows": 0,
+  "finite_nonnegative_core_fields": true,
+  "short_field_missing_ratio": {
+    "rqye": 0.0,
+    "rqyl": 0.0,
+    "rqchl": 0.0,
+    "rqmcl": 0.0
+  },
+  "median_financing_balance_identity_residual_ratio": 0.0,
+  "p95_financing_balance_identity_residual_ratio": 2.15745380865639e-09,
+  "backfill_calls": 1,
+  "daily_incremental_calls": 1,
+  "documented_publication": "T_PLUS_1_AROUND_08_30",
+  "earliest_strategy_use": "T_PLUS_1_OPEN",
+  "forward_filled_rows": 0,
+  "passed": true
+}

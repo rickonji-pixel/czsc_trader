@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX36",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "conditional_return_analysis": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 252,
+      "sha256": "6848f3cce7eb1952b7487344f23dd24060b63aa7d066b80b4a26b948fe79140d"
+    },
+    "02_design.md": {
+      "bytes": 619,
+      "sha256": "b258600adc2b4d4686417825cb4de1831db03fb08b43e2f51f269bcfe761aad0"
+    },
+    "03_execution.md": {
+      "bytes": 286,
+      "sha256": "96faf42f6a2a6fa7c9867628e4bf8330e1e96b70b00728a77cf4340bf72ea4fe"
+    },
+    "04_conclusion.md": {
+      "bytes": 176,
+      "sha256": "7566622fece8020c2d67a9fbd6acc44fa0a976df47832448327382f4e4f79791"
+    },
+    "artifacts/data_quality.json": {
+      "bytes": 895,
+      "sha256": "3d0afc6b9155ef0938b8b3c8fdb5a3f6b239d5431795488e8a765d85b457f245"
+    },
+    "artifacts/etf_margin_flow_panel.csv.gz": {
+      "bytes": 78712,
+      "sha256": "69721b98df51f0bcb15ba462fd71d8577bd742b8882fab295021795b768bcb19"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1555,
+      "sha256": "07eaf47d978f4c12ac7368279933e9fdf40d93ac1099790840b18eb5570668e4"
+    },
+    "run_experiment.py": {
+      "bytes": 10243,
+      "sha256": "3c40432d68821a2c1f36a5339ed533cdedd4948300569a18d258ab55aed3994f"
+    }
+  }
+}

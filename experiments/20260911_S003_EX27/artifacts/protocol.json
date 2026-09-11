@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX27",
+  "experiment_type": "ic_basis_confirmation_return_evaluation",
+  "inherits": ["20260911_S003_EX23", "20260911_S003_EX26"],
+  "research_target": {
+    "strategy_id": "S003",
+    "symbol": "510500.SH",
+    "mechanism": "RELATIVE_STRENGTH_WITH_BASIS_CONFIRMATION"
+  },
+  "dataset": {
+    "evaluation_start": "2021-01-04",
+    "development_cutoff": "2026-09-08",
+    "frequency": "5m",
+    "event_experiment": "20260911_S003_EX26",
+    "event_manifest_sha256": "3f1033f94aa64513dd2495690b270e211349f0a959833dbad9b6fa614a0dbbc5",
+    "event_file_sha256": "f55d8a93c4eaa4f32ac3c1e68d7d2c022602a9b4fc32ff1d9681cd30b48df509",
+    "intraday_manifest_sha256": "b614d7e4dd7cfd91b624513601576f52f95aa5b77b4c965f661189d8d174f319"
+  },
+  "mechanism": {
+    "entry_checkpoint": "OPEN",
+    "exit_checkpoint": "11:30_CLOSE",
+    "direction": "LONG"
+  },
+  "execution": {
+    "base_fraction": 0.5,
+    "baseline_one_way_cost": 0.00012,
+    "stress_one_way_cost": 0.0006,
+    "t_plus_one_inventory_rotation": true
+  },
+  "acceptance": {
+    "stress_mean_return_positive": true,
+    "stress_profit_factor_min_exclusive": 1.0,
+    "beat_unconditional_same_segment": true,
+    "beat_opposite_same_dates": true,
+    "positive_years_required": 4,
+    "incremental_terminal_return_vs_static_positive": true,
+    "recent_sessions": 252,
+    "recent_stress_mean_return_positive": true
+  },
+  "diagnostic_comparator": {
+    "experiment": "20260911_S003_EX23",
+    "mechanism": "RELATIVE_STRENGTH_CONTINUATION",
+    "stress_mean_return": -0.0002568553810424549,
+    "stress_profit_factor": 0.9283352046122347,
+    "positive_years": 3,
+    "recent_stress_mean_return": 0.0014684883896845854,
+    "incremental_terminal_return_vs_static": -0.046302562153725635
+  },
+  "tested_path_scope": ["20260911_S003_EX22", "20260911_S003_EX23", "20260911_S003_EX24", "20260911_S003_EX26", "20260911_S003_EX27"],
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX10",
+  "status": "PASS",
+  "event_manifest_sha256": "c1e099b9845a73d8cf6fc0f89c252118d71f366bd7678eee217fa14f1096558d",
+  "regime_manifest_sha256": "7f7319d7fede9c6ad2e7085da9d77aea178df94ccaaec09af05fc13888420172",
+  "evaluated_combinations": 6,
+  "feasible_combinations": 0,
+  "route_decision": "STOP_OPENING_SHOCK_ROUTE",
+  "candidate_created": false
+}

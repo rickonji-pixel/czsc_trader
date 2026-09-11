@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX06",
+  "experiment_type": "intraday_inventory_feasibility",
+  "inherits": "20260910_S003_EX05",
+  "research_target": {"strategy_id":"S003","symbol":"510500.SH","asset_type":"etf","position_direction":"long_inventory_roll"},
+  "dataset": {"intraday_periods":["15m","5m"],"cutoff":"2026-09-08","evaluation_start":"2021-01-04","regime_experiment":"20260910_S003_EX03","census_experiment":"20260910_S003_EX04","hypothesis_experiment":"20260910_S003_EX05"},
+  "hypotheses": [
+    {"hypothesis_id":"M01","mechanism":"10bar_momentum_continuation","signal_name":"bar_section_momentum_V221112","state_primary":"上涨","state_id":"STATE-54101991661EAA4F","behavior_hash":"fa7e0af7ebf14a2f9e09dd82491cae325e15c323c39af69ae7cef81c3f89d2cb"},
+    {"hypothesis_id":"M02","mechanism":"10bar_down_move_reversal","signal_name":"bar_section_momentum_V221112","state_primary":"下跌","state_id":"STATE-A0328B6CC7F6F866","behavior_hash":"1f63a22ee92bfae07082a2c8627860b54490e1569b9e1eba0b96f9f4b025a71f"},
+    {"hypothesis_id":"M03","mechanism":"weak_bottom_fractal_reversal","signal_name":"cxt_fx_power_V221107","state_primary":"弱底","state_id":"STATE-1E24353D9C24C692","behavior_hash":"04730482441bf4a1df1b84d9ea258e32ef7ad478d033af73b90d50f9eaf8d719"},
+    {"hypothesis_id":"M04","mechanism":"rbreaker_long","signal_name":"bar_r_breaker_V230326","state_primary":"做多","state_id":"STATE-83CDDC7D14A23F9D","behavior_hash":"a435e05dfd79a34b9eb58797818f62a0868321c6970c5a9c8041c36e08e68b67"},
+    {"hypothesis_id":"M05","mechanism":"cci_oversold_reversal","signal_name":"cci_decision_V240620","state_primary":"开多","state_id":"STATE-51117137027A220D","behavior_hash":"ed3290c980ee7d0fa97a6880509344c523008c5cb8927c123e8c917e6cf616ba"},
+    {"hypothesis_id":"M06","mechanism":"10bar_price_momentum_continuation","signal_name":"ntmdk_V230824","state_primary":"看多","state_id":"STATE-FF1D47B5F47B9D12","behavior_hash":"c02a287a6fb21a70081321614d367baca8fb74685f9caf5c3b3a95dd01bd2f0a"},
+    {"hypothesis_id":"M07","mechanism":"macd_direction_continuation","signal_name":"tas_macd_direct_V221106","state_primary":"向上","state_id":"STATE-73AC098513BEAEFD","behavior_hash":"0107adb7d31b8a3014401242451f14ba790346a9b269d3b5e3dbe13ca945a888"}
+  ],
+  "execution": {"base_fraction":0.5,"cash_fraction":0.5,"entry":"next_5m_bar_open_strictly_after_signal_close_same_day","exit_bars":[3,6,12,24],"max_episodes_per_hypothesis_day":1,"inventory_policy":"buy_with_cash_then_sell_equal_previous_day_inventory","baseline_one_way_cost":0.00012,"stress_one_way_cost":0.0006},
+  "density": {"window_sessions":30,"median_closed_episodes_required":18,"p10_closed_episodes_required":12,"p10_interpolation":"lower"},
+  "matched_random_control": {"matching":["signal_clock","lagged_daily_regime"],"simulations":2000,"seed":20260910},
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

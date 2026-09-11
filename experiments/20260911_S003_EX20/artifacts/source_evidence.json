@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX20",
+  "quality": {
+    "requested_start": "2019-10-08",
+    "requested_end": "2026-09-08",
+    "common_sessions": 1681,
+    "common_first_session": "2019-10-08",
+    "common_last_session": "2026-09-08",
+    "exact_calendar_match": false,
+    "missing_sessions": {
+      "510300.SH": [],
+      "510500.SH": [],
+      "512100.SH": [
+        "2022-09-02"
+      ]
+    },
+    "symbols": {
+      "510300.SH": {
+        "symbol": "510300.SH",
+        "sessions": 1682,
+        "first_session": "2019-10-08",
+        "last_session": "2026-09-08",
+        "zero_volume_sessions": 0,
+        "adjustment_factor_min": 1.1137,
+        "adjustment_factor_max": 1.2671
+      },
+      "510500.SH": {
+        "symbol": "510500.SH",
+        "sessions": 1682,
+        "first_session": "2019-10-08",
+        "last_session": "2026-09-08",
+        "zero_volume_sessions": 0,
+        "adjustment_factor_min": 0.28029999999999994,
+        "adjustment_factor_max": 0.34010000000000007
+      },
+      "512100.SH": {
+        "symbol": "512100.SH",
+        "sessions": 1681,
+        "first_session": "2019-10-08",
+        "last_session": "2026-09-08",
+        "zero_volume_sessions": 0,
+        "adjustment_factor_min": 0.36219999999999997,
+        "adjustment_factor_max": 1.0
+      }
+    }
+  },
+  "sources": {
+    "510300.SH": {
+      "adjusted": {
+        "vendor": "tushare",
+        "market": "a_share",
+        "vendor_symbol": "510300.SH",
+        "period": "daily",
+        "asset_type": "etf",
+        "adjustment": "hfq",
+        "adjustment_factor_source": "fund_adj",
+        "adjustment_factor_sha256": "eedf2256bf44d7c8c0559c0d7519165a4132e6ab78f6eedf85aa1528c4869457"
+      },
+      "execution": {
+        "vendor": "tushare",
+        "market": "a_share",
+        "vendor_symbol": "510300.SH",
+        "period": "daily",
+        "asset_type": "etf",
+        "adjustment": "none"
+      }
+    },
+    "510500.SH": {
+      "mode": "reuse_research_pool",
+      "adjusted_manifest_sha256": "e22ef09a5b33471cd9e84e01d3d386acd5205224b464053839f67f6160a59358",
+      "execution_manifest_sha256": "16f5b09e7cb8b63c5a51de0ed3385ba518e5a484cba1aa0cc64938a65c186d22"
+    },
+    "512100.SH": {
+      "mode": "reuse_experiment_snapshot",
+      "source_experiment": "20260910_S002_EX11",
+      "data_manifest": {
+        "schema_version": 1,
+        "symbol": "512100.SH",
+        "requested_start": "2019-01-01",
+        "requested_end": "2026-09-08",
+        "actual_start": "2019-01-02",
+        "actual_end": "2026-09-08",
+        "sessions": 1864,
+        "adjusted_metadata": {
+          "vendor": "tushare",
+          "market": "a_share",
+          "vendor_symbol": "512100.SH",
+          "period": "daily",
+          "asset_type": "etf",
+          "adjustment": "hfq",
+          "adjustment_factor_source": "fund_adj",
+          "adjustment_factor_sha256": "0da7a20c71bd0f262f390a8ff8e4cbfde1727c59b174a361a37656edba2f04e5"
+        },
+        "execution_metadata": {
+          "vendor": "tushare",
+          "market": "a_share",
+          "vendor_symbol": "512100.SH",
+          "period": "daily",
+          "asset_type": "etf",
+          "adjustment": "none"
+        },
+        "intraday_excluded": true,
+        "intraday_exclusion_reason": "EX10 freezes a daily-only signal; vendor 30m Open fails strict daily reconciliation",
+        "files": {
+          "adjusted": {
+            "path": "512100_adjusted_daily.csv",
+            "sha256": "1b7eabdc4623833c29267440b9428ef6e83a3b4e72249954a2c326c3f24ee885"
+          },
+          "execution": {
+            "path": "512100_execution_daily.csv",
+            "sha256": "1101c625eebeb5c5b114ad60c29c9367ab56a6109cc3ddaa17212dd5c8c561ab"
+          }
+        }
+      }
+    }
+  }
+}

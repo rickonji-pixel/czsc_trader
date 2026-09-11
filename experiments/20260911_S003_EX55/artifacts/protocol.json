@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX55",
+  "experiment_type": "candidate_execution_compatibility_replay",
+  "inherits": ["20260911_S003_EX53", "20260911_S003_EX54"],
+  "strategy_id": "S003",
+  "candidate_id": "S003-C001",
+  "candidate_hash": "1d6736f816d652c59d43dd22491c567e65100eaddfa3d20575531ca5a124f741",
+  "source": {
+    "candidate_manifest_sha256": "fef1df9bbc7a15b89798d981aa442da5391b2d0da531115f2a154036e4c0e56c",
+    "candidate_payload_raw_sha256": "96ac78371bf4cae0732a8c737fdd4ec77368d600371d77e853766811a1c9a9ad",
+    "candidate_readiness_sha256": "ece65f91edc43643f75fe73fc7eee2e88ff9d5301bf185399699e4ae0bd54d82",
+    "prior_gate_protocol_sha256": "05a334080bb0496477555b6ce62c2f432bb63e785be8e508ceb003e5e01f7ad7",
+    "prior_gate_manifest_sha256": "518216b4d4e829310a03f9cd41c1e3694e30494b19bf1c0b56be9b227096612e"
+  },
+  "prior_gate_mismatch": {
+    "candidate_manifest_expected": "4ccf3e7936113490ea9c8e5f69231a140bc361e4fdcd91fa33b79ae000850de2",
+    "candidate_readiness_expected": "021b749bf49b107972df79088ee2c1ef526f526a9b6f3b8eaed5dd6882042ddf"
+  },
+  "requirements": {
+    "tdr_strategy_kind_resolution": true,
+    "tdr_core_overlay_account": true,
+    "tdr_timed_intraday_exit": true,
+    "pte_timed_intraday_exit": true,
+    "runtime_point_in_time_moneyflow_data": true
+  },
+  "formal_pk_allowed_on_pass_only": true,
+  "mutates_trader": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "freezes_strategy": false
+}

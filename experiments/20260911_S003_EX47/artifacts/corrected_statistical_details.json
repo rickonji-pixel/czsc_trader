@@ -1,0 +1,6223 @@
+{
+  "return_matrix_hash": "bc3f415bf28e1180f509decb00bbf9b55a7495a390384135a78f0297b8c59e4f",
+  "pbo": {
+    "block_count": 10,
+    "candidate_count": 135,
+    "pbo": 0.06746031746031746,
+    "median_validation_percentile": 0.8582089552238806,
+    "median_logit": 1.80049314919681,
+    "selection_frequency": {
+      "20260910_S003_EX05:M01:09:45": 0,
+      "20260910_S003_EX05:M01:10:30": 0,
+      "20260910_S003_EX05:M01:11:30": 0,
+      "20260910_S003_EX05:M01:15:00": 0,
+      "20260910_S003_EX05:M02:09:45": 0,
+      "20260910_S003_EX05:M02:10:30": 0,
+      "20260910_S003_EX05:M02:11:30": 0,
+      "20260910_S003_EX05:M02:15:00": 0,
+      "20260910_S003_EX05:M03:09:45": 0,
+      "20260910_S003_EX05:M03:10:30": 0,
+      "20260910_S003_EX05:M03:11:30": 0,
+      "20260910_S003_EX05:M03:15:00": 0,
+      "20260910_S003_EX05:M04:09:45": 0,
+      "20260910_S003_EX05:M04:10:30": 0,
+      "20260910_S003_EX05:M04:11:30": 19,
+      "20260910_S003_EX05:M04:15:00": 1,
+      "20260910_S003_EX05:M05:09:45": 0,
+      "20260910_S003_EX05:M05:10:30": 0,
+      "20260910_S003_EX05:M05:11:30": 0,
+      "20260910_S003_EX05:M05:15:00": 0,
+      "20260910_S003_EX05:M06:09:45": 0,
+      "20260910_S003_EX05:M06:10:30": 0,
+      "20260910_S003_EX05:M06:11:30": 0,
+      "20260910_S003_EX05:M06:15:00": 0,
+      "20260910_S003_EX05:M07:09:45": 0,
+      "20260910_S003_EX05:M07:10:30": 0,
+      "20260910_S003_EX05:M07:11:30": 2,
+      "20260910_S003_EX05:M07:15:00": 7,
+      "20260910_S003_EX06:M01:12": 0,
+      "20260910_S003_EX06:M01:24": 0,
+      "20260910_S003_EX06:M01:3": 0,
+      "20260910_S003_EX06:M01:6": 0,
+      "20260910_S003_EX06:M02:12": 0,
+      "20260910_S003_EX06:M02:24": 0,
+      "20260910_S003_EX06:M02:3": 0,
+      "20260910_S003_EX06:M02:6": 0,
+      "20260910_S003_EX06:M03:12": 0,
+      "20260910_S003_EX06:M03:24": 0,
+      "20260910_S003_EX06:M03:3": 0,
+      "20260910_S003_EX06:M03:6": 0,
+      "20260910_S003_EX06:M04:12": 0,
+      "20260910_S003_EX06:M04:24": 0,
+      "20260910_S003_EX06:M04:3": 0,
+      "20260910_S003_EX06:M04:6": 0,
+      "20260910_S003_EX06:M05:12": 0,
+      "20260910_S003_EX06:M05:24": 0,
+      "20260910_S003_EX06:M05:3": 0,
+      "20260910_S003_EX06:M05:6": 0,
+      "20260910_S003_EX06:M06:12": 0,
+      "20260910_S003_EX06:M06:24": 0,
+      "20260910_S003_EX06:M06:3": 0,
+      "20260910_S003_EX06:M06:6": 0,
+      "20260910_S003_EX06:M07:12": 0,
+      "20260910_S003_EX06:M07:24": 0,
+      "20260910_S003_EX06:M07:3": 0,
+      "20260910_S003_EX06:M07:6": 0,
+      "20260910_S003_EX08:M01": 0,
+      "20260910_S003_EX08:M02": 0,
+      "20260910_S003_EX08:M03": 0,
+      "20260910_S003_EX08:M04": 0,
+      "20260910_S003_EX08:M05": 0,
+      "20260910_S003_EX08:M06": 0,
+      "20260910_S003_EX08:M07": 0,
+      "20260910_S003_EX10:CONTINUATION:-1:10:30": 0,
+      "20260910_S003_EX10:CONTINUATION:-1:11:30": 0,
+      "20260910_S003_EX10:CONTINUATION:-1:15:00": 89,
+      "20260910_S003_EX10:CONTINUATION:1:10:30": 0,
+      "20260910_S003_EX10:CONTINUATION:1:11:30": 0,
+      "20260910_S003_EX10:CONTINUATION:1:15:00": 3,
+      "20260910_S003_EX10:REVERSAL:-1:10:30": 0,
+      "20260910_S003_EX10:REVERSAL:-1:11:30": 0,
+      "20260910_S003_EX10:REVERSAL:-1:15:00": 0,
+      "20260910_S003_EX10:REVERSAL:1:10:30": 0,
+      "20260910_S003_EX10:REVERSAL:1:11:30": 0,
+      "20260910_S003_EX10:REVERSAL:1:15:00": 0,
+      "20260910_S003_EX12:PRESSURE_CONTINUATION:-1:15:00": 0,
+      "20260910_S003_EX12:PRESSURE_CONTINUATION:1:15:00": 0,
+      "20260910_S003_EX12:PRESSURE_REVERSAL:-1:15:00": 0,
+      "20260910_S003_EX12:PRESSURE_REVERSAL:1:15:00": 0,
+      "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00": 34,
+      "20260911_S003_EX13:OPPOSITE_CONTROL:1:15:00": 0,
+      "20260911_S003_EX13:REGIME_PULLBACK:-1:15:00": 0,
+      "20260911_S003_EX13:REGIME_PULLBACK:1:15:00": 0,
+      "20260911_S003_EX15:ABNORMAL_ACTIVITY_CONTINUATION:OPPOSITE:-1": 0,
+      "20260911_S003_EX15:ABNORMAL_ACTIVITY_CONTINUATION:OPPOSITE:1": 0,
+      "20260911_S003_EX15:ABNORMAL_ACTIVITY_CONTINUATION:PRIMARY:-1": 0,
+      "20260911_S003_EX15:ABNORMAL_ACTIVITY_CONTINUATION:PRIMARY:1": 0,
+      "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:OPPOSITE:-1": 0,
+      "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:OPPOSITE:1": 0,
+      "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:PRIMARY:-1": 2,
+      "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:PRIMARY:1": 0,
+      "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:OPPOSITE:-1": 2,
+      "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:OPPOSITE:1": 0,
+      "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:PRIMARY:-1": 0,
+      "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:PRIMARY:1": 0,
+      "20260911_S003_EX16:AFTERNOON_TO_CLOSE:13:05_OPEN:15:00_CLOSE": 0,
+      "20260911_S003_EX16:OPEN_TO_1030:OPEN:10:30_CLOSE": 0,
+      "20260911_S003_EX16:OPEN_TO_1130:OPEN:11:30_CLOSE": 0,
+      "20260911_S003_EX16:OPEN_TO_CLOSE:OPEN:15:00_CLOSE": 0,
+      "20260911_S003_EX16:OVERNIGHT:PREVIOUS_CLOSE:OPEN": 0,
+      "20260911_S003_EX16:SIGNAL_0935_TO_1030:09:40_OPEN:10:30_CLOSE": 0,
+      "20260911_S003_EX16:SIGNAL_0935_TO_1130:09:40_OPEN:11:30_CLOSE": 0,
+      "20260911_S003_EX16:SIGNAL_1030_TO_CLOSE:10:35_OPEN:15:00_CLOSE": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:-1": 6,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1": 41,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:OPPOSITE:-1": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:OPPOSITE:1": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:PRIMARY:-1": 0,
+      "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:PRIMARY:1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:FIXED_LONG:-1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:FIXED_LONG:1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:OPPOSITE:-1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:OPPOSITE:1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:PRIMARY:-1": 0,
+      "20260911_S003_EX18:OPENING_GAP_REVERSION:PRIMARY:1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:-1": 2,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:1": 5,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:OPPOSITE:-1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:OPPOSITE:1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:PRIMARY:-1": 0,
+      "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:PRIMARY:1": 0,
+      "20260911_S003_EX23:OPENING_GAP_REVERSION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX23:OPENING_GAP_REVERSION:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX23:RELATIVE_RESIDUAL_REVERSION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX23:RELATIVE_RESIDUAL_REVERSION:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX23:RELATIVE_STRENGTH_CONTINUATION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX23:RELATIVE_STRENGTH_CONTINUATION:PRIMARY_LONG:1": 2,
+      "20260911_S003_EX27:RELATIVE_STRENGTH_WITH_BASIS_CONFIRMATION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX27:RELATIVE_STRENGTH_WITH_BASIS_CONFIRMATION:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1": 7,
+      "20260911_S003_EX38:MARGIN_DELEVERAGING_REVERSAL:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX38:MARGIN_DELEVERAGING_REVERSAL:PRIMARY_LONG:1": 0,
+      "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:OPPOSITE_SHORT:-1": 0,
+      "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1": 30
+    },
+    "splits": [
+      {
+        "split_id": 0,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "validation_blocks": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.2326877741892726,
+        "validation_sharpe": 0.14029158077494228,
+        "validation_rank": 19,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8656716417910447,
+        "logit": 1.8632184332101995
+      },
+      {
+        "split_id": 1,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          5
+        ],
+        "validation_blocks": [
+          4,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.197179388597212,
+        "validation_sharpe": -0.09303560670863618,
+        "validation_rank": 25,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8208955223880597,
+        "logit": 1.522426535444471
+      },
+      {
+        "split_id": 2,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          6
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.9496413907676704,
+        "validation_sharpe": -0.4869444377740373,
+        "validation_rank": 40,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7089552238805971,
+        "logit": 0.8903152454708947
+      },
+      {
+        "split_id": 3,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          7
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.3678439202249244,
+        "validation_sharpe": 0.06275627546859126,
+        "validation_rank": 19,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8656716417910447,
+        "logit": 1.8632184332101995
+      },
+      {
+        "split_id": 4,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          8
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.997007679406774,
+        "validation_sharpe": -0.424023220310871,
+        "validation_rank": 32,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7686567164179104,
+        "logit": 1.2007417837444896
+      },
+      {
+        "split_id": 5,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          9
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8691518783434262,
+        "validation_sharpe": 0.36376791741948655,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 6,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          3,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.4014269167972926,
+        "validation_sharpe": -0.7485223635664405,
+        "validation_rank": 63,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5373134328358209,
+        "logit": 0.14953173397096384
+      },
+      {
+        "split_id": 7,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.341018908524546,
+        "validation_sharpe": -0.7297060936453166,
+        "validation_rank": 53,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6119402985074627,
+        "logit": 0.4554755286828257
+      },
+      {
+        "split_id": 8,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.4267460210199485,
+        "validation_sharpe": 0.03499300563140844,
+        "validation_rank": 19,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8656716417910447,
+        "logit": 1.8632184332101995
+      },
+      {
+        "split_id": 9,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9767688202151802,
+        "validation_sharpe": 0.156686596484542,
+        "validation_rank": 14,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9029850746268657,
+        "logit": 2.230841188135205
+      },
+      {
+        "split_id": 10,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.8396677199985982,
+        "validation_sharpe": -0.5917661283428551,
+        "validation_rank": 56,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5895522388059702,
+        "logit": 0.36211466723455066
+      },
+      {
+        "split_id": 11,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.4504656879954536,
+        "validation_sharpe": -1.005201921931595,
+        "validation_rank": 55,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5970149253731343,
+        "logit": 0.393042588109607
+      },
+      {
+        "split_id": 12,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.3400581871281603,
+        "validation_sharpe": -0.21489693612306687,
+        "validation_rank": 23,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.835820895522388,
+        "logit": 1.6274564179367785
+      },
+      {
+        "split_id": 13,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.1212842963267209,
+        "validation_sharpe": -0.41153465069971146,
+        "validation_rank": 29,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7910447761194029,
+        "logit": 1.331234583936863
+      },
+      {
+        "split_id": 14,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2240020975755403,
+        "validation_sharpe": -0.13744929294435848,
+        "validation_rank": 25,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8208955223880597,
+        "logit": 1.522426535444471
+      },
+      {
+        "split_id": 15,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.0400255239598923,
+        "validation_sharpe": -0.03797856218303992,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 16,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9396952606913415,
+        "validation_sharpe": -0.8972142854876012,
+        "validation_rank": 46,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.664179104477612,
+        "logit": 0.6819738799618202
+      },
+      {
+        "split_id": 17,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.123038384760271,
+        "validation_sharpe": -0.028792946585645855,
+        "validation_rank": 20,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8582089552238806,
+        "logit": 1.80049314919681
+      },
+      {
+        "split_id": 18,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.0907910404169923,
+        "validation_sharpe": 0.07312463183175971,
+        "validation_rank": 11,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9253731343283582,
+        "logit": 2.517696472610991
+      },
+      {
+        "split_id": 19,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.8527184130626257,
+        "validation_sharpe": 0.23177421212096386,
+        "validation_rank": 13,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9104477611940298,
+        "logit": 2.319114394945256
+      },
+      {
+        "split_id": 20,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8742420157372486,
+        "validation_sharpe": 0.31833245208473854,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 21,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          2,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.1447870634960815,
+        "validation_sharpe": -0.041771370924691686,
+        "validation_rank": 31,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7761194029850746,
+        "logit": 1.2431935174792175
+      },
+      {
+        "split_id": 22,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.8881529458340398,
+        "validation_sharpe": -0.4237122973004176,
+        "validation_rank": 48,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6492537313432836,
+        "logit": 0.615760516944525
+      },
+      {
+        "split_id": 23,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.304740202821139,
+        "validation_sharpe": 0.10687033212595255,
+        "validation_rank": 20,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8582089552238806,
+        "logit": 1.80049314919681
+      },
+      {
+        "split_id": 24,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.8703498442621759,
+        "validation_sharpe": 0.233311572016194,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 25,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.7808343439306633,
+        "validation_sharpe": 0.47947470653107577,
+        "validation_rank": 14,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9029850746268657,
+        "logit": 2.230841188135205
+      },
+      {
+        "split_id": 26,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.0480906571233135,
+        "validation_sharpe": -0.677426777051107,
+        "validation_rank": 50,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6343283582089553,
+        "logit": 0.5508309583796901
+      },
+      {
+        "split_id": 27,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.247515493085522,
+        "validation_sharpe": -0.13110221305474956,
+        "validation_rank": 29,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7910447761194029,
+        "logit": 1.331234583936863
+      },
+      {
+        "split_id": 28,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9634251903372256,
+        "validation_sharpe": -0.005117761912319966,
+        "validation_rank": 18,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8731343283582089,
+        "logit": 1.9289605907415397
+      },
+      {
+        "split_id": 29,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.3932126339030928,
+        "validation_sharpe": -0.18988899893456238,
+        "validation_rank": 30,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7835820895522388,
+        "logit": 1.2866645201710496
+      },
+      {
+        "split_id": 30,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9513365612266255,
+        "validation_sharpe": 0.04931979854075799,
+        "validation_rank": 13,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9104477611940298,
+        "logit": 2.319114394945256
+      },
+      {
+        "split_id": 31,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9315426469465352,
+        "validation_sharpe": -0.8006976411685304,
+        "validation_rank": 45,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6716417910447762,
+        "logit": 0.7156200364120041
+      },
+      {
+        "split_id": 32,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2787899854571263,
+        "validation_sharpe": -0.09471925073521961,
+        "validation_rank": 23,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.835820895522388,
+        "logit": 1.6274564179367785
+      },
+      {
+        "split_id": 33,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9864630856812873,
+        "validation_sharpe": 0.1505056719233631,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 34,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.7467798899896387,
+        "validation_sharpe": 0.30864484266135217,
+        "validation_rank": 14,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9029850746268657,
+        "logit": 2.230841188135205
+      },
+      {
+        "split_id": 35,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0106292073535963,
+        "validation_sharpe": 0.2133933816460146,
+        "validation_rank": 17,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8805970149253731,
+        "logit": 1.9980959022258833
+      },
+      {
+        "split_id": 36,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.401419538243457,
+        "validation_sharpe": -0.9314804365428428,
+        "validation_rank": 59,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5671641791044776,
+        "logit": 0.2702903297399117
+      },
+      {
+        "split_id": 37,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.2892763504073967,
+        "validation_sharpe": -0.1626072859660031,
+        "validation_rank": 28,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7985074626865671,
+        "logit": 1.3769919684575769
+      },
+      {
+        "split_id": 38,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9997692174284906,
+        "validation_sharpe": -0.03992885380550022,
+        "validation_rank": 18,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8731343283582089,
+        "logit": 1.9289605907415397
+      },
+      {
+        "split_id": 39,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1554766189339218,
+        "validation_sharpe": 0.021177581031917275,
+        "validation_rank": 28,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7985074626865671,
+        "logit": 1.3769919684575769
+      },
+      {
+        "split_id": 40,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9895248764894179,
+        "validation_sharpe": 0.015938254595923934,
+        "validation_rank": 13,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9104477611940298,
+        "logit": 2.319114394945256
+      },
+      {
+        "split_id": 41,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8199067954051898,
+        "validation_sharpe": -0.7236431101258588,
+        "validation_rank": 47,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6567164179104478,
+        "logit": 0.6486954179891115
+      },
+      {
+        "split_id": 42,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0501279291460035,
+        "validation_sharpe": 0.1259737595942754,
+        "validation_rank": 20,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8582089552238806,
+        "logit": 1.80049314919681
+      },
+      {
+        "split_id": 43,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.0328093193975296,
+        "validation_sharpe": 0.1206146442573917,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 44,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.7922491641955421,
+        "validation_sharpe": 0.2785168110348433,
+        "validation_rank": 17,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8805970149253731,
+        "logit": 1.9980959022258833
+      },
+      {
+        "split_id": 45,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.7896018437315137,
+        "validation_sharpe": 0.4462088251289551,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 46,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.0764141556843692,
+        "validation_sharpe": -0.31138987672871876,
+        "validation_rank": 23,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.835820895522388,
+        "logit": 1.6274564179367785
+      },
+      {
+        "split_id": 47,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.99445771601182,
+        "validation_sharpe": 0.23013681575160364,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 48,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.6112033332481586,
+        "validation_sharpe": -0.6397669314269621,
+        "validation_rank": 45,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6716417910447762,
+        "logit": 0.7156200364120041
+      },
+      {
+        "split_id": 49,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.0920389388394438,
+        "validation_sharpe": -0.13885405107873022,
+        "validation_rank": 20,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8582089552238806,
+        "logit": 1.80049314919681
+      },
+      {
+        "split_id": 50,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1057538568304972,
+        "validation_sharpe": 0.04051533563937293,
+        "validation_rank": 18,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8731343283582089,
+        "logit": 1.9289605907415397
+      },
+      {
+        "split_id": 51,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.3601968939178197,
+        "validation_sharpe": -0.29460524667750054,
+        "validation_rank": 25,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8208955223880597,
+        "logit": 1.522426535444471
+      },
+      {
+        "split_id": 52,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.8556227935182182,
+        "validation_sharpe": -1.1469380827955244,
+        "validation_rank": 51,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6268656716417911,
+        "logit": 0.5187937934151676
+      },
+      {
+        "split_id": 53,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0049118465195577,
+        "validation_sharpe": 0.15103923640330907,
+        "validation_rank": 15,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8955223880597015,
+        "logit": 2.148434413166788
+      },
+      {
+        "split_id": 54,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.255788070830016,
+        "validation_sharpe": -0.19207508740036056,
+        "validation_rank": 18,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8731343283582089,
+        "logit": 1.9289605907415397
+      },
+      {
+        "split_id": 55,
+        "training_blocks": [
+          0,
+          1,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.7516508693381754,
+        "validation_sharpe": 0.486300613069898,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 56,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          1,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9589072573842268,
+        "validation_sharpe": 0.1386726513323091,
+        "validation_rank": 16,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8880597014925373,
+        "logit": 2.0710732920093196
+      },
+      {
+        "split_id": 57,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.7894732911596593,
+        "validation_sharpe": -0.354175496476669,
+        "validation_rank": 31,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7761194029850746,
+        "logit": 1.2431935174792175
+      },
+      {
+        "split_id": 58,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.088577589882565,
+        "validation_sharpe": 0.26261456454684806,
+        "validation_rank": 9,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9402985074626866,
+        "logit": 2.756840365271643
+      },
+      {
+        "split_id": 59,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.999045011986669,
+        "validation_sharpe": -0.383359200295631,
+        "validation_rank": 30,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7835820895522388,
+        "logit": 1.2866645201710496
+      },
+      {
+        "split_id": 60,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9486118193546189,
+        "validation_sharpe": 0.5034179445672957,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 61,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.9603022119267642,
+        "validation_sharpe": -0.6025971191094673,
+        "validation_rank": 41,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7014925373134329,
+        "logit": 0.8544153281560676
+      },
+      {
+        "split_id": 62,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.0680294740415575,
+        "validation_sharpe": 0.05293604886743414,
+        "validation_rank": 13,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9104477611940298,
+        "logit": 2.319114394945256
+      },
+      {
+        "split_id": 63,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8644927317508411,
+        "validation_sharpe": 0.5182373346306351,
+        "validation_rank": 3,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9850746268656716,
+        "logit": 4.1896547420264225
+      },
+      {
+        "split_id": 64,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 1.1131481527516573,
+        "validation_sharpe": 0.23558471111814935,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 65,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.7682809739002869,
+        "validation_sharpe": 0.23693136974113513,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 66,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 1.0421833103740634,
+        "validation_sharpe": -0.8968432407602365,
+        "validation_rank": 43,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6865671641791045,
+        "logit": 0.784118958765672
+      },
+      {
+        "split_id": 67,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9781738464249614,
+        "validation_sharpe": 0.31723326262810403,
+        "validation_rank": 8,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9477611940298507,
+        "logit": 2.8982769374032773
+      },
+      {
+        "split_id": 68,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:15:00",
+        "training_sharpe": 1.2191965641548028,
+        "validation_sharpe": -0.8480105528167136,
+        "validation_rank": 48,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6492537313432836,
+        "logit": 0.615760516944525
+      },
+      {
+        "split_id": 69,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9227806537757112,
+        "validation_sharpe": 0.504862378609201,
+        "validation_rank": 5,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9701492537313433,
+        "logit": 3.4812400893356927
+      },
+      {
+        "split_id": 70,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9571949592150223,
+        "validation_sharpe": 0.4706371311903062,
+        "validation_rank": 8,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9477611940298507,
+        "logit": 2.8982769374032773
+      },
+      {
+        "split_id": 71,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.31085813654911,
+        "validation_sharpe": -0.8578364428780006,
+        "validation_rank": 56,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5895522388059702,
+        "logit": 0.36211466723455066
+      },
+      {
+        "split_id": 72,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.1117332747477182,
+        "validation_sharpe": 0.022223058556634232,
+        "validation_rank": 14,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9029850746268657,
+        "logit": 2.230841188135205
+      },
+      {
+        "split_id": 73,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.8258131387203294,
+        "validation_sharpe": 0.1584096031102407,
+        "validation_rank": 5,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9701492537313433,
+        "logit": 3.4812400893356927
+      },
+      {
+        "split_id": 74,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 1.0347651074552993,
+        "validation_sharpe": 0.3079695990345365,
+        "validation_rank": 9,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9402985074626866,
+        "logit": 2.756840365271643
+      },
+      {
+        "split_id": 75,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:-1",
+        "training_sharpe": 1.0483576821861997,
+        "validation_sharpe": -1.5198657584028217,
+        "validation_rank": 82,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.39552238805970147,
+        "logit": -0.42415724112031705
+      },
+      {
+        "split_id": 76,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX33:BREADTH_THRUST_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9261461618709396,
+        "validation_sharpe": -0.8234796864134853,
+        "validation_rank": 47,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6567164179104478,
+        "logit": 0.6486954179891115
+      },
+      {
+        "split_id": 77,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9066399354048564,
+        "validation_sharpe": 0.3968427274752765,
+        "validation_rank": 9,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9402985074626866,
+        "logit": 2.756840365271643
+      },
+      {
+        "split_id": 78,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:-1",
+        "training_sharpe": 1.101058898211517,
+        "validation_sharpe": -1.4612208211205349,
+        "validation_rank": 78,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.4253731343283582,
+        "logit": -0.3007541540191337
+      },
+      {
+        "split_id": 79,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8286461696119928,
+        "validation_sharpe": 0.5693072918640049,
+        "validation_rank": 2,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9925373134328358,
+        "logit": 4.890349128221751
+      },
+      {
+        "split_id": 80,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8649536466137816,
+        "validation_sharpe": 0.5357088103936318,
+        "validation_rank": 5,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9701492537313433,
+        "logit": 3.4812400893356927
+      },
+      {
+        "split_id": 81,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9227065091588686,
+        "validation_sharpe": -0.06551576416598406,
+        "validation_rank": 5,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9701492537313433,
+        "logit": 3.4812400893356927
+      },
+      {
+        "split_id": 82,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8648681500661505,
+        "validation_sharpe": 0.4178042193739703,
+        "validation_rank": 2,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9925373134328358,
+        "logit": 4.890349128221751
+      },
+      {
+        "split_id": 83,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2973427011133798,
+        "validation_sharpe": -0.0699595405921322,
+        "validation_rank": 14,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9029850746268657,
+        "logit": 2.230841188135205
+      },
+      {
+        "split_id": 84,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:15:00",
+        "training_sharpe": 1.011569880010314,
+        "validation_sharpe": -0.9720430429727108,
+        "validation_rank": 53,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6119402985074627,
+        "logit": 0.4554755286828257
+      },
+      {
+        "split_id": 85,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 1.01792406995798,
+        "validation_sharpe": 0.30642401440013756,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 86,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 1.0476370301049291,
+        "validation_sharpe": 0.264029849152282,
+        "validation_rank": 5,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9701492537313433,
+        "logit": 3.4812400893356927
+      },
+      {
+        "split_id": 87,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:15:00",
+        "training_sharpe": 1.1829466578284449,
+        "validation_sharpe": -1.301591695695698,
+        "validation_rank": 57,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.582089552238806,
+        "logit": 0.3313571359544426
+      },
+      {
+        "split_id": 88,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.895526615133747,
+        "validation_sharpe": 0.3988421686179841,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 89,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9256423479268203,
+        "validation_sharpe": 0.354542628712381,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 90,
+        "training_blocks": [
+          0,
+          2,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8459474218225255,
+        "validation_sharpe": 0.5382465739802385,
+        "validation_rank": 4,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9776119402985075,
+        "logit": 3.776585034533044
+      },
+      {
+        "split_id": 91,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.9031694483482647,
+        "validation_sharpe": -0.533635105439738,
+        "validation_rank": 46,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.664179104477612,
+        "logit": 0.6819738799618202
+      },
+      {
+        "split_id": 92,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 1.0120250563952642,
+        "validation_sharpe": 0.10171881385497054,
+        "validation_rank": 15,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8955223880597015,
+        "logit": 2.148434413166788
+      },
+      {
+        "split_id": 93,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.7356767822734102,
+        "validation_sharpe": 0.24447243591821974,
+        "validation_rank": 8,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9477611940298507,
+        "logit": 2.8982769374032773
+      },
+      {
+        "split_id": 94,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9889188534779985,
+        "validation_sharpe": 0.37291923609667593,
+        "validation_rank": 11,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9253731343283582,
+        "logit": 2.517696472610991
+      },
+      {
+        "split_id": 95,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.7130685745812496,
+        "validation_sharpe": 0.2869386639767785,
+        "validation_rank": 5,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9701492537313433,
+        "logit": 3.4812400893356927
+      },
+      {
+        "split_id": 96,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 1.0317544031530548,
+        "validation_sharpe": -1.1448356202916758,
+        "validation_rank": 66,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5149253731343284,
+        "logit": 0.059719234701622485
+      },
+      {
+        "split_id": 97,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8584476420474166,
+        "validation_sharpe": 0.46340456533368996,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 98,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:15:00",
+        "training_sharpe": 1.018099070922841,
+        "validation_sharpe": -0.6558980692236339,
+        "validation_rank": 41,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7014925373134329,
+        "logit": 0.8544153281560676
+      },
+      {
+        "split_id": 99,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.7715732915404917,
+        "validation_sharpe": 0.6217041002329861,
+        "validation_rank": 4,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9776119402985075,
+        "logit": 3.776585034533044
+      },
+      {
+        "split_id": 100,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8100041800643916,
+        "validation_sharpe": 0.5893105529375889,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 101,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.8441383841269928,
+        "validation_sharpe": 0.0366038061595867,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 102,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8174220434944193,
+        "validation_sharpe": 0.4889455938440304,
+        "validation_rank": 3,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9850746268656716,
+        "logit": 4.1896547420264225
+      },
+      {
+        "split_id": 103,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.507872249697904,
+        "validation_sharpe": -0.12464387005055941,
+        "validation_rank": 16,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8880597014925373,
+        "logit": 2.0710732920093196
+      },
+      {
+        "split_id": 104,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:15:00",
+        "training_sharpe": 0.9533791297888334,
+        "validation_sharpe": -0.8203883902752395,
+        "validation_rank": 46,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.664179104477612,
+        "logit": 0.6819738799618202
+      },
+      {
+        "split_id": 105,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.9719313825146874,
+        "validation_sharpe": 0.3728141884260716,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 106,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2047988969774812,
+        "validation_sharpe": 0.14701737653173483,
+        "validation_rank": 11,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9253731343283582,
+        "logit": 2.517696472610991
+      },
+      {
+        "split_id": 107,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:15:00",
+        "training_sharpe": 1.2344324303849425,
+        "validation_sharpe": -1.2915330365025082,
+        "validation_rank": 64,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5298507462686567,
+        "logit": 0.11954515064978273
+      },
+      {
+        "split_id": 108,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8475947203220955,
+        "validation_sharpe": 0.46687805229772217,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 109,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0768433891162843,
+        "validation_sharpe": 0.2378788212631386,
+        "validation_rank": 8,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9477611940298507,
+        "logit": 2.8982769374032773
+      },
+      {
+        "split_id": 110,
+        "training_blocks": [
+          0,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260911_S003_EX23:RELATIVE_STRENGTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.7986957749196695,
+        "validation_sharpe": -1.0973202064856489,
+        "validation_rank": 58,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5746268656716418,
+        "logit": 0.3007541540191337
+      },
+      {
+        "split_id": 111,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.8770640316003875,
+        "validation_sharpe": -0.002316434093717127,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 112,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.7917519093216229,
+        "validation_sharpe": -1.0584893078385116,
+        "validation_rank": 60,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5597014925373134,
+        "logit": 0.23995066963059078
+      },
+      {
+        "split_id": 113,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.232385220528727,
+        "validation_sharpe": 0.06660610778211867,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 114,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.8714146729512451,
+        "validation_sharpe": 0.11777220955177674,
+        "validation_rank": 8,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9477611940298507,
+        "logit": 2.8982769374032773
+      },
+      {
+        "split_id": 115,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8944712441322004,
+        "validation_sharpe": 0.4459871320512884,
+        "validation_rank": 4,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9776119402985075,
+        "logit": 3.776585034533044
+      },
+      {
+        "split_id": 116,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.9401652292287013,
+        "validation_sharpe": 0.3464545179195395,
+        "validation_rank": 5,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9701492537313433,
+        "logit": 3.4812400893356927
+      },
+      {
+        "split_id": 117,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 1.2424602687265225,
+        "validation_sharpe": -1.3498225832775734,
+        "validation_rank": 70,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.48507462686567165,
+        "logit": -0.05971923470162231
+      },
+      {
+        "split_id": 118,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.7767865084294052,
+        "validation_sharpe": 0.547519427357477,
+        "validation_rank": 4,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9776119402985075,
+        "logit": 3.776585034533044
+      },
+      {
+        "split_id": 119,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8247228207032378,
+        "validation_sharpe": 0.44472065475697387,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 120,
+        "training_blocks": [
+          0,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.7000649998676954,
+        "validation_sharpe": 0.6582416347375528,
+        "validation_rank": 3,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9850746268656716,
+        "logit": 4.1896547420264225
+      },
+      {
+        "split_id": 121,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:15:00",
+        "training_sharpe": 1.0005474455676946,
+        "validation_sharpe": -1.3368980686712653,
+        "validation_rank": 65,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5223880597014925,
+        "logit": 0.08961215868968693
+      },
+      {
+        "split_id": 122,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1705528110092875,
+        "validation_sharpe": 0.08523070280847624,
+        "validation_rank": 8,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9477611940298507,
+        "logit": 2.8982769374032773
+      },
+      {
+        "split_id": 123,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.4495905028577394,
+        "validation_sharpe": -0.20929815146330052,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 124,
+        "training_blocks": [
+          0,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "20260911_S003_EX23:RELATIVE_STRENGTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 1.0212173562136613,
+        "validation_sharpe": -1.5789572957581057,
+        "validation_rank": 78,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.4253731343283582,
+        "logit": -0.3007541540191337
+      },
+      {
+        "split_id": 125,
+        "training_blocks": [
+          0,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:11:30",
+        "training_sharpe": 0.9884512932232541,
+        "validation_sharpe": -1.756147655709938,
+        "validation_rank": 77,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.43283582089552236,
+        "logit": -0.27029032973991196
+      },
+      {
+        "split_id": 126,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          0,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.3809416159930703,
+        "validation_sharpe": -0.7126981107909974,
+        "validation_rank": 65,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5223880597014925,
+        "logit": 0.08961215868968693
+      },
+      {
+        "split_id": 127,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.319513073990274,
+        "validation_sharpe": -0.6937113521730534,
+        "validation_rank": 57,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.582089552238806,
+        "logit": 0.3313571359544426
+      },
+      {
+        "split_id": 128,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.6069089516337626,
+        "validation_sharpe": 0.4613878731070189,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 129,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.29535579713922827,
+        "validation_sharpe": 0.6118543782980411,
+        "validation_rank": 3,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9850746268656716,
+        "logit": 4.1896547420264225
+      },
+      {
+        "split_id": 130,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.8135602805319682,
+        "validation_sharpe": -0.5511083673764802,
+        "validation_rank": 58,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5746268656716418,
+        "logit": 0.3007541540191337
+      },
+      {
+        "split_id": 131,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.4308019335554192,
+        "validation_sharpe": -0.9634774896715443,
+        "validation_rank": 62,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5447761194029851,
+        "logit": 0.17958557697507987
+      },
+      {
+        "split_id": 132,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.7940738366591862,
+        "validation_sharpe": -0.3168747779779982,
+        "validation_rank": 40,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7089552238805971,
+        "logit": 0.8903152454708947
+      },
+      {
+        "split_id": 133,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.7315939821626046,
+        "validation_sharpe": -0.07520067701427176,
+        "validation_rank": 22,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8432835820895522,
+        "logit": 1.6828653809889176
+      },
+      {
+        "split_id": 134,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.369081304674993,
+        "validation_sharpe": -0.2794934957933899,
+        "validation_rank": 37,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7313432835820896,
+        "logit": 1.001448540214462
+      },
+      {
+        "split_id": 135,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.742629837792254,
+        "validation_sharpe": -0.29483321504734583,
+        "validation_rank": 29,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7910447761194029,
+        "logit": 1.331234583936863
+      },
+      {
+        "split_id": 136,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.6217099522230489,
+        "validation_sharpe": 0.642489148853585,
+        "validation_rank": 4,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9776119402985075,
+        "logit": 3.776585034533044
+      },
+      {
+        "split_id": 137,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2630632042084464,
+        "validation_sharpe": -0.17845012576788064,
+        "validation_rank": 31,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7761194029850746,
+        "logit": 1.2431935174792175
+      },
+      {
+        "split_id": 138,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.42078711328729057,
+        "validation_sharpe": 0.5317911641254068,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 139,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.7531071418800376,
+        "validation_sharpe": 0.4866862143246229,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 140,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0097860239350298,
+        "validation_sharpe": 0.15827703518907854,
+        "validation_rank": 16,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8880597014925373,
+        "logit": 2.0710732920093196
+      },
+      {
+        "split_id": 141,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.8054489824095836,
+        "validation_sharpe": -1.2098110207995472,
+        "validation_rank": 78,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.4253731343283582,
+        "logit": -0.3007541540191337
+      },
+      {
+        "split_id": 142,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.2163089325666072,
+        "validation_sharpe": -0.5533163334603707,
+        "validation_rank": 51,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6268656716417911,
+        "logit": 0.5187937934151676
+      },
+      {
+        "split_id": 143,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.8412360071415798,
+        "validation_sharpe": -0.17729686316531337,
+        "validation_rank": 29,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7910447761194029,
+        "logit": 1.331234583936863
+      },
+      {
+        "split_id": 144,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.2676375411052252,
+        "validation_sharpe": -1.1501402138976815,
+        "validation_rank": 81,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.40298507462686567,
+        "logit": -0.3930425881096072
+      },
+      {
+        "split_id": 145,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.1539051491963164,
+        "validation_sharpe": -0.5333860699300552,
+        "validation_rank": 46,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.664179104477612,
+        "logit": 0.6819738799618202
+      },
+      {
+        "split_id": 146,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.6202710987172984,
+        "validation_sharpe": -0.9005432905086528,
+        "validation_rank": 57,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.582089552238806,
+        "logit": 0.3313571359544426
+      },
+      {
+        "split_id": 147,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.2273422299724182,
+        "validation_sharpe": -1.1336588757893136,
+        "validation_rank": 77,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.43283582089552236,
+        "logit": -0.27029032973991196
+      },
+      {
+        "split_id": 148,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.5168495972192808,
+        "validation_sharpe": 0.15592039863258883,
+        "validation_rank": 11,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9253731343283582,
+        "logit": 2.517696472610991
+      },
+      {
+        "split_id": 149,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.6560322573516231,
+        "validation_sharpe": -0.3699302801292138,
+        "validation_rank": 41,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7014925373134329,
+        "logit": 0.8544153281560676
+      },
+      {
+        "split_id": 150,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.802732335871491,
+        "validation_sharpe": 0.4120285075075661,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 151,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.2831373673532929,
+        "validation_sharpe": -0.7841102129181138,
+        "validation_rank": 49,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6417910447761194,
+        "logit": 0.5831462853456166
+      },
+      {
+        "split_id": 152,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.9946284014397456,
+        "validation_sharpe": 0.17644338166782556,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 153,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.583399373912233,
+        "validation_sharpe": -0.7968609532029255,
+        "validation_rank": 55,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5970149253731343,
+        "logit": 0.393042588109607
+      },
+      {
+        "split_id": 154,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.9190788409616454,
+        "validation_sharpe": -0.2753364891768117,
+        "validation_rank": 23,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.835820895522388,
+        "logit": 1.6274564179367785
+      },
+      {
+        "split_id": 155,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1029778942726132,
+        "validation_sharpe": -0.03671284975384493,
+        "validation_rank": 20,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8582089552238806,
+        "logit": 1.80049314919681
+      },
+      {
+        "split_id": 156,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.3446334643781905,
+        "validation_sharpe": -0.4097855292410458,
+        "validation_rank": 32,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7686567164179104,
+        "logit": 1.2007417837444896
+      },
+      {
+        "split_id": 157,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.785430558533136,
+        "validation_sharpe": -1.1072666855571196,
+        "validation_rank": 54,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6044776119402985,
+        "logit": 0.42415724112031683
+      },
+      {
+        "split_id": 158,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0081919669706279,
+        "validation_sharpe": 0.08394379890307942,
+        "validation_rank": 13,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9104477611940298,
+        "logit": 2.319114394945256
+      },
+      {
+        "split_id": 159,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2467751605112507,
+        "validation_sharpe": -0.3002446359435186,
+        "validation_rank": 19,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8656716417910447,
+        "logit": 1.8632184332101995
+      },
+      {
+        "split_id": 160,
+        "training_blocks": [
+          1,
+          2,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.7676016249576859,
+        "validation_sharpe": 0.45706104257917907,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 161,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.381053218575426,
+        "validation_sharpe": -0.8910692395540284,
+        "validation_rank": 64,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5298507462686567,
+        "logit": 0.11954515064978273
+      },
+      {
+        "split_id": 162,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.725267625080189,
+        "validation_sharpe": -0.25792711745808833,
+        "validation_rank": 44,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6791044776119403,
+        "logit": 0.7496593908232875
+      },
+      {
+        "split_id": 163,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.6261903562094758,
+        "validation_sharpe": 0.6357772668390276,
+        "validation_rank": 3,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9850746268656716,
+        "logit": 4.1896547420264225
+      },
+      {
+        "split_id": 164,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.3073644912513795,
+        "validation_sharpe": -0.11648385618883314,
+        "validation_rank": 37,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7313432835820896,
+        "logit": 1.001448540214462
+      },
+      {
+        "split_id": 165,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.6735450576630213,
+        "validation_sharpe": -0.23562827271179984,
+        "validation_rank": 34,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.753731343283582,
+        "logit": 1.118612955374779
+      },
+      {
+        "split_id": 166,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.788112273486696,
+        "validation_sharpe": -1.0031915525159627,
+        "validation_rank": 63,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5373134328358209,
+        "logit": 0.14953173397096384
+      },
+      {
+        "split_id": 167,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1962415070975763,
+        "validation_sharpe": -0.018216132724880357,
+        "validation_rank": 33,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7611940298507462,
+        "logit": 1.1592369104845444
+      },
+      {
+        "split_id": 168,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:1",
+        "training_sharpe": 0.3519857405727947,
+        "validation_sharpe": 0.5759372329250522,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 169,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.6610540279228945,
+        "validation_sharpe": 0.5992429261003572,
+        "validation_rank": 11,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9253731343283582,
+        "logit": 2.517696472610991
+      },
+      {
+        "split_id": 170,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.9306263119707574,
+        "validation_sharpe": 0.2937152518178387,
+        "validation_rank": 14,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9029850746268657,
+        "logit": 2.230841188135205
+      },
+      {
+        "split_id": 171,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8686844725389815,
+        "validation_sharpe": 0.3855044822493879,
+        "validation_rank": 5,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9701492537313433,
+        "logit": 3.4812400893356927
+      },
+      {
+        "split_id": 172,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1466498842068487,
+        "validation_sharpe": 0.0906817128269895,
+        "validation_rank": 16,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8880597014925373,
+        "logit": 2.0710732920093196
+      },
+      {
+        "split_id": 173,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.766041076404665,
+        "validation_sharpe": -0.7645617374961193,
+        "validation_rank": 57,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.582089552238806,
+        "logit": 0.3313571359544426
+      },
+      {
+        "split_id": 174,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:1:15:00",
+        "training_sharpe": 0.9083620351166424,
+        "validation_sharpe": -0.7535788483556796,
+        "validation_rank": 53,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6119402985074627,
+        "logit": 0.4554755286828257
+      },
+      {
+        "split_id": 175,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2508386857158769,
+        "validation_sharpe": -0.10385451809484125,
+        "validation_rank": 28,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7985074626865671,
+        "logit": 1.3769919684575769
+      },
+      {
+        "split_id": 176,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.5102947607319945,
+        "validation_sharpe": -0.42940794709581703,
+        "validation_rank": 37,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7313432835820896,
+        "logit": 1.001448540214462
+      },
+      {
+        "split_id": 177,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.9604741726923616,
+        "validation_sharpe": -1.198473283767733,
+        "validation_rank": 63,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5373134328358209,
+        "logit": 0.14953173397096384
+      },
+      {
+        "split_id": 178,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.144832757875218,
+        "validation_sharpe": -0.0008593963560479085,
+        "validation_rank": 19,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8656716417910447,
+        "logit": 1.8632184332101995
+      },
+      {
+        "split_id": 179,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.4004910134793487,
+        "validation_sharpe": -0.33369205901539684,
+        "validation_rank": 26,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8134328358208955,
+        "logit": 1.472472057360943
+      },
+      {
+        "split_id": 180,
+        "training_blocks": [
+          1,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.886892260101631,
+        "validation_sharpe": 0.32492913689171327,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 181,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.2296814635491016,
+        "validation_sharpe": -0.7158297949571281,
+        "validation_rank": 53,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6119402985074627,
+        "logit": 0.4554755286828257
+      },
+      {
+        "split_id": 182,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.9147749075658801,
+        "validation_sharpe": 0.3108530083858917,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 183,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.5307351628944088,
+        "validation_sharpe": -0.5657862064060196,
+        "validation_rank": 53,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6119402985074627,
+        "logit": 0.4554755286828257
+      },
+      {
+        "split_id": 184,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:1:15:00",
+        "training_sharpe": 0.7701034771912002,
+        "validation_sharpe": -0.6626871670254442,
+        "validation_rank": 53,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6119402985074627,
+        "logit": 0.4554755286828257
+      },
+      {
+        "split_id": 185,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0296887114146527,
+        "validation_sharpe": 0.12493856596033656,
+        "validation_rank": 22,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8432835820895522,
+        "logit": 1.6828653809889176
+      },
+      {
+        "split_id": 186,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2818633775854666,
+        "validation_sharpe": -0.21528422505157127,
+        "validation_rank": 35,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.746268656716418,
+        "logit": 1.0788096613719302
+      },
+      {
+        "split_id": 187,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.9870805770466055,
+        "validation_sharpe": -1.2198708229281272,
+        "validation_rank": 64,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5298507462686567,
+        "logit": 0.11954515064978273
+      },
+      {
+        "split_id": 188,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.9313327168609705,
+        "validation_sharpe": 0.2399871403371824,
+        "validation_rank": 13,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9104477611940298,
+        "logit": 2.319114394945256
+      },
+      {
+        "split_id": 189,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1800511179319966,
+        "validation_sharpe": -0.1086509473622385,
+        "validation_rank": 26,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8134328358208955,
+        "logit": 1.472472057360943
+      },
+      {
+        "split_id": 190,
+        "training_blocks": [
+          1,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.6801760679412325,
+        "validation_sharpe": 0.5802839901845228,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 191,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8716262087010521,
+        "validation_sharpe": 0.34292190336013073,
+        "validation_rank": 8,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9477611940298507,
+        "logit": 2.8982769374032773
+      },
+      {
+        "split_id": 192,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.4748548101671042,
+        "validation_sharpe": -0.5776885215057863,
+        "validation_rank": 39,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7164179104477612,
+        "logit": 0.9267620317414502
+      },
+      {
+        "split_id": 193,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.716051303770833,
+        "validation_sharpe": -0.9582326493559736,
+        "validation_rank": 53,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6119402985074627,
+        "logit": 0.4554755286828257
+      },
+      {
+        "split_id": 194,
+        "training_blocks": [
+          1,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.2323374677472763,
+        "validation_sharpe": -0.2072156476327805,
+        "validation_rank": 25,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8208955223880597,
+        "logit": 1.522426535444471
+      },
+      {
+        "split_id": 195,
+        "training_blocks": [
+          1,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1345622378540288,
+        "validation_sharpe": -0.09444190540101925,
+        "validation_rank": 16,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8880597014925373,
+        "logit": 2.0710732920093196
+      },
+      {
+        "split_id": 196,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.2892724479278548,
+        "validation_sharpe": -0.8181324377467756,
+        "validation_rank": 61,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5522388059701493,
+        "logit": 0.2097205309820693
+      },
+      {
+        "split_id": 197,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:PRIMARY:-1",
+        "training_sharpe": 0.8884623937291467,
+        "validation_sharpe": -0.7144564225393113,
+        "validation_rank": 55,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5970149253731343,
+        "logit": 0.393042588109607
+      },
+      {
+        "split_id": 198,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:-1",
+        "training_sharpe": 0.6593463573639196,
+        "validation_sharpe": -0.7268407345369485,
+        "validation_rank": 54,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6044776119402985,
+        "logit": 0.42415724112031683
+      },
+      {
+        "split_id": 199,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.946534763226271,
+        "validation_sharpe": 0.3498182428155701,
+        "validation_rank": 13,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9104477611940298,
+        "logit": 2.319114394945256
+      },
+      {
+        "split_id": 200,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:-1",
+        "training_sharpe": 1.058879324989161,
+        "validation_sharpe": -1.4022764154425305,
+        "validation_rank": 79,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.417910447761194,
+        "logit": -0.3313571359544425
+      },
+      {
+        "split_id": 201,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.9507580288783377,
+        "validation_sharpe": -1.1063013685775425,
+        "validation_rank": 65,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5223880597014925,
+        "logit": 0.08961215868968693
+      },
+      {
+        "split_id": 202,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8288553947721824,
+        "validation_sharpe": 0.4467018489574202,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 203,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:-1",
+        "training_sharpe": 1.1250326370848647,
+        "validation_sharpe": -1.35113448133631,
+        "validation_rank": 76,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.44029850746268656,
+        "logit": -0.2399506696305909
+      },
+      {
+        "split_id": 204,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX15:DIRECTIONAL_EFFICIENCY_CONTINUATION:PRIMARY:-1",
+        "training_sharpe": 0.9141198258619616,
+        "validation_sharpe": -0.7888006541714455,
+        "validation_rank": 61,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5522388059701493,
+        "logit": 0.2097205309820693
+      },
+      {
+        "split_id": 205,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.6946765945119161,
+        "validation_sharpe": 0.6659143829594258,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 206,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.7700318176697872,
+        "validation_sharpe": -0.39424907473410487,
+        "validation_rank": 26,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8134328358208955,
+        "logit": 1.472472057360943
+      },
+      {
+        "split_id": 207,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.7599111787527935,
+        "validation_sharpe": 0.5254169753548066,
+        "validation_rank": 4,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9776119402985075,
+        "logit": 3.776585034533044
+      },
+      {
+        "split_id": 208,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.4623620191767,
+        "validation_sharpe": -0.1977451271835712,
+        "validation_rank": 21,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8507462686567164,
+        "logit": 1.7404661748405046
+      },
+      {
+        "split_id": 209,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:15:00",
+        "training_sharpe": 0.7292137384863125,
+        "validation_sharpe": -0.6802952676113934,
+        "validation_rank": 43,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6865671641791045,
+        "logit": 0.784118958765672
+      },
+      {
+        "split_id": 210,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8932922384496471,
+        "validation_sharpe": 0.3778637615013558,
+        "validation_rank": 9,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9402985074626866,
+        "logit": 2.756840365271643
+      },
+      {
+        "split_id": 211,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1803111533236796,
+        "validation_sharpe": 0.09287298671076877,
+        "validation_rank": 11,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9253731343283582,
+        "logit": 2.517696472610991
+      },
+      {
+        "split_id": 212,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 1.1287363364858374,
+        "validation_sharpe": -1.2948818819173396,
+        "validation_rank": 65,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5223880597014925,
+        "logit": 0.08961215868968693
+      },
+      {
+        "split_id": 213,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.7818762577888261,
+        "validation_sharpe": 0.4790882322048659,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 214,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0639188476281718,
+        "validation_sharpe": 0.18913543859282003,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 215,
+        "training_blocks": [
+          2,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.6807146897772736,
+        "validation_sharpe": 0.6709250300906003,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 216,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.1345060796311974,
+        "validation_sharpe": -0.6446819003968262,
+        "validation_rank": 48,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6492537313432836,
+        "logit": 0.615760516944525
+      },
+      {
+        "split_id": 217,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.7222177578899333,
+        "validation_sharpe": -1.0167792422784157,
+        "validation_rank": 60,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5597014925373134,
+        "logit": 0.23995066963059078
+      },
+      {
+        "split_id": 218,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 1.2335490906607054,
+        "validation_sharpe": -1.3535138474543777,
+        "validation_rank": 81,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.40298507462686567,
+        "logit": -0.3930425881096072
+      },
+      {
+        "split_id": 219,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:PRIOR_INTRADAY_CONTINUATION:FIXED_LONG:-1",
+        "training_sharpe": 0.6871724854610416,
+        "validation_sharpe": -0.7439537542801314,
+        "validation_rank": 49,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.6417910447761194,
+        "logit": 0.5831462853456166
+      },
+      {
+        "split_id": 220,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.8017642052865929,
+        "validation_sharpe": 0.5340173025677468,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 221,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.9384071609537369,
+        "validation_sharpe": 0.30487792743800085,
+        "validation_rank": 9,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9402985074626866,
+        "logit": 2.756840365271643
+      },
+      {
+        "split_id": 222,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:-1",
+        "training_sharpe": 1.3518518460671973,
+        "validation_sharpe": -1.6957933797243074,
+        "validation_rank": 83,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.3880597014925373,
+        "logit": -0.45547552868282576
+      },
+      {
+        "split_id": 223,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:OPPOSITE:-1",
+        "training_sharpe": 0.8205478509694176,
+        "validation_sharpe": -1.0124589678636406,
+        "validation_rank": 66,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5149253731343284,
+        "logit": 0.059719234701622485
+      },
+      {
+        "split_id": 224,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "20260911_S003_EX15:VWAP_DEVIATION_REVERSION:OPPOSITE:-1",
+        "training_sharpe": 0.8756392851513342,
+        "validation_sharpe": -1.221711129754857,
+        "validation_rank": 64,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5298507462686567,
+        "logit": 0.11954515064978273
+      },
+      {
+        "split_id": 225,
+        "training_blocks": [
+          2,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "20260911_S003_EX18:LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG:-1",
+        "training_sharpe": 0.6811399855057405,
+        "validation_sharpe": -1.2871489945071897,
+        "validation_rank": 71,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.47761194029850745,
+        "logit": -0.08961215868968704
+      },
+      {
+        "split_id": 226,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.8878680489750398,
+        "validation_sharpe": -1.2231190696035086,
+        "validation_rank": 58,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5746268656716418,
+        "logit": 0.3007541540191337
+      },
+      {
+        "split_id": 227,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1571752041460601,
+        "validation_sharpe": 0.021853587845353482,
+        "validation_rank": 8,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9477611940298507,
+        "logit": 2.8982769374032773
+      },
+      {
+        "split_id": 228,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.419560312962356,
+        "validation_sharpe": -0.2973788080331177,
+        "validation_rank": 14,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9029850746268657,
+        "logit": 2.230841188135205
+      },
+      {
+        "split_id": 229,
+        "training_blocks": [
+          2,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8923137652657972,
+        "validation_sharpe": 0.33489299345341533,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 230,
+        "training_blocks": [
+          2,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX05:M07:11:30",
+        "training_sharpe": 1.0155003228102726,
+        "validation_sharpe": -1.8343804618470227,
+        "validation_rank": 79,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.417910447761194,
+        "logit": -0.3313571359544425
+      },
+      {
+        "split_id": 231,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          8,
+          9
+        ],
+        "selected_candidate": "20260911_S003_EX13:OPPOSITE_CONTROL:-1:15:00",
+        "training_sharpe": 0.7071812411100895,
+        "validation_sharpe": -0.3302523257301158,
+        "validation_rank": 30,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.7835820895522388,
+        "logit": 1.2866645201710496
+      },
+      {
+        "split_id": 232,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          7,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 0.8955371989001221,
+        "validation_sharpe": -1.1128020387513486,
+        "validation_rank": 67,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5074626865671642,
+        "logit": 0.029852963149681343
+      },
+      {
+        "split_id": 233,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          7,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.407695336068559,
+        "validation_sharpe": -0.05781493456188469,
+        "validation_rank": 23,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.835820895522388,
+        "logit": 1.6274564179367785
+      },
+      {
+        "split_id": 234,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:1:15:00",
+        "training_sharpe": 0.907261317738761,
+        "validation_sharpe": -0.7427124580663305,
+        "validation_rank": 57,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.582089552238806,
+        "logit": 0.3313571359544426
+      },
+      {
+        "split_id": 235,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8029478927591482,
+        "validation_sharpe": 0.48604055770029403,
+        "validation_rank": 9,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9402985074626866,
+        "logit": 2.756840365271643
+      },
+      {
+        "split_id": 236,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.1083251012570217,
+        "validation_sharpe": 0.2163999520802362,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      },
+      {
+        "split_id": 237,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 1.372058209625019,
+        "validation_sharpe": -1.3943514474462686,
+        "validation_rank": 75,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.44776119402985076,
+        "logit": -0.20972053098206914
+      },
+      {
+        "split_id": 238,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.6855521454323127,
+        "validation_sharpe": 0.5835280860945811,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 239,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.985006203661861,
+        "validation_sharpe": 0.3096640502180429,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 240,
+        "training_blocks": [
+          3,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          6
+        ],
+        "selected_candidate": "20260911_S003_EX45:CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION:PRIMARY_LONG:1",
+        "training_sharpe": 0.5259617850966285,
+        "validation_sharpe": 0.7869452378369776,
+        "validation_rank": 7,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9552238805970149,
+        "logit": 3.060270794691562
+      },
+      {
+        "split_id": 241,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 1.0684866805326372,
+        "validation_sharpe": -1.3077992572357944,
+        "validation_rank": 65,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5223880597014925,
+        "logit": 0.08961215868968693
+      },
+      {
+        "split_id": 242,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.3359208330127554,
+        "validation_sharpe": -0.044063063881589815,
+        "validation_rank": 13,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9104477611940298,
+        "logit": 2.319114394945256
+      },
+      {
+        "split_id": 243,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.6215217645487048,
+        "validation_sharpe": -0.3319741293125748,
+        "validation_rank": 20,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8582089552238806,
+        "logit": 1.80049314919681
+      },
+      {
+        "split_id": 244,
+        "training_blocks": [
+          3,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0473906511947497,
+        "validation_sharpe": 0.23942262855044222,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 245,
+        "training_blocks": [
+          3,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 1.012402234738689,
+        "validation_sharpe": -1.3214099192253155,
+        "validation_rank": 64,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.5298507462686567,
+        "logit": 0.11954515064978273
+      },
+      {
+        "split_id": 246,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          9
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 1.0955770354232084,
+        "validation_sharpe": -1.3287503218206713,
+        "validation_rank": 70,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.48507462686567165,
+        "logit": -0.05971923470162231
+      },
+      {
+        "split_id": 247,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          8
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.0845458181915952,
+        "validation_sharpe": 0.15993079907989685,
+        "validation_rank": 10,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9328358208955224,
+        "logit": 2.631089159966082
+      },
+      {
+        "split_id": 248,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          7
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.3605772173599726,
+        "validation_sharpe": -0.13799962990943612,
+        "validation_rank": 16,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.8880597014925373,
+        "logit": 2.0710732920093196
+      },
+      {
+        "split_id": 249,
+        "training_blocks": [
+          4,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          6
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 0.8053992757286922,
+        "validation_sharpe": 0.4528159908953764,
+        "validation_rank": 6,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.9626865671641791,
+        "logit": 3.250374491927572
+      },
+      {
+        "split_id": 250,
+        "training_blocks": [
+          4,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          5
+        ],
+        "selected_candidate": "20260910_S003_EX05:M04:11:30",
+        "training_sharpe": 1.0384971723253777,
+        "validation_sharpe": -1.3428593574474192,
+        "validation_rank": 71,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.47761194029850745,
+        "logit": -0.08961215868968704
+      },
+      {
+        "split_id": 251,
+        "training_blocks": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "selected_candidate": "20260910_S003_EX10:CONTINUATION:-1:15:00",
+        "training_sharpe": 1.3001219622535864,
+        "validation_sharpe": -0.12648605458902384,
+        "validation_rank": 12,
+        "validation_candidate_count": 135,
+        "validation_percentile": 0.917910447761194,
+        "logit": 2.414289082574047
+      }
+    ]
+  },
+  "dsr": {
+    "raw": {
+      "observations": 1311,
+      "trial_count": 142.0,
+      "observed_sharpe": 0.6691892103675147,
+      "trial_sharpe_mean": -1.4317011128551762,
+      "trial_sharpe_std": 1.4366982241028377,
+      "expected_max_sharpe": 2.377854161462724,
+      "skew": 2.1107924169374503,
+      "pearson_kurtosis": 41.95541983421125,
+      "test_statistic": -4.0414229259816015,
+      "probability": 2.6563921530610934e-05
+    },
+    "effective": {
+      "observations": 1311,
+      "trial_count": 16.5118449065342,
+      "observed_sharpe": 0.6691892103675147,
+      "trial_sharpe_mean": -1.4317011128551762,
+      "trial_sharpe_std": 1.4366982241028377,
+      "expected_max_sharpe": 1.1756896517317403,
+      "skew": 2.1107924169374503,
+      "pearson_kurtosis": 41.95541983421125,
+      "test_statistic": -1.1980011028125312,
+      "probability": 0.11545829382706368
+    }
+  }
+}

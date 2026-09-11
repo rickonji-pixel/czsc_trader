@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX19",
+  "status": "COMPLETE",
+  "experiment_type": "early_session_statistical_audit",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 346,
+      "sha256": "164c2ccaf6ba833f0eabe129e00f2238ca0d6b32a2bf3890d5e691b593f0a8ff"
+    },
+    "02_design.md": {
+      "bytes": 1773,
+      "sha256": "5d38cc70a2b008a76cb5276683b606a90edfa66d0d2c7de2286c04fce5494436"
+    },
+    "03_execution.md": {
+      "bytes": 186,
+      "sha256": "230ae6f92574c10af3b3e3ef45b12f067e60dd8cd0104ab7a4cacc6fb1285e37"
+    },
+    "04_conclusion.md": {
+      "bytes": 753,
+      "sha256": "8ed23004c6ae30a4129b50904489f7b58299eefa836cf04339dbc915f73d450b"
+    },
+    "artifacts/bootstrap_intervals.csv": {
+      "bytes": 1173,
+      "sha256": "967ccb493338b1c09e39208f38821b0756383a417d5c199903a49d5f2925cc27"
+    },
+    "artifacts/cscv_splits.csv": {
+      "bytes": 36650,
+      "sha256": "79d7801e6a09c099deeb0508c491c6f6c05240e33874d6837d13eccd3ad9e66a"
+    },
+    "artifacts/cyclic_placebo.csv.gz": {
+      "bytes": 13445,
+      "sha256": "8ebdf7f9a7ebc1452dfdb8de9397d00022e1f91f14474b1d4611719d1d2c5bda"
+    },
+    "artifacts/leave_one_year_out.csv": {
+      "bytes": 518,
+      "sha256": "7b12f176300c048592d0c116f9592d01f191d3aea3c0a524c2cca9067cd8efe5"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2575,
+      "sha256": "f547195003677054c55680de64ed49379c67caf508e6549cc8afb30782a40404"
+    },
+    "artifacts/statistical_details.json": {
+      "bytes": 147153,
+      "sha256": "0005ceb5383b400255b85d4d5b73a902fd7b5892d902c2c787ebac9f3ce9e0aa"
+    },
+    "artifacts/statistical_summary.json": {
+      "bytes": 800,
+      "sha256": "444e947a5e7099682766a85c32d2383adafb9ea4b3565461163ddac79d6741fe"
+    },
+    "artifacts/threshold_neighborhood.csv": {
+      "bytes": 470,
+      "sha256": "e4cea7e138e3e3acd230d815d108e11a550005cd9a58d655825b3271a4dbc030"
+    },
+    "artifacts/trial_sharpes.csv": {
+      "bytes": 368,
+      "sha256": "a8ead8211e3710e7cf725dd7a42f53484fdc3383b1b80cf7ef764353a3397e02"
+    },
+    "run_experiment.py": {
+      "bytes": 17884,
+      "sha256": "994a3e1fa75a41bbd8c4b5f885999ff9132dfd83af8e776d90e8af1b870fa399"
+    }
+  }
+}

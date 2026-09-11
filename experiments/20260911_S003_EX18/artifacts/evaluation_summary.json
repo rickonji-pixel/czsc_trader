@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX18",
+  "status": "PASS",
+  "event_manifest_sha256": "f6023aae144f7de9fa2f0ce6b108d814e42ac6c7f64a04dc2123ec2bc8334fbe",
+  "opportunity_manifest_sha256": "57c5bb56bc72b71142959ef95a75dc3bbe3f2f62913d431acf128f67aa0ccdcf",
+  "evaluated_mechanisms": 3,
+  "eligible_for_audit": [
+    "LATE_SESSION_FLOW_CONTINUATION:FIXED_LONG"
+  ],
+  "route_decision": "CONTINUE_AUDIT",
+  "candidate_created": false
+}

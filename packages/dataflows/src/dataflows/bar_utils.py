@@ -8,17 +8,8 @@ from typing import Any
 import pandas as pd
 
 
-SUPPORTED_PERIODS = {"daily", "weekly", "30m"}
-A_SHARE_30M_CLOSE_TIMES = {
-    "10:00:00",
-    "10:30:00",
-    "11:00:00",
-    "11:30:00",
-    "13:30:00",
-    "14:00:00",
-    "14:30:00",
-    "15:00:00",
-}
+INTRADAY_PERIOD_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30}
+SUPPORTED_PERIODS = {"daily", "weekly", *INTRADAY_PERIOD_MINUTES}
 
 _COLUMN_ALIASES = {
     "日期": "Date",
@@ -45,13 +36,43 @@ _COLUMN_ALIASES = {
 
 def normalize_period(period: str) -> str:
     value = str(period).strip().lower()
-    aliases = {"day": "daily", "week": "weekly", "30min": "30m"}
+    aliases = {
+        "day": "daily",
+        "week": "weekly",
+        "1min": "1m",
+        "5min": "5m",
+        "15min": "15m",
+        "30min": "30m",
+    }
     value = aliases.get(value, value)
     if value not in SUPPORTED_PERIODS:
         raise ValueError(
             f"Unsupported period `{period}`. Choose from: {sorted(SUPPORTED_PERIODS)}"
         )
     return value
+
+
+def a_share_intraday_close_times(period: str) -> tuple[str, ...]:
+    """Return causal bar-close timestamps for one complete A-share session."""
+
+    normalized = normalize_period(period)
+    if normalized not in INTRADAY_PERIOD_MINUTES:
+        raise ValueError(f"{period} is not an intraday period")
+    minutes = INTRADAY_PERIOD_MINUTES[normalized]
+    morning = pd.date_range(
+        pd.Timestamp("2000-01-01 09:30") + pd.Timedelta(minutes=minutes),
+        pd.Timestamp("2000-01-01 11:30"),
+        freq=f"{minutes}min",
+    )
+    afternoon = pd.date_range(
+        pd.Timestamp("2000-01-01 13:00") + pd.Timedelta(minutes=minutes),
+        pd.Timestamp("2000-01-01 15:00"),
+        freq=f"{minutes}min",
+    )
+    return tuple(item.strftime("%H:%M:%S") for item in (*morning, *afternoon))
+
+
+A_SHARE_30M_CLOSE_TIMES = set(a_share_intraday_close_times("30m"))
 
 
 def infer_asset_type(symbol: str, requested: str = "auto") -> str:
@@ -164,24 +185,31 @@ def drop_incomplete_intraday_bar(
     return dataframe.loc[timestamps.notna() & (timestamps <= cutoff)].reset_index(drop=True)
 
 
-def validate_a_share_30m_bars(
-    dataframe: pd.DataFrame, *, require_complete_days: bool = False
+def validate_a_share_intraday_bars(
+    dataframe: pd.DataFrame,
+    period: str,
+    *,
+    require_complete_days: bool = False,
 ) -> dict[str, Any]:
+    normalized_period = normalize_period(period)
+    expected_times = set(a_share_intraday_close_times(normalized_period))
     required = {"Date", "Open", "High", "Low", "Close", "Volume"}
     missing = sorted(required.difference(dataframe.columns))
     if missing:
-        raise ValueError(f"Missing required 30m columns: {missing}")
+        raise ValueError(f"Missing required {normalized_period} columns: {missing}")
 
     timestamps = pd.to_datetime(dataframe["Date"], errors="coerce")
     if timestamps.isna().any():
-        raise ValueError("30m data contains invalid timestamps")
+        raise ValueError(f"{normalized_period} data contains invalid timestamps")
     if timestamps.duplicated().any():
-        raise ValueError("30m data contains duplicate timestamps")
+        raise ValueError(f"{normalized_period} data contains duplicate timestamps")
 
     times = set(timestamps.dt.strftime("%H:%M:%S"))
-    unexpected = sorted(times.difference(A_SHARE_30M_CLOSE_TIMES))
+    unexpected = sorted(times.difference(expected_times))
     if unexpected:
-        raise ValueError(f"30m data contains unexpected A-share close times: {unexpected}")
+        raise ValueError(
+            f"{normalized_period} data contains unexpected A-share close times: {unexpected}"
+        )
 
     invalid_ohlc = (
         (dataframe["High"] < dataframe[["Open", "Close"]].max(axis=1))
@@ -190,28 +218,58 @@ def validate_a_share_30m_bars(
         | (dataframe["Volume"] < 0)
     )
     if invalid_ohlc.any():
-        raise ValueError("30m data contains invalid OHLCV relationships")
+        raise ValueError(f"{normalized_period} data contains invalid OHLCV relationships")
 
     counts = timestamps.groupby(timestamps.dt.strftime("%Y-%m-%d")).size()
-    partial_days = [f"{date} has {int(count)} bars" for date, count in counts.items() if count != 8]
+    expected_count = len(expected_times)
+    partial_days = [
+        f"{date} has {int(count)} bars"
+        for date, count in counts.items()
+        if count != expected_count
+    ]
     if require_complete_days and partial_days:
-        raise ValueError("Incomplete A-share 30m trading day: " + ", ".join(partial_days))
+        raise ValueError(
+            f"Incomplete A-share {normalized_period} trading day: "
+            + ", ".join(partial_days)
+        )
     return {
         "bar_count": len(dataframe),
-        "complete_day_count": int((counts == 8).sum()),
+        "complete_day_count": int((counts == expected_count).sum()),
+        "expected_bars_per_day": expected_count,
         "partial_days": partial_days,
+        "session_times": sorted(times),
     }
 
 
-def validate_30m_against_daily(
+def validate_a_share_30m_bars(
+    dataframe: pd.DataFrame, *, require_complete_days: bool = False
+) -> dict[str, Any]:
+    """Backward-compatible wrapper for the original public helper."""
+
+    return validate_a_share_intraday_bars(
+        dataframe,
+        "30m",
+        require_complete_days=require_complete_days,
+    )
+
+
+def validate_intraday_against_daily(
     intraday: pd.DataFrame,
     daily: pd.DataFrame,
+    period: str,
     *,
     price_tolerance: float = 0.005,
     volume_relative_tolerance: float = 1e-5,
     amount_relative_tolerance: float = 1e-5,
 ) -> dict[str, Any]:
-    """Reject overlapping or incomplete 30-minute data via daily reconciliation."""
+    """Reject overlapping or incomplete intraday data via daily reconciliation."""
+
+    normalized_period = normalize_period(period)
+    validate_a_share_intraday_bars(
+        intraday,
+        normalized_period,
+        require_complete_days=True,
+    )
 
     intraday_frame = intraday.copy()
     daily_frame = daily.copy()
@@ -233,7 +291,9 @@ def validate_30m_against_daily(
     reference = daily_frame.drop_duplicates("_date", keep="last").set_index("_date")
     common_days = sorted(set(aggregate.index).intersection(reference.index))
     if not common_days:
-        raise ValueError("No common trading days between 30m and daily data")
+        raise ValueError(
+            f"No common trading days between {normalized_period} and daily data"
+        )
 
     failures: list[str] = []
     for day in common_days:
@@ -252,5 +312,28 @@ def validate_30m_against_daily(
         if mismatched_fields:
             failures.append(f"{day}: {', '.join(mismatched_fields)}")
     if failures:
-        raise ValueError("30m/daily reconciliation failed: " + "; ".join(failures))
+        raise ValueError(
+            f"{normalized_period}/daily reconciliation failed: "
+            + "; ".join(failures)
+        )
     return {"matched_day_count": len(common_days), "matched_days": common_days}
+
+
+def validate_30m_against_daily(
+    intraday: pd.DataFrame,
+    daily: pd.DataFrame,
+    *,
+    price_tolerance: float = 0.005,
+    volume_relative_tolerance: float = 1e-5,
+    amount_relative_tolerance: float = 1e-5,
+) -> dict[str, Any]:
+    """Backward-compatible 30-minute reconciliation wrapper."""
+
+    return validate_intraday_against_daily(
+        intraday,
+        daily,
+        "30m",
+        price_tolerance=price_tolerance,
+        volume_relative_tolerance=volume_relative_tolerance,
+        amount_relative_tolerance=amount_relative_tolerance,
+    )

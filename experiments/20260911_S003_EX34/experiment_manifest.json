@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX34",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "DIAGNOSTIC",
+  "segments_supporting_confirmation": [],
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 263,
+      "sha256": "0a89bc248051c47250526729317c05ffef7a19c94ecdde5e4b4d6c0305a19083"
+    },
+    "02_design.md": {
+      "bytes": 724,
+      "sha256": "91ab6f24780bfe930580bd7640fa610ff90200e2772415bef96be6c4063d87fa"
+    },
+    "03_execution.md": {
+      "bytes": 189,
+      "sha256": "94479b4f554102a0601bd0cfdf7986af2672c825207224b4aa15da8338de1426"
+    },
+    "04_conclusion.md": {
+      "bytes": 189,
+      "sha256": "c7d088e429e5edda088e103522e684c52426a6ca9b9ce9320d11682660310b20"
+    },
+    "artifacts/annual_segment_metrics.csv": {
+      "bytes": 5563,
+      "sha256": "1e16487f8e0e31d061103fce89691afa7fd85832434a189fe40c4732af6024b5"
+    },
+    "artifacts/diagnostic_summary.json": {
+      "bytes": 238,
+      "sha256": "14ecdea57c7401ad1775b4fe3df20b807497ed1115a5f25d1320c0dbb9d5f012"
+    },
+    "artifacts/episode_segments.csv.gz": {
+      "bytes": 128895,
+      "sha256": "c6edfe2de637076da953430170df1c19d8ed9d25ca5e55bef0dfb1212d727869"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2099,
+      "sha256": "7f277d88a2595a0d9009761976736c1a571b942f323b11af6556ad2242b56a4f"
+    },
+    "artifacts/segment_metrics.csv": {
+      "bytes": 1604,
+      "sha256": "c3f3d35463ebcac47a3489f1e958a247bdfd8c25edcf0da68344734ac0e5bf3b"
+    },
+    "run_experiment.py": {
+      "bytes": 8980,
+      "sha256": "f06cb313b8bb6368bbe06a99b81511a3af4458bf7b7411fe716e64636b66c1b1"
+    }
+  }
+}

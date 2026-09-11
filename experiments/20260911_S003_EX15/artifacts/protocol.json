@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX15",
+  "experiment_type": "medium_frequency_direction_evaluation",
+  "inherits": "20260911_S003_EX14",
+  "research_target": {
+    "strategy_id": "S003",
+    "symbol": "510500.SH",
+    "asset_type": "etf",
+    "position_direction": "long_inventory_roll"
+  },
+  "dataset": {
+    "cutoff": "2026-09-08",
+    "evaluation_start": "2021-01-04",
+    "event_experiment": "20260911_S003_EX14",
+    "regime_experiment": "20260910_S003_EX03"
+  },
+  "mechanisms": [
+    "VWAP_DEVIATION_REVERSION",
+    "DIRECTIONAL_EFFICIENCY_CONTINUATION",
+    "ABNORMAL_ACTIVITY_CONTINUATION"
+  ],
+  "execution": {
+    "signal_clock": "10:30",
+    "entry_clock": "10:35",
+    "exit_clock": "15:00",
+    "base_fraction": 0.5,
+    "cash_fraction": 0.5,
+    "baseline_one_way_cost": 0.00012,
+    "stress_one_way_cost": 0.0006,
+    "max_episodes_per_mechanism_day": 1
+  },
+  "density": {
+    "window_sessions": 60,
+    "median_closed_episodes_required": 12,
+    "p10_closed_episodes_required": 6
+  },
+  "acceptance": {
+    "stress_mean_return_min_exclusive": 0.0,
+    "stress_profit_factor_min_exclusive": 1.0,
+    "incremental_terminal_return_min_exclusive": 0.0,
+    "positive_years_required": 4,
+    "must_outperform_opposite_direction": true
+  },
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

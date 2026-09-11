@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX45",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "status": "PASS",
+  "eligible_for_statistical_audit": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 208,
+      "sha256": "d372d5cc9afd4cd8a4c0911627c5f1b25cfffb07687e2721832acc0ed0828a1b"
+    },
+    "02_design.md": {
+      "bytes": 591,
+      "sha256": "35435902118e5296464bc2d8e9bed92f9f2716c6f72b12eeaad8ca77de56caf0"
+    },
+    "03_execution.md": {
+      "bytes": 274,
+      "sha256": "2cbbd5f8d800c98d256058c6c55096ca9c0467a3d3337da26255192ea8bb6196"
+    },
+    "04_conclusion.md": {
+      "bytes": 156,
+      "sha256": "d0eada2a0caca1bd2e7e78d6e3d9a56d1f3e442c617cc5f55fdbb87860a4a538"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 385,
+      "sha256": "936ad02f645ff66a79c764242e79fe9d0118e4317ad422c5643990d057ddb045"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 1127,
+      "sha256": "f1e563e72d37c2bd1c615d00a5ed3ad277cbb0f00e89152209e5b563f9436ab8"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 37244,
+      "sha256": "c9de5143786b65361c0fe3d052e2e4d36d2839186109b9a251de376c2aa58f6e"
+    },
+    "artifacts/evaluation_summary.json": {
+      "bytes": 211,
+      "sha256": "40466ece33b23642b7b6dec3885149dd20603d50743aa95e47594fe504297e83"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 829,
+      "sha256": "1be0b5bc095de5b58718c945b7c9bb08c19f5bec8e46b93a8d6c6dbc256ae39f"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1647,
+      "sha256": "93482745049257f46a25ac6dc4fe651b564cc15201da5eb079c26577f6501f40"
+    },
+    "run_experiment.py": {
+      "bytes": 5766,
+      "sha256": "2ef23ab5effaa5498633351a5b554fb663d8b2dc36f281c7f154ab5fcfdbf576"
+    }
+  }
+}

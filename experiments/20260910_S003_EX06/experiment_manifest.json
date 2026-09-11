@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX06",
+  "status": "COMPLETE",
+  "experiment_type": "intraday_inventory_feasibility",
+  "strategy_id": "S003",
+  "symbol": "510500.SH",
+  "development_cutoff": "2026-09-08",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 319,
+      "sha256": "28039656e9409a8a8d32d601d2b39bf6822f9fe7930ee4deef4f5b85d21b8378"
+    },
+    "02_design.md": {
+      "bytes": 1510,
+      "sha256": "ad503d16291ed82b94c15d785b8a507da5e5693518d768fbf33ea877fb8bd9c6"
+    },
+    "03_execution.md": {
+      "bytes": 255,
+      "sha256": "4d2524532e0ec673714d287281f309509a0f55165d07d5968349387d58b17fa8"
+    },
+    "04_conclusion.md": {
+      "bytes": 913,
+      "sha256": "bb3af7aa1ef43f7c02b2016f57c838d0e991a54997e35bebf1bf2115c9ba9ce5"
+    },
+    "artifacts/account_metrics.csv": {
+      "bytes": 7766,
+      "sha256": "ffc8250332e394a34cd41c67fe1ce46fe47401ad40e6a35ee141ff63c1eaec3d"
+    },
+    "artifacts/annual_metrics.csv": {
+      "bytes": 27033,
+      "sha256": "3cc8bebb56f78a3d2fa44e57c1788b63a55c6a04834f2a77c1ddbf86576ba7ab"
+    },
+    "artifacts/episodes.csv.gz": {
+      "bytes": 1351529,
+      "sha256": "6e3013ec50d61d22e591bcdd45c8b057ecaa05f88a967f553f79c235626ffa17"
+    },
+    "artifacts/inventory_summary.json": {
+      "bytes": 508,
+      "sha256": "367e19d729bd1d0f1d54c59c641f3c3224adc253037c9f107b9da26d314d9b83"
+    },
+    "artifacts/mechanism_metrics.csv": {
+      "bytes": 8173,
+      "sha256": "d1c65b17777569cc83467b17f602fdcb80ae4506f1d641647f935f5908ea26ca"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2991,
+      "sha256": "84ffd714379226122b6b66da95cc0ac10f860ffef407a132455839fc9f4c0017"
+    },
+    "artifacts/regime_metrics.csv": {
+      "bytes": 13993,
+      "sha256": "1575eac5811a4a26bc3eb2db3ba9cc06ba8be1aaba1e568ce44a9bf6af41aba8"
+    },
+    "run_experiment.py": {
+      "bytes": 7097,
+      "sha256": "a3c8aece70229dca02c6663969c8bde9a8327e5e814eb224c0f5869583776f45"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260910_S003_EX08",
+  "status": "PASS",
+  "hypothesis_protocol_sha": "3b83eab26de0c6c600cf13cdcc9087513d76b8402d7a0b514984f60cde59f631",
+  "invalid_predecessor_status": "INVALID",
+  "evaluated_pairs": 7,
+  "evidence_counts": {
+    "BASELINE_DIRECTION_FAIL": 4,
+    "STRESS_FAIL": 3
+  },
+  "exit_reason_counts": {
+    "forced_close": 3062,
+    "paired_state": 3957
+  },
+  "signal_generation_failures": [],
+  "route_decision": "STOP_NATIVE_DEFAULT_ROUTE",
+  "candidate_created": false
+}

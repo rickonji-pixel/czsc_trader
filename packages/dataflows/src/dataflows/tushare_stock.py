@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from .bar_utils import (
+    INTRADAY_PERIOD_MINUTES,
     adjustment_factor_sha256,
     apply_hfq_adjustment,
     drop_incomplete_intraday_bar,
@@ -14,7 +15,7 @@ from .bar_utils import (
     normalize_adjustment_factors,
     normalize_period,
     standardize_vendor_ohlcv,
-    validate_a_share_30m_bars,
+    validate_a_share_intraday_bars,
 )
 from .formatting import format_dataframe_report
 from .indicator_utils import compute_indicator_report
@@ -67,18 +68,25 @@ def _standardize_a_share_tushare_ohlcv(
     return normalized
 
 
-def _merge_opening_auction_into_first_30m_bar(dataframe: pd.DataFrame) -> pd.DataFrame:
-    """Fold Tushare's 09:30 auction record into the 10:00 close-time bar."""
+def _merge_opening_auction_into_first_bar(
+    dataframe: pd.DataFrame, period: str
+) -> pd.DataFrame:
+    """Fold Tushare's 09:30 auction record into the first completed bar."""
 
     if dataframe.empty:
         return dataframe.copy()
 
     frame = dataframe.copy()
     timestamps = pd.to_datetime(frame["Date"], errors="coerce")
+    minutes = INTRADAY_PERIOD_MINUTES[period]
     merged_auction_indices: list[int] = []
     for auction_index in frame.index[timestamps.dt.strftime("%H:%M:%S") == "09:30:00"]:
         auction_time = timestamps.loc[auction_index]
-        target_time = auction_time.normalize() + pd.Timedelta(hours=10)
+        target_time = (
+            auction_time.normalize()
+            + pd.Timedelta(hours=9, minutes=30)
+            + pd.Timedelta(minutes=minutes)
+        )
         target_indices = frame.index[timestamps == target_time]
         if target_indices.empty:
             continue
@@ -122,17 +130,25 @@ def _fetch_tushare_ohlcv(
                 "use dataflows.tushare_etf.get_etf instead"
             )
         module = get_tushare_module(env_file)
-        fetch_frequency = {"daily": "D", "weekly": "W", "30m": "30min"}[period]
+        intraday = period in INTRADAY_PERIOD_MINUTES
+        fetch_frequency = {
+            "daily": "D",
+            "weekly": "W",
+            **{
+                item: f"{minutes}min"
+                for item, minutes in INTRADAY_PERIOD_MINUTES.items()
+            },
+        }[period]
         dataframe = module.pro_bar(
             ts_code=ts_code,
             start_date=(
                 _intraday_boundary(start_date, end=False)
-                if period == "30m"
+                if intraday
                 else start_date.replace("-", "")
             ),
             end_date=(
                 _intraday_boundary(end_date, end=True)
-                if period == "30m"
+                if intraday
                 else end_date.replace("-", "")
             ),
             freq=fetch_frequency,
@@ -142,15 +158,19 @@ def _fetch_tushare_ohlcv(
         if dataframe is None or dataframe.empty:
             return pd.DataFrame(), market, ts_code
         normalized = _standardize_a_share_tushare_ohlcv(
-            dataframe, intraday=period == "30m"
+            dataframe, intraday=intraday
         )
-        if period == "30m":
-            normalized = _merge_opening_auction_into_first_30m_bar(normalized)
+        if intraday:
+            normalized = _merge_opening_auction_into_first_bar(normalized, period)
             normalized = drop_incomplete_intraday_bar(normalized)
-            validate_a_share_30m_bars(normalized)
+            validate_a_share_intraday_bars(normalized, period)
         return normalized, market, ts_code
 
     pro = get_tushare_pro(env_file)
+    if period in {"1m", "5m", "15m"}:
+        raise ValueError(
+            "Tushare HK/US minute bars are currently wired only for period=30m"
+        )
     if period == "30m" and market == MARKET_US:
         raise ValueError("Tushare US 30m bars are not wired in this implementation")
     method_name = "hk_mins" if period == "30m" else {MARKET_HK: "hk_daily", MARKET_US: "us_daily"}[market]

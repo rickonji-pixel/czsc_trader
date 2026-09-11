@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX40",
+  "experiment_type": "corporate_action_aware_etf_share_nav_data_gate",
+  "inherits": ["20260911_S003_EX39"],
+  "research_target": {
+    "strategy_id": "S003",
+    "trade_symbol": "510500.SH"
+  },
+  "dataset": {
+    "development_cutoff": "2026-09-08",
+    "source_experiment": "20260911_S003_EX39",
+    "source_manifest_sha256": "dfe57b2a76202e569a4f36215355e9ed91858eb438b0ea8907da0b64a94f4761",
+    "source_panel_sha256": "ec1e343c0f91918d04adf632bfcc8edfdbb1e545ff01b1fdd56574589f0de5e2",
+    "source_quality_sha256": "efe59d186ab99c46cdb9b470c7d4df01b04c2ab6d6997b685a4db480be43153f"
+  },
+  "corporate_actions": [
+    {
+      "date": "2022-08-26",
+      "type": "FUND_SHARE_SPLIT",
+      "secondary_market_resume_date": "2022-08-29",
+      "source": "https://www.nffund.com/DownLoader.java?filePath=%252Fmain%252Ffiles%252F2022%252F08%252F22%252F513929807319.pdf&utf8=1"
+    }
+  ],
+  "corporate_action_checks": {
+    "maximum_share_nav_reciprocal_error": 0.02,
+    "maximum_next_session_close_nav_deviation": 0.02,
+    "exclude_from_flow_feature": true,
+    "exclude_from_premium_feature": true
+  },
+  "quality_gate": {
+    "minimum_share_calendar_coverage_ratio": 0.95,
+    "minimum_nav_calendar_coverage_ratio": 0.95,
+    "unique_share_dates": true,
+    "unique_nav_dates": true,
+    "positive_finite_share_and_nav": true,
+    "announcement_not_before_nav_date": true,
+    "maximum_p95_combined_availability_delay_sessions": 3,
+    "maximum_normal_day_absolute_close_nav_deviation": 0.1,
+    "no_forward_fill": true
+  },
+  "conditional_return_analysis": false,
+  "signal_generation": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

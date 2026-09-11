@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260911_S003_EX15",
+  "status": "PASS",
+  "event_manifest_sha256": "53d1c6f91deacd8cf8bd1181381cee32a678fb3c4a42e4aad6cf3b41b5ae99c7",
+  "regime_manifest_sha256": "7f7319d7fede9c6ad2e7085da9d77aea178df94ccaaec09af05fc13888420172",
+  "evaluated_mechanisms": 3,
+  "feasible_mechanisms": 0,
+  "eligible_for_audit": [],
+  "route_decision": "STOP_MEDIUM_FREQUENCY_ROUTE",
+  "candidate_created": false
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX40",
+  "experiment_type": "fixed_margin_risk_overlay_feasibility",
+  "research_target": {
+    "strategy_id": "S004",
+    "base_candidate": "S004-C001",
+    "prospective_candidate": "S004-C002",
+    "symbol": "588080.SH",
+    "risk_path": "ACCUM_Q60"
+  },
+  "dataset": {
+    "development_cutoff": "2026-09-02",
+    "market_directory": "data/raw",
+    "market_manifest": "data/raw/588080_manifest.json",
+    "market_manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "upstream": {
+    "base_episodes": "experiments/S004/20260912_S004_EX12/artifacts/candidate_episodes.csv.gz",
+    "base_episodes_sha256": "9db9f489e565ff97ebddafd3b59e4133c9e756bfd48a9fe32cdf3e795995f1da",
+    "base_metrics": "experiments/S004/20260912_S004_EX12/artifacts/candidate_metrics.json",
+    "base_metrics_sha256": "e8560d7041ee0317c7c5a01138505bf71bc55e783c510b637c535a0bf3d6da3f",
+    "risk_event_panel": "experiments/S004/20260913_S004_EX37/artifacts/event_panel.csv.gz",
+    "risk_event_panel_sha256": "5faa2236a40983cdc2e690c4b26866275902130d4e087c80bbac8ccdd0551921",
+    "replication_manifest": "experiments/S004/20260913_S004_EX39/experiment_manifest.json",
+    "replication_manifest_sha256": "d6b500ca351291eb7a7d60f47fdec66cedc897bdfad8e13ff7a8bb77f537465d",
+    "replication_evaluation": "experiments/S004/20260913_S004_EX39/artifacts/evaluation.json",
+    "replication_evaluation_sha256": "576290f6780e8a80c1a8db39e44ea49dcfa26c99d0bf1a64578eb8cb0f012b3f"
+  },
+  "overlay": {
+    "deny_entry_when_same_source_session_is_risk_event": true,
+    "risk_event_information_available_before_entry": true,
+    "other_changes_allowed": false
+  },
+  "density_gate": {
+    "evaluation_start": "2021-06-01",
+    "rolling_sessions": 60,
+    "median_minimum": 12,
+    "median_maximum": 20,
+    "p10_minimum": 8
+  },
+  "acceptance": {
+    "removed_stress_mean_max_exclusive": 0.0,
+    "filtered_stress_mean_must_exceed_base": true,
+    "filtered_profit_factor_must_exceed_base": true,
+    "low_vol_stress_mean_min_exclusive": 0.0,
+    "low_vol_profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 5,
+    "recent_252_stress_mean_min_exclusive": 0.0
+  },
+  "search_accounting": {
+    "prior_return_paths": 73,
+    "new_return_paths": 1,
+    "cumulative_return_paths": 74
+  },
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}
+

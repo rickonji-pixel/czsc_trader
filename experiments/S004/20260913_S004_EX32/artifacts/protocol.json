@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX32",
+  "experiment_type": "etf_primary_market_causal_availability_gate",
+  "research_target": {
+    "strategy_id": "S004",
+    "trade_symbol": "588080.SH",
+    "decision_time": "TRADE_DATE_20_30_ASIA_SHANGHAI"
+  },
+  "dataset": {
+    "start": "2020-11-16",
+    "development_cutoff": "2026-09-02"
+  },
+  "account": {
+    "tushare_points": 5000
+  },
+  "sources": {
+    "fund_nav": {
+      "documentation": "https://tushare.pro/document/2?doc_id=119",
+      "minimum_points": 2000,
+      "fields": ["ts_code", "ann_date", "nav_date", "unit_nav", "adj_nav"],
+      "exact_publication_time_documented": false
+    },
+    "fund_share": {
+      "documentation": "https://tushare.pro/document/2?doc_id=207",
+      "minimum_points": 2000,
+      "fields": ["ts_code", "trade_date", "fd_share"],
+      "announcement_field_available": false,
+      "exact_publication_time_documented": false
+    },
+    "etf_share_size": {
+      "documentation": "https://tushare.pro/document/2?doc_id=408",
+      "minimum_points": 8000,
+      "documented_publication": "PREVIOUS_TRADE_DATE_DATA_AROUND_NEXT_DAY_08_30"
+    },
+    "fund_daily": {
+      "fields": ["ts_code", "trade_date", "close"]
+    }
+  },
+  "quality_gate": {
+    "unique_dates": true,
+    "complete_market_close_coverage": true,
+    "same_day_nav_must_cover_all_sessions": true,
+    "publication_before_20_30_must_be_provable": true,
+    "required_points_must_not_exceed_account_points": true
+  },
+  "preflight_access_and_field_probe_performed": true,
+  "conditional_return_analysis": false,
+  "event_generation": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

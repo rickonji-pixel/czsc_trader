@@ -1,0 +1,4 @@
+path_id,threshold_quantile,event_count,rolling_60_median,rolling_60_p10,rolling_60_min,low_volatility_events,low_volatility_share,density_eligible
+MFU-Q50,0.5,97,4.0,1.0,0.0,48,0.4948453608247423,False
+MFU-Q60,0.6,82,3.0,1.0,0.0,42,0.5121951219512195,False
+MFU-Q70,0.7,50,2.0,0.0,0.0,25,0.5,False

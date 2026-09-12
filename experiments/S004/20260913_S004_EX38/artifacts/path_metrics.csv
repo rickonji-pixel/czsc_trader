@@ -1,0 +1,2 @@
+path_id,trades,gross_mean,stress_mean,profit_factor,positive_years,evaluated_years,low_vol_trades,low_vol_stress_mean,low_vol_profit_factor,recent_252_start,recent_252_trades,recent_252_stress_mean,quality_pass
+ACCUM_Q60,335,-0.0005557605754597376,-0.0017557605754597372,0.6918637824680824,0,6,168,-0.0015209515546951657,0.6675101245968134,2025-08-20,63,-0.0011786103127260149,False

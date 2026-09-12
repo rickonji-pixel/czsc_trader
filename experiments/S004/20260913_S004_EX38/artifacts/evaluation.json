@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX38",
+  "status": "FAIL",
+  "qualified_path": null,
+  "route_decision": "STOP_MARGIN_BEHAVIOR_FAMILY",
+  "candidate_created": false
+}

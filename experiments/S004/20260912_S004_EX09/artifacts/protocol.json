@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX09",
+  "experiment_type": "closing_dislocation_proxy_direction_test",
+  "research_target": {"strategy_id": "S004", "symbol": "588080.SH"},
+  "dataset": {
+    "directory": "data/raw",
+    "cutoff": "2026-09-02",
+    "event_experiment": "20260912_S004_EX08"
+  },
+  "mechanisms": [
+    "LATE_PATH_SELLING",
+    "CLOSE_VWAP_DISLOCATION",
+    "LATE_VOLUME_PRESSURE",
+    "LATE_ACCELERATION"
+  ],
+  "execution": {
+    "entry_clock": "09:35",
+    "entry_shift_sessions": 1,
+    "exit_clock": "09:35",
+    "exit_shift_sessions": 2,
+    "baseline_one_way_cost": 0.00012,
+    "stress_one_way_cost": 0.0006
+  },
+  "random_control": {"iterations": 1000, "seed": 20260912, "within_year_circular_shift": true},
+  "acceptance": {
+    "density_evidence_required": "DENSITY_CAPABLE",
+    "stress_mean_min_exclusive": 0.0,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_min": 4,
+    "recent_sessions": 252,
+    "recent_mean_min_exclusive": 0.0,
+    "random_percentile_min": 90.0
+  },
+  "registered_trials": 4,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

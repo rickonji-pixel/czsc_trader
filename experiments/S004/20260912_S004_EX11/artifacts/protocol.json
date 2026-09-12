@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX11",
+  "experiment_type": "closing_dislocation_structural_audit_corrected",
+  "research_target": {"strategy_id": "S004", "symbol": "588080.SH"},
+  "dataset": {"directory": "data/raw", "cutoff": "2026-09-02", "source_experiment": "20260912_S004_EX09"},
+  "mechanisms": ["LATE_PATH_SELLING", "LATE_VOLUME_PRESSURE", "CLOSE_VWAP_DISLOCATION"],
+  "execution": {
+    "primary_entry": "NEXT_SESSION_OPEN",
+    "primary_exit": "SESSION_AFTER_ENTRY_OPEN",
+    "session_open_source": "FIRST_1M_BAR_OPEN_09:31",
+    "delayed_entry_clocks": ["10:00", "10:30"],
+    "stress_one_way_cost": 0.0006,
+    "source_reconstruction_tolerance": 1e-12
+  },
+  "acceptance": {
+    "entry_day_session_mean_min_exclusive": 0.0,
+    "delayed_1000_mean_min_exclusive": 0.0,
+    "delayed_1000_profit_factor_min_exclusive": 1.0,
+    "leave_one_year_out_min_mean_exclusive": 0.0,
+    "structurally_supported_mechanisms_min": 2
+  },
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

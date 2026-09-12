@@ -6,7 +6,8 @@
 experiments/
 ├── S001/
 ├── S002/
-└── S003/
+├── S003/
+└── S004/
 ```
 
 新实验路径统一为`experiments/<策略ID>/YYYYMMDD_<策略ID>_EXnn/`。实验ID在整个仓库内

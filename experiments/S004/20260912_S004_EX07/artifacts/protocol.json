@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX07",
+  "experiment_type": "medium_frequency_parameter_platform_audit",
+  "research_target": {
+    "strategy_id": "S004",
+    "symbol": "588080.SH",
+    "mechanism_id": "LATE_SELLOFF_REVERSAL"
+  },
+  "dataset": {
+    "directory": "data/raw",
+    "cutoff": "2026-09-02",
+    "evaluation_start": "2021-06-01"
+  },
+  "grid": {
+    "late_window_minutes": [30, 60, 90],
+    "lookback_sessions": [60, 120, 240],
+    "quantiles": [0.7, 0.75, 0.8],
+    "lag_sessions": 1,
+    "cooldown_sessions": 1
+  },
+  "execution": {
+    "entry_clock": "09:35",
+    "entry_shift_sessions": 1,
+    "exit_clock": "09:35",
+    "exit_shift_sessions": 2,
+    "stress_one_way_cost": 0.0006
+  },
+  "density": {
+    "window_sessions": 60,
+    "median_min": 12,
+    "median_max": 20,
+    "p10_min": 8
+  },
+  "cell_acceptance": {
+    "stress_mean_min_exclusive": 0.0,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_min": 4,
+    "recent_sessions": 252,
+    "recent_mean_min_exclusive": 0.0
+  },
+  "platform_acceptance": {
+    "primary": {"late_window_minutes": 60, "lookback_sessions": 120, "quantile": 0.75},
+    "viable_cells_min": 14,
+    "required_distinct_levels_per_dimension": 3,
+    "median_stress_mean_min_exclusive": 0.0
+  },
+  "registered_trials": 27,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

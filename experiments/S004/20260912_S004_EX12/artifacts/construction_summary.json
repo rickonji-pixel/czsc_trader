@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX12",
+  "status": "PASS",
+  "feature_source_sha256": "14e2b4ba96d5aa406aed01d55a9fc402f4c80373e784238b1b70919a5c357a6e",
+  "structural_source_sha256": "de40d8ce1b2ea025227ac5972a03eecbb5baa730dde5ca7c407e928a5e980b16",
+  "candidate_id": "S004-C001",
+  "candidate_created": true,
+  "route_decision": "REGISTER_RESEARCH_CANDIDATE"
+}

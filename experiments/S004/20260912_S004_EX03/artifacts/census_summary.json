@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX03",
+  "status": "PASS",
+  "causal_prefix_mutation_audit": "PASS",
+  "reads_post_event_prices": false,
+  "mechanisms": 4,
+  "density_capable": 4,
+  "eligible_for_return_test": [
+    "OPENING_SELLOFF_REVERSAL",
+    "OPENING_BREAKOUT_CONTINUATION",
+    "LATE_SELLOFF_REVERSAL",
+    "LATE_BREAKOUT_CONTINUATION"
+  ]
+}

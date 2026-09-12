@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX04",
+  "status": "PASS",
+  "event_manifest_sha256": "4564a5fcd804baafeb0b9c08afbbca4025156b32f2c96fd3ef33dfe0193cee03",
+  "evaluated_mechanisms": 4,
+  "feasible_mechanisms": 1,
+  "eligible_for_structural_audit": [
+    "LATE_SELLOFF_REVERSAL"
+  ],
+  "route_decision": "CONTINUE_AUDIT",
+  "candidate_created": false
+}

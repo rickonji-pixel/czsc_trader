@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX08",
+  "status": "PASS",
+  "causal_prefix_mutation_audit": "PASS",
+  "registered_trials": 4,
+  "density_capable": [
+    "LATE_PATH_SELLING",
+    "CLOSE_VWAP_DISLOCATION",
+    "LATE_VOLUME_PRESSURE",
+    "LATE_ACCELERATION"
+  ],
+  "route_decision": "CONTINUE_DIRECTION_TEST",
+  "candidate_created": false
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX01",
+  "experiment_type": "intraday_data_feasibility",
+  "research_target": {
+    "strategy_id": "S004",
+    "symbol": "588080.SH",
+    "asset_type": "etf"
+  },
+  "development_cutoff": "2026-09-02",
+  "probe_start": "2026-09-01",
+  "probe_end": "2026-09-02",
+  "frequencies": {
+    "decision": "15m",
+    "execution": "5m",
+    "audit": "1m",
+    "regime": "daily_or_weekly_lag_1"
+  },
+  "expected_bars_per_complete_day": {
+    "15m": 16,
+    "5m": 48,
+    "1m": 240
+  },
+  "evidence_velocity": {
+    "rolling_window_sessions": 60,
+    "rolling_median_closed_episodes_target_min": 12,
+    "rolling_median_closed_episodes_target_max": 20,
+    "rolling_p10_closed_episodes_min": 8
+  },
+  "candidate_generation": false,
+  "parameter_search": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

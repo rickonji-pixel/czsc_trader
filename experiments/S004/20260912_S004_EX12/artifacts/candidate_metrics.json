@@ -1,0 +1,25 @@
+{
+  "raw_events": 321,
+  "independent_events": 263,
+  "evaluated_episodes": 262,
+  "rolling_60_median": 12.5,
+  "rolling_60_p10": 8.0,
+  "baseline_mean_return": 0.0031660207761013202,
+  "stress_mean_return": 0.0022034433640084265,
+  "stress_profit_factor": 1.3166879132567417,
+  "positive_years": 5,
+  "recent_episodes": 58,
+  "recent_stress_mean_return": 0.0036470174458917695,
+  "random_percentile": 99.2,
+  "random_median_return": -0.0008802244269240238,
+  "random_p90_return": 0.0007759688250424582,
+  "checks": {
+    "density_median": true,
+    "density_p10": true,
+    "stress_mean": true,
+    "profit_factor": true,
+    "positive_years": true,
+    "recent_mean": true,
+    "random_control": true
+  }
+}

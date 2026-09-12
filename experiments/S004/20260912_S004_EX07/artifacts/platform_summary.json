@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX07",
+  "status": "PASS",
+  "registered_trials": 27,
+  "viable_cells": 4,
+  "represented_levels": {
+    "late_window_minutes": 2,
+    "lookback_sessions": 2,
+    "quantile": 1
+  },
+  "platform_median_stress_mean_return": 0.0007569308781818353,
+  "platform_min_stress_mean_return": -0.0008436084747676585,
+  "platform_max_stress_mean_return": 0.002204425879811404,
+  "checks": {
+    "primary_viable": true,
+    "majority_viable": false,
+    "all_window_levels": false,
+    "all_lookback_levels": false,
+    "all_quantile_levels": false,
+    "median_return_positive": true
+  },
+  "evidence": "NARROW_OR_UNSTABLE",
+  "candidate_created": false
+}

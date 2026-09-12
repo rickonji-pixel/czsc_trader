@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX05",
+  "status": "PASS",
+  "source_episode_sha256": "2d6be95bcba00a529189a48cc1b0c56cf87b5430c989d0f2563b627dedddcb24",
+  "episodes": 262,
+  "primary_reconstruction_max_abs_diff": 9.8879238130678e-17,
+  "mean_signal_to_entry_gap": -0.001291661987815249,
+  "mean_entry_day_session_return": 0.0038858528164986967,
+  "mean_exit_overnight_return": -0.0005619547469701132,
+  "checks": {
+    "primary_reconstruction": true,
+    "leave_one_year_out": true,
+    "ten_o_clock_mean": true,
+    "ten_o_clock_profit_factor": true
+  },
+  "route_decision": "CONTINUE_ATTRIBUTION",
+  "candidate_created": false
+}

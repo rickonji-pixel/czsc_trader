@@ -9,6 +9,7 @@
 | S001 | 综合基线策略 | 588080.SH | PAPER_READY / PTE观察 | [S001](S001/HANDOFF.md) |
 | S002 | 中证500择时策略 | 510500.SH | PAPER_READY / PTE观察 | [S002](S002/HANDOFF.md) |
 | S003 | 成分资金流宽度早盘延续 | 510500.SH | PAPER_READY / PTE观察 | [S003](S003/HANDOFF.md) |
+| S004 | 尾盘流动性错位修复 | 588080.SH | RESEARCH_CANDIDATE | [S004](S004/HANDOFF.md) |
 
 ## 前瞻监测方案
 

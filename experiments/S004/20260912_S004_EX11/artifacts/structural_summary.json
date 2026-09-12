@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX11",
+  "status": "PASS",
+  "source_sha256": "3b0ddd5b62e06bb55161c01ec1884ab05a98541ca0165c219b6ee78a16dc048e",
+  "source_reconstruction_max_absolute_error": 3.165870343657673e-16,
+  "supported_mechanisms": [
+    "LATE_PATH_SELLING",
+    "LATE_VOLUME_PRESSURE",
+    "CLOSE_VWAP_DISLOCATION"
+  ],
+  "event_overlap_jaccard_range": [
+    0.43548387096774194,
+    0.7777777777777778
+  ],
+  "evidence": "MECHANISM_FAMILY_SUPPORTED",
+  "candidate_created": false
+}

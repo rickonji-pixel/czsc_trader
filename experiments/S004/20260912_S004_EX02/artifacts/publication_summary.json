@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX02",
+  "status": "PASS",
+  "publication": {
+    "status": "PASS",
+    "manifest": "D:\\CodeBase\\czsc_trader\\data\\raw\\588080_intraday_manifest.json",
+    "files": 21,
+    "validation": {
+      "15m": {
+        "bar_count": 22528,
+        "complete_day_count": 1408,
+        "expected_bars_per_day": 16,
+        "daily_matched_days": 1408,
+        "derived_repair_dates": [
+          "2024-10-30"
+        ]
+      },
+      "5m": {
+        "bar_count": 67584,
+        "complete_day_count": 1408,
+        "expected_bars_per_day": 48,
+        "daily_matched_days": 1408,
+        "derived_repair_dates": []
+      },
+      "1m": {
+        "bar_count": 337920,
+        "complete_day_count": 1408,
+        "expected_bars_per_day": 240,
+        "daily_matched_days": 1408,
+        "derived_repair_dates": []
+      }
+    }
+  },
+  "manifest_sha256": "853b6506be489dcbeb159540e755535f8a940998d2bc8f6acbac5e01e99ee78d",
+  "file_count": 21,
+  "frequencies": {
+    "15m": {
+      "bars": 22528,
+      "trading_days": 1408,
+      "first": "2020-11-16T09:45:00",
+      "last": "2026-09-02T15:00:00"
+    },
+    "5m": {
+      "bars": 67584,
+      "trading_days": 1408,
+      "first": "2020-11-16T09:35:00",
+      "last": "2026-09-02T15:00:00"
+    },
+    "1m": {
+      "bars": 337920,
+      "trading_days": 1408,
+      "first": "2020-11-16T09:31:00",
+      "last": "2026-09-02T15:00:00"
+    }
+  },
+  "scope": {
+    "signal_census": false,
+    "candidate_created": false,
+    "strategy_manager_mutated": false,
+    "pte_mutated": false
+  }
+}

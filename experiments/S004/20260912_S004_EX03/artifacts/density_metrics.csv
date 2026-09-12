@@ -1,0 +1,5 @@
+﻿mechanism_id,raw_events,independent_events,rolling_median_events,rolling_p10_events,rolling_min_events,rolling_max_events,density_pass,evidence
+OPENING_SELLOFF_REVERSAL,327,264,13.0,8.0,4.0,18.0,True,DENSITY_CAPABLE
+OPENING_BREAKOUT_CONTINUATION,321,254,12.0,9.0,6.0,19.0,True,DENSITY_CAPABLE
+LATE_SELLOFF_REVERSAL,327,263,12.0,8.0,2.0,21.0,True,DENSITY_CAPABLE
+LATE_BREAKOUT_CONTINUATION,345,264,12.0,8.0,5.0,19.0,True,DENSITY_CAPABLE

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX05",
+  "experiment_type": "t1_medium_frequency_structural_audit",
+  "inherits": "20260912_S004_EX04",
+  "research_target": {
+    "strategy_id": "S004",
+    "symbol": "588080.SH",
+    "mechanism_id": "LATE_SELLOFF_REVERSAL"
+  },
+  "dataset": {
+    "directory": "data/raw",
+    "cutoff": "2026-09-02",
+    "evaluation_experiment": "20260912_S004_EX04"
+  },
+  "execution": {
+    "primary_entry_clock": "09:35_OPEN",
+    "primary_exit_clock": "09:35_OPEN",
+    "entry_delay_clocks": [
+      "10:00_CLOSE",
+      "10:30_CLOSE"
+    ],
+    "exit_delay_clocks": [
+      "10:00_CLOSE",
+      "10:30_CLOSE",
+      "11:30_CLOSE",
+      "15:00_CLOSE"
+    ],
+    "stress_one_way_cost": 0.0006
+  },
+  "regime": {
+    "method": "lagged_efficiency_ratio",
+    "lookback": 60,
+    "er_threshold": 0.12654614652711713,
+    "source": "S001-v2"
+  },
+  "acceptance": {
+    "primary_reconstruction_tolerance": 1e-12,
+    "leave_one_year_out_mean_min_exclusive": 0.0,
+    "ten_o_clock_mean_min_exclusive": 0.0,
+    "ten_o_clock_profit_factor_min_exclusive": 1.0
+  },
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

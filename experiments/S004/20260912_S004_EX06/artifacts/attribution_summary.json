@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX06",
+  "status": "PASS",
+  "event_source_sha256": "4564a5fcd804baafeb0b9c08afbbca4025156b32f2c96fd3ef33dfe0193cee03",
+  "outcome_source_sha256": "2d6be95bcba00a529189a48cc1b0c56cf87b5430c989d0f2563b627dedddcb24",
+  "eligible_events": 262,
+  "matched_events": 235,
+  "event_retention": 0.8969465648854962,
+  "unique_controls": 173,
+  "max_absolute_smd": 0.23672543147193154,
+  "matched_event_mean_return": 0.003734961524691505,
+  "matched_control_mean_return": -0.0031541190347289323,
+  "paired_effect_mean": 0.006889080559420439,
+  "paired_effect_ci_90": [
+    0.004285875397899636,
+    0.009550276859437386
+  ],
+  "bootstrap_positive_probability": 1.0,
+  "checks": {
+    "retention": true,
+    "balance": true,
+    "effect_mean": true,
+    "effect_ci_lower": true
+  },
+  "evidence": "ATTRIBUTION_SUPPORTED",
+  "candidate_created": false
+}

@@ -1,0 +1,13 @@
+﻿path_id,eligible,worst_symbol_low_volatility_mean,worst_symbol_overall_mean,primary_closed_trades,check_primary_sample,check_external_sample,check_primary_density_median,check_primary_density_p10,check_both_mean,check_both_profit_factor,check_both_positive_years,check_both_recent,check_both_low_vol_sample,check_both_low_vol_mean,check_both_low_vol_profit_factor
+FB-N05-P80-H1,False,-0.0024820023748078216,-0.0022599692147839932,197,True,True,False,False,False,False,False,False,True,False,False
+FB-N05-P50-H1,False,-0.0035916465136973824,-0.0018619716334691897,206,True,True,False,False,False,False,False,False,True,False,False
+FB-N10-P80-H1,False,-0.0036489256108574626,-0.0025371030470484066,142,False,True,False,False,False,False,False,False,True,False,False
+FB-N10-P80-H2,False,-0.0037258556588623142,-0.003484815091880761,119,False,True,False,False,False,False,False,False,True,False,False
+FB-N10-P50-H1,False,-0.004928098768701846,-0.0029008276357064128,153,True,True,False,False,False,False,False,False,True,False,False
+FB-N05-P80-H2,False,-0.005051810790029577,-0.0035783188974157715,169,True,True,False,False,False,False,False,False,True,False,False
+FB-N05-P50-H3,False,-0.005883712920367863,-0.0038994168270478535,154,True,True,False,False,False,False,False,False,True,False,False
+FB-N10-P80-H3,False,-0.0061737099827052005,-0.004685227995943154,107,False,False,False,False,False,False,False,False,False,False,False
+FB-N10-P50-H2,False,-0.006196759701681739,-0.003352611939229664,128,False,True,False,False,False,False,False,False,True,False,False
+FB-N10-P50-H3,False,-0.006236031631549199,-0.004807913897995001,114,False,False,False,False,False,False,False,False,True,False,False
+FB-N05-P50-H2,False,-0.006382467039521635,-0.003962104954632503,176,True,True,False,False,False,False,False,False,True,False,False
+FB-N05-P80-H3,False,-0.006741936597270822,-0.005057881813951919,150,True,True,False,False,False,False,False,False,True,False,False

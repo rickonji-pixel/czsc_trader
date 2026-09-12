@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX22",
+  "status": "PASS",
+  "tested_paths": 12,
+  "eligible_paths": 0,
+  "selected_path": null,
+  "route_decision": "STOP_FAILED_BREAKDOWN_FAMILY",
+  "cumulative_registered_trials": 55,
+  "candidate_created": false
+}

@@ -1,0 +1,13 @@
+﻿path_id,eligible,worst_symbol_low_volatility_mean,worst_symbol_overall_mean,primary_closed_trades,check_primary_sample,check_external_sample,check_primary_density_median,check_primary_density_p10,check_both_mean,check_both_profit_factor,check_both_positive_years,check_both_recent,check_both_low_vol_sample,check_both_low_vol_mean,check_both_low_vol_profit_factor
+QB-Q80-V2-H2,False,-0.0018742076427262695,-0.002279011626479188,186,True,True,False,False,False,False,False,False,True,False,False
+QB-Q75-V2-H2,False,-0.001917891468909776,-0.002388920322189922,212,True,True,False,False,False,False,False,False,True,False,False
+QB-Q80-V1-H2,False,-0.00230098913101653,-0.0026506073251020314,250,True,True,True,True,False,False,False,False,True,False,False
+QB-Q75-V1-H2,False,-0.0024297498796721656,-0.001762212717661797,283,True,True,True,True,False,False,False,False,True,False,False
+QB-Q75-V1-H1,False,-0.002441354320465441,-0.0030153859514234476,364,True,True,True,True,False,False,False,False,True,False,False
+QB-Q70-V2-H2,False,-0.0024734584478751497,-0.0025877234772494237,235,True,True,False,True,False,False,False,False,True,False,False
+QB-Q80-V1-H1,False,-0.0025107228477823564,-0.003261459565250139,322,True,True,True,True,False,False,False,False,True,False,False
+QB-Q70-V1-H1,False,-0.0025931892782756717,-0.00284787073119886,398,True,True,True,True,False,False,False,False,True,False,False
+QB-Q70-V2-H1,False,-0.002654499454229948,-0.0034064745455256117,286,True,True,True,True,False,False,False,False,True,False,False
+QB-Q75-V2-H1,False,-0.0038558773646579264,-0.004192400002193898,257,True,True,True,True,False,False,False,False,True,False,False
+QB-Q80-V2-H1,False,-0.004035501459031294,-0.0038238426847210364,222,True,True,False,False,False,False,False,False,True,False,False
+QB-Q70-V1-H2,False,-0.004222088010212452,-0.0021590159631172437,308,True,True,True,True,False,False,False,False,True,False,False

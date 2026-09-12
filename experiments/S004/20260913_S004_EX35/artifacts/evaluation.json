@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX35",
+  "status": "FAIL",
+  "qualified_paths": [],
+  "route_decision": "STOP_OVERSEAS_TRANSMISSION_FAMILY",
+  "interpretation": "开盘后没有满足预注册质量门的长仓条件收益",
+  "candidate_created": false
+}

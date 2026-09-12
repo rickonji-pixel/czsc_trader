@@ -1,0 +1,2 @@
+path_id,symbol,trades,stress_mean,profit_factor,negative_years,evaluated_years,low_vol_trades,low_vol_stress_mean,low_vol_profit_factor,recent_252_start,recent_252_trades,recent_252_stress_mean,replication_pass
+ACCUM_Q60,510500.SH,275,-0.0015759685626895634,0.6311967642379313,5,6,125,-0.001485168759216977,0.578007990720887,2025-08-20,51,-0.0008955951478156135,True

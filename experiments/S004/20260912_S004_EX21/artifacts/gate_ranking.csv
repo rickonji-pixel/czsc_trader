@@ -1,0 +1,5 @@
+﻿gate,eligible,worst_symbol_mean_return,worst_symbol_profit_factor,primary_closed_trades,check_primary_sample,check_external_sample,check_primary_density_median,check_primary_density_p10,check_both_mean,check_both_profit_factor,check_both_positive_years,check_both_recent
+TREND_UP_AND_VOL_HIGH,False,0.0012486057818280345,1.2022291655038224,81,False,False,False,False,True,True,False,True
+VOL_HIGH,False,0.0010768612333442744,1.1730838387543774,162,True,True,False,False,True,True,True,True
+TREND_UP_OR_VOL_HIGH,False,0.0008818097306929979,1.1569239469526371,198,True,True,False,False,True,True,False,True
+TREND_UP,False,0.0008375685779799605,1.1621331600551728,117,False,True,False,False,True,True,True,True

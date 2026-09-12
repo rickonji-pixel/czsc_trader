@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX37",
+  "status": "COMPLETE",
+  "paths_evaluated": 12,
+  "eligible_paths": 3,
+  "selected_paths": {
+    "ACCUM": "ACCUM_Q60"
+  },
+  "post_event_returns_read": false,
+  "route_decision": "PROCEED_TO_FIXED_MARGIN_BEHAVIOR_EVALUATION"
+}

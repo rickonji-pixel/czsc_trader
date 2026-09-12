@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX37",
+  "experiment_type": "margin_behavior_density_only_hypothesis_census",
+  "research_target": {
+    "strategy_id": "S004",
+    "trade_symbol": "588080.SH"
+  },
+  "dataset": {
+    "development_cutoff": "2026-09-02",
+    "market_directory": "data/raw",
+    "market_manifest": "data/raw/588080_manifest.json",
+    "market_manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "upstream": {
+    "experiment_id": "20260913_S004_EX36",
+    "manifest": "experiments/S004/20260913_S004_EX36/experiment_manifest.json",
+    "manifest_sha256": "29bf9fb535138c8de39928d9170e466b7ce2f381adc9eaae74fc310f0aca2b72",
+    "margin_detail": "experiments/S004/20260913_S004_EX36/artifacts/margin_detail.csv.gz",
+    "margin_detail_sha256": "91861db5d2a8ba2cc90a34c993143fca95cf5167d7f40b4ec08163a9610b8134",
+    "data_quality": "experiments/S004/20260913_S004_EX36/artifacts/data_quality.json",
+    "data_quality_sha256": "32a4a724a03f918aae82ff7715e67060e3bd2c39aaa8c0d9d5b96f900cc54957"
+  },
+  "feature": {
+    "net_financing_flow": "rzmre_minus_rzche",
+    "normalizer": "previous_session_rzye",
+    "rolling_sessions": 120,
+    "quantiles": [0.55, 0.60, 0.65, 0.70],
+    "threshold_excludes_current_session": true
+  },
+  "hypotheses": {
+    "ACCUMULATION": "high positive net financing flow with nonpositive same-day return",
+    "CHASE": "high positive net financing flow with positive same-day return",
+    "DELEVERAGING": "high negative net financing flow with negative same-day return"
+  },
+  "density_gate": {
+    "rolling_a_share_sessions": 60,
+    "median_minimum": 12,
+    "median_maximum": 20,
+    "p10_minimum": 8,
+    "selection_target": 16,
+    "exclude_feature_warmup": true
+  },
+  "source_session": "T",
+  "event_session": "T_PLUS_1",
+  "reads_event_day_price": true,
+  "reads_post_event_return": false,
+  "conditional_return_analysis": false,
+  "parameter_selection_by_return": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

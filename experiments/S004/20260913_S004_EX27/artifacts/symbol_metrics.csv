@@ -1,0 +1,3 @@
+symbol,trades,rolling_60_median,rolling_60_p10,rolling_60_min,stress_mean,profit_factor,positive_years,evaluated_years,low_vol_trades,low_vol_stress_mean,low_vol_profit_factor,recent_252_stress_mean,density_pass,quality_pass
+588080.SH,266,12.0,9.0,0.0,-0.0001009127364537528,0.9786381488797296,2,6,117,-0.0011882872091343788,0.711880349063518,0.0013663423664792061,True,False
+510500.SH,303,14.0,10.0,1.0,-0.000494699708699781,0.8527139813729687,2,6,134,-0.0007165014008690817,0.743926368964259,0.0023044976745432784,True,False

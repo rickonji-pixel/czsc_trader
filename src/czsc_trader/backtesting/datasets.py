@@ -26,6 +26,7 @@ class ReplayData:
     fingerprint: str
     cutoff: date
     execution_five_minute: pd.DataFrame | None = None
+    signal_one_minute: pd.DataFrame | None = None
 
 
 def _frame_bytes(frame: pd.DataFrame) -> bytes:
@@ -41,6 +42,7 @@ def _fingerprint(
     execution_daily: pd.DataFrame,
     execution_intraday: pd.DataFrame,
     execution_five_minute: pd.DataFrame | None = None,
+    signal_one_minute: pd.DataFrame | None = None,
 ) -> str:
     digest = hashlib.sha256()
     for value in (dataset, adjusted.symbol, adjusted.asset_type):
@@ -57,6 +59,9 @@ def _fingerprint(
         digest.update(b"\0")
     if execution_five_minute is not None:
         digest.update(_frame_bytes(execution_five_minute))
+        digest.update(b"\0")
+    if signal_one_minute is not None:
+        digest.update(_frame_bytes(signal_one_minute))
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -121,6 +126,7 @@ def load_replay_data(
     cutoff: date,
     *,
     include_five_minute: bool = False,
+    include_one_minute: bool = False,
 ) -> ReplayData:
     if dataset not in {"research", "backtest"}:
         raise ValueError(f"unknown replay dataset: {dataset}")
@@ -138,6 +144,21 @@ def load_replay_data(
         if include_five_minute
         else None
     )
+    signal_one_minute = None
+    if include_one_minute:
+        source = load_intraday_research_data(root, adjusted.symbol).frames["1m"].copy()
+        source = source.loc[source["Date"].dt.normalize() <= pd.Timestamp(cutoff)].copy()
+        signal_one_minute = source.rename(
+            columns={
+                "Date": "dt",
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+                "Volume": "vol",
+                "Amount": "amount",
+            }
+        )[["dt", "open", "high", "low", "close", "vol", "amount"]].reset_index(drop=True)
     return ReplayData(
         dataset=dataset,
         root=root,
@@ -150,7 +171,9 @@ def load_replay_data(
             execution_daily,
             execution_intraday,
             execution_five_minute,
+            signal_one_minute,
         ),
         cutoff=cutoff,
         execution_five_minute=execution_five_minute,
+        signal_one_minute=signal_one_minute,
     )

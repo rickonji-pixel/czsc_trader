@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX15",
+  "experiment_type": "full_path_statistical_robustness_audit",
+  "research_target": {
+    "strategy_id": "S004",
+    "candidate_id": "S004-C001",
+    "symbol": "588080.SH"
+  },
+  "dataset": {
+    "development_cutoff": "2026-09-02",
+    "evaluation_start": "2021-06-01"
+  },
+  "trial_universe": {
+    "initial_mechanisms": 4,
+    "late_selloff_grid": 27,
+    "closing_proxies": 4,
+    "selected_consensus": 1,
+    "raw_trial_count": 36
+  },
+  "audit": {
+    "cscv_blocks": 10,
+    "bootstrap_repetitions": 10000,
+    "bootstrap_mean_block_lengths": [21, 10, 42],
+    "seed": 20260912,
+    "favorable_pbo_max": 0.4,
+    "adverse_pbo_min_exclusive": 0.5,
+    "favorable_dsr_probability_min": 0.9,
+    "adverse_dsr_probability_below": 0.5
+  },
+  "automatic_acceptance": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

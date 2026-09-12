@@ -11,6 +11,9 @@ import pytest
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
+from czsc_trader.backtesting.closing_dislocation_replay import (
+    build_closing_dislocation_signals,
+)
 from czsc_trader.backtesting.strategy_source import resolve_candidate_snapshot
 from czsc_trader.identity import canonical_json_sha256
 from czsc_trader.backtesting.execution_replay import replay_account
@@ -372,6 +375,55 @@ def test_ft_t03_s003_intraday_overlay_replays_frozen_candidate_contract() -> Non
         "INTRADAY_METRICS",
     }
     shutil.rmtree(outputs_root)
+
+
+def test_ft_t03_s004_closing_dislocation_replays_research_candidate_contract() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    context = RepositoryContext.discover(repo)
+    payload_path = repo / "experiments/S004/20260912_S004_EX13/candidate_payload.json"
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    snapshot = resolve_candidate_snapshot(
+        context,
+        "S004-C001",
+        payload,
+        canonical_json_sha256(payload),
+        str(payload_path.relative_to(repo)),
+    )
+    data = load_replay_data(
+        context,
+        "research",
+        "588080.SH",
+        "etf",
+        pd.Timestamp("2026-09-02").date(),
+        include_one_minute=True,
+    )
+    signals = build_closing_dislocation_signals(
+        snapshot,
+        data,
+        pd.Timestamp("2021-06-02"),
+        pd.Timestamp("2026-09-02"),
+    )
+    result = replay_account(signals, data, 100_000)
+    metrics = calculate_metrics(result, 100_000)
+    expected = pd.read_csv(
+        repo / "experiments/S004/20260912_S004_EX12/artifacts/candidate_episodes.csv.gz",
+        parse_dates=["event_date"],
+    )
+
+    event_dates = result.orders.loc[
+        result.orders["side"].eq("BUY") & result.orders["status"].eq("FILLED"),
+        "signal_date",
+    ].reset_index(drop=True)
+    pd.testing.assert_series_equal(
+        event_dates.dt.normalize(),
+        expected["event_date"].dt.normalize(),
+        check_names=False,
+    )
+    assert len(result.trades.loc[result.trades["status"].eq("CLOSED")]) == 262
+    assert signals.decisions["target_position"].eq(1).sum() == 263
+    assert metrics["return"] == pytest.approx(0.8865996828)
+    evidence = build_replay_evidence(signals, data, result, 100_000, metrics)
+    assert audit_replay(evidence).status is AuditStatus.PASS
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(

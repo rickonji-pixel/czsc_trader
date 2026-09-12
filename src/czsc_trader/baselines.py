@@ -41,6 +41,7 @@ class ResolvedBaseline:
     execution: ExecutionSpec | None = None
     event_hold: EventHoldSpec | None = None
     constituent_moneyflow_intraday: ConstituentMoneyflowIntradaySpec | None = None
+    closing_dislocation_overnight: ClosingDislocationOvernightSpec | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,22 @@ class ConstituentMoneyflowIntradaySpec:
     lot_size: int
     maximum_events_per_day: int
     t_plus_one_inventory_rotation: bool
+
+
+@dataclass(frozen=True)
+class ClosingDislocationOvernightSpec:
+    """Intraday closing-dislocation signal held from next open to following open."""
+
+    symbol: str
+    price_adjustment: str
+    signal_frequency: str
+    late_window_minutes: int
+    threshold_lookback_sessions: int
+    threshold_quantile: float
+    threshold_lag_sessions: int
+    votes_required: int
+    cooldown_sessions: int
+    mechanisms: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -504,6 +521,69 @@ def _parse_constituent_moneyflow_intraday(
     )
 
 
+def _parse_closing_dislocation_overnight(
+    payload: dict[str, object],
+    *,
+    symbol: str,
+) -> ClosingDislocationOvernightSpec:
+    rule = payload.get("rule")
+    if not isinstance(rule, dict):
+        raise ValueError("closing-dislocation strategy must contain a rule object")
+    declared_symbol = str(rule.get("symbol", payload.get("symbol", ""))).upper()
+    if declared_symbol != symbol.upper():
+        raise ValueError("closing-dislocation symbol differs from requested symbol")
+    feature = rule.get("feature")
+    holding = rule.get("holding")
+    if not isinstance(feature, dict) or not isinstance(holding, dict):
+        raise ValueError("closing-dislocation feature or holding rule is missing")
+    mechanisms_value = feature.get("mechanisms")
+    if not isinstance(mechanisms_value, list):
+        raise ValueError("closing-dislocation mechanisms are missing")
+    mechanisms = tuple(map(str, mechanisms_value))
+    expected = (
+        "LATE_PATH_SELLING",
+        "LATE_VOLUME_PRESSURE",
+        "CLOSE_VWAP_DISLOCATION",
+    )
+    if mechanisms != expected:
+        raise ValueError("closing-dislocation mechanism identities or order differ")
+    price_adjustment = str(feature.get("price_adjustment", ""))
+    signal_frequency = str(feature.get("signal_frequency", ""))
+    late_window = int(feature.get("late_window_minutes", 0))
+    lookback = int(feature.get("threshold_lookback_sessions", 0))
+    quantile = float(feature.get("threshold_quantile", -1))
+    lag = int(feature.get("threshold_lag_sessions", 0))
+    votes = int(feature.get("votes_required", 0))
+    cooldown = int(feature.get("cooldown_sessions", -1))
+    if price_adjustment != "hfq" or signal_frequency != "1m":
+        raise ValueError("closing-dislocation requires 1m hfq signal prices")
+    if late_window != 60 or lookback < 2 or not 0 < quantile < 1:
+        raise ValueError("closing-dislocation feature parameters are invalid")
+    if lag != 1 or votes < 1 or votes > len(mechanisms) or cooldown < 0:
+        raise ValueError("closing-dislocation causal or consensus parameters are invalid")
+    if feature.get("threshold_excludes_current_session") is not True:
+        raise ValueError("closing-dislocation threshold must exclude the current session")
+    if str(feature.get("comparison", "")) != "GREATER_THAN_OR_EQUAL":
+        raise ValueError("closing-dislocation comparison is unsupported")
+    if holding != {
+        "entry": "NEXT_SESSION_OPEN",
+        "exit": "SESSION_AFTER_ENTRY_OPEN",
+    }:
+        raise ValueError("closing-dislocation holding rule is unsupported")
+    return ClosingDislocationOvernightSpec(
+        symbol=declared_symbol,
+        price_adjustment=price_adjustment,
+        signal_frequency=signal_frequency,
+        late_window_minutes=late_window,
+        threshold_lookback_sessions=lookback,
+        threshold_quantile=quantile,
+        threshold_lag_sessions=lag,
+        votes_required=votes,
+        cooldown_sessions=cooldown,
+        mechanisms=mechanisms,
+    )
+
+
 def resolve_baseline(
     root: Path,
     version: str | None = None,
@@ -643,6 +723,23 @@ def resolve_strategy_payload(
 ) -> ResolvedBaseline:
     """Parse a frozen Strategy Manager payload without creating another baseline."""
     strategy_kind = str(strategy_payload.get("strategy_kind", ""))
+    if strategy_kind == "closing_dislocation_overnight":
+        spec = _parse_closing_dislocation_overnight(strategy_payload, symbol=symbol)
+        rule_payload = strategy_payload.get("rule")
+        assert isinstance(rule_payload, dict)
+        execution = _parse_execution(rule_payload, symbol)
+        return ResolvedBaseline(
+            version=release_id,
+            rule=None,
+            rule_payload=dict(rule_payload),
+            sha256=release_hash,
+            strategy=strategy_kind,
+            status="active",
+            scope="symbol",
+            symbol=symbol,
+            execution=execution,
+            closing_dislocation_overnight=spec,
+        )
     if strategy_kind == "constituent_moneyflow_intraday_overlay":
         spec = _parse_constituent_moneyflow_intraday(
             strategy_payload,

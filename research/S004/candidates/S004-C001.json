@@ -14,6 +14,15 @@
     "decision": "REGISTER_RESEARCH_CANDIDATE",
     "evidence": "experiments/S004/20260912_S004_EX12/artifacts/candidate_metrics.json"
   },
+  "formal_evaluation": {
+    "strategy_payload": "experiments/S004/20260912_S004_EX13/candidate_payload.json",
+    "formal_replay": "experiments/S004/20260912_S004_EX14/artifacts/equivalence_summary.json",
+    "statistical_audit": "experiments/S004/20260912_S004_EX15/artifacts/statistical_summary.json",
+    "benchmark_pk": "experiments/S004/20260912_S004_EX16/artifacts/benchmark_assessment.json",
+    "freeze_health": "experiments/S004/20260912_S004_EX17/artifacts/freeze_health.json",
+    "decision": "KEEP_RESEARCHING",
+    "risk_label": "WEAK"
+  },
   "permissions": {
     "research": true,
     "strategy_version": false,
@@ -25,7 +34,9 @@
     "原始尾盘跌幅规则在EX07中仅4/27个参数单元完整通过",
     "收益主要发生在信号次日开盘后至10点前，对开盘成交质量敏感",
     "2023年压力收益为负",
-    "累计36次预注册研究尝试尚未接受SE统计搜索惩罚",
-    "尚未完成正式策略实现、对手PK和冻结前体检"
+    "36条历史路径的PBO为65.48%，有效DSR概率为60.92%",
+    "21日区块Bootstrap的年化收益90%下界为负",
+    "最终共识尚未完成独立参数邻域和跨标的验证",
+    "PTE尚未实现和验证该分钟信号的开盘执行链路"
   ]
 }

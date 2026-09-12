@@ -244,9 +244,15 @@ def render_backtest_chart_html(
     resolved = signal_replay.snapshot.resolved_rule
     rule = resolved.rule
     overlay = resolved.constituent_moneyflow_intraday is not None
-    event_hold = resolved.strategy == "czsc_event_hold" or overlay
+    event_hold = resolved.strategy in {
+        "czsc_event_hold",
+        "closing_dislocation_overnight",
+    } or overlay
     if overlay:
         entry_threshold = float(result.decisions["threshold"].median())
+        exit_threshold = 0.0
+    elif resolved.closing_dislocation_overnight is not None:
+        entry_threshold = float(resolved.closing_dislocation_overnight.votes_required)
         exit_threshold = 0.0
     elif event_hold:
         entry_threshold, exit_threshold = 1.0, 0.0

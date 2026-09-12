@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX13",
+  "experiment_type": "formal_strategy_replay_equivalence",
+  "research_target": {
+    "strategy_id": "S004",
+    "candidate_id": "S004-C001",
+    "symbol": "588080.SH"
+  },
+  "dataset": {
+    "name": "research",
+    "cutoff": "2026-09-02",
+    "evaluation_start": "2021-06-02",
+    "evaluation_end": "2026-09-02"
+  },
+  "research_reference": "experiments/S004/20260912_S004_EX12",
+  "required_equivalence": {
+    "event_dates": "EXACT",
+    "entry_dates": "EXACT",
+    "exit_dates": "EXACT",
+    "entry_prices": "EXACT",
+    "exit_prices": "EXACT",
+    "net_returns": "EXACT_WITHIN_1E-12"
+  },
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

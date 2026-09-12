@@ -47,6 +47,7 @@ def run_backtest(
             context, request.strategy_id, request.strategy_version
         )
         overlay = snapshot.resolved_rule.constituent_moneyflow_intraday
+        closing_dislocation = snapshot.resolved_rule.closing_dislocation_overnight
         if snapshot.resolved_rule.execution is None and overlay is None:
             raise ValueError("strategy has no complete execution rule")
         data = load_replay_data(
@@ -56,6 +57,7 @@ def run_backtest(
             request.asset_type,
             request.end,
             include_five_minute=overlay is not None,
+            include_one_minute=closing_dislocation is not None,
         )
         summary = run_backtest_v2(
             snapshot=snapshot,

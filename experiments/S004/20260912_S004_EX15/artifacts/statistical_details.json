@@ -1,0 +1,6221 @@
+{
+  "pbo": {
+    "block_count": 10,
+    "candidate_count": 36,
+    "pbo": 0.6547619047619048,
+    "median_validation_percentile": 0.4,
+    "median_logit": -0.4054651081081643,
+    "selection_frequency": {
+      "EX04:LATE_BREAKOUT_CONTINUATION": 0,
+      "EX04:LATE_SELLOFF_REVERSAL": 3,
+      "EX04:OPENING_BREAKOUT_CONTINUATION": 0,
+      "EX04:OPENING_SELLOFF_REVERSAL": 0,
+      "EX07:W030_L060_Q70": 0,
+      "EX07:W030_L060_Q75": 12,
+      "EX07:W030_L060_Q80": 11,
+      "EX07:W030_L120_Q70": 0,
+      "EX07:W030_L120_Q75": 0,
+      "EX07:W030_L120_Q80": 25,
+      "EX07:W030_L240_Q70": 0,
+      "EX07:W030_L240_Q75": 14,
+      "EX07:W030_L240_Q80": 0,
+      "EX07:W060_L060_Q70": 0,
+      "EX07:W060_L060_Q75": 0,
+      "EX07:W060_L060_Q80": 35,
+      "EX07:W060_L120_Q70": 0,
+      "EX07:W060_L120_Q75": 15,
+      "EX07:W060_L120_Q80": 8,
+      "EX07:W060_L240_Q70": 0,
+      "EX07:W060_L240_Q75": 0,
+      "EX07:W060_L240_Q80": 0,
+      "EX07:W090_L060_Q70": 0,
+      "EX07:W090_L060_Q75": 5,
+      "EX07:W090_L060_Q80": 1,
+      "EX07:W090_L120_Q70": 0,
+      "EX07:W090_L120_Q75": 0,
+      "EX07:W090_L120_Q80": 1,
+      "EX07:W090_L240_Q70": 0,
+      "EX07:W090_L240_Q75": 2,
+      "EX07:W090_L240_Q80": 2,
+      "EX09:CLOSE_VWAP_DISLOCATION": 39,
+      "EX09:LATE_ACCELERATION": 0,
+      "EX09:LATE_PATH_SELLING": 23,
+      "EX09:LATE_VOLUME_PRESSURE": 20,
+      "S004-C001": 36
+    },
+    "splits": [
+      {
+        "split_id": 0,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "validation_blocks": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 0.6770293468194907,
+        "validation_sharpe": 0.22066519260734194,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 1,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          5
+        ],
+        "validation_blocks": [
+          4,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.679996961211867,
+        "validation_sharpe": 0.5044336306299957,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 2,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          6
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 0.6644690025328258,
+        "validation_sharpe": 0.05173753987648794,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 3,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          7
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.22546698301913684,
+        "validation_sharpe": 0.7575353688484379,
+        "validation_rank": 10,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7428571428571429,
+        "logit": 1.0608719606852628
+      },
+      {
+        "split_id": 4,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          8
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.6908702114748694,
+        "validation_sharpe": 0.46437086889858126,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 5,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          3,
+          9
+        ],
+        "validation_blocks": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9493907049551493,
+        "validation_sharpe": 0.39738722225954537,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 6,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          3,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 0.7023516254986855,
+        "validation_sharpe": 0.40099979103487937,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 7,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 1.0092758723595507,
+        "validation_sharpe": -0.08163560993633363,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 8,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 0.6243210158011151,
+        "validation_sharpe": 0.24774904816360527,
+        "validation_rank": 28,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.22857142857142856,
+        "logit": -1.2163953243244932
+      },
+      {
+        "split_id": 9,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.5233463312348937,
+        "validation_sharpe": 0.8008541896299972,
+        "validation_rank": 8,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8,
+        "logit": 1.3862943611198908
+      },
+      {
+        "split_id": 10,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.2023327361105594,
+        "validation_sharpe": -0.30364630549135374,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 11,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.9643039388061017,
+        "validation_sharpe": 0.37952861082097517,
+        "validation_rank": 3,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.9428571428571428,
+        "logit": 2.8033603809065344
+      },
+      {
+        "split_id": 12,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.6729450985248077,
+        "validation_sharpe": 0.6771148692758534,
+        "validation_rank": 8,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8,
+        "logit": 1.3862943611198908
+      },
+      {
+        "split_id": 13,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.9498551687499419,
+        "validation_sharpe": 0.20603102147555014,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 14,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.215870172370254,
+        "validation_sharpe": 0.10682525152490059,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 15,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.8111943988326287,
+        "validation_sharpe": 0.5276122795905944,
+        "validation_rank": 6,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8571428571428571,
+        "logit": 1.7917594692280545
+      },
+      {
+        "split_id": 16,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.9626980826207979,
+        "validation_sharpe": 0.33397133734387296,
+        "validation_rank": 11,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7142857142857143,
+        "logit": 0.9162907318741551
+      },
+      {
+        "split_id": 17,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 1.2185988533268914,
+        "validation_sharpe": -0.454406945594102,
+        "validation_rank": 28,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.22857142857142856,
+        "logit": -1.2163953243244932
+      },
+      {
+        "split_id": 18,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.6330867620280473,
+        "validation_sharpe": 0.507881363882717,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 19,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.0194184670047406,
+        "validation_sharpe": 0.3442251846039802,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 20,
+        "training_blocks": [
+          0,
+          1,
+          2,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.8657998832995234,
+        "validation_sharpe": 0.36031152359031043,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 21,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          2,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 0.28333430254888425,
+        "validation_sharpe": 0.6968102300039246,
+        "validation_rank": 14,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6285714285714286,
+        "logit": 0.5260930958967791
+      },
+      {
+        "split_id": 22,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 0.6596564685323464,
+        "validation_sharpe": 0.06924361458865327,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 23,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 0.20178157288408902,
+        "validation_sharpe": 0.47392985484987954,
+        "validation_rank": 23,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.37142857142857144,
+        "logit": -0.5260930958967791
+      },
+      {
+        "split_id": 24,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.34274280783511535,
+        "validation_sharpe": 0.7215698906375264,
+        "validation_rank": 16,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5714285714285714,
+        "logit": 0.28768207245178085
+      },
+      {
+        "split_id": 25,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.8816189107767093,
+        "validation_sharpe": -0.03970671373864914,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 26,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.7760992400473821,
+        "validation_sharpe": 0.574685847150891,
+        "validation_rank": 4,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.9142857142857143,
+        "logit": 2.3671236141316165
+      },
+      {
+        "split_id": 27,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.4394504930926555,
+        "validation_sharpe": 0.8201136243139564,
+        "validation_rank": 8,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8,
+        "logit": 1.3862943611198908
+      },
+      {
+        "split_id": 28,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.8022339541377085,
+        "validation_sharpe": 0.34264226125324826,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 29,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.01359673794197,
+        "validation_sharpe": 0.28304611413416253,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 30,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.6250560936764482,
+        "validation_sharpe": 0.6888469241065602,
+        "validation_rank": 6,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8571428571428571,
+        "logit": 1.7917594692280545
+      },
+      {
+        "split_id": 31,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.7872931608150723,
+        "validation_sharpe": 0.5474344082387226,
+        "validation_rank": 15,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6,
+        "logit": 0.4054651081081642
+      },
+      {
+        "split_id": 32,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9933882687236197,
+        "validation_sharpe": 0.1795742261517321,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 33,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.46185905949863565,
+        "validation_sharpe": 0.6317273653175648,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 34,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.7880644834566118,
+        "validation_sharpe": 0.5064601318364876,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 35,
+        "training_blocks": [
+          0,
+          1,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.6733585198920612,
+        "validation_sharpe": 0.5441459101051139,
+        "validation_rank": 16,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5714285714285714,
+        "logit": 0.28768207245178085
+      },
+      {
+        "split_id": 36,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 0.8429171754222481,
+        "validation_sharpe": 0.1506075869748598,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 37,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 0.45438695885700364,
+        "validation_sharpe": 0.5791882002511215,
+        "validation_rank": 14,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6285714285714286,
+        "logit": 0.5260930958967791
+      },
+      {
+        "split_id": 38,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.6624677739762415,
+        "validation_sharpe": 0.6868432277373203,
+        "validation_rank": 14,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6285714285714286,
+        "logit": 0.5260930958967791
+      },
+      {
+        "split_id": 39,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 1.0252004554724046,
+        "validation_sharpe": -0.005017429444904187,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 40,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.7783384319427304,
+        "validation_sharpe": -0.10407488805493058,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 41,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.8346607214862042,
+        "validation_sharpe": -0.23231627051577422,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 42,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.2961630760730773,
+        "validation_sharpe": -1.0296113931946578,
+        "validation_rank": 35,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.02857142857142857,
+        "logit": -3.5263605246161616
+      },
+      {
+        "split_id": 43,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.3175196593821646,
+        "validation_sharpe": 0.9512782840121076,
+        "validation_rank": 6,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8571428571428571,
+        "logit": 1.7917594692280545
+      },
+      {
+        "split_id": 44,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.0993618604447513,
+        "validation_sharpe": -0.20716889238927805,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 45,
+        "training_blocks": [
+          0,
+          1,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.7268391628499543,
+        "validation_sharpe": -0.0027494937113927637,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 46,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.9333362460207822,
+        "validation_sharpe": 0.37580192970397347,
+        "validation_rank": 12,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6857142857142857,
+        "logit": 0.7801585575495752
+      },
+      {
+        "split_id": 47,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 1.0584138356276285,
+        "validation_sharpe": 0.15428959231303055,
+        "validation_rank": 18,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5142857142857142,
+        "logit": 0.057158413839948415
+      },
+      {
+        "split_id": 48,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.2236048204195982,
+        "validation_sharpe": -0.21629496922935312,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 49,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.7502912358166569,
+        "validation_sharpe": 0.3894133102372805,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 50,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.0763549749228218,
+        "validation_sharpe": 0.22563878006504587,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 51,
+        "training_blocks": [
+          0,
+          1,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9432459207428817,
+        "validation_sharpe": 0.22792215523359924,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 52,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.8059742873988784,
+        "validation_sharpe": 0.5260499529236013,
+        "validation_rank": 9,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7714285714285715,
+        "logit": 1.2163953243244934
+      },
+      {
+        "split_id": 53,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.107525302078775,
+        "validation_sharpe": -0.7308290260505345,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 54,
+        "training_blocks": [
+          0,
+          1,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.082225705314977,
+        "validation_sharpe": -0.08514665818997377,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 55,
+        "training_blocks": [
+          0,
+          1,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "EX04:LATE_SELLOFF_REVERSAL",
+        "training_sharpe": 0.7524060346846722,
+        "validation_sharpe": 0.5642622850538977,
+        "validation_rank": 14,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6285714285714286,
+        "logit": 0.5260930958967791
+      },
+      {
+        "split_id": 56,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          1,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 0.6776507899767776,
+        "validation_sharpe": 0.2150417116279812,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 57,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 1.0306383154716807,
+        "validation_sharpe": -0.26911413900831893,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 58,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 0.7820600011372351,
+        "validation_sharpe": 0.19685373943362233,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 59,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.7279129330164779,
+        "validation_sharpe": 0.10153391147355693,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 60,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 1.2560432962742178,
+        "validation_sharpe": -0.3091156825238193,
+        "validation_rank": 33,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.08571428571428572,
+        "logit": -2.367123614131617
+      },
+      {
+        "split_id": 61,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.9417272357265885,
+        "validation_sharpe": 0.4180787259674735,
+        "validation_rank": 3,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.9428571428571428,
+        "logit": 2.8033603809065344
+      },
+      {
+        "split_id": 62,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.6104824393771099,
+        "validation_sharpe": 0.7258813650152951,
+        "validation_rank": 6,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8571428571428571,
+        "logit": 1.7917594692280545
+      },
+      {
+        "split_id": 63,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.9125658146914242,
+        "validation_sharpe": 0.2595806388824312,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 64,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.2065776789732359,
+        "validation_sharpe": 0.14398456606146545,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 65,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.7602535433750415,
+        "validation_sharpe": 0.5848678385000916,
+        "validation_rank": 4,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.9142857142857143,
+        "logit": 2.3671236141316165
+      },
+      {
+        "split_id": 66,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.9929377967638108,
+        "validation_sharpe": -0.4093149386677042,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 67,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.1543758602818333,
+        "validation_sharpe": -0.7025801841468139,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 68,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.5813057749784263,
+        "validation_sharpe": 0.551441468220579,
+        "validation_rank": 17,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5428571428571428,
+        "logit": 0.17185025692665903
+      },
+      {
+        "split_id": 69,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.0067462898682762,
+        "validation_sharpe": 0.3746246459320573,
+        "validation_rank": 15,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6,
+        "logit": 0.4054651081081642
+      },
+      {
+        "split_id": 70,
+        "training_blocks": [
+          0,
+          2,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.8442825210169181,
+        "validation_sharpe": 0.3933975692423971,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 71,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 1.049850267412538,
+        "validation_sharpe": -0.1652509261375928,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 72,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 0.7015754665190962,
+        "validation_sharpe": 0.42693973232402155,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 73,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.8347850616733581,
+        "validation_sharpe": 0.5353097294243367,
+        "validation_rank": 12,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6857142857142857,
+        "logit": 0.7801585575495752
+      },
+      {
+        "split_id": 74,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 1.2342314346214243,
+        "validation_sharpe": -0.16408008865878498,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 75,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 1.0131810655996365,
+        "validation_sharpe": -0.02406343239931715,
+        "validation_rank": 16,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5714285714285714,
+        "logit": 0.28768207245178085
+      },
+      {
+        "split_id": 76,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.1740620066325267,
+        "validation_sharpe": -0.680596504533333,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 77,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.51235501696322,
+        "validation_sharpe": -1.2153856316095981,
+        "validation_rank": 35,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.02857142857142857,
+        "logit": -3.5263605246161616
+      },
+      {
+        "split_id": 78,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.7314683049409126,
+        "validation_sharpe": 0.1097224588469612,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 79,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.4133717829734165,
+        "validation_sharpe": -0.3750292575364871,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 80,
+        "training_blocks": [
+          0,
+          2,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.9755169367795749,
+        "validation_sharpe": -0.191902124583497,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 81,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.0729004946881486,
+        "validation_sharpe": 0.17898473807585252,
+        "validation_rank": 10,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7428571428571429,
+        "logit": 1.0608719606852628
+      },
+      {
+        "split_id": 82,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 1.2013774678919964,
+        "validation_sharpe": -0.034169998028422854,
+        "validation_rank": 17,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5428571428571428,
+        "logit": 0.17185025692665903
+      },
+      {
+        "split_id": 83,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.4187568796798034,
+        "validation_sharpe": -0.4119562028198226,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 84,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.8979335982982448,
+        "validation_sharpe": 0.49508920719292604,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 85,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.2685144658257146,
+        "validation_sharpe": 0.08641230497355742,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 86,
+        "training_blocks": [
+          0,
+          2,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.1390753707672356,
+        "validation_sharpe": 0.04510037655496176,
+        "validation_rank": 30,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.17142857142857143,
+        "logit": -1.575536360758419
+      },
+      {
+        "split_id": 87,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.9969261104385553,
+        "validation_sharpe": -0.3884424039278924,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 88,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.3193335546416929,
+        "validation_sharpe": -0.9304066823961176,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 89,
+        "training_blocks": [
+          0,
+          2,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.2831638108502388,
+        "validation_sharpe": -0.36215408969646457,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 90,
+        "training_blocks": [
+          0,
+          2,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 0.9668546415712088,
+        "validation_sharpe": 0.3064758215844346,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 91,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L060_Q75",
+        "training_sharpe": 1.0119209371776494,
+        "validation_sharpe": -0.6584328927682667,
+        "validation_rank": 33,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.08571428571428572,
+        "logit": -2.367123614131617
+      },
+      {
+        "split_id": 92,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L060_Q75",
+        "training_sharpe": 0.6468334465727955,
+        "validation_sharpe": -0.110395614056311,
+        "validation_rank": 33,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.08571428571428572,
+        "logit": -2.367123614131617
+      },
+      {
+        "split_id": 93,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L240_Q80",
+        "training_sharpe": 0.7261787282391358,
+        "validation_sharpe": -0.21827561999423037,
+        "validation_rank": 30,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.17142857142857143,
+        "logit": -1.575536360758419
+      },
+      {
+        "split_id": 94,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 0.8925722204131251,
+        "validation_sharpe": 0.1774985320992728,
+        "validation_rank": 23,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.37142857142857144,
+        "logit": -0.5260930958967791
+      },
+      {
+        "split_id": 95,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L060_Q75",
+        "training_sharpe": 0.9083045885926214,
+        "validation_sharpe": -0.48864289308904096,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 96,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.1031677900597043,
+        "validation_sharpe": -0.5747433836029653,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 97,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.2684075630018135,
+        "validation_sharpe": -0.8415400482214969,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 98,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L240_Q80",
+        "training_sharpe": 0.7088570198933856,
+        "validation_sharpe": -0.14174163782369603,
+        "validation_rank": 28,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.22857142857142856,
+        "logit": -1.2163953243244932
+      },
+      {
+        "split_id": 99,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.0746102786684506,
+        "validation_sharpe": -0.12019666044166843,
+        "validation_rank": 33,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.08571428571428572,
+        "logit": -2.367123614131617
+      },
+      {
+        "split_id": 100,
+        "training_blocks": [
+          0,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.6715113377804368,
+        "validation_sharpe": 0.08285259975436213,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 101,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L060_Q75",
+        "training_sharpe": 0.9169319347503541,
+        "validation_sharpe": -0.5320786130413219,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 102,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 1.0376411914837063,
+        "validation_sharpe": 0.2071256397380396,
+        "validation_rank": 16,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5714285714285714,
+        "logit": 0.28768207245178085
+      },
+      {
+        "split_id": 103,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L120_Q80",
+        "training_sharpe": 1.21311150890486,
+        "validation_sharpe": -0.29970363585640797,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 104,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.7055593279117837,
+        "validation_sharpe": 0.4377560134809956,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 105,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L120_Q80",
+        "training_sharpe": 1.0760151712079729,
+        "validation_sharpe": 0.16046043150082895,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 106,
+        "training_blocks": [
+          0,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "EX07:W060_L120_Q80",
+        "training_sharpe": 0.9764429464262708,
+        "validation_sharpe": 0.09505831129844902,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 107,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L240_Q75",
+        "training_sharpe": 0.93592729262279,
+        "validation_sharpe": -0.5739951143392575,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 108,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.0718639610659204,
+        "validation_sharpe": -0.5687440341180743,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 109,
+        "training_blocks": [
+          0,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.0420323073644564,
+        "validation_sharpe": 0.03340610819874986,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 110,
+        "training_blocks": [
+          0,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "EX07:W060_L120_Q80",
+        "training_sharpe": 0.751061487415506,
+        "validation_sharpe": 0.381032379658516,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 111,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.8638381828185523,
+        "validation_sharpe": 0.4516853709860448,
+        "validation_rank": 8,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8,
+        "logit": 1.3862943611198908
+      },
+      {
+        "split_id": 112,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.1545467655173947,
+        "validation_sharpe": -0.7199613876815975,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 113,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 1.2847469398423599,
+        "validation_sharpe": -0.641946374881995,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 114,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.7126732281548025,
+        "validation_sharpe": 0.10545543615490807,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 115,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 1.0330388043678027,
+        "validation_sharpe": 0.04374885258526956,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 116,
+        "training_blocks": [
+          0,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 0.889420968943379,
+        "validation_sharpe": 0.31777444113747444,
+        "validation_rank": 11,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7142857142857143,
+        "logit": 0.9162907318741551
+      },
+      {
+        "split_id": 117,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.1084949945543439,
+        "validation_sharpe": -0.5497227918878379,
+        "validation_rank": 28,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.22857142857142856,
+        "logit": -1.2163953243244932
+      },
+      {
+        "split_id": 118,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.4338830048709763,
+        "validation_sharpe": -1.069041765313377,
+        "validation_rank": 35,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.02857142857142857,
+        "logit": -3.5263605246161616
+      },
+      {
+        "split_id": 119,
+        "training_blocks": [
+          0,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.135001593659671,
+        "validation_sharpe": -0.948455568874459,
+        "validation_rank": 35,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.02857142857142857,
+        "logit": -3.5263605246161616
+      },
+      {
+        "split_id": 120,
+        "training_blocks": [
+          0,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.8751793327298097,
+        "validation_sharpe": -0.09206672038648327,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 121,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 1.0555214113626976,
+        "validation_sharpe": 0.18398232411457668,
+        "validation_rank": 14,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6285714285714286,
+        "logit": 0.5260930958967791
+      },
+      {
+        "split_id": 122,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.3265111265052574,
+        "validation_sharpe": -0.2697624682806718,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 123,
+        "training_blocks": [
+          0,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.3371690272239676,
+        "validation_sharpe": -0.6815503077277435,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 124,
+        "training_blocks": [
+          0,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.0386547509868935,
+        "validation_sharpe": 0.167868348040296,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 125,
+        "training_blocks": [
+          0,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.1940847869997835,
+        "validation_sharpe": -0.20456995815259663,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 126,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "validation_blocks": [
+          0,
+          6,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.2547371062977142,
+        "validation_sharpe": 0.7685010096579591,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 127,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 0.6643352020444827,
+        "validation_sharpe": 0.24330431220771953,
+        "validation_rank": 18,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5142857142857142,
+        "logit": 0.057158413839948415
+      },
+      {
+        "split_id": 128,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": -0.007747263857822149,
+        "validation_sharpe": 0.5857131622228062,
+        "validation_rank": 23,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.37142857142857144,
+        "logit": -0.5260930958967791
+      },
+      {
+        "split_id": 129,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.4392227786806615,
+        "validation_sharpe": 0.33062722336120604,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 130,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          4,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          5,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q80",
+        "training_sharpe": 0.6628830631819781,
+        "validation_sharpe": 0.12126661517368958,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 131,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.7428348537101721,
+        "validation_sharpe": 0.6047308675850698,
+        "validation_rank": 8,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8,
+        "logit": 1.3862943611198908
+      },
+      {
+        "split_id": 132,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.3842426631099517,
+        "validation_sharpe": 0.6822871965216538,
+        "validation_rank": 17,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5428571428571428,
+        "logit": 0.17185025692665903
+      },
+      {
+        "split_id": 133,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.7703163887220544,
+        "validation_sharpe": 0.36174783916471825,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 134,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9043558752016895,
+        "validation_sharpe": 0.3591440535179057,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 135,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.5146749502241025,
+        "validation_sharpe": 0.783743611709714,
+        "validation_rank": 7,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8285714285714286,
+        "logit": 1.5755363607584194
+      },
+      {
+        "split_id": 136,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.7634111725115605,
+        "validation_sharpe": -0.12028226915570542,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 137,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9036145711801626,
+        "validation_sharpe": 0.26688716382610345,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 138,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.4324664217965982,
+        "validation_sharpe": 0.6530314067360983,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 139,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.6676075413977968,
+        "validation_sharpe": 0.5801095686414955,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 140,
+        "training_blocks": [
+          1,
+          2,
+          3,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.6145431325273846,
+        "validation_sharpe": 0.7351015905449073,
+        "validation_rank": 11,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7142857142857143,
+        "logit": 0.9162907318741551
+      },
+      {
+        "split_id": 141,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 0.8495067502697736,
+        "validation_sharpe": -0.027894758586687916,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 142,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.29381583319662025,
+        "validation_sharpe": 0.9225330734471638,
+        "validation_rank": 6,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8571428571428571,
+        "logit": 1.7917594692280545
+      },
+      {
+        "split_id": 143,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.629362205221661,
+        "validation_sharpe": 0.7172114816646145,
+        "validation_rank": 15,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6,
+        "logit": 0.4054651081081642
+      },
+      {
+        "split_id": 144,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L060_Q75",
+        "training_sharpe": 0.837649426824105,
+        "validation_sharpe": 0.18441121033729838,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 145,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 0.7901727815080434,
+        "validation_sharpe": 0.11197267744819864,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 146,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.9464468540044738,
+        "validation_sharpe": -0.3864124034183371,
+        "validation_rank": 33,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.08571428571428572,
+        "logit": -2.367123614131617
+      },
+      {
+        "split_id": 147,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 1.1666276292702413,
+        "validation_sharpe": -0.5930919217123659,
+        "validation_rank": 33,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.08571428571428572,
+        "logit": -2.367123614131617
+      },
+      {
+        "split_id": 148,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.4363939158590475,
+        "validation_sharpe": 0.33571461597455765,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 149,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.7857574766879047,
+        "validation_sharpe": 0.02827725056971843,
+        "validation_rank": 33,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.08571428571428572,
+        "logit": -2.367123614131617
+      },
+      {
+        "split_id": 150,
+        "training_blocks": [
+          1,
+          2,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.5883115838220245,
+        "validation_sharpe": 0.7685342006775049,
+        "validation_rank": 6,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8571428571428571,
+        "logit": 1.7917594692280545
+      },
+      {
+        "split_id": 151,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.8294867658011205,
+        "validation_sharpe": 0.47516674635366757,
+        "validation_rank": 9,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7714285714285715,
+        "logit": 1.2163953243244934
+      },
+      {
+        "split_id": 152,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 1.0276867212793626,
+        "validation_sharpe": 0.18312759310388488,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 153,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.1384580071914592,
+        "validation_sharpe": -0.12740732550925876,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 154,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.7191931575123172,
+        "validation_sharpe": 0.40915509178033854,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 155,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9668325636497661,
+        "validation_sharpe": 0.3012909041969808,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 156,
+        "training_blocks": [
+          1,
+          2,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.9105713253886694,
+        "validation_sharpe": 0.39200152742421895,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 157,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.77563971145694,
+        "validation_sharpe": 0.5590366508014394,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 158,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9582639792280025,
+        "validation_sharpe": 0.19898850943285473,
+        "validation_rank": 14,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6285714285714286,
+        "logit": 0.5260930958967791
+      },
+      {
+        "split_id": 159,
+        "training_blocks": [
+          1,
+          2,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 0.9923113799368799,
+        "validation_sharpe": 0.04254532492570804,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 160,
+        "training_blocks": [
+          1,
+          2,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          3,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.6417462350234393,
+        "validation_sharpe": 0.5707164551017578,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 161,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L240_Q75",
+        "training_sharpe": 0.5392396186948787,
+        "validation_sharpe": -0.0903364226937745,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 162,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.06281670659524358,
+        "validation_sharpe": 1.0661751937136035,
+        "validation_rank": 5,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8857142857142857,
+        "logit": 2.0476928433652555
+      },
+      {
+        "split_id": 163,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.4603634546001835,
+        "validation_sharpe": 0.6394454537555505,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 164,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.6005565826260477,
+        "validation_sharpe": 0.613380774384768,
+        "validation_rank": 14,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6285714285714286,
+        "logit": 0.5260930958967791
+      },
+      {
+        "split_id": 165,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L120_Q80",
+        "training_sharpe": 0.4512065160711827,
+        "validation_sharpe": -0.2947662516153094,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 166,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.8750819988208354,
+        "validation_sharpe": -0.2820750074200625,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 167,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 0.8392760431287775,
+        "validation_sharpe": -0.07315380238037862,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 168,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.34091829826969694,
+        "validation_sharpe": 0.4105045072654419,
+        "validation_rank": 23,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.37142857142857144,
+        "logit": -0.5260930958967791
+      },
+      {
+        "split_id": 169,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.4508229675771831,
+        "validation_sharpe": 0.28508430614829794,
+        "validation_rank": 30,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.17142857142857143,
+        "logit": -1.575536360758419
+      },
+      {
+        "split_id": 170,
+        "training_blocks": [
+          1,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.3986890278220382,
+        "validation_sharpe": 0.9621205198239794,
+        "validation_rank": 4,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.9142857142857143,
+        "logit": 2.3671236141316165
+      },
+      {
+        "split_id": 171,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.6616663676686958,
+        "validation_sharpe": 0.6524656829794225,
+        "validation_rank": 12,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6857142857142857,
+        "logit": 0.7801585575495752
+      },
+      {
+        "split_id": 172,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.8649748645367056,
+        "validation_sharpe": 0.4283356403901119,
+        "validation_rank": 16,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5714285714285714,
+        "logit": 0.28768207245178085
+      },
+      {
+        "split_id": 173,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9778427122976193,
+        "validation_sharpe": 0.11030645278822243,
+        "validation_rank": 17,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5428571428571428,
+        "logit": 0.17185025692665903
+      },
+      {
+        "split_id": 174,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.5681861437043407,
+        "validation_sharpe": 0.5434258568445084,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 175,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.764829748319928,
+        "validation_sharpe": 0.47775826398941773,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 176,
+        "training_blocks": [
+          1,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.7358672505499019,
+        "validation_sharpe": 0.6068733347259125,
+        "validation_rank": 14,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6285714285714286,
+        "logit": 0.5260930958967791
+      },
+      {
+        "split_id": 177,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.6901803420927756,
+        "validation_sharpe": -0.008109382337658294,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 178,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.7843114232898939,
+        "validation_sharpe": 0.4053103484150684,
+        "validation_rank": 10,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7428571428571429,
+        "logit": 1.0608719606852628
+      },
+      {
+        "split_id": 179,
+        "training_blocks": [
+          1,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.8241036872287462,
+        "validation_sharpe": 0.4807582915801495,
+        "validation_rank": 7,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8285714285714286,
+        "logit": 1.5755363607584194
+      },
+      {
+        "split_id": 180,
+        "training_blocks": [
+          1,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "EX07:W060_L120_Q80",
+        "training_sharpe": 0.4541985249185709,
+        "validation_sharpe": 0.648536171373521,
+        "validation_rank": 18,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5142857142857142,
+        "logit": 0.057158413839948415
+      },
+      {
+        "split_id": 181,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.6459009622628392,
+        "validation_sharpe": 0.6706729124649803,
+        "validation_rank": 8,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8,
+        "logit": 1.3862943611198908
+      },
+      {
+        "split_id": 182,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.9321863928789932,
+        "validation_sharpe": -0.4132191314958524,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 183,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 0.9976738902975568,
+        "validation_sharpe": -0.48407315031605846,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 184,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.44757366583741964,
+        "validation_sharpe": 0.8804344711160471,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 185,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.6647943428159029,
+        "validation_sharpe": 0.5565220747820645,
+        "validation_rank": 17,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5428571428571428,
+        "logit": 0.17185025692665903
+      },
+      {
+        "split_id": 186,
+        "training_blocks": [
+          1,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.7092861971536556,
+        "validation_sharpe": 0.6407969473485017,
+        "validation_rank": 9,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7714285714285715,
+        "logit": 1.2163953243244934
+      },
+      {
+        "split_id": 187,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.877244375008223,
+        "validation_sharpe": -0.26332476051986237,
+        "validation_rank": 30,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.17142857142857143,
+        "logit": -1.575536360758419
+      },
+      {
+        "split_id": 188,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.986907288740461,
+        "validation_sharpe": -0.5481176719498899,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 189,
+        "training_blocks": [
+          1,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 0.8046458089764761,
+        "validation_sharpe": -0.13460052490841423,
+        "validation_rank": 30,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.17142857142857143,
+        "logit": -1.575536360758419
+      },
+      {
+        "split_id": 190,
+        "training_blocks": [
+          1,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "EX04:LATE_SELLOFF_REVERSAL",
+        "training_sharpe": 0.44435222494451404,
+        "validation_sharpe": 0.8805444771168277,
+        "validation_rank": 4,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.9142857142857143,
+        "logit": 2.3671236141316165
+      },
+      {
+        "split_id": 191,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.8823898143666549,
+        "validation_sharpe": 0.4042029052673713,
+        "validation_rank": 17,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5428571428571428,
+        "logit": 0.17185025692665903
+      },
+      {
+        "split_id": 192,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.0288640202074784,
+        "validation_sharpe": 0.032632596674160824,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 193,
+        "training_blocks": [
+          1,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 1.0705362370307203,
+        "validation_sharpe": -0.05969612964772595,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 194,
+        "training_blocks": [
+          1,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "EX07:W060_L120_Q80",
+        "training_sharpe": 0.7612595614581023,
+        "validation_sharpe": 0.30984050099942,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 195,
+        "training_blocks": [
+          1,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          2,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 0.9035381367828844,
+        "validation_sharpe": 0.20426645845565466,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 196,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          7,
+          8,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.8822471959481537,
+        "validation_sharpe": -0.09761750348375102,
+        "validation_rank": 23,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.37142857142857144,
+        "logit": -0.5260930958967791
+      },
+      {
+        "split_id": 197,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L060_Q80",
+        "training_sharpe": 0.4234901488139628,
+        "validation_sharpe": 0.003912214334394594,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 198,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.8487975876912716,
+        "validation_sharpe": -0.0220629073986979,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 199,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          6,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.7775946308068454,
+        "validation_sharpe": 0.46640327552762895,
+        "validation_rank": 12,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6857142857142857,
+        "logit": 0.7801585575495752
+      },
+      {
+        "split_id": 200,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          8,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.8216509467084179,
+        "validation_sharpe": 0.0029667750721010743,
+        "validation_rank": 23,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.37142857142857144,
+        "logit": -0.5260930958967791
+      },
+      {
+        "split_id": 201,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.215785854612787,
+        "validation_sharpe": -0.727867741437192,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 202,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 1.0571880722612816,
+        "validation_sharpe": -0.316581342443891,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 203,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.7853010317503032,
+        "validation_sharpe": 0.07113638996107947,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 204,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.7345254134704813,
+        "validation_sharpe": 0.1057462031783202,
+        "validation_rank": 29,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2,
+        "logit": -1.3862943611198906
+      },
+      {
+        "split_id": 205,
+        "training_blocks": [
+          2,
+          3,
+          4,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          5,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.5550424881644717,
+        "validation_sharpe": 0.7962098495318124,
+        "validation_rank": 4,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.9142857142857143,
+        "logit": 2.3671236141316165
+      },
+      {
+        "split_id": 206,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W060_L120_Q75",
+        "training_sharpe": 0.7805730543818789,
+        "validation_sharpe": 0.5380297664823147,
+        "validation_rank": 8,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8,
+        "logit": 1.3862943611198908
+      },
+      {
+        "split_id": 207,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.0881247948021107,
+        "validation_sharpe": -0.5918615605158538,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 208,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 1.1225873948804406,
+        "validation_sharpe": -0.07069613838114755,
+        "validation_rank": 16,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5714285714285714,
+        "logit": 0.28768207245178085
+      },
+      {
+        "split_id": 209,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:LATE_VOLUME_PRESSURE",
+        "training_sharpe": 0.6737898966580139,
+        "validation_sharpe": 0.45759128802005494,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 210,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9488511427207644,
+        "validation_sharpe": 0.33460733173855606,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 211,
+        "training_blocks": [
+          2,
+          3,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.8863179235948812,
+        "validation_sharpe": 0.43282254681313287,
+        "validation_rank": 12,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6857142857142857,
+        "logit": 0.7801585575495752
+      },
+      {
+        "split_id": 212,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.0392979086804202,
+        "validation_sharpe": -0.4350180623118378,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 213,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.9388452769158425,
+        "validation_sharpe": 0.23939639313934835,
+        "validation_rank": 8,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8,
+        "logit": 1.3862943611198908
+      },
+      {
+        "split_id": 214,
+        "training_blocks": [
+          2,
+          3,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.9575387507060084,
+        "validation_sharpe": 0.26197429294782715,
+        "validation_rank": 5,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8857142857142857,
+        "logit": 2.0476928433652555
+      },
+      {
+        "split_id": 215,
+        "training_blocks": [
+          2,
+          3,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          4,
+          5,
+          6
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.6139362793746934,
+        "validation_sharpe": 0.5989522198543475,
+        "validation_rank": 11,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7142857142857143,
+        "logit": 0.9162907318741551
+      },
+      {
+        "split_id": 216,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          8,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.8870794577226673,
+        "validation_sharpe": -0.08585579202623797,
+        "validation_rank": 19,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4857142857142857,
+        "logit": -0.05715841383994852
+      },
+      {
+        "split_id": 217,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.2642402362160337,
+        "validation_sharpe": -0.8818705741761798,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 218,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 1.2019475884790596,
+        "validation_sharpe": -0.7408091245812972,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 219,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.8541192779378535,
+        "validation_sharpe": -0.011932732122106259,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 220,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.8412868088470166,
+        "validation_sharpe": 0.4093079062517628,
+        "validation_rank": 15,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6,
+        "logit": 0.4054651081081642
+      },
+      {
+        "split_id": 221,
+        "training_blocks": [
+          2,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.8553311900949591,
+        "validation_sharpe": 0.4591155115849692,
+        "validation_rank": 7,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8285714285714286,
+        "logit": 1.5755363607584194
+      },
+      {
+        "split_id": 222,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.222613686051635,
+        "validation_sharpe": -0.6993244883828167,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 223,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 1.1956913041026795,
+        "validation_sharpe": -0.7561094508047378,
+        "validation_rank": 34,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.05714285714285714,
+        "logit": -2.803360380906535
+      },
+      {
+        "split_id": 224,
+        "training_blocks": [
+          2,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          7
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 1.0034220494339463,
+        "validation_sharpe": -0.41683431335542515,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 225,
+        "training_blocks": [
+          2,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          5,
+          6
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 0.5864365045078634,
+        "validation_sharpe": 0.6575977493242899,
+        "validation_rank": 6,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8571428571428571,
+        "logit": 1.7917594692280545
+      },
+      {
+        "split_id": 226,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.0929813909444215,
+        "validation_sharpe": -0.5654686131159117,
+        "validation_rank": 28,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.22857142857142856,
+        "logit": -1.2163953243244932
+      },
+      {
+        "split_id": 227,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          8
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.2241607394887704,
+        "validation_sharpe": -0.1675042316291972,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      },
+      {
+        "split_id": 228,
+        "training_blocks": [
+          2,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.2479950913974165,
+        "validation_sharpe": -0.5643027928738888,
+        "validation_rank": 28,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.22857142857142856,
+        "logit": -1.2163953243244932
+      },
+      {
+        "split_id": 229,
+        "training_blocks": [
+          2,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          6
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 0.9334496322959805,
+        "validation_sharpe": 0.27078723125130394,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 230,
+        "training_blocks": [
+          2,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          3,
+          4,
+          5
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.0998591433475349,
+        "validation_sharpe": -0.08910534161664815,
+        "validation_rank": 16,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5714285714285714,
+        "logit": 0.28768207245178085
+      },
+      {
+        "split_id": 231,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          8,
+          9
+        ],
+        "selected_candidate": "EX07:W090_L060_Q75",
+        "training_sharpe": 0.9250399672049351,
+        "validation_sharpe": -0.5479561200666833,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 232,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          7,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.1952034582196653,
+        "validation_sharpe": -0.7689240185057706,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 233,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          6,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          7,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L240_Q75",
+        "training_sharpe": 0.8834125674554705,
+        "validation_sharpe": -0.17957263404990215,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 234,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.7642563136453944,
+        "validation_sharpe": 0.06594160692280066,
+        "validation_rank": 25,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.3142857142857143,
+        "logit": -0.7801585575495751
+      },
+      {
+        "split_id": 235,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L060_Q80",
+        "training_sharpe": 0.6371498447309853,
+        "validation_sharpe": 0.5844242914415037,
+        "validation_rank": 11,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7142857142857143,
+        "logit": 0.9162907318741551
+      },
+      {
+        "split_id": 236,
+        "training_blocks": [
+          3,
+          4,
+          5,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          6,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 0.6801844073168533,
+        "validation_sharpe": 0.6731542168234461,
+        "validation_rank": 7,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.8285714285714286,
+        "logit": 1.5755363607584194
+      },
+      {
+        "split_id": 237,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.1507996641734966,
+        "validation_sharpe": -0.5962845780449696,
+        "validation_rank": 26,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2857142857142857,
+        "logit": -0.9162907318741551
+      },
+      {
+        "split_id": 238,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          8
+        ],
+        "selected_candidate": "EX07:W030_L120_Q80",
+        "training_sharpe": 0.9461324562902657,
+        "validation_sharpe": -0.40111032401614777,
+        "validation_rank": 30,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.17142857142857143,
+        "logit": -1.575536360758419
+      },
+      {
+        "split_id": 239,
+        "training_blocks": [
+          3,
+          4,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.9114225256435572,
+        "validation_sharpe": -0.6396824757797219,
+        "validation_rank": 27,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.2571428571428571,
+        "logit": -1.0608719606852628
+      },
+      {
+        "split_id": 240,
+        "training_blocks": [
+          3,
+          4,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          5,
+          6
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.442162214677883,
+        "validation_sharpe": 0.30806254942975575,
+        "validation_rank": 24,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.34285714285714286,
+        "logit": -0.6505875661411494
+      },
+      {
+        "split_id": 241,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.0216015348897458,
+        "validation_sharpe": -0.4610851943554723,
+        "validation_rank": 23,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.37142857142857144,
+        "logit": -0.5260930958967791
+      },
+      {
+        "split_id": 242,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          8
+        ],
+        "selected_candidate": "EX07:W060_L120_Q80",
+        "training_sharpe": 1.052278177586553,
+        "validation_sharpe": -0.0897859644049002,
+        "validation_rank": 21,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.42857142857142855,
+        "logit": -0.2876820724517809
+      },
+      {
+        "split_id": 243,
+        "training_blocks": [
+          3,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          7
+        ],
+        "selected_candidate": "S004-C001",
+        "training_sharpe": 1.0499359202651515,
+        "validation_sharpe": 0.02603167689425035,
+        "validation_rank": 13,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6571428571428571,
+        "logit": 0.6505875661411494
+      },
+      {
+        "split_id": 244,
+        "training_blocks": [
+          3,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          6
+        ],
+        "selected_candidate": "EX07:W060_L120_Q80",
+        "training_sharpe": 0.802896129192222,
+        "validation_sharpe": 0.28292423878339157,
+        "validation_rank": 22,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.4,
+        "logit": -0.4054651081081643
+      },
+      {
+        "split_id": 245,
+        "training_blocks": [
+          3,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          4,
+          5
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 0.8575219696378189,
+        "validation_sharpe": 0.3015580329908176,
+        "validation_rank": 12,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.6857142857142857,
+        "logit": 0.7801585575495752
+      },
+      {
+        "split_id": 246,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          9
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 1.2012872136124035,
+        "validation_sharpe": -0.7375341816181191,
+        "validation_rank": 31,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.14285714285714285,
+        "logit": -1.791759469228055
+      },
+      {
+        "split_id": 247,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          7,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          8
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 0.9908930918084198,
+        "validation_sharpe": 0.13313754953282625,
+        "validation_rank": 9,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7714285714285715,
+        "logit": 1.2163953243244934
+      },
+      {
+        "split_id": 248,
+        "training_blocks": [
+          4,
+          5,
+          6,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          7
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.0409921030986131,
+        "validation_sharpe": -0.1565899206231794,
+        "validation_rank": 16,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.5714285714285714,
+        "logit": 0.28768207245178085
+      },
+      {
+        "split_id": 249,
+        "training_blocks": [
+          4,
+          5,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          6
+        ],
+        "selected_candidate": "EX04:LATE_SELLOFF_REVERSAL",
+        "training_sharpe": 0.7129016316405742,
+        "validation_sharpe": 0.5964522051037313,
+        "validation_rank": 9,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.7714285714285715,
+        "logit": 1.2163953243244934
+      },
+      {
+        "split_id": 250,
+        "training_blocks": [
+          4,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          5
+        ],
+        "selected_candidate": "EX09:CLOSE_VWAP_DISLOCATION",
+        "training_sharpe": 0.9127616824479644,
+        "validation_sharpe": -0.598068907881309,
+        "validation_rank": 32,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.11428571428571428,
+        "logit": -2.0476928433652555
+      },
+      {
+        "split_id": 251,
+        "training_blocks": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "validation_blocks": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "selected_candidate": "EX09:LATE_PATH_SELLING",
+        "training_sharpe": 1.1642338023160685,
+        "validation_sharpe": -0.3602553643674363,
+        "validation_rank": 20,
+        "validation_candidate_count": 36,
+        "validation_percentile": 0.45714285714285713,
+        "logit": -0.17185025692665942
+      }
+    ]
+  },
+  "dsr": {
+    "raw": {
+      "observations": 1277,
+      "trial_count": 36.0,
+      "observed_sharpe": 0.6746178765216382,
+      "trial_sharpe_mean": 0.22542803387266977,
+      "trial_sharpe_std": 0.39330732548162856,
+      "expected_max_sharpe": 1.0700680785454095,
+      "skew": 2.6199715058792283,
+      "pearson_kurtosis": 43.201803508505684,
+      "test_statistic": -0.9339906551714302,
+      "probability": 0.17515435670006624
+    },
+    "effective": {
+      "observations": 1277,
+      "trial_count": 2.9627949874151076,
+      "observed_sharpe": 0.6746178765216382,
+      "trial_sharpe_mean": 0.22542803387266977,
+      "trial_sharpe_std": 0.39330732548162856,
+      "expected_max_sharpe": 0.5572190448595898,
+      "skew": 2.6199715058792283,
+      "pearson_kurtosis": 43.201803508505684,
+      "test_statistic": 0.2772774198603286,
+      "probability": 0.609216451788798
+    }
+  },
+  "absolute_bootstrap": [
+    {
+      "candidate_id": "S004-C001",
+      "repetitions": 10000,
+      "mean_block_length": 21,
+      "cagr": {
+        "metric": "cagr",
+        "point": 0.1050545438421504,
+        "lower_90": -0.004092863039549025,
+        "upper_90": 0.23478780218694448,
+        "lower_95": -0.022613122423096495,
+        "upper_95": 0.2647433802574501,
+        "probability_above_zero": 0.9423
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "point": -0.14587899955271322,
+        "lower_90": -0.3132078828705898,
+        "upper_90": -0.12403925911375323,
+        "lower_95": -0.3431797777094427,
+        "upper_95": -0.11327454355889924,
+        "probability_above_zero": 0.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "point": 0.7201485077650883,
+        "lower_90": -0.015239091718842598,
+        "upper_90": 1.6264787457948437,
+        "lower_95": -0.07517159037402181,
+        "upper_95": 1.9447443598706247,
+        "probability_above_zero": 0.9423
+      }
+    },
+    {
+      "candidate_id": "S004-C001",
+      "repetitions": 10000,
+      "mean_block_length": 10,
+      "cagr": {
+        "metric": "cagr",
+        "point": 0.1050545438421504,
+        "lower_90": -0.011339462671683335,
+        "upper_90": 0.24297706833060498,
+        "lower_95": -0.030875467282817374,
+        "upper_95": 0.2742843559067975,
+        "probability_above_zero": 0.9285
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "point": -0.14587899955271322,
+        "lower_90": -0.33917764828618036,
+        "upper_90": -0.123744329574311,
+        "lower_95": -0.37173079554507416,
+        "upper_95": -0.1135568433861025,
+        "probability_above_zero": 0.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "point": 0.7201485077650883,
+        "lower_90": -0.0381414987358182,
+        "upper_90": 1.707690766774897,
+        "lower_95": -0.10031794852131434,
+        "upper_95": 2.008314937122627,
+        "probability_above_zero": 0.9285
+      }
+    },
+    {
+      "candidate_id": "S004-C001",
+      "repetitions": 10000,
+      "mean_block_length": 42,
+      "cagr": {
+        "metric": "cagr",
+        "point": 0.1050545438421504,
+        "lower_90": 0.002079436012176783,
+        "upper_90": 0.22719484561922906,
+        "lower_95": -0.013550795359774895,
+        "upper_95": 0.25295460731160163,
+        "probability_above_zero": 0.9542
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "point": -0.14587899955271322,
+        "lower_90": -0.2913360869354433,
+        "upper_90": -0.12657356913022788,
+        "lower_95": -0.31825858536837937,
+        "upper_95": -0.116497539190108,
+        "probability_above_zero": 0.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "point": 0.7201485077650883,
+        "lower_90": 0.008253643508312761,
+        "upper_90": 1.54561329145003,
+        "lower_95": -0.0519065605920351,
+        "upper_95": 1.7807332878202997,
+        "probability_above_zero": 0.9542
+      }
+    }
+  ]
+}

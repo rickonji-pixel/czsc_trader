@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX16",
+  "request": {
+    "candidate_id": "S004-C001",
+    "candidate_hash": "ed3f2dd453730f3b6a924430a173d628b5a84cad78c6cdace91de2be0e9c871f",
+    "benchmark_id": "BuyHold-588080",
+    "integrity": "PASS",
+    "reproducibility": "PASS",
+    "technical_replay": "PASS",
+    "monitoring_plan": "INSUFFICIENT",
+    "candidate_performance": {
+      "cagr": 0.1335602061734389,
+      "max_drawdown": -0.11990503857430534,
+      "calmar": 1.1138831842389294
+    },
+    "benchmark_performance": {
+      "cagr": 0.021448461433736465,
+      "max_drawdown": -0.5995145631067953,
+      "calmar": 0.035776381014977474
+    },
+    "bootstrap": {
+      "champion_id": "S004-C001",
+      "comparator_id": "BuyHold-588080",
+      "repetitions": 10000,
+      "mean_block_length": 21,
+      "cagr": {
+        "metric": "cagr",
+        "direction": "higher_is_better",
+        "point_difference": 0.11211174473970242,
+        "lower_95": -0.1784760499827242,
+        "upper_95": 0.3200103241147236,
+        "probability_favorable": 0.8007
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "direction": "higher_is_better",
+        "point_difference": 0.47960952453248995,
+        "lower_95": 0.189409106153353,
+        "upper_95": 0.6533392423958806,
+        "probability_favorable": 1.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "direction": "higher_is_better",
+        "point_difference": 1.078106803223952,
+        "lower_95": 0.05794870197877699,
+        "upper_95": 2.3044582192375325,
+        "probability_favorable": 0.9827
+      }
+    },
+    "statistical_evidence": "WEAK",
+    "external_validation": "MIXED",
+    "execution_evidence": "FAVORABLE",
+    "blocking_findings": []
+  },
+  "result": {
+    "candidate_id": "S004-C001",
+    "candidate_hash": "ed3f2dd453730f3b6a924430a173d628b5a84cad78c6cdace91de2be0e9c871f",
+    "benchmark_id": "BuyHold-588080",
+    "decision": "KEEP_BENCHMARK",
+    "risk_label": "WEAK",
+    "reason_codes": [
+      "WEAK_SUPPORTING_EVIDENCE"
+    ]
+  },
+  "candidate_metrics": {
+    "max_drawdown": -0.11990503857430501,
+    "calmar": 1.1138831842389343,
+    "win_loss_ratio": 1.1982343339960593,
+    "win_loss_ratio_status": "VALID",
+    "return": 0.8865996827999962,
+    "sharpe": 0.9928821246208096,
+    "closed_trades": 262
+  },
+  "buyhold_total_return": 0.11344165581850629
+}

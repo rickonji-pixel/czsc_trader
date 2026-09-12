@@ -23,6 +23,7 @@ from .intraday_overlay_replay import (
     build_moneyflow_breadth_signals,
     replay_intraday_overlay,
 )
+from .closing_dislocation_replay import build_closing_dislocation_signals
 from .metrics import calculate_metrics
 from .models import StrategySnapshot
 from .report import render_report
@@ -52,6 +53,19 @@ def _bind_backtest_symbol(
 ) -> tuple[StrategySnapshot, dict[str, str]]:
     spec = snapshot.resolved_rule.execution
     overlay = snapshot.resolved_rule.constituent_moneyflow_intraday
+    closing_dislocation = snapshot.resolved_rule.closing_dislocation_overnight
+    if closing_dislocation is not None:
+        requested_symbol = request.symbol.upper()
+        reference_symbol = closing_dislocation.symbol.upper()
+        if request.asset_type != "etf":
+            raise ValueError("closing-dislocation strategy requires an ETF")
+        if requested_symbol != reference_symbol:
+            raise ValueError("closing-dislocation strategy cannot be rebound to another symbol")
+        return snapshot, {
+            "mode": "native_symbol",
+            "strategy_reference_symbol": reference_symbol,
+            "backtest_symbol": requested_symbol,
+        }
     if overlay is not None:
         requested_symbol = request.symbol.upper()
         reference_symbol = overlay.symbol.upper()
@@ -127,6 +141,14 @@ def run_backtest_v2(
             pd.Timestamp(request.end),
         )
         result = replay_intraday_overlay(signals, replay_data, request.initial_cash)
+    elif applied_snapshot.resolved_rule.closing_dislocation_overnight is not None:
+        signals = build_closing_dislocation_signals(
+            applied_snapshot,
+            replay_data,
+            pd.Timestamp(request.start),
+            pd.Timestamp(request.end),
+        )
+        result = replay_account(signals, replay_data, request.initial_cash)
     else:
         signals = replay_signals(applied_snapshot, replay_data, request.start, request.end)
         result = replay_account(signals, replay_data, request.initial_cash)

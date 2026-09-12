@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX15",
+  "status": "PASS",
+  "evidence_label": "ADVERSE",
+  "direction_labels": {
+    "pbo": "ADVERSE",
+    "dsr": "MIXED",
+    "absolute_bootstrap": "MIXED"
+  },
+  "raw_trial_count": 36,
+  "effective_trial_count": 2.9627949874151076,
+  "pbo": 0.6547619047619048,
+  "dsr_raw_probability": 0.17515435670006624,
+  "dsr_effective_probability": 0.609216451788798,
+  "bootstrap_21d_cagr_lower_90": -0.004092863039549025,
+  "bootstrap_21d_calmar_lower_90": -0.015239091718842598,
+  "candidate_created": false
+}

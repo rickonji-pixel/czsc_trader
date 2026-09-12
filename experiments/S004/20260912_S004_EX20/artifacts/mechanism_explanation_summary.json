@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX20",
+  "status": "PASS",
+  "evidence_label": "FAVORABLE",
+  "events_by_symbol": {
+    "510500.SH": 257,
+    "588080.SH": 262
+  },
+  "consistent_state_hypotheses": 2,
+  "hypothesis_details": {
+    "trend": {
+      "symbols": {
+        "510500.SH": {
+          "difference": 0.0010397621604161986,
+          "minimum_bucket_met": true,
+          "direction_holds": true
+        },
+        "588080.SH": {
+          "difference": 0.002962745219783516,
+          "minimum_bucket_met": true,
+          "direction_holds": true
+        }
+      },
+      "consistent": true
+    },
+    "volatility": {
+      "symbols": {
+        "510500.SH": {
+          "difference": 0.002483103998616454,
+          "minimum_bucket_met": true,
+          "direction_holds": true
+        },
+        "588080.SH": {
+          "difference": 0.006151105356885021,
+          "minimum_bucket_met": true,
+          "direction_holds": true
+        }
+      },
+      "consistent": true
+    },
+    "signal_strength": {
+      "symbols": {
+        "510500.SH": {
+          "difference": 0.0028187124851276123,
+          "minimum_bucket_met": true,
+          "direction_holds": true
+        },
+        "588080.SH": {
+          "difference": -0.006390496805704,
+          "minimum_bucket_met": true,
+          "direction_holds": false
+        }
+      },
+      "consistent": false
+    }
+  },
+  "repair_timing": {
+    "symbols": {
+      "510500.SH": {
+        "signal_to_entry_gap": -0.0003643160602754477,
+        "entry_intraday_return": 0.0018775178080803771,
+        "entry_close_to_exit_gap": -0.0003538987795351558,
+        "gross_return": 0.0015274916882894098,
+        "direction_holds": true
+      },
+      "588080.SH": {
+        "signal_to_entry_gap": -0.0013752561792581446,
+        "entry_intraday_return": 0.003852542856360568,
+        "entry_close_to_exit_gap": -0.00046924411503967213,
+        "gross_return": 0.0034068095157362456,
+        "direction_holds": true
+      }
+    },
+    "consistent": true
+  },
+  "checks": {
+    "state_hypotheses": true,
+    "repair_timing": true
+  },
+  "descriptive_era_split_excluded_from_acceptance": true,
+  "source_candidate_unchanged": true,
+  "route_decision": "MECHANISM_EXPLANATION_SUPPORTED"
+}

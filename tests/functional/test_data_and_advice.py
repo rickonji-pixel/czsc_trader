@@ -116,6 +116,16 @@ def test_replay_dataset_is_explicit_cutoff_aligned_and_deterministic(
     assert first.fingerprint == repeated.fingerprint
     assert len(first.fingerprint) == 64
 
+    midweek = load_replay_data(
+        context,
+        "backtest",
+        "588080.SH",
+        "etf",
+        date(2026, 9, 1),
+    )
+    assert midweek.adjusted.daily["dt"].max().date() == date(2026, 9, 1)
+    assert midweek.adjusted.weekly["dt"].max().date() < date(2026, 9, 1)
+
 
 def test_shared_order_intent_uses_unadjusted_close_and_full_cash(
     functional_repo: Path,

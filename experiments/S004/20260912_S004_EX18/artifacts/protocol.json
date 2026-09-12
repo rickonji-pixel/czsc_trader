@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX18",
+  "experiment_type": "fixed_rule_cross_section_replication",
+  "source_candidate": {
+    "candidate_id": "S004-C001",
+    "candidate_hash": "ed3f2dd453730f3b6a924430a173d628b5a84cad78c6cdace91de2be0e9c871f",
+    "payload": "experiments/S004/20260912_S004_EX13/candidate_payload.json"
+  },
+  "target": {
+    "symbol": "510500.SH",
+    "asset_type": "etf"
+  },
+  "dataset": {
+    "name": "research",
+    "cutoff": "2026-09-02",
+    "evaluation_start": "2021-06-02",
+    "evaluation_end": "2026-09-02"
+  },
+  "allowed_symbol_adaptations": {
+    "price_limit_ratio": 0.1,
+    "entry_limit_parameter": 0.1,
+    "exit_limit_ratio": 0.1
+  },
+  "stress_one_way_cost": 0.0006,
+  "acceptance": {
+    "minimum_closed_trades": 150,
+    "rolling_60_median_min": 12,
+    "rolling_60_median_max": 20,
+    "rolling_60_p10_min": 8,
+    "mean_return_min_exclusive": 0.0,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_min": 4,
+    "recent_252_mean_min_exclusive": 0.0,
+    "random_percentile_min": 90.0
+  },
+  "random_control": {
+    "iterations": 1000,
+    "seed": 20260912,
+    "method": "within_year_circular_shift"
+  },
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX20",
+  "experiment_type": "cross_section_mechanism_explanation_audit",
+  "source_candidate": {
+    "candidate_id": "S004-C001",
+    "candidate_hash": "ed3f2dd453730f3b6a924430a173d628b5a84cad78c6cdace91de2be0e9c871f",
+    "payload": "experiments/S004/20260912_S004_EX13/candidate_payload.json"
+  },
+  "dataset": {
+    "name": "research",
+    "symbols": ["588080.SH", "510500.SH"],
+    "asset_type": "etf",
+    "cutoff": "2026-09-02",
+    "evaluation_start": "2021-06-02",
+    "evaluation_end": "2026-09-02"
+  },
+  "fixed_definitions": {
+    "trend_state": "signal adjusted close versus trailing 60-session simple moving average",
+    "volatility_state": "20-session realized volatility versus lagged trailing 120-session median",
+    "signal_strength": "three votes versus two votes",
+    "repair_component": "entry-session raw open-to-close return",
+    "stress_one_way_cost": 0.0006,
+    "minimum_events_per_bucket": 20
+  },
+  "registered_hypotheses": {
+    "trend": "uptrend event return exceeds downtrend event return on both symbols",
+    "volatility": "high-volatility event return exceeds low-volatility event return on both symbols",
+    "signal_strength": "three-vote event return exceeds two-vote event return on both symbols",
+    "repair_timing": "entry-session open-to-close return is positive on both symbols"
+  },
+  "acceptance": {
+    "minimum_consistent_state_hypotheses": 2,
+    "repair_timing_must_hold": true
+  },
+  "descriptive_only": {
+    "era_split": "2024-01-01",
+    "excluded_from_acceptance": true,
+    "reason": "the split was chosen after observing annual results"
+  },
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

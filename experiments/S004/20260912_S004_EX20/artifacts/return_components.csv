@@ -1,0 +1,9 @@
+﻿symbol,component,mean_return
+510500.SH,signal_to_entry_gap,-0.0003643160602754477
+510500.SH,entry_intraday_return,0.0018775178080803771
+510500.SH,entry_close_to_exit_gap,-0.0003538987795351558
+510500.SH,gross_return,0.0015274916882894098
+588080.SH,signal_to_entry_gap,-0.0013752561792581446
+588080.SH,entry_intraday_return,0.003852542856360568
+588080.SH,entry_close_to_exit_gap,-0.00046924411503967213
+588080.SH,gross_return,0.0034068095157362456

@@ -20,6 +20,9 @@
     "statistical_audit": "experiments/S004/20260912_S004_EX15/artifacts/statistical_summary.json",
     "benchmark_pk": "experiments/S004/20260912_S004_EX16/artifacts/benchmark_assessment.json",
     "freeze_health": "experiments/S004/20260912_S004_EX17/artifacts/freeze_health.json",
+    "cross_section_replication": "experiments/S004/20260912_S004_EX18/artifacts/replication_summary.json",
+    "local_neighborhood_audit": "experiments/S004/20260912_S004_EX19/artifacts/neighborhood_summary.json",
+    "mechanism_explanation": "experiments/S004/20260912_S004_EX20/artifacts/mechanism_explanation_summary.json",
     "decision": "KEEP_RESEARCHING",
     "risk_label": "WEAK"
   },
@@ -31,12 +34,13 @@
     "live_trading": false
   },
   "known_risks": [
-    "原始尾盘跌幅规则在EX07中仅4/27个参数单元完整通过",
+    "最终三因子共识的局部邻域仅14/27个格点通过，阈值分位覆盖2/3档",
     "收益主要发生在信号次日开盘后至10点前，对开盘成交质量敏感",
+    "两标的低波动状态下事件平均收益均为负，机制存在状态依赖",
     "2023年压力收益为负",
     "36条历史路径的PBO为65.48%，有效DSR概率为60.92%",
     "21日区块Bootstrap的年化收益90%下界为负",
-    "最终共识尚未完成独立参数邻域和跨标的验证",
+    "510500仅部分复现，2021至2023年度压力收益均值为负",
     "PTE尚未实现和验证该分钟信号的开盘执行链路"
   ]
 }

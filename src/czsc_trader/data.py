@@ -104,7 +104,13 @@ def _validate_frame(frame: pd.DataFrame, name: str) -> None:
         raise ValueError(f"{name}: negative volume or amount")
 
 
-def _validate_reconciliation(intraday: pd.DataFrame, daily: pd.DataFrame, weekly: pd.DataFrame) -> None:
+def _validate_reconciliation(
+    intraday: pd.DataFrame,
+    daily: pd.DataFrame,
+    weekly: pd.DataFrame,
+    *,
+    allow_trailing_partial_week: bool = False,
+) -> None:
     sessions = intraday["dt"].dt.strftime("%H:%M")
     if tuple(sorted(sessions.unique())) != SESSION_TIMES:
         raise ValueError("30m: unexpected session timestamps")
@@ -155,7 +161,14 @@ def _validate_reconciliation(intraday: pd.DataFrame, daily: pd.DataFrame, weekly
     ).set_index("dt")
     weekly_indexed = weekly.set_index("dt")
     if not aggregated_weekly.index.equals(weekly_indexed.index):
-        raise ValueError("daily/weekly: week-ending trade dates differ")
+        has_one_trailing_partial_week = (
+            allow_trailing_partial_week
+            and len(aggregated_weekly) == len(weekly_indexed) + 1
+            and aggregated_weekly.index[:-1].equals(weekly_indexed.index)
+        )
+        if not has_one_trailing_partial_week:
+            raise ValueError("daily/weekly: week-ending trade dates differ")
+        aggregated_weekly = aggregated_weekly.iloc[:-1]
     if not np.allclose(
         aggregated_weekly[price_columns],
         weekly_indexed[price_columns],
@@ -247,7 +260,12 @@ def load_market_data(
     weekly = pd.concat(grouped["weekly"], ignore_index=True).sort_values("dt").reset_index(drop=True)
     for name, frame in (("30m", intraday), ("daily", daily), ("weekly", weekly)):
         _validate_frame(frame, name)
-    _validate_reconciliation(intraday, daily, weekly)
+    _validate_reconciliation(
+        intraday,
+        daily,
+        weekly,
+        allow_trailing_partial_week=cutoff_ts is not None,
+    )
     visible_manifest = manifest.copy()
     visible_manifest["files"] = visible_records
     if cutoff_ts is not None:

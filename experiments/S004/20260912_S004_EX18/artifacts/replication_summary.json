@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260912_S004_EX18",
+  "status": "PASS",
+  "evidence_label": "MIXED",
+  "target_symbol": "510500.SH",
+  "closed_trades": 257,
+  "rolling_60_median": 12.0,
+  "rolling_60_p10": 9.0,
+  "stress_mean_return": 0.00032745927345946855,
+  "stress_profit_factor": 1.0598453055708967,
+  "positive_years": 3,
+  "recent_252_mean_return": 0.0014724361930352821,
+  "random_percentile": 95.0,
+  "random_median_return": -0.0009467047345817314,
+  "random_p90_return": 9.53013644520008e-05,
+  "formal_metrics": {
+    "max_drawdown": -0.17909515532930842,
+    "calmar": 0.04106003122535629,
+    "win_loss_ratio": 1.019393194671244,
+    "win_loss_ratio_status": "VALID",
+    "return": 0.03779567680000073,
+    "sharpe": 0.12216671024936863,
+    "closed_trades": 257
+  },
+  "se_replay_audit": "PASS",
+  "checks": {
+    "sample": true,
+    "density_median": true,
+    "density_p10": true,
+    "mean_return": true,
+    "profit_factor": true,
+    "positive_years": false,
+    "recent_mean": true,
+    "random_control": true
+  },
+  "source_candidate_unchanged": true,
+  "route_decision": "PARTIAL_CROSS_SECTION_REPLICATION"
+}

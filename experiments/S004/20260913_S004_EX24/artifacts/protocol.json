@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX24",
+  "experiment_type": "point_in_time_star50_breadth_data_gate",
+  "research_target": {
+    "strategy_id": "S004",
+    "trade_symbol": "588080.SH",
+    "index_code": "000688.SH",
+    "index_name": "上证科创板50成份指数"
+  },
+  "dataset": {
+    "membership_fetch_start": "2020-10-01",
+    "start": "2020-11-16",
+    "development_cutoff": "2026-09-02",
+    "calendar_owner": "588080.SH",
+    "calendar_manifest": "data/raw/588080_manifest.json",
+    "calendar_manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "sources": {
+    "vendor": "tushare",
+    "membership_endpoint": "index_weight",
+    "daily_endpoint": "daily",
+    "suspension_endpoint": "suspend_d",
+    "calendar_endpoint": "trade_cal"
+  },
+  "membership_rule": {
+    "snapshot_known": "TRADE_DATE_POST_CLOSE",
+    "effective_from": "NEXT_TRADING_SESSION",
+    "effective_until": "NEXT_SNAPSHOT_EFFECTIVE_FROM_EXCLUSIVE",
+    "current_members_backfill_forbidden": true
+  },
+  "sample_rule": {
+    "groups": ["persistent", "departed", "entered"],
+    "per_group": 2,
+    "selection": "lexicographically_first_codes"
+  },
+  "quality_gate": {
+    "maximum_last_snapshot_age_days": 31,
+    "members_per_snapshot": 50,
+    "weight_sum_min": 99.5,
+    "weight_sum_max": 100.5,
+    "historical_union_max": 200,
+    "estimated_compressed_storage_mb_max": 50,
+    "incremental_daily_calls_max": 2
+  },
+  "conditional_return_analysis": false,
+  "breadth_feature_generation": false,
+  "signal_generation": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

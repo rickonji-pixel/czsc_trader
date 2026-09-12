@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX25",
+  "experiment_type": "point_in_time_star50_constituent_daily_panel",
+  "source": {
+    "experiment_id": "20260913_S004_EX24",
+    "experiment_manifest_sha256": "2439d174a3cd0aa8a7e872241e55e9c42e646de847c3ac174c92c2118dffd48f",
+    "data_quality_sha256": "bb86a0f098c5c80410d8a356aba0ba08c930866476e4d1a8b90d8d36a2bfb6ad",
+    "membership_file_sha256": "5996c1f47474e7753a67dd990c18f5f0820d35c775e1b7920686ab4b32c7e632",
+    "calendar_manifest": "data/raw/588080_manifest.json",
+    "calendar_manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "dataset": {
+    "start": "2020-11-16",
+    "development_cutoff": "2026-09-02",
+    "calendar_owner": "588080.SH",
+    "members_per_session": 50
+  },
+  "fetch": {
+    "vendor": "tushare",
+    "daily_endpoint": "daily",
+    "suspension_endpoint": "suspend_d",
+    "lifecycle_endpoint": "stock_basic",
+    "symbols_per_daily_request": 3,
+    "symbols_per_suspension_request": 20,
+    "daily_fields": ["ts_code", "trade_date", "close", "pre_close", "pct_chg", "vol", "amount"]
+  },
+  "allowed_record_statuses": ["OBSERVED", "SUSPENDED", "DELISTED_STALE_MEMBERSHIP"],
+  "quality_gate": {
+    "members_per_session": 50,
+    "compressed_storage_mb_max": 50
+  },
+  "conditional_return_analysis": false,
+  "breadth_feature_generation": false,
+  "signal_generation": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

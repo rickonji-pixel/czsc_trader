@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX34",
+  "experiment_type": "overseas_semiconductor_event_density_census",
+  "research_target": {
+    "strategy_id": "S004",
+    "trade_symbol": "588080.SH"
+  },
+  "upstream": {
+    "experiment_id": "20260913_S004_EX33",
+    "us_daily": "experiments/S004/20260913_S004_EX33/artifacts/us_daily.csv.gz",
+    "us_daily_sha256": "494235024f83937beb8f7e7a2d832af64b0873590a326dead752396740fd7569",
+    "session_mapping": "experiments/S004/20260913_S004_EX33/artifacts/session_mapping.csv.gz",
+    "session_mapping_sha256": "4798830155020e1719054a7e29934e4c0e745f1c351114ab202d99d7068a4256"
+  },
+  "feature": {
+    "semi_excess_formula": "MEAN(SMH_PCT_CHANGE,SOXX_PCT_CHANGE)-QQQ_PCT_CHANGE",
+    "consensus_required": true,
+    "nvda_usage": "DIAGNOSTIC_ONLY",
+    "rolling_us_sessions": 120,
+    "quantiles": [0.6, 0.7, 0.8]
+  },
+  "paths": {
+    "POSITIVE_UNDERREACTION": "POSITIVE_CONSENSUS_AND_SEMI_EXCESS_AT_OR_ABOVE_TRAILING_QUANTILE",
+    "NEGATIVE_OVERREACTION": "NEGATIVE_CONSENSUS_AND_SEMI_EXCESS_AT_OR_BELOW_TRAILING_COMPLEMENT_QUANTILE"
+  },
+  "independence": {
+    "maximum_events_per_us_session": 1,
+    "repeat_stale_us_session": false
+  },
+  "density_gate": {
+    "rolling_a_share_sessions": 60,
+    "median_minimum": 12,
+    "median_maximum": 20,
+    "p10_minimum": 8,
+    "selection_target": 16
+  },
+  "conditional_return_analysis": false,
+  "reads_588080_price_or_return": false,
+  "parameter_selection_by_return": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}
+

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX30",
+  "experiment_type": "return_free_constituent_absorption_event_census",
+  "research_target": {
+    "strategy_id": "S004",
+    "trade_symbol": "588080.SH",
+    "mechanism": "CONSTITUENT_LEVEL_BUYING_ABSORPTION"
+  },
+  "sources": {
+    "moneyflow_experiment": "20260913_S004_EX28",
+    "moneyflow_manifest_sha256": "fe36fc6b96177ddbbf2464be714220542ee3e05854d46cf2812690c39579c053",
+    "moneyflow_panel_sha256": "cffe9c36db483e80f8c3b86aa7554884b58f248416dd2c8b60d9fa3392ca471e",
+    "moneyflow_quality_sha256": "fd839f3c02d07d2612cf46371b8c7db73aa810aa98542b00fde080587b105e28",
+    "price_experiment": "20260913_S004_EX25",
+    "price_manifest_sha256": "6250033a5ccda74d735e4aa862ce65ef9cd97996b391628295ba9e95b484f7e3",
+    "price_panel_sha256": "14e3b90bbe3b793d905b0667a92dadd974091820ae47a5cd94dea4dbe6c82d24",
+    "market_manifest": "data/raw/588080_manifest.json",
+    "market_manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "dataset": {
+    "evaluation_start": "2021-07-01",
+    "development_cutoff": "2026-09-02"
+  },
+  "feature": {
+    "absorption_member": "net_mf_amount > 0 and constituent_pct_chg <= 0",
+    "absorption_breadth": "absorption_member_weight / observed_moneyflow_weight",
+    "minimum_observed_weight_ratio": 0.95,
+    "threshold_lookback_valid_sessions": 60,
+    "threshold_quantiles": [0.7, 0.75, 0.8],
+    "signal_time": "TRADE_DATE_AFTER_19_00",
+    "entry_time": "NEXT_TRADING_SESSION_OPEN",
+    "exit_time": "ENTRY_DATE_11_30"
+  },
+  "density_gate": {
+    "rolling_sessions": 60,
+    "median_min": 12,
+    "median_max": 20,
+    "p10_min": 8,
+    "target_median": 16
+  },
+  "selection_rule": "density_gate_then_nearest_target_median_then_lower_quantile",
+  "prior_return_bearing_trials": 68,
+  "return_bearing_trials_added": 0,
+  "conditional_return_analysis": false,
+  "parameter_selection_using_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

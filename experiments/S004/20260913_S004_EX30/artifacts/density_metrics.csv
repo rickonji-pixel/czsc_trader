@@ -1,0 +1,4 @@
+path_id,threshold_quantile,event_count,rolling_60_median,rolling_60_p10,rolling_60_min,low_volatility_events,low_volatility_share,density_eligible
+AB-Q70,0.7,403,19.0,13.0,1.0,194,0.4813895781637717,True
+AB-Q75,0.75,346,16.0,11.0,1.0,164,0.47398843930635837,True
+AB-Q80,0.8,280,12.0,9.0,1.0,126,0.45,True

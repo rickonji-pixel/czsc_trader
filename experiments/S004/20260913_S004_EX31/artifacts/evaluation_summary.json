@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX31",
+  "status": "FAIL",
+  "frozen_path": "AB-Q75",
+  "cumulative_return_bearing_trials": 69,
+  "route_decision": "STOP_ABSORPTION_FAMILY",
+  "candidate_created": false
+}

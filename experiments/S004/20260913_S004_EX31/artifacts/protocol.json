@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX31",
+  "experiment_type": "fixed_constituent_absorption_return_evaluation",
+  "research_target": {
+    "strategy_id": "S004",
+    "mechanism": "CONSTITUENT_LEVEL_BUYING_ABSORPTION",
+    "frozen_path": "AB-Q75",
+    "primary_symbol": "588080.SH",
+    "replication_symbol": "510500.SH"
+  },
+  "sources": {
+    "primary_event_experiment": "20260913_S004_EX30",
+    "primary_manifest_sha256": "1a4f85ce93a6ef50382c782db55d576c0f4557bdadd5cac7f57bd3afc43151b4",
+    "primary_events_sha256": "3c68493380b520fa736ffbce1eb97309505ac32586f05d8b812f676d02de7499",
+    "replication_moneyflow_experiment": "20260911_S003_EX43",
+    "replication_moneyflow_manifest_sha256": "3a7a1a84db56ca09cc9c70d1c2defe2efe770015e18f4c2296fec50683e06640",
+    "replication_moneyflow_panel_sha256": "c67f3a21e4180751e65733173d2e2072fccc4011ded14c1fa36d0611fa467062",
+    "replication_price_experiment": "20260911_S003_EX31",
+    "replication_price_manifest_sha256": "fa283e2f84901c30bfe6fe6add5a2477804439342289d40ba8fb1b52f9043c56",
+    "replication_price_panel_sha256": "282c47b9def58b2844ef238f234c3fdae601f2f85a8abc828f3643d243aae58b",
+    "primary_market_manifest": "data/raw/588080_manifest.json",
+    "primary_market_manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4",
+    "replication_market_manifest": "data/raw/510500_manifest.json",
+    "replication_market_manifest_sha256": "e22ef09a5b33471cd9e84e01d3d386acd5205224b464053839f67f6160a59358"
+  },
+  "dataset": {
+    "evaluation_start": "2021-07-01",
+    "development_cutoff": "2026-09-02"
+  },
+  "feature": {
+    "threshold_lookback_valid_sessions": 60,
+    "threshold_quantile": 0.75,
+    "minimum_observed_weight_ratio": 0.95
+  },
+  "execution": {
+    "signal_time": "TRADE_DATE_AFTER_19_00",
+    "entry_time": "NEXT_TRADING_SESSION_OPEN",
+    "exit_time": "ENTRY_DATE_11_30",
+    "stress_cost_bps_per_side": 6
+  },
+  "acceptance": {
+    "rolling_60_median_min": 12,
+    "rolling_60_median_max": 20,
+    "rolling_60_p10_min": 8,
+    "full_stress_mean_min_exclusive": 0,
+    "full_profit_factor_min_exclusive": 1,
+    "low_vol_stress_mean_min_exclusive": 0,
+    "low_vol_profit_factor_min_exclusive": 1,
+    "positive_years_min": 4
+  },
+  "prior_return_bearing_trials": 68,
+  "return_bearing_trials_added": 1,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

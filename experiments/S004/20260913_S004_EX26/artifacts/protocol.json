@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX26",
+  "experiment_type": "return_free_constituent_lead_event_census",
+  "research_target": {
+    "strategy_id": "S004",
+    "trade_symbol": "588080.SH",
+    "mechanism": "CONSTITUENT_BREADTH_LEADS_ETF"
+  },
+  "source": {
+    "experiment_id": "20260913_S004_EX25",
+    "experiment_manifest_sha256": "6250033a5ccda74d735e4aa862ce65ef9cd97996b391628295ba9e95b484f7e3",
+    "panel_sha256": "14e3b90bbe3b793d905b0667a92dadd974091820ae47a5cd94dea4dbe6c82d24",
+    "data_quality_sha256": "10d5e38c2708957d7c2779098e7d4b82c001af6c6c7f69b827c004d606bb9029",
+    "market_manifest": "data/raw/588080_manifest.json",
+    "market_manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "dataset": {
+    "evaluation_start": "2021-06-01",
+    "development_cutoff": "2026-09-02"
+  },
+  "feature": {
+    "advance_ratio": "advancing_observed_members / observed_members",
+    "weighted_constituent_return_pct": "sum(snapshot_weight * constituent_pct_chg) / observed_weight",
+    "etf_return_pct": "588080 adjusted close-to-close percent return",
+    "lead_score_pct": "weighted_constituent_return_pct - etf_return_pct",
+    "threshold_lookback": 120,
+    "threshold_quantiles": [0.5, 0.6, 0.7],
+    "minimum_observed_ratio": 0.95,
+    "require_positive_weighted_constituent_return": true,
+    "require_advance_ratio_above": 0.5,
+    "signal_time": "T_POST_CLOSE",
+    "entry_time": "T_PLUS_1_OPEN",
+    "exit_time": "T_PLUS_1_11_30"
+  },
+  "density_gate": {
+    "rolling_sessions": 60,
+    "median_min": 12,
+    "median_max": 20,
+    "p10_min": 8,
+    "target_median": 16
+  },
+  "selection_rule": "density_gate_then_nearest_target_median_then_lower_quantile",
+  "prior_return_bearing_trials": 67,
+  "return_bearing_trials_added": 0,
+  "conditional_return_analysis": false,
+  "parameter_selection_using_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

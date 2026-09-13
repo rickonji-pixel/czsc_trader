@@ -11,6 +11,7 @@
 | S002 | 中证500择时策略 | 510500.SH | PAPER_READY / PTE观察 | [S002](S002/HANDOFF.md) |
 | S003 | 成分资金流宽度早盘延续 | 510500.SH | PAPER_READY / PTE观察 | [S003](S003/HANDOFF.md) |
 | S004 | 尾盘流动性错位修复 | 588080.SH | RESEARCH_PAUSED / 候选保留作标杆 | [S004](S004/HANDOFF.md) |
+| S005 | 588080中频增强策略（工作名） | 588080.SH | MECHANISM_DISCOVERY | [S005](S005/HANDOFF.md) |
 
 ## 前瞻监测方案
 

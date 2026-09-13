@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX48",
+  "strategy_id": "S004",
+  "candidate_id": "S004-C002",
+  "decision": "PAUSE_RESEARCH_RETAIN_FREQUENCY_BENCHMARK",
+  "research_line_status": "PAUSED",
+  "candidate_status_unchanged": "RESEARCH_CANDIDATE",
+  "retained_role": "DEFENSIVE_RESEARCH_CANDIDATE_AND_S005_FREQUENCY_BENCHMARK",
+  "frequency_benchmark": {
+    "closed_trades": 160,
+    "rolling_60_median": 7.0,
+    "rolling_60_p10": 3.0
+  },
+  "lifecycle_effects": {
+    "candidate_deleted": false,
+    "candidate_created": false,
+    "strategy_version_created": false,
+    "strategy_frozen": false,
+    "pte_mutated": false
+  },
+  "ex47_arrival_observation": "CONTINUES_AS_NON_BLOCKING_OPERATIONAL_OBSERVATION",
+  "prohibited_follow_up": "NO_FURTHER_S004_PARAMETER_SEARCH_WITHOUT_EXPLICIT_REOPENING",
+  "evidence": {
+    "candidate": {
+      "path": "research/S004/candidates/S004-C002.json",
+      "sha256": "d807c7c378720822b2b17bf90fddeac957c7d480bdb0b19c73d861cbda9f3731"
+    },
+    "metrics": {
+      "path": "experiments/S004/20260913_S004_EX41/artifacts/candidate_metrics.json",
+      "sha256": "fb1a4b59eed6c67bf5842ec24bec57b27f31547c78d2cad9c4fd2836c1b53da3"
+    },
+    "freeze_health": {
+      "path": "experiments/S004/20260913_S004_EX46/artifacts/freeze_health.json",
+      "sha256": "b4be6ec2ff3d024249377f6c32d14b9f42d407882e483edaa5c68883895cccac"
+    }
+  }
+}

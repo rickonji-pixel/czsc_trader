@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX14",
+  "status": "COMPLETE",
+  "sessions": 789,
+  "contracts": 1396,
+  "standard_contracts": 1258,
+  "quote_rows": 90444,
+  "expected_active_contract_rows": 90444,
+  "session_coverage": 1.0,
+  "valid_standard_quote_coverage": 0.9957391103467749,
+  "paired_session_coverage": 0.9873257287705957,
+  "duplicate_contract_date_rows": 0,
+  "unexpected_lifecycle_rows": 0,
+  "checks": {
+    "session_coverage": true,
+    "valid_standard_quote_coverage": true,
+    "paired_session_coverage": true,
+    "unique_contract_dates": true,
+    "contract_lifecycle": true
+  },
+  "documented_daily_update": "17:00",
+  "production_arrival_status": "UNVERIFIED",
+  "decision": "PROCEED_TO_OPTION_MECHANISM_PREREGISTRATION",
+  "reads_588080_future_returns": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "7e0c398e22e51e4ed3fafc7d0c83220b504bb4011f2fe656e776906d42733af7"
+}

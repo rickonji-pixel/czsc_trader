@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX08",
+  "experiment_type": "three_session_relative_acceleration_density",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "context_symbol": "510500.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "momentum_sessions": 3,
+  "threshold_reference_sessions": 120,
+  "threshold_quantiles": [0.5, 0.6, 0.7],
+  "require_positive_absolute_return": true,
+  "density": {"cooldown_sessions": 3, "rolling_window_sessions": 60, "minimum_median": 7.0, "minimum_p10": 3.0},
+  "selection_rule": "HIGHEST_QUANTILE_PASSING_DENSITY",
+  "reads_post_event_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

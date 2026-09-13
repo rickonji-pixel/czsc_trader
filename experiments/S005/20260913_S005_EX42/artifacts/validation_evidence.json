@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX42",
+  "decision": "MAAS_EXTRACTION_REJECTED",
+  "checks": {
+    "completion_rate": false,
+    "article_precision": false,
+    "article_recall": false
+  },
+  "metrics": {
+    "article_count": 240,
+    "gold_relevant": 17,
+    "predicted_relevant": 9,
+    "true_positive": 7,
+    "false_positive": 2,
+    "false_negative": 10,
+    "true_negative": 221,
+    "precision": 0.7777777777777778,
+    "recall": 0.4117647058823529,
+    "completion_rate": 0.9833333333333333,
+    "canonical_primary_events": 9,
+    "primary_event_strict_matches": 2,
+    "primary_event_strict_match_rate_among_predictions": 0.2222222222222222,
+    "additional_events": 27,
+    "reused_articles": 236,
+    "failed_articles": 4
+  },
+  "model": "ep-dsv41flash",
+  "prompt_and_scope_were_frozen_before_gold_release": true,
+  "reads_prices_or_returns": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "runtime_audit_dir": "D:\\CodeBase\\czsc_trader\\.tmp\\news_events\\S005-ex42-holdout\\extraction",
+  "protocol_sha256": "26775d4605f917b9e30b0022ad8c042da16cfdeb5c04c60e4a5ea30a5247a8d7"
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import date, datetime
 from hashlib import sha256
 from html.parser import HTMLParser
 import json
@@ -121,6 +122,7 @@ class ExtractedEvent:
     primary_entity: str
     event_type: str
     direction: str
+    disclosure_date: str
     event_time_text: str
     event_summary: str
     evidence_excerpt: str
@@ -166,32 +168,57 @@ class NewsReview:
             raise ValueError("non-relevant or unresolved article cannot contain events")
 
         article_text = f"{article.title}\n{visible_text(article.content)}"
-        if relevance == "CATALYST_RELEVANT":
-            _require_evidence(relevance_evidence, article_text, "relevance_evidence")
-
         event_fields = {
             "primary_entity",
             "event_type",
             "direction",
+            "disclosure_date",
             "event_time_text",
             "event_summary",
             "evidence_excerpt",
         }
         events: list[ExtractedEvent] = []
+        event_keys: set[str] = set()
         for index, raw_event in enumerate(raw_events):
             if not isinstance(raw_event, dict) or set(raw_event) != event_fields:
                 actual = sorted(raw_event) if isinstance(raw_event, dict) else type(raw_event).__name__
                 raise ValueError(f"event {index} fields differ: {actual}")
             values = {name: str(raw_event[name]).strip() for name in event_fields}
-            for name in ("primary_entity", "event_type", "direction", "event_summary", "evidence_excerpt"):
+            for name in (
+                "primary_entity",
+                "event_type",
+                "direction",
+                "disclosure_date",
+                "event_summary",
+                "evidence_excerpt",
+            ):
                 if not values[name]:
                     raise ValueError(f"event {index} field cannot be empty: {name}")
             if values["event_type"] not in EVENT_TYPE_VALUES:
                 raise ValueError(f"event {index} invalid event_type: {values['event_type']}")
             if values["direction"] not in DIRECTION_VALUES:
                 raise ValueError(f"event {index} invalid direction: {values['direction']}")
+            try:
+                disclosed_on = date.fromisoformat(values["disclosure_date"])
+                published_on = datetime.fromisoformat(article.published_at).date()
+            except ValueError as exc:
+                raise ValueError(f"event {index} disclosure_date must be YYYY-MM-DD") from exc
+            if disclosed_on > published_on:
+                raise ValueError(f"event {index} disclosure_date is after article publication")
             _require_evidence(values["evidence_excerpt"], article_text, f"event {index} evidence")
-            events.append(ExtractedEvent(**values))
+            event = ExtractedEvent(**values)
+            event_key = dedupe_group_key(event)
+            if event_key in event_keys:
+                raise ValueError(f"event {index} duplicates an event in the same article: {event_key}")
+            event_keys.add(event_key)
+            events.append(event)
+        if relevance == "CATALYST_RELEVANT" and _normalized_text(
+            relevance_evidence
+        ) not in _normalized_text(article_text):
+            # Relevance evidence is redundant once an event excerpt has passed the
+            # stricter source check. Canonicalize the display field without changing
+            # or hiding the raw model response retained in the audit record.
+            relevance_evidence = events[0].evidence_excerpt
         return cls(relevance, review_reason, relevance_evidence, tuple(events))
 
 
@@ -205,3 +232,8 @@ def _require_evidence(excerpt: str, article_text: str, field: str) -> None:
 def stable_json_sha256(value: object) -> str:
     encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def dedupe_group_key(event: ExtractedEvent) -> str:
+    entity = re.sub(r"\s+", "", event.primary_entity).upper()
+    return f"{entity}|{event.event_type}|{event.disclosure_date.replace('-', '')}"

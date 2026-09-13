@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from czsc_trader.application.errors import ExecutionError, UsageError
+from czsc_trader.application.errors import ExecutionError, UsageError, ValidationError
 from czsc_trader.news_events.maas import MaaSResponse, MaaSSettings, TencentMaaSClient
 from czsc_trader.news_events.service import NewsExtractionCommand, run_news_extraction
 
@@ -89,10 +89,20 @@ def test_ft_t09_news_extraction_is_resumable_auditable_and_fails_closed(
                         "primary_entity": "甲公司",
                         "event_type": "ORDER_DEMAND",
                         "direction": "POSITIVE",
+                        "disclosure_date": "2026-08-18",
                         "event_time_text": "明年",
                         "event_summary": "获得十亿元AI芯片订单",
                         "evidence_excerpt": "甲公司公告新获得十亿元AI芯片订单",
-                    }
+                    },
+                    {
+                        "primary_entity": "甲公司",
+                        "event_type": "CAPEX",
+                        "direction": "AMBIGUOUS",
+                        "disclosure_date": "2026-08-18",
+                        "event_time_text": "",
+                        "event_summary": "文章同时提及后续交付",
+                        "evidence_excerpt": "预计明年交付",
+                    },
                 ],
             },
             "A-002": {
@@ -103,7 +113,7 @@ def test_ft_t09_news_extraction_is_resumable_auditable_and_fails_closed(
             },
         }
     )
-    command = NewsExtractionCommand(source, scope, output)
+    command = NewsExtractionCommand(source, scope, output, workers=2)
 
     result = run_news_extraction(command, gateway=gateway)
 
@@ -111,16 +121,20 @@ def test_ft_t09_news_extraction_is_resumable_auditable_and_fails_closed(
         "article_count": 2,
         "relevant_count": 1,
         "unresolved_count": 0,
-        "event_count": 1,
+        "event_count": 2,
         "reused_count": 0,
     }
     manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "PASS"
     assert manifest["completed_count"] == 2
+    assert manifest["workers"] == 2
     assert "secret-not-for-artifacts" not in "".join(
         path.read_text(encoding="utf-8") for path in output.rglob("*.json*")
     )
     assert len(gateway.calls) == 2
+    events = [json.loads(line) for line in (output / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert events[0]["dedupe_group_key"] == "甲公司|ORDER_DEMAND|20260818"
+    assert events[1]["event_type"] == "CAPEX"
 
     gateway.calls.clear()
     resumed = run_news_extraction(command, gateway=gateway)
@@ -153,6 +167,12 @@ def test_ft_t09_news_extraction_is_resumable_auditable_and_fails_closed(
     failed_record = json.loads(failed_audit.read_text(encoding="utf-8"))
     assert failed_record["request_id"] == "request-A-001"
     assert failed_record["response"]["id"] == "response-A-001"
+
+    with pytest.raises(ValidationError, match="workers must be an integer from 1 to 8"):
+        run_news_extraction(
+            NewsExtractionCommand(source, scope, tmp_path / "invalid-workers", workers=9),
+            gateway=gateway,
+        )
 
 
 def test_ft_t10_news_maas_settings_use_process_env_then_local_env(

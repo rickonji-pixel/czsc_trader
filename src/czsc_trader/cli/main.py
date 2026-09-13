@@ -196,6 +196,7 @@ def _news_extract(args: argparse.Namespace):
         scope_path=args.scope,
         output_dir=args.output_dir,
         limit=args.limit,
+        workers=args.workers,
     )
 
 
@@ -293,6 +294,7 @@ def build_parser() -> argparse.ArgumentParser:
     news_extract.add_argument("--scope", required=True, type=Path)
     news_extract.add_argument("--output-dir", required=True, type=Path)
     news_extract.add_argument("--limit", type=int)
+    news_extract.add_argument("--workers", type=int, default=4)
     _add_repository_root(news_extract)
     news_extract.set_defaults(
         command_handler=_news_extract,

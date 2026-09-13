@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 import json
@@ -14,7 +15,7 @@ from czsc_trader.application.results import CommandResult
 from czsc_trader.identity import raw_file_sha256
 
 from .maas import MaaSResponse, MaaSSettings, TencentMaaSClient, extract_message_json
-from .models import NewsArticle, NewsReview, stable_json_sha256
+from .models import ExtractedEvent, NewsArticle, NewsReview, dedupe_group_key, stable_json_sha256
 from .prompt import PROMPT_VERSION, build_request
 
 
@@ -30,6 +31,7 @@ class NewsExtractionCommand:
     scope_path: Path
     output_dir: Path
     limit: int | None = None
+    workers: int = 1
     env_file: Path | None = None
 
 
@@ -131,6 +133,8 @@ def run_news_extraction(
     output_dir = command.output_dir.resolve()
     scope = _read_scope(scope_path)
     articles = _read_articles(input_path, command.limit)
+    if type(command.workers) is not int or not 1 <= command.workers <= 8:
+        raise ValidationError("news_input_invalid", "workers must be an integer from 1 to 8")
     settings = (
         gateway.settings
         if gateway is not None
@@ -142,10 +146,9 @@ def run_news_extraction(
     audit_dir = output_dir / "audit"
     audit_dir.mkdir(parents=True, exist_ok=True)
 
-    audit_records: list[dict[str, object]] = []
-    failures: list[dict[str, object]] = []
-    reused = 0
-    for article in articles:
+    def extract_one(
+        article: NewsArticle,
+    ) -> tuple[dict[str, object] | None, dict[str, object] | None, bool]:
         audit_path = audit_dir / f"{_safe_identity(article.sample_id)}-{article.article_sha256[:12]}.json"
         existing = _existing_pass(
             audit_path,
@@ -154,9 +157,7 @@ def run_news_extraction(
             model=settings.model,
         )
         if existing is not None:
-            audit_records.append(existing)
-            reused += 1
-            continue
+            return existing, None, True
         request_payload = build_request(article, scope, model=settings.model)
         started_at = datetime.now().astimezone().isoformat()
         response: MaaSResponse | None = None
@@ -180,7 +181,7 @@ def run_news_extraction(
                 "review": review.to_dict(),
             }
             _write_json(audit_path, record)
-            audit_records.append(record)
+            return record, None, False
         except (ExecutionError, ValueError) as exc:
             code = exc.code if isinstance(exc, ExecutionError) else "news_model_output_invalid"
             message = exc.message if isinstance(exc, ExecutionError) else str(exc)
@@ -191,7 +192,6 @@ def run_news_extraction(
             }
             if isinstance(exc, ExecutionError) and exc.context:
                 failure["context"] = exc.context
-            failures.append(failure)
             failure_record: dict[str, object] = {
                 "schema_version": 1,
                 "status": "FAIL",
@@ -210,6 +210,16 @@ def run_news_extraction(
                 failure_record["request_id"] = response.request_id
                 failure_record["response"] = response.payload
             _write_json(audit_path, failure_record)
+            return None, failure, False
+
+    if command.workers == 1:
+        outcomes = [extract_one(article) for article in articles]
+    else:
+        with ThreadPoolExecutor(max_workers=command.workers) as executor:
+            outcomes = list(executor.map(extract_one, articles))
+    audit_records = [record for record, _, _ in outcomes if record is not None]
+    failures = [failure for _, failure, _ in outcomes if failure is not None]
+    reused = sum(was_reused for _, _, was_reused in outcomes)
 
     reviews: list[dict[str, object]] = []
     events: list[dict[str, object]] = []
@@ -224,14 +234,15 @@ def run_news_extraction(
             }
         )
         for index, event in enumerate(event_items, start=1):
-            events.append(
-                {
-                    "event_id": f"{record['sample_id']}-E{index:02d}",
-                    "sample_id": record["sample_id"],
-                    "article_sha256": record["article_sha256"],
-                    **event,
-                }
-            )
+            parsed_event = ExtractedEvent(**event)
+            event_row = {
+                "event_id": f"{record['sample_id']}-E{index:02d}",
+                "sample_id": record["sample_id"],
+                "article_sha256": record["article_sha256"],
+                "dedupe_group_key": dedupe_group_key(parsed_event),
+                **event,
+            }
+            events.append(event_row)
     _write_jsonl(output_dir / "reviews.jsonl", reviews)
     _write_jsonl(output_dir / "events.jsonl", events)
     manifest = {
@@ -245,6 +256,7 @@ def run_news_extraction(
         "input_path": str(input_path),
         "input_sha256": input_sha256,
         "article_count": len(articles),
+        "workers": command.workers,
         "completed_count": len(audit_records),
         "reused_count": reused,
         "failure_count": len(failures),

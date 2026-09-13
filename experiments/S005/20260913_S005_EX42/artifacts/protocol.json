@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX42",
+  "strategy_id": "S005",
+  "development_cutoff": "2026-09-02",
+  "purpose": "independent_maas_news_extraction_validation",
+  "source": {
+    "path": ".tmp/research_cache/S005/news/ex39_sina_full_pilot.csv.gz",
+    "sha256": "2604c73e21cf1ef9bad9eab68b23125ed8971198d4061852feb69b64cbaa2646",
+    "start_offset": 10,
+    "article_count": 240
+  },
+  "gold": {
+    "labels_path": "experiments/S005/20260913_S005_EX39/artifacts/manual_labels.csv",
+    "labels_sha256": "48b1dfc73914d36725b3f278747d73db7965dedd01f28a4068cb44e549793b4f",
+    "events_path": "experiments/S005/20260913_S005_EX39/artifacts/manual_events.csv",
+    "events_sha256": "e9c4ab667fe655292fd60b5be1ad048c2349f45adb9ff0a8f99eefb5caf88be6"
+  },
+  "scope": {
+    "path": "research/S005/news_scope.v1.json",
+    "sha256": "99176ea5e33ae70b3092574be175598dbaf8aca885bdf7cfcedc5ff1d14013c8"
+  },
+  "calibration_articles": 10,
+  "workers": 4,
+  "acceptance": {
+    "completion_rate_min": 1.0,
+    "article_precision_min": 0.8,
+    "article_recall_min": 0.6
+  },
+  "reads_prices_or_returns": false
+}

@@ -163,14 +163,17 @@ CZSC_NEWS_MAAS_MODEL=ep-dsv41flash
   --input .tmp\research_cache\S005\news\ex39_sina_full_pilot.csv.gz `
   --scope research\S005\news_scope.v1.json `
   --output-dir .tmp\news_events\S005-ex39-v41 `
-  --limit 10
+  --limit 10 `
+  --workers 4
 ```
 
 每篇文章单独保存请求、MaaS原始响应、结构化结果、模型、提示词版本、原文哈希和请求ID。
 当前自定义服务使用`json_object`响应格式，字段、枚举、事件完整性和原文证据由TDR按冻结
-Schema再次严格校验。
-重复执行时只复用身份完全一致且已经通过校验的文章。最终生成`reviews.jsonl`、
-`events.jsonl`和`manifest.json`。只要任一文章调用失败、JSON不合法、相关篇没有事件，或
+Schema再次严格校验。若模型生成的文章级相关性证据不是连续原文、但事件证据均已通过回查，
+TDR会确定性地使用第一条事件证据作为文章级证据；模型原始响应仍完整保留。
+重复执行时只复用身份完全一致且已经通过校验的文章。最终生成`reviews.jsonl`、核心披露
+`events.jsonl`和`manifest.json`；一篇汇总稿可以生成多项本次新增事件，历史背景不得进入事件表。
+跨文章去重键只是“可能重复”的候选分组，不自动删除事件。只要任一文章调用失败、JSON不合法、相关篇没有事件，或
 证据无法在原文中定位，整批命令明确返回`FAIL`，已成功记录可以在下次执行时继续复用。
 
 新闻事件能被可靠抽取只说明数据生产链路可用。将事件映射为收益假设前，仍须按研究交接

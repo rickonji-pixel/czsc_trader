@@ -15,6 +15,7 @@ def extract_news(
     scope_path: Path,
     output_dir: Path,
     limit: int | None,
+    workers: int,
 ) -> CommandResult:
     def resolve(path: Path) -> Path:
         return path.resolve() if path.is_absolute() else (context.root / path).resolve()
@@ -25,6 +26,7 @@ def extract_news(
             scope_path=resolve(scope_path),
             output_dir=resolve(output_dir),
             limit=limit,
+            workers=workers,
             env_file=context.root / ".env",
         )
     )

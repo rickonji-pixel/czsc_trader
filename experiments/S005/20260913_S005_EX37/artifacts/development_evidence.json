@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX37",
+  "sample_role": "RULE_DEVELOPMENT_ONLY",
+  "development_rows": 150,
+  "development_relevant_rows": 28,
+  "selected_rows": 28,
+  "true_positive": 27,
+  "false_positive": 1,
+  "false_negative": 1,
+  "development_precision": 0.9642857142857143,
+  "development_recall": 0.9642857142857143,
+  "prefilter_sha256": "c2bb9346cefb91538a0846f5bbcb0f182c8ffaa7ec45f72a1e10d5594c013077",
+  "entity_snapshot_sha256": "44e07844bfc94bc662f2cff4d9d0eed1b28432561f3a2dfe70b07192239d3407",
+  "reads_post_event_prices": false,
+  "decision": "PREFILTER_FROZEN_FOR_NEW_HOLDOUT"
+}

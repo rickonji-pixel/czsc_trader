@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX37",
+  "experiment_type": "news_candidate_prefilter_development_and_freeze",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "development_samples": [
+    "20260913_S005_EX35",
+    "20260913_S005_EX36"
+  ],
+  "important_component_max_weight_min": 3.0,
+  "independent_acceptance": {
+    "experiment_id": "20260913_S005_EX38",
+    "minimum_precision": 0.8,
+    "minimum_recall": 0.6,
+    "deterministic_rerun_agreement": 1.0
+  },
+  "reads_post_event_prices": false,
+  "event_generation": false,
+  "direction_classification": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

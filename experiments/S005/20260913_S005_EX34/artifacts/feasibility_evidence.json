@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX34",
+  "sample_rows": 18409,
+  "sample_content_coverage": 1.0,
+  "retrieved_titles": 3948,
+  "retrieved_sample_dates": 12,
+  "domain_counts": {
+    "SEMICONDUCTOR": 1447,
+    "AI_COMPUTE": 2390,
+    "STAR_POLICY": 1400
+  },
+  "technical_source_pass": {
+    "凤凰财经": false,
+    "同花顺": true,
+    "新浪财经": true
+  },
+  "semantic_pilot_checks": {
+    "minimum_retrieved_titles": true,
+    "minimum_retrieved_sample_dates": true,
+    "minimum_each_domain": true
+  },
+  "reads_post_event_prices": false,
+  "decision": "PROCEED_TO_MANUAL_SEMANTIC_AUDIT"
+}

@@ -1,0 +1,4 @@
+source,sample_dates_with_data,sample_dates,rows,api_calls,minimum_core_field_coverage,maximum_terminal_chunk_rows,unsplittable_saturated_chunks,sample_date_coverage,technical_pass
+凤凰财经,10,12,449,12,0.0,99,0,0.8333333333333334,False
+同花顺,12,12,15510,130,1.0,348,0,1.0,True
+新浪财经,12,12,2457,24,1.0,266,0,1.0,True

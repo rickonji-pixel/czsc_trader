@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX35",
+  "experiment_type": "manual_news_semantic_precision_audit",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "experiment_id": "20260913_S005_EX34",
+    "manifest_sha256": "9b71407cacfc84a275df9671a4535c0113d714f9fae19294be27a0165cf447fc",
+    "sample_sha256": "a233fee75e765ca2e6a6c5fbd79b29c73ff2b7da2bb2fc0437d0fa7f64e48f36",
+    "evidence_sha256": "61c5881f21ec50b7783a72b23d95d51b5cb5c9790826aa4fd23a525af84f4dd0"
+  },
+  "audit_source": "新浪财经",
+  "retrieval_scope": "TITLE_ONLY",
+  "sample_rule": "SHA256_NORMALIZED_TITLE_ASCENDING_FIRST_30",
+  "minimum_precision": 0.8,
+  "reads_post_event_prices": false,
+  "direction_classification": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

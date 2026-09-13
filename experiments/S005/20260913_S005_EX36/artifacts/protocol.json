@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX36",
+  "experiment_type": "manual_news_event_ground_truth",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "vendor": "tushare",
+    "endpoint": "major_news",
+    "source": "新浪财经",
+    "fields": "title,content,pub_time,src",
+    "sample_dates_from": "20260913_S005_EX34",
+    "ex34_manifest_sha256": "9b71407cacfc84a275df9671a4535c0113d714f9fae19294be27a0165cf447fc",
+    "ex34_metadata_sha256": "3034b92d1e6bbdac3b8d0bf7d89424f17921f1c3ba0236a59e6935fc9a6f44c9",
+    "ex35_manifest_sha256": "50998f8a3c74b624f92d8c30e5582b68e88edc9ed288f5e10b6081def648c786",
+    "ex35_labels_sha256": "e86d33512dbb35a4b3830adadc038568c3e80b581d9bb337af632cec9b75d84b"
+  },
+  "holdout": {
+    "exclude_ex35_titles": true,
+    "buckets": {
+      "TITLE_LEXICON_HIT": 60,
+      "TITLE_LEXICON_NON_HIT": 60
+    },
+    "rank": "SHA256('S005_EX36_V1|' + bucket + '|' + normalized_title)_ASCENDING"
+  },
+  "local_cache": ".tmp/research_cache/S005/news/ex36_sina_sample.csv.gz",
+  "annotation_schema_version": 1,
+  "manual_extractor": "Codex primary session",
+  "reads_post_event_prices": false,
+  "rule_evaluation": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

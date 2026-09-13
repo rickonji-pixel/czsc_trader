@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX36",
+  "annotated_rows": 120,
+  "structured_events": 30,
+  "unique_structured_events": 26,
+  "excluded_design_events": 2,
+  "independent_unique_events": 24,
+  "relevant_rows": 22,
+  "unresolved_rows": 1,
+  "bucket_relevance_counts": {
+    "TITLE_LEXICON_HIT": {
+      "CATALYST_RELEVANT": 20,
+      "NOT_CATALYST": 39,
+      "UNRESOLVED": 1
+    },
+    "TITLE_LEXICON_NON_HIT": {
+      "CATALYST_RELEVANT": 2,
+      "NOT_CATALYST": 58,
+      "UNRESOLVED": 0
+    }
+  },
+  "cache_sha256": "fd90b4543e29280a57f304c2fcbc1ec129bb7d0b6685b90b25811e5306ac472a",
+  "manual_labels_sha256": "7ad0349dbcda3e62e363251f5fa8a4ffc14b32e45e0c2341882677f8b5113914",
+  "manual_events_sha256": "514ed6d518837d72ceba7df2cef411acd9388f2f475330c068090210b8259f2a",
+  "holdout_exclusions_sha256": "2ae11f286287b1619c28283174c23e266d2ebf64e6f90a960d30bf8f62e54885",
+  "reads_post_event_prices": false,
+  "decision": "MANUAL_EXTRACTION_FEASIBLE_NEW_HOLDOUT_REQUIRED"
+}

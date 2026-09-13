@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX23",
+  "experiment_type": "margin_data_gate_field_scope_correction",
+  "strategy_id": "S005",
+  "source": {
+    "experiment_id": "20260913_S005_EX22",
+    "manifest_sha256": "b64c57b3006491341735aa8334c8ba28ae5fd46c37995421ab1579eb2dc7834e",
+    "quality_sha256": "5ec8b63a0e8c9fbd48163f10eac925301777ba6347222294b566551fbe5bc48b",
+    "margin_sha256": "1ec3a675ac113e3a92ce69a847e8fb065d0b07289caeb95c478bd5e70f520a5c",
+    "component_panel_sha256": "50a88f55a1ecb58f298790be8d83d023b2bf0ed6ac4a125632b702883c8c0cbf"
+  },
+  "core_financing_fields": ["rzye", "rzmre", "rzche"],
+  "secondary_short_fields_are_informational": true,
+  "reads_post_event_prices": false,
+  "event_generation": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX22",
+  "first_margin_date": "2021-01-04",
+  "last_margin_date": "2026-09-02",
+  "symbols_requested": 119,
+  "symbols_observed": 119,
+  "api_calls": 119,
+  "margin_rows": 147414,
+  "duplicate_security_date_rows": 0,
+  "etf_session_coverage": 1.0,
+  "component_weight_coverage": 1.0,
+  "component_daily_weight_coverage_p10": 1.0,
+  "finite_observed_values": false,
+  "nonnegative_observed_values": false,
+  "causal_membership": true,
+  "passed": false
+}

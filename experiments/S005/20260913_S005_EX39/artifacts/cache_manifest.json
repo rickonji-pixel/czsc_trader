@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX39",
+  "cache_path": ".tmp/research_cache/S005/news/ex39_sina_full_pilot.csv.gz",
+  "cache_sha256": "67414fc2716c262b7537839fd3b2439d300fb790c0138ae95213b47da9e446af",
+  "article_rows": 1793,
+  "manual_pilot_rows": 250,
+  "manual_pilot_first_pub_time": "2026-08-18 00:01:00",
+  "manual_pilot_last_pub_time": "2026-08-18 14:23:00",
+  "content_nonempty_rows": 1793,
+  "sample_dates": [
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20"
+  ],
+  "semantic_program_filter": false,
+  "reads_post_event_prices": false
+}

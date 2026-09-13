@@ -15,3 +15,13 @@
 ## 安全规则
 
 PTE 未来接入后，如果 09:15 前无法确认上一交易日融资数据，则该账户当日禁止新增买单并生成明确告警；不得沿用旧数据，也不得把接口调用完成当成数据到达成功。
+
+## 执行入口
+
+在交易日北京时间 08:30—09:15 执行：
+
+```powershell
+.\.venv\Scripts\python.exe experiments\S004\20260913_S004_EX47\run_probe.py
+```
+
+原始观察写入未跟踪的 `.tmp/s004-margin-arrival/observations/`。非交易日或时间窗外的成功调用只标记为 `PASS_PREFLIGHT`，不计入正式 5 日样本。

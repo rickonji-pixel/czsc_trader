@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX47",
+  "experiment_type": "live_preopen_margin_detail_arrival_audit",
+  "strategy_id": "S004",
+  "candidate_id": "S004-C002",
+  "symbol": "588080.SH",
+  "endpoint": "margin_detail",
+  "timezone": "Asia/Shanghai",
+  "observation_window_start": "08:30:00",
+  "observation_window_end": "09:15:00",
+  "required_consecutive_trading_days": 5,
+  "required_fields": ["trade_date", "ts_code", "rzye", "rzmre", "rzche"],
+  "acceptance": {
+    "exactly_one_symbol_date_row": true,
+    "latest_trade_date_equals_previous_open_session": true,
+    "required_fields_complete": true,
+    "all_required_days_must_pass": true
+  },
+  "reads_future_returns": false,
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

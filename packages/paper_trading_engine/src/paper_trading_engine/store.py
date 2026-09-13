@@ -35,7 +35,7 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def backup_runtime_database(path: Path, *, retention: int = 14) -> Path | None:
+def backup_runtime_database(path: Path, *, retention: int = 3) -> Path | None:
     """Create a consistent pre-start SQLite backup and retain a small rolling set."""
     source_path = Path(path)
     if not source_path.is_file():

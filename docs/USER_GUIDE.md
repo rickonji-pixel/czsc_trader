@@ -276,7 +276,7 @@ Get-Content state\paper_trading\logs\pte.log -Tail 100
 WDG重启；数据发布告警结合交易日20:30后的审计事件和日志判断。
 
 PTE每次由`serve`启动前会在`state\paper_trading\backups\`创建一致性SQLite备份，默认
-滚动保留14份；PTE日志达到10 MiB后滚动，默认保留5份。备份用于故障恢复，恢复前仍须
+滚动保留3份；PTE日志达到10 MiB后滚动，默认保留5份。备份用于故障恢复，恢复前仍须
 与Futu订单、成交和持仓逐笔核对，不能仅凭数据库备份继续下单。
 
 本机数据库、发布数据、图表缓存和日志位于`state/paper_trading/`且不进入Git。跨机延续

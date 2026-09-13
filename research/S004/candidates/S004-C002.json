@@ -39,6 +39,21 @@
       "deployment_readiness": "BLOCKED",
       "decision": "KEEP_RESEARCHING",
       "evidence": "experiments/S004/20260913_S004_EX46/artifacts/freeze_health.json"
+    },
+    "economic_mandate_review": {
+      "status": "MIXED",
+      "reviewed_at": "2026-09-13",
+      "mandate": "research/RESEARCH_MANDATE.md",
+      "full_window": {
+        "strategy_cagr": 0.200357762750349,
+        "buyhold_cagr": 0.021448461433736465,
+        "required_strategy_cagr": 0.0321726921506047,
+        "strategy_max_drawdown": -0.10285800027882763,
+        "return_gate": "PASS",
+        "drawdown_gate": "PASS"
+      },
+      "diagnosis": "完整窗口通过，但2025和2026上涨窗口均未达到BuyHold年化收益的1.5倍，优势主要来自下跌年份防守",
+      "decision": "HOLD_RESEARCH_CANDIDATE"
     }
   },
   "permissions": {
@@ -52,7 +67,8 @@
     "交易频率为观察指标，滚动60日中位数7笔、P10为3笔",
     "低波动压力收益均值仍略为负，盈亏比略低于1",
     "74条收益路径审计已完成，后续不得缩减搜索惩罚口径",
-    "融资明细开盘前稳定到达尚未完成前瞻审计",
+    "融资明细按09:00可用作为暂定工程假设，真实到达审计尚未完成",
+    "完整窗口经济目标通过，但2025和2026上涨窗口均未达到BuyHold年化收益的1.5倍",
     "PTE尚未实现和验证S004分钟信号、融资否决与开盘执行链路"
   ]
 }

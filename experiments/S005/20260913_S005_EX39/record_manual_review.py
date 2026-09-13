@@ -61,6 +61,28 @@ EVENTS: dict[str, list[tuple[str, str, str, str, str]]] = {
     ],
 }
 
+EVENT_TITLE_BY_OLD_ID = {
+    "EX39-0009": "人均账面价值超550万元 寒武纪124名员工获激励大礼包",
+    "EX39-0017": "上海合晶硅材料股份有限公司董事及高级管理人员减持股份计划公告",
+    "EX39-0033": "下游需求持续释放 瑞芯微上半年净利同比增逾六成",
+    "EX39-0035": "发力AI创新领域 复旦微电上半年净利同比增三倍多",
+    "EX39-0037": "PCB产业链半年报亮眼 高端产品供需偏紧或延续至2028年",
+    "EX39-0043": "存储与逻辑芯片迭代升级 CMP市场迎来新风口",
+    "EX39-0093": "AI算力订单占比升至九成 芯原股份上半年营收近翻倍但亏损持续｜财报解读",
+    "EX39-0098": "12天11板大牛股，今起复牌！磷化铟基板价格飙涨，多股业绩向好",
+    "EX39-0103": "海光信息高端发力单季首赚超10亿   存货逾75亿预付款倍增保障供应能力",
+    "EX39-0105": "富乐德拟募资11.76亿投建七大项目 双主业协同发力半年盈利预增逾五成",
+    "EX39-0107": "中际旭创相继入股PCB及散热龙头 H股募资534亿港元加速产业链布局",
+    "EX39-0155": "上半年亏损超6亿，芯原股份亟待百亿AI订单扭转局面",
+    "EX39-0158": "芯原股份上半年营收接近倍增 充足订单支撑未来业绩增长",
+    "EX39-0178": "瑞芯微上半年净利润同比增长近62% 多措并举全力保供",
+    "EX39-0193": "狂揽订单151亿，半导体IP龙头芯原股份仍陷亏损，一边股权激励员工一边遭老股东减持",
+    "EX39-0197": "芯原股份上半年营收增超9成 预计下半年经调整后EBITDA转正",
+    "EX39-0213": "远东股份“AIDC用全合成光纤预制棒制造”项目主体封顶！",
+    "EX39-0249": "传音控股上半年净利润增四成，存储涨价备货致经营现金流净流出",
+}
+EVENTS_BY_TITLE = {EVENT_TITLE_BY_OLD_ID[sample_id]: rows for sample_id, rows in EVENTS.items()}
+
 
 def main() -> None:
     experiment = Path(__file__).resolve().parent
@@ -74,7 +96,7 @@ def main() -> None:
     labels: list[dict[str, str]] = []
     event_rows: list[dict[str, str]] = []
     for row in pilot.itertuples(index=False):
-        relevant = row.sample_id in EVENTS
+        relevant = row.title in EVENTS_BY_TITLE
         labels.append(
             {
                 "sample_id": row.sample_id,
@@ -83,7 +105,7 @@ def main() -> None:
                 "review_reason": "DIRECT_SCOPE_FACT" if relevant else "OUTSIDE_S005_NEWS_SCOPE_OR_NO_NEW_FACT",
             }
         )
-        for entity, event_type, direction, summary, duplicate_key in EVENTS.get(row.sample_id, []):
+        for entity, event_type, direction, summary, duplicate_key in EVENTS_BY_TITLE.get(row.title, []):
             event_rows.append(
                 {
                     "event_id": f"EVT-{len(event_rows) + 1:03d}",

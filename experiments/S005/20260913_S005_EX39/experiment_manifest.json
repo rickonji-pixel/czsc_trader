@@ -25,37 +25,41 @@
       "bytes": 663,
       "sha256": "6474adbaebd24779c2d020cdba080a90f410df48ecd03739e950ea4729d1b31f"
     },
+    "05_invalidation_and_recovery.md": {
+      "bytes": 1073,
+      "sha256": "61304c3e92521e5b8af7ccd41d7de460b9cd8cebb134dad3b55bbad2e28e4f30"
+    },
     "artifacts/article_index.csv": {
-      "bytes": 47106,
-      "sha256": "994dfee8da2b15946ea2bccda0bbb6410baa2aabe87c23081e7c3dabf290908a"
+      "bytes": 49106,
+      "sha256": "31589bc328e65198bbda9799e62301ea97eb1e9c39a1e59a7cad61d367b6b729"
     },
     "artifacts/cache_manifest.json": {
       "bytes": 576,
-      "sha256": "646d2b758061c173e88318f4e9bb0f9ca32fcacc087775c4c8403fca82253b9a"
+      "sha256": "d2b9ec801e43ff7df6c3a5c6b2a1839151f46dc44c52c0a39a6a941354be009e"
     },
     "artifacts/evaluation_evidence.json": {
       "bytes": 471,
       "sha256": "bb50f2339fb3a97e946d78954cedc315b1c720bb2109806a178bb3d04e6539bc"
     },
     "artifacts/manual_events.csv": {
-      "bytes": 7029,
-      "sha256": "c36800765c551f13ef43ecc02ef7beb864d48a4a467c42483ff5a9c229708b34"
+      "bytes": 7157,
+      "sha256": "e9c4ab667fe655292fd60b5be1ad048c2349f45adb9ff0a8f99eefb5caf88be6"
     },
     "artifacts/manual_labels.csv": {
-      "bytes": 35336,
-      "sha256": "8307c4b2cb18ad30fcff8eb9c5ee299e0f58e882111770e4c7115849c93eff46"
+      "bytes": 37336,
+      "sha256": "48b1dfc73914d36725b3f278747d73db7965dedd01f28a4068cb44e549793b4f"
     },
     "artifacts/protocol.json": {
       "bytes": 984,
       "sha256": "654abbcfe142a61415347eaa6c2dffb46c48ee0e5cc5473849097a6a07dc8bd7"
     },
     "prepare_pilot.py": {
-      "bytes": 4762,
-      "sha256": "95259333cc20e13b48a74f5ce478dd4c33376f0c1008cf0d53bc963d5b74d9d6"
+      "bytes": 5716,
+      "sha256": "b1647212c9178a176ea5994077af658c24aecf2a0178a970f6d9830e8f93ac36"
     },
     "record_manual_review.py": {
-      "bytes": 6760,
-      "sha256": "67e7d8238d7491c47cd9cece1823df419459f6f191065dbbde3f43ed2a031734"
+      "bytes": 8722,
+      "sha256": "dfac14816485068353e8f9cdd430581065b3125b7faf6a2c5866b4e33d741fd1"
     },
     "run_experiment.py": {
       "bytes": 7320,

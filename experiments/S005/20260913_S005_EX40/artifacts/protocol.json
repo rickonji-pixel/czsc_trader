@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX40",
+  "experiment_type": "manual_news_mechanism_preregistration",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "sources": [
+    {"experiment_id": "20260913_S005_EX36", "manifest_sha256": "dd54c80342f694618fba4aafb66293a58c2856396c3b27432242c1ff0f71ba5f"},
+    {"experiment_id": "20260913_S005_EX38", "manifest_sha256": "45c4304cf6e74bc5c9286a95031f695ee32d722d73fe209c9046d2cf11375281"},
+    {"experiment_id": "20260913_S005_EX39", "manifest_sha256": "fb61c175203d222a80f63be151f269493f9b5e69eff58d4dffb8d34bd4866439"}
+  ],
+  "mechanism": "GENERIC_POSITIVE_NEWS_CONTINUATION",
+  "deduplication": "DUPLICATE_EVENT_KEY_KEEP_EARLIEST_PUBLICATION",
+  "signal_aggregation": "ONE_SIGNAL_PER_PUBLICATION_DATE",
+  "execution": {
+    "entry_session_offset": 1,
+    "entry_clock": "09:36",
+    "exit_session_offset": 3,
+    "exit_clock": "14:56",
+    "stress_one_way_cost": 0.0006
+  },
+  "directional_acceptance": {
+    "stress_mean_min_exclusive": 0.0,
+    "profit_factor_min_exclusive": 1.0
+  },
+  "reads_post_event_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

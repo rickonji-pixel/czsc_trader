@@ -41,28 +41,46 @@ def main() -> None:
     if protocol.get("semantic_program_filter") or protocol.get("reads_post_event_prices"):
         raise ValueError("EX39 permits acquisition and mechanical deduplication only")
 
-    pro = get_tushare_pro(repo / ".env")
-    parts: list[pd.DataFrame] = []
-    for sample_date in protocol["sample_dates"]:
-        start = pd.Timestamp(sample_date)
-        end = start + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-        parts.extend(_fetch_window(pro, protocol["source"]["source"], start, end, protocol["source"]["fields"]))
-    raw = pd.concat(parts, ignore_index=True)
+    cache_path = repo / protocol["local_cache"]
+    manifest_path = artifacts / "cache_manifest.json"
+    labels_path = artifacts / "manual_labels.csv"
+    if labels_path.exists() and pd.read_csv(labels_path, keep_default_na=False)["relevance"].ne("").any():
+        raise RuntimeError("manual review already exists; preparation refuses to overwrite it")
+    if cache_path.exists() and manifest_path.exists():
+        frozen_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if raw_file_sha256(cache_path) != frozen_manifest["cache_sha256"]:
+            raise ValueError("existing local cache differs from its manifest")
+        raw = pd.read_csv(cache_path, keep_default_na=False).drop(
+            columns=["sample_id", "raw_sha256", "normalized_title"], errors="ignore"
+        )
+    else:
+        pro = get_tushare_pro(repo / ".env")
+        parts: list[pd.DataFrame] = []
+        for sample_date in protocol["sample_dates"]:
+            start = pd.Timestamp(sample_date)
+            end = start + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            parts.extend(
+                _fetch_window(pro, protocol["source"]["source"], start, end, protocol["source"]["fields"])
+            )
+        raw = pd.concat(parts, ignore_index=True)
     required = {"title", "content", "pub_time", "src"}
     if not required.issubset(raw.columns):
         raise ValueError(f"major_news response missing fields: {sorted(required.difference(raw.columns))}")
     raw["content"] = raw["content"].fillna("").astype(str)
     raw["pub_time"] = pd.to_datetime(raw["pub_time"], errors="raise")
     raw["normalized_title"] = raw["title"].map(_normalized_title)
-    raw = raw.sort_values("pub_time").drop_duplicates("normalized_title", keep="first").reset_index(drop=True)
-    raw.insert(0, "sample_id", [f"EX39-{value:04d}" for value in range(1, len(raw) + 1)])
+    raw = raw.sort_values(["pub_time", "normalized_title"]).drop_duplicates(
+        "normalized_title", keep="first"
+    ).reset_index(drop=True)
     raw["raw_sha256"] = raw.apply(
         lambda row: hashlib.sha256(
             f"{row['src']}\n{row['pub_time'].isoformat()}\n{row['title']}\n{row['content']}".encode("utf-8")
         ).hexdigest(),
         axis=1,
     )
-    cache_path = repo / protocol["local_cache"]
+    raw.insert(0, "sample_id", raw["raw_sha256"].map(lambda value: f"EX39-{value[:12].upper()}"))
+    if raw["sample_id"].duplicated().any():
+        raise ValueError("stable EX39 sample id collision")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     compression = {"method": "gzip", "compresslevel": 9, "mtime": 0}
     raw[["sample_id", "pub_time", "src", "title", "content", "raw_sha256"]].to_csv(
@@ -79,7 +97,7 @@ def main() -> None:
             "review_evidence_excerpt": "",
             "review_reason": "",
         }
-    ).to_csv(artifacts / "manual_labels.csv", index=False, lineterminator="\n")
+    ).to_csv(labels_path, index=False, lineterminator="\n")
     pd.DataFrame(
         columns=[
             "event_id", "sample_id", "published_at", "primary_entity", "event_type", "direction",

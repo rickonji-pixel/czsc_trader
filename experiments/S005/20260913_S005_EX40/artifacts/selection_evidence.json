@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX40",
+  "event_rows": 86,
+  "unique_events": 64,
+  "event_dates": 11,
+  "positive_unique_events": 39,
+  "frozen_signal_dates": 9,
+  "first_signal_date": "2025-03-17",
+  "last_signal_date": "2026-08-18",
+  "temporal_coverage_sufficient_for_candidate_evaluation": false,
+  "reads_post_event_prices": false,
+  "decision": "PREREGISTER_DIRECTIONAL_NEWS_TEST_ONLY"
+}

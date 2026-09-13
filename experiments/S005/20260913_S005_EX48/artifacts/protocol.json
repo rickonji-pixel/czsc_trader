@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX48",
+  "experiment_type": "constituent_coherence_state_density_gate",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "panel_experiment": "20260913_S005_EX18",
+    "panel_manifest_sha256": "60269255eeccbb791322a12fd5c091bde5f467a2081d522445ba903baa3a0a4e",
+    "panel_sha256": "46e87a872f8c7f8dffd71a2c5c7e7dd73bd7f32975c839fdbd9e3157cee71b53",
+    "review_experiment": "20260913_S005_EX19",
+    "review_manifest_sha256": "bb0a8c87942e2f01d6a26d393d0661a083bec61bafdf484bc792440e29016144",
+    "review_quality_sha256": "95d6658e2954e63e73da6a82635a40212483fe1047885247b14fa68df482900b"
+  },
+  "feature": {
+    "breadth_persistence_sessions": 3,
+    "coherence_sessions": 20,
+    "coherence_minimum_pair_observations": 15,
+    "leadership_top_members": 5,
+    "reference_sessions": 120,
+    "reference_minimum_observations": 120,
+    "entry_quantile": 0.6,
+    "neutral_quantile": 0.5,
+    "exit_quantile": 0.4
+  },
+  "density": {
+    "rolling_window_sessions": 60,
+    "minimum_median": 7,
+    "minimum_p10": 3
+  },
+  "reads_post_state_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

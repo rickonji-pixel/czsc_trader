@@ -6,6 +6,7 @@
   "development_cutoff": "2026-09-02",
   "status": "COMPLETE",
   "decision": "PREFILTER_REJECTED_NO_BACKFILL",
+  "post_review_decision": "PROGRAM_PREFILTER_REJECTED_CODEX_FULL_REVIEW_APPROVED",
   "reads_post_event_prices": false,
   "candidate_created": false,
   "files": {
@@ -24,6 +25,10 @@
     "04_conclusion.md": {
       "bytes": 924,
       "sha256": "08f61588ab731b540930c5ac1fea2c4dad25ceacf4250b81ff74f1e21cc07912"
+    },
+    "05_post_review_correction.md": {
+      "bytes": 981,
+      "sha256": "34f5f030bdd832d1969996aeab3b3ee4143fe90b61aabfca88c297203fa2fa91"
     },
     "artifacts/aborted_blind_order_index.csv": {
       "bytes": 26177,
@@ -70,8 +75,8 @@
       "sha256": "9836939a0ca3ba0c1a70703b40683055c80135e63fbbbf3b189c07df91f47a9f"
     },
     "run_experiment.py": {
-      "bytes": 14658,
-      "sha256": "824cd4785109bb107c614fb02e46546644a12e65cbd19a22c389de2a3309fe1d"
+      "bytes": 14751,
+      "sha256": "db1c1a49932fcff512276110ea20a3d1aa8e3b5e9e736b455c0502917c556b61"
     }
   }
 }

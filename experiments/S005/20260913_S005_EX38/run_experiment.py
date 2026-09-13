@@ -261,6 +261,7 @@ def main() -> None:
             "development_cutoff": protocol["development_cutoff"],
             "status": "COMPLETE",
             "decision": decision,
+            "post_review_decision": "PROGRAM_PREFILTER_REJECTED_CODEX_FULL_REVIEW_APPROVED",
             "reads_post_event_prices": False,
             "candidate_created": False,
         },

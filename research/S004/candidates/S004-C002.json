@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "strategy_id": "S004",
+  "candidate_id": "S004-C002",
+  "name": "尾盘流动性错位修复（融资风险过滤）",
+  "symbol": "588080.SH",
+  "status": "RESEARCH_CANDIDATE",
+  "registered_at": "2026-09-13",
+  "development_cutoff": "2026-09-02",
+  "candidate_spec_normalized_sha256": "7c7d9071ad8ca2103ff5ffa081631b38d90ff296ea1b7b611fda23952e7ee589",
+  "definition": "experiments/S004/20260913_S004_EX41/artifacts/candidate_spec.json",
+  "evaluation": {
+    "experiment_id": "20260913_S004_EX41",
+    "decision": "REGISTER_RESEARCH_CANDIDATE",
+    "evidence": "experiments/S004/20260913_S004_EX41/artifacts/candidate_metrics.json"
+  },
+  "permissions": {
+    "research": true,
+    "strategy_version": false,
+    "freeze": false,
+    "paper_trading": false,
+    "live_trading": false
+  },
+  "known_risks": [
+    "交易频率为观察指标，滚动60日中位数7笔、P10为3笔",
+    "低波动压力收益均值仍略为负，盈亏比略低于1",
+    "融资明细在本地开盘前稳定到达尚未完成前瞻审计",
+    "累计74条收益研究路径必须纳入后续搜索偏差惩罚",
+    "仍需正式回放、统计审计、PK和冻结前体检"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "candidate_id": "S004-C002",
+  "strategy_id": "S004",
+  "name": "尾盘流动性错位修复（融资风险过滤）",
+  "symbol": "588080.SH",
+  "status": "RESEARCH_CANDIDATE",
+  "base_candidate": "S004-C001",
+  "signal": {
+    "time": "15:00",
+    "mechanisms": [
+      "LATE_PATH_SELLING",
+      "LATE_VOLUME_PRESSURE",
+      "CLOSE_VWAP_DISLOCATION"
+    ],
+    "votes_required": 2,
+    "cooldown_sessions": 1
+  },
+  "entry_risk_filter": {
+    "source": "TUSHARE_MARGIN_DETAIL",
+    "action": "DENY_NEXT_SESSION_ENTRY",
+    "net_flow": "RZMRE_MINUS_RZCHE_DIVIDED_BY_PREVIOUS_RZYE",
+    "rolling_sessions": 120,
+    "quantile": 0.6,
+    "requires_positive_net_flow": true,
+    "same_day_return_maximum": 0.0,
+    "threshold_excludes_current_session": true,
+    "live_preopen_arrival_proven": false
+  },
+  "execution": {
+    "entry": "NEXT_SESSION_OPEN",
+    "exit": "SESSION_AFTER_ENTRY_OPEN"
+  },
+  "frequency_policy": "OBSERVATION_ONLY",
+  "development_cutoff": "2026-09-02",
+  "cumulative_registered_trials": 74,
+  "known_risks": [
+    "rolling 60-session trade count median is 7 and P10 is 3",
+    "low-volatility stress mean remains slightly negative",
+    "margin_detail live arrival before market open is not yet proven",
+    "formal replay, statistical audit, PK and freeze health remain required"
+  ]
+}

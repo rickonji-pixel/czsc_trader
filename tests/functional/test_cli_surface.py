@@ -31,6 +31,7 @@ EXPECTED_ACTIONS = {
     "advice": {"run"},
     "archive": {"validate"},
     "chart": {"observation"},
+    "news": {"extract"},
 }
 
 

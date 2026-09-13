@@ -187,6 +187,18 @@ def _chart_observation(args: argparse.Namespace) -> RawCommandOutput:
     )
 
 
+def _news_extract(args: argparse.Namespace):
+    from czsc_trader.application.news_service import extract_news
+
+    return extract_news(
+        _context(args),
+        input_path=args.input,
+        scope_path=args.scope,
+        output_dir=args.output_dir,
+        limit=args.limit,
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = CommandParser(prog="czsc-trader")
     resources = parser.add_subparsers(
@@ -270,6 +282,21 @@ def build_parser() -> argparse.ArgumentParser:
     chart_observation.set_defaults(
         command_handler=_chart_observation,
         command_name="chart.observation",
+    )
+
+    news = resources.add_parser("news")
+    news_actions = news.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
+    news_extract = news_actions.add_parser("extract")
+    news_extract.add_argument("--input", required=True, type=Path)
+    news_extract.add_argument("--scope", required=True, type=Path)
+    news_extract.add_argument("--output-dir", required=True, type=Path)
+    news_extract.add_argument("--limit", type=int)
+    _add_repository_root(news_extract)
+    news_extract.set_defaults(
+        command_handler=_news_extract,
+        command_name="news.extract",
     )
 
     backtest = resources.add_parser("backtest")

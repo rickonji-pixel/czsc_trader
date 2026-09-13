@@ -135,6 +135,47 @@ Trader负责计算限价、费用空间、目标仓位和100份整数倍委托�
 `advice.v4`；需要多个执行时点或成交依赖的策略返回`advice.v5`原子计划。`advice run`
 不连接券商、不提交订单、不修改账户。没有明确成交回报时，实际持仓保持不变。
 
+## 新闻筛选与事件抽取
+
+TDR可以调用单一MaaS模型，对已经缓存的新闻逐篇完成相关性判断和结构化事件抽取。当前
+固定使用用户创建的DeepSeek-V4.1-Flash服务；模型只生产研究事件，不直接生成交易信号
+或修改策略。
+
+运行前把模型端点和API Key写入仓库根目录`.env`。该文件已被Git忽略，凭证不会进入
+命令参数、输出文件或版本库；临时覆盖某个值时可设置同名进程环境变量，进程环境变量优先：
+
+```dotenv
+CZSC_NEWS_MAAS_API_KEY=<API Key>
+CZSC_NEWS_MAAS_MODEL=ep-dsv41flash
+```
+
+`CZSC_NEWS_MAAS_MODEL`直接填写控制台显示的`ep-*`服务ID。默认通过腾讯云境内地址
+`https://tokenhub.tencentmaas.com/v1/chat/completions`调用；如控制台明确提供其他地域或
+套餐地址，再用`CZSC_NEWS_MAAS_API_URL`覆盖。`CZSC_NEWS_MAAS_ENDPOINT`已废弃，TDR
+不会读取该变量。
+
+输入为CSV或CSV.GZ，至少包含`sample_id,pub_time,src,title,content`；如包含
+`raw_sha256`，TDR会同时验证原文身份。HTML原文保留用于身份哈希，调用模型和证据回查
+统一使用去除脚本、样式和标签后的可见正文。执行S005开发池的首次小批量验证：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe news extract `
+  --input .tmp\research_cache\S005\news\ex39_sina_full_pilot.csv.gz `
+  --scope research\S005\news_scope.v1.json `
+  --output-dir .tmp\news_events\S005-ex39-v41 `
+  --limit 10
+```
+
+每篇文章单独保存请求、MaaS原始响应、结构化结果、模型、提示词版本、原文哈希和请求ID。
+当前自定义服务使用`json_object`响应格式，字段、枚举、事件完整性和原文证据由TDR按冻结
+Schema再次严格校验。
+重复执行时只复用身份完全一致且已经通过校验的文章。最终生成`reviews.jsonl`、
+`events.jsonl`和`manifest.json`。只要任一文章调用失败、JSON不合法、相关篇没有事件，或
+证据无法在原文中定位，整批命令明确返回`FAIL`，已成功记录可以在下次执行时继续复用。
+
+新闻事件能被可靠抽取只说明数据生产链路可用。将事件映射为收益假设前，仍须按研究交接
+文档预注册机制、信息可用时间、竞争解释和评价口径。
+
 ## PTE模拟交易
 
 PTE以虚拟账户为业务中心。每个虚拟账户绑定一个不可变策略发布和一个Futu渠道；一个

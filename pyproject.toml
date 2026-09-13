@@ -17,6 +17,7 @@ dependencies = [
     "numpy>=2.4.6",
     "joblib>=1.5,<2",
     "plotly==6.9.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]

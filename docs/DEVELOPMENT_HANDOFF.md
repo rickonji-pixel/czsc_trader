@@ -69,6 +69,9 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
   订单意图、Futu回报、调度、SQLite审计和控制台，不导入TDR、SM或SE。
 - **WDG**位于PTE包内。它只负责PTE子进程生命周期和HTTP探活，不包含交易业务逻辑。
 - **dataflows**负责Tushare数据获取、复权、多频发布和清单；TDR消费已发布数据。
+- **新闻事件抽取**位于TDR的`news_events`独立内部包。dataflows或实验脚本负责缓存原文，
+  TDR逐篇调用单一MaaS模型并执行严格结构校验、原文证据回查、断点复用和审计落盘；SE、
+  SM和PTE不直接调用模型。MaaS凭据只从进程环境或Git忽略的根目录`.env`读取。
 
 正式实验档案按`experiments/<策略ID>/<实验ID>/`保存。实验ID全局唯一，TDR按ID定位
 嵌套档案；历史SM证据中的旧路径字符串保持不变，并由兼容解析器映射到当前目录。

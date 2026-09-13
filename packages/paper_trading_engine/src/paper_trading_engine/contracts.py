@@ -147,6 +147,8 @@ class AdviceDecision:
     fee_rate: float = 0.0
     estimated_order_cost: float = 0.0
     unallocated_cash: float = 0.0
+    capital_mode: str = "full_available_cash"
+    allocation_fraction: float = 1.0
     source_decision_id: str = ""
     plan_mode: str = "NONE"
     plan_legs: tuple[PlanLegSpec, ...] = ()
@@ -268,6 +270,29 @@ class AdviceDecision:
             value.get("unallocated_cash", available_cash),
             "unallocated cash", nonnegative=True,
         )
+        capital_value = value.get(
+            "capital_rule",
+            {
+                "mode": "full_available_cash",
+                "allocation_fraction": 1.0,
+                "target_scope": "entry_cycle",
+            },
+        )
+        capital_rule = _object(capital_value, "capital rule")
+        capital_mode = str(capital_rule.get("mode", ""))
+        allocation_fraction = _finite_number(
+            capital_rule.get("allocation_fraction"),
+            "allocation fraction",
+            nonnegative=True,
+        )
+        if capital_mode not in {"full_available_cash", "available_cash_fraction"}:
+            raise AdviceContractError("capital mode is unsupported")
+        if not 0 < allocation_fraction <= 1:
+            raise AdviceContractError("allocation fraction must be in (0, 1]")
+        if capital_rule.get("target_scope") != "entry_cycle":
+            raise AdviceContractError("capital target scope is unsupported")
+        if capital_mode == "full_available_cash" and allocation_fraction != 1.0:
+            raise AdviceContractError("full cash mode requires allocation fraction one")
         if valid_session <= signal_date:
             raise AdviceContractError("valid session must be after signal date")
         if data_cutoff != signal_date:
@@ -297,6 +322,8 @@ class AdviceDecision:
             fee_rate=fee_rate,
             estimated_order_cost=estimated_cost,
             unallocated_cash=unallocated_cash,
+            capital_mode=capital_mode,
+            allocation_fraction=allocation_fraction,
             source_decision_id=str(value.get("decision_id", "")),
             plan_mode=plan_mode,
             plan_legs=plan_legs,

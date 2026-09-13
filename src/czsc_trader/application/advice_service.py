@@ -244,6 +244,16 @@ def build_advice_v3(
         }
         for order in intent.orders
     ]
+    estimated = sum(
+        (
+            Decimal(order.quantity)
+            * Decimal(str(order.limit_price))
+            * (Decimal("1") + fee)
+            for order in intent.orders
+            if order.side == "BUY"
+        ),
+        start=Decimal("0"),
+    )
     identity = {
         "contract_version": "advice.v3",
         "symbol": instrument.symbol,
@@ -267,6 +277,13 @@ def build_advice_v3(
         "order": orders[0] if len(orders) == 1 else None,
         "available_cash": float(cash),
         "fee_rate": float(fee),
+        "estimated_order_cost": float(estimated.quantize(Decimal("0.01"))),
+        "unallocated_cash": float((cash - estimated).quantize(Decimal("0.01"))),
+        "capital_rule": {
+            "mode": execution.capital.mode,
+            "allocation_fraction": execution.capital.allocation_fraction,
+            "target_scope": execution.capital.target_scope,
+        },
     }
 
 

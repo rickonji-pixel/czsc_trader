@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX06",
+  "status": "COMPLETE",
+  "mechanism": "OPENING_RELATIVE_DISLOCATION_Q20",
+  "density": {
+    "raw_events": 290,
+    "independent_events": 232,
+    "rolling_60_median": 10.0,
+    "rolling_60_p10": 5.0,
+    "rolling_60_minimum": 0.0,
+    "rolling_60_maximum": 20.0
+  },
+  "density_pass": true,
+  "metrics": {
+    "closed_trades": 232,
+    "gross_mean": 0.0008056220848784095,
+    "stress_mean": -0.00039462451366430363,
+    "stress_profit_factor": 0.9446092530578301,
+    "positive_years": 1,
+    "recent_trades": 58,
+    "recent_stress_mean": 0.0007270338539358296,
+    "random_percentile": 71.3,
+    "random_median": -0.0010378050981765864,
+    "random_p90": 0.00039133491296462525,
+    "proxy_cagr": -0.023901992698252772,
+    "proxy_maximum_drawdown": -0.23486995143515854
+  },
+  "checks": {
+    "density": true,
+    "stress_mean": false,
+    "profit_factor": false,
+    "positive_years": false,
+    "recent": true,
+    "random_control": false,
+    "proxy_cagr": false,
+    "proxy_maximum_drawdown": false
+  },
+  "decision": "STOP_OPENING_AUCTION_DISLOCATION_ON_RETURN",
+  "cumulative_return_path_count": 3,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "94fc3024211c593127ac47a8dd407dcc79cca979391472d23b285ec3b818c861"
+}

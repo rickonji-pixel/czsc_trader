@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX06",
+  "experiment_type": "opening_auction_relative_dislocation_falsification",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "context_symbol": "510500.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "mechanism": "OPENING_RELATIVE_DISLOCATION_Q20",
+  "signal_time": "09:31",
+  "threshold_reference_sessions": 120,
+  "relative_gap_quantile": 0.2,
+  "density": {
+    "cooldown_sessions": 1,
+    "rolling_window_sessions": 60,
+    "minimum_median": 7.0,
+    "minimum_p10": 3.0
+  },
+  "execution": {
+    "entry_clock": "09:36",
+    "exit_clock": "14:56",
+    "stress_one_way_cost": 0.0006
+  },
+  "random_control": {
+    "method": "within_year_circular_shift",
+    "iterations": 1000,
+    "seed": 20260913
+  },
+  "acceptance": {
+    "stress_mean_min_exclusive": 0.0,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 4,
+    "recent_sessions": 252,
+    "recent_stress_mean_min_exclusive": 0.0,
+    "random_percentile_minimum": 90.0,
+    "proxy_cagr_minimum": 0.24078187745776553,
+    "proxy_maximum_drawdown_limit": -0.15
+  },
+  "cumulative_return_path_count": 3,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

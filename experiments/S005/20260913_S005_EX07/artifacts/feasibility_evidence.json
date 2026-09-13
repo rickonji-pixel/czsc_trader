@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX07",
+  "status": "COMPLETE",
+  "target_cagr": 0.24078187745776553,
+  "stress_one_way_cost": 0.0006,
+  "frequency_benchmark_per_60": 7.0,
+  "required_net_per_trade_at_benchmark": 0.007365144218932196,
+  "required_gross_per_trade_at_benchmark": 0.00857470813034178,
+  "interpretation": "TINY_INTRADAY_EDGES_ARE_ECONOMICALLY_INSUFFICIENT; PRIORITIZE_MULTI_SESSION_SWING_MECHANISMS",
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "sources": {
+    "contract_sha256": "88c91d1e81ca00054791ce0328e0130814c180d0b7d67b012a6e0d36f9bc7a8b",
+    "cost_sha256": "94fc3024211c593127ac47a8dd407dcc79cca979391472d23b285ec3b818c861",
+    "protocol_sha256": "05f1e0f0e544711803387857375a50c9de1685ca0ead55aa8f00be47860e7622"
+  }
+}

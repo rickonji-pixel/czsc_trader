@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX16",
+  "status": "COMPLETE",
+  "experiment_type": "intraday_complementary_flat_coverage",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 227,
+      "sha256": "f90e5a881f0e0ade585945ca03db936ba397c459b043b783963c091f2d88d3b4"
+    },
+    "02_design.md": {
+      "bytes": 818,
+      "sha256": "f1e024e38111bfadefed9b42d817fa8f8bcd9f4a920c542ead7718b94d34a325"
+    },
+    "03_execution.md": {
+      "bytes": 199,
+      "sha256": "d4037475f99b713f93605f81ae51276b0c10a9c57e6a62c3177ac6d016540749"
+    },
+    "04_conclusion.md": {
+      "bytes": 347,
+      "sha256": "2ed99a1500691e8c086e29a2da6826d7dc0420371242fde951692f08568a032d"
+    },
+    "artifacts/clean_flat_events.csv.gz": {
+      "bytes": 3174710,
+      "sha256": "0321cbf807df7d25b1e6147e6d26d016e5253e61b7a7fd1808882bc12ba61ce4"
+    },
+    "artifacts/coverage_summary.json": {
+      "bytes": 493,
+      "sha256": "e90890dcebc67e8e965dbba134184e628f9e9e30c9bc910bc824981683a93535"
+    },
+    "artifacts/flat_coverage.csv": {
+      "bytes": 133957,
+      "sha256": "cc717cded727f42f0fbf9c434635234a6b46f0c05528b9ad583e00de96934ac5"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 984,
+      "sha256": "2b2a3de7b1fb2c05fd9eb124fac9b428dea21486521adbfb535a99ab1b40571d"
+    },
+    "run_experiment.py": {
+      "bytes": 8565,
+      "sha256": "60c0d680d61fd214ba3c50f76b266cce1070b9c1633818ca79f4b6c7ce2687ff"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import date
 import json
 from pathlib import Path
@@ -168,6 +169,43 @@ def test_shared_order_intent_uses_unadjusted_close_and_full_cash(
     )
     assert exit_intent.limit_price == 1.609
     assert exit_intent.orders[0].order_type == "MARKET"
+
+    payload = deepcopy(guarded_snapshot.strategy_payload)
+    payload["rule"]["execution"]["capital"] = {
+        "mode": "available_cash_fraction",
+        "allocation_fraction": 0.6,
+        "fee_rate": 0.0005,
+        "target_scope": "entry_cycle",
+    }
+    fractional = resolve_strategy_payload(
+        context.strategy_dependency_root,
+        payload,
+        release_id="S001-v3",
+        release_hash="d" * 64,
+        symbol="588080.SH",
+        repository_root=functional_repo,
+    )
+    fractional_intent = decide_order_intent(
+        target_position=1,
+        actual_quantity=0,
+        cycle_target_quantity=None,
+        available_cash=100_000,
+        execution_close=1.430,
+        execution_spec=fractional.execution,
+    )
+    assert fractional.execution is not None
+    assert fractional.execution.capital.allocation_fraction == 0.6
+    assert fractional_intent.target_quantity == 41_900
+    payload["rule"]["execution"]["capital"]["allocation_fraction"] = 0.0
+    with pytest.raises(ValueError, match="allocation fraction"):
+        resolve_strategy_payload(
+            context.strategy_dependency_root,
+            payload,
+            release_id="S001-v3",
+            release_hash="d" * 64,
+            symbol="588080.SH",
+            repository_root=functional_repo,
+        )
 
 
 def test_ft_t01_data_prepare_validate_and_tamper_detection(
@@ -375,6 +413,11 @@ def test_ft_t02_advice_covers_entry_retry_hold_exit_and_fill_rules(
         for row in (entry, retry, holding, exit_advice)
     )
     assert entry["valid_session"] == "2026-09-02"
+    parsed_entry = AdviceDecision.from_cli_payload(
+        {"status": "PASS", "result": {**entry, "data_cutoff": "2026-09-01"}}
+    )
+    assert parsed_entry.capital_mode == "full_available_cash"
+    assert parsed_entry.allocation_fraction == 1.0
     assert entry["order"]["side"] == "BUY"
     assert entry["order"]["quantity"] % 100 == 0
     assert entry["order"]["limit_price"] == pytest.approx(

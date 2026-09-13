@@ -1,0 +1,38 @@
+{
+  "strategy": {
+    "reference": "S001-C001",
+    "metrics": {
+      "max_drawdown": -0.1350457393148421,
+      "calmar": 1.2013387561435933,
+      "win_loss_ratio": 4.502523512925799,
+      "win_loss_ratio_status": "VALID",
+      "return": 1.2699112364999992,
+      "sharpe": 1.0205011694659651,
+      "closed_trades": 73
+    }
+  },
+  "benchmarks": {
+    "buyhold": {
+      "metrics": {
+        "max_drawdown": -0.5995145631067962,
+        "calmar": 0.04795911649186385,
+        "win_loss_ratio": null,
+        "win_loss_ratio_status": "NO_CLOSED_TRADES",
+        "return": 0.16714017902958345,
+        "sharpe": 0.2460912262469522,
+        "closed_trades": 0
+      }
+    },
+    "ma5_ma20": {
+      "metrics": {
+        "max_drawdown": -0.29561392439545264,
+        "calmar": 0.2929381504437654,
+        "win_loss_ratio": 2.242443598609318,
+        "win_loss_ratio_status": "VALID",
+        "return": 0.5727450664974554,
+        "sharpe": 0.45993449444659273,
+        "closed_trades": 37
+      }
+    }
+  }
+}

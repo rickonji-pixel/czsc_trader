@@ -83,6 +83,8 @@ def build_replay_evidence(
             "entry_limit_parameter": spec.entry_limit_parameter,
             "exit_limit_ratio": spec.exit_limit_ratio,
             "fee_rate": spec.capital.fee_rate,
+            "capital_mode": spec.capital.mode,
+            "allocation_fraction": spec.capital.allocation_fraction,
             "instrument": {
                 "lot_size": spec.instrument.lot_size,
                 "price_tick": spec.instrument.price_tick,

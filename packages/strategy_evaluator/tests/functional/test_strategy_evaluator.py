@@ -518,6 +518,37 @@ def test_ft_se04_first_research_candidate_has_no_synthetic_incumbent() -> None:
         )
     ).decision is BenchmarkChallengeDecision.KEEP_BENCHMARK
 
+    from strategy_evaluator import MandateChallengeRequest, assess_mandate_challenge
+
+    mandate = MandateChallengeRequest(
+        candidate_id="S001-C001",
+        candidate_hash="e" * 64,
+        incumbent_id="S001-v2",
+        integrity=AuditStatus.PASS,
+        reproducibility=AuditStatus.PASS,
+        technical_replay=AuditStatus.PASS,
+        candidate_performance=PerformanceMetrics(0.162, -0.135, 1.201),
+        incumbent_performance=PerformanceMetrics(0.268, -0.215, 1.242),
+        minimum_cagr=0.043,
+        maximum_drawdown_floor=-0.15,
+    )
+    mandate_result = assess_mandate_challenge(mandate)
+    assert mandate_result.decision is BenchmarkChallengeDecision.RECOMMEND_HEALTH_CHECK
+    assert mandate_result.candidate_mandate_passed is True
+    assert mandate_result.incumbent_mandate_passed is False
+    assert assess_mandate_challenge(
+        replace(
+            mandate,
+            candidate_performance=PerformanceMetrics(0.162, -0.16, 1.01),
+        )
+    ).decision is BenchmarkChallengeDecision.KEEP_BENCHMARK
+    assert assess_mandate_challenge(
+        replace(
+            mandate,
+            incumbent_performance=PerformanceMetrics(0.20, -0.14, 1.43),
+        )
+    ).decision is BenchmarkChallengeDecision.INSUFFICIENT_EVIDENCE
+
     from strategy_evaluator import (
         FreezeHealthDecision,
         FreezeHealthRequest,

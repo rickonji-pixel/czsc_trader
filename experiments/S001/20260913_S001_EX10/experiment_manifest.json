@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX10",
+  "status": "COMPLETE",
+  "experiment_type": "mandate_and_benchmark_challenge",
+  "strategy_id": "S001",
+  "candidate_id": "S001-C001",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_FREEZE_HEALTH_CHECK",
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 143,
+      "sha256": "349e4f22433fd2473e4e992eba5142e5c340975c4220f118d1f74fdffd52a6ab"
+    },
+    "02_design.md": {
+      "bytes": 521,
+      "sha256": "3709d46cc9b5e91905f98841554bfe4cf861e8ef703bc1392b598c431f64065a"
+    },
+    "03_execution.md": {
+      "bytes": 156,
+      "sha256": "d6e5acd541e59f225ac9d4cffa73bc4ead7bf868a1d18a4c313f4e2d8c3afac0"
+    },
+    "04_conclusion.md": {
+      "bytes": 232,
+      "sha256": "5c425ca01a264050fe54b1ac1eea7dc8aaf3b3836f172d524ffd455b0c98f367"
+    },
+    "artifacts/challenge_result.json": {
+      "bytes": 6939,
+      "sha256": "e016259e6a6cc6050071981fa34895c66a11b6dbf80b5ba8d1b4919bf50490ba"
+    },
+    "artifacts/daily_return_matrix.csv": {
+      "bytes": 81808,
+      "sha256": "eca5b24fb63ac0a61b8d073001bdaee29589658f5c81ce412ab637e0dd5a397d"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1257,
+      "sha256": "c82924c44fc5af15834b8470945b93404444ff57161159c8a4358743e090db6b"
+    },
+    "run_experiment.py": {
+      "bytes": 10890,
+      "sha256": "b99c4053bc51698a7567dfa5729e5da324d5996c419c2fd643fe11b6513e0799"
+    }
+  }
+}

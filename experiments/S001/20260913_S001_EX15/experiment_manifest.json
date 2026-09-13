@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX15",
+  "status": "COMPLETE",
+  "experiment_type": "intraday_complementary_signal_density_census",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 364,
+      "sha256": "adc0b73d2c7f2bc5133f12f1fe89afa92bd84d5b9feb93a7e4ff9c2e49d14db4"
+    },
+    "02_design.md": {
+      "bytes": 1165,
+      "sha256": "10373ac754de7c306ce12e2d3fca605b237c05fb6647cd7240b67d51a6c4e2fa"
+    },
+    "03_execution.md": {
+      "bytes": 242,
+      "sha256": "a4dc5ffce0270a1bfd9547afcf8bdd772ae919727447dc6a6289811a2ac23cad"
+    },
+    "04_conclusion.md": {
+      "bytes": 455,
+      "sha256": "60d0c66047481ea0c5cc80b17c37b699a45a62d8a4d2cbf9be3fef9e6b5d8182"
+    },
+    "artifacts/census_summary.json": {
+      "bytes": 1180,
+      "sha256": "c0e688bfb9ccd29bd9f5bf4162a7e330fd9455abd2c8117d9b45e9ba26a03c18"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1484,
+      "sha256": "dd6db34cf10b05cdf2cf968a1f1fcd8ae5cd6759380d8ce9d9b009298cd43489"
+    },
+    "artifacts/redundancy_map.json": {
+      "bytes": 11104,
+      "sha256": "b8734191bfcbe35cf49e50ea8498bd462dc849301aa2eb73f1b09277a7cb9f39"
+    },
+    "artifacts/run_evidence.json": {
+      "bytes": 10678,
+      "sha256": "3bb26b24aeb5366d2cfc59f7dfec5b557ddd0b203dc084703d768ac88b14c4ef"
+    },
+    "artifacts/signal_catalog.csv": {
+      "bytes": 46724,
+      "sha256": "590746c92007b0777e01469a6efc93c973c153225d58b39b646553839dbac558"
+    },
+    "artifacts/signal_events.csv.gz": {
+      "bytes": 7794743,
+      "sha256": "bd5a4a651e005d9a57a5621dee449e61fd23135965995219bfcb660b9e899633"
+    },
+    "artifacts/state_density.csv": {
+      "bytes": 196885,
+      "sha256": "89716d8b445b67f83d86bee2b11948e9df4aa00d5fc4fdebe131bf3ce2af4a78"
+    },
+    "run_experiment.py": {
+      "bytes": 6571,
+      "sha256": "33a867506509697069170590f7b2dfde1826423d15efaaefa23d37e3b5cf03fb"
+    }
+  }
+}

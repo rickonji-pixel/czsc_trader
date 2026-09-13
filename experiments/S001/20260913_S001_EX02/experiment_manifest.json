@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX02",
+  "status": "COMPLETE",
+  "experiment_type": "frozen_strategy_drawdown_attribution",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_MIXED_DRAWDOWN_MECHANISM_RESEARCH",
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 261,
+      "sha256": "ac44ebb8bc52995ab7299782262b1c3503e87ea49fe9bc2beb9a2b44c70eb14b"
+    },
+    "02_design.md": {
+      "bytes": 701,
+      "sha256": "2ef2aa2c6be1d7fc38c9dac80cd1f426a2e8a52b4d9443ffc0e02fc4b7e40b1b"
+    },
+    "03_execution.md": {
+      "bytes": 128,
+      "sha256": "859645ca36be5ea96e835e735efe8178de9ce69ef1b7e646c9dc4326c62e3975"
+    },
+    "04_conclusion.md": {
+      "bytes": 319,
+      "sha256": "f6b211b56d635e3281a527ece21abcbaef700a359e41de0ac7598ae9a9eefe15"
+    },
+    "artifacts/daily_regime_attribution.csv": {
+      "bytes": 242245,
+      "sha256": "6caeb20d55a52c48cf4e91be1b5d5675fb94dc629e5a8f53ca45c5756be3af64"
+    },
+    "artifacts/decisions.csv": {
+      "bytes": 102214,
+      "sha256": "d5e773e71e2add19e1ed8bef82d6ed92bbd25dded88905481ff38e93832010ed"
+    },
+    "artifacts/drawdown_regime_attribution.csv": {
+      "bytes": 792,
+      "sha256": "ef1b8039f2a71d2e40f38366aef520ffe8c9b5abab1b21b98f1d1644d6e0314d"
+    },
+    "artifacts/drawdown_summary.json": {
+      "bytes": 748,
+      "sha256": "82ab08ff637559dbcff1c3ee2a2c0486e20930d9b57ba65715337a288ea4a452"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 19502,
+      "sha256": "b2520f578dd1960e876611df9ddc09a0c03f408b947799b766e8d941d41fcef8"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 947,
+      "sha256": "09388bd77a784cc42eb3eb614a63b3ce3d8603cc7f8b41523bbe2f9a9b3fbcb2"
+    },
+    "artifacts/regime_summary.csv": {
+      "bytes": 424,
+      "sha256": "26e03890ea1c7a8f26512de36bdf525bd39c3da76172f0986ac78108398bbc35"
+    },
+    "artifacts/trade_attribution.csv": {
+      "bytes": 14283,
+      "sha256": "9b23214a37dff867b989f7cdd202f5fe4d3031b27b7055be8566917103f72c6f"
+    },
+    "run_experiment.py": {
+      "bytes": 13513,
+      "sha256": "14ce1eda34994c9a6024509c90594ffb3c732b439925a008e00cf04c08363c7e"
+    }
+  }
+}

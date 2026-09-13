@@ -67,9 +67,13 @@ def calculate_target_quantity(
     limit_price: float,
     fee_rate: float,
     lot_size: int,
+    allocation_fraction: float = 1.0,
 ) -> int:
-    """Allocate all affordable cash while respecting fees and board lots."""
-    cash = Decimal(str(available_cash))
+    """Allocate the declared cash fraction while respecting fees and board lots."""
+    fraction = Decimal(str(allocation_fraction))
+    if not Decimal("0") < fraction <= Decimal("1"):
+        raise ValueError("allocation fraction must be in (0, 1]")
+    cash = Decimal(str(available_cash)) * fraction
     unit_cost = Decimal(str(limit_price)) * (Decimal("1") + Decimal(str(fee_rate)))
     lots = (cash / (unit_cost * int(lot_size))).to_integral_value(rounding=ROUND_FLOOR)
     return max(0, int(lots) * int(lot_size))
@@ -115,6 +119,7 @@ def decide_order_intent(
             price,
             execution_spec.capital.fee_rate,
             instrument.lot_size,
+            execution_spec.capital.allocation_fraction,
         )
         cycle_target = (
             affordable_target

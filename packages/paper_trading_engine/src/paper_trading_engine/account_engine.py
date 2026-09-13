@@ -153,6 +153,8 @@ class AccountEngine:
                     "actual_quantity": decision.actual_quantity,
                     "target_quantity": decision.target_quantity,
                     "execution_reference_price": decision.execution_reference_price,
+                    "capital_mode": decision.capital_mode,
+                    "allocation_fraction": decision.allocation_fraction,
                     "signal_date": decision.signal_date.isoformat(),
                     "valid_session": decision.valid_session.isoformat(),
                 },

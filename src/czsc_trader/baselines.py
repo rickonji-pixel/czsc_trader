@@ -126,6 +126,7 @@ class CapitalSpec:
     mode: str
     fee_rate: float
     target_scope: str
+    allocation_fraction: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -370,9 +371,16 @@ def _parse_execution(payload: dict[str, object], symbol: str | None) -> Executio
         mode=str(capital.get("mode", "")),
         fee_rate=float(capital.get("fee_rate", -1)),
         target_scope=str(capital.get("target_scope", "")),
+        allocation_fraction=float(capital.get("allocation_fraction", 1.0)),
     )
-    if cap.mode != "full_available_cash" or cap.target_scope != "entry_cycle":
+    if cap.mode not in {"full_available_cash", "available_cash_fraction"}:
         raise ValueError("complete baseline capital rule is unsupported")
+    if cap.target_scope != "entry_cycle":
+        raise ValueError("complete baseline capital target scope is unsupported")
+    if not 0 < cap.allocation_fraction <= 1:
+        raise ValueError("complete baseline capital allocation fraction is invalid")
+    if cap.mode == "full_available_cash" and cap.allocation_fraction != 1.0:
+        raise ValueError("full available cash mode requires allocation fraction one")
     if not 0 <= cap.fee_rate < 1:
         raise ValueError("complete baseline fee rate is invalid")
     fill = VirtualFillSpec(

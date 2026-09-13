@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX01",
+  "status": "COMPLETE",
+  "experiment_type": "frozen_strategy_mandate_gap_diagnosis",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_DRAWDOWN_ATTRIBUTION",
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 173,
+      "sha256": "f759ed0a885fae520d6bbb83616729e3ff0525ee0542b505b4c4b553d5764cc7"
+    },
+    "02_design.md": {
+      "bytes": 452,
+      "sha256": "8fec44db8a939da33e0bd490a5f5a00477cb4d6b0d81a3b8460040cb352c4791"
+    },
+    "03_execution.md": {
+      "bytes": 120,
+      "sha256": "d2c4cea8e5888143c77a16cdec00f36ba6ed1cf818c927b6aa8146dd03ebc813"
+    },
+    "04_conclusion.md": {
+      "bytes": 262,
+      "sha256": "1dce1283d035d44441e84d9b1c4e6cbe1ac4139ea9709f24c4b77c2b0dbe2802"
+    },
+    "artifacts/drawdown_episodes.csv": {
+      "bytes": 2118,
+      "sha256": "700f6f3823e8361325345fe3e4bc1456cb56dcb432379f7eb7cb25abd7eedec4"
+    },
+    "artifacts/formal_trades.csv": {
+      "bytes": 7448,
+      "sha256": "904994b5b481e5b943b31786bd24aaaba2ad2f6e2675942d40a155cbe87e2049"
+    },
+    "artifacts/gap_summary.json": {
+      "bytes": 996,
+      "sha256": "c745b44e33fd88aeb9ac568963d828478ddc36056b378fb55faca43e6fc82fcc"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 937,
+      "sha256": "21848fc5f1ee86aed70389454734ec8a3fea378d0cc1776b8d2cb1bd3c53c51d"
+    },
+    "artifacts/window_metrics.csv": {
+      "bytes": 908,
+      "sha256": "6425507c8faa6ab25caba04606ce24af037590074520aede0980575d20fd3328"
+    },
+    "run_experiment.py": {
+      "bytes": 9942,
+      "sha256": "78eec959ea25c5f421978e77403c60ec463767e80d6c96c5123ac668da7ffb78"
+    }
+  }
+}

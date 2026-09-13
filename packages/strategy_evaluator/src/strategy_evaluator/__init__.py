@@ -99,6 +99,11 @@ from .benchmark_challenge import (
     BenchmarkChallengeResult,
     assess_benchmark_challenge,
 )
+from .mandate_challenge import (
+    MandateChallengeRequest,
+    MandateChallengeResult,
+    assess_mandate_challenge,
+)
 from .freeze_health import (
     FreezeHealthDecision,
     FreezeHealthRequest,
@@ -138,6 +143,7 @@ __all__ = [
     "CandidateReadinessResult", "assess_research_candidate",
     "BenchmarkChallengeDecision", "BenchmarkChallengeRequest",
     "BenchmarkChallengeResult", "assess_benchmark_challenge",
+    "MandateChallengeRequest", "MandateChallengeResult", "assess_mandate_challenge",
     "FreezeHealthDecision", "FreezeHealthRequest", "FreezeHealthResult",
     "assess_freeze_health",
 ]

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX03",
+  "experiment_type": "frozen_strategy_drawdown_shape_classification",
+  "source_experiment": "experiments/S001/20260913_S001_EX02",
+  "source_daily_attribution_sha256": "6caeb20d55a52c48cf4e91be1b5d5675fb94dc629e5a8f53ca45c5756be3af64",
+  "source_trade_attribution_sha256": "9b23214a37dff867b989f7cdd202f5fe4d3031b27b7055be8566917103f72c6f",
+  "source_summary_sha256": "71c9a922e232f4548b41a1b2d59539c3364745000dda59b46db1dccb2eaaf24d",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "candidate_generation": false,
+  "parameter_selection": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

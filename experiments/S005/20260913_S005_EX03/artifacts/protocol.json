@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX03",
+  "experiment_type": "relative_flow_impulse_density_calibration",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "context_symbol": "510500.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "decision_time": "15:00",
+  "relative_return_lookback_sessions": 1,
+  "threshold_reference_sessions": 120,
+  "threshold_quantiles": [0.6, 0.7, 0.8],
+  "minimum_close_location": 0.6,
+  "selection_rule": "HIGHEST_QUANTILE_PASSING_DENSITY",
+  "density": {
+    "cooldown_sessions": 1,
+    "rolling_window_sessions": 60,
+    "minimum_median": 7.0,
+    "minimum_p10": 3.0
+  },
+  "reads_post_event_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

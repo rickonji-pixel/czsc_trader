@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX04",
+  "experiment_type": "fixed_relative_flow_return_falsification",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "source_experiment": "20260913_S005_EX03",
+  "mechanism": "RELATIVE_FLOW_Q80",
+  "execution": {
+    "signal_time": "15:00",
+    "entry": "NEXT_SESSION_OPEN",
+    "exit": "NEXT_SESSION_CLOSE",
+    "baseline_one_way_cost": 0.00012,
+    "stress_one_way_cost": 0.0006
+  },
+  "random_control": {
+    "method": "within_year_circular_shift",
+    "iterations": 1000,
+    "seed": 20260913
+  },
+  "acceptance": {
+    "stress_mean_min_exclusive": 0.0,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 4,
+    "recent_sessions": 252,
+    "recent_stress_mean_min_exclusive": 0.0,
+    "random_percentile_minimum": 90.0,
+    "proxy_cagr_minimum": 0.24078187745776553,
+    "proxy_maximum_drawdown_limit": -0.15
+  },
+  "return_path_count": 1,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

@@ -1,0 +1,35 @@
+[
+  {
+    "mechanism":"DOWNSIDE_CAPITULATION_Q50",
+    "quantile":0.5,
+    "raw_events":268,
+    "independent_events":150,
+    "rolling_60_median":7.0,
+    "rolling_60_p10":2.0,
+    "rolling_60_minimum":0.0,
+    "rolling_60_maximum":12.0,
+    "density_pass":false
+  },
+  {
+    "mechanism":"DOWNSIDE_CAPITULATION_Q60",
+    "quantile":0.6,
+    "raw_events":216,
+    "independent_events":126,
+    "rolling_60_median":6.0,
+    "rolling_60_p10":1.0,
+    "rolling_60_minimum":0.0,
+    "rolling_60_maximum":11.0,
+    "density_pass":false
+  },
+  {
+    "mechanism":"DOWNSIDE_CAPITULATION_Q70",
+    "quantile":0.7,
+    "raw_events":170,
+    "independent_events":107,
+    "rolling_60_median":5.0,
+    "rolling_60_p10":1.0,
+    "rolling_60_minimum":0.0,
+    "rolling_60_maximum":11.0,
+    "density_pass":false
+  }
+]

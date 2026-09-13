@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX06",
+  "status": "PASS",
+  "strategy_reference": "S001-v2",
+  "data_fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+  "required_strategy_cagr": 0.04312828315591155,
+  "maximum_drawdown_floor": -0.15,
+  "scenario_count": 6,
+  "feasible_scenario_count": 3,
+  "feasible_risk_budget_fractions": [
+    0.5,
+    0.6,
+    0.65
+  ],
+  "finding": "FEASIBLE_RISK_BUDGET_REGION",
+  "route_decision": "PROCEED_TO_RISK_BUDGET_POLICY_SELECTION",
+  "candidate_created": false
+}

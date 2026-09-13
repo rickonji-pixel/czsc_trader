@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX09",
+  "status": "PASS",
+  "request": {
+    "candidate_id": "S001-C001",
+    "candidate_hash": "927cb95717ffd0a64a2283fa176a4456dfb1a78b6794839bb3dbc2f224dcce0b",
+    "integrity": "PASS",
+    "reproducibility": "PASS",
+    "mechanism_evidence": "FAVORABLE",
+    "statistical_evidence": "MIXED",
+    "external_validation": "MIXED",
+    "primary_closed_trades": 73,
+    "minimum_closed_trades": 20,
+    "blocking_findings": []
+  },
+  "assessment": {
+    "candidate_id": "S001-C001",
+    "candidate_hash": "927cb95717ffd0a64a2283fa176a4456dfb1a78b6794839bb3dbc2f224dcce0b",
+    "decision": "RECOMMEND_REGISTRATION",
+    "risk_label": "MIXED",
+    "reason_codes": [
+      "IDENTITY_VERIFIED",
+      "EVIDENCE_COMPLETE",
+      "MINIMUM_SAMPLE_MET",
+      "NO_BLOCKING_FINDINGS"
+    ]
+  },
+  "additional_correlated_risk_budget_trials": 6,
+  "statistical_inheritance_reason": "signal_sequence_unchanged_and_scaling_trials_highly_correlated",
+  "route_decision": "PROCEED_TO_BENCHMARK_CHALLENGE",
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

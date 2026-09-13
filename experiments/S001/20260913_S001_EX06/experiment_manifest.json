@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX06",
+  "status": "COMPLETE",
+  "experiment_type": "strategy_risk_budget_feasibility_landscape",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_RISK_BUDGET_POLICY_SELECTION",
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 229,
+      "sha256": "037b8bfaa5b89ff3cf6364179783e3524270b9c502318d9ec8e320e8a31460de"
+    },
+    "02_design.md": {
+      "bytes": 600,
+      "sha256": "ef230ace06d82557972452c5ee886ac6a9ce952a3a3759ec1c4d93c9e033af4a"
+    },
+    "03_execution.md": {
+      "bytes": 122,
+      "sha256": "b29b687722c152d59682038fa44b98c117d5c1c275cc0c1e17370d6d8cdd06cb"
+    },
+    "04_conclusion.md": {
+      "bytes": 239,
+      "sha256": "0211ef756b913ec5a242631e9fffc19848fc9d11e12601d78613185d28ff2a77"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 955,
+      "sha256": "d99dfbaec30d63224b73aa28facab05b5f2a90000bcbe5c9ce7bed7b6b6fecd8"
+    },
+    "artifacts/risk_budget_landscape.csv": {
+      "bytes": 894,
+      "sha256": "6faa7c3f3ae1c26e339c9350b354cf22d11afdf6e0febd2649dad9849ed57f71"
+    },
+    "artifacts/risk_budget_summary.json": {
+      "bytes": 558,
+      "sha256": "62136998869cf424f75c41e4bc02b60775f1c782c1dab78de4a2be933aaba11b"
+    },
+    "run_experiment.py": {
+      "bytes": 7683,
+      "sha256": "80ac2a3daa176a2c05524a86fddeff2c2ebad4543d91083907f1ebfda6323862"
+    }
+  }
+}

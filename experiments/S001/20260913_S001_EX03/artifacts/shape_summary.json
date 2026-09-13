@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX03",
+  "status": "PASS",
+  "strategy_reference": "S001-v2",
+  "episode_count": 3,
+  "shape_counts": {
+    "LOSS_SEQUENCE": 2,
+    "OPEN_PROFIT_GIVEBACK": 1
+  },
+  "finding": "TWO_DISTINCT_DRAWDOWN_SHAPES",
+  "route_decision": "PROCEED_TO_DUAL_DRAWDOWN_HYPOTHESIS_TEST",
+  "attribution_scope": "descriptive_not_causal",
+  "candidate_created": false
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX05",
+  "status": "COMPLETE",
+  "experiment_type": "profit_protection_feasibility_landscape",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "RETURN_TO_SIGNAL_MECHANISM_RESEARCH",
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 238,
+      "sha256": "45c4fa41653724a1d786d3652e6c48abfd5078ce5f013838e8f97ac376c7a47c"
+    },
+    "02_design.md": {
+      "bytes": 990,
+      "sha256": "82e991cb3058b016e0640ef7d0c227f0e067ed362aa32bef10a97fcedb452ba2"
+    },
+    "03_execution.md": {
+      "bytes": 137,
+      "sha256": "617a981feaa345bd396ed22f8cee51f52f2f3b884847e1886f4c3dc71689a740"
+    },
+    "04_conclusion.md": {
+      "bytes": 266,
+      "sha256": "3638e0ba9e8af672daab0c6fa8be591a25ef4c91ffb01125318bd1ec474e7ae4"
+    },
+    "artifacts/feasibility_landscape.csv": {
+      "bytes": 1527,
+      "sha256": "e7db74f0261600c509e9f2b74b1ca2480cd660a360a2fd77ab437a602fc9e490"
+    },
+    "artifacts/feasibility_summary.json": {
+      "bytes": 546,
+      "sha256": "abd254343b9479439407a3f2c0d022266a6670d745f87f55adf7505d61962316"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1120,
+      "sha256": "b46c03ab7a82f641f6dc079605519288bc892c43f9d64c535a692b235a4dbecc"
+    },
+    "run_experiment.py": {
+      "bytes": 11274,
+      "sha256": "2f9d43ae7f56af502a27f1357495772a966e1db2f634c119a5bf41e8d96ff829"
+    }
+  }
+}

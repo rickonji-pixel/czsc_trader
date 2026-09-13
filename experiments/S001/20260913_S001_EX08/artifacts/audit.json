@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "evidence_hash": "af89eeabe5d2851932694cc5e01c98b066185adf7a98504bf518db308817a160",
+  "checks": [
+    "ORDER_AND_FILL_CAUSALITY",
+    "ACCOUNT_LEDGER",
+    "TRADE_PAIRING",
+    "METRICS"
+  ],
+  "reason_codes": []
+}

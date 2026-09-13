@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX03",
+  "status": "COMPLETE",
+  "experiment_type": "frozen_strategy_drawdown_shape_classification",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_DUAL_DRAWDOWN_HYPOTHESIS_TEST",
+  "candidate_generation": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 251,
+      "sha256": "67ee6ac41564eab66579e42e9f1e1db19e4ad207cbde876e37a8b94a6648d3fa"
+    },
+    "02_design.md": {
+      "bytes": 484,
+      "sha256": "debdfbe26536bf9c2daee1453506ce119c64f618998cc512272c19b51485949e"
+    },
+    "03_execution.md": {
+      "bytes": 97,
+      "sha256": "0f0cfffebee0faee613683361019f0b83a1050d010fe83901e6857591047304a"
+    },
+    "04_conclusion.md": {
+      "bytes": 352,
+      "sha256": "9a43fb4031c1966a39fc5587614eedb5f99305f0b2f45bf74fc0f3533e2be41f"
+    },
+    "artifacts/drawdown_shapes.csv": {
+      "bytes": 899,
+      "sha256": "1e7059609fe30db239b78b6192176f856feb96e8b1923c06b890a9a6b1a68289"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 746,
+      "sha256": "d1c5c416c815558d6672eaa006278e4a19031cfaa864f011f127b45b38653302"
+    },
+    "artifacts/shape_summary.json": {
+      "bytes": 411,
+      "sha256": "9ac6b16bd3b9d83c247c205c914c530ac81d357b17a2ec446e2d6341af519633"
+    },
+    "run_experiment.py": {
+      "bytes": 7847,
+      "sha256": "e7f7796a949c3bb9ec296bf62b5ff172fd278e32cdcae6912cee2c629ede4a32"
+    }
+  }
+}

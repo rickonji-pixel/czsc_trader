@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX29",
+  "experiment_type": "global_technology_catalyst_data_gate",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "calendar": {
+    "manifest": "data/raw/588080_manifest.json",
+    "manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "sources": [
+    {"endpoint": "index_global", "ts_code": "IXIC", "role": "technology_risk_appetite"},
+    {"endpoint": "index_global", "ts_code": "SPX", "role": "broad_market_control"},
+    {"endpoint": "us_daily_adj", "ts_code": "NVDA", "role": "semiconductor_basket"},
+    {"endpoint": "us_daily_adj", "ts_code": "AMD", "role": "semiconductor_basket"},
+    {"endpoint": "us_daily_adj", "ts_code": "AVGO", "role": "semiconductor_basket"},
+    {"endpoint": "us_daily_adj", "ts_code": "TSM", "role": "semiconductor_basket"},
+    {"endpoint": "us_daily_adj", "ts_code": "QCOM", "role": "semiconductor_basket"}
+  ],
+  "mapping_rule": {
+    "us_trade_date_must_be_strictly_before_a_share_session": true,
+    "maximum_calendar_lag_days": 4,
+    "earliest_strategy_use": "A_SHARE_SESSION_09_36"
+  },
+  "quality_gate": {
+    "minimum_mapped_session_coverage_per_source": 0.95,
+    "unique_source_session_keys": true,
+    "finite_close_and_return": true,
+    "maximum_api_calls": 7
+  },
+  "excluded_unavailable_sources": ["SMH", "SOXX"],
+  "reads_post_event_prices": false,
+  "event_generation": false,
+  "parameter_selection": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX30",
+  "experiment_type": "global_semiconductor_catalyst_density_census",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "experiment_id": "20260913_S005_EX29",
+    "manifest_sha256": "c88e4eb2be53aaf7e4b4aea4a4da9beb6a05bc90e2491bb4c7f3a0ef5621f5cb",
+    "data_sha256": "d2aac79851d984cdacce6593bc42a7461b676f5178091b4521629e9d9d28beea",
+    "quality_sha256": "8a09127589c326ba8ccc69e023a145a7efd9cfed8f5616f9191a8772071a8566"
+  },
+  "feature": {
+    "semiconductor_codes": ["NVDA", "AMD", "AVGO", "TSM", "QCOM"],
+    "broad_market_code": "SPX",
+    "technology_index_code": "IXIC",
+    "minimum_positive_semiconductor_breadth": 4,
+    "rolling_reference_sessions": 120,
+    "minimum_reference_observations": 120,
+    "strength_quantiles": [0.5, 0.6, 0.7]
+  },
+  "selection_rule": {
+    "family_priority": ["SEMI_SPECIFIC_RISK_ON", "SEMI_BROAD_RISK_ON"],
+    "within_family": "HIGHEST_PASSING_QUANTILE"
+  },
+  "density": {
+    "cooldown_sessions": 3,
+    "rolling_window_sessions": 60,
+    "minimum_median": 7,
+    "minimum_p10": 3
+  },
+  "reads_post_event_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

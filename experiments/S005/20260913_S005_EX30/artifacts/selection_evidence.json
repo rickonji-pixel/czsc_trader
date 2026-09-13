@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX30",
+  "feature_sessions": 1374,
+  "fresh_us_observation_sessions": 1328,
+  "paths_tested": 6,
+  "density_passing_paths": [
+    "SEMI_BROAD_RISK_ON_Q50",
+    "SEMI_BROAD_RISK_ON_Q60",
+    "SEMI_SPECIFIC_RISK_ON_Q50",
+    "SEMI_SPECIFIC_RISK_ON_Q60",
+    "SEMI_SPECIFIC_RISK_ON_Q70",
+    "SEMI_BROAD_RISK_ON_Q70"
+  ],
+  "selected_for_fixed_return_test": "SEMI_SPECIFIC_RISK_ON_Q70",
+  "reads_post_event_prices": false,
+  "decision": "PROCEED_TO_FIXED_RETURN_TEST"
+}

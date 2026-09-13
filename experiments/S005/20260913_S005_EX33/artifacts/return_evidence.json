@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX33",
+  "status": "COMPLETE",
+  "mechanism": "DISCOUNT_REVERSION_Q70",
+  "metrics": {
+    "closed_trades": 158,
+    "terminal_signals_skipped": 0,
+    "gross_mean": -3.7900465731258754e-05,
+    "stress_mean": -0.0012371354441852987,
+    "stress_profit_factor": 0.9009228355653921,
+    "positive_years": 2,
+    "recent_trades": 17,
+    "recent_stress_mean": -0.0022567343633887425,
+    "proxy_cagr": -0.054875474197893404,
+    "proxy_maximum_drawdown": -0.3240887434437262
+  },
+  "checks": {
+    "stress_mean_budget": false,
+    "profit_factor": false,
+    "positive_years": false,
+    "recent": false,
+    "proxy_cagr": false,
+    "proxy_maximum_drawdown": false
+  },
+  "decision": "STOP_ETF_DISCOUNT_REVERSION_ON_RETURN",
+  "cumulative_return_path_count": 12,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "6c81dbc2c51e012f171898b05b285924878609ff48582fc8d9e9e19a1166d181"
+}

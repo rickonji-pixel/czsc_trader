@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX13",
+  "status": "PASS",
+  "source_strategy": "S001-v2",
+  "baseline": {
+    "variant_id": "BASELINE",
+    "entry_threshold": 0.175,
+    "exit_threshold": 0.025,
+    "min_hold_days": 3,
+    "closed_trades": 73,
+    "closed_trades_per_60_sessions": 3.1877729257641922,
+    "five_session_declustered_cycles": 41,
+    "declustered_cycles_per_60_sessions": 1.7903930131004366,
+    "median_holding_sessions": 8.0,
+    "mean_holding_sessions": 10.794520547945206,
+    "actual_position_session_ratio": 0.5203784570596798,
+    "rolling_60_median_closed_trades": 3.0,
+    "rolling_60_p25_closed_trades": 2.0,
+    "rolling_60_max_closed_trades": 7,
+    "rolling_60_share_at_least_6": 0.06007604562737642,
+    "total_return": 2.642316735500001,
+    "cagr": 0.2675354193975168,
+    "max_drawdown": -0.21533380100584498,
+    "calmar": 1.242421849927104,
+    "win_loss_ratio": 4.5025235129258006
+  },
+  "state_machine_diagnostics": {
+    "sessions": 1374,
+    "entry_transitions": 73,
+    "exit_transitions": 73,
+    "flat_sessions": 653,
+    "long_sessions": 721,
+    "flat_score_bands": {
+      "below_exit": 456,
+      "exit_to_0155": 105,
+      "0155_to_0165": 15,
+      "0165_to_entry": 4,
+      "at_or_above_entry": 73
+    },
+    "entry_qualified_while_already_long": 500,
+    "exit_qualified_during_first_three_holding_sessions": 33,
+    "confirm_days_is_already_minimum": true,
+    "exit_confirm_days_is_already_minimum": true
+  },
+  "axis_effects": {
+    "entry_threshold": {
+      "best_diagnostic_variant": "ENTRY_0155",
+      "closed_trade_gain": 10,
+      "rate_per_60_gain": 0.43668122270742327
+    },
+    "exit_threshold": {
+      "best_diagnostic_variant": "EXIT_0075",
+      "closed_trade_gain": 13,
+      "rate_per_60_gain": 0.5676855895196504
+    },
+    "minimum_holding": {
+      "best_diagnostic_variant": "HOLD_1",
+      "closed_trade_gain": 12,
+      "rate_per_60_gain": 0.5240174672489082
+    }
+  },
+  "frequency_bottleneck_ranking": [
+    "exit_threshold",
+    "minimum_holding",
+    "entry_threshold"
+  ],
+  "single_axis_target_hits": [],
+  "route_decision": "PROCEED_TO_FREQUENCY_MECHANISM_RESEARCH",
+  "candidate_created": false,
+  "trial_count_added": 7
+}

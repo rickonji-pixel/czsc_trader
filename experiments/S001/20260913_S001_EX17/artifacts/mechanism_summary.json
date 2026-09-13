@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX17",
+  "status": "PASS",
+  "coverage_manifest_sha256": "cc717cded727f42f0fbf9c434635234a6b46f0c05528b9ad583e00de96934ac5",
+  "evaluated_hypotheses": 7,
+  "evaluated_exit_clocks": [
+    "09:45",
+    "11:30",
+    "15:00"
+  ],
+  "evaluated_paths": 21,
+  "evidence_counts": {
+    "EVIDENCE_RATE_FAIL": 21
+  },
+  "supported_paths": [],
+  "candidate_created": false
+}

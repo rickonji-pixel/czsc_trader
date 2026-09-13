@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX14",
+  "status": "COMPLETE",
+  "experiment_type": "complementary_factor_event_census",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "CURRENT_FACTOR_UNIVERSE_CANNOT_MEET_FREQUENCY_TARGET",
+  "candidate_generation": false,
+  "trial_count_added": 72,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 148,
+      "sha256": "e1c97bbda1392ed1002c0998b7402e9ee35596ac1d51c91e0dfcecc2f1c2ba90"
+    },
+    "02_design.md": {
+      "bytes": 516,
+      "sha256": "8636d0ea8a9dd9cb0fcc11c651fd9377294796c8dc3ceea2dfe6f5030f962190"
+    },
+    "03_execution.md": {
+      "bytes": 139,
+      "sha256": "b922bb15c8a223cc63aeaed8483484a19b5d97e84161f8275db51205e6697207"
+    },
+    "04_conclusion.md": {
+      "bytes": 260,
+      "sha256": "3c043df962d6ba0791f882609e8100f04dc5e3d37ef01a85543dd65c17bccac6"
+    },
+    "artifacts/census_summary.json": {
+      "bytes": 1670,
+      "sha256": "549ddae5e70f8a735d0dd3831f554079e8451e1a5026b98d24c5cfa2bd6959dd"
+    },
+    "artifacts/event_ledger.csv": {
+      "bytes": 265127,
+      "sha256": "52475e072783f343ebc7d73dc43d681d19373f7978663a307099d15c263a364d"
+    },
+    "artifacts/event_path_metrics.csv": {
+      "bytes": 14968,
+      "sha256": "e67878ef32851987eb1f752ac8e0b1e8aa7b13919de9223fbfde25b2a8e39880"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 828,
+      "sha256": "e91c388099706c9261092f08ae0c7eb3173f341bb17787b9c47db72c1a08462f"
+    },
+    "run_experiment.py": {
+      "bytes": 10405,
+      "sha256": "68d583706c00354bbc002801f25ff09c0a74aa742e93b50ffe5b489184d5a93a"
+    }
+  }
+}

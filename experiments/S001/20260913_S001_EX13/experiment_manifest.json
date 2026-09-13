@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX13",
+  "status": "COMPLETE",
+  "experiment_type": "frequency_bottleneck_diagnostic",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_FREQUENCY_MECHANISM_RESEARCH",
+  "candidate_generation": false,
+  "trial_count_added": 7,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 119,
+      "sha256": "93aeafd105547b88543de5b11704ea64396859d976720da4da85fbd96cec976c"
+    },
+    "02_design.md": {
+      "bytes": 364,
+      "sha256": "e2105ea38dd293b4af223ab53cad68b9858ae9425f02d1963e6a0fc26653ee4d"
+    },
+    "03_execution.md": {
+      "bytes": 126,
+      "sha256": "39096ca8516d5d754dc9b310f6406729a29d7d43e664bbd9f8a949d9a861b7c9"
+    },
+    "04_conclusion.md": {
+      "bytes": 248,
+      "sha256": "f250e293eed077b43803a9f6dcf3ff643c7c17544475feba3f91bccc15014a13"
+    },
+    "artifacts/bottleneck_summary.json": {
+      "bytes": 2232,
+      "sha256": "cef08aa217d43dc39e328edbc3f96c82208e2c42eef9620f8611f2c8f341d393"
+    },
+    "artifacts/frequency_landscape.csv": {
+      "bytes": 2038,
+      "sha256": "6d63d3fbedb0e5e30e22059e9f36119768f75f58aef1a5f52595cd415f790177"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1437,
+      "sha256": "022eff1c734966ad17721e1db74703071510d4a2c739d800e053c9e79c435c54"
+    },
+    "run_experiment.py": {
+      "bytes": 11032,
+      "sha256": "7b1e3c0ba385f69b8eae9d493d0d2477649d59ee273b5c8ae871e53cb92bc1d2"
+    }
+  }
+}

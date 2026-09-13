@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX16",
+  "status": "PASS",
+  "source_strategy": "S001-v2",
+  "census_manifest_sha256": "89716d8b445b67f83d86bee2b11948e9df4aa00d5fc4fdebe131bf3ce2af4a78",
+  "evaluation_sessions": 1374,
+  "baseline_flat_at_open_sessions": 653,
+  "baseline_clean_flat_sessions": 580,
+  "density_capable_states": 471,
+  "coverage_pass_states": 466,
+  "unique_coverage_pass_behaviors": 435,
+  "future_returns_read": false,
+  "candidate_created": false
+}

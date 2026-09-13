@@ -1,0 +1,374 @@
+{
+  "0523ef402eb189921a0131b90a44996dd11eb14c5a5fa07ce91af596d61cabc8": [
+    {
+      "state_id": "STATE-3CB8862A789DC075",
+      "signal_id": "SIG-15M-FD10CF273060F047",
+      "name": "tas_macd_base_V221028",
+      "state_primary": "空头"
+    },
+    {
+      "state_id": "STATE-D6570B230A08DF9B",
+      "signal_id": "SIG-15M-09E1C8F6D25F5691",
+      "name": "tas_macd_base_V230320",
+      "state_primary": "空头"
+    },
+    {
+      "state_id": "STATE-17C6E5084BE0E6DC",
+      "signal_id": "SIG-15M-1441910B7B3996E1",
+      "name": "zdy_macd_V230518",
+      "state_primary": "死叉"
+    }
+  ],
+  "0becf8919c3ebab9c902a5107f6141ebf0bd6fc82712bbe784dca9882ac6c6fd": [
+    {
+      "state_id": "STATE-A1E80FF760F0F347",
+      "signal_id": "SIG-15M-EED38B27A2858EF5",
+      "name": "bar_dual_thrust_V230403",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-9C45D16448DF7DCC",
+      "signal_id": "SIG-15M-8F454438C8D1C3C5",
+      "name": "bar_end_V221211",
+      "state_primary": "未闭1"
+    },
+    {
+      "state_id": "STATE-B0AAC39721B93E12",
+      "signal_id": "SIG-15M-8F454438C8D1C3C5",
+      "name": "bar_end_V221211",
+      "state_primary": "未闭2"
+    },
+    {
+      "state_id": "STATE-734261F1F3465BC8",
+      "signal_id": "SIG-15M-8F454438C8D1C3C5",
+      "name": "bar_end_V221211",
+      "state_primary": "未闭3"
+    },
+    {
+      "state_id": "STATE-EC3BC8B9BBAA46C0",
+      "signal_id": "SIG-15M-8F454438C8D1C3C5",
+      "name": "bar_end_V221211",
+      "state_primary": "闭合"
+    },
+    {
+      "state_id": "STATE-BF25A3E1832A0D5C",
+      "signal_id": "SIG-15M-7E65F007E78C84BC",
+      "name": "bar_operate_span_V221111",
+      "state_primary": "否"
+    },
+    {
+      "state_id": "STATE-02E35538C6D59A46",
+      "signal_id": "SIG-15M-7E65F007E78C84BC",
+      "name": "bar_operate_span_V221111",
+      "state_primary": "是"
+    },
+    {
+      "state_id": "STATE-BDCEC90641C40ECE",
+      "signal_id": "SIG-15M-DD53C84A418163CB",
+      "name": "bar_single_V230214",
+      "state_primary": "阳线"
+    },
+    {
+      "state_id": "STATE-FEF3D4305C76D1FF",
+      "signal_id": "SIG-15M-DD53C84A418163CB",
+      "name": "bar_single_V230214",
+      "state_primary": "阴线"
+    },
+    {
+      "state_id": "STATE-D8B5246357478C60",
+      "signal_id": "SIG-15M-0160B290455DD523",
+      "name": "bar_tnr_V230630",
+      "state_primary": "噪音增加"
+    },
+    {
+      "state_id": "STATE-F2C46C0B7BDF17B2",
+      "signal_id": "SIG-15M-2F41426B316A5F2F",
+      "name": "tas_macd_direct_V221106",
+      "state_primary": "模糊"
+    },
+    {
+      "state_id": "STATE-96F2F4720288ACC7",
+      "signal_id": "SIG-15M-11130A28677917A4",
+      "name": "tas_macd_xt_V221208",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-E330094E9446C108",
+      "signal_id": "SIG-15M-C9664FC76DC1D892",
+      "name": "vol_gao_di_V221218",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-DEB71AAF380B1481",
+      "signal_id": "SIG-15M-E7E0DC08A576E2AD",
+      "name": "vol_single_ma_V230214",
+      "state_primary": "多头"
+    },
+    {
+      "state_id": "STATE-6D751EB26A746AE3",
+      "signal_id": "SIG-15M-E7E0DC08A576E2AD",
+      "name": "vol_single_ma_V230214",
+      "state_primary": "空头"
+    },
+    {
+      "state_id": "STATE-DB048AE86F057919",
+      "signal_id": "SIG-15M-59F5238AC890CDF4",
+      "name": "vol_window_V230801",
+      "state_primary": "先放后缩"
+    }
+  ],
+  "0d23497c938da5f4719b7446369ad4c05d706b7b3d3a22112c42c0185d72bd32": [
+    {
+      "state_id": "STATE-6C056839D1CC717A",
+      "signal_id": "SIG-15M-65261F67E89159E7",
+      "name": "tas_ma_base_V221101",
+      "state_primary": "多头"
+    },
+    {
+      "state_id": "STATE-72A515075B6583C7",
+      "signal_id": "SIG-15M-671B0E08FF15C6B5",
+      "name": "tas_ma_base_V221203",
+      "state_primary": "多头"
+    }
+  ],
+  "20d164722ba99ae1716cb5374338d5fc2c7c064e4c974799490fea00107fff50": [
+    {
+      "state_id": "STATE-5BEA143216F0F710",
+      "signal_id": "SIG-15M-F3DAE9D00CB7D26D",
+      "name": "byi_fx_num_V230628",
+      "state_primary": "向下"
+    },
+    {
+      "state_id": "STATE-30F8FDCF7E696795",
+      "signal_id": "SIG-15M-07F42D175281AD79",
+      "name": "cxt_bi_zdf_V230601",
+      "state_primary": "向下"
+    }
+  ],
+  "39d00040c08bb7daf3216c45d9c7cbcba1f07054474f2604ba6f560ce6ca4915": [
+    {
+      "state_id": "STATE-FDB09F05313FF100",
+      "signal_id": "SIG-15M-639C28D02B042809",
+      "name": "bar_shuang_fei_V230507",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-BF944806552655A0",
+      "signal_id": "SIG-15M-1BDEB308519F840E",
+      "name": "bar_time_V230327",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-6784A67325A24CD3",
+      "signal_id": "SIG-15M-8C26926A2987A907",
+      "name": "bar_volatility_V241013",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-3523F872265411CA",
+      "signal_id": "SIG-15M-5CA3544084DBD3E7",
+      "name": "jcc_san_fa_V20221115",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-437E591703B4B216",
+      "signal_id": "SIG-15M-B63E5E9D78705D01",
+      "name": "jcc_wu_yun_gai_ding_V221101",
+      "state_primary": "其他"
+    }
+  ],
+  "53ec101e75e49fa1cb537772575dc0c9b197f1ec12e2e0197f02db01ecec1eca": [
+    {
+      "state_id": "STATE-BC0C3BA23AC2232E",
+      "signal_id": "SIG-15M-36599A6AB7AD928D",
+      "name": "cxt_bi_base_V230228",
+      "state_primary": "向上"
+    },
+    {
+      "state_id": "STATE-58EBAA3B69EA3379",
+      "signal_id": "SIG-15M-472EB8B25DB11A11",
+      "name": "cxt_bi_stop_V230815",
+      "state_primary": "向上"
+    },
+    {
+      "state_id": "STATE-6C0C46E0B9B0E896",
+      "signal_id": "SIG-15M-DE48DC3ED39053B8",
+      "name": "jcc_shan_chun_V221121",
+      "state_primary": "三川"
+    }
+  ],
+  "619854aac15ce55b98085e853d9842574fa2924bdeb05fcfedda24824f7d9336": [
+    {
+      "state_id": "STATE-7A2F1C73CEAA753C",
+      "signal_id": "SIG-15M-F4CB34F0C61F68E4",
+      "name": "coo_td_V221110",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-E79B1A954846D273",
+      "signal_id": "SIG-15M-DEB51C04DBA84583",
+      "name": "coo_td_V221111",
+      "state_primary": "其他"
+    }
+  ],
+  "6e2dc15626dcca823deaed6cc295ffa76873c19e48b7d3fc6b642237fdb7d996": [
+    {
+      "state_id": "STATE-2D2AB2BF1FB583A9",
+      "signal_id": "SIG-15M-8F2A4CF01E910F95",
+      "name": "tas_cross_status_V230624",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-BE5C3704F9B1FFAF",
+      "signal_id": "SIG-15M-CA3E388CAE9F0D8C",
+      "name": "tas_cross_status_V230625",
+      "state_primary": "其他"
+    }
+  ],
+  "7667a28b07283d5f5c36775e629f9aeb7674de20a9968e4b5e669ff3b5598294": [
+    {
+      "state_id": "STATE-80A4100420387FAA",
+      "signal_id": "SIG-15M-6B36983E3A807C77",
+      "name": "tas_kdj_evc_V221201",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-3515C46933A378BF",
+      "signal_id": "SIG-15M-2057DFA9D75F937B",
+      "name": "tas_kdj_evc_V230401",
+      "state_primary": "其他"
+    }
+  ],
+  "7b3c121de86065f72a25bcc39e831b0f154e43a37f7529f4bf0b0ec76433160a": [
+    {
+      "state_id": "STATE-4186DECED3D1D0D2",
+      "signal_id": "SIG-15M-6B36983E3A807C77",
+      "name": "tas_kdj_evc_V221201",
+      "state_primary": "空头"
+    },
+    {
+      "state_id": "STATE-D9C6D0D05C80866E",
+      "signal_id": "SIG-15M-2057DFA9D75F937B",
+      "name": "tas_kdj_evc_V230401",
+      "state_primary": "空头"
+    }
+  ],
+  "a09650d5263f7ca96f1512a33d303b2689c684c3afb5d0269c9d1e284c9fd831": [
+    {
+      "state_id": "STATE-EA417FE56624E489",
+      "signal_id": "SIG-15M-F3DAE9D00CB7D26D",
+      "name": "byi_fx_num_V230628",
+      "state_primary": "其他"
+    },
+    {
+      "state_id": "STATE-CE12B7ED7C56841E",
+      "signal_id": "SIG-15M-07F42D175281AD79",
+      "name": "cxt_bi_zdf_V230601",
+      "state_primary": "其他"
+    }
+  ],
+  "ab060dbc3bcf4c4013c4218d155f360b75dbbb458733dc46bebd30d2c67a270a": [
+    {
+      "state_id": "STATE-D8FAAC21EDD690C0",
+      "signal_id": "SIG-15M-6B36983E3A807C77",
+      "name": "tas_kdj_evc_V221201",
+      "state_primary": "多头"
+    },
+    {
+      "state_id": "STATE-B26013D93E5D5875",
+      "signal_id": "SIG-15M-2057DFA9D75F937B",
+      "name": "tas_kdj_evc_V230401",
+      "state_primary": "多头"
+    }
+  ],
+  "c59e6ad73d062a77d963c47b2e74901e7fde57c27201942cce6098dc53d12109": [
+    {
+      "state_id": "STATE-DE24827DAE16F84E",
+      "signal_id": "SIG-15M-F4CB34F0C61F68E4",
+      "name": "coo_td_V221110",
+      "state_primary": "延续"
+    },
+    {
+      "state_id": "STATE-0D5F9122E80463DF",
+      "signal_id": "SIG-15M-DEB51C04DBA84583",
+      "name": "coo_td_V221111",
+      "state_primary": "延续"
+    }
+  ],
+  "d03b57a0732bf0234700c8814f36e2c1fe363c9e9c8f3ce6d23c910948a205f3": [
+    {
+      "state_id": "STATE-CF50AFFF20E2FC9E",
+      "signal_id": "SIG-15M-36599A6AB7AD928D",
+      "name": "cxt_bi_base_V230228",
+      "state_primary": "向下"
+    },
+    {
+      "state_id": "STATE-6E739E4313AD6297",
+      "signal_id": "SIG-15M-472EB8B25DB11A11",
+      "name": "cxt_bi_stop_V230815",
+      "state_primary": "向下"
+    },
+    {
+      "state_id": "STATE-B169302806505732",
+      "signal_id": "SIG-15M-DE48DC3ED39053B8",
+      "name": "jcc_shan_chun_V221121",
+      "state_primary": "三山"
+    }
+  ],
+  "dddb5c2572d0b47fbd504cdfc5dd7e9b244be8e83e62dcff59c99a9e6639c22f": [
+    {
+      "state_id": "STATE-DEA33C899805BCF0",
+      "signal_id": "SIG-15M-FD10CF273060F047",
+      "name": "tas_macd_base_V221028",
+      "state_primary": "多头"
+    },
+    {
+      "state_id": "STATE-C02B7E7F029C5E81",
+      "signal_id": "SIG-15M-1441910B7B3996E1",
+      "name": "zdy_macd_V230518",
+      "state_primary": "金叉"
+    }
+  ],
+  "e804be8187d3e8029d2455e4417650be4b0574166e038ada39efeb60722af920": [
+    {
+      "state_id": "STATE-C6103D31FA579D5D",
+      "signal_id": "SIG-15M-65261F67E89159E7",
+      "name": "tas_ma_base_V221101",
+      "state_primary": "空头"
+    },
+    {
+      "state_id": "STATE-4B7584F47597B48D",
+      "signal_id": "SIG-15M-671B0E08FF15C6B5",
+      "name": "tas_ma_base_V221203",
+      "state_primary": "空头"
+    }
+  ],
+  "e8ecb05853e9d6fac789a7f166987c1bac2fb172184166bbfe90d1ebc2852c52": [
+    {
+      "state_id": "STATE-E6AEFBEC5D1234AB",
+      "signal_id": "SIG-15M-F3DAE9D00CB7D26D",
+      "name": "byi_fx_num_V230628",
+      "state_primary": "向上"
+    },
+    {
+      "state_id": "STATE-51BE15F9446FF67E",
+      "signal_id": "SIG-15M-07F42D175281AD79",
+      "name": "cxt_bi_zdf_V230601",
+      "state_primary": "向上"
+    }
+  ],
+  "f8f496d9c492b6f31bd2384ae6530d976638ff458ea0cded97e52b10776f7cab": [
+    {
+      "state_id": "STATE-F48838FEC17F821D",
+      "signal_id": "SIG-15M-1BA30915298D684F",
+      "name": "tas_cross_status_V230619",
+      "state_primary": "0轴上死叉第8次"
+    },
+    {
+      "state_id": "STATE-A3075663AC4C4317",
+      "signal_id": "SIG-15M-8F2A4CF01E910F95",
+      "name": "tas_cross_status_V230624",
+      "state_primary": "0轴上金叉第7次"
+    }
+  ]
+}

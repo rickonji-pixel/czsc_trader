@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX46",
+  "selection_rule": "HIGHEST_QUANTILE_PASSING_DENSITY",
+  "selected_quantile": 0.7,
+  "selected_mechanism": "SECTOR_LEADS_TARGET_Q70",
+  "diagnostics": [
+    {
+      "quantile": 0.5,
+      "events": 323,
+      "rolling_60_median": 15.0,
+      "rolling_60_p10": 12.0,
+      "passed": true
+    },
+    {
+      "quantile": 0.6,
+      "events": 273,
+      "rolling_60_median": 13.0,
+      "rolling_60_p10": 10.0,
+      "passed": true
+    },
+    {
+      "quantile": 0.7,
+      "events": 216,
+      "rolling_60_median": 10.0,
+      "rolling_60_p10": 6.0,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

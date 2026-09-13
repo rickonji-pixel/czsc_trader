@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX47",
+  "experiment_type": "cross_etf_information_diffusion_fixed_return_test",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "experiment_id": "20260913_S005_EX46",
+    "manifest_sha256": "fb3bbde0f1e3409bb45bbc612fe856862d4a91d592d88967b0973d7e1bb9f516",
+    "ledger_sha256": "a1420732fc13b3a62d04e272bcf42fd5d8730e66a430975a2f579f8f712feabb",
+    "selection_sha256": "5c32f98d792562215a38a549ab809e7bad4e4c4bbe4ccc86fe47e79ce52790b5"
+  },
+  "market_data": {
+    "manifest": "data/raw/588080_intraday_manifest.json",
+    "manifest_sha256": "caeda56df5b29c35cf665b11301eb22c072d6b2a5c522052529cd0de87c2dee4"
+  },
+  "mechanism": "SECTOR_LEADS_TARGET_Q70",
+  "execution": {
+    "entry_offset_sessions": 1,
+    "exit_offset_sessions": 1,
+    "entry_clock": "09:36",
+    "exit_clock": "14:56",
+    "stress_one_way_cost": 0.0006
+  },
+  "random_control": {
+    "iterations": 1000,
+    "seed": 20260913,
+    "minimum_percentile": 90.0
+  },
+  "acceptance": {
+    "stress_mean_minimum": 0.00737,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 4,
+    "recent_sessions": 252,
+    "recent_stress_mean_min_exclusive": 0.0,
+    "proxy_cagr_minimum": 0.24078187745776553,
+    "proxy_maximum_drawdown_limit": -0.15
+  },
+  "cumulative_return_path_count": 14,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

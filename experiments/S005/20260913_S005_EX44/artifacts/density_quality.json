@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX44",
+  "first_usable_disclosures": 699,
+  "point_in_time_events_with_acceleration": 435,
+  "disclosure_event_days": 205,
+  "positive_event_days": 103,
+  "negative_event_days": 102,
+  "positive_event_days_by_year": {
+    "2022": 18,
+    "2023": 26,
+    "2024": 23,
+    "2025": 16,
+    "2026": 20
+  },
+  "rolling_60_positive_days_median": 5.0,
+  "rolling_60_positive_days_p10": 3.0,
+  "reads_prices_or_returns": false,
+  "passed": false
+}

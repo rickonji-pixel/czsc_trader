@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX44",
+  "experiment_type": "fundamental_acceleration_predictor_density_gate",
+  "strategy_id": "S005",
+  "trade_symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "inputs": {
+    "fina_indicator": {
+      "path": "experiments/S005/20260913_S005_EX43/artifacts/fina_indicator_raw.csv.gz",
+      "sha256": "bbff8b925912f8911932f0894b98178e1f394cdfea2f281ee6ca6ee7ca5f645b"
+    },
+    "forecast": {
+      "path": "experiments/S005/20260913_S005_EX43/artifacts/forecast_raw.csv.gz",
+      "sha256": "b5dd2673f7ee91d1a629cbbc8577dec670df5991a28342f59d17a7223d3a708b"
+    },
+    "express": {
+      "path": "experiments/S005/20260913_S005_EX43/artifacts/express_raw.csv.gz",
+      "sha256": "36a5af0a63581b904de8a8709ac7bb4041e54662fa21f290b39f595d1fb6500c"
+    },
+    "membership": {
+      "path": "experiments/S005/20260913_S005_EX18/artifacts/constituent_panel.csv.gz",
+      "sha256": "46e87a872f8c7f8dffd71a2c5c7e7dd73bd7f32975c839fdbd9e3157cee71b53"
+    }
+  },
+  "source_priority": [
+    "forecast",
+    "express",
+    "fina_indicator"
+  ],
+  "density_gate": {
+    "evaluation_start": "2022-01-04",
+    "rolling_sessions": 60,
+    "minimum_median_positive_days": 7,
+    "minimum_p10_positive_days": 3
+  },
+  "reads_prices_or_returns": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

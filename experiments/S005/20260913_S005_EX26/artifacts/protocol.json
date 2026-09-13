@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX26",
+  "experiment_type": "etf_share_size_data_gate",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "calendar": {
+    "manifest": "data/raw/588080_manifest.json",
+    "manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "source": {
+    "vendor": "tushare",
+    "endpoint": "etf_share_size",
+    "minimum_points": 8000,
+    "documented_publication": "NEXT_TRADING_DAY_08_30",
+    "earliest_strategy_use": "NEXT_TRADING_SESSION_09_36"
+  },
+  "quality_gate": {
+    "minimum_session_coverage": 0.95,
+    "unique_symbol_session_keys": true,
+    "positive_finite_total_share": true,
+    "first_calendar_session_covered": true,
+    "last_calendar_session_covered": true,
+    "maximum_api_calls": 1
+  },
+  "reads_post_event_prices": false,
+  "event_generation": false,
+  "parameter_selection": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

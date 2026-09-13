@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX26",
+  "requested_first_session": "2021-01-04",
+  "requested_last_session": "2026-09-02",
+  "observed_first_session": "2021-01-04",
+  "observed_last_session": "2026-09-02",
+  "requested_sessions": 1374,
+  "observed_sessions": 1374,
+  "covered_sessions": 1374,
+  "session_coverage": 1.0,
+  "duplicate_symbol_session_rows": 0,
+  "unexpected_noncalendar_dates": [],
+  "positive_finite_total_share": true,
+  "total_size_coverage": 0.9992721979621543,
+  "nav_coverage": 0.9992721979621543,
+  "close_coverage": 1.0,
+  "api_calls": 1,
+  "passed": true
+}

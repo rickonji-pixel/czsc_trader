@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX28",
+  "status": "COMPLETE",
+  "mechanism": "PRIMARY_FLOW_ABSORPTION_Q70",
+  "metrics": {
+    "closed_trades": 231,
+    "terminal_signals_skipped": 1,
+    "density_rolling_60_median": 11.0,
+    "density_rolling_60_p10": 9.0,
+    "gross_mean": 0.0024073584295745062,
+    "stress_mean": 0.0012051908999767928,
+    "stress_profit_factor": 1.093897330183938,
+    "positive_years": 2,
+    "recent_trades": 51,
+    "recent_stress_mean": -0.0013325713635941648,
+    "proxy_cagr": 0.010427255314201744,
+    "proxy_maximum_drawdown": -0.48320065058970896
+  },
+  "checks": {
+    "stress_mean_budget": false,
+    "profit_factor": true,
+    "positive_years": false,
+    "recent": false,
+    "proxy_cagr": false,
+    "proxy_maximum_drawdown": false
+  },
+  "subtype_diagnostics_are_not_candidates": true,
+  "decision": "STOP_PRIMARY_FLOW_ABSORPTION_ON_RETURN",
+  "cumulative_return_path_count": 10,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "113476da9b493f799538dc004c8de4c45c860c26744c3ff41162f65a44eab25a"
+}

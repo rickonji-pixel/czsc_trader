@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX05",
+  "experiment_type": "relative_dislocation_density_and_return_falsification",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "context_symbol": "510500.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "mechanism": "RELATIVE_DISLOCATION_Q20",
+  "decision_time": "15:00",
+  "threshold_reference_sessions": 120,
+  "relative_return_quantile": 0.2,
+  "maximum_close_location": 0.4,
+  "density": {
+    "cooldown_sessions": 1,
+    "rolling_window_sessions": 60,
+    "minimum_median": 7.0,
+    "minimum_p10": 3.0
+  },
+  "execution": {
+    "entry": "NEXT_SESSION_OPEN",
+    "exit": "NEXT_SESSION_CLOSE",
+    "stress_one_way_cost": 0.0006
+  },
+  "acceptance": {
+    "stress_mean_min_exclusive": 0.0,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 4,
+    "recent_sessions": 252,
+    "recent_stress_mean_min_exclusive": 0.0,
+    "proxy_cagr_minimum": 0.24078187745776553,
+    "proxy_maximum_drawdown_limit": -0.15
+  },
+  "cumulative_return_path_count": 2,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

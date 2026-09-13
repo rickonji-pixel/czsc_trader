@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX05",
+  "status": "COMPLETE",
+  "mechanism": "RELATIVE_DISLOCATION_Q20",
+  "density": {
+    "raw_events": 194,
+    "independent_events": 166,
+    "rolling_60_median": 7.0,
+    "rolling_60_p10": 4.0,
+    "rolling_60_minimum": 0.0,
+    "rolling_60_maximum": 15.0
+  },
+  "density_pass": true,
+  "metrics": {
+    "closed_trades": 166,
+    "terminal_signals_skipped": 0,
+    "gross_mean": 2.0352264098214436e-05,
+    "stress_mean": -0.0011789525757147773,
+    "stress_profit_factor": 0.8475884735094826,
+    "positive_years": 2,
+    "recent_trades": 38,
+    "recent_stress_mean": -9.483573255325854e-05,
+    "proxy_cagr": -0.04019080518042206,
+    "proxy_maximum_drawdown": -0.36227084392121167
+  },
+  "checks": {
+    "density": true,
+    "stress_mean": false,
+    "profit_factor": false,
+    "positive_years": false,
+    "recent": false,
+    "proxy_cagr": false,
+    "proxy_maximum_drawdown": false
+  },
+  "decision": "STOP_RELATIVE_DISLOCATION_FAMILY_ON_RETURN",
+  "cumulative_return_path_count": 2,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "cfc769b394fe3acfd786fbacf0e5ff9b53625c4813358f075dc1236d349d7994"
+}

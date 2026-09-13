@@ -147,6 +147,7 @@ def run_backtest_v2(
             replay_data,
             pd.Timestamp(request.start),
             pd.Timestamp(request.end),
+            repository_root,
         )
         result = replay_account(signals, replay_data, request.initial_cash)
     else:

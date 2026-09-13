@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX42",
+  "status": "PASS",
+  "candidate_payload_sha256": "883bb88750f999460246b2ce057ae1fef0ec8bd4cc11f078cb2f6e59e2ce221f",
+  "data_fingerprint": "fb97cb1726fb0a2a3816c15c06b09e3a8b4967e074ff70879c5570768f22235f",
+  "research_events": 160,
+  "formal_signals": 161,
+  "formal_closed_trades": 160,
+  "risk_denials": 102,
+  "event_and_execution_date_equivalence": "PASS",
+  "raw_execution_price_equivalence": "PASS",
+  "net_return_equivalence": "PASS",
+  "se_replay_audit": "PASS",
+  "formal_metrics": {
+    "max_drawdown": -0.10285800027882774,
+    "calmar": 1.946237679055495,
+    "win_loss_ratio": 1.5600308949774082,
+    "win_loss_ratio_status": "VALID",
+    "return": 1.5210945140799992,
+    "sharpe": 1.6844020515619325,
+    "closed_trades": 160
+  },
+  "route_decision": "PROCEED_TO_STATISTICAL_AUDIT"
+}

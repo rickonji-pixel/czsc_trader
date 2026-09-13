@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX43",
+  "status": "PASS",
+  "evidence_label": "FAVORABLE",
+  "direction_labels": {
+    "pbo": "FAVORABLE",
+    "dsr": "FAVORABLE",
+    "absolute_bootstrap": "FAVORABLE"
+  },
+  "raw_trial_count": 74,
+  "effective_trial_count": 8.147994240640251,
+  "pbo": 0.01984126984126984,
+  "dsr_raw_probability": 0.3774555335172072,
+  "dsr_effective_probability": 0.915122676625549,
+  "bootstrap_21d_cagr_lower_90": 0.08950778567298223,
+  "bootstrap_21d_calmar_lower_90": 0.6074673138070315,
+  "frequency_policy": "OBSERVATION_ONLY",
+  "candidate_created": false
+}

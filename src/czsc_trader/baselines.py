@@ -82,6 +82,18 @@ class ConstituentMoneyflowIntradaySpec:
 
 
 @dataclass(frozen=True)
+class MarginEntryRiskFilterSpec:
+    """Causal margin-behavior veto evaluated before the next-session entry."""
+
+    source_path: str
+    source_sha256: str
+    rolling_sessions: int
+    quantile: float
+    same_day_return_maximum: float
+    live_preopen_arrival_proven: bool
+
+
+@dataclass(frozen=True)
 class ClosingDislocationOvernightSpec:
     """Intraday closing-dislocation signal held from next open to following open."""
 
@@ -95,6 +107,7 @@ class ClosingDislocationOvernightSpec:
     votes_required: int
     cooldown_sessions: int
     mechanisms: tuple[str, ...]
+    entry_risk_filter: MarginEntryRiskFilterSpec | None = None
 
 
 @dataclass(frozen=True)
@@ -525,6 +538,7 @@ def _parse_closing_dislocation_overnight(
     payload: dict[str, object],
     *,
     symbol: str,
+    repository_root: Path | None,
 ) -> ClosingDislocationOvernightSpec:
     rule = payload.get("rule")
     if not isinstance(rule, dict):
@@ -570,6 +584,51 @@ def _parse_closing_dislocation_overnight(
         "exit": "SESSION_AFTER_ENTRY_OPEN",
     }:
         raise ValueError("closing-dislocation holding rule is unsupported")
+    risk_value = rule.get("entry_risk_filter")
+    risk_filter: MarginEntryRiskFilterSpec | None = None
+    if risk_value is not None:
+        if not isinstance(risk_value, dict):
+            raise ValueError("closing-dislocation entry risk filter must be an object")
+        source = risk_value.get("source")
+        if not isinstance(source, dict):
+            raise ValueError("closing-dislocation entry risk source is missing")
+        source_path = str(source.get("path", ""))
+        source_sha256 = str(source.get("sha256", "")).lower()
+        if not source_path or len(source_sha256) != 64:
+            raise ValueError("closing-dislocation entry risk source identity is incomplete")
+        if repository_root is None:
+            raise ValueError("closing-dislocation entry risk filter requires a repository root")
+        resolved_source = resolve_repository_experiment_reference(repository_root, source_path)
+        if not resolved_source.is_file():
+            raise ValueError(f"closing-dislocation entry risk source is missing: {source_path}")
+        if raw_file_sha256(resolved_source) != source_sha256:
+            raise ValueError("closing-dislocation entry risk source SHA-256 differs")
+        if str(source.get("endpoint", "")) != "margin_detail":
+            raise ValueError("closing-dislocation entry risk source endpoint is unsupported")
+        if str(risk_value.get("action", "")) != "DENY_NEXT_SESSION_ENTRY":
+            raise ValueError("closing-dislocation entry risk action is unsupported")
+        if str(risk_value.get("net_flow", "")) != "RZMRE_MINUS_RZCHE_DIVIDED_BY_PREVIOUS_RZYE":
+            raise ValueError("closing-dislocation entry risk net-flow definition is unsupported")
+        risk_lookback = int(risk_value.get("rolling_sessions", 0))
+        risk_quantile = float(risk_value.get("quantile", -1))
+        same_day_maximum = float(risk_value.get("same_day_return_maximum", 1))
+        if risk_lookback < 2 or not 0 < risk_quantile < 1 or same_day_maximum != 0.0:
+            raise ValueError("closing-dislocation entry risk parameters are invalid")
+        if risk_value.get("requires_positive_net_flow") is not True:
+            raise ValueError("closing-dislocation entry risk requires positive net flow")
+        if risk_value.get("threshold_excludes_current_session") is not True:
+            raise ValueError("closing-dislocation entry risk threshold must exclude current session")
+        arrival_proven = risk_value.get("live_preopen_arrival_proven")
+        if not isinstance(arrival_proven, bool):
+            raise ValueError("closing-dislocation entry risk arrival status must be boolean")
+        risk_filter = MarginEntryRiskFilterSpec(
+            source_path=source_path,
+            source_sha256=source_sha256,
+            rolling_sessions=risk_lookback,
+            quantile=risk_quantile,
+            same_day_return_maximum=same_day_maximum,
+            live_preopen_arrival_proven=arrival_proven,
+        )
     return ClosingDislocationOvernightSpec(
         symbol=declared_symbol,
         price_adjustment=price_adjustment,
@@ -581,6 +640,7 @@ def _parse_closing_dislocation_overnight(
         votes_required=votes,
         cooldown_sessions=cooldown,
         mechanisms=mechanisms,
+        entry_risk_filter=risk_filter,
     )
 
 
@@ -724,7 +784,11 @@ def resolve_strategy_payload(
     """Parse a frozen Strategy Manager payload without creating another baseline."""
     strategy_kind = str(strategy_payload.get("strategy_kind", ""))
     if strategy_kind == "closing_dislocation_overnight":
-        spec = _parse_closing_dislocation_overnight(strategy_payload, symbol=symbol)
+        spec = _parse_closing_dislocation_overnight(
+            strategy_payload,
+            symbol=symbol,
+            repository_root=repository_root,
+        )
         rule_payload = strategy_payload.get("rule")
         assert isinstance(rule_payload, dict)
         execution = _parse_execution(rule_payload, symbol)

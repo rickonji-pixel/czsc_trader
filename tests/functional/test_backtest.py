@@ -426,6 +426,57 @@ def test_ft_t03_s004_closing_dislocation_replays_research_candidate_contract() -
     assert audit_replay(evidence).status is AuditStatus.PASS
 
 
+def test_ft_t03_s004_margin_filtered_candidate_replays_research_contract() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    context = RepositoryContext.discover(repo)
+    payload_path = repo / "experiments/S004/20260913_S004_EX42/candidate_payload.json"
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    snapshot = resolve_candidate_snapshot(
+        context,
+        "S004-C002",
+        payload,
+        canonical_json_sha256(payload),
+        str(payload_path.relative_to(repo)),
+    )
+    data = load_replay_data(
+        context,
+        "research",
+        "588080.SH",
+        "etf",
+        pd.Timestamp("2026-09-02").date(),
+        include_one_minute=True,
+    )
+    signals = build_closing_dislocation_signals(
+        snapshot,
+        data,
+        pd.Timestamp("2021-06-01"),
+        pd.Timestamp("2026-09-02"),
+        repo,
+    )
+    result = replay_account(signals, data, 100_000)
+    metrics = calculate_metrics(result, 100_000)
+    expected = pd.read_csv(
+        repo / "experiments/S004/20260913_S004_EX41/artifacts/candidate_episodes.csv.gz",
+        parse_dates=["event_date"],
+    )
+
+    event_dates = result.orders.loc[
+        result.orders["side"].eq("BUY") & result.orders["status"].eq("FILLED"),
+        "signal_date",
+    ].reset_index(drop=True)
+    pd.testing.assert_series_equal(
+        event_dates.dt.normalize(),
+        expected["event_date"].dt.normalize(),
+        check_names=False,
+    )
+    assert len(result.trades.loc[result.trades["status"].eq("CLOSED")]) == 160
+    assert signals.decisions["target_position"].eq(1).sum() == 161
+    assert signals.decisions["entry_risk_denied"].sum() == 102
+    assert metrics["return"] == pytest.approx(1.5210945141)
+    evidence = build_replay_evidence(signals, data, result, 100_000, metrics)
+    assert audit_replay(evidence).status is AuditStatus.PASS
+
+
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     functional_repo: Path, capsys
 ) -> None:

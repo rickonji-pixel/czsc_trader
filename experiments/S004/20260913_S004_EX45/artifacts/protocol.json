@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX45",
+  "experiment_type": "margin_risk_filter_local_platform_audit",
+  "strategy_id": "S004",
+  "candidate_id": "S004-C002",
+  "candidate_hash": "89f4763f0d2275622f501a97699da4ffe5d88558c1caea039c3aed943ad27d17",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "center_quantile": 0.60,
+  "diagnostic_quantiles": [0.55, 0.60, 0.65, 0.70],
+  "acceptance": {
+    "stress_mean_min_exclusive": 0.0,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 4,
+    "recent_252_mean_min_exclusive": 0.0,
+    "must_improve_base_mean_and_profit_factor": true,
+    "favorable_minimum_passing_cells": 3,
+    "mixed_minimum_passing_cells": 2,
+    "center_and_adjacent_cells_must_pass_for_favorable": true
+  },
+  "frequency_policy": "OBSERVATION_ONLY",
+  "parameter_selection": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

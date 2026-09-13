@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX42",
+  "experiment_type": "formal_margin_filtered_candidate_replay_equivalence",
+  "research_target": {
+    "strategy_id": "S004",
+    "candidate_id": "S004-C002",
+    "symbol": "588080.SH"
+  },
+  "dataset": {
+    "name": "research",
+    "cutoff": "2026-09-02",
+    "evaluation_start": "2021-06-01",
+    "evaluation_end": "2026-09-02"
+  },
+  "candidate_definition": {
+    "manifest": "experiments/S004/20260913_S004_EX41/experiment_manifest.json",
+    "manifest_sha256": "7b8bd6b5a9270db18187daf53ca2b53853086f4fa715351b6097e2f220aa0b14",
+    "spec": "experiments/S004/20260913_S004_EX41/artifacts/candidate_spec.json",
+    "spec_sha256": "6b124b19fb3483bb622d6447dcbc599e558359045e33d2559286d4d20a29f4a3",
+    "episodes": "experiments/S004/20260913_S004_EX41/artifacts/candidate_episodes.csv.gz",
+    "episodes_sha256": "a10fdde9853b301aee5ea3c94d3b967bd4e70e2b9d2dd39ca099e6f2ff3c3083"
+  },
+  "required_equivalence": {
+    "event_dates": "EXACT",
+    "entry_dates": "EXACT",
+    "exit_dates": "EXACT",
+    "formal_fill_prices_vs_raw_open": "EXACT_WITHIN_1E-12",
+    "net_returns_vs_research_baseline": "EXACT_WITHIN_1E-12",
+    "se_replay_audit": "PASS"
+  },
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}
+

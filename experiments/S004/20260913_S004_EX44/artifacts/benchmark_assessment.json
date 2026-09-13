@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX44",
+  "status": "PASS",
+  "assessments": {
+    "S004-C001": {
+      "request": {
+        "candidate_id": "S004-C002",
+        "candidate_hash": "89f4763f0d2275622f501a97699da4ffe5d88558c1caea039c3aed943ad27d17",
+        "benchmark_id": "S004-C001",
+        "integrity": "PASS",
+        "reproducibility": "PASS",
+        "technical_replay": "PASS",
+        "monitoring_plan": "PASS",
+        "candidate_performance": {
+          "cagr": 0.200357762750349,
+          "max_drawdown": -0.10285800027882763,
+          "calmar": 1.9479064555719425
+        },
+        "benchmark_performance": {
+          "cagr": 0.1335602061734389,
+          "max_drawdown": -0.11990503857430534,
+          "calmar": 1.1138831842389294
+        },
+        "bootstrap": {
+          "champion_id": "S004-C002",
+          "comparator_id": "S004-C001",
+          "repetitions": 10000,
+          "mean_block_length": 21,
+          "cagr": {
+            "metric": "cagr",
+            "direction": "higher_is_better",
+            "point_difference": 0.06679755657691011,
+            "lower_95": -0.004607303448706897,
+            "upper_95": 0.14646350926792506,
+            "probability_favorable": 0.9681
+          },
+          "max_drawdown": {
+            "metric": "max_drawdown",
+            "direction": "higher_is_better",
+            "point_difference": 0.017047038295477712,
+            "lower_95": -0.019741010825605573,
+            "upper_95": 0.14784492485360035,
+            "probability_favorable": 0.9075
+          },
+          "calmar": {
+            "metric": "calmar",
+            "direction": "higher_is_better",
+            "point_difference": 0.8340232713330131,
+            "lower_95": -0.09522571519237008,
+            "upper_95": 3.757659019483956,
+            "probability_favorable": 0.9642
+          }
+        },
+        "statistical_evidence": "FAVORABLE",
+        "external_validation": "MIXED",
+        "execution_evidence": "FAVORABLE",
+        "blocking_findings": []
+      },
+      "result": {
+        "candidate_id": "S004-C002",
+        "candidate_hash": "89f4763f0d2275622f501a97699da4ffe5d88558c1caea039c3aed943ad27d17",
+        "benchmark_id": "S004-C001",
+        "decision": "RECOMMEND_HEALTH_CHECK",
+        "risk_label": "MIXED",
+        "reason_codes": [
+          "REQUIRED_AUDITS_PASSED",
+          "BENCHMARK_DOMINATED_ON_POINT_METRICS",
+          "PAIRED_BOOTSTRAP_ADVANTAGE_MAJORITY",
+          "NO_BLOCKING_FINDINGS"
+        ]
+      }
+    },
+    "BuyHold-588080": {
+      "request": {
+        "candidate_id": "S004-C002",
+        "candidate_hash": "89f4763f0d2275622f501a97699da4ffe5d88558c1caea039c3aed943ad27d17",
+        "benchmark_id": "BuyHold-588080",
+        "integrity": "PASS",
+        "reproducibility": "PASS",
+        "technical_replay": "PASS",
+        "monitoring_plan": "PASS",
+        "candidate_performance": {
+          "cagr": 0.200357762750349,
+          "max_drawdown": -0.10285800027882763,
+          "calmar": 1.9479064555719425
+        },
+        "benchmark_performance": {
+          "cagr": 0.021448461433736465,
+          "max_drawdown": -0.5995145631067953,
+          "calmar": 0.035776381014977474
+        },
+        "bootstrap": {
+          "champion_id": "S004-C002",
+          "comparator_id": "BuyHold-588080",
+          "repetitions": 10000,
+          "mean_block_length": 21,
+          "cagr": {
+            "metric": "cagr",
+            "direction": "higher_is_better",
+            "point_difference": 0.17890930131661253,
+            "lower_95": -0.1374458901686952,
+            "upper_95": 0.41732961876279645,
+            "probability_favorable": 0.8864
+          },
+          "max_drawdown": {
+            "metric": "max_drawdown",
+            "direction": "higher_is_better",
+            "point_difference": 0.49665656282796766,
+            "lower_95": 0.22372875940212855,
+            "upper_95": 0.7242205793287294,
+            "probability_favorable": 1.0
+          },
+          "calmar": {
+            "metric": "calmar",
+            "direction": "higher_is_better",
+            "point_difference": 1.9121300745569652,
+            "lower_95": 0.5326120334777674,
+            "upper_95": 5.176030754766761,
+            "probability_favorable": 0.9962
+          }
+        },
+        "statistical_evidence": "FAVORABLE",
+        "external_validation": "MIXED",
+        "execution_evidence": "FAVORABLE",
+        "blocking_findings": []
+      },
+      "result": {
+        "candidate_id": "S004-C002",
+        "candidate_hash": "89f4763f0d2275622f501a97699da4ffe5d88558c1caea039c3aed943ad27d17",
+        "benchmark_id": "BuyHold-588080",
+        "decision": "RECOMMEND_HEALTH_CHECK",
+        "risk_label": "MIXED",
+        "reason_codes": [
+          "REQUIRED_AUDITS_PASSED",
+          "BENCHMARK_DOMINATED_ON_POINT_METRICS",
+          "PAIRED_BOOTSTRAP_ADVANTAGE_MAJORITY",
+          "NO_BLOCKING_FINDINGS"
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "S004-C002": {
+      "max_drawdown": -0.10285800027882774,
+      "calmar": 1.9479064555719403,
+      "win_loss_ratio": 1.5600308949774082,
+      "win_loss_ratio_status": "VALID",
+      "return": 1.5210945140799992,
+      "sharpe": 1.68506887691367,
+      "closed_trades": 160
+    },
+    "S004-C001": {
+      "max_drawdown": -0.11990503857430501,
+      "calmar": 1.1138831842389343,
+      "win_loss_ratio": 1.1982343339960593,
+      "win_loss_ratio_status": "VALID",
+      "return": 0.8865996827999962,
+      "sharpe": 0.9928821246208096,
+      "closed_trades": 262
+    },
+    "BuyHold-588080": {
+      "return": 0.11344165581850629,
+      "cagr": 0.021448461433736465,
+      "max_drawdown": -0.5995145631067953,
+      "calmar": 0.035776381014977474
+    }
+  },
+  "frequency_observation": {
+    "rolling_60_median": 7.0,
+    "rolling_60_p10": 3.0
+  },
+  "route_decision": "PROCEED_TO_FREEZE_HEALTH_CHECK"
+}

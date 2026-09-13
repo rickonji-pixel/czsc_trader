@@ -7,12 +7,39 @@
   "status": "RESEARCH_CANDIDATE",
   "registered_at": "2026-09-13",
   "development_cutoff": "2026-09-02",
-  "candidate_spec_normalized_sha256": "7c7d9071ad8ca2103ff5ffa081631b38d90ff296ea1b7b611fda23952e7ee589",
+  "candidate_spec_normalized_sha256": "89f4763f0d2275622f501a97699da4ffe5d88558c1caea039c3aed943ad27d17",
   "definition": "experiments/S004/20260913_S004_EX41/artifacts/candidate_spec.json",
   "evaluation": {
     "experiment_id": "20260913_S004_EX41",
     "decision": "REGISTER_RESEARCH_CANDIDATE",
-    "evidence": "experiments/S004/20260913_S004_EX41/artifacts/candidate_metrics.json"
+    "evidence": "experiments/S004/20260913_S004_EX41/artifacts/candidate_metrics.json",
+    "formal_replay": {
+      "experiment_id": "20260913_S004_EX42",
+      "decision": "PROCEED_TO_STATISTICAL_AUDIT",
+      "evidence": "experiments/S004/20260913_S004_EX42/artifacts/equivalence_summary.json"
+    },
+    "statistical_audit": {
+      "experiment_id": "20260913_S004_EX43",
+      "label": "FAVORABLE",
+      "evidence": "experiments/S004/20260913_S004_EX43/artifacts/statistical_summary.json"
+    },
+    "benchmark_challenge": {
+      "experiment_id": "20260913_S004_EX44",
+      "decision": "PROCEED_TO_FREEZE_HEALTH_CHECK",
+      "evidence": "experiments/S004/20260913_S004_EX44/artifacts/benchmark_assessment.json"
+    },
+    "parameter_robustness": {
+      "experiment_id": "20260913_S004_EX45",
+      "label": "FAVORABLE",
+      "evidence": "experiments/S004/20260913_S004_EX45/artifacts/platform_summary.json"
+    },
+    "freeze_health": {
+      "experiment_id": "20260913_S004_EX46",
+      "research_assessment": "FAVORABLE",
+      "deployment_readiness": "BLOCKED",
+      "decision": "KEEP_RESEARCHING",
+      "evidence": "experiments/S004/20260913_S004_EX46/artifacts/freeze_health.json"
+    }
   },
   "permissions": {
     "research": true,
@@ -24,8 +51,8 @@
   "known_risks": [
     "交易频率为观察指标，滚动60日中位数7笔、P10为3笔",
     "低波动压力收益均值仍略为负，盈亏比略低于1",
-    "融资明细在本地开盘前稳定到达尚未完成前瞻审计",
-    "累计74条收益研究路径必须纳入后续搜索偏差惩罚",
-    "仍需正式回放、统计审计、PK和冻结前体检"
+    "74条收益路径审计已完成，后续不得缩减搜索惩罚口径",
+    "融资明细开盘前稳定到达尚未完成前瞻审计",
+    "PTE尚未实现和验证S004分钟信号、融资否决与开盘执行链路"
   ]
 }

@@ -1,0 +1,5 @@
+﻿quantile,cell,is_center,closed_trades,removed_trades,stress_mean,profit_factor,positive_years,recent_252_mean,rolling_60_median,rolling_60_p10,low_vol_trades,low_vol_mean,low_vol_profit_factor,check_positive_mean,check_profit_factor,check_positive_years,check_recent_positive,check_improves_base,passes
+0.55,Q55,False,152,110,0.006333055734928558,2.2414979049046053,5,0.008896522230374248,7.0,3.0,56,-1.2376376315673394e-05,0.9975746763278636,True,True,True,True,True,True
+0.6,Q60,True,160,102,0.006249049994771414,2.2297921180885183,5,0.009225414749193405,7.0,3.0,59,-0.00015372788116784766,0.969489662099014,True,True,True,True,True,True
+0.65,Q65,False,173,89,0.005764257844971508,2.0797292669249092,5,0.0090238866582,8.0,4.0,65,-0.0010815347429012588,0.8154260663258466,True,True,True,True,True,True
+0.7,Q70,False,183,79,0.0048488944053079255,1.8197176736358593,5,0.007632814666553067,9.0,4.0,68,-0.0016198527536338027,0.7468413851764344,True,True,True,True,True,True

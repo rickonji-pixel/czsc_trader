@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S004_EX45",
+  "status": "PASS",
+  "evidence_label": "FAVORABLE",
+  "passing_cells": 4,
+  "tested_cells": 4,
+  "center_passes": true,
+  "adjacent_cells_pass": true,
+  "base_stress_mean": 0.0022034433640084243,
+  "base_profit_factor": 1.3166879132567424,
+  "frequency_policy": "OBSERVATION_ONLY",
+  "candidate_unchanged": true
+}

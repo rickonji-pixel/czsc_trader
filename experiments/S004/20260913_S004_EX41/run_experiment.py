@@ -218,6 +218,8 @@ def main() -> None:
         },
         "entry_risk_filter": {
             "source": "TUSHARE_MARGIN_DETAIL",
+            "source_path": "experiments/S004/20260913_S004_EX36/artifacts/margin_detail.csv.gz",
+            "source_sha256": "91861db5d2a8ba2cc90a34c993143fca95cf5167d7f40b4ec08163a9610b8134",
             "action": "DENY_NEXT_SESSION_ENTRY",
             "net_flow": "RZMRE_MINUS_RZCHE_DIVIDED_BY_PREVIOUS_RZYE",
             "rolling_sessions": 120,

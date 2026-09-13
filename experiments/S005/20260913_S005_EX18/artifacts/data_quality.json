@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX18",
+  "first_snapshot": "2021-01-29",
+  "last_snapshot": "2026-08-31",
+  "snapshot_count": 68,
+  "usable_sessions": 1354,
+  "constituent_union": 118,
+  "panel_rows": 67700,
+  "member_count_min": 50,
+  "member_count_max": 50,
+  "weight_sum_min": 99.996,
+  "weight_sum_max": 100.005,
+  "daily_coverage_ratio": 0.9988330871491876,
+  "moneyflow_coverage_ratio": 0.989837518463811,
+  "moneyflow_daily_coverage_p10": 0.98,
+  "daily_duplicate_rows": 0,
+  "moneyflow_duplicate_rows": 0,
+  "causal_membership": true,
+  "api_calls": 305,
+  "passed": false
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX19",
+  "source_experiment": "20260913_S005_EX18",
+  "source_reported_pass": false,
+  "source_historical_backfill_calls": 305,
+  "historical_backfill_calls_classification": "INFORMATIONAL",
+  "data_quality_pass": true,
+  "assessed_incremental_calls_per_session": 3,
+  "incremental_cost_pass": true,
+  "passed": true
+}

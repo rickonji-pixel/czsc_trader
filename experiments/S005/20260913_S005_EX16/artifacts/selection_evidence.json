@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX16",
+  "status": "COMPLETE",
+  "feature_coverage": {
+    "feature_sessions": 745,
+    "total_sessions": 789,
+    "coverage": 0.944233206590621,
+    "proxy_median": 0.21967291290709856,
+    "proxy_p10": 0.16721351536403148,
+    "proxy_p90": 0.37700266899926826
+  },
+  "selected_mechanisms": {},
+  "decision": "STOP_OPTION_EXPECTED_MOVE_ON_DENSITY",
+  "reads_post_event_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "38f91b241ce4715505f52772ab402dfc30b3721633e8aecf5b27f8e5fc9f3aa8"
+}

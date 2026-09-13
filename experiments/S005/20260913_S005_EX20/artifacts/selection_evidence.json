@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX20",
+  "feature_sessions": 1354,
+  "first_feature_session": "2021-02-01",
+  "last_feature_session": "2026-09-02",
+  "paths_tested": 12,
+  "density_passing_paths": [
+    "BROAD_WASHOUT_Q50",
+    "BROAD_WASHOUT_Q60",
+    "BROAD_PARTICIPATION_THRUST_Q50",
+    "BROAD_WASHOUT_Q70",
+    "BROAD_PARTICIPATION_THRUST_Q60",
+    "BROAD_PARTICIPATION_THRUST_Q70"
+  ],
+  "reads_post_event_prices": false,
+  "decision": "PROCEED_TO_FIXED_RETURN_TEST"
+}

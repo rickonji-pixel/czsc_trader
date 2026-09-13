@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX20",
+  "experiment_type": "star50_constituent_mechanism_density_census",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "panel_experiment": "20260913_S005_EX18",
+    "panel_manifest_sha256": "03b6f21c184d9423d53c04f1e3cd056f2306f44e15c3120ff0cc27e6c27ce7c2",
+    "panel_sha256": "46e87a872f8c7f8dffd71a2c5c7e7dd73bd7f32975c839fdbd9e3157cee71b53",
+    "review_experiment": "20260913_S005_EX19",
+    "review_manifest_sha256": "b29ebcb7cc62a8fff6b63d97d153ea7f369feb9b11e87b7c545e9e5aa976962b",
+    "review_quality_sha256": "d5485f41ec75e85f7f3f3fbb0fd4f4c2c6ef17a52164e63338e9a6a99dd66beb"
+  },
+  "feature": {
+    "rolling_reference_sessions": 120,
+    "minimum_reference_observations": 120,
+    "strength_quantiles": [0.5, 0.6, 0.7],
+    "maximum_thrust_etf_return_pct": 2.0
+  },
+  "density": {
+    "cooldown_sessions": 3,
+    "rolling_window_sessions": 60,
+    "minimum_median": 7,
+    "minimum_p10": 3
+  },
+  "reads_post_event_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

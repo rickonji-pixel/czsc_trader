@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX18",
+  "experiment_type": "star50_point_in_time_constituent_data_gate",
+  "strategy_id": "S005",
+  "trade_symbol": "588080.SH",
+  "information_symbol": "000688.SH",
+  "dataset": {
+    "start": "2021-01-04",
+    "development_cutoff": "2026-09-02",
+    "calendar_manifest": "data/raw/588080_manifest.json",
+    "calendar_manifest_sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+  },
+  "sources": {
+    "vendor": "tushare",
+    "membership_endpoint": "index_weight",
+    "daily_endpoint": "daily",
+    "moneyflow_endpoint": "moneyflow",
+    "minimum_points": 2000,
+    "earliest_strategy_use": "NEXT_TRADING_SESSION"
+  },
+  "membership_rule": {
+    "snapshot_known": "TRADE_DATE_POST_CLOSE",
+    "effective_from": "NEXT_588080_SESSION",
+    "no_current_members_backfill": true
+  },
+  "quality_gate": {
+    "members_per_session": 50,
+    "weight_sum_min": 95.0,
+    "weight_sum_max": 105.0,
+    "minimum_daily_coverage_ratio": 0.98,
+    "minimum_moneyflow_coverage_ratio": 0.95,
+    "minimum_moneyflow_daily_p10": 0.90,
+    "maximum_api_calls": 300
+  },
+  "reads_post_event_prices": false,
+  "event_generation": false,
+  "parameter_selection": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

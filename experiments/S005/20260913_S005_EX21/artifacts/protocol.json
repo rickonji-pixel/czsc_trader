@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX21",
+  "experiment_type": "fixed_three_session_constituent_mechanism_return_test",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "experiment_id": "20260913_S005_EX20",
+    "manifest_sha256": "f28e82f04b5dfbd1b7ec2f19daa34f92957876fe8395a20dcc03013d2c5a80f1",
+    "ledger_sha256": "5b797cc53658fc2942c192b273984b11d4f30593437b5674702010eb5bee28da",
+    "selection_sha256": "ded2c23baa88e7460e9e0eb4bdb50c794e4e063e03f74b709ba38419b197ab80"
+  },
+  "mechanisms": [
+    "BROAD_PARTICIPATION_THRUST_Q70",
+    "BROAD_WASHOUT_Q70"
+  ],
+  "selection_rule": "HIGHEST_STRENGTH_QUANTILE_PASSING_DENSITY_WITHIN_EACH_FAMILY",
+  "execution": {
+    "entry_offset_sessions": 1,
+    "exit_offset_sessions": 3,
+    "entry_clock": "09:36",
+    "exit_clock": "14:56",
+    "stress_one_way_cost": 0.0006
+  },
+  "acceptance": {
+    "stress_mean_minimum": 0.00737,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 4,
+    "recent_sessions": 252,
+    "recent_stress_mean_min_exclusive": 0.0,
+    "proxy_cagr_minimum": 0.24078187745776553,
+    "proxy_maximum_drawdown_limit": -0.15
+  },
+  "cumulative_return_path_count": 7,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

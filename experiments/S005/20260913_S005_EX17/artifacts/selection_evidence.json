@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX17",
+  "status": "COMPLETE",
+  "feature_coverage": {
+    "feature_sessions": 711,
+    "total_sessions": 789,
+    "coverage": 0.9011406844106464,
+    "repricing_median": -0.0077387661766179505,
+    "repricing_p10": -0.16666084366011857,
+    "repricing_p90": 0.20815418671268526
+  },
+  "selected_mechanisms": {},
+  "decision": "STOP_OPTION_REPRICING_ON_DENSITY",
+  "reads_post_event_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "9c5649a450fb14c01a78f6d9979bab22834528200898360db8e6192c8aa7049e"
+}

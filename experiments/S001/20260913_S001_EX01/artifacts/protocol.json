@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S001_EX01",
+  "experiment_type": "frozen_strategy_mandate_gap_diagnosis",
+  "strategy_id": "S001",
+  "strategy_version": "v2",
+  "strategy_release_hash": "146490c8a4ee75f307d3d59453efaebc8fea671c726c023c96449706c40b944e",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "dataset": "research",
+  "development_cutoff": "2026-09-02",
+  "evaluation_start": "2021-01-01",
+  "evaluation_end": "2026-09-02",
+  "initial_cash": 100000.0,
+  "mandate": {
+    "path": "research/RESEARCH_MANDATE.md",
+    "maximum_drawdown_floor": -0.15,
+    "positive_buyhold_cagr_multiple": 1.5,
+    "nonpositive_buyhold_requires_positive_strategy_cagr": true,
+    "position_minimum": 0.0,
+    "position_maximum": 1.0,
+    "leverage_allowed": false,
+    "short_allowed": false
+  },
+  "candidate_generation": false,
+  "parameter_selection": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

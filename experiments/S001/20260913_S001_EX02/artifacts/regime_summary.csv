@@ -1,0 +1,4 @@
+regime,sessions,positioned_sessions,positioned_compound_return,positioned_loss_sessions,entry_trade_count,entry_trade_loss_count,entry_trade_compound_return,entry_trade_mean_return
+range,698,373,1.4555981642857114,174,41,25,0.8790518240799099,0.01768779955143617
+trend,648,330,0.600150082744096,150,31,19,0.9258296913647694,0.02468396402927027
+warmup,28,12,0.012046251000000563,4,1,0,0.014326867249778275,0.0143268672497782

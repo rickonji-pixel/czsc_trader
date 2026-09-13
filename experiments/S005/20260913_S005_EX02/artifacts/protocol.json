@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX02",
+  "experiment_type": "preregistered_upside_mechanism_density_census",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "context_symbol": "510500.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "data_frequency": "1m",
+  "mechanisms": {
+    "GAP_ACCEPTANCE_1000": {
+      "decision_time": "10:00",
+      "minimum_gap": 0.008,
+      "minimum_opening_return": 0.0,
+      "minimum_opening_low_to_previous_close": -0.003,
+      "minimum_opening_volume_ratio": 1.2
+    },
+    "OPENING_RELATIVE_LEAD_1030": {
+      "decision_time": "10:30",
+      "minimum_return": 0.012,
+      "minimum_relative_return": 0.008,
+      "minimum_close_location": 0.7,
+      "minimum_opening_volume_ratio": 1.2
+    },
+    "IMPULSE_PULLBACK_RESUME_1330": {
+      "decision_time": "13:30",
+      "minimum_morning_return": 0.015,
+      "maximum_retracement": 0.45,
+      "minimum_decision_return": 0.008,
+      "minimum_morning_volume_ratio": 1.0,
+      "require_above_cumulative_vwap": true,
+      "require_resume_after_1315": true
+    },
+    "COMPRESSION_BREAKOUT_CLOSE": {
+      "decision_time": "15:00",
+      "compression_lookback": 5,
+      "compression_reference": 60,
+      "compression_quantile": 0.35,
+      "breakout_lookback": 10,
+      "minimum_range_expansion": 1.5,
+      "minimum_close_location": 0.75,
+      "minimum_daily_volume_ratio": 1.2
+    }
+  },
+  "density": {
+    "cooldown_sessions": 1,
+    "rolling_window_sessions": 60,
+    "minimum_median": 7.0,
+    "minimum_p10": 3.0
+  },
+  "reads_post_event_prices": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}
+

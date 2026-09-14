@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX15",
+  "status": "COMPLETE",
+  "components": 26,
+  "information_families": 10,
+  "nonzero_information_families": 10,
+  "full_cagr": 0.20383964034816549,
+  "full_maximum_drawdown": -0.2656253319599714,
+  "full_calmar": 0.7673953340372042,
+  "full_profit_factor": 1.59925887165876,
+  "full_closed_trades": 233,
+  "frequency_median": 10.0,
+  "frequency_p10": 7.0,
+  "discovery_cagr": 0.27125366280989094,
+  "confirmation_cagr": 0.1701300738618814,
+  "confirmation_maximum_drawdown": -0.2656253319599714,
+  "hard_gate_checks": {
+    "full_cagr": false,
+    "full_maximum_drawdown": false,
+    "beats_s001_v2_drawdown": false,
+    "frequency_median": true,
+    "frequency_p10": true,
+    "confirmation_cagr": true,
+    "confirmation_maximum_drawdown": false
+  },
+  "hard_gates_pass": false,
+  "decision": "STOP_BOUNDED_COMPLEXITY_BRIDGE_NO_GATE_PASS",
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

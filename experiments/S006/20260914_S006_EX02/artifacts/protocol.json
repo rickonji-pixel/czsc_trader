@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX02",
+  "experiment_type": "research_mandate_amendment",
+  "strategy_id": "S006",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "initial_contract_experiment_id": "20260914_S006_EX01",
+    "initial_contract_manifest_sha256": "6099a07e7651f4791dd3c49540f906b15f423a79122846892c148cf569f8897a",
+    "s001_benchmark_path": "experiments/S001/20260913_S001_EX01/artifacts/gap_summary.json",
+    "s001_benchmark_sha256": "c745b44e33fd88aeb9ac568963d828478ddc36056b378fb55faca43e6fc82fcc"
+  },
+  "amendment": {
+    "field": "objectives.maximum_drawdown_limit",
+    "old_value": -0.15,
+    "new_value": -0.20,
+    "comparison_benchmark": "S001-v2",
+    "require_strictly_better_than_benchmark": true
+  },
+  "unchanged_fields": [
+    "objectives.minimum_cagr",
+    "objectives.minimum_rolling_60_closed_trades_median",
+    "objectives.minimum_rolling_60_closed_trades_p10",
+    "development_start",
+    "development_cutoff",
+    "catalog"
+  ],
+  "reads_new_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

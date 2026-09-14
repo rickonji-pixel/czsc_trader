@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import shutil
+import subprocess
 
 import pytest
 
@@ -21,6 +23,26 @@ def test_repository_temporary_directories_are_namespaced(functional_repo: Path) 
     assert first != second
     shutil.rmtree(first)
     shutil.rmtree(second)
+
+
+def test_windows_temporary_directory_preserves_inherited_acl(tmp_path: Path) -> None:
+    if os.name != "nt":
+        pytest.skip("Windows ACL regression")
+
+    created = create_temporary_directory(
+        tmp_path,
+        "acl-regression",
+        repository_root=tmp_path,
+    )
+    result = subprocess.run(
+        ["icacls", str(created)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "(I)" in result.stdout
 
 
 def test_explicit_repository_root_controls_external_anchor(

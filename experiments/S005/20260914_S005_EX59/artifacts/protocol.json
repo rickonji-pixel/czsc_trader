@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX59",
+  "experiment_type": "project_factor_coordinated_demand_density",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "catalog": {
+    "project_factors_sha256": "1d37869311197b4108ae535d4d0d35edaf9f119ed8719ca3e65d04e3bc30cdfc",
+    "project_signals_sha256": "ac4cfff5cdd999d1f557f4cd5c80649715c130710c62449271d3fb80b65d7357"
+  },
+  "source": {
+    "experiment_id": "20260914_S005_EX58",
+    "manifest_sha256": "de8cb2223b2e80a2120f7602c240d4ce8bd829bff2d1ece7e28ee850b0ebdef6",
+    "factor_observation_ledger_sha256": "434886a035143f7ea187674b8f89c53634432ff636e62d0af03c0ec158d41f3e",
+    "materialization_evidence_sha256": "37d08371939a5faf9da376c5b79983b12e06fa6f27a4fcb2b8491c092c06ac22"
+  },
+  "factor_groups": {
+    "component_participation": ["F-PROJECT-BREADTH-BALANCE", "F-PROJECT-BREADTH-THRUST-5"],
+    "component_flow": ["F-PROJECT-MONEYFLOW-BREADTH"],
+    "primary_market": ["F-PROJECT-ETF-SHARE-CHANGE"],
+    "pricing_efficiency": ["F-PROJECT-ETF-NAV-PREMIUM"]
+  },
+  "factor_history_sessions": 120,
+  "score_quantiles": [0.50, 0.60, 0.70],
+  "group_weights": "equal",
+  "premium_transform": "one minus historical percentile of absolute premium",
+  "event_cooldown_sessions": 3,
+  "density": {
+    "window_sessions": 60,
+    "median_minimum": 7,
+    "p10_minimum": 3,
+    "selection": "highest score quantile passing both gates"
+  },
+  "availability_assumption": "Tushare ETF share and NAV observations are usable at 09:00 on T+1; status remains DISCOVERED",
+  "reads_post_event_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

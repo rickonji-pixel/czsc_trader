@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX65",
+  "feature_sessions": 1374,
+  "outside_member_count": 161,
+  "paths_tested": 6,
+  "density_passing_paths": [],
+  "selected_for_fixed_return_test": null,
+  "reads_post_event_prices": false,
+  "decision": "STOP_EXTERNAL_INDUSTRY_FLOW_ON_DENSITY"
+}

@@ -1,0 +1,4 @@
+﻿mechanism,score_quantile,calibrated_start,independent_events,rolling_60_median,rolling_60_p10,rolling_60_min,rolling_60_max,density_pass
+DEMAND_CONVERSION_Q50,0.5,2022-02-10,101,5.0,4.0,2.0,11.0,False
+DEMAND_CONVERSION_Q60,0.6,2022-02-10,101,5.0,4.0,2.0,11.0,False
+DEMAND_CONVERSION_Q70,0.7,2022-02-10,100,5.0,3.0,2.0,11.0,False

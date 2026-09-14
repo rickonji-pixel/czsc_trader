@@ -1,0 +1,3 @@
+factor_id,ex69_label,role,reason,frequency_policy
+F-PROJECT-EXTERNAL-INDUSTRY-MONEYFLOW,REGIME_DEPENDENT,CONFIDENCE_MODULATOR,positive absolute and residual value with strong spread evidence,REPORT_ONLY
+F-PROJECT-SELL-SIDE-REVISION-BREADTH,REGIME_DEPENDENT,AUDIT_LABEL_ONLY,absolute top-state return or residual information is non-positive,REPORT_ONLY

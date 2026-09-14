@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX72",
+  "status": "COMPLETE",
+  "runtime_seconds": 13.703,
+  "dataset_fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+  "discovery_sessions": 727,
+  "confirmation_sessions": 643,
+  "signal_path_count": 597,
+  "state_model_count": 1525,
+  "restored_signal_path_count": 273,
+  "evidence_label_counts": {
+    "DIRECTIONALLY_STABLE": 148,
+    "NOMINAL_SUPPORT": 66,
+    "NO_STABLE_EVIDENCE": 263,
+    "UNIDENTIFIABLE": 120
+  },
+  "fdr_supported_count": 0,
+  "nominal_support_count": 66,
+  "directionally_stable_count": 148,
+  "component_frequency_policy": "REPORT_ONLY",
+  "complete_strategy_frequency_policy": "HARD_GATE_60D_MEDIAN_7_P10_3",
+  "prior_cumulative_return_path_count": 23,
+  "cumulative_return_path_count": 620,
+  "search_penalty_note": "all 597 categorical signal paths remain in the later SE search audit",
+  "decision": "PROCEED_TO_COMPLEMENTARITY_AND_ARCHITECTURE_DESIGN",
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "699dbfb8d8c7a8858d84ba427c97393ae49e868fa2fca5e92f9b1c35f6edc528"
+}

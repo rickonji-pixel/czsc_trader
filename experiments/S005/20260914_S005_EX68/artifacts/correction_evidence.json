@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX68",
+  "status": "COMPLETE",
+  "component_frequency_policy": "REPORT_ONLY",
+  "complete_strategy_frequency_policy": "HARD_GATE_60D_MEDIAN_7_P10_3",
+  "corrections": [
+    {
+      "experiment_id": "20260914_S005_EX65",
+      "original_decision": "STOP_EXTERNAL_INDUSTRY_FLOW_ON_DENSITY",
+      "preserved_evidence": [
+        "data",
+        "factor",
+        "event_density"
+      ],
+      "superseded_interpretation": "STOP_FACTOR_OR_INFORMATION_FAMILY",
+      "corrected_scope": "NOT_A_STANDALONE_MEDIUM_FREQUENCY_TRIGGER",
+      "continuous_component_evaluation_allowed": true
+    },
+    {
+      "experiment_id": "20260914_S005_EX67",
+      "original_decision": "STOP_EXPECTATION_REVISION_PULLBACK_ON_DENSITY",
+      "preserved_evidence": [
+        "data",
+        "factor",
+        "event_density"
+      ],
+      "superseded_interpretation": "STOP_FACTOR_OR_INFORMATION_FAMILY",
+      "corrected_scope": "NOT_A_STANDALONE_MEDIUM_FREQUENCY_TRIGGER",
+      "continuous_component_evaluation_allowed": true
+    }
+  ],
+  "decision": "PROCEED_TO_CONTINUOUS_COMPONENT_INFORMATION_AUDIT",
+  "reads_target_forward_returns": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

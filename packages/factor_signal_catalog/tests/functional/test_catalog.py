@@ -17,6 +17,14 @@ def test_fsc01_repository_catalog_is_complete_queryable_and_strict() -> None:
     assert len(catalog.signals) >= 246
     assert len(catalog.digest) == 64
     assert catalog.show("F-PROJECT-ER60")["information_family"] == "TREND_REGIME"
+    assert "T-1" in catalog.show("F-PROJECT-ER60")["causality"]
+    assert catalog.show("F-PROJECT-BREADTH-BALANCE")["implementation"].endswith(
+        "build_weighted_market_breadth_features"
+    )
+    assert catalog.show("F-PROJECT-ETF-NAV-PREMIUM")["inputs"] == [
+        "etf_share_size.nav",
+        "etf_share_size.close",
+    ]
     assert any(
         row["id"] == "SIG-CZSC-cxt_bi_base_V230228"
         for row in catalog.list_definitions(kind="signal", family="MARKET_STRUCTURE")

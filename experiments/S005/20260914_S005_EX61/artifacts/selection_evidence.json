@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX61",
+  "status": "COMPLETE",
+  "common_factor_start": "2021-02-08",
+  "common_factor_end": "2026-09-02",
+  "fully_calibrated_start": "2022-02-10",
+  "common_sessions": 1349,
+  "information_families": [
+    "MARKET_BREADTH",
+    "FUND_FLOW",
+    "TREND_MOMENTUM",
+    "POSITION_VALUATION",
+    "MARKET_MICROSTRUCTURE",
+    "VOLUME_LIQUIDITY"
+  ],
+  "factor_count": 8,
+  "group_count": 3,
+  "selected_mechanism": null,
+  "reads_post_event_returns": false,
+  "prior_cumulative_return_path_count": 20,
+  "decision": "STOP_DEMAND_CONVERSION_ON_DENSITY",
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "f280481e98dfcbd18951c02590fc220ac935b7f7f717839344f35cdcc58667c4"
+}

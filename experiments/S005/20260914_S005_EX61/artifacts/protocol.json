@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX61",
+  "experiment_type": "project_factor_demand_conversion_density",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "catalog": {
+    "project_factors_sha256": "1d37869311197b4108ae535d4d0d35edaf9f119ed8719ca3e65d04e3bc30cdfc",
+    "project_signals_sha256": "ac4cfff5cdd999d1f557f4cd5c80649715c130710c62449271d3fb80b65d7357"
+  },
+  "source": {
+    "experiment_id": "20260914_S005_EX58",
+    "manifest_sha256": "de8cb2223b2e80a2120f7602c240d4ce8bd829bff2d1ece7e28ee850b0ebdef6",
+    "factor_observation_ledger_sha256": "434886a035143f7ea187674b8f89c53634432ff636e62d0af03c0ec158d41f3e",
+    "materialization_evidence_sha256": "37d08371939a5faf9da376c5b79983b12e06fa6f27a4fcb2b8491c092c06ac22"
+  },
+  "factor_groups": {
+    "latent_demand": [
+      "F-PROJECT-BREADTH-BALANCE",
+      "F-PROJECT-BREADTH-THRUST-5",
+      "F-PROJECT-MONEYFLOW-BREADTH"
+    ],
+    "price_acceptance": [
+      "F-PROJECT-FIRST-HOUR-RETURN",
+      "F-PROJECT-FIRST-HOUR-VWAP-DEVIATION"
+    ],
+    "trading_confirmation": [
+      "F-PROJECT-SIGNED-VOLUME-IMBALANCE",
+      "F-PROJECT-FIRST-HOUR-ACTIVITY",
+      "F-PROJECT-FIRST-HOUR-PATH-EFFICIENCY"
+    ]
+  },
+  "factor_history_sessions": 120,
+  "group_floor": 0.5,
+  "score_quantiles": [0.5, 0.6, 0.7],
+  "group_weights": "equal",
+  "event_cooldown_sessions": 3,
+  "density": {
+    "window_sessions": 60,
+    "median_minimum": 7,
+    "p10_minimum": 3,
+    "selection": "highest score quantile passing both gates"
+  },
+  "availability": "all observations used for a session are available by 10:30 on that session",
+  "reads_post_event_returns": false,
+  "prior_cumulative_return_path_count": 20,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

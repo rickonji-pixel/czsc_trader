@@ -1,0 +1,8 @@
+﻿factor_id,severity,issue,required_action
+F-PROJECT-ER60,BLOCKING,"catalog availability says session close, implementation shifts close by one session and labels the next session",state explicitly that the value on session T uses closes through T-1 and is available before T open
+F-PROJECT-BREADTH-BALANCE,BLOCKING,"catalog formula is weighted advance-minus-decline, registered implementation computes equal-count breadth",register weighted breadth as a distinct implementation or revise the definition
+F-PROJECT-BREADTH-THRUST-5,BLOCKING,inherits the breadth-balance weighting mismatch,bind the rolling factor to the corrected breadth definition
+F-PROJECT-ETF-NAV-PREMIUM,BLOCKING,catalog declares fund_nav.unit_nav while accepted S005 evidence uses etf_share_size.nav,freeze one source and its publication timing
+F-PROJECT-FIRST-HOUR-ACTIVITY,NON_BLOCKING,catalog inputs include amount while implementation uses volume only,remove the unused input or extend the formula
+F-PROJECT-ETF-SHARE-CHANGE,TIMING_RISK,09:00 T+1 availability is a current research assumption awaiting arrival monitoring,keep status DISCOVERED until operational timing evidence accumulates
+F-PROJECT-STRUCTURED-NEWS-EVENT,INFORMATIONAL,event extraction is not a numeric directional factor,preserve event semantics; define a mechanism before any score conversion

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX03",
+  "experiment_type": "full_catalog_applicability_and_materialization_audit",
+  "strategy_id": "S006",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "catalog_digest": "85993fd29ab84c6854fcaf2e3f9db78ac519b5250683dfc1e72f6aa6ac48ddd0",
+  "sources": {
+    "current_contract_experiment_id": "20260914_S006_EX02",
+    "current_contract_manifest_sha256": "bdf517662553a2a109362850de8dc23e626e901486042a2c39195e8ff46e7c6c",
+    "czsc_materialization_experiment_id": "20260914_S005_EX49",
+    "czsc_materialization_manifest_sha256": "630ef47692b20864cb9e76e219b4a435ad4e1c75e5dd564b8bc323f0895df5da",
+    "project_factor_experiment_id": "20260914_S005_EX58",
+    "project_factor_manifest_sha256": "2e71b1ef9e8713482904252e8aeec5a3bb0276a1ca2c743401ba29546de61b28",
+    "industry_factor_experiment_id": "20260914_S005_EX64",
+    "industry_factor_manifest_sha256": "7fe83a31a9aba7bd81ea96e4c8012b6deb124f458d9744b320680527e8a07786",
+    "analyst_factor_experiment_id": "20260914_S005_EX67",
+    "analyst_factor_manifest_sha256": "f8f9f7756882142bb0c2bd7db96f7c52633c8670c934a1e9eee9e862b4978499"
+  },
+  "rules": {
+    "every_definition_requires_disposition": true,
+    "silent_exclusion_allowed": false,
+    "configuration_failure_is_definition_failure_only_when_no_configuration_materialized": true,
+    "historical_data_reuse_requires_valid_archive": true
+  },
+  "reads_new_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

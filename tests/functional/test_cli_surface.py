@@ -34,6 +34,7 @@ EXPECTED_ACTIONS = {
     "chart": {"observation"},
     "news": {"extract"},
     "catalog": {"validate", "list", "show"},
+    "template": {"validate", "list", "show", "instantiate"},
 }
 
 
@@ -85,3 +86,51 @@ def test_ft_t08_catalog_cli_validates_lists_and_shows(capsys) -> None:
         payload = json.loads(capsys.readouterr().out)
         assert payload["status"] == "PASS"
     assert payload["result"]["definition"]["factor_id"] == "F-PROJECT-ER60"
+
+
+def test_ft_t08_template_cli_validates_lists_shows_and_instantiates(capsys, tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    root = ["--repo-root", str(repo)]
+    for arguments in (
+        ["template", "validate", *root],
+        ["template", "list", "--status", "READY", *root],
+        ["template", "show", "--id", "STC-T04-EVENT-HOLD", *root],
+    ):
+        assert main(arguments) == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["status"] == "PASS"
+    assert payload["result"]["template"]["operator"] == "EVENT_HOLD"
+
+    spec = tmp_path / "prototype.json"
+    spec.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "template_id": "STC-T04-EVENT-HOLD",
+                "bindings": [
+                    {
+                        "slot": "entry_events",
+                        "source_id": "SIG-CZSC-cxt_bi_base_V230228",
+                        "source_kind": "SIGNAL",
+                        "state": "满足",
+                        "weight": None,
+                    }
+                ],
+                "parameters": {"holding_sessions": 5},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    assert main(["template", "instantiate", "--spec", str(spec), *root]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "PASS"
+    assert payload["result"]["instance"]["instance_id"].startswith("STI-")
+
+    invalid = json.loads(spec.read_text(encoding="utf-8"))
+    invalid["bindings"][0]["source_id"] = "SIG-NOT-IN-FSC"
+    spec.write_text(json.dumps(invalid), encoding="utf-8")
+    assert main(["template", "instantiate", "--spec", str(spec), *root]) != 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "FAIL"
+    assert payload["error"]["code"] == "strategy_template_binding_invalid"

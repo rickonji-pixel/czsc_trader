@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_TSFRESH_EX01",
+  "evidence_scope": "DEVELOPMENT_ONLY",
+  "machine_proposal_count": 3,
+  "decisions": [
+    {
+      "feature": "w20__tsfresh__log_amount_change__minimum",
+      "decision": "REJECT_REDUNDANT",
+      "reason": "与成交量版本相关系数0.9992，且成交额混入价格变化"
+    },
+    {
+      "feature": "w20__tsfresh__log_volume_change__minimum",
+      "decision": "REGISTER_DISCOVERED",
+      "factor_id": "F-TSFRESH-VOLUME-CONTRACTION-FLOOR-20"
+    },
+    {
+      "feature": "w60__tsfresh__return_1d__absolute_maximum",
+      "decision": "REGISTER_DISCOVERED",
+      "factor_id": "F-TSFRESH-ABS-RETURN-MAX-60"
+    }
+  ],
+  "registered_count": 2,
+  "catalog_status": "DISCOVERED"
+}

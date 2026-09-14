@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX06",
+  "status": "COMPLETE",
+  "decision": "PROCEED_TO_STRATEGY_PROTOTYPE_PREREGISTRATION",
+  "primary_paths_reviewed": 13,
+  "review_status_counts": {
+    "ELIGIBLE": 11,
+    "TAIL_DIRECTION_CONFLICT": 2
+  },
+  "eligible_before_redundancy": 11,
+  "redundancy_clusters": 7,
+  "representative_components": 7,
+  "representative_by_role": {
+    "CONFIRMATION": 2,
+    "ENTRY_TIMING": 1,
+    "OPPORTUNITY": 2,
+    "RISK_CONTEXT": 2
+  },
+  "representative_ids": [
+    "micro_share_change_5d_lag1",
+    "tsfresh__log_volume_change__mean__lb20",
+    "price_close_vwap_deviation",
+    "risk_global_spx_return",
+    "risk_chinext_turnover_z20",
+    "risk_shibor_on_change_5d",
+    "price_intraday_range"
+  ],
+  "template_selected": false,
+  "search_started": false,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

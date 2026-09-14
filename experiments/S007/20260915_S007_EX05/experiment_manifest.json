@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX05",
+  "status": "COMPLETE",
+  "experiment_type": "full_information_value_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_REDUNDANCY_AND_ROLE_REVIEW",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 322,
+      "sha256": "4dbf470e42dec12cbea63a88e238b743716147dcbfdab040f6de88667bef489c"
+    },
+    "02_design.md": {
+      "bytes": 1204,
+      "sha256": "e67aa2e12f97236a9e961c440b5d06d5fc16697c3d8cdfe48b5f016f37804fab"
+    },
+    "03_execution.md": {
+      "bytes": 204,
+      "sha256": "eed5ce9bafe943133dbf46ab7ebd73ee6840c861da81b7cae3db6dd4d2fd79f6"
+    },
+    "04_conclusion.md": {
+      "bytes": 357,
+      "sha256": "6a4127f7b693bd77c5cf250cfedc14506219bbdf21e28dae0eb14384adea8b46"
+    },
+    "artifacts/family_horizon_summary.csv": {
+      "bytes": 4463,
+      "sha256": "af030d1de87fe6527d9bea1d368000c8bef23c4c845600a516229cf2436705b6"
+    },
+    "artifacts/information_audit.json": {
+      "bytes": 892,
+      "sha256": "63d0543241a59dae544629e8e90d552909cff49204cb14a46452fd866b2eddb5"
+    },
+    "artifacts/information_path_ledger.csv.gz": {
+      "bytes": 38464,
+      "sha256": "e36179504fbcf5b0f58cc45fddd126c2970a8348701ebe4d95c05809a2475f31"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2725,
+      "sha256": "32537664740aaf41a3e87511bc96c625a508f7e94814607a72d1959b9ba6e876"
+    },
+    "artifacts/supported_information_paths.csv": {
+      "bytes": 20047,
+      "sha256": "c752d8c944175a2ed3b57c27045fdc144f7e893037162ed17cb7667530b62dbf"
+    },
+    "run_experiment.py": {
+      "bytes": 21085,
+      "sha256": "8bb4e219ed011ec0d229f6b9509295b27f324be71924f9735d09d35ee06ee877"
+    }
+  }
+}

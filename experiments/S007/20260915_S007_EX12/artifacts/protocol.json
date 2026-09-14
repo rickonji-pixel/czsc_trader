@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX12",
+  "experiment_type": "configuration_and_robustness_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex11_archive": "experiments/S007/20260915_S007_EX11",
+    "ex11_manifest_sha256": "6eff5cd274626f17d946ee4a6f2f92f524cdac059da250d6433b14979ba77989",
+    "temporal_diagnosis_sha256": "5c503e3832b39f53dc7690827e6eaa7188991c182253d7e0c39cd370ea7a0571",
+    "temporal_performance_sha256": "2668837f2e675a9ccc3c8ca603ac14f0652c574f05d3153816189452cd190d77",
+    "ex09_archive": "experiments/S007/20260915_S007_EX09",
+    "feasible_trials_sha256": "afe38a5a5e393b378c9a4a52ed0ade2cc576bdcc171846944d85c9f7e322e94b",
+    "ex09_script_sha256": "56d99f39dc8d952e821d0b9056f1f92b57a65eddd1cbb6154b4019df4580d68d",
+    "feature_panel": "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz",
+    "feature_panel_sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d"
+  },
+  "hard_gates": {
+    "minimum_cagr": 0.240781877458,
+    "maximum_drawdown_loss": 0.20,
+    "minimum_rolling_60_closed_trades_median": 7,
+    "minimum_rolling_60_closed_trades_p10": 3,
+    "maximum_stress_fee_rate_one_way": 0.0015,
+    "minimum_positive_relative_years": 6,
+    "minimum_bootstrap_positive_excess_probability": 0.90,
+    "maximum_dominating_single_factor_ablations": 0
+  },
+  "cost_stress_fee_rates_one_way": [0.0005, 0.0010, 0.0015],
+  "bootstrap": {
+    "block_sessions": 20,
+    "repetitions": 5000,
+    "seed": 7091512,
+    "confidence_interval": 0.90
+  },
+  "reads_new_returns": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

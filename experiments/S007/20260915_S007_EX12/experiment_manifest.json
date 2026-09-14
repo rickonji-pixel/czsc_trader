@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX12",
+  "status": "COMPLETE",
+  "experiment_type": "configuration_and_robustness_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "CONTINUE_MECHANISM_RESEARCH",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 272,
+      "sha256": "72a891097ba50570faf13740555f35e70fe1993236310e2e20b1930161ddf30e"
+    },
+    "02_design.md": {
+      "bytes": 823,
+      "sha256": "a4ad7ab3a6a57161f8d464af074d8f090cc9a86f4acb572238d07e44638b120e"
+    },
+    "03_execution.md": {
+      "bytes": 219,
+      "sha256": "4372257d2db871d8c7fb2e28f9b8c7f5ce4395b18a0b2f2788549ab9511d9c04"
+    },
+    "04_conclusion.md": {
+      "bytes": 283,
+      "sha256": "6223859f13365e63be01b61c100bf8c91810662ee2cf33e37c9d1cbc51b32e62"
+    },
+    "artifacts/annual_relative_returns.csv": {
+      "bytes": 600,
+      "sha256": "3c5a735a3a4fb95cf9c331f0a5be62a584a26ee958ec6bf7c5bb567852cf5edd"
+    },
+    "artifacts/cost_stress.csv": {
+      "bytes": 521,
+      "sha256": "85decaf008e7f41d722a6f1ab8726d56ed72fc00e4fe136ea4ac7b71d32995b0"
+    },
+    "artifacts/paired_block_bootstrap.json": {
+      "bytes": 273,
+      "sha256": "e5ed404b386b0bd7d4081c94d6e3e355bb80d62f6398c9ada9b507fe01f6d285"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1768,
+      "sha256": "05620e29e8a16819095c52ce99f64f26cba35efaad851c5df3a5dc7ec431fcd7"
+    },
+    "artifacts/robustness_evidence.json": {
+      "bytes": 735,
+      "sha256": "3e011a053d6f96df6ca6058e469df1dfb3cffbbd1ab81b32aa7f3b1f2e7fd2cb"
+    },
+    "artifacts/single_factor_ablations.csv": {
+      "bytes": 1676,
+      "sha256": "eca92c3f32c562d58defe1bfad10a25df37af463639d7f85a6b5cc1f3b28d701"
+    },
+    "run_experiment.py": {
+      "bytes": 14139,
+      "sha256": "56b682afd62b658e28fff97398a19c8b8d2020be7ec47fee01aed8b3a587a853"
+    }
+  }
+}

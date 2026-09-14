@@ -341,6 +341,11 @@ def _ledger(study: optuna.Study, spec: SearchSpec) -> pd.DataFrame:
             "candidate_id": trial.user_attrs.get("candidate_id", ""),
             "strategy_hash": trial.user_attrs.get("strategy_hash", ""),
             "behavior_hash": trial.user_attrs.get("behavior_hash", ""),
+            "metadata": json.dumps(
+                trial.user_attrs.get("evaluation_metadata", {}),
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
             "rejection_code": trial.user_attrs.get("rejection_code", ""),
             "rejection_message": trial.user_attrs.get("rejection_message", ""),
             "datetime_start_utc": _iso(trial.datetime_start),

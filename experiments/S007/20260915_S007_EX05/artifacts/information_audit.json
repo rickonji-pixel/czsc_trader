@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX05",
+  "status": "COMPLETE",
+  "decision": "PROCEED_TO_REDUNDANCY_AND_ROLE_REVIEW",
+  "runtime_seconds": 44.127,
+  "feature_count": 101,
+  "path_count": 303,
+  "primary_horizon_sessions": 3,
+  "evidence_label_counts": {
+    "DIRECTIONALLY_STABLE": 27,
+    "NOMINAL_SUPPORT": 13,
+    "NO_STABLE_EVIDENCE": 239,
+    "UNIDENTIFIABLE": 24
+  },
+  "primary_supported_count": 13,
+  "primary_supported_by_hypothesis": {
+    "H01-RISK-APPETITE": 8,
+    "H04-ETF-DERIVATIVE-MICROSTRUCTURE": 1,
+    "H05-PRICE-LIQUIDITY-STATE": 4
+  },
+  "frequency_policy": "OBSERVATION_ONLY",
+  "input_selected": false,
+  "template_selected": false,
+  "search_started": false,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false,
+  "protocol_sha256": "32537664740aaf41a3e87511bc96c625a508f7e94814607a72d1959b9ba6e876"
+}

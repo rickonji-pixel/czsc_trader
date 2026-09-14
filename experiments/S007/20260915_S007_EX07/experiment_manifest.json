@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX07",
+  "status": "COMPLETE",
+  "experiment_type": "strategy_prototype_preregistration",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_PREREGISTERED_PARAMETER_SEARCH",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 310,
+      "sha256": "149235a39c5b5c5f6e08303da0b708541b8a92df4796e7bcf1fe3fc5d7b28733"
+    },
+    "02_design.md": {
+      "bytes": 1011,
+      "sha256": "737e28cf055b86becb33bb07ba434909124f4ab78b476e2a33664e726594ea50"
+    },
+    "03_execution.md": {
+      "bytes": 167,
+      "sha256": "6501303da87e78b3d0d999629af5689f550accedd19da84e2a305b6d742dcda7"
+    },
+    "04_conclusion.md": {
+      "bytes": 254,
+      "sha256": "8afe9305e64b55047fa8a8274184b0185b125e398900c404e8422c3069c755b1"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3411,
+      "sha256": "a909509cb37e754d3edcdedcd6cc43008473c513496a6723d1a363f98beaed68"
+    },
+    "artifacts/prototype.json": {
+      "bytes": 1206,
+      "sha256": "6749ef83234d4fe330d66301e2d47506c4ecd480d3a6f4f0a41db2a33abcfbe6"
+    },
+    "artifacts/prototype_evidence.json": {
+      "bytes": 774,
+      "sha256": "93291a8d1083976e794650c7742f8d50328adc2b3cd8a00885838410ab4f4581"
+    },
+    "artifacts/template_instance.json": {
+      "bytes": 1603,
+      "sha256": "ae08831ee813c3a6a806be776037109af309942722b1fdcfa51d21b67e6ffb6c"
+    },
+    "run_experiment.py": {
+      "bytes": 4888,
+      "sha256": "37347cbed27563e0e6c942259d2fd7a41db3fbd6733f31c670a1d1e97b860cc8"
+    }
+  }
+}

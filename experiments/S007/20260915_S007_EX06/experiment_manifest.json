@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX06",
+  "status": "COMPLETE",
+  "experiment_type": "information_redundancy_and_role_review",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_STRATEGY_PROTOTYPE_PREREGISTRATION",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 262,
+      "sha256": "4c4a93714208279911cd8b9ffe63353b2ffdf0e35c577072f227c12a457ca563"
+    },
+    "02_design.md": {
+      "bytes": 708,
+      "sha256": "537fd9d9f05a29911375d299088e0665bc1c6be7e4447244d4c3185400690d11"
+    },
+    "03_execution.md": {
+      "bytes": 154,
+      "sha256": "c69b600b4e0e4c174d7231ece175002e67b411a65b08dc3e5c6dc63d55d6b304"
+    },
+    "04_conclusion.md": {
+      "bytes": 328,
+      "sha256": "b83eda4e510dc063c609b5ec62ae41ca571b3130b2968275c727e8b500b15c7f"
+    },
+    "artifacts/component_review.json": {
+      "bytes": 910,
+      "sha256": "d217c06d4872f62af11eb1cc0b0de13007ea4b7fdd6b7a80f179d086407b1cf9"
+    },
+    "artifacts/eligible_absolute_spearman.csv": {
+      "bytes": 2852,
+      "sha256": "af6bc4e9cc31012c5d0437cf9b8bf7591ff1dd41efde2baa8a24a1d87cbb3bc1"
+    },
+    "artifacts/pairwise_redundancy.csv": {
+      "bytes": 4668,
+      "sha256": "1046291ce2a1f67051717f338bb47226e9d6d3045789cfa179c5f6c00dc5b3b6"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1603,
+      "sha256": "cfc112e19118accfe34ac6f3076d6028786aa1938f6b7cd27ceceb7362ee73a2"
+    },
+    "artifacts/representative_component_panel.csv": {
+      "bytes": 4175,
+      "sha256": "d463cd9daf14379cc06bd6de594c0ae01c3909ea4361bef08c4fe96f7134b187"
+    },
+    "artifacts/role_review_ledger.csv": {
+      "bytes": 7322,
+      "sha256": "62bd28d3c741969f9b0e01bab3942c16d9d024954e6e8e523828f3474b514241"
+    },
+    "run_experiment.py": {
+      "bytes": 9252,
+      "sha256": "ade6dd43a1c9bdce4038390e3f7427c8e3240dbd20142c8f769dbef27317ae6a"
+    }
+  }
+}

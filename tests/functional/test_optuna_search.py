@@ -57,6 +57,7 @@ def test_search_is_reproducible_and_emits_complete_ledger(tmp_path: Path) -> Non
     assert first.ledger["objective.quality"].tolist() == second.ledger["objective.quality"].tolist()
     assert set(first.ledger["state"]) == {"COMPLETE"}
     assert first.ledger["strategy_hash"].str.len().eq(64).all()
+    assert first.ledger["metadata"].map(json.loads).map(lambda value: isinstance(value, dict)).all()
     assert not list(tmp_path.iterdir())
 
 

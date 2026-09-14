@@ -14,6 +14,8 @@
     {"family_id": "MARKET_MICROSTRUCTURE", "name": "市场微观结构", "description": "时段订单流、价格冲击和日内成交结构", "status": "READY"},
     {"family_id": "CALENDAR_SEASONALITY", "name": "时点与季节性", "description": "交易时段、星期和日历位置形成的规律", "status": "READY"},
     {"family_id": "POSITION_RISK", "name": "持仓与风控", "description": "依赖既有持仓的止损、止盈和退出管理", "status": "READY"},
+    {"family_id": "RISK_APPETITE", "name": "风险偏好", "description": "境内外权益市场的风险承担意愿、交易活跃度和跨市场情绪", "status": "DISCOVERED"},
+    {"family_id": "INTEREST_RATE", "name": "利率环境", "description": "货币市场利率、期限结构及其反映的资金价格变化", "status": "DISCOVERED"},
     {"family_id": "OTHER_TECHNICAL", "name": "待拆分技术类", "description": "已经发现但金融语义尚未完成归类的技术判断", "status": "DISCOVERED"}
   ]
 }

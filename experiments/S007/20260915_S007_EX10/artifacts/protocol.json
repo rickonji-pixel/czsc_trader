@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX10",
+  "experiment_type": "parameter_platform_and_temporal_concentration_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex09_archive": "experiments/S007/20260915_S007_EX09",
+    "ex09_manifest_sha256": "3b4111eef02ad273bf0fe95eb7dca69b026228d93837f0d30b1cdbd89c4a147b",
+    "search_ledger_sha256": "197cd1638d90a6ce05e5c0f5042f1cc4a4e347fc9097e8c8ace9ab0d0b268567",
+    "feasible_trials_sha256": "afe38a5a5e393b378c9a4a52ed0ade2cc576bdcc171846944d85c9f7e322e94b",
+    "ex09_script_sha256": "56d99f39dc8d952e821d0b9056f1f92b57a65eddd1cbb6154b4019df4580d68d"
+  },
+  "platform": {
+    "minimum_unique_behaviors": 10,
+    "normalized_linf_radius": 0.20,
+    "minimum_connected_unique_behaviors": 5
+  },
+  "temporal_diagnostic": {
+    "minimum_positive_years": 4,
+    "balance_ratio_attention_below": 0.25,
+    "status": "POST_SEARCH_DIAGNOSTIC_NOT_RETROACTIVE_GATE"
+  },
+  "reads_new_returns": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}
+

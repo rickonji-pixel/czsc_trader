@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX11",
+  "status": "COMPLETE",
+  "experiment_type": "temporal_mechanism_diagnosis",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_CONFIGURATION_AND_ROBUSTNESS_AUDIT",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 311,
+      "sha256": "9649fe3c529a47b543f3a8495799c0ad93da2c7aae9311f51b8bf665b484f106"
+    },
+    "02_design.md": {
+      "bytes": 940,
+      "sha256": "c47a9bad58779e56d1af5f654eec57ca4512c762db252844317753c51bd2cb05"
+    },
+    "03_execution.md": {
+      "bytes": 258,
+      "sha256": "de0f82eb6ec740c1a7f47e85163a026ff8983168dbcd975b5272630f12aac676"
+    },
+    "04_conclusion.md": {
+      "bytes": 424,
+      "sha256": "6d32e11cdaf32b6e2f22bd71a5244b6a0b9d8dea2a9646572f4246d5b1ca5b0b"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1709,
+      "sha256": "960a2424319e4abb06c95945c5f7bf8ed4a29b15129d6e31ed13ae6a0c519e93"
+    },
+    "artifacts/temporal_diagnosis.json": {
+      "bytes": 943,
+      "sha256": "63732d28cb1c86f55ec29ac374654c0a2f63fc3d29b5527b3fcc374e9a33070c"
+    },
+    "artifacts/temporal_feature_coverage.csv": {
+      "bytes": 5316,
+      "sha256": "9974cb214688f4d30925e019d5baba881bbdc4206360363612411da134f7a90f"
+    },
+    "artifacts/temporal_information_coefficients.csv": {
+      "bytes": 3872,
+      "sha256": "1d677a86a16e7e0c057b0eaf2d33af177ef96adff1426765c3cb56778abe2204"
+    },
+    "artifacts/temporal_performance.csv": {
+      "bytes": 3737,
+      "sha256": "2668837f2e675a9ccc3c8ca603ac14f0652c574f05d3153816189452cd190d77"
+    },
+    "run_experiment.py": {
+      "bytes": 13739,
+      "sha256": "5cd2c4baa3d75616205c73289772a70b4ad8d6f927e399bc8d15ac885af51c58"
+    }
+  }
+}

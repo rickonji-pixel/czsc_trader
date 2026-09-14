@@ -9,6 +9,40 @@ import pandas as pd
 MECHANISM = "BREADTH_THRUST_CONTINUATION"
 
 
+def build_weighted_market_breadth_features(panel: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate point-in-time constituent directions with historical index weights."""
+
+    required = {"dt", "con_code", "weight", "pct_chg", "observed_daily"}
+    if missing := sorted(required.difference(panel.columns)):
+        raise ValueError(f"weighted constituent panel missing columns {missing}")
+    frame = panel.copy()
+    frame["dt"] = pd.to_datetime(frame["dt"], errors="raise").dt.normalize()
+    if frame.duplicated(["dt", "con_code"]).any():
+        raise ValueError("weighted constituent panel contains duplicate member-session keys")
+    frame["weight"] = pd.to_numeric(frame["weight"], errors="coerce")
+    frame["pct_chg"] = pd.to_numeric(frame["pct_chg"], errors="coerce")
+    observed = frame["observed_daily"].astype(bool)
+    observed_values = frame.loc[observed, ["weight", "pct_chg"]].to_numpy(dtype=float)
+    if not np.isfinite(observed_values).all() or (frame.loc[observed, "weight"] <= 0).any():
+        raise ValueError("observed weighted constituents require positive finite weights and finite returns")
+    frame["observed_weight"] = frame["weight"].where(observed, 0.0)
+    frame["advance_weight"] = frame["weight"].where(observed & frame["pct_chg"].gt(0), 0.0)
+    frame["decline_weight"] = frame["weight"].where(observed & frame["pct_chg"].lt(0), 0.0)
+    daily = frame.groupby("dt", sort=True).agg(
+        observed_members=("observed_daily", "sum"),
+        membership_rows=("con_code", "size"),
+        observed_weight=("observed_weight", "sum"),
+        advance_weight=("advance_weight", "sum"),
+        decline_weight=("decline_weight", "sum"),
+    )
+    if daily["observed_weight"].le(0).any():
+        raise ValueError("weighted breadth requires positive observed weight on every session")
+    daily["observed_ratio"] = daily["observed_members"] / daily["membership_rows"]
+    daily["breadth_balance"] = daily["advance_weight"].sub(daily["decline_weight"]).div(daily["observed_weight"])
+    daily["breadth_thrust_5"] = daily["breadth_balance"].rolling(5, min_periods=5).mean()
+    return daily.reset_index()
+
+
 def build_market_breadth_features(panel: pd.DataFrame) -> pd.DataFrame:
     """Aggregate observed constituent directions without using future data."""
 

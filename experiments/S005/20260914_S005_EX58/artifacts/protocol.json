@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX58",
+  "experiment_type": "project_factor_materialization_and_contract_audit",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "development_cutoff": "2026-09-02",
+  "catalog": {
+    "information_families_sha256": "a3963459723486206df91214cba0cee4162afe47d62853cf0147857eb5b9d072",
+    "project_factors_sha256": "24ab84283c9b6f521479563ad27e17e12a8bf21b6a466cbea82b61bef859ace4",
+    "project_signals_sha256": "fcc40343651e17c600219cac1fccc0bf5bd73ad293bae166a4d79ea9f04881e5",
+    "materials_sha256": "c3e7af572bfbdbf2e5ccb49529f0ee8ed8a32216be3d0f4f08d7bfd5e8a9864d"
+  },
+  "dataset": {
+    "name": "research",
+    "fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+    "intraday_manifest_sha256": "caeda56df5b29c35cf665b11301eb22c072d6b2a5c522052529cd0de87c2dee4"
+  },
+  "sources": {
+    "20260913_S005_EX18": {
+      "manifest_sha256": "60269255eeccbb791322a12fd5c091bde5f467a2081d522445ba903baa3a0a4e",
+      "artifact": "artifacts/constituent_panel.csv.gz",
+      "artifact_sha256": "46e87a872f8c7f8dffd71a2c5c7e7dd73bd7f32975c839fdbd9e3157cee71b53"
+    },
+    "20260913_S005_EX26": {
+      "manifest_sha256": "760db8c069b61e76344fd588c8df1d9bcbfe57b7796120ac5f20ae2ad4b7ac8d",
+      "artifact": "artifacts/etf_share_size.csv.gz",
+      "artifact_sha256": "82566556d83b6c2b469f58544bd513ec2c6b73f73c9bb771a1c06e58fe297ff8"
+    },
+    "20260913_S005_EX40": {
+      "manifest_sha256": "15cc5969e9800bdb88c5b03408d932a449b3985929fd601b027eab1f928b6adc",
+      "artifact": "artifacts/manual_event_corpus.csv.gz",
+      "artifact_sha256": "ff19b73401c499da998516de168406713a564e5b11bb69dc800e6d7817ea6d44"
+    },
+    "20260913_S005_EX44": {
+      "manifest_sha256": "0cc7c037c03f5df46630be041ecbc1e01b76ab9c785261e88f718d60c3c67acf",
+      "artifact": "artifacts/daily_breadth.csv",
+      "artifact_sha256": "c5acf0be8a769f5357ed333cef282dd5ebfb68d715635dab7cf7e61842b7de2b"
+    }
+  },
+  "intraday_observation": {
+    "start_clock": "09:31",
+    "end_clock": "10:30",
+    "expected_bars": 60,
+    "activity_baseline_sessions": 20
+  },
+  "reads_post_factor_returns": false,
+  "generates_signals": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

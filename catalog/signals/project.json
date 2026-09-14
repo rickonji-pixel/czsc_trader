@@ -9,7 +9,7 @@
       "causality": "阈值由开发期冻结，运行时不读取未来", "status": "READY", "version": 1
     },
     {
-      "signal_id": "SIG-PROJECT-BREADTH-THRUST", "name": "成分宽度推动", "description": "成分共同上涨达到事前阈值时触发",
+      "signal_id": "SIG-PROJECT-BREADTH-THRUST", "name": "成分宽度推动", "description": "历史指数权重口径的成分共同上涨达到事前阈值时触发",
       "information_family": "MARKET_BREADTH", "tags": ["daily", "constituents"], "factor_ids": ["F-PROJECT-BREADTH-THRUST-5"], "embedded_factor": false,
       "provider": "project", "implementation": "czsc_trader.market_breadth_events.generate_breadth_thrust_events", "rule": "breadth_thrust_5达到冻结阈值",
       "states": ["active", "inactive"], "parameters": {"threshold": "research_frozen"}, "availability": "成分日线发布后",

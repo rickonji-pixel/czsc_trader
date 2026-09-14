@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX63",
+  "status": "COMPLETE",
+  "mechanism": "SUPPLY_ABSORPTION_Q70",
+  "metrics": {
+    "closed_trades": 208,
+    "terminal_events_skipped": 0,
+    "gross_mean": 0.001622106675889569,
+    "stress_mean": 0.0004208808833540353,
+    "profit_factor": 1.0421091613575242,
+    "win_rate": 0.4567307692307692,
+    "positive_years": 3,
+    "observed_years": 6,
+    "recent_trades": 44,
+    "recent_stress_mean": 0.0052334648688566595,
+    "total_return": 0.0051924548632278356,
+    "cagr": 0.0010659662525884794,
+    "maximum_drawdown": -0.3954907105961486,
+    "calmar": 0.0026953003547963996
+  },
+  "checks": {
+    "stress_mean": false,
+    "profit_factor": true,
+    "positive_years": false,
+    "recent": true,
+    "cagr": false,
+    "maximum_drawdown": false
+  },
+  "passed": false,
+  "prior_cumulative_return_path_count": 20,
+  "cumulative_return_path_count": 21,
+  "decision": "STOP_SUPPLY_ABSORPTION_ON_RETURN",
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "8c0e5b5d9ef853455d20edf0dac886813f98aa1beb3925b6b5b88e9705b25c0a"
+}

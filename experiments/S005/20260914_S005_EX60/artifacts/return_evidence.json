@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX60",
+  "status": "COMPLETE",
+  "mechanism": "COORDINATED_DEMAND_Q70",
+  "metrics": {
+    "closed_trades": 168,
+    "terminal_events_skipped": 0,
+    "gross_mean": 0.00059103384191841,
+    "stress_mean": -0.0006089554051436339,
+    "profit_factor": 0.9509830087304849,
+    "win_rate": 0.48214285714285715,
+    "positive_years": 1,
+    "observed_years": 5,
+    "recent_trades": 40,
+    "recent_stress_mean": 0.0007072808686005821,
+    "total_return": -0.18051955619245497,
+    "cagr": -0.044347648436574016,
+    "maximum_drawdown": -0.3715333468409342,
+    "calmar": -0.11936384395546794
+  },
+  "checks": {
+    "stress_mean": false,
+    "profit_factor": false,
+    "positive_years": false,
+    "recent": true,
+    "cagr": false,
+    "maximum_drawdown": false
+  },
+  "passed": false,
+  "prior_cumulative_return_path_count": 19,
+  "cumulative_return_path_count": 20,
+  "decision": "STOP_COORDINATED_DEMAND_ON_RETURN",
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "f7c5493274249cbd579f7ef98072979c2f13c91167c1773b6a49eca5c3bb1c74"
+}

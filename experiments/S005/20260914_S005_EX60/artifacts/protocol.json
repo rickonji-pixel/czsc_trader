@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX60",
+  "experiment_type": "fixed_coordinated_demand_return_test",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "experiment_id": "20260914_S005_EX59",
+    "manifest_sha256": "ce84952f4a1da5dc5d4d4a7e75dc15e2250f0132fde2b06f02f84d83a5824130",
+    "event_ledger_sha256": "10b1b1e01d49886346d6a838a75a000a22f5f2ca9d2c57b5c19fbff6746fafd0",
+    "selection_evidence_sha256": "8e01b43869b28d8a07a2e97f3aec92009bdc1f5ef56d7d11bdf6bf3f1ceb103a"
+  },
+  "intraday_manifest_sha256": "caeda56df5b29c35cf665b11301eb22c072d6b2a5c522052529cd0de87c2dee4",
+  "mechanism": "COORDINATED_DEMAND_Q70",
+  "execution": {
+    "entry_offset_sessions": 0,
+    "exit_offset_sessions": 2,
+    "entry_clock": "09:36",
+    "exit_clock": "14:56",
+    "stress_one_way_cost": 0.0006,
+    "capital_fraction": 1.0,
+    "overlap_policy": "forbidden"
+  },
+  "acceptance": {
+    "stress_mean_minimum": 0.00737,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 4,
+    "recent_sessions": 252,
+    "recent_stress_mean_min_exclusive": 0.0,
+    "cagr_minimum": 0.2408,
+    "maximum_drawdown_floor": -0.15
+  },
+  "prior_cumulative_return_path_count": 19,
+  "cumulative_return_path_count": 20,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX71",
+  "status": "COMPLETE",
+  "runtime_seconds": 0.176,
+  "source_state_count": 2092,
+  "old_technical_eligible_states": 950,
+  "information_audit_universe_states": 1525,
+  "restored_states": 575,
+  "evaluation_status_counts": {
+    "DUPLICATE_ALIAS": 110,
+    "INFORMATION_AUDIT_UNIVERSE": 1525,
+    "SEMANTIC_CONTEXT_ONLY": 457
+  },
+  "audit_universe_frequency_counts": {
+    "30m": 563,
+    "daily": 523,
+    "weekly": 439
+  },
+  "restoration_reason_counts": {
+    "OLD_ACTIVE_RATIO_RULE": 320,
+    "OLD_COVERAGE_YEARS_RULE": 381,
+    "OLD_TRANSITION_COUNT_RULE": 484
+  },
+  "information_family_count": 8,
+  "all_states_accounted_for": true,
+  "frequency_policy": "REPORT_ONLY_AT_COMPONENT_STAGE",
+  "complete_strategy_frequency_gate": {
+    "application_stage": "ONLY_AFTER_ENTRY_EXIT_HOLDING_POSITION_AND_EXECUTION_ARE_FIXED",
+    "rolling_window_sessions": 60,
+    "minimum_median_closed_trades": 7,
+    "minimum_p10_closed_trades": 3
+  },
+  "reads_post_signal_prices": false,
+  "decision": "PROCEED_TO_ALL_STATE_INFORMATION_AUDIT_DESIGN",
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "ca64e020756961b7c72f695f281a22d8dd3c18b17e894f0caba7f14dd4bc6f77"
+}

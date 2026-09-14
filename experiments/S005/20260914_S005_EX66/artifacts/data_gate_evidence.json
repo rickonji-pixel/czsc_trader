@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX66",
+  "calendar_sessions": 1354,
+  "development_start": "2021-01-04",
+  "constituent_coverage_start": "2021-02-01",
+  "uncovered_initial_sessions": 20,
+  "historical_member_union": 118,
+  "api_calls": 118,
+  "api_successes": 118,
+  "api_success_ratio": 1.0,
+  "raw_report_rows": 73531,
+  "active_report_rows": 45192,
+  "members_with_active_reports": 111,
+  "unique_active_report_dates": 1827,
+  "numeric_forecast_coverage": 0.9955080545229245,
+  "minimum_active_rows_per_year": 3610,
+  "active_rows_by_year": {
+    "2021": 7325,
+    "2022": 10310,
+    "2023": 9239,
+    "2024": 8035,
+    "2025": 6673,
+    "2026": 3610
+  },
+  "invalid_report_dates": 0,
+  "exact_duplicate_rows": 0,
+  "causal_use": "NEXT_588080_TRADING_SESSION",
+  "reads_target_forward_returns": false,
+  "passed": true
+}

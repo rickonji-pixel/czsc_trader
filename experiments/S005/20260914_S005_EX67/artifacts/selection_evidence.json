@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX67",
+  "comparable_report_rows": 32025,
+  "company_revision_events": 7267,
+  "revision_factor_sessions": 1344,
+  "paths_tested": 3,
+  "density_passing_paths": [],
+  "selected_for_fixed_return_test": null,
+  "reads_target_forward_returns": false,
+  "decision": "STOP_EXPECTATION_REVISION_PULLBACK_ON_DENSITY"
+}

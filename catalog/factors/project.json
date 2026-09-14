@@ -94,6 +94,20 @@
       "provider": "tushare+maas+project", "implementation": "czsc_trader.news_events.run_news_extraction",
       "formula": "audited extraction, not a directional score", "availability": "原文发布时间及抽取完成后", "causality": "保留原文身份、发布时间和证据片段",
       "parameters": {"prompt_version": "news-event-extractor-v8"}, "status": "READY", "version": 1
+    },
+    {
+      "factor_id": "F-PROJECT-EXTERNAL-INDUSTRY-MONEYFLOW", "name": "指数外半导体行业资金流", "description": "历史申万半导体成员中不属于历史科创50成员的资金流宽度与净流强度",
+      "information_family": "FUND_FLOW", "tags": ["daily", "tushare", "industry", "moneyflow", "point-in-time"], "inputs": ["index_member_all", "moneyflow.net_mf_amount"],
+      "provider": "tushare+experiment", "implementation": "experiments/S005/20260914_S005_EX64/run_experiment.py",
+      "formula": "positive_member_ratio and sum(net_mf_amount)/sum(gross_order_amount)", "availability": "T+1数据源发布后", "causality": "按历史行业成员重建，决策只使用已发布的前一交易日数据",
+      "parameters": {"industry_code": "801081.SI"}, "status": "DISCOVERED", "version": 1
+    },
+    {
+      "factor_id": "F-PROJECT-SELL-SIDE-REVISION-BREADTH", "name": "成分卖方盈利预期修订宽度", "description": "历史科创50成分中同机构同预测期盈利预测上修减下修的滚动权重占比",
+      "information_family": "FUNDAMENTAL_EXPECTATION", "tags": ["daily", "tushare", "analyst", "forecast", "point-in-time"], "inputs": ["report_rc.np", "report_rc.eps", "index_weight"],
+      "provider": "tushare+experiment", "implementation": "experiments/S005/20260914_S005_EX67/run_experiment.py",
+      "formula": "rolling20(sum(revision_sign*index_weight))/rolling20(sum(index_weight))", "availability": "研报日期后的下一交易日", "causality": "同公司同机构同预测期比较，按下一交易日历史成分及权重聚合",
+      "parameters": {"rolling_sessions": 20, "minimum_relative_revision": 0.01}, "status": "DISCOVERED", "version": 1
     }
   ]
 }

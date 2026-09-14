@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX10",
+  "status": "COMPLETE",
+  "search_paths": 144,
+  "qualifying_paths": 2,
+  "best_path_id": "STABLE:H5:POSITIVE_RIDGE_A10:S1:Q70",
+  "best_full_cagr": 0.2930489528675604,
+  "best_full_maximum_drawdown": -0.18140382862351878,
+  "best_frequency_median": 7.0,
+  "best_frequency_p10": 3.0,
+  "decision": "PROCEED_TO_LIMITED_STRUCTURE_REPLICATION",
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

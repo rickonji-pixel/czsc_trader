@@ -108,6 +108,20 @@
       "provider": "tushare+experiment", "implementation": "experiments/S005/20260914_S005_EX67/run_experiment.py",
       "formula": "rolling20(sum(revision_sign*index_weight))/rolling20(sum(index_weight))", "availability": "研报日期后的下一交易日", "causality": "同公司同机构同预测期比较，按下一交易日历史成分及权重聚合",
       "parameters": {"rolling_sessions": 20, "minimum_relative_revision": 0.01}, "status": "DISCOVERED", "version": 1
+    },
+    {
+      "factor_id": "F-TSFRESH-VOLUME-CONTRACTION-FLOOR-20", "name": "20日成交量收缩下界", "description": "最近20个交易日单日对数成交量变化的最小值，表示窗口内最强成交量收缩",
+      "information_family": "VOLUME_LIQUIDITY", "tags": ["daily", "ohlcv", "tsfresh", "liquidity", "rolling"], "inputs": ["daily.volume"],
+      "provider": "tsfresh+project", "implementation": "czsc_trader.feature_mining.extract_causal_rolling_features",
+      "formula": "min(log(volume_t/volume_t-1), trailing 20 sessions)", "availability": "当日收盘及成交量完整后",
+      "causality": "标记在交易日T的数值只使用T及此前20个交易日内的已完成日线", "parameters": {"lookback": 20, "calculator": "minimum"}, "status": "DISCOVERED", "version": 1
+    },
+    {
+      "factor_id": "F-TSFRESH-ABS-RETURN-MAX-60", "name": "60日最大单日绝对收益", "description": "最近60个交易日单日收益绝对值的最大值，表示窗口内最强价格冲击",
+      "information_family": "VOLATILITY_RISK", "tags": ["daily", "ohlcv", "tsfresh", "volatility", "shock", "rolling"], "inputs": ["daily.close"],
+      "provider": "tsfresh+project", "implementation": "czsc_trader.feature_mining.extract_causal_rolling_features",
+      "formula": "max(abs(close_t/close_t-1-1), trailing 60 sessions)", "availability": "当日收盘后",
+      "causality": "标记在交易日T的数值只使用T及此前60个交易日内的已完成日线", "parameters": {"lookback": 60, "calculator": "absolute_maximum"}, "status": "DISCOVERED", "version": 1
     }
   ]
 }

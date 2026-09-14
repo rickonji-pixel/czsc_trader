@@ -21,6 +21,8 @@ def test_fsc01_repository_catalog_is_complete_queryable_and_strict() -> None:
     assert catalog.show("F-PROJECT-BREADTH-BALANCE")["implementation"].endswith(
         "build_weighted_market_breadth_features"
     )
+    assert catalog.show("F-TSFRESH-VOLUME-CONTRACTION-FLOOR-20")["status"] == "DISCOVERED"
+    assert catalog.show("F-TSFRESH-ABS-RETURN-MAX-60")["information_family"] == "VOLATILITY_RISK"
     assert catalog.show("F-PROJECT-ETF-NAV-PREMIUM")["inputs"] == [
         "etf_share_size.nav",
         "etf_share_size.close",

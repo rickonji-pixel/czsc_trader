@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX57",
+  "experiment_type": "preregistered_walk_forward_fsc_score",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "development_cutoff": "2026-09-02",
+  "evaluation_start": "2023-01-01",
+  "sources": {
+    "state_matrix_experiment_id": "20260914_S005_EX49",
+    "state_matrix_manifest_sha256": "630ef47692b20864cb9e76e219b4a435ad4e1c75e5dd564b8bc323f0895df5da",
+    "primary_states_sha256": "7bd1e372fe75fe0cc29ba19c8d731e05b19ec54ee6262bd878de4ee555ece4b7",
+    "semantic_experiment_id": "20260914_S005_EX54",
+    "semantic_manifest_sha256": "5627d426734fffab623fb96eddc48903053cbddd7e0d661c16f5cc34f11f211e",
+    "semantic_ledger_sha256": "c1559d5e004d2652cc10880873b822ecdc5dc12dc69c34e3dc9ee981f3b77c69"
+  },
+  "dataset": {
+    "name": "research",
+    "fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898"
+  },
+  "architectures": {
+    "OPPORTUNITY_30M": {
+      "research_roles": ["OPPORTUNITY"],
+      "frequencies": ["30m"]
+    },
+    "MULTISCALE_CORE": {
+      "research_roles": ["OPPORTUNITY", "ENVIRONMENT", "SUPPORTING"],
+      "frequencies": ["30m", "daily", "weekly"]
+    }
+  },
+  "included_information_families": [
+    "MARKET_STRUCTURE",
+    "POSITION_VALUATION",
+    "TREND_MOMENTUM",
+    "VOLATILITY_RISK",
+    "VOLUME_LIQUIDITY"
+  ],
+  "excluded_information_families": {
+    "CALENDAR_SEASONALITY": "high data-mining risk",
+    "POSITION_RISK": "depends on account state"
+  },
+  "model": {
+    "walk_forward_frequency": "calendar quarter",
+    "minimum_training_sessions": 252,
+    "forward_open_intervals": 3,
+    "minimum_state_occurrences": 20,
+    "shrinkage_prior_count": 20,
+    "within_block_positive_phi_dedup_threshold": 0.95,
+    "entry_score_quantile": 0.70,
+    "block_definition": "information_family x frequency",
+    "block_weighting": "equal weight across available blocks"
+  },
+  "execution": {
+    "decision_time": "signal session close",
+    "entry": "next session open",
+    "exit": "fourth session open after signal; three open-to-open intervals",
+    "price_basis": "forward-adjusted open",
+    "stress_one_way_cost": 0.0006,
+    "capital_fraction": 1.0,
+    "overlap_policy": "flat-only; signal allowed on prior exit session",
+    "terminal_policy": "exclude incomplete trade"
+  },
+  "acceptance": {
+    "minimum_mean_trade": 0.00737,
+    "minimum_cagr": 0.2408,
+    "maximum_drawdown_floor": -0.15,
+    "profit_factor_min_exclusive": 1.0,
+    "positive_years_minimum": 4,
+    "recent_sessions": 252,
+    "recent_mean_min_exclusive": 0.0,
+    "rolling_60_cycle_median_minimum": 7,
+    "rolling_60_cycle_p10_minimum": 3
+  },
+  "benchmarks": {
+    "S001-v2": {"cagr": 0.2675, "maximum_drawdown": -0.2153},
+    "BuyHold": "same evaluation window and price/cost basis"
+  },
+  "prior_cumulative_return_path_count": 17,
+  "cumulative_return_path_count": 19,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

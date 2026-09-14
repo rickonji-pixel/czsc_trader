@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
 import tempfile
+from uuid import uuid4
 
 
 _NAMESPACE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -50,4 +52,16 @@ def create_temporary_directory(
         raise ValueError("temporary prefix must be one path-safe name")
     parent = temporary_root(anchor, repository_root=repository_root) / normalized
     parent.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        # tempfile.mkdtemp uses mode 0700. On Windows that protects the DACL and
+        # strips inherited workspace permissions; files atomically moved out of
+        # staging retain that private ACL. A normal mkdir preserves inheritance.
+        for _ in range(100):
+            candidate = parent / f"{prefix}{uuid4().hex}"
+            try:
+                candidate.mkdir()
+            except FileExistsError:
+                continue
+            return candidate
+        raise FileExistsError(f"unable to allocate temporary directory below {parent}")
     return Path(tempfile.mkdtemp(prefix=prefix, dir=parent))

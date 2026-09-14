@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import shutil
+import subprocess
 
 import pytest
 
@@ -23,6 +25,26 @@ def test_repository_temporary_directories_are_namespaced(functional_repo: Path) 
     shutil.rmtree(second)
 
 
+def test_windows_temporary_directory_preserves_inherited_acl(tmp_path: Path) -> None:
+    if os.name != "nt":
+        pytest.skip("Windows ACL regression")
+
+    created = create_temporary_directory(
+        tmp_path,
+        "acl-regression",
+        repository_root=tmp_path,
+    )
+    result = subprocess.run(
+        ["icacls", str(created)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "(I)" in result.stdout
+
+
 def test_explicit_repository_root_controls_external_anchor(
     functional_repo: Path, tmp_path: Path
 ) -> None:
@@ -34,6 +56,15 @@ def test_explicit_repository_root_controls_external_anchor(
 
     assert created.parent == functional_repo / ".tmp" / "evaluation"
     shutil.rmtree(created)
+
+
+def test_pytest_temporary_path_stays_inside_repository(tmp_path: Path) -> None:
+    marker = tmp_path / "marker.txt"
+    marker.write_text("ok", encoding="utf-8")
+
+    assert marker.read_text(encoding="utf-8") == "ok"
+    assert tmp_path.parent.parent.name == "pytest"
+    assert tmp_path.parent.parent.parent.name == ".tmp"
 
 
 def test_temporary_namespace_rejects_path_traversal(functional_repo: Path) -> None:

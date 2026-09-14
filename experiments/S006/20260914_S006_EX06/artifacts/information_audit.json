@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX06",
+  "status": "COMPLETE",
+  "runtime_seconds": 56.864,
+  "dataset_fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+  "return_path_count": 2040,
+  "component_count": 680,
+  "horizons": [
+    1,
+    3,
+    5
+  ],
+  "evidence_label_counts": {
+    "DIRECTIONALLY_STABLE": 403,
+    "FDR_SUPPORTED": 7,
+    "NOMINAL_SUPPORT": 135,
+    "NO_STABLE_EVIDENCE": 1174,
+    "UNIDENTIFIABLE": 321
+  },
+  "kind_evidence_counts": {
+    "CATEGORICAL_SIGNAL": {
+      "DIRECTIONALLY_STABLE": 392,
+      "FDR_SUPPORTED": 7,
+      "NOMINAL_SUPPORT": 135,
+      "NO_STABLE_EVIDENCE": 1140,
+      "UNIDENTIFIABLE": 321
+    },
+    "CONTINUOUS_FACTOR": {
+      "DIRECTIONALLY_STABLE": 11,
+      "FDR_SUPPORTED": 0,
+      "NOMINAL_SUPPORT": 0,
+      "NO_STABLE_EVIDENCE": 31,
+      "UNIDENTIFIABLE": 0
+    },
+    "EVENT_FACTOR": {
+      "DIRECTIONALLY_STABLE": 0,
+      "FDR_SUPPORTED": 0,
+      "NOMINAL_SUPPORT": 0,
+      "NO_STABLE_EVIDENCE": 3,
+      "UNIDENTIFIABLE": 0
+    }
+  },
+  "fdr_supported_count": 7,
+  "nominal_support_count": 135,
+  "directionally_stable_count": 403,
+  "unidentifiable_count": 321,
+  "contextual_signals_deferred": 24,
+  "component_frequency_policy": "REPORT_ONLY",
+  "complete_strategy_frequency_policy": "HARD_GATE_60D_MEDIAN_7_P10_3",
+  "search_ledger_paths_added": 2040,
+  "decision": "PROCEED_TO_CROSS_TYPE_COMPLEMENTARITY_REVIEW",
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false,
+  "protocol_sha256": "7286c22fdcae91d2dd5467379f1cb88b30bbb7f30df69d1057ec4a1d128576ef"
+}

@@ -16,6 +16,7 @@
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\factor_signal_catalog[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
@@ -29,6 +30,20 @@ python -m venv .venv
 .\.venv\Scripts\pte.exe --help
 Get-Command .\.venv\Scripts\pte-watchdog.exe
 ```
+
+## 因子与信号目录
+
+FSC用于查看项目已经登记的研究“弹药”。目录状态只表示定义是否可复用，不代表存在Alpha：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe catalog validate
+.\.venv\Scripts\czsc-trader.exe catalog list --kind factor --status READY
+.\.venv\Scripts\czsc-trader.exe catalog list --kind signal --family MARKET_STRUCTURE
+.\.venv\Scripts\czsc-trader.exe catalog show --id F-PROJECT-ER60
+```
+
+标的计算值、筛选结果和收益证据不在FSC中查看，应进入对应的`research/<策略ID>/`与
+`experiments/<策略ID>/`。
 
 ## 行情数据
 

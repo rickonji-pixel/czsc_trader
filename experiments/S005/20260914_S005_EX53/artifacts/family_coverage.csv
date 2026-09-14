@@ -1,0 +1,13 @@
+family_id,family_name,factor_count,signal_count,ready_factor_count,ready_signal_count,needs_semantic_review
+MARKET_STRUCTURE,市场结构,0,53,0,5,48
+TREND_MOMENTUM,趋势动量,1,59,1,2,57
+TREND_REGIME,趋势环境,1,1,1,1,0
+VOLUME_LIQUIDITY,量能与流动性,1,15,1,2,13
+VOLATILITY_RISK,波动与风险,0,0,0,0,0
+POSITION_VALUATION,价格位置与估值,2,1,1,1,1
+MARKET_BREADTH,市场宽度,2,1,2,1,0
+FUND_FLOW,资金流与份额,2,1,1,1,1
+FUNDAMENTAL_EXPECTATION,基本面预期,1,0,0,0,1
+EVENT_CATALYST,事件催化,1,0,1,0,0
+MARKET_MICROSTRUCTURE,市场微观结构,2,0,2,0,0
+OTHER_TECHNICAL,待拆分技术类,0,118,0,0,118

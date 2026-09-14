@@ -200,6 +200,30 @@ def _news_extract(args: argparse.Namespace):
     )
 
 
+def _catalog_validate(args: argparse.Namespace):
+    from czsc_trader.application.catalog_service import validate_catalog
+
+    return validate_catalog(_context(args))
+
+
+def _catalog_list(args: argparse.Namespace):
+    from czsc_trader.application.catalog_service import list_catalog
+
+    return list_catalog(
+        _context(args),
+        kind=args.kind,
+        family=args.family,
+        status=args.status,
+        query=args.query,
+    )
+
+
+def _catalog_show(args: argparse.Namespace):
+    from czsc_trader.application.catalog_service import show_catalog
+
+    return show_catalog(_context(args), args.id)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = CommandParser(prog="czsc-trader")
     resources = parser.add_subparsers(
@@ -299,6 +323,34 @@ def build_parser() -> argparse.ArgumentParser:
     news_extract.set_defaults(
         command_handler=_news_extract,
         command_name="news.extract",
+    )
+
+    catalog = resources.add_parser("catalog")
+    catalog_actions = catalog.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
+    catalog_validate = catalog_actions.add_parser("validate")
+    _add_repository_root(catalog_validate)
+    catalog_validate.set_defaults(
+        command_handler=_catalog_validate,
+        command_name="catalog.validate",
+    )
+    catalog_list = catalog_actions.add_parser("list")
+    catalog_list.add_argument("--kind", choices=("all", "factor", "signal"), default="all")
+    catalog_list.add_argument("--family")
+    catalog_list.add_argument("--status", choices=("DISCOVERED", "READY", "DEPRECATED"))
+    catalog_list.add_argument("--query")
+    _add_repository_root(catalog_list)
+    catalog_list.set_defaults(
+        command_handler=_catalog_list,
+        command_name="catalog.list",
+    )
+    catalog_show = catalog_actions.add_parser("show")
+    catalog_show.add_argument("--id", required=True)
+    _add_repository_root(catalog_show)
+    catalog_show.set_defaults(
+        command_handler=_catalog_show,
+        command_name="catalog.show",
     )
 
     backtest = resources.add_parser("backtest")

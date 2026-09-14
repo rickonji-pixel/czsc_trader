@@ -60,6 +60,7 @@ TDR、SM、SE、PTE关键业务能力的同时，控制TDD带来的用例数量�
 - TDR：`tests/functional/`；
 - SM：`packages/strategy_manager/tests/functional/`；
 - SE：`packages/strategy_evaluator/tests/functional/`；
+- FSC：`packages/factor_signal_catalog/tests/functional/`；
 - PTE：`packages/paper_trading_engine/tests/functional/`。
 
 每个场景应尽量从模块公开入口发起，并在一次流程中验证输入、主要状态转换、输出和关键
@@ -120,7 +121,7 @@ TDR、SM、SE、PTE关键业务能力的同时，控制TDD带来的用例数量�
 | TDD开发中 | 当前失败用例和直接相关场景 |
 | 功能完成或缺陷修复后 | 受影响模块的全部功能用例 |
 | 提交前 | 受影响模块功能用例及Ruff |
-| 合并或推送前 | TDR、SM、SE、PTE全部功能用例、PTE前端用例及Ruff |
+| 合并或推送前 | TDR、FSC、SM、SE、PTE全部功能用例、PTE前端用例及Ruff |
 | 服务或外部渠道变更交付 | 完整离线回归后，再执行明确授权的在线验证 |
 
 完整离线回归：
@@ -129,10 +130,11 @@ TDR、SM、SE、PTE关键业务能力的同时，控制TDD带来的用例数量�
 .\.venv\Scripts\python.exe -m pytest tests -q
 .\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
+.\.venv\Scripts\python.exe -m pytest packages\factor_signal_catalog\tests -q
 .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
 node --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
 .\.venv\Scripts\python.exe -m ruff check `
-  src tests packages\strategy_manager packages\strategy_evaluator `
+  src tests packages\factor_signal_catalog packages\strategy_manager packages\strategy_evaluator `
   packages\paper_trading_engine\src packages\paper_trading_engine\tests
 ```
 
@@ -149,7 +151,7 @@ node --test packages\paper_trading_engine\tests\functional\console_state.test.mj
 
 每次治理按以下步骤执行：
 
-1. **盘点**：记录四个模块的用例文件数、测试项数、耗时和失败情况；
+1. **盘点**：记录五个模块的用例文件数、测试项数、耗时和失败情况；
 2. **归类**：区分长期场景、临时TDD、重复场景、实现细节测试和在线检查；
 3. **收敛**：合并同一业务行为的准备与断言，清除残留`TEMP-TDD`；
 4. **删除**：移除重复、废弃、脆弱且无独立风险价值的用例；
@@ -161,11 +163,13 @@ node --test packages\paper_trading_engine\tests\functional\console_state.test.mj
 ```powershell
 rg -n "TEMP-TDD" tests packages -g "*.py" -g "*.mjs"
 .\.venv\Scripts\python.exe -m pytest tests packages\strategy_manager\tests `
-  packages\strategy_evaluator\tests packages\paper_trading_engine\tests `
+  packages\strategy_evaluator\tests packages\factor_signal_catalog\tests `
+  packages\paper_trading_engine\tests `
   --collect-only -q
 Measure-Command { .\.venv\Scripts\python.exe -m pytest tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\factor_signal_catalog\tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q }
 ```
 

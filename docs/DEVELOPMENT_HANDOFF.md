@@ -45,7 +45,7 @@ git rev-list --left-right --count origin/master...master
 ```text
 Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测）
                                       ↓
-                        TDR
+                        TDR ← FSC（定义目录）
               ┌──────────┼──────────┐
               ↓          ↓          ↓
              SM         SE   advice.v4/v5
@@ -61,6 +61,9 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 
 - **TDR**位于`src/czsc_trader/`。它拥有正式数据口径、策略执行语义、因果回测、实验编排
   和`advice.v4/advice.v5`决策生成，并作为SM、SE的应用入口。
+- **FSC**位于`packages/factor_signal_catalog/`，定义数据位于`catalog/`。它记录项目级信息族、
+  因子和信号的稳定语义、实现入口、参数及因果可用时间；不保存标的计算值、收益证据、实验
+  结论或运行状态。TDR只读引用FSC，各研究线拥有自己的物化缓存与证据。
 - **SM**位于`packages/strategy_manager/`。它管理稳定策略ID、不可变版本、资格流转、
   绩效证据和追加式治理审计；它不管理策略进程与账户运行状态。
 - **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的事实，执行筛劣、Pareto排名、
@@ -76,7 +79,7 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 正式实验档案按`experiments/<策略ID>/<实验ID>/`保存。实验ID全局唯一，TDR按ID定位
 嵌套档案；历史SM证据中的旧路径字符串保持不变，并由兼容解析器映射到当前目录。
 
-依赖方向保持为：`TDR → SM/SE`、`PTE → TDR CLI`、`WDG → PTE进程`。
+依赖方向保持为：`TDR → FSC/SM/SE`、`PTE → TDR CLI`、`WDG → PTE进程`。
 
 ## 关键业务不变量
 
@@ -166,7 +169,7 @@ git pull --ff-only origin master
 
 ## OPC测试用例治理
 
-测试目标是用尽量少的稳定业务场景保护TDR、SM、SE、PTE的完整能力。TDD最小失败用例
+测试目标是用尽量少的稳定业务场景保护TDR、FSC、SM、SE、PTE的完整能力。TDD最小失败用例
 可以临时存在；行为稳定后应并入长期功能场景并删除重复用例。长期用例验证公开入口、关键
 状态转换、持久化结果和安全约束，不围绕私有实现持续增长。
 

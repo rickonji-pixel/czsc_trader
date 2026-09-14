@@ -17,6 +17,7 @@ CZSC Trader 是面向个人量化团队的可审计策略研发与模拟交易�
 | --- | --- | --- | --- |
 | CZSC Trader | TDR | `src/czsc_trader/` | 行情验证、策略解析、回测、研究编排和交易决策 |
 | Dataflows | — | `packages/dataflows/` | Tushare数据获取、复权、多频数据处理和发布清单 |
+| Factor & Signal Catalog | FSC | `packages/factor_signal_catalog/` | 项目级信息族、因子和信号定义目录 |
 | Strategy Manager | SM | `packages/strategy_manager/` | 策略身份、版本、资格、冻结和证据治理 |
 | Strategy Evaluator | SE | `packages/strategy_evaluator/` | 候选比较、统计审计、稳健性检验和晋级建议 |
 | Paper Trading Engine | PTE | `packages/paper_trading_engine/` | 虚拟账户、模拟下单、成交对账、运行审计和控制台 |
@@ -42,6 +43,7 @@ SM与SE管理策略生命周期和评估证据，不直接参与运行时下单�
 | --- | --- | --- |
 | `src/czsc_trader/` | TDR主程序、命令入口和应用服务 | 项目核心业务代码 |
 | `packages/` | Dataflows、SM、SE、PTE等独立子包 | 各子系统接口、实现和包级测试 |
+| `catalog/` | FSC信息族、因子和信号定义 | 项目级定义来源，不保存标的值或Alpha证据 |
 | `strategies/` | 正式策略身份、冻结版本、生命周期和证据 | 正式策略事实来源，不保存研究草稿 |
 | `research/` | 各策略研究线的交接、候选和监测方案 | 当前研究上下文与下一步入口 |
 | `experiments/` | 按策略和实验编号归档的输入、结果及审计证据 | 不可变研究档案，失败实验同样保留 |
@@ -71,6 +73,7 @@ SM与SE管理策略生命周期和评估证据，不直接参与运行时下单�
 ### 包级技术文档
 
 - [Dataflows技术说明](packages/dataflows/README.md)：数据包接口和使用方式。
+- [FSC技术说明](packages/factor_signal_catalog/README.md)：因子与信号定义目录及查询方式。
 - [Strategy Evaluator技术说明](packages/strategy_evaluator/README.md)：候选评估与统计审计接口。
 - [Paper Trading Engine技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、
   接口、运行边界和包级开发信息。

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import subprocess
 import sys
 
-from czsc_trader.cli.main import build_parser
+from czsc_trader.cli.main import build_parser, main
 
 
 EXPECTED_ACTIONS = {
@@ -32,6 +33,7 @@ EXPECTED_ACTIONS = {
     "archive": {"validate"},
     "chart": {"observation"},
     "news": {"extract"},
+    "catalog": {"validate", "list", "show"},
 }
 
 
@@ -69,3 +71,17 @@ def test_ft_t08_installed_cli_exposes_supported_command_surface() -> None:
     assert completed.stderr == ""
     assert all(resource in completed.stdout for resource in EXPECTED_ACTIONS)
     assert _command_surface(build_parser()) == EXPECTED_ACTIONS
+
+
+def test_ft_t08_catalog_cli_validates_lists_and_shows(capsys) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    root = ["--repo-root", str(repo)]
+    for arguments in (
+        ["catalog", "validate", *root],
+        ["catalog", "list", "--kind", "factor", "--status", "READY", *root],
+        ["catalog", "show", "--id", "F-PROJECT-ER60", *root],
+    ):
+        assert main(arguments) == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["status"] == "PASS"
+    assert payload["result"]["definition"]["factor_id"] == "F-PROJECT-ER60"

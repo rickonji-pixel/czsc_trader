@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX46",
+  "experiment_type": "cross_etf_information_diffusion_density_selection",
+  "strategy_id": "S005",
+  "trade_symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "inputs": {
+    "588080.SH": ["experiments/S005/20260913_S005_EX45/artifacts/588080_SH_30m.csv.gz", "0781a7c6f0496f20986f802ff4029fc0d4ad95277e398897117ed6e66f9f742e"],
+    "512480.SH": ["experiments/S005/20260913_S005_EX45/artifacts/512480_SH_30m.csv.gz", "d6a95eb75cdc759b35198b8cb7bf6ac538ea840a9e292d4f1f6e76adee3fb229"],
+    "512760.SH": ["experiments/S005/20260913_S005_EX45/artifacts/512760_SH_30m.csv.gz", "80c77b9f87d544080ad3dae5f455230ec63f6c9752d494b0f2a5e18d22539dff"],
+    "159995.SZ": ["experiments/S005/20260913_S005_EX45/artifacts/159995_SZ_30m.csv.gz", "cac7d3ed093b2907d1bb4706ee8dd6dbee9e8c101264a14fc3e7d6e374b7cc62"],
+    "510300.SH": ["experiments/S005/20260913_S005_EX45/artifacts/510300_SH_30m.csv.gz", "bcfb8f7bfe486563359c89fa2e99356179ecfaa34198643b4d49915cb94ec6a7"]
+  },
+  "semiconductor_sources": ["512480.SH", "512760.SH", "159995.SZ"],
+  "broad_control": "510300.SH",
+  "lookback_sessions": 120,
+  "quantiles": [0.5, 0.6, 0.7],
+  "minimum_semiconductor_breadth": 2,
+  "cooldown_sessions": 1,
+  "selection_rule": "HIGHEST_QUANTILE_PASSING_DENSITY",
+  "density_gate": {
+    "rolling_sessions": 60,
+    "minimum_median_events": 7,
+    "minimum_p10_events": 3
+  },
+  "reads_post_signal_returns": false,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false
+}

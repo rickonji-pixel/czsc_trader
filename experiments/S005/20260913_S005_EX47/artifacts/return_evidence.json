@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260913_S005_EX47",
+  "status": "COMPLETE",
+  "mechanism": "SECTOR_LEADS_TARGET_Q70",
+  "metrics": {
+    "closed_trades": 216,
+    "terminal_signals_skipped": 0,
+    "gross_mean": -0.0010622340066306132,
+    "stress_mean": -0.002260240521913465,
+    "stress_profit_factor": 0.6801589763154227,
+    "positive_years": 1,
+    "recent_trades": 50,
+    "recent_stress_mean": -0.0019107002831326091,
+    "random_percentile": 12.4,
+    "random_median": -0.0010269278153878013,
+    "random_p90": 0.0004432308771196743,
+    "proxy_cagr": -0.09019348056106258,
+    "proxy_maximum_drawdown": -0.5477008738845004
+  },
+  "checks": {
+    "stress_mean": false,
+    "profit_factor": false,
+    "positive_years": false,
+    "recent": false,
+    "random_control": false,
+    "proxy_cagr": false,
+    "proxy_maximum_drawdown": false
+  },
+  "decision": "STOP_CROSS_ETF_TRANSMISSION_ON_RETURN",
+  "cumulative_return_path_count": 14,
+  "candidate_created": false,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "protocol_sha256": "dc1d323f56ee7468ff5cebe000c5a816f14bdff995537b336c69c7e83c8f6863"
+}

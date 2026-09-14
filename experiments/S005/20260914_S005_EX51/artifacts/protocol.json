@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX51",
+  "experiment_type": "three_role_combination_risk_entry_gate_density",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "experiment_id": "20260914_S005_EX50",
+    "manifest_sha256": "72db5d23833b3f35b40bae6fb9c5d4fd16f940711630092167947a669f5dc634",
+    "states_sha256": "f58e53265a11f242fa5719ec7cc256116df7b80d729a21b20cb21200a079d77a",
+    "evidence_sha256": "8983795226862ab2d62bd64d007c16f3cc51a4d5231342bf6009e9d6740a0028"
+  },
+  "entry": "core_up AND confirmation_up AND NOT internal_fragility",
+  "exit": "core_down",
+  "risk_policy": "BLOCK_NEW_ENTRY_ONLY",
+  "density": {
+    "rolling_window_sessions": 60,
+    "minimum_median": 7,
+    "minimum_p10": 3
+  },
+  "reads_post_signal_prices": false,
+  "candidate_generation": false,
+  "parameter_search": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

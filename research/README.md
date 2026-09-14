@@ -12,6 +12,7 @@
 | S003 | 成分资金流宽度早盘延续 | 510500.SH | PAPER_READY / PTE观察 | [S003](S003/HANDOFF.md) |
 | S004 | 尾盘流动性错位修复 | 588080.SH | RESEARCH_PAUSED / 候选保留作标杆 | [S004](S004/HANDOFF.md) |
 | S005 | 588080中频增强策略（终止） | 588080.SH | TERMINATED_NO_CANDIDATE | [S005](S005/HANDOFF.md) |
+| S006 | 588080全量信息策略研究（终止） | 588080.SH | TERMINATED_NO_CANDIDATE | [S006](S006/HANDOFF.md) |
 
 ## 前瞻监测方案
 

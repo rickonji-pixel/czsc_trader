@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX16",
+  "status": "COMPLETE",
+  "regime_threshold_confirmation": 0.13530604761156378,
+  "tested_paths": 18,
+  "validated_paths": 1,
+  "validated_information_families": 1,
+  "validated_path_ids": [
+    "MARKET_STRUCTURE:trend"
+  ],
+  "decision": "STOP_ER60_CONDITIONAL_ARCHITECTURE",
+  "strategy_returns_generated": false,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

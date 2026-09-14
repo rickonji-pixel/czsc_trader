@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX08",
+  "experiment_type": "fdr_anchor_independent_event_robustness_audit",
+  "strategy_id": "S006",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "development_cutoff": "2026-09-02",
+  "dataset": {
+    "name": "research",
+    "fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+    "discovery_start": "2021-01-04",
+    "discovery_end": "2023-12-31",
+    "confirmation_start": "2024-01-01",
+    "confirmation_end": "2026-09-02"
+  },
+  "sources": {
+    "corrected_audit_experiment_id": "20260914_S006_EX07",
+    "corrected_audit_manifest_sha256": "30b2752f4ab0969a8dec0cd199de5f84b0e7922daba87c5e81f56c7eb76e5869",
+    "corrected_ledger_sha256": "f9a32a5942d266e932e6b44c7b8ccb9e63d14c5e3fabbb297262fbb03ca876bd",
+    "state_models_path": "experiments/S006/20260914_S006_EX06/artifacts/categorical_state_models.csv.gz",
+    "state_models_sha256": "de83c24cc8d12c497f0d7836d365bed467ce6baa4098316c8edac2939b4ec992",
+    "primary_states_path": "experiments/S005/20260914_S005_EX49/artifacts/primary_states.csv.gz",
+    "primary_states_sha256": "7bd1e372fe75fe0cc29ba19c8d731e05b19ec54ee6262bd878de4ee555ece4b7"
+  },
+  "scope": {
+    "source_label": "FDR_SUPPORTED",
+    "expected_paths": 7,
+    "additional_search_paths": 7
+  },
+  "robust_anchor": {
+    "minimum_discovery_episodes": 12,
+    "minimum_confirmation_episodes": 12,
+    "minimum_positive_years": 2,
+    "minimum_episodes_per_year": 2,
+    "drop_best_episodes": 2
+  },
+  "redundancy": {
+    "absolute_spearman": 0.80,
+    "episode_jaccard": 0.60
+  },
+  "reads_new_returns": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

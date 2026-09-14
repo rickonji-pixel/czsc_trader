@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX16",
+  "experiment_type": "conditional_information_family_audit",
+  "strategy_id": "S006",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "development_cutoff": "2026-09-02",
+  "dataset": {
+    "name": "research",
+    "fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+    "discovery_start": "2021-01-04",
+    "discovery_end": "2023-12-31",
+    "confirmation_start": "2024-01-01",
+    "confirmation_end": "2026-09-02"
+  },
+  "sources": {
+    "panel_experiment_id": "20260914_S006_EX15",
+    "panel_manifest_sha256": "5d467b88cec7e64b1204ba6d81473b6220f1dcb85b8772a15eda695842542462",
+    "panel_path": "experiments/S006/20260914_S006_EX15/artifacts/preregistered_bridge_panel.csv",
+    "panel_sha256": "78c422590ea08b7532e9341c8c348f922ee21c42016f00b3161c1e3a064e16de",
+    "ex14_script_path": "experiments/S006/20260914_S006_EX14/run_experiment.py",
+    "ex14_script_sha256": "0787b4ed0b860efe38b154c64376a82c350e23d9269da6fe5ef82821aae73b49",
+    "ex12_script_path": "experiments/S006/20260914_S006_EX12/run_experiment.py",
+    "ex12_script_sha256": "a097d1b698b26b4fb91a379589997c7cc12f59082f3daac13c08850046a0bd85",
+    "ex06_script_path": "experiments/S006/20260914_S006_EX06/run_experiment.py",
+    "ex06_script_sha256": "dda473c1c0bc7f78e0ec17dcd0449c856e5b4726fee883d3e3a325cb33d5905e",
+    "primary_states_path": "experiments/S005/20260914_S005_EX49/artifacts/primary_states.csv.gz",
+    "primary_states_sha256": "7bd1e372fe75fe0cc29ba19c8d731e05b19ec54ee6262bd878de4ee555ece4b7",
+    "project_states_path": "experiments/S006/20260914_S006_EX04/artifacts/project_signal_states.csv.gz",
+    "project_states_sha256": "e00a99001562f0368ce9101fdaebfc24baf7f205ed18499ce8be4d9a78799833",
+    "factor_ledger_path": "experiments/S005/20260914_S005_EX58/artifacts/factor_observation_ledger.csv.gz",
+    "factor_ledger_sha256": "434886a035143f7ea187674b8f89c53634432ff636e62d0af03c0ec158d41f3e",
+    "industry_path": "experiments/S005/20260914_S005_EX64/artifacts/industry_daily_factors.csv.gz",
+    "industry_sha256": "e1a171c49cc0f5ec9b6ec43088f6a3bbdad18883203016c6d7d6aa64bc25d65a",
+    "analyst_path": "experiments/S005/20260914_S005_EX67/artifacts/expectation_revision_ledger.csv.gz",
+    "analyst_sha256": "89aca525ae8934fad68aa672beda933c942971404704349dde7840a96b51417b"
+  },
+  "regime": {
+    "factor_id": "F-PROJECT-ER60",
+    "threshold_method": "discovery_median",
+    "states": ["range", "trend"]
+  },
+  "scoring": {
+    "horizon_sessions": 1,
+    "categorical_shrinkage_prior_count": 20,
+    "family_aggregation": "median",
+    "excluded_information_families": ["TREND_REGIME"],
+    "expected_paths": 18
+  },
+  "acceptance": {
+    "minimum_pooled_observations": 100,
+    "minimum_annual_observations": 30,
+    "minimum_absolute_discovery_ic": 0.03,
+    "maximum_discovery_fdr_q": 0.10,
+    "minimum_same_direction_discovery_years": 2,
+    "minimum_absolute_regime_ic_gap": 0.02,
+    "minimum_absolute_confirmation_ic": 0.01,
+    "minimum_validated_information_families": 2
+  },
+  "reads_new_returns": true,
+  "generates_strategy_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

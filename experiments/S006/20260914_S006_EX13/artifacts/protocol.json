@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX13",
+  "experiment_type": "derived_parameter_platform_and_complexity_audit",
+  "strategy_id": "S006",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "source": {
+    "experiment_id": "20260914_S006_EX12",
+    "manifest_sha256": "7403e7a4ce35a45251c921e8898c01cb2a400cde74a31bfce4f6d7ffa4cceecc",
+    "replay_ledger_sha256": "8c7d64b1146cbb3dcfc89a5159e7d4cac78bd20d3e6e8b2ca6f9a3026f02b099",
+    "component_panel_sha256": "87122b8f7dfd9d19e014a147a1a482759f33dbcc01b367b872e388f70e204ae9"
+  },
+  "complexity": {"maximum_components_before_candidate": 30, "components_per_nonzero_family_next_round": 3},
+  "reads_new_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

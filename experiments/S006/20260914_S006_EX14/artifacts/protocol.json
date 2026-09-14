@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX14",
+  "experiment_type": "preregistered_compressed_panel_replay",
+  "strategy_id": "S006",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "development_cutoff": "2026-09-02",
+  "dataset": {
+    "name": "research",
+    "fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+    "discovery_start": "2021-01-04",
+    "discovery_end": "2023-12-31",
+    "confirmation_start": "2024-01-01",
+    "confirmation_end": "2026-09-02"
+  },
+  "sources": {
+    "compression_experiment_id": "20260914_S006_EX13",
+    "compression_manifest_sha256": "679123f1d4434668a3e2f7c6c15a61975989979fbad9aa0dc6bb63ce883b8609",
+    "compressed_panel_path": "experiments/S006/20260914_S006_EX13/artifacts/preregistered_compressed_panel.csv",
+    "compressed_panel_sha256": "ecd7c95b28b95355806cefb9938c4e6a0a2249492f5dcfff03d480b01f6d25ac",
+    "ex12_script_path": "experiments/S006/20260914_S006_EX12/run_experiment.py",
+    "ex12_script_sha256": "a097d1b698b26b4fb91a379589997c7cc12f59082f3daac13c08850046a0bd85",
+    "ex06_script_path": "experiments/S006/20260914_S006_EX06/run_experiment.py",
+    "ex06_script_sha256": "dda473c1c0bc7f78e0ec17dcd0449c856e5b4726fee883d3e3a325cb33d5905e",
+    "ex10_script_path": "experiments/S006/20260914_S006_EX10/run_experiment.py",
+    "ex10_script_sha256": "a5c09d266b11bbcc903832944f5cf4a4ef9c3acce69b2aed863f6c9360f18a30",
+    "primary_states_path": "experiments/S005/20260914_S005_EX49/artifacts/primary_states.csv.gz",
+    "primary_states_sha256": "7bd1e372fe75fe0cc29ba19c8d731e05b19ec54ee6262bd878de4ee555ece4b7",
+    "project_states_path": "experiments/S006/20260914_S006_EX04/artifacts/project_signal_states.csv.gz",
+    "project_states_sha256": "e00a99001562f0368ce9101fdaebfc24baf7f205ed18499ce8be4d9a78799833",
+    "factor_ledger_path": "experiments/S005/20260914_S005_EX58/artifacts/factor_observation_ledger.csv.gz",
+    "factor_ledger_sha256": "434886a035143f7ea187674b8f89c53634432ff636e62d0af03c0ec158d41f3e",
+    "industry_path": "experiments/S005/20260914_S005_EX64/artifacts/industry_daily_factors.csv.gz",
+    "industry_sha256": "e1a171c49cc0f5ec9b6ec43088f6a3bbdad18883203016c6d7d6aa64bc25d65a",
+    "analyst_path": "experiments/S005/20260914_S005_EX67/artifacts/expectation_revision_ledger.csv.gz",
+    "analyst_sha256": "89aca525ae8934fad68aa672beda933c942971404704349dde7840a96b51417b"
+  },
+  "architecture": {
+    "horizon_sessions": 1,
+    "combiner": "POSITIVE_RIDGE_A10",
+    "smoothing_sessions": 1,
+    "entry_quantile": 0.50,
+    "categorical_shrinkage_prior_count": 20,
+    "expected_components": 21,
+    "expected_information_families": 10
+  },
+  "execution": {"fee_rate_one_way": 0.0005},
+  "hard_gates": {
+    "minimum_cagr": 0.24078187745776553,
+    "maximum_drawdown_limit": -0.20,
+    "s001_v2_maximum_drawdown": -0.21533380100584476,
+    "minimum_rolling_60_closed_trades_median": 7.0,
+    "minimum_rolling_60_closed_trades_p10": 3.0,
+    "minimum_confirmation_cagr": 0.0,
+    "confirmation_maximum_drawdown_limit": -0.20
+  },
+  "reference": {
+    "ex12_full_cagr": 0.3525960003572117,
+    "ex12_full_maximum_drawdown": -0.18286439062280369
+  },
+  "reads_new_returns": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

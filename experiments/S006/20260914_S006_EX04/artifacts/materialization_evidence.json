@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX04",
+  "project_signal_count": 3,
+  "state_observation_count": 4049,
+  "signal_state_counts": [
+    {
+      "signal_id": "SIG-PROJECT-BREADTH-THRUST",
+      "state": "active",
+      "observations": 332
+    },
+    {
+      "signal_id": "SIG-PROJECT-BREADTH-THRUST",
+      "state": "inactive",
+      "observations": 957
+    },
+    {
+      "signal_id": "SIG-PROJECT-BREADTH-THRUST",
+      "state": "warmup",
+      "observations": 60
+    },
+    {
+      "signal_id": "SIG-PROJECT-ER60-REGIME",
+      "state": "range",
+      "observations": 700
+    },
+    {
+      "signal_id": "SIG-PROJECT-ER60-REGIME",
+      "state": "trend",
+      "observations": 647
+    },
+    {
+      "signal_id": "SIG-PROJECT-MONEYFLOW-BREADTH",
+      "state": "active",
+      "observations": 287
+    },
+    {
+      "signal_id": "SIG-PROJECT-MONEYFLOW-BREADTH",
+      "state": "inactive",
+      "observations": 1006
+    },
+    {
+      "signal_id": "SIG-PROJECT-MONEYFLOW-BREADTH",
+      "state": "warmup",
+      "observations": 60
+    }
+  ],
+  "categorical_configurations": 665,
+  "continuous_factors": 14,
+  "event_factors": 1,
+  "forward_open_intervals": [
+    1,
+    3,
+    5
+  ],
+  "preregistered_return_paths": 2040,
+  "new_return_paths_read": 0,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

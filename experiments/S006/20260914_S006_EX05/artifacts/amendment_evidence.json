@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX05",
+  "market_open_clock": "09:30:00",
+  "boundary_examples": {
+    "09:00:00": "SAME_DAY_OPEN",
+    "09:30:00": "SAME_DAY_OPEN",
+    "10:30:00": "NEXT_SESSION_OPEN"
+  },
+  "preregistered_return_paths": 2040,
+  "new_return_paths_read": 0,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

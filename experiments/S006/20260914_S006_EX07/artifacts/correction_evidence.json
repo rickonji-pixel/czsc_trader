@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX07",
+  "status": "COMPLETE",
+  "corrected_path_count": 3,
+  "corrected_path_ids": [
+    "F-PROJECT-STRUCTURED-NEWS-EVENT:H1",
+    "F-PROJECT-STRUCTURED-NEWS-EVENT:H3",
+    "F-PROJECT-STRUCTURED-NEWS-EVENT:H5"
+  ],
+  "path_count": 2040,
+  "fdr_supported_count": 7,
+  "evidence_label_counts": {
+    "DIRECTIONALLY_STABLE": 403,
+    "FDR_SUPPORTED": 7,
+    "NOMINAL_SUPPORT": 135,
+    "NO_STABLE_EVIDENCE": 1171,
+    "UNIDENTIFIABLE": 324
+  },
+  "decision": "PROCEED_TO_CROSS_TYPE_COMPLEMENTARITY_REVIEW",
+  "source_ledger_sha256": "38c3c6bbf11fd79464eb55e3ba8924efb38b4f8fba36fd168653ef8bf102bc02",
+  "corrected_ledger_sha256": "f9a32a5942d266e932e6b44c7b8ccb9e63d14c5e3fabbb297262fbb03ca876bd",
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

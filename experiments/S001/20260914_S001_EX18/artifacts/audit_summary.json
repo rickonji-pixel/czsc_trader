@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S001_EX18",
+  "status": "COMPLETE",
+  "strategy_reference": "S001-v2",
+  "strategy_release_hash": "146490c8a4ee75f307d3d59453efaebc8fea671c726c023c96449706c40b944e",
+  "data_fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+  "factor_count": 12,
+  "information_family_count": 4,
+  "variant_count": 29,
+  "frequency_gate_applied": false,
+  "control_reproduced": true,
+  "control_metrics": {
+    "variant_kind": "control",
+    "subject": "S001-v2",
+    "total_return": 2.6423167354999912,
+    "cagr": 0.26753541939751635,
+    "maximum_drawdown": -0.2153338010058451,
+    "calmar": 1.2424218499271011,
+    "closed_trades": 73,
+    "win_loss_ratio": 4.5025235129258006,
+    "win_loss_ratio_status": "VALID",
+    "exposure_ratio": 0.524745269286754,
+    "target_entry_episodes": 73,
+    "rolling_60_entry_median": 3.0,
+    "rolling_60_entry_p10": 2.0,
+    "frequency_gate_applied": false
+  },
+  "factor_classification_counts": {
+    "REGIME_DEPENDENT": 4,
+    "SUPPORTIVE": 8
+  },
+  "family_classification_counts": {
+    "REGIME_DEPENDENT": 2,
+    "SUPPORTIVE": 2
+  },
+  "low_frequency_aliases": [
+    "F04",
+    "F05",
+    "F11",
+    "F12"
+  ],
+  "standalone_joint_mandate_pass_count": 0,
+  "maximum_pair_nmi": 0.45290945521150594,
+  "decision": "FACTOR_EVIDENCE_REAUDITED_NO_STRATEGY_CHANGE",
+  "candidate_created": false,
+  "strategy_mutated": false,
+  "pte_mutated": false,
+  "protocol_sha256": "95ca295711698bf648ca0ee26661ff4deeee26599e2bf858651990128bd5043c"
+}

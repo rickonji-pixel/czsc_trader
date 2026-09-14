@@ -791,6 +791,40 @@ class FutuExecution:
         )
         return resolved
 
+    def repair_account_ledger(self, account_id: str, intent_id: str):
+        """Repair only a proven missing release after a fresh broker account snapshot."""
+        self.refresh_account()
+        account = self.store.virtual_account(account_id)
+        if account is None:
+            raise KeyError(account_id)
+        symbol = str(account["symbol"])
+        broker_quantity = sum(
+            int(row.quantity) for row in self._snapshot.positions if row.symbol == symbol
+        )
+        logical_quantity = sum(
+            int(row["quantity"]) for row in self.store.virtual_accounts()
+            if row["symbol"] == symbol and row.get("status") != "RETIRED"
+        )
+        if broker_quantity != logical_quantity:
+            raise ValueError("broker quantity differs from logical quantity; ledger repair blocked")
+        intent = self.store.account_intent(intent_id)
+        if intent is None or intent["account_id"] != account_id:
+            raise KeyError(intent_id)
+        event = self.audit.build(
+            "ACCOUNT_LEDGER_REPAIRED", source="operator.ledger_repair",
+            actor_type="OPERATOR", account_id=account_id,
+            strategy_id=account.get("strategy_id"),
+            strategy_version=account.get("strategy_version"),
+            release_hash=account.get("release_hash"), symbol=symbol, channel="futu",
+            decision_id=intent["decision_id"], correlation_id=intent_id,
+            details={
+                "intent_id": intent_id,
+                "reason": "missing_reservation_generation_release",
+                "reservation_generation": intent["reservation_generation"],
+            },
+        )
+        return self.store.repair_released_intent_ledger(account_id, intent_id, event)
+
     def refresh(self):
         self.refresh_orders()
         self.submit_pending(reconcile=False)

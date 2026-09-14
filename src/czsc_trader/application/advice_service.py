@@ -357,6 +357,7 @@ def build_intraday_overlay_advice_v5(
     signal_date: pd.Timestamp,
     valid_session: pd.Timestamp,
     signal_close: float,
+    execution_close: float,
     actual_quantity: int,
     available_cash: float,
     cycle_target_quantity: int | None,
@@ -376,9 +377,15 @@ def build_intraday_overlay_advice_v5(
     cash = Decimal(str(available_cash))
     if cash < 0:
         raise ValueError("intraday overlay available cash must be non-negative")
+    signal_price = Decimal(str(signal_close))
+    execution_price = Decimal(str(execution_close))
+    if not signal_price.is_finite() or signal_price <= 0:
+        raise ValueError("intraday overlay signal close must be positive and finite")
+    if not execution_price.is_finite() or execution_price <= 0:
+        raise ValueError("intraday overlay execution close must be positive and finite")
     # OPEN is implemented as a strategy-owned marketable limit. PTE passes this exact
     # value to Futu with adjust_limit disabled; the broker never invents the price.
-    buy_limit = Decimal(str(floor_to_tick(float(signal_close) * 1.10, 0.001)))
+    buy_limit = Decimal(str(floor_to_tick(float(execution_price) * 1.10, 0.001)))
 
     def affordable(budget: Decimal) -> int:
         raw = int(budget / (buy_limit * (Decimal("1") + fee_rate)))
@@ -480,7 +487,7 @@ def build_intraday_overlay_advice_v5(
         "action": action,
         "strategy": dict(strategy),
         "signal_reference_price": float(signal_close),
-        "execution_reference_price": float(signal_close),
+        "execution_reference_price": float(execution_close),
         "order": None,
         "orders": [],
         "available_cash": float(cash),
@@ -631,6 +638,7 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
                 signal_date=signal_date,
                 valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
                 signal_close=float(close.loc[signal_date]),
+                execution_close=float(execution_rows.iloc[0]["close"]),
                 actual_quantity=request.actual_quantity,
                 available_cash=float(request.available_cash),
                 cycle_target_quantity=request.cycle_target_quantity,

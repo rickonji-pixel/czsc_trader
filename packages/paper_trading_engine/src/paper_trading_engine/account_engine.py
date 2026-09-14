@@ -122,7 +122,7 @@ class AccountEngine:
         payload = asdict(decision)
         self.store.save_account_decision(account_id, payload)
         valued_account = self.store.virtual_account(account_id)
-        close = Decimal(str(decision.signal_reference_price))
+        close = Decimal(str(decision.execution_reference_price))
         cash = Decimal(valued_account["cash"])
         frozen_cash = Decimal(valued_account["frozen_cash"])
         market_value = (close * int(valued_account["quantity"])).quantize(Decimal("0.0001"))

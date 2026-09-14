@@ -31,6 +31,84 @@ def intraday_setup_decision(strategy: dict[str, str]) -> AdviceDecision:
     )
 
 
+def test_recovered_buy_uses_a_new_reservation_generation_and_release(tmp_path):
+    store = PaperStore(tmp_path / "generation.db")
+    store.create_virtual_account(
+        "s003-v1", "S003-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S003", strategy_name_snapshot="成分资金流宽度早盘延续",
+        strategy_version="v1", release_hash="c" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-08",
+        symbol="510500.SH",
+    )
+    [intent] = store.create_account_plan_intents(
+        account_id="s003-v1", decision_id="DEC-GENERATION", symbol="510500.SH",
+        valid_session="2026-09-14", fee_rate="0.0005",
+        legs=[{
+            "sequence": 0, "side": "BUY", "quantity": 1000,
+            "order_type": "LIMIT", "limit_price": "7.5000",
+            "plan_mode": "CORE_SETUP", "role": "CORE_SETUP", "checkpoint": "OPEN",
+            "submit_after": "09:30:00", "submit_before": "09:35:00",
+            "dependency_sequence": None, "dependency_required_status": None,
+        }],
+    )
+    store.release_account_intent(
+        intent["intent_id"], "EXPIRED", attention_reason="计划订单错过提交截止时间",
+    )
+    store.recover_future_planned_intent(intent["intent_id"])
+    recovered = store.account_intent(intent["intent_id"])
+    assert recovered["reservation_generation"] == 2
+    store.release_account_intent(intent["intent_id"], "REJECTED")
+    assert store.account_invariant_violations() == []
+    with store._lock:
+        releases = store._connection.execute(
+            "SELECT 1 FROM account_ledger WHERE account_id=? AND entry_type='INTENT_RELEASE'",
+            ("s003-v1",),
+        ).fetchall()
+    assert len(releases) == 2
+    store.release_account_intent(intent["intent_id"], "REJECTED")
+    assert store.account_invariant_violations() == []
+    store.close()
+
+
+def test_missing_recovered_release_can_be_repaired_once_with_audit(tmp_path):
+    store = PaperStore(tmp_path / "repair.db")
+    store.create_virtual_account(
+        "s003-v1", "S003-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S003", strategy_name_snapshot="成分资金流宽度早盘延续",
+        strategy_version="v1", release_hash="c" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-08",
+        symbol="510500.SH",
+    )
+    intent = store.create_account_intent(
+        account_id="s003-v1", decision_id="DEC-REPAIR", order_sequence=0,
+        symbol="510500.SH", side="BUY", quantity=1000,
+        limit_price="7.5000", valid_session="2026-09-14",
+    )
+    reserve = "7503.7500"
+    with store._lock, store._connection:
+        store._connection.execute(
+            "UPDATE virtual_accounts SET cash='100000.0000',frozen_cash='0.0000' "
+            "WHERE account_id='s003-v1'"
+        )
+        store._connection.execute(
+            "UPDATE intents SET status='REJECTED',attention_required=1,"
+            "attention_reason='broker rejected' WHERE intent_id=?", (intent["intent_id"],)
+        )
+    assert store.account_invariant_violations()
+    event = AuditRecorder(store).build(
+        "ACCOUNT_LEDGER_REPAIRED", source="test", actor_type="OPERATOR",
+        account_id="s003-v1", correlation_id=intent["intent_id"],
+    )
+    result = store.repair_released_intent_ledger("s003-v1", intent["intent_id"], event)
+    assert result["status"] == "REPAIRED"
+    assert result["cash_delta"] == reserve
+    assert store.account_invariant_violations() == []
+    repeated = store.repair_released_intent_ledger("s003-v1", intent["intent_id"], event)
+    assert repeated["status"] == "ALREADY_REPAIRED"
+    assert len(store.query_audit_events(event_type="ACCOUNT_LEDGER_REPAIRED")) == 1
+    store.close()
+
+
 def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_path):
     store = PaperStore(tmp_path / "runtime.db")
     store.create_virtual_account(
@@ -111,6 +189,7 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     assert len(store.query_audit_events(event_type="ORDER_FILLED", account_id="s001-v1")) == 1
     store.close()
 
+
     reopened = PaperStore(tmp_path / "runtime.db")
     assert reopened.virtual_account("s001-v1")["quantity"] == 1000
     assert len(reopened.account_orders("s001-v1")) == 1
@@ -133,6 +212,32 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     external = audit_store.query_audit_events(event_type="EXTERNAL_CALL_FAILED")[0]
     assert external["account_id"] == "s001-v1"
     audit_store.close()
+
+
+def test_account_snapshot_values_position_with_execution_price(tmp_path):
+    store = PaperStore(tmp_path / "valuation.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    with store._lock, store._connection:
+        store._connection.execute(
+            "UPDATE virtual_accounts SET cash='90000.0000',quantity=1000 "
+            "WHERE account_id='s001-v1'"
+        )
+    advice = replace(
+        decision(), actual_quantity=1000, target_quantity=1000,
+        cycle_target_quantity=1000, delta_quantity=0,
+        signal_reference_price=2.50, execution_reference_price=7.61,
+    )
+    AccountEngine(store, FakeAdvice(advice)).refresh_account("s001-v1", force=True)
+    snapshot = store.account_snapshots("s001-v1")[0]
+    assert float(snapshot["close"]) == pytest.approx(7.61)
+    assert float(snapshot["market_value"]) == pytest.approx(7_610)
+    assert float(snapshot["total_assets"]) == pytest.approx(97_610)
+    store.close()
 
 
 def test_ft_pte10_intraday_plan_waits_for_fill_and_recovers_after_restart(tmp_path):

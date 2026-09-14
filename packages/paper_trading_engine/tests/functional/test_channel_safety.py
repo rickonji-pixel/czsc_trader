@@ -343,6 +343,7 @@ def test_ft_pte03_explicit_rejection_releases_cash_and_duplicate_submit_is_atomi
     execution.submit_pending()
     assert store.account_intent(rejected["intent_id"])["status"] == "REJECTED"
     assert float(store.virtual_account("s001-v1")["frozen_cash"]) == 0
+    assert store.account_invariant_violations() == []
     assert len(store.query_audit_events(event_type="ORDER_REJECTED")) == 1
 
     store.set_virtual_health("s001-v1", "OK")

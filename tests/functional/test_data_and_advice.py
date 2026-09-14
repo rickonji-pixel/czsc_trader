@@ -575,6 +575,7 @@ def test_s003_runtime_signal_and_planned_advice_contract(tmp_path: Path) -> None
         signal_date=pd.Timestamp("2026-09-08"),
         valid_session=pd.Timestamp("2026-09-09"),
         signal_close=6.20,
+        execution_close=7.61,
         actual_quantity=0,
         available_cash=100_000,
         cycle_target_quantity=None,
@@ -585,7 +586,9 @@ def test_s003_runtime_signal_and_planned_advice_contract(tmp_path: Path) -> None
         "result": {**setup, "data_cutoff": "2026-09-08"},
     })
     assert parsed_setup.plan_mode == "CORE_SETUP"
-    assert parsed_setup.plan_legs[0].order.limit_price == pytest.approx(6.82)
+    assert parsed_setup.signal_reference_price == pytest.approx(6.20)
+    assert parsed_setup.execution_reference_price == pytest.approx(7.61)
+    assert parsed_setup.plan_legs[0].order.limit_price == pytest.approx(8.371)
 
     rotation = build_intraday_overlay_advice_v5(
         strategy=strategy,
@@ -593,6 +596,7 @@ def test_s003_runtime_signal_and_planned_advice_contract(tmp_path: Path) -> None
         signal_date=pd.Timestamp("2026-09-08"),
         valid_session=pd.Timestamp("2026-09-09"),
         signal_close=6.20,
+        execution_close=7.61,
         actual_quantity=parsed_setup.cycle_target_quantity,
         available_cash=50_000,
         cycle_target_quantity=parsed_setup.cycle_target_quantity,
@@ -605,6 +609,19 @@ def test_s003_runtime_signal_and_planned_advice_contract(tmp_path: Path) -> None
     assert parsed_rotation.action == "ROTATE"
     assert [leg.order.side for leg in parsed_rotation.plan_legs] == ["BUY", "SELL"]
     assert parsed_rotation.plan_legs[1].dependency_required_status == "FILLED_ALL"
+    with pytest.raises(ValueError, match="execution close"):
+        build_intraday_overlay_advice_v5(
+            strategy=strategy,
+            baseline=baseline,
+            signal_date=pd.Timestamp("2026-09-08"),
+            valid_session=pd.Timestamp("2026-09-09"),
+            signal_close=6.20,
+            execution_close=0,
+            actual_quantity=0,
+            available_cash=100_000,
+            cycle_target_quantity=None,
+            event_triggered=False,
+        )
 
 
 def test_s003_runtime_support_appends_one_published_session(

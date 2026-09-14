@@ -323,5 +323,19 @@ PTE每次由`serve`启动前会在`state\paper_trading\backups\`创建一致性S
 滚动保留3份；PTE日志达到10 MiB后滚动，默认保留5份。备份用于故障恢复，恢复前仍须
 与Futu订单、成交和持仓逐笔核对，不能仅凭数据库备份继续下单。
 
+若告警明确为终态买入意图已经解冻、但该冻结代次缺少`INTENT_RELEASE`账本记录，使用
+运行中PTE的受保护修复入口，禁止直接修改SQLite：
+
+```powershell
+.\.venv\Scripts\pte.exe control repair-ledger `
+  --repo-root D:\CodeBase\czsc_trader `
+  --account-id s003-v1 --intent-id PTE-XXXXXXXXXXXXXXXXXXXX
+```
+
+该命令先刷新Futu账户快照，只在渠道持仓与逻辑持仓一致、意图为需要人工复核的终态买单、
+没有渠道订单、且差额恰好等于该代冻结金额时追加补偿账本。成功返回`REPAIRED`；重复执行
+返回`ALREADY_REPAIRED`；任何证据不完整的情况均明确失败。修复后再刷新渠道对账并人工
+确认执行缺口，原拒单和审计事件继续保留，不能补单或改写为正常样本。
+
 本机数据库、发布数据、图表缓存和日志位于`state/paper_trading/`且不进入Git。跨机延续
 同一条模拟盘观察序列时，需要迁移完整运行目录，并重新核对Futu活动订单、成交和持仓。

@@ -200,6 +200,19 @@ def create_server(
                     parts[:2] == ["api", "virtual-accounts"]
                     and len(parts) == 6
                     and parts[3] == "intents"
+                    and parts[5] == "repair-ledger"
+                ):
+                    supplied = self.headers.get("X-PTE-Control-Token", "")
+                    if control_token is None or not secrets.compare_digest(supplied, control_token):
+                        self._json(403, {"error": "invalid PTE control token"})
+                        return
+                    account_id = unquote(parts[2])
+                    intent_id = unquote(parts[4])
+                    result = operations.repair_account_ledger(account_id, intent_id)
+                elif (
+                    parts[:2] == ["api", "virtual-accounts"]
+                    and len(parts) == 6
+                    and parts[3] == "intents"
                     and parts[5] == "acknowledge"
                 ):
                     account_id = unquote(parts[2])

@@ -14,6 +14,7 @@ import sys
 from threading import Event, Thread
 import time
 from urllib.error import URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -132,6 +133,12 @@ def build_parser() -> argparse.ArgumentParser:
     restart.add_argument("--host", default="127.0.0.1")
     restart.add_argument("--port", default=8080, type=int)
     restart.add_argument("--wait", default=30.0, type=float)
+    repair = control_actions.add_parser("repair-ledger")
+    _common(repair)
+    repair.add_argument("--host", default="127.0.0.1")
+    repair.add_argument("--port", default=8080, type=int)
+    repair.add_argument("--account-id", required=True)
+    repair.add_argument("--intent-id", required=True)
     return parser
 
 
@@ -407,6 +414,30 @@ def _restart_running_pte(args: argparse.Namespace) -> dict[str, object]:
     raise RuntimeError(f"PTE did not become healthy within {args.wait:g} seconds")
 
 
+def _repair_running_ledger(args: argparse.Namespace) -> dict[str, object]:
+    if args.host != "127.0.0.1":
+        raise ValueError("PTE control host must be 127.0.0.1")
+    store = PaperStore(args.database)
+    try:
+        token = store.get_setting("control_token")
+    finally:
+        store.close()
+    if not token:
+        raise RuntimeError("PTE control token is unavailable")
+    url = (
+        f"http://{args.host}:{args.port}/api/virtual-accounts/"
+        f"{quote(args.account_id, safe='')}/intents/{quote(args.intent_id, safe='')}/repair-ledger"
+    )
+    request = Request(
+        url, data=b"{}", method="POST",
+        headers={"Content-Type": "application/json", "X-PTE-Control-Token": token},
+    )
+    _, result = _read_json(url, request=request)
+    if result.get("status") not in {"REPAIRED", "ALREADY_REPAIRED"}:
+        raise RuntimeError("PTE ledger repair returned an invalid status")
+    return result
+
+
 def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[dict[str, object]]:
     store = PaperStore(args.database)
     try:
@@ -497,8 +528,14 @@ def main(
             _write({"status": "PASS", "command": f"pte.account.{args.account_action}", "result": result})
             return 0
         if args.action == "control":
-            result = _restart_running_pte(args)
-            _write({"status": "PASS", "command": "pte.control.restart", "result": result})
+            if args.control_action == "restart":
+                result = _restart_running_pte(args)
+            else:
+                result = _repair_running_ledger(args)
+            _write({
+                "status": "PASS", "command": f"pte.control.{args.control_action}",
+                "result": result,
+            })
             return 0
         if args.action == "serve":
             probe_port(args.host, args.port)

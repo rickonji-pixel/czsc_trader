@@ -33,6 +33,8 @@ class UnavailableExecution:
     def confirm_cancel(self, account_id, channel_order_id, token): raise RuntimeError("channel is unavailable")
     def acknowledge_execution_gap(self, account_id, intent_id, resolution_note):
         raise RuntimeError("channel is unavailable")
+    def repair_account_ledger(self, account_id, intent_id):
+        raise RuntimeError("channel is unavailable")
     def begin_shutdown(self): return None
     def close(self): self.store.close()
 
@@ -102,6 +104,8 @@ class ReconnectableExecution:
         return self._call("confirm_cancel", account_id, channel_order_id, token)
     def acknowledge_execution_gap(self, account_id, intent_id, resolution_note):
         return self._call("acknowledge_execution_gap", account_id, intent_id, resolution_note)
+    def repair_account_ledger(self, account_id, intent_id):
+        return self._call("repair_account_ledger", account_id, intent_id)
     def begin_shutdown(self):
         if self._delegate is not None:
             self._delegate.begin_shutdown()
@@ -191,6 +195,8 @@ class PteCoordinator:
         return self.execution.confirm_cancel(account_id, channel_order_id, token)
     def acknowledge_execution_gap(self, account_id, intent_id, resolution_note):
         return self.execution.acknowledge_execution_gap(account_id, intent_id, resolution_note)
+    def repair_account_ledger(self, account_id, intent_id):
+        return self.execution.repair_account_ledger(account_id, intent_id)
 
     def _set_virtual_paused(self, account_id, paused):
         account = self.store.set_virtual_paused(account_id, paused)

@@ -122,6 +122,7 @@ class PaperStore:
                 attention_reason TEXT,
                 resolved_at TEXT,
                 resolution_note TEXT,
+                reservation_generation INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 UNIQUE(account_id, decision_id, order_sequence)
@@ -254,6 +255,25 @@ class PaperStore:
         self._ensure_column("intents", "attention_reason", "TEXT")
         self._ensure_column("intents", "resolved_at", "TEXT")
         self._ensure_column("intents", "resolution_note", "TEXT")
+        self._ensure_column("intents", "reservation_generation", "INTEGER NOT NULL DEFAULT 0")
+        self._connection.execute(
+            "UPDATE intents SET reservation_generation=1 "
+            "WHERE side='BUY' AND reservation_generation=0"
+        )
+        legacy_recovered = self._connection.execute(
+            "SELECT intent_id FROM intents WHERE side='BUY' AND reservation_generation<2"
+        ).fetchall()
+        for recovered in legacy_recovered:
+            legacy_id = str(uuid5(
+                NAMESPACE_URL, f"pte-recover-reserve:{recovered['intent_id']}"
+            ))
+            if self._connection.execute(
+                "SELECT 1 FROM account_ledger WHERE ledger_entry_id=?", (legacy_id,)
+            ).fetchone() is not None:
+                self._connection.execute(
+                    "UPDATE intents SET reservation_generation=2 WHERE intent_id=?",
+                    (recovered["intent_id"],),
+                )
         for column in (
             "event_id", "occurred_at", "category", "severity", "outcome", "source",
             "correlation_id", "actor_type", "actor_id", "schema_version", "account_id",
@@ -1211,12 +1231,13 @@ class PaperStore:
             }
             self._connection.execute(
                 "INSERT INTO intents(intent_id,account_id,decision_id,order_sequence,channel_id,"
-                "symbol,side,quantity,limit_price,valid_session,payload,status,created_at,updated_at) "
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?,'PENDING_SUBMIT',?,?)",
+                "symbol,side,quantity,limit_price,valid_session,payload,status,"
+                "reservation_generation,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,'PENDING_SUBMIT',?,?,?)",
                 (
                     intent_id, account_id, decision_id, order_sequence, "futu", symbol.upper(),
                     side, quantity, str(price), valid_session,
-                    json.dumps(payload, ensure_ascii=False), now, now,
+                    json.dumps(payload, ensure_ascii=False), int(side == "BUY"), now, now,
                 ),
             )
             if side == "BUY":
@@ -1409,12 +1430,14 @@ class PaperStore:
                 }
                 self._connection.execute(
                     "INSERT INTO intents(intent_id,account_id,decision_id,order_sequence,channel_id,"
-                    "symbol,side,quantity,limit_price,valid_session,payload,status,created_at,updated_at) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "symbol,side,quantity,limit_price,valid_session,payload,status,"
+                    "reservation_generation,created_at,updated_at) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         intent_ids[sequence], account_id, decision_id, sequence, "futu",
                         symbol.upper(), leg["side"], leg["quantity"], leg["limit_price"],
-                        valid_session, json.dumps(payload, ensure_ascii=False), status, now, now,
+                        valid_session, json.dumps(payload, ensure_ascii=False), status,
+                        int(leg["side"] == "BUY"), now, now,
                     ),
                 )
                 if leg["side"] == "BUY":
@@ -1758,9 +1781,14 @@ class PaperStore:
                 (status, int(attention), reason, now, intent_id),
             )
             if release:
-                ledger_id = str(uuid5(NAMESPACE_URL, f"pte-release:{intent_id}"))
+                generation = int(intent["reservation_generation"])
+                release_identity = (
+                    f"pte-release:{intent_id}" if generation == 1
+                    else f"pte-release:{intent_id}:{generation}"
+                )
+                ledger_id = str(uuid5(NAMESPACE_URL, release_identity))
                 self._connection.execute(
-                    "INSERT OR IGNORE INTO account_ledger(ledger_entry_id,account_id,entry_type,"
+                    "INSERT INTO account_ledger(ledger_entry_id,account_id,entry_type,"
                     "order_id,fill_id,cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,"
                     "quantity_after,occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
@@ -1806,7 +1834,9 @@ class PaperStore:
             if account is None:
                 raise KeyError(intent["account_id"])
             reserve = Decimal("0")
+            generation = int(intent["reservation_generation"])
             if intent["side"] == "BUY":
+                generation += 1
                 fee = Decimal(str(payload.get("fee_rate", "0.0005")))
                 reserve = (
                     Decimal(intent["limit_price"]) * int(intent["quantity"])
@@ -1828,7 +1858,7 @@ class PaperStore:
                     "fill_id,cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,"
                     "quantity_after,occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
-                        str(uuid5(NAMESPACE_URL, f"pte-recover-reserve:{intent_id}")),
+                        str(uuid5(NAMESPACE_URL, f"pte-reserve:{intent_id}:{generation}")),
                         intent["account_id"], "INTENT_RESERVE", None, None,
                         str(-reserve), str(reserve), 0, "0.0000",
                         str((cash - reserve).quantize(Decimal("0.0001"))),
@@ -1837,9 +1867,10 @@ class PaperStore:
                 )
             self._connection.execute(
                 "UPDATE intents SET status=?,attention_required=0,attention_reason=NULL,"
-                "resolved_at=?,resolution_note=?,updated_at=? WHERE intent_id=?",
+                "resolved_at=?,resolution_note=?,reservation_generation=?,updated_at=? "
+                "WHERE intent_id=?",
                 (
-                    status, now, "自动修复未来交易日时间窗误判", now, intent_id,
+                    status, now, "自动修复未来交易日时间窗误判", generation, now, intent_id,
                 ),
             )
             if audit_event is not None:
@@ -2218,6 +2249,95 @@ class PaperStore:
                         },
                     })
         return violations
+
+    def repair_released_intent_ledger(
+        self, account_id: str, intent_id: str, audit_event: AuditEvent,
+    ) -> dict[str, object]:
+        """Append one missing release entry after proving the account was already unfrozen."""
+        from decimal import Decimal
+
+        with self._lock, self._connection:
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+            intent = self._connection.execute(
+                "SELECT * FROM intents WHERE intent_id=? AND account_id=?",
+                (intent_id, account_id),
+            ).fetchone()
+            if account is None:
+                raise KeyError(account_id)
+            if intent is None:
+                raise KeyError(intent_id)
+            if (
+                intent["side"] != "BUY"
+                or intent["status"] not in TERMINAL_INTENT_STATUSES
+            ):
+                raise ValueError("ledger repair requires a terminal BUY intent")
+            order = self._connection.execute(
+                "SELECT * FROM orders WHERE intent_id=?", (intent_id,)
+            ).fetchone()
+            if order is not None or intent["channel_order_id"] is not None:
+                raise ValueError("ledger repair is blocked when a channel order exists")
+
+            generation = int(intent["reservation_generation"])
+            if generation < 1:
+                raise ValueError("ledger repair requires a persisted reservation generation")
+            identity = (
+                f"pte-release:{intent_id}" if generation == 1
+                else f"pte-release:{intent_id}:{generation}"
+            )
+            ledger_id = str(uuid5(NAMESPACE_URL, identity))
+            existing = self._connection.execute(
+                "SELECT * FROM account_ledger WHERE ledger_entry_id=?", (ledger_id,)
+            ).fetchone()
+            violations = [
+                row for row in self.account_invariant_violations()
+                if row["account_id"] == account_id
+            ]
+            if existing is not None:
+                if violations:
+                    raise ValueError("release ledger entry exists but account invariant still fails")
+                return {
+                    "status": "ALREADY_REPAIRED", "account_id": account_id,
+                    "intent_id": intent_id, "ledger_entry_id": ledger_id,
+                }
+            if not bool(intent["attention_required"]):
+                raise ValueError("new ledger repair requires an intent awaiting operator review")
+            if len(violations) != 1:
+                raise ValueError("ledger repair requires exactly one account invariant violation")
+
+            payload = json.loads(intent["payload"])
+            fee_rate = Decimal(str(payload.get("fee_rate", "0.0005")))
+            release = (
+                Decimal(intent["limit_price"]) * int(intent["quantity"])
+                * (Decimal("1") + fee_rate)
+            ).quantize(Decimal("0.0001"))
+            expected = violations[0]["expected"]
+            actual = violations[0]["actual"]
+            if not (
+                Decimal(actual["cash"]) - Decimal(expected["cash"]) == release
+                and Decimal(expected["frozen_cash"]) - Decimal(actual["frozen_cash"]) == release
+                and Decimal(actual["frozen_cash"]) == 0
+                and int(actual["quantity"]) == int(expected["quantity"])
+            ):
+                raise ValueError("account mismatch is not the exact missing intent release")
+            now = _utc_now()
+            self._connection.execute(
+                "INSERT INTO account_ledger(ledger_entry_id,account_id,entry_type,order_id,fill_id,"
+                "cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,quantity_after,"
+                "occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    ledger_id, account_id, "INTENT_RELEASE", None, None,
+                    str(release), str(-release), 0, "0.0000", actual["cash"],
+                    int(actual["quantity"]), now,
+                ),
+            )
+            self._insert_audit_event(audit_event)
+        return {
+            "status": "REPAIRED", "account_id": account_id, "intent_id": intent_id,
+            "ledger_entry_id": ledger_id, "cash_delta": str(release),
+            "frozen_cash_delta": str(-release),
+        }
 
     def account_snapshots(self, account_id: str) -> list[dict[str, Any]]:
         with self._lock:

@@ -12,6 +12,8 @@
     {"family_id": "FUNDAMENTAL_EXPECTATION", "name": "基本面预期", "description": "盈利、预测和披露形成的预期变化", "status": "READY"},
     {"family_id": "EVENT_CATALYST", "name": "事件催化", "description": "新闻、政策、公告及其他离散事件", "status": "READY"},
     {"family_id": "MARKET_MICROSTRUCTURE", "name": "市场微观结构", "description": "时段订单流、价格冲击和日内成交结构", "status": "READY"},
+    {"family_id": "CALENDAR_SEASONALITY", "name": "时点与季节性", "description": "交易时段、星期和日历位置形成的规律", "status": "READY"},
+    {"family_id": "POSITION_RISK", "name": "持仓与风控", "description": "依赖既有持仓的止损、止盈和退出管理", "status": "READY"},
     {"family_id": "OTHER_TECHNICAL", "name": "待拆分技术类", "description": "已经发现但金融语义尚未完成归类的技术判断", "status": "DISCOVERED"}
   ]
 }

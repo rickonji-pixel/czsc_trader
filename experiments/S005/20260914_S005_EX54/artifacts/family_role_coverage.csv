@@ -1,0 +1,8 @@
+﻿information_family,eligible_states,opportunity_states,opportunity_signal_configurations,environment_states,environment_signal_configurations,supporting_states,frequencies
+CALENDAR_SEASONALITY,10,5,1,5,1,0,30m|daily
+MARKET_STRUCTURE,365,55,28,205,95,105,30m|daily|weekly
+POSITION_RISK,1,0,0,1,1,0,weekly
+POSITION_VALUATION,51,8,3,26,9,17,30m|daily|weekly
+TREND_MOMENTUM,335,46,24,171,81,118,30m|daily|weekly
+VOLATILITY_RISK,112,9,5,70,18,33,30m|daily|weekly
+VOLUME_LIQUIDITY,76,13,7,43,19,20,30m|daily|weekly

@@ -9,7 +9,7 @@
       "signal_id": "SIG-CZSC-adtm_up_dw_line_V230603",
       "name": "adtm_up_dw_line_V230603",
       "description": "CZSC注册信号；命名空间adtm，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -33,7 +33,7 @@
       "signal_id": "SIG-CZSC-amv_up_dw_line_V230603",
       "name": "amv_up_dw_line_V230603",
       "description": "CZSC注册信号；命名空间amv，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLUME_LIQUIDITY",
       "tags": [
         "czsc",
         "kline",
@@ -57,7 +57,7 @@
       "signal_id": "SIG-CZSC-asi_up_dw_line_V230603",
       "name": "asi_up_dw_line_V230603",
       "description": "CZSC注册信号；命名空间asi，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -81,7 +81,7 @@
       "signal_id": "SIG-CZSC-bar_accelerate_V221110",
       "name": "bar_accelerate_V221110",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -105,7 +105,7 @@
       "signal_id": "SIG-CZSC-bar_accelerate_V221118",
       "name": "bar_accelerate_V221118",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -129,7 +129,7 @@
       "signal_id": "SIG-CZSC-bar_accelerate_V240428",
       "name": "bar_accelerate_V240428",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -177,7 +177,7 @@
       "signal_id": "SIG-CZSC-bar_big_solid_V230215",
       "name": "bar_big_solid_V230215",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -201,7 +201,7 @@
       "signal_id": "SIG-CZSC-bar_bpm_V230227",
       "name": "bar_bpm_V230227",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -225,7 +225,7 @@
       "signal_id": "SIG-CZSC-bar_break_V240428",
       "name": "bar_break_V240428",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -249,7 +249,7 @@
       "signal_id": "SIG-CZSC-bar_channel_V230508",
       "name": "bar_channel_V230508",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -273,7 +273,7 @@
       "signal_id": "SIG-CZSC-bar_classify_V240606",
       "name": "bar_classify_V240606",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -297,7 +297,7 @@
       "signal_id": "SIG-CZSC-bar_classify_V240607",
       "name": "bar_classify_V240607",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -321,7 +321,7 @@
       "signal_id": "SIG-CZSC-bar_decision_V240608",
       "name": "bar_decision_V240608",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -345,7 +345,7 @@
       "signal_id": "SIG-CZSC-bar_decision_V240616",
       "name": "bar_decision_V240616",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -369,7 +369,7 @@
       "signal_id": "SIG-CZSC-bar_dual_thrust_V230403",
       "name": "bar_dual_thrust_V230403",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -393,7 +393,7 @@
       "signal_id": "SIG-CZSC-bar_eight_V230702",
       "name": "bar_eight_V230702",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -417,7 +417,7 @@
       "signal_id": "SIG-CZSC-bar_end_V221211",
       "name": "bar_end_V221211",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "CALENDAR_SEASONALITY",
       "tags": [
         "czsc",
         "kline",
@@ -441,7 +441,7 @@
       "signal_id": "SIG-CZSC-bar_fake_break_V230204",
       "name": "bar_fake_break_V230204",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -465,7 +465,7 @@
       "signal_id": "SIG-CZSC-bar_fang_liang_break_V221216",
       "name": "bar_fang_liang_break_V221216",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -489,7 +489,7 @@
       "signal_id": "SIG-CZSC-bar_limit_down_V230525",
       "name": "bar_limit_down_V230525",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -537,7 +537,7 @@
       "signal_id": "SIG-CZSC-bar_operate_span_V221111",
       "name": "bar_operate_span_V221111",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "CALENDAR_SEASONALITY",
       "tags": [
         "czsc",
         "kline",
@@ -561,7 +561,7 @@
       "signal_id": "SIG-CZSC-bar_plr_V240427",
       "name": "bar_plr_V240427",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -585,7 +585,7 @@
       "signal_id": "SIG-CZSC-bar_polyfit_V240428",
       "name": "bar_polyfit_V240428",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -609,7 +609,7 @@
       "signal_id": "SIG-CZSC-bar_r_breaker_V230326",
       "name": "bar_r_breaker_V230326",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -633,7 +633,7 @@
       "signal_id": "SIG-CZSC-bar_reversal_V230227",
       "name": "bar_reversal_V230227",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -681,7 +681,7 @@
       "signal_id": "SIG-CZSC-bar_shuang_fei_V230507",
       "name": "bar_shuang_fei_V230507",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -705,7 +705,7 @@
       "signal_id": "SIG-CZSC-bar_single_V230214",
       "name": "bar_single_V230214",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -729,7 +729,7 @@
       "signal_id": "SIG-CZSC-bar_single_V230506",
       "name": "bar_single_V230506",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -753,7 +753,7 @@
       "signal_id": "SIG-CZSC-bar_td9_V240616",
       "name": "bar_td9_V240616",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -777,7 +777,7 @@
       "signal_id": "SIG-CZSC-bar_time_V230327",
       "name": "bar_time_V230327",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "CALENDAR_SEASONALITY",
       "tags": [
         "czsc",
         "kline",
@@ -801,7 +801,7 @@
       "signal_id": "SIG-CZSC-bar_tnr_V230629",
       "name": "bar_tnr_V230629",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -825,7 +825,7 @@
       "signal_id": "SIG-CZSC-bar_tnr_V230630",
       "name": "bar_tnr_V230630",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -873,7 +873,7 @@
       "signal_id": "SIG-CZSC-bar_triple_V230506",
       "name": "bar_triple_V230506",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -945,7 +945,7 @@
       "signal_id": "SIG-CZSC-bar_volatility_V241013",
       "name": "bar_volatility_V241013",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "VOLUME_LIQUIDITY",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -969,7 +969,7 @@
       "signal_id": "SIG-CZSC-bar_weekday_V230328",
       "name": "bar_weekday_V230328",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "CALENDAR_SEASONALITY",
       "tags": [
         "czsc",
         "kline",
@@ -993,7 +993,7 @@
       "signal_id": "SIG-CZSC-bar_window_ps_V230731",
       "name": "bar_window_ps_V230731",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_VALUATION",
       "tags": [
         "czsc",
         "kline",
@@ -1017,7 +1017,7 @@
       "signal_id": "SIG-CZSC-bar_window_ps_V230801",
       "name": "bar_window_ps_V230801",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_VALUATION",
       "tags": [
         "czsc",
         "kline",
@@ -1041,7 +1041,7 @@
       "signal_id": "SIG-CZSC-bar_window_std_V230731",
       "name": "bar_window_std_V230731",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -1065,7 +1065,7 @@
       "signal_id": "SIG-CZSC-bar_zdf_V221203",
       "name": "bar_zdf_V221203",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -1089,7 +1089,7 @@
       "signal_id": "SIG-CZSC-bar_zdt_V230331",
       "name": "bar_zdt_V230331",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -1113,7 +1113,7 @@
       "signal_id": "SIG-CZSC-bar_zfzd_V241013",
       "name": "bar_zfzd_V241013",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -1137,7 +1137,7 @@
       "signal_id": "SIG-CZSC-bar_zfzd_V241014",
       "name": "bar_zfzd_V241014",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -1161,7 +1161,7 @@
       "signal_id": "SIG-CZSC-bar_zt_count_V230504",
       "name": "bar_zt_count_V230504",
       "description": "CZSC注册信号；命名空间bar，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -1185,7 +1185,7 @@
       "signal_id": "SIG-CZSC-bias_up_dw_line_V230618",
       "name": "bias_up_dw_line_V230618",
       "description": "CZSC注册信号；命名空间bias，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -1281,7 +1281,7 @@
       "signal_id": "SIG-CZSC-byi_second_bs_V230324",
       "name": "byi_second_bs_V230324",
       "description": "CZSC注册信号；命名空间byi，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -1305,7 +1305,7 @@
       "signal_id": "SIG-CZSC-byi_symmetry_zs_V221107",
       "name": "byi_symmetry_zs_V221107",
       "description": "CZSC注册信号；命名空间byi，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -1401,7 +1401,7 @@
       "signal_id": "SIG-CZSC-clv_up_dw_line_V230605",
       "name": "clv_up_dw_line_V230605",
       "description": "CZSC注册信号；命名空间clv，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -1425,7 +1425,7 @@
       "signal_id": "SIG-CZSC-cmo_up_dw_line_V230605",
       "name": "cmo_up_dw_line_V230605",
       "description": "CZSC注册信号；命名空间cmo，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -1497,7 +1497,7 @@
       "signal_id": "SIG-CZSC-coo_sar_V230325",
       "name": "coo_sar_V230325",
       "description": "CZSC注册信号；命名空间coo，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -1521,7 +1521,7 @@
       "signal_id": "SIG-CZSC-coo_td_V221110",
       "name": "coo_td_V221110",
       "description": "CZSC注册信号；命名空间coo，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -1545,7 +1545,7 @@
       "signal_id": "SIG-CZSC-coo_td_V221111",
       "name": "coo_td_V221111",
       "description": "CZSC注册信号；命名空间coo，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -1905,7 +1905,7 @@
       "signal_id": "SIG-CZSC-cxt_bi_stop_V230815",
       "name": "cxt_bi_stop_V230815",
       "description": "CZSC注册信号；命名空间cxt，金融语义待人工复核",
-      "information_family": "MARKET_STRUCTURE",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -2649,7 +2649,7 @@
       "signal_id": "SIG-CZSC-demakder_up_dw_line_V230605",
       "name": "demakder_up_dw_line_V230605",
       "description": "CZSC注册信号；命名空间demakder，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -2697,7 +2697,7 @@
       "signal_id": "SIG-CZSC-er_up_dw_line_V230604",
       "name": "er_up_dw_line_V230604",
       "description": "CZSC注册信号；命名空间er，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -2721,7 +2721,7 @@
       "signal_id": "SIG-CZSC-jcc_ci_tou_V221101",
       "name": "jcc_ci_tou_V221101",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2745,7 +2745,7 @@
       "signal_id": "SIG-CZSC-jcc_fan_ji_xian_V221121",
       "name": "jcc_fan_ji_xian_V221121",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2769,7 +2769,7 @@
       "signal_id": "SIG-CZSC-jcc_fen_shou_xian_V20221113",
       "name": "jcc_fen_shou_xian_V20221113",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2793,7 +2793,7 @@
       "signal_id": "SIG-CZSC-jcc_gap_yin_yang_V221121",
       "name": "jcc_gap_yin_yang_V221121",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2817,7 +2817,7 @@
       "signal_id": "SIG-CZSC-jcc_ping_tou_V221113",
       "name": "jcc_ping_tou_V221113",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2841,7 +2841,7 @@
       "signal_id": "SIG-CZSC-jcc_san_fa_V20221115",
       "name": "jcc_san_fa_V20221115",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2865,7 +2865,7 @@
       "signal_id": "SIG-CZSC-jcc_san_fa_V20221118",
       "name": "jcc_san_fa_V20221118",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2889,7 +2889,7 @@
       "signal_id": "SIG-CZSC-jcc_san_szx_V221122",
       "name": "jcc_san_szx_V221122",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2913,7 +2913,7 @@
       "signal_id": "SIG-CZSC-jcc_san_xing_xian_V221023",
       "name": "jcc_san_xing_xian_V221023",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2937,7 +2937,7 @@
       "signal_id": "SIG-CZSC-jcc_shan_chun_V221121",
       "name": "jcc_shan_chun_V221121",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2961,7 +2961,7 @@
       "signal_id": "SIG-CZSC-jcc_szx_V221111",
       "name": "jcc_szx_V221111",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -2985,7 +2985,7 @@
       "signal_id": "SIG-CZSC-jcc_ta_xing_V221124",
       "name": "jcc_ta_xing_V221124",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -3009,7 +3009,7 @@
       "signal_id": "SIG-CZSC-jcc_ten_mo_V221028",
       "name": "jcc_ten_mo_V221028",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -3033,7 +3033,7 @@
       "signal_id": "SIG-CZSC-jcc_three_crow_V221108",
       "name": "jcc_three_crow_V221108",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -3057,7 +3057,7 @@
       "signal_id": "SIG-CZSC-jcc_two_crow_V221108",
       "name": "jcc_two_crow_V221108",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -3081,7 +3081,7 @@
       "signal_id": "SIG-CZSC-jcc_wu_yun_gai_ding_V221101",
       "name": "jcc_wu_yun_gai_ding_V221101",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -3105,7 +3105,7 @@
       "signal_id": "SIG-CZSC-jcc_xing_xian_V221118",
       "name": "jcc_xing_xian_V221118",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -3129,7 +3129,7 @@
       "signal_id": "SIG-CZSC-jcc_yun_xian_V221118",
       "name": "jcc_yun_xian_V221118",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -3153,7 +3153,7 @@
       "signal_id": "SIG-CZSC-jcc_zhu_huo_xian_V221027",
       "name": "jcc_zhu_huo_xian_V221027",
       "description": "CZSC注册信号；命名空间jcc，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -3177,7 +3177,7 @@
       "signal_id": "SIG-CZSC-kcatr_up_dw_line_V230823",
       "name": "kcatr_up_dw_line_V230823",
       "description": "CZSC注册信号；命名空间kcatr，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -3201,7 +3201,7 @@
       "signal_id": "SIG-CZSC-ntmdk_V230824",
       "name": "ntmdk_V230824",
       "description": "CZSC注册信号；命名空间ntmdk，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -3273,7 +3273,7 @@
       "signal_id": "SIG-CZSC-pos_bar_stop_V230524",
       "name": "pos_bar_stop_V230524",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3297,7 +3297,7 @@
       "signal_id": "SIG-CZSC-pos_fix_exit_V230624",
       "name": "pos_fix_exit_V230624",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3321,7 +3321,7 @@
       "signal_id": "SIG-CZSC-pos_fx_stop_V230414",
       "name": "pos_fx_stop_V230414",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "MARKET_STRUCTURE",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3345,7 +3345,7 @@
       "signal_id": "SIG-CZSC-pos_holds_V230414",
       "name": "pos_holds_V230414",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3369,7 +3369,7 @@
       "signal_id": "SIG-CZSC-pos_holds_V230807",
       "name": "pos_holds_V230807",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3393,7 +3393,7 @@
       "signal_id": "SIG-CZSC-pos_holds_V240428",
       "name": "pos_holds_V240428",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3417,7 +3417,7 @@
       "signal_id": "SIG-CZSC-pos_holds_V240608",
       "name": "pos_holds_V240608",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3441,7 +3441,7 @@
       "signal_id": "SIG-CZSC-pos_ma_V230414",
       "name": "pos_ma_V230414",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "TREND_MOMENTUM",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3465,7 +3465,7 @@
       "signal_id": "SIG-CZSC-pos_profit_loss_V230624",
       "name": "pos_profit_loss_V230624",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3489,7 +3489,7 @@
       "signal_id": "SIG-CZSC-pos_status_V230808",
       "name": "pos_status_V230808",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3513,7 +3513,7 @@
       "signal_id": "SIG-CZSC-pos_stop_V240331",
       "name": "pos_stop_V240331",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3537,7 +3537,7 @@
       "signal_id": "SIG-CZSC-pos_stop_V240428",
       "name": "pos_stop_V240428",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3561,7 +3561,7 @@
       "signal_id": "SIG-CZSC-pos_stop_V240608",
       "name": "pos_stop_V240608",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3585,7 +3585,7 @@
       "signal_id": "SIG-CZSC-pos_stop_V240614",
       "name": "pos_stop_V240614",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3609,7 +3609,7 @@
       "signal_id": "SIG-CZSC-pos_stop_V240717",
       "name": "pos_stop_V240717",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3633,7 +3633,7 @@
       "signal_id": "SIG-CZSC-pos_take_V240428",
       "name": "pos_take_V240428",
       "description": "CZSC注册信号；命名空间pos，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -3657,7 +3657,7 @@
       "signal_id": "SIG-CZSC-pressure_support_V240222",
       "name": "pressure_support_V240222",
       "description": "CZSC注册信号；命名空间pressure，金融语义待人工复核",
-      "information_family": "MARKET_STRUCTURE",
+      "information_family": "POSITION_VALUATION",
       "tags": [
         "czsc",
         "kline",
@@ -3681,7 +3681,7 @@
       "signal_id": "SIG-CZSC-pressure_support_V240402",
       "name": "pressure_support_V240402",
       "description": "CZSC注册信号；命名空间pressure，金融语义待人工复核",
-      "information_family": "MARKET_STRUCTURE",
+      "information_family": "POSITION_VALUATION",
       "tags": [
         "czsc",
         "kline",
@@ -3729,7 +3729,7 @@
       "signal_id": "SIG-CZSC-pressure_support_V240530",
       "name": "pressure_support_V240530",
       "description": "CZSC注册信号；命名空间pressure，金融语义待人工复核",
-      "information_family": "MARKET_STRUCTURE",
+      "information_family": "POSITION_VALUATION",
       "tags": [
         "czsc",
         "kline",
@@ -3777,7 +3777,7 @@
       "signal_id": "SIG-CZSC-tas_accelerate_V230531",
       "name": "tas_accelerate_V230531",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -3801,7 +3801,7 @@
       "signal_id": "SIG-CZSC-tas_angle_V230802",
       "name": "tas_angle_V230802",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -3825,7 +3825,7 @@
       "signal_id": "SIG-CZSC-tas_atr_V230630",
       "name": "tas_atr_V230630",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -3849,7 +3849,7 @@
       "signal_id": "SIG-CZSC-tas_atr_break_V230424",
       "name": "tas_atr_break_V230424",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -3873,7 +3873,7 @@
       "signal_id": "SIG-CZSC-tas_boll_bc_V221118",
       "name": "tas_boll_bc_V221118",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -3897,7 +3897,7 @@
       "signal_id": "SIG-CZSC-tas_boll_cc_V230312",
       "name": "tas_boll_cc_V230312",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -3921,7 +3921,7 @@
       "signal_id": "SIG-CZSC-tas_boll_power_V221112",
       "name": "tas_boll_power_V221112",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -3945,7 +3945,7 @@
       "signal_id": "SIG-CZSC-tas_boll_vt_V230212",
       "name": "tas_boll_vt_V230212",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "kline",
@@ -3993,7 +3993,7 @@
       "signal_id": "SIG-CZSC-tas_cross_status_V230619",
       "name": "tas_cross_status_V230619",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -4017,7 +4017,7 @@
       "signal_id": "SIG-CZSC-tas_cross_status_V230624",
       "name": "tas_cross_status_V230624",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -4041,7 +4041,7 @@
       "signal_id": "SIG-CZSC-tas_cross_status_V230625",
       "name": "tas_cross_status_V230625",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -4065,7 +4065,7 @@
       "signal_id": "SIG-CZSC-tas_dif_layer_V241010",
       "name": "tas_dif_layer_V241010",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -4089,7 +4089,7 @@
       "signal_id": "SIG-CZSC-tas_dif_zero_V240612",
       "name": "tas_dif_zero_V240612",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -4113,7 +4113,7 @@
       "signal_id": "SIG-CZSC-tas_dif_zero_V240614",
       "name": "tas_dif_zero_V240614",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -4233,7 +4233,7 @@
       "signal_id": "SIG-CZSC-tas_first_bs_V230217",
       "name": "tas_first_bs_V230217",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -5049,7 +5049,7 @@
       "signal_id": "SIG-CZSC-tas_rumi_V230704",
       "name": "tas_rumi_V230704",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -5073,7 +5073,7 @@
       "signal_id": "SIG-CZSC-tas_sar_base_V230425",
       "name": "tas_sar_base_V230425",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -5097,7 +5097,7 @@
       "signal_id": "SIG-CZSC-tas_second_bs_V230228",
       "name": "tas_second_bs_V230228",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -5121,7 +5121,7 @@
       "signal_id": "SIG-CZSC-tas_second_bs_V230303",
       "name": "tas_second_bs_V230303",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -5145,7 +5145,7 @@
       "signal_id": "SIG-CZSC-tas_slope_V231019",
       "name": "tas_slope_V231019",
       "description": "CZSC注册信号；命名空间tas，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -5313,7 +5313,7 @@
       "signal_id": "SIG-CZSC-xl_bar_basis_V240411",
       "name": "xl_bar_basis_V240411",
       "description": "CZSC注册信号；命名空间xl，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_MICROSTRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -5337,7 +5337,7 @@
       "signal_id": "SIG-CZSC-xl_bar_basis_V240412",
       "name": "xl_bar_basis_V240412",
       "description": "CZSC注册信号；命名空间xl，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_MICROSTRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -5361,7 +5361,7 @@
       "signal_id": "SIG-CZSC-xl_bar_position_V240328",
       "name": "xl_bar_position_V240328",
       "description": "CZSC注册信号；命名空间xl，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_VALUATION",
       "tags": [
         "czsc",
         "kline",
@@ -5529,7 +5529,7 @@
       "signal_id": "SIG-CZSC-zdy_dif_V230527",
       "name": "zdy_dif_V230527",
       "description": "CZSC注册信号；命名空间zdy，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -5553,7 +5553,7 @@
       "signal_id": "SIG-CZSC-zdy_dif_V230528",
       "name": "zdy_dif_V230528",
       "description": "CZSC注册信号；命名空间zdy，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "TREND_MOMENTUM",
       "tags": [
         "czsc",
         "kline",
@@ -5769,7 +5769,7 @@
       "signal_id": "SIG-CZSC-zdy_stop_loss_V230406",
       "name": "zdy_stop_loss_V230406",
       "description": "CZSC注册信号；命名空间zdy，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -5793,7 +5793,7 @@
       "signal_id": "SIG-CZSC-zdy_take_profit_V230406",
       "name": "zdy_take_profit_V230406",
       "description": "CZSC注册信号；命名空间zdy，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -5817,7 +5817,7 @@
       "signal_id": "SIG-CZSC-zdy_take_profit_V230407",
       "name": "zdy_take_profit_V230407",
       "description": "CZSC注册信号；命名空间zdy，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "POSITION_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -5841,7 +5841,7 @@
       "signal_id": "SIG-CZSC-zdy_vibrate_V230406",
       "name": "zdy_vibrate_V230406",
       "description": "CZSC注册信号；命名空间zdy，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "VOLATILITY_RISK",
       "tags": [
         "czsc",
         "trader",
@@ -5865,7 +5865,7 @@
       "signal_id": "SIG-CZSC-zdy_zs_V230423",
       "name": "zdy_zs_V230423",
       "description": "CZSC注册信号；命名空间zdy，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",
@@ -5889,7 +5889,7 @@
       "signal_id": "SIG-CZSC-zdy_zs_space_V230421",
       "name": "zdy_zs_space_V230421",
       "description": "CZSC注册信号；命名空间zdy，金融语义待人工复核",
-      "information_family": "OTHER_TECHNICAL",
+      "information_family": "MARKET_STRUCTURE",
       "tags": [
         "czsc",
         "kline",

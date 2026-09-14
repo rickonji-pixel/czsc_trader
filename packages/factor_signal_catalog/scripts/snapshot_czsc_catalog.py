@@ -25,12 +25,31 @@ def _family(name: str, namespace: str) -> str:
     if name in CURATED:
         return CURATED[name][0]
     lowered = f"{namespace}_{name}".lower()
-    if any(token in lowered for token in ("cxt", "bi_", "fx_", "support", "pressure")):
+    if namespace == "pos" or any(token in lowered for token in ("stop", "take_profit", "fix_exit")):
+        return "POSITION_RISK"
+    if any(token in lowered for token in ("weekday", "bar_time", "operate_span", "bar_end")):
+        return "CALENDAR_SEASONALITY"
+    if any(token in lowered for token in ("volatility", "window_std", "_tnr_", "_atr", "boll", "zfzd", "vibrate")):
+        return "VOLATILITY_RISK"
+    if any(token in lowered for token in ("window_ps", "bar_position", "pressure_support", "profit_loss")):
+        return "POSITION_VALUATION"
+    if namespace in {"cxt", "byi", "jcc", "pressure"} or any(
+        token in lowered for token in ("bi_", "fx_", "three_bi", "five_bi", "seven_bi", "nine_bi", "eleven_bi")
+    ):
         return "MARKET_STRUCTURE"
-    if any(token in lowered for token in ("vol", "amount", "emv", "obv", "mfi", "vwap")):
+    if namespace in {"vol", "obv", "obvm", "cvolp", "amv", "emv"} or any(
+        token in lowered for token in ("vol_", "amount", "emv", "obv", "mfi", "vwap")
+    ):
         return "VOLUME_LIQUIDITY"
-    if any(token in lowered for token in ("ma_", "macd", "cci", "kdj", "rsi", "trend", "momentum")):
+    if namespace in {
+        "adtm", "asi", "bias", "cat", "cci", "clv", "cmo", "coo", "dema",
+        "demakder", "er", "kcatr", "ntmdk", "skdj", "tas",
+    } or any(token in lowered for token in ("ma_", "macd", "cci", "kdj", "rsi", "trend", "momentum", "dif")):
         return "TREND_MOMENTUM"
+    if namespace == "xl" and "basis" in lowered:
+        return "MARKET_MICROSTRUCTURE"
+    if namespace in {"bar", "xl", "zdy"}:
+        return "MARKET_STRUCTURE"
     return "OTHER_TECHNICAL"
 
 

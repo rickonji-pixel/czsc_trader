@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "opportunity_core": [
+    "SIG-30M-D49839A5E3B29F88",
+    "SIG-30M-757887E0D0A362BB",
+    "SIG-30M-EEF2AFD62AD7392B",
+    "SIG-30M-5E1BA4E10F41F424"
+  ],
+  "opportunity_information_families": [
+    "MARKET_STRUCTURE",
+    "POSITION_VALUATION",
+    "TREND_MOMENTUM",
+    "VOLUME_LIQUIDITY"
+  ],
+  "volatility_environment": "SIG-DAILY-D2C62C0B757FCAC1",
+  "industry_confidence_modulator": "F-PROJECT-EXTERNAL-INDUSTRY-MONEYFLOW",
+  "planned_architectures": [
+    "OPPORTUNITY_CORE",
+    "OPPORTUNITY_PLUS_VOLATILITY",
+    "OPPORTUNITY_PLUS_INDUSTRY",
+    "OPPORTUNITY_PLUS_VOLATILITY_AND_INDUSTRY"
+  ],
+  "combination_policy": "equal weight across opportunity families; environment and industry evaluated by fixed ablation",
+  "industry_constraint": "position confidence only; must not change signal count",
+  "execution_policy": "must be preregistered identically for all four paths in the next experiment"
+}

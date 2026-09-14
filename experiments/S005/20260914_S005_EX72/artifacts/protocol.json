@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX72",
+  "experiment_type": "all_state_categorical_signal_information_audit",
+  "strategy_id": "S005",
+  "symbol": "588080.SH",
+  "asset_type": "etf",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "eligibility_experiment_id": "20260914_S005_EX71",
+    "eligibility_manifest_sha256": "6bd37905a86c85394c216630e223734c86db296f5a82a86973d84b4a7f987ba6",
+    "eligibility_ledger_sha256": "2a179dfe8de2413cb0243ebcebcccadffc57b727a036bbd5c69e2008484199c8",
+    "state_matrix_experiment_id": "20260914_S005_EX49",
+    "primary_states_sha256": "7bd1e372fe75fe0cc29ba19c8d731e05b19ec54ee6262bd878de4ee555ece4b7",
+    "industry_experiment_id": "20260914_S005_EX69",
+    "industry_ledger_sha256": "e3551b792c609bc5bdb2dff5ef75c80bebda778181f207895180fd8de304f847"
+  },
+  "dataset": {
+    "name": "research",
+    "fingerprint": "625bb22bbe2759c5bdfc9b93b17ecd1b053383f95c9eea606bca80ee650fd898",
+    "discovery_start": "2021-01-04",
+    "discovery_end": "2023-12-31",
+    "confirmation_start": "2024-01-01",
+    "confirmation_end": "2026-09-02"
+  },
+  "model": {
+    "unit": "one categorical signal configuration",
+    "state_shrinkage_prior_count": 20,
+    "minimum_confirmation_nonzero_score_sessions": 20,
+    "minimum_annual_sessions": 20
+  },
+  "outcome": {
+    "decision_time": "signal session close",
+    "entry": "next session open",
+    "exit": "fourth session open after signal",
+    "forward_open_intervals": 3,
+    "interpretation": "overlapping component information observation, not executable account return"
+  },
+  "controls": {
+    "past_return_sessions": 3,
+    "volatility_sessions": 20,
+    "year_fixed_effects": true
+  },
+  "statistics": {
+    "hac_max_lags": 20,
+    "nominal_one_sided_alpha": 0.10,
+    "benjamini_hochberg_fdr": 0.10,
+    "minimum_positive_confirmation_years": 2
+  },
+  "component_frequency_policy": "REPORT_ONLY",
+  "complete_strategy_frequency_policy": "HARD_GATE_60D_MEDIAN_7_P10_3",
+  "prior_cumulative_return_path_count": 23,
+  "return_path_count": 597,
+  "cumulative_return_path_count": 620,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

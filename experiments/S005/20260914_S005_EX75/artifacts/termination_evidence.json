@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S005_EX75",
+  "termination_status": "TERMINATED_NO_CANDIDATE",
+  "termination_reason": "FULL_FSC_COVERAGE_NOT_ENFORCED_BEFORE_ARCHITECTURE_SELECTION",
+  "fsc_definition_count": 264,
+  "fsc_kind_counts": {
+    "factor": 15,
+    "signal": 249
+  },
+  "fsc_scope_counts": {
+    "czsc": 246,
+    "project": 18
+  },
+  "ex72_experiment_type": "all_state_categorical_signal_information_audit",
+  "ex72_unit": "one categorical signal configuration",
+  "ex72_return_path_count": 597,
+  "ex74_decision": "STOP_SELECTED_ARCHITECTURE_ON_COMPLETE_STRATEGY_GATES",
+  "valid_conclusion_scope": "SELECTED_CZSC_DOMINANT_ARCHITECTURE_ONLY",
+  "invalid_scope_expansion": "FULL_FSC_POTENTIAL_EXHAUSTED",
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

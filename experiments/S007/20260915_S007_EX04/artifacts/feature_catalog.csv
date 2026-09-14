@@ -1,0 +1,102 @@
+feature,hypothesis_id,information_family,availability,provider
+risk_shibor_on_change_1d,H01-RISK-APPETITE,INTEREST_RATE,T 12:00,tushare.shibor
+risk_shibor_on_change_5d,H01-RISK-APPETITE,INTEREST_RATE,T 12:00,tushare.shibor
+risk_shibor_1w_change_1d,H01-RISK-APPETITE,INTEREST_RATE,T 12:00,tushare.shibor
+risk_shibor_1w_change_5d,H01-RISK-APPETITE,INTEREST_RATE,T 12:00,tushare.shibor
+risk_shibor_3m_change_1d,H01-RISK-APPETITE,INTEREST_RATE,T 12:00,tushare.shibor
+risk_shibor_3m_change_5d,H01-RISK-APPETITE,INTEREST_RATE,T 12:00,tushare.shibor
+risk_shibor_slope_3m_on,H01-RISK-APPETITE,INTEREST_RATE,T 12:00,tushare.shibor
+risk_sse_return_1d,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_daily
+risk_sse_return_5d,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_daily
+risk_sse_turnover_z20,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_dailybasic
+risk_csi500_return_1d,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_daily
+risk_csi500_return_5d,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_daily
+risk_csi500_turnover_z20,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_dailybasic
+risk_chinext_return_1d,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_daily
+risk_chinext_return_5d,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_daily
+risk_chinext_turnover_z20,H01-RISK-APPETITE,MARKET_RISK_APPETITE,T close+,tushare.index_dailybasic
+risk_global_ixic_return,H01-RISK-APPETITE,GLOBAL_RISK_APPETITE,before T open,tushare.global/us_daily
+risk_global_spx_return,H01-RISK-APPETITE,GLOBAL_RISK_APPETITE,before T open,tushare.global/us_daily
+risk_global_semis_mean_return,H01-RISK-APPETITE,GLOBAL_RISK_APPETITE,before T open,tushare.global/us_daily
+risk_global_semis_positive_breadth,H01-RISK-APPETITE,GLOBAL_RISK_APPETITE,before T open,tushare.global/us_daily
+expectation_revision_breadth_20,H02-EARNINGS-EXPECTATION,FUNDAMENTAL_EXPECTATION,available_session close,tushare.report_rc
+expectation_revision_count_20,H02-EARNINGS-EXPECTATION,FUNDAMENTAL_EXPECTATION,available_session close,tushare.report_rc
+expectation_revision_magnitude_20,H02-EARNINGS-EXPECTATION,FUNDAMENTAL_EXPECTATION,available_session close,tushare.report_rc
+breadth_weighted_sign,H03-BREADTH-DISPERSION,MARKET_BREADTH,T close+,tushare constituents/moneyflow
+breadth_weighted_return,H03-BREADTH-DISPERSION,MARKET_BREADTH,T close+,tushare constituents/moneyflow
+breadth_dispersion,H03-BREADTH-DISPERSION,MARKET_BREADTH,T close+,tushare constituents/moneyflow
+breadth_concentration_hhi,H03-BREADTH-DISPERSION,MARKET_BREADTH,T close+,tushare constituents/moneyflow
+breadth_moneyflow_positive,H03-BREADTH-DISPERSION,FUND_FLOW,T close+,tushare constituents/moneyflow
+breadth_moneyflow_intensity,H03-BREADTH-DISPERSION,FUND_FLOW,T close+,tushare constituents/moneyflow
+micro_share_change_1d_lag1,H04-ETF-DERIVATIVE-MICROSTRUCTURE,ETF_PRIMARY_MARKET,T uses T-1 publication,tushare.etf_share_size
+micro_share_change_5d_lag1,H04-ETF-DERIVATIVE-MICROSTRUCTURE,ETF_PRIMARY_MARKET,T uses T-1 publication,tushare.etf_share_size
+micro_size_change_1d_lag1,H04-ETF-DERIVATIVE-MICROSTRUCTURE,ETF_PRIMARY_MARKET,T uses T-1 publication,tushare.etf_share_size
+micro_nav_premium_lag1,H04-ETF-DERIVATIVE-MICROSTRUCTURE,ETF_PRIMARY_MARKET,T uses T-1 publication,tushare.etf_share_size
+micro_option_put_call_volume,H04-ETF-DERIVATIVE-MICROSTRUCTURE,DERIVATIVE_POSITIONING,T 17:00,tushare.opt_daily
+micro_option_put_call_oi,H04-ETF-DERIVATIVE-MICROSTRUCTURE,DERIVATIVE_POSITIONING,T 17:00,tushare.opt_daily
+price_return_1d,H05-PRICE-LIQUIDITY-STATE,TREND_MOMENTUM,T close,588080 OHLCV
+price_return_5d,H05-PRICE-LIQUIDITY-STATE,TREND_MOMENTUM,T close,588080 OHLCV
+price_intraday_range,H05-PRICE-LIQUIDITY-STATE,VOLATILITY_RISK,T close,588080 OHLCV
+price_close_vwap_deviation,H05-PRICE-LIQUIDITY-STATE,POSITION_VALUATION,T close,588080 OHLCV
+liquidity_volume_ratio_20,H05-PRICE-LIQUIDITY-STATE,VOLUME_LIQUIDITY,T close,588080 OHLCV
+volatility_realized_20,H05-PRICE-LIQUIDITY-STATE,VOLATILITY_RISK,T close,588080 OHLCV
+tsfresh__intraday_range__absolute_maximum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__length__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__maximum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__mean__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__median__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__minimum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__root_mean_square__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__standard_deviation__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__sum_values__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__variance__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__absolute_maximum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__length__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__maximum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__mean__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__median__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__minimum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__root_mean_square__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__standard_deviation__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__sum_values__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__variance__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__absolute_maximum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__length__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__maximum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__mean__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__median__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__minimum__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__root_mean_square__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__standard_deviation__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__sum_values__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__variance__lb20,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__absolute_maximum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__length__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__maximum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__mean__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__median__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__minimum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__root_mean_square__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__standard_deviation__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__sum_values__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__intraday_range__variance__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__absolute_maximum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__length__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__maximum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__mean__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__median__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__minimum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__root_mean_square__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__standard_deviation__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__sum_values__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__log_volume_change__variance__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__absolute_maximum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__length__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__maximum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__mean__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__median__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__minimum__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__root_mean_square__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__standard_deviation__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__sum_values__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh
+tsfresh__return_1d__variance__lb60,H05-PRICE-LIQUIDITY-STATE,TSFRESH_PROPOSAL,T close,tsfresh

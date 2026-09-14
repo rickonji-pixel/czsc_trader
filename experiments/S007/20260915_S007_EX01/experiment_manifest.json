@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX01",
+  "status": "COMPLETE",
+  "experiment_type": "first_principles_research_contract",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_DATA_AND_CAUSALITY_AUDIT",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 227,
+      "sha256": "cc15df444f8adf67d372c10338bad4de0c33e38ccf911e76c4a24eb0e4742ce2"
+    },
+    "02_design.md": {
+      "bytes": 527,
+      "sha256": "aab548d33243a01b1808091a465eecfc478a673069602b65ab9e92183faf11a7"
+    },
+    "03_execution.md": {
+      "bytes": 165,
+      "sha256": "f6baed651cc127de2246a65d94304225157494027c3406a2617f6aa85b75f0c6"
+    },
+    "04_conclusion.md": {
+      "bytes": 196,
+      "sha256": "592bd85dbeeb2a60ae00252894921c4ad4801fc833b480a006b58ee1cee42a69"
+    },
+    "artifacts/contract_evidence.json": {
+      "bytes": 787,
+      "sha256": "dd238af26253a0f7bcdbe61a46e075e9a87b0705dc1d91da0d6b8763fd2beb5a"
+    },
+    "artifacts/hypothesis_ledger.csv": {
+      "bytes": 1516,
+      "sha256": "2fa11d3320aeecbfdb73b0c448c8a4c98d14667c7a053e189842e6660f2d0cef"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 4073,
+      "sha256": "97a3d6a4a2728edad6369683b0bc22850b4cf5859d378936b8044279d62e55fc"
+    },
+    "run_experiment.py": {
+      "bytes": 5389,
+      "sha256": "e481d71838cac84e40f0169971147bddd055caf1713cb84978a1cf66eaa2b942"
+    }
+  }
+}

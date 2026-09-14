@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX17",
+  "status": "COMPLETE",
+  "decision": "TERMINATED_NO_CANDIDATE",
+  "reason_codes": [
+    "NO_ROBUST_SINGLE_INFORMATION_ANCHOR",
+    "ADDITIVE_PLATFORM_NARROW_AND_TOO_COMPLEX",
+    "OPC_BOUNDED_ADDITIVE_REPLAYS_FAILED_HARD_GATES",
+    "ER60_CONDITIONAL_ARCHITECTURE_LACKS_COMPLEMENTARY_FAMILIES"
+  ],
+  "reusable_leads": [
+    "MARKET_STRUCTURE_IN_TREND",
+    "POSITION_VALUATION_IN_RANGE_EXPLORATORY_ONLY"
+  ],
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

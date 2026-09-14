@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260914_S006_EX17",
+  "experiment_type": "derived_research_line_adjudication",
+  "strategy_id": "S006",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": [
+    {"experiment_id": "20260914_S006_EX06", "manifest_sha256": "4cb7ae0703ed0a4e3761616dce221a75813d232e46e48e8f9fa7bffa26996c8c", "evidence_path": "artifacts/information_audit.json", "evidence_sha256": "712aedffa968ac9d687e9a60dae9f4bfd34f986fd67b80c6adab1736be131aa8"},
+    {"experiment_id": "20260914_S006_EX09", "manifest_sha256": "8136894012af46b24037873f860feb27b418cbf847904af74568176e960aaa7f", "evidence_path": "artifacts/centered_role_audit.json", "evidence_sha256": "820607cde983c255b7afa845bfe7e2835823d0a16076c7aff6f29a2e7beca30c"},
+    {"experiment_id": "20260914_S006_EX12", "manifest_sha256": "7403e7a4ce35a45251c921e8898c01cb2a400cde74a31bfce4f6d7ffa4cceecc", "evidence_path": "artifacts/discovery_only_replay_evidence.json", "evidence_sha256": "094c887d14408694babf3649ece6a18e6705e871380a572389ba600fde044641"},
+    {"experiment_id": "20260914_S006_EX13", "manifest_sha256": "679123f1d4434668a3e2f7c6c15a61975989979fbad9aa0dc6bb63ce883b8609", "evidence_path": "artifacts/platform_complexity_audit.json", "evidence_sha256": "4f26386affa8021a1d7fb25ae78dd13ed04158ea752c242735a859b380a1ebe2"},
+    {"experiment_id": "20260914_S006_EX14", "manifest_sha256": "9095a6259fa5859c29929b320df10865f61b64dbf4a5c24d75065a687dff6d26", "evidence_path": "artifacts/compressed_replay_evidence.json", "evidence_sha256": "321bd7faf7a46a2b6cc99a6fdf995523d3b04b50e746e58fe0f18fa8d6647c39"},
+    {"experiment_id": "20260914_S006_EX15", "manifest_sha256": "5d467b88cec7e64b1204ba6d81473b6220f1dcb85b8772a15eda695842542462", "evidence_path": "artifacts/bridge_replay_evidence.json", "evidence_sha256": "e8c50d4836f8c1644792dcfe4648ba9c94f246d85bbc5630f1d672eae72c4e8b"},
+    {"experiment_id": "20260914_S006_EX16", "manifest_sha256": "9a735d91b50ddb4f4d1b4fbf7053717a71674180d3a1c3dadd3fba864bf2a455", "evidence_path": "artifacts/conditional_family_evidence.json", "evidence_sha256": "d59e81cee523aeca3652690c28d8646c673a9bef8833c916c140fbfbee0bb0fe"}
+  ],
+  "adjudication": {
+    "required_ex09_decision": "STOP_NO_ROBUST_ANCHOR",
+    "required_ex13_decision": "SIMPLIFY_BEFORE_CANDIDATE",
+    "required_ex14_decision": "STOP_COMPRESSED_STRUCTURE_NO_GATE_PASS",
+    "required_ex15_decision": "STOP_BOUNDED_COMPLEXITY_BRIDGE_NO_GATE_PASS",
+    "required_ex16_decision": "STOP_ER60_CONDITIONAL_ARCHITECTURE",
+    "maximum_ex16_validated_information_families": 1
+  },
+  "reads_new_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

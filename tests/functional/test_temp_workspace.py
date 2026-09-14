@@ -36,6 +36,15 @@ def test_explicit_repository_root_controls_external_anchor(
     shutil.rmtree(created)
 
 
+def test_pytest_temporary_path_stays_inside_repository(tmp_path: Path) -> None:
+    marker = tmp_path / "marker.txt"
+    marker.write_text("ok", encoding="utf-8")
+
+    assert marker.read_text(encoding="utf-8") == "ok"
+    assert tmp_path.parent.parent.name == "pytest"
+    assert tmp_path.parent.parent.parent.name == ".tmp"
+
+
 def test_temporary_namespace_rejects_path_traversal(functional_repo: Path) -> None:
     with pytest.raises(ValueError, match="temporary namespace"):
         create_temporary_directory(functional_repo, "../outside")

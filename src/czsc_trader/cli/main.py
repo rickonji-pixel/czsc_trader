@@ -224,6 +224,36 @@ def _catalog_show(args: argparse.Namespace):
     return show_catalog(_context(args), args.id)
 
 
+def _template_validate(args: argparse.Namespace):
+    from czsc_trader.application.template_service import validate_templates
+
+    return validate_templates(_context(args))
+
+
+def _template_list(args: argparse.Namespace):
+    from czsc_trader.application.template_service import list_templates
+
+    return list_templates(
+        _context(args),
+        operator=args.operator,
+        status=args.status,
+        query=args.query,
+    )
+
+
+def _template_show(args: argparse.Namespace):
+    from czsc_trader.application.template_service import show_template
+
+    return show_template(_context(args), args.id)
+
+
+def _template_instantiate(args: argparse.Namespace):
+    from czsc_trader.application.template_service import instantiate_template
+
+    context = _context(args)
+    return instantiate_template(context, _repository_path(context, args.spec))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = CommandParser(prog="czsc-trader")
     resources = parser.add_subparsers(
@@ -351,6 +381,49 @@ def build_parser() -> argparse.ArgumentParser:
     catalog_show.set_defaults(
         command_handler=_catalog_show,
         command_name="catalog.show",
+    )
+
+    template = resources.add_parser("template")
+    template_actions = template.add_subparsers(
+        dest="action", required=True, parser_class=CommandParser
+    )
+    template_validate = template_actions.add_parser("validate")
+    _add_repository_root(template_validate)
+    template_validate.set_defaults(
+        command_handler=_template_validate,
+        command_name="template.validate",
+    )
+    template_list = template_actions.add_parser("list")
+    template_list.add_argument(
+        "--operator",
+        choices=(
+            "WEIGHTED_SCORE",
+            "GATED_SCORE",
+            "REGIME_WEIGHTED_SCORE",
+            "EVENT_HOLD",
+            "CORE_OVERLAY",
+        ),
+    )
+    template_list.add_argument("--status", choices=("READY", "DEPRECATED"))
+    template_list.add_argument("--query")
+    _add_repository_root(template_list)
+    template_list.set_defaults(
+        command_handler=_template_list,
+        command_name="template.list",
+    )
+    template_show = template_actions.add_parser("show")
+    template_show.add_argument("--id", required=True)
+    _add_repository_root(template_show)
+    template_show.set_defaults(
+        command_handler=_template_show,
+        command_name="template.show",
+    )
+    template_instantiate = template_actions.add_parser("instantiate")
+    template_instantiate.add_argument("--spec", required=True, type=Path)
+    _add_repository_root(template_instantiate)
+    template_instantiate.set_defaults(
+        command_handler=_template_instantiate,
+        command_name="template.instantiate",
     )
 
     backtest = resources.add_parser("backtest")

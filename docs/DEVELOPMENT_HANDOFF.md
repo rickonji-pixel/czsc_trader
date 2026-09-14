@@ -45,7 +45,7 @@ git rev-list --left-right --count origin/master...master
 ```text
 Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测）
                                       ↓
-                        TDR ← FSC（定义目录）
+                 FSC（输入定义） → TDR ← STC（函数模板）
               ┌──────────┼──────────┐
               ↓          ↓          ↓
              SM         SE   advice.v4/v5
@@ -64,6 +64,10 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 - **FSC**位于`packages/factor_signal_catalog/`，定义数据位于`catalog/`。它记录项目级信息族、
   因子和信号的稳定语义、实现入口、参数及因果可用时间；不保存标的计算值、收益证据、实验
   结论或运行状态。TDR只读引用FSC，各研究线拥有自己的物化缓存与证据。
+- **STC**位于`packages/strategy_template_catalog/`，定义数据位于`strategy_templates/`。它记录
+  策略函数模板、输入职责、参数边界和实现复杂度，并生成确定性实例身份；不读取行情、不搜索
+  参数、不回测、不评价候选。TDR只读引用STC，负责交叉核对FSC输入，并在具体研究实现中落实
+  模板语义。
 - **SM**位于`packages/strategy_manager/`。它管理稳定策略ID、不可变版本、资格流转、
   绩效证据和追加式治理审计；它不管理策略进程与账户运行状态。
 - **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的事实，执行筛劣、Pareto排名、
@@ -79,7 +83,7 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 正式实验档案按`experiments/<策略ID>/<实验ID>/`保存。实验ID全局唯一，TDR按ID定位
 嵌套档案；历史SM证据中的旧路径字符串保持不变，并由兼容解析器映射到当前目录。
 
-依赖方向保持为：`TDR → FSC/SM/SE`、`PTE → TDR CLI`、`WDG → PTE进程`。
+依赖方向保持为：`TDR → FSC/STC/SM/SE`、`PTE → TDR CLI`、`WDG → PTE进程`。
 
 ## 关键业务不变量
 

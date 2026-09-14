@@ -17,6 +17,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\factor_signal_catalog[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_template_catalog[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
@@ -44,6 +45,20 @@ FSC用于查看项目已经登记的研究“弹药”。目录状态只表示�
 
 标的计算值、筛选结果和收益证据不在FSC中查看，应进入对应的`research/<策略ID>/`与
 `experiments/<策略ID>/`。
+
+## 策略模板目录
+
+STC用于选择受控的策略函数结构。模板状态表示结构契约可复用，不代表策略有效：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe template validate
+.\.venv\Scripts\czsc-trader.exe template list --status READY
+.\.venv\Scripts\czsc-trader.exe template show --id STC-T04-EVENT-HOLD
+.\.venv\Scripts\czsc-trader.exe template instantiate --spec .\prototype.json
+```
+
+`instantiate`只校验输入角色和参数并生成确定性实例ID。策略收益、排名与冻结仍需经过实验、
+Optuna搜索、SE评估和SM治理。
 
 ## 行情数据
 

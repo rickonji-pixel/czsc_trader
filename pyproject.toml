@@ -17,6 +17,7 @@ dependencies = [
     "pandas>=3.0.3,<4",
     "numpy>=2.4.6",
     "joblib>=1.5,<2",
+    "optuna==4.9.0",
     "plotly==6.9.0",
     "python-dotenv>=1.0.0",
     "tsfresh==0.21.1",

@@ -16,6 +16,7 @@ from strategy_manager import (
     StrategyRegistry,
     StrategyVersion,
     ValidationError,
+    canonical_sha256,
 )
 
 
@@ -90,18 +91,40 @@ def _evidence(
     )
 
 
-def _approval(*, decision: str = "RECOMMEND_FREEZE") -> dict:
+def _machine_report(**changes) -> dict:
+    report = {
+        "schema_version": 2,
+        "report_id": "SE-S001-C001",
+        "candidate_id": "winner",
+        "candidate_hash": "c" * 64,
+        "machine_verdict": "ELIGIBLE_FOR_FREEZE_REVIEW",
+        "risk_label": "MIXED",
+    }
+    report.update(changes)
+    return {**report, "report_hash": canonical_sha256(report)}
+
+
+def _approval(*, decision: str = "APPROVE_FREEZE") -> dict:
+    report = _machine_report()
     return {
-        "schema_version": 1,
-        "assessment_id": "FHC-S001-v1",
+        "schema_version": 2,
+        "assessment_id": "FR-SE-S001-C001",
         "strategy_id": "S001",
         "candidate_id": "winner",
         "candidate_hash": "c" * 64,
         "decision": decision,
         "risk_label": "MIXED",
         "source_experiment": "experiments/0904_TEST",
-        "source_hash": "d" * 64,
-        "assessed_at": "2026-09-03T10:00:00+08:00",
+        "machine_report_id": report["report_id"],
+        "machine_report_hash": report["report_hash"],
+        "machine_verdict": report["machine_verdict"],
+        "reviewed_by": "tester",
+        "rationale": "进入模拟盘",
+        "mechanism_review": "APPROVED",
+        "external_relevance_review": "APPROVED",
+        "deployment_review": "APPROVED",
+        "monitoring_plan_review": "APPROVED",
+        "reviewed_at": "2026-09-03T10:00:00+08:00",
     }
 
 
@@ -116,6 +139,7 @@ def _frozen_registry(root: Path) -> tuple[StrategyRegistry, str]:
         reason="进入模拟盘",
         evidence=_evidence("EVD-RESEARCH", "RESEARCH_BACKTEST", "a" * 64),
         approval=_approval(),
+        machine_report=_machine_report(),
     )
     assert frozen.release_hash is not None
     return registry, frozen.release_hash
@@ -186,14 +210,49 @@ def test_ft_sm02_governance_rejects_invalid_mutation_and_tampering(
             reason="重复名称",
         )
     registry.create_version(_version(), actor="tester", reason="创建首版")
-    with pytest.raises(ValidationError, match="RECOMMEND_FREEZE"):
+    with pytest.raises(ValidationError, match="APPROVE_FREEZE"):
         registry.freeze_version(
             "S001",
             "v1",
             actor="tester",
             reason="体检未通过",
             evidence=_evidence("EVD-REJECTED", "RESEARCH_BACKTEST", "a" * 64),
-            approval=_approval(decision="KEEP_RESEARCHING"),
+            approval=_approval(decision="REJECT"),
+            machine_report=_machine_report(),
+        )
+    legacy_approval = {
+        "schema_version": 1,
+        "assessment_id": "FHC-S001-v1",
+        "strategy_id": "S001",
+        "candidate_id": "winner",
+        "candidate_hash": "c" * 64,
+        "decision": "RECOMMEND_FREEZE",
+        "risk_label": "MIXED",
+        "source_experiment": "experiments/0904_TEST",
+        "source_hash": "d" * 64,
+        "assessed_at": "2026-09-03T10:00:00+08:00",
+    }
+    with pytest.raises(ValidationError, match="missing fields"):
+        registry.freeze_version(
+            "S001",
+            "v1",
+            actor="tester",
+            reason="旧批准书",
+            evidence=_evidence("EVD-LEGACY", "RESEARCH_BACKTEST", "a" * 64),
+            approval=legacy_approval,
+            machine_report=_machine_report(),
+        )
+    tampered_report = _machine_report()
+    tampered_report["risk_label"] = "FAVORABLE"
+    with pytest.raises(EvidenceRequiredError, match="report hash mismatch"):
+        registry.freeze_version(
+            "S001",
+            "v1",
+            actor="tester",
+            reason="篡改报告",
+            evidence=_evidence("EVD-TAMPERED", "RESEARCH_BACKTEST", "a" * 64),
+            approval=_approval(),
+            machine_report=tampered_report,
         )
     with pytest.raises(RegistryError, match="next version"):
         registry.create_version(
@@ -208,6 +267,7 @@ def test_ft_sm02_governance_rejects_invalid_mutation_and_tampering(
         reason="进入模拟盘",
         evidence=_evidence("EVD-RESEARCH", "RESEARCH_BACKTEST", "a" * 64),
         approval=_approval(),
+        machine_report=_machine_report(),
     )
     before = registry.lifecycle_events("S001")
     with pytest.raises(EvidenceRequiredError, match="PAPER_FORWARD"):

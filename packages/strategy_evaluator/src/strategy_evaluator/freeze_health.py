@@ -1,3 +1,9 @@
+"""Legacy caller-supplied freeze summary retained for historical experiment replay.
+
+New freeze workflows must use ``evaluate_machine_eligibility``. Results from
+this module are not accepted by Strategy Manager's schema-v2 freeze contract.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -43,7 +49,7 @@ class FreezeHealthResult(Record):
 
 
 def assess_freeze_health(request: FreezeHealthRequest) -> FreezeHealthResult:
-    """Run the final SE gate after candidate registration and opponent PK."""
+    """Reproduce the historical caller-supplied freeze-health calculation."""
     if not request.candidate_id.strip() or not request.candidate_hash.strip():
         raise ValueError("candidate identity must be nonblank")
 

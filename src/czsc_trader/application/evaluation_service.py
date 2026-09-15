@@ -19,10 +19,13 @@ from strategy_manager import Strategy, StrategyManagerError, StrategyRegistry, S
 from strategy_evaluator import (
     CandidateDescriptor,
     EvaluationProtocol,
+    MachineEvaluationCase,
+    MachineEvaluationPolicy,
     MetricObservation,
+    RiskLabel,
     TrialRecord,
-    audit_provisional_champion,
     compare_observation,
+    evaluate_machine_eligibility,
     finalize_evaluation,
     legacy_health_evidence,
     rank_candidates,
@@ -51,6 +54,7 @@ from czsc_trader.experiment_archive import (
 from czsc_trader.identity import canonical_json_sha256
 
 from .context import RepositoryContext
+from .freeze_review import build_freeze_approval
 from .results import CommandResult
 
 Runner = Callable[..., tuple[MetricObservation, ...]]
@@ -426,6 +430,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     ranking = rank_candidates(protocol, shortlist, formal, candidates)
     health = None
     champion_audit = None
+    machine_report = None
     audit_request = None
     stress: tuple[MetricObservation, ...] = ()
     repeated: tuple[MetricObservation, ...] = ()
@@ -446,7 +451,20 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
                 repeated=repeated, stress=stress,
                 search_candidate_ids=preliminary.candidate_ids,
             )
-            champion_audit = audit_provisional_champion(audit_request)
+            champion = next(
+                item for item in candidates if item.candidate_id == ranking.champion_id
+            )
+            machine_report = evaluate_machine_eligibility(MachineEvaluationCase(
+                report_id=f"SE-{experiment_id}-{ranking.champion_id}",
+                candidate_hash=champion.candidate_hash,
+                policy=MachineEvaluationPolicy(
+                    policy_id="OPC-MACHINE-ELIGIBILITY",
+                    policy_version="v1",
+                    allowed_risk_labels=(RiskLabel.FAVORABLE, RiskLabel.MIXED),
+                ),
+                audit_request=audit_request,
+            ))
+            champion_audit = machine_report.audit_result
         else:
             health = legacy_health_evidence(
                 protocol, ranking, formal, stress, repeated, candidates,
@@ -468,6 +486,18 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     }
     if reuse:
         result_document["artifact_reuse_diagnostics"] = reuse_diagnostics
+    if machine_report is not None:
+        result_document["machine_evaluation"] = {
+            "report_id": machine_report.report_id,
+            "candidate_id": machine_report.candidate_id,
+            "candidate_hash": machine_report.candidate_hash,
+            "machine_verdict": machine_report.machine_verdict.value,
+            "risk_label": None
+            if machine_report.risk_label is None
+            else machine_report.risk_label.value,
+            "evidence_hash": machine_report.evidence_hash,
+            "report_hash": machine_report.report_hash,
+        }
 
     comparisons = []
     by_key = {(x.candidate_id, x.window_id): x for x in formal}
@@ -508,6 +538,10 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
             "candidate_returns.csv": _return_matrix_csv(audit_request.search_returns),
             "comparison_returns.csv": _return_matrix_csv(audit_request.comparison_returns),
         })
+    if machine_report is not None:
+        documents["machine_evaluation.json"] = json.dumps(
+            machine_report.to_dict(), ensure_ascii=False, indent=2,
+        ) + "\n"
     if reuse:
         documents["artifact_reuse.csv"] = _csv_text([asdict(item) for item in reuse_ledger])
     result_document["audit_artifacts"] = {
@@ -525,6 +559,10 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
             "comparison_returns.csv",
         ):
             result_document["audit_artifacts"][name] = _text_hash(documents[name])
+    if machine_report is not None:
+        result_document["audit_artifacts"]["machine_evaluation.json"] = _text_hash(
+            documents["machine_evaluation.json"]
+        )
     result_document["decision_hash"] = _canonical_hash(result_document)
     documents = {
         "evaluation_result.json": json.dumps(result_document, ensure_ascii=False, indent=2) + "\n",
@@ -612,6 +650,7 @@ def _ensure_frozen(
     winner: dict[str, Any],
     actor: str,
     reason: str,
+    review: dict[str, Any],
 ) -> StrategyVersion:
     experiment = _experiment_path(context, experiment_id)
     experiment_reference = experiment_repository_reference(
@@ -622,6 +661,19 @@ def _ensure_frozen(
     strategy_id = str(winner.get("strategy_id", ""))
     if not strategy_id:
         raise ValueError("winning candidate requires strategy_id")
+    candidate_id = str(winner["candidate_id"])
+    candidate_hash = str(winner.get("strategy_hash", winner.get("candidate_hash", "")))
+    if len(candidate_hash) != 64:
+        raise ValueError("winning candidate requires candidate_hash for freeze approval")
+    machine_report = _read_object(experiment / "artifacts" / "machine_evaluation.json")
+    approval = build_freeze_approval(
+        machine_report=machine_report,
+        review=review,
+        strategy_id=strategy_id,
+        source_experiment=experiment_reference,
+        actor=actor,
+        reason=reason,
+    )
     try:
         registry.get_strategy(strategy_id)
     except StrategyManagerError:
@@ -634,7 +686,6 @@ def _ensure_frozen(
                 "scope": [str(manifest["symbol"])], "created_at": datetime.now().astimezone().isoformat(), "created_by": actor,
             }), actor=actor, reason=reason,
         )
-    candidate_id = str(winner["candidate_id"])
     version = _find_source_version(
         registry,
         strategy_id,
@@ -685,21 +736,6 @@ def _ensure_frozen(
         "source_path": f"{experiment_reference}/artifacts/evaluation_result.json", "source_hash": canonical_sha256(source),
         "recorded_at": datetime.now().astimezone().isoformat(), "recorded_by": actor,
     }
-    candidate_hash = str(winner.get("strategy_hash", winner.get("candidate_hash", "")))
-    if len(candidate_hash) != 64:
-        raise ValueError("winning candidate requires candidate_hash for freeze approval")
-    approval = {
-        "schema_version": 1,
-        "assessment_id": f"FHC-{experiment_id}-{candidate_id}",
-        "strategy_id": strategy_id,
-        "candidate_id": candidate_id,
-        "candidate_hash": candidate_hash,
-        "decision": "RECOMMEND_FREEZE",
-        "risk_label": str(result.get("audit", {}).get("risk_label", "MIXED")),
-        "source_experiment": experiment_reference,
-        "source_hash": canonical_sha256(result),
-        "assessed_at": datetime.now().astimezone().isoformat(),
-    }
     frozen, _ = registry.freeze_version(
         strategy_id,
         version.version,
@@ -707,6 +743,7 @@ def _ensure_frozen(
         reason=reason,
         evidence=evidence,
         approval=approval,
+        machine_report=machine_report,
     )
     return frozen
 
@@ -716,19 +753,31 @@ def accept_evaluation(
     experiment_id: str,
     actor: str,
     reason: str,
+    review_path: Path,
     *,
     pte_runner: Callable[..., Any] = subprocess.run,
 ) -> CommandResult:
     experiment = _experiment_path(context, experiment_id)
     result = _read_object(experiment / "artifacts" / "evaluation_result.json")
-    if result.get("decision") != "RECOMMEND_FREEZE" or not result.get("recommended_candidate_id"):
-        raise ValueError("evaluation decision must be RECOMMEND_FREEZE")
+    stored_decision_hash = result.pop("decision_hash", None)
+    if stored_decision_hash != _canonical_hash(result):
+        raise ValueError("completed evaluation decision hash mismatch")
+    result["decision_hash"] = stored_decision_hash
+    _validate_screening_audit(experiment / "artifacts", result)
+    machine = result.get("machine_evaluation")
+    if not isinstance(machine, dict):
+        raise ValueError("evaluation is missing the SE machine report")
+    if machine.get("machine_verdict") != "ELIGIBLE_FOR_FREEZE_REVIEW":
+        raise ValueError("evaluation is not eligible for human freeze review")
+    if not result.get("recommended_candidate_id"):
+        raise ValueError("evaluation has no candidate for freeze review")
     if result.get("standard_version") == "opc-v3":
         audit = result.get("audit")
         if not isinstance(audit, dict) or audit.get("status") != "PASS":
             raise ValueError("OPC-v3 acceptance requires a complete champion audit")
     if not actor.strip() or not reason.strip():
         raise ValueError("actor and reason are required")
+    review = _read_object(review_path)
     manifest, winner = _winning_payload(experiment, result)
     journal_path = experiment / "evaluation_acceptance.json"
     journal = _read_object(journal_path) if journal_path.is_file() else None
@@ -737,7 +786,9 @@ def accept_evaluation(
     if journal is not None and journal.get("activation_state") == "PAPER_ACTIVE":
         return CommandResult("PASS", "strategy.accept-evaluation", journal)
     if journal is None:
-        frozen = _ensure_frozen(context, experiment_id, result, manifest, winner, actor, reason)
+        frozen = _ensure_frozen(
+            context, experiment_id, result, manifest, winner, actor, reason, review,
+        )
         journal = {
             "schema_version": 1, "experiment_id": experiment_id,
             "evaluation_input_hash": result["input_hash"], "candidate_id": winner["candidate_id"],

@@ -21,6 +21,9 @@ from strategy_evaluator import (
     FactorEvent,
     HealthEvidence,
     HealthStatus,
+    MachineEvaluationCase,
+    MachineEvaluationPolicy,
+    MachineVerdict,
     MetricObservation,
     MetricStatus,
     ParameterPoint,
@@ -32,6 +35,7 @@ from strategy_evaluator import (
     ValidationError,
     assess_research_candidate,
     audit_provisional_champion,
+    evaluate_machine_eligibility,
     finalize_evaluation,
     hash_audit_data,
     hash_candidate_pool,
@@ -390,6 +394,51 @@ def test_ft_se02_champion_audit_combines_statistical_and_engineering_evidence() 
     assert finalize_evaluation(
         _ranking(), None, "0904_TEST", audit=invalid, standard_version="opc-v3"
     ).decision is Decision.KEEP_INCUMBENT
+
+
+def test_ft_se02b_machine_eligibility_is_calculated_from_audit_evidence() -> None:
+    request = _complete_audit_request()
+    candidate_hash = next(
+        item.candidate_hash
+        for item in request.candidates
+        if item.candidate_id == request.champion_id
+    )
+    policy = MachineEvaluationPolicy(
+        "OPC-MACHINE-ELIGIBILITY",
+        "v1",
+        (RiskLabel.FAVORABLE, RiskLabel.MIXED, RiskLabel.WEAK),
+    )
+    report = evaluate_machine_eligibility(MachineEvaluationCase(
+        "SE-0904_TEST-R1102", candidate_hash, policy, request,
+    ))
+
+    assert report.machine_verdict is MachineVerdict.ELIGIBLE_FOR_FREEZE_REVIEW
+    assert {item.check_id: item.status.value for item in report.checks} == {
+        "evidence_integrity": "PASS",
+        "candidate_screening": "PASS",
+        "benchmark_challenge": "PASS",
+        "statistical_robustness": "PASS",
+        "parameter_robustness": "PASS",
+        "cost_stress": "PASS",
+        "external_reproduction": "NOT_APPLICABLE",
+        "technical_consistency": "PASS",
+    }
+    assert len(report.report_hash) == 64
+
+    mismatched = evaluate_machine_eligibility(MachineEvaluationCase(
+        "SE-0904_TEST-R1102", "f" * 64, policy, request,
+    ))
+    assert mismatched.machine_verdict is MachineVerdict.NOT_ELIGIBLE
+    assert "CANDIDATE_HASH_MISMATCH" in mismatched.reason_codes
+
+    external_required = evaluate_machine_eligibility(MachineEvaluationCase(
+        "SE-0904_TEST-R1102",
+        candidate_hash,
+        replace(policy, required_external_replays=1),
+        request,
+    ))
+    assert external_required.machine_verdict is MachineVerdict.INSUFFICIENT_EVIDENCE
+    assert "MISSING_REQUIRED_EXTERNAL_REPLAY" in external_required.reason_codes
 
 
 def test_ft_se03_governance_validation_and_report_are_complete() -> None:

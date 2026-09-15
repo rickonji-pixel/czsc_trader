@@ -44,8 +44,16 @@ class FreezeApproval:
     decision: str
     risk_label: str
     source_experiment: str
-    source_hash: str
-    assessed_at: str
+    machine_report_id: str
+    machine_report_hash: str
+    machine_verdict: str
+    reviewed_by: str
+    rationale: str
+    mechanism_review: str
+    external_relevance_review: str
+    deployment_review: str
+    monitoring_plan_review: str
+    reviewed_at: str
 
     FIELDS: ClassVar[tuple[str, ...]] = (
         "schema_version",
@@ -56,21 +64,47 @@ class FreezeApproval:
         "decision",
         "risk_label",
         "source_experiment",
-        "source_hash",
-        "assessed_at",
+        "machine_report_id",
+        "machine_report_hash",
+        "machine_verdict",
+        "reviewed_by",
+        "rationale",
+        "mechanism_review",
+        "external_relevance_review",
+        "deployment_review",
+        "monitoring_plan_review",
+        "reviewed_at",
     )
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> FreezeApproval:
         require_exact_fields(value, cls.FIELDS)
+        if value["schema_version"] != 2 or isinstance(value["schema_version"], bool):
+            raise ValidationError("new freeze approval schema_version must be 2")
         decision = require_string(value["decision"], "decision")
-        if decision != "RECOMMEND_FREEZE":
-            raise ValidationError("freeze approval decision must be RECOMMEND_FREEZE")
+        if decision != "APPROVE_FREEZE":
+            raise ValidationError("freeze approval decision must be APPROVE_FREEZE")
         risk_label = require_string(value["risk_label"], "risk_label")
         if risk_label not in {"FAVORABLE", "MIXED"}:
             raise ValidationError("freeze approval risk_label must be FAVORABLE or MIXED")
+        machine_verdict = require_string(value["machine_verdict"], "machine_verdict")
+        if machine_verdict != "ELIGIBLE_FOR_FREEZE_REVIEW":
+            raise ValidationError(
+                "freeze approval requires ELIGIBLE_FOR_FREEZE_REVIEW machine verdict"
+            )
+        reviews = {
+            name: require_string(value[name], name)
+            for name in (
+                "mechanism_review",
+                "external_relevance_review",
+                "deployment_review",
+                "monitoring_plan_review",
+            )
+        }
+        if any(item != "APPROVED" for item in reviews.values()):
+            raise ValidationError("all human freeze review items must be APPROVED")
         return cls(
-            schema_version=require_schema_version(value["schema_version"]),
+            schema_version=2,
             assessment_id=require_string(value["assessment_id"], "assessment_id"),
             strategy_id=require_strategy_id(value["strategy_id"]),
             candidate_id=require_string(value["candidate_id"], "candidate_id"),
@@ -78,8 +112,18 @@ class FreezeApproval:
             decision=decision,
             risk_label=risk_label,
             source_experiment=require_string(value["source_experiment"], "source_experiment"),
-            source_hash=require_sha256(value["source_hash"], "source_hash"),
-            assessed_at=require_timestamp(value["assessed_at"], "assessed_at"),
+            machine_report_id=require_identifier(value["machine_report_id"], "machine_report_id"),
+            machine_report_hash=require_sha256(
+                value["machine_report_hash"], "machine_report_hash"
+            ),
+            machine_verdict=machine_verdict,
+            reviewed_by=require_string(value["reviewed_by"], "reviewed_by"),
+            rationale=require_string(value["rationale"], "rationale"),
+            mechanism_review=reviews["mechanism_review"],
+            external_relevance_review=reviews["external_relevance_review"],
+            deployment_review=reviews["deployment_review"],
+            monitoring_plan_review=reviews["monitoring_plan_review"],
+            reviewed_at=require_timestamp(value["reviewed_at"], "reviewed_at"),
         )
 
     def to_dict(self) -> dict[str, Any]:

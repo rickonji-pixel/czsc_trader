@@ -1,7 +1,7 @@
 # 技术交接
 
 > 本文是跨机器、跨会话继续开发的入口，只记录系统全貌、关键边界、恢复方法和开发规则。
-> 研究结论见`docs/RESEARCH_HANDOFF.md`，安装与日常操作见`docs/USER_GUIDE.md`，
+> 研究目标、当前结论和工作流见`research/README.md`，安装与日常操作见`docs/USER_GUIDE.md`，
 > 历史设计与实施过程见`docs/superpowers/`。
 
 ## 模块简称
@@ -21,10 +21,12 @@
 
 - 主开发分支：`master`；开始工作前现场确认分支和远端同步状态。
 - Python：3.12。
-- 正式策略：`S001-v1`、`S001-v2`和`S002-v1`均为`PAPER_READY`；S002使用
-  `czsc_event_hold`事件持有型运行时。
-- PTE虚拟账户：每个账户持有独立策略发布、标的和资产类型；现有三个账户各10万元，
-  S001账户交易588080.SH，S002账户交易510500.SH。
+- 正式策略：`S001-v1`、`S001-v2`、`S002-v1`、`S003-v1`和`S007-v1`均为
+  `PAPER_READY`。S002使用`czsc_event_hold`事件持有型运行时，S003使用成分资金流宽度
+  日内轮转运行时，S007使用多源机会风险门控运行时。
+- PTE虚拟账户：每个账户持有独立策略发布、标的和资产类型；现有五个账户各10万元。
+  S001与S007账户交易588080.SH，S002与S003账户交易510500.SH；左侧入口按交易标的代码、
+  策略编号和版本依次排序。
 - SM冻结必须携带SE冻结前体检批准书；批准书与策略、候选ID及候选哈希不一致时拒绝冻结。
 - TDR/PTE机器契约：普通决策为`advice.v4`，原子时点计划为`advice.v5`，纯绘图为
   `account_observation.v1`。
@@ -190,7 +192,7 @@ git pull --ff-only origin master
 - 普通改动使用`master`；重量级开发和研究任务先确认是否新建`codex/`分支。
 - 不使用本地Git worktree；保留用户的无关修改。
 - 分支内可以自主提交；合并`master`和推送远端前取得用户确认。
-- 修改研究口径时同步`docs/RESEARCH_HANDOFF.md`和实验档案。
+- 修改研究口径时同步`research/README.md`、对应`research/SXX/HANDOFF.md`和实验档案。
 - 修改运行边界、契约或安装方式时同步本文及对应包`README.md`。
 - 根目录`README.md`只维护项目介绍和文档索引；`docs/USER_GUIDE.md`维护安装与当前
   操作路径；本文只维护长期有效的架构、边界、恢复方法和开发约束。调试流水及已完成
@@ -226,7 +228,7 @@ git pull --ff-only origin master
 - PTE对象关系与包级契约：`packages/paper_trading_engine/README.md`
 - SM与SE契约：`docs/superpowers/specs/2026-09-03-strategy-manager-design.md`、
   `packages/strategy_evaluator/README.md`
-- 当前研究结论与实验组织：`docs/RESEARCH_HANDOFF.md`
+- 研究批次目标、当前结论与工作流：`research/README.md`
 - 已批准设计与实施计划：`docs/superpowers/specs/`、`docs/superpowers/plans/`
 
 当前限制：PTE只实现Futu模拟交易渠道；控制台只监听localhost；同一观察序列的SQLite

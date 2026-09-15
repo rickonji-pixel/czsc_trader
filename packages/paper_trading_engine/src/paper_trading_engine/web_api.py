@@ -152,6 +152,7 @@ class PteWebApi:
             accounts.append({
                 "account_id": row["account_id"], "name": row["name"],
                 "strategy_id": row["strategy_id"],
+                "symbol": row["symbol"],
                 "release_id": f'{row["strategy_id"]}-{row["strategy_version"]}',
                 "release_hash": row["release_hash"], "paused": bool(row["paused"]),
                 "health": row["health"], "total_assets": row["total_assets"],

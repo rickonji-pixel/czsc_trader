@@ -122,6 +122,23 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
     assert "quote_health" not in channel_api.channel_snapshot("futu")
     store.close()
 
+    account_store = PaperStore(tmp_path / "account-index.db")
+    account_store.create_virtual_account(
+        "s007-v1", "S007-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S007", strategy_name_snapshot="多源机会风险门控",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
+        symbol="588080.SH", asset_type="etf",
+    )
+    account_api = PteWebApi(SimpleNamespace(
+        store=account_store,
+        virtual=SimpleNamespace(status=lambda _account_id: {"last_decision": None}),
+        channel=None,
+    ))
+    account_index = account_api.virtual_accounts()
+    assert account_index["accounts"][0]["symbol"] == "588080.SH"
+    account_store.close()
+
     requested, engine = Event(), FakeEngine()
     engine.chart_file = tmp_path / "observation.html"
     engine.chart_file.write_text("<html>alpha chart</html>", encoding="utf-8")

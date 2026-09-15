@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX24",
+  "status": "COMPLETE",
+  "experiment_type": "targeted_boundary_extension_and_platform_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "REVIEW_FURTHER_BOUNDARY_EXTENSION_REQUIRED",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 288,
+      "sha256": "49a59ba6c86cdac4915da25298be9d1afc0596e7a838e9b06daf5e434497ea5e"
+    },
+    "02_design.md": {
+      "bytes": 1029,
+      "sha256": "8c210e77aaa64d37dc93d911acf02ad1ed6e7ee3243e5e6cc28100448bcce7ea"
+    },
+    "03_execution.md": {
+      "bytes": 231,
+      "sha256": "e0fe1e79593827b98f555f7df8a1458b07dbfecbeebe6667368a17a40ab36d27"
+    },
+    "04_conclusion.md": {
+      "bytes": 485,
+      "sha256": "e61da572005076c1e49ea0c9df54921ef42f5a313bd9f37d4dd1ce6b85931be4"
+    },
+    "artifacts/boundary_extension_usage.csv": {
+      "bytes": 188,
+      "sha256": "1e6e0a41b0e5b3bc3ab43b263e23c7eec736ee9d5f1e880aa71148872e03c254"
+    },
+    "artifacts/feasible_trials.csv": {
+      "bytes": 2687267,
+      "sha256": "848b774b5d15ae38af43a30ce8f05d61277913b94221e4494687328811e15e19"
+    },
+    "artifacts/local_neighborhood_summary.csv": {
+      "bytes": 96006,
+      "sha256": "a8ac99e98be379cc2514f455fd52395ef411e67f0bdddf55b45638b2b67154aa"
+    },
+    "artifacts/parameter_boundary_summary.csv": {
+      "bytes": 1449,
+      "sha256": "42370f88adc71a24ff8ab51a1437a0c39103eee621eb85d0cbd9604c5a0ecd87"
+    },
+    "artifacts/parameter_components.csv": {
+      "bytes": 35750,
+      "sha256": "e05163731637d05f095533707f33e49a294af6f844fc9af7640cef7133d39ae5"
+    },
+    "artifacts/pareto_trials.csv": {
+      "bytes": 43736,
+      "sha256": "6ccbabb1d0900ca05e6995e61f0555331a569f50cc36807ebe7872a8160ceb00"
+    },
+    "artifacts/platform_evidence.json": {
+      "bytes": 1456,
+      "sha256": "c7a5ecbdba25e50ba5b9aa5ae8daf9bf448d5d9330a8e682908d6bcc78375375"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 4460,
+      "sha256": "296c04788eb6708cb60b89684ecf1bd1c3fb8af9a3948aa1ed57774d6bf281cf"
+    },
+    "artifacts/search_evidence.json": {
+      "bytes": 2570,
+      "sha256": "7ba27bd328e93fb3020bc62fb2808fea77ad20388158370515e84f0cb773a1a6"
+    },
+    "artifacts/search_trial_ledger.csv.gz": {
+      "bytes": 1271242,
+      "sha256": "c8e408773969f8cef6af79c54ca572a073c1c693d7949f3e5a15063deef64057"
+    },
+    "run_experiment.py": {
+      "bytes": 31460,
+      "sha256": "c0d23e90c98bdc46f8f0dd0b883f1c07cd98758af1b00ab5e7525291eb6647b4"
+    }
+  }
+}

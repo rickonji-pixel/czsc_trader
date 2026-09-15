@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX23",
+  "status": "COMPLETE",
+  "decision": "REVIEW_BOUNDARY_EXTENSION_REQUIRED",
+  "completed_trials": 2285,
+  "completed_unique_parameter_points": 1885,
+  "feasible_trials": 691,
+  "feasible_unique_parameter_points": 353,
+  "unique_feasible_behaviors": 333,
+  "parameter_components": 6,
+  "largest_component_parameter_points": 343,
+  "largest_component_unique_behaviors": 323,
+  "platform_found": true,
+  "boundary_dependent": true,
+  "boundary_dependencies": [
+    {
+      "parameter": "confirmation_total",
+      "side": "LOWER"
+    },
+    {
+      "parameter": "entry_timing_total",
+      "side": "UPPER"
+    },
+    {
+      "parameter": "exit_quantile",
+      "side": "UPPER"
+    }
+  ],
+  "local_feasible_rate_median": 0.95,
+  "local_feasible_rate_p10": 0.4,
+  "local_neighborhood_radius_median": 0.05170924034933222,
+  "neighborhood_is_retroactive_gate": false,
+  "returns_recomputed": false,
+  "search_trials_added": 0,
+  "configuration_selected": false,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

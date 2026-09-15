@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX32",
+  "status": "COMPLETE",
+  "experiment_type": "formal_benchmark_challenge",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "benchmark_id": "BuyHold-588080",
+  "decision": "RECOMMEND_HEALTH_CHECK",
+  "risk_label": "MIXED",
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 233,
+      "sha256": "6b5cf28af16c01b1cabdff16cfd341cbf10728993fdf9e6953418c284d4d571e"
+    },
+    "02_design.md": {
+      "bytes": 579,
+      "sha256": "34251412d7690b5d003a67608a11cacd5c4ea6b65ea02ea372386bcc6021a86e"
+    },
+    "03_execution.md": {
+      "bytes": 181,
+      "sha256": "3706938a9900ca68035a556516d03020fc8258f2b6eadfba332b3770a716421b"
+    },
+    "04_conclusion.md": {
+      "bytes": 469,
+      "sha256": "3e15dee3345be40f1c0665f91d135302de46b964b7efffd058d50d6a87a93747"
+    },
+    "artifacts/benchmark_assessment.json": {
+      "bytes": 2486,
+      "sha256": "ba92d5c4bddac2c6729b551122c300f98ef98d37e96e993b4616543ea8087c51"
+    },
+    "artifacts/buyhold_account_daily.csv": {
+      "bytes": 68687,
+      "sha256": "e802ffe34832e29ac5d6b0d920de017eb037725b188d7f077c91235444ad127a"
+    },
+    "artifacts/candidate_account_daily.csv": {
+      "bytes": 122340,
+      "sha256": "bbd8b313be5acb90647d93cfce1f2073593cfbb066836d0d5a3ab48a443875a6"
+    },
+    "artifacts/daily_return_matrix.csv": {
+      "bytes": 56352,
+      "sha256": "6c91ce13d37e51ead40d7c4ff2301716ed7a0c5436a63c034fe536f94ae67760"
+    },
+    "artifacts/paired_bootstrap.json": {
+      "bytes": 2859,
+      "sha256": "04f2393f81c4f1f51586688fe7537ce90c7fd18f1df9ed52d2597441f8317c4a"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1227,
+      "sha256": "e18cd41d6b0db3066e41f94d75ff482797d9747ea181c7b4c8bf71268f0ffd9a"
+    },
+    "artifacts/return_matrix_evidence.json": {
+      "bytes": 101817,
+      "sha256": "94ff6899cd592ade1735e5d140c34d71db2166a83238ac904b36d21e2d2993b7"
+    },
+    "run_experiment.py": {
+      "bytes": 10638,
+      "sha256": "b24d4817d649f1bbffaf64aa7c4c10152b736ae3d55fb629226fa3380c6b28dc"
+    }
+  }
+}

@@ -24,6 +24,7 @@ from .intraday_overlay_replay import (
     replay_intraday_overlay,
 )
 from .closing_dislocation_replay import build_closing_dislocation_signals
+from .causal_feature_gate_replay import build_causal_feature_gate_signals
 from .metrics import calculate_metrics
 from .models import StrategySnapshot
 from .report import render_report
@@ -54,6 +55,19 @@ def _bind_backtest_symbol(
     spec = snapshot.resolved_rule.execution
     overlay = snapshot.resolved_rule.constituent_moneyflow_intraday
     closing_dislocation = snapshot.resolved_rule.closing_dislocation_overnight
+    causal_feature_gate = snapshot.resolved_rule.causal_feature_gate
+    if causal_feature_gate is not None:
+        requested_symbol = request.symbol.upper()
+        reference_symbol = causal_feature_gate.symbol.upper()
+        if request.asset_type != "etf":
+            raise ValueError("causal-feature-gate strategy requires an ETF")
+        if requested_symbol != reference_symbol:
+            raise ValueError("causal-feature-gate strategy cannot be rebound to another symbol")
+        return snapshot, {
+            "mode": "native_symbol",
+            "strategy_reference_symbol": reference_symbol,
+            "backtest_symbol": requested_symbol,
+        }
     if closing_dislocation is not None:
         requested_symbol = request.symbol.upper()
         reference_symbol = closing_dislocation.symbol.upper()
@@ -130,7 +144,18 @@ def run_backtest_v2(
     if replay_data.adjusted.asset_type != request.asset_type:
         raise ValueError("request asset type differs from loaded replay data")
     applied_snapshot, application = _bind_backtest_symbol(snapshot, request)
-    if applied_snapshot.resolved_rule.constituent_moneyflow_intraday is not None:
+    if applied_snapshot.resolved_rule.causal_feature_gate is not None:
+        if repository_root is None:
+            raise ValueError("causal-feature-gate backtest requires a repository root")
+        signals = build_causal_feature_gate_signals(
+            applied_snapshot,
+            replay_data,
+            pd.Timestamp(request.start),
+            pd.Timestamp(request.end),
+            repository_root,
+        )
+        result = replay_account(signals, replay_data, request.initial_cash)
+    elif applied_snapshot.resolved_rule.constituent_moneyflow_intraday is not None:
         if repository_root is None:
             raise ValueError("intraday overlay backtest requires a repository root")
         signals = build_moneyflow_breadth_signals(

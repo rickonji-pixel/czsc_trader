@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "strategy_kind": "causal_feature_gate",
+  "strategy_id": "S007",
+  "candidate_id": "S007-C001",
+  "name": "多源机会风险门控",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "rule": {
+    "symbol": "588080.SH",
+    "data_source": {
+      "path": "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz",
+      "sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d"
+    },
+    "normalization": {
+      "method": "CAUSAL_ROLLING_PERCENTILE_CENTERED",
+      "lookback_sessions": 252,
+      "minimum_observations": 20
+    },
+    "score": {
+      "orientations": {
+        "micro_share_change_5d_lag1": -1,
+        "tsfresh__log_volume_change__mean__lb20": 1,
+        "price_close_vwap_deviation": -1,
+        "risk_global_spx_return": 1,
+        "risk_chinext_turnover_z20": 1,
+        "risk_shibor_on_change_5d": -1,
+        "price_intraday_range": 1
+      },
+      "base_weights": {
+        "price_close_vwap_deviation": 0.28658573721959246,
+        "price_intraday_range": 0.06350436740892215,
+        "risk_chinext_turnover_z20": 0.3057021379837475,
+        "risk_global_spx_return": 0.20014784300885136,
+        "risk_shibor_on_change_5d": 0.14405991437888652
+      },
+      "confirmation_weights": {
+        "micro_share_change_5d_lag1": 0.4069229172274985,
+        "tsfresh__log_volume_change__mean__lb20": 0.5930770827725015
+      },
+      "entry_threshold": 0.10449974411727908,
+      "exit_threshold": 0.047857421473087296,
+      "confirmation_threshold": -0.012073272333918687
+    },
+    "execution": {
+      "entry": {
+        "order_type": "LIMIT",
+        "limit_family": "previous_close_ratio",
+        "limit_parameter": 0.2,
+        "price_rounding": "floor"
+      },
+      "exit": {
+        "order_type": "LIMIT",
+        "limit_ratio": 0.2,
+        "price_rounding": "nearest_half_up"
+      },
+      "instrument": {
+        "symbol": "588080.SH",
+        "market": "CN",
+        "asset_type": "etf",
+        "price_tick": 0.001,
+        "lot_size": 100,
+        "maximum_order_quantity": 1000000,
+        "price_limit_ratio": 0.2
+      },
+      "capital": {
+        "mode": "full_available_cash",
+        "fee_rate": 0.001,
+        "target_scope": "entry_cycle",
+        "allocation_fraction": 1.0
+      },
+      "virtual_fill": {
+        "buy_open": "open_at_or_below_limit",
+        "buy_intraday": "low_strictly_below_limit",
+        "touch_only": "uncertain_unfilled",
+        "sell": "marketable_limit_at_open",
+        "liquidity_check": "diagnostic_only"
+      }
+    }
+  },
+  "risk_labels": {
+    "mechanism_evidence": "FAVORABLE",
+    "statistical_evidence": "MIXED",
+    "external_validation": "MIXED"
+  }
+}

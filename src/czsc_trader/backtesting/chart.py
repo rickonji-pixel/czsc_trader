@@ -251,6 +251,9 @@ def render_backtest_chart_html(
     if overlay:
         entry_threshold = float(result.decisions["threshold"].median())
         exit_threshold = 0.0
+    elif resolved.causal_feature_gate is not None:
+        entry_threshold = resolved.causal_feature_gate.entry_threshold
+        exit_threshold = resolved.causal_feature_gate.exit_threshold
     elif resolved.closing_dislocation_overnight is not None:
         entry_threshold = float(resolved.closing_dislocation_overnight.votes_required)
         exit_threshold = 0.0

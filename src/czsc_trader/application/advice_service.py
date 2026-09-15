@@ -10,6 +10,7 @@ import json
 import pandas as pd
 
 from czsc_trader.baselines import ResolvedBaseline, resolve_strategy_payload
+from czsc_trader.causal_feature_gate_runtime import latest_signal as latest_causal_signal
 from czsc_trader.constituent_moneyflow_runtime import latest_breadth_signal
 from czsc_trader.data import load_execution_manifest, load_execution_prices, load_market_data
 from czsc_trader.execution_policies import ResolvedExecutionPolicy
@@ -650,6 +651,35 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
                 "prior_threshold": threshold,
                 "observed_weight_ratio": coverage,
                 "event_triggered": triggered,
+            }
+        elif baseline.strategy == "causal_feature_gate":
+            spec = baseline.causal_feature_gate
+            if spec is None:
+                raise ValueError("causal-feature strategy specification is missing")
+            target_position, factor_score, confirmation_score, raw_features = (
+                latest_causal_signal(
+                    context.raw_dir,
+                    str(strategy_identity["release_id"]),
+                    spec,
+                    signal_date,
+                )
+            )
+            advice = build_advice_v4(
+                strategy=strategy_identity,
+                baseline=baseline,
+                signal_date=signal_date,
+                valid_session=pd.Timestamp(execution_manifest["next_trading_session"]),
+                signal_close=float(close.loc[signal_date]),
+                execution_close=float(execution_rows.iloc[0]["close"]),
+                target_position=target_position,
+                actual_quantity=request.actual_quantity,
+                available_cash=float(request.available_cash),
+                cycle_target_quantity=request.cycle_target_quantity,
+            )
+            feature_evidence = {
+                "base_score": factor_score,
+                "confirmation_score": confirmation_score,
+                "features": raw_features,
             }
         else:
             applied = apply_resolved_strategy(data, baseline)

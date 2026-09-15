@@ -220,7 +220,12 @@ def prepare_strategy_support_data(
     from strategy_manager import StrategyRegistry
 
     from czsc_trader.baselines import resolve_strategy_payload
-    from czsc_trader.constituent_moneyflow_runtime import publish_support_data
+    from czsc_trader.causal_feature_gate_runtime import (
+        publish_support_data as publish_causal_feature_support,
+    )
+    from czsc_trader.constituent_moneyflow_runtime import (
+        publish_support_data as publish_constituent_support,
+    )
 
     try:
         registry = StrategyRegistry(context.strategy_root)
@@ -245,18 +250,12 @@ def prepare_strategy_support_data(
             symbol=strategy_symbol,
             repository_root=context.root,
         )
-        if resolved.strategy != "constituent_moneyflow_intraday_overlay":
-            result = {
-                "release_id": release.release_id,
-                "data_cutoff": request.through.isoformat(),
-                "support_required": False,
-            }
-        else:
+        if resolved.strategy == "constituent_moneyflow_intraday_overlay":
             spec = resolved.constituent_moneyflow_intraday
             if spec is None:
                 raise ValueError("intraday overlay strategy support specification is missing")
             result = {
-                **publish_support_data(
+                **publish_constituent_support(
                     context.root,
                     context.raw_dir,
                     release.release_id,
@@ -264,6 +263,26 @@ def prepare_strategy_support_data(
                     request.through.isoformat(),
                 ),
                 "support_required": True,
+            }
+        elif resolved.strategy == "causal_feature_gate":
+            spec = resolved.causal_feature_gate
+            if spec is None:
+                raise ValueError("causal-feature strategy support specification is missing")
+            result = {
+                **publish_causal_feature_support(
+                    context.root,
+                    context.raw_dir,
+                    release.release_id,
+                    spec,
+                    request.through.isoformat(),
+                ),
+                "support_required": True,
+            }
+        else:
+            result = {
+                "release_id": release.release_id,
+                "data_cutoff": request.through.isoformat(),
+                "support_required": False,
             }
     except Exception as exc:
         raise ValidationError(

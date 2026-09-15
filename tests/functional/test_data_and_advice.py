@@ -23,9 +23,15 @@ from czsc_trader.application.data_service import (
 from czsc_trader.backtesting.datasets import load_replay_data
 from czsc_trader.backtesting.strategy_source import resolve_registered_strategy
 from czsc_trader.baselines import (
+    CausalFeatureGateSpec,
     ConstituentMoneyflowIntradaySpec,
     resolve_baseline,
     resolve_strategy_payload,
+)
+from czsc_trader.causal_feature_gate_runtime import (
+    latest_signal as latest_causal_signal,
+    publish_support_data as publish_causal_support,
+    seed_support_panel as seed_causal_support,
 )
 from czsc_trader.constituent_moneyflow_runtime import (
     latest_breadth_signal,
@@ -535,6 +541,73 @@ def test_prepare_s003_support_data_resolves_frozen_strategy_symbol(
     }
 
 
+def test_prepare_s007_support_data_dispatches_causal_publisher(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from strategy_manager import StrategyRegistry
+
+    repo = Path(__file__).resolve().parents[2]
+    payload = json.loads(
+        (repo / "experiments/S007/20260915_S007_EX31/candidate_payload.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    release = SimpleNamespace(
+        strategy_id="S007",
+        version="v1",
+        release_id="S007-v1",
+        release_hash="e" * 64,
+        strategy_payload=payload,
+    )
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        StrategyRegistry,
+        "resolve_strategy",
+        lambda _self, _strategy_id, _version: release,
+    )
+    monkeypatch.setattr(
+        StrategyRegistry,
+        "assert_deployable",
+        lambda _self, _strategy_id, _version, _environment: None,
+    )
+
+    def fake_publish(
+        repository_root: Path,
+        data_root: Path,
+        release_id: str,
+        spec: CausalFeatureGateSpec,
+        through: str,
+    ) -> dict[str, object]:
+        captured.update(
+            repository_root=repository_root,
+            data_root=data_root,
+            release_id=release_id,
+            symbol=spec.symbol,
+            through=through,
+        )
+        return {"release_id": release_id, "data_cutoff": through}
+
+    monkeypatch.setattr(
+        "czsc_trader.causal_feature_gate_runtime.publish_support_data",
+        fake_publish,
+    )
+    result = prepare_strategy_support_data(
+        RepositoryContext.discover(repo, explicit_root=repo),
+        PrepareStrategySupportCommand("S007", "v1", date(2026, 9, 15)),
+    )
+
+    assert result.status == "PASS"
+    assert result.result["support_required"] is True
+    assert captured == {
+        "repository_root": repo,
+        "data_root": repo / "data" / "raw",
+        "release_id": "S007-v1",
+        "symbol": "588080.SH",
+        "through": "2026-09-15",
+    }
+
+
 def test_s003_runtime_signal_and_planned_advice_contract(tmp_path: Path) -> None:
     repo = Path(__file__).resolve().parents[2]
     payload = json.loads(
@@ -712,3 +785,126 @@ def test_s003_runtime_support_appends_one_published_session(
     assert triggered
     assert breadth == pytest.approx(1.0)
     assert coverage == pytest.approx(1.0)
+
+
+def test_s007_runtime_seed_reproduces_frozen_cutoff_signal(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    payload = json.loads(
+        (repo / "experiments/S007/20260915_S007_EX31/candidate_payload.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    resolved = resolve_strategy_payload(
+        repo / "strategies/dependencies",
+        payload,
+        release_id="S007-v1",
+        release_hash="e" * 64,
+        symbol="588080.SH",
+        repository_root=repo,
+    )
+    spec = resolved.causal_feature_gate
+    assert spec is not None
+    seed_causal_support(repo, tmp_path, "S007-v1", spec)
+
+    target, base, confirmation, features = latest_causal_signal(
+        tmp_path, "S007-v1", spec, pd.Timestamp("2026-09-02")
+    )
+
+    assert target == 0
+    assert base == pytest.approx(-0.13541246038190136)
+    assert confirmation == pytest.approx(-0.21754281552423682)
+    assert set(features) == set(dict(spec.orientations))
+
+
+def test_s007_runtime_support_appends_causal_features(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sessions = pd.bdate_range("2026-06-01", periods=41)
+    feature_names = {
+        "micro_share_change_5d_lag1",
+        "tsfresh__log_volume_change__mean__lb20",
+        "price_close_vwap_deviation",
+        "risk_global_spx_return",
+        "risk_chinext_turnover_z20",
+        "risk_shibor_on_change_5d",
+        "price_intraday_range",
+    }
+    source = tmp_path / "source.csv.gz"
+    seeded = pd.DataFrame({"date": sessions[:40]})
+    for position, name in enumerate(sorted(feature_names), start=1):
+        seeded[name] = position / 100 + pd.Series(range(40)) / 10_000
+    seeded.to_csv(
+        source,
+        index=False,
+        compression={"method": "gzip", "compresslevel": 9, "mtime": 0},
+    )
+    spec = CausalFeatureGateSpec(
+        symbol="588080.SH",
+        source_path=source.name,
+        source_sha256=raw_file_sha256(source),
+        orientations=tuple((name, 1) for name in sorted(feature_names)),
+        base_weights=tuple((name, 0.2) for name in sorted(feature_names)[:5]),
+        confirmation_weights=tuple((name, 0.5) for name in sorted(feature_names)[5:]),
+        normalization_lookback_sessions=20,
+        normalization_minimum_observations=10,
+        entry_threshold=0.1,
+        exit_threshold=0.0,
+        confirmation_threshold=0.0,
+    )
+    market = pd.DataFrame(
+        {
+            "dt": sessions,
+            "high": 2.1 + pd.Series(range(41)) / 100,
+            "low": 1.9 + pd.Series(range(41)) / 100,
+            "close": 2.0 + pd.Series(range(41)) / 100,
+            "vol": 1_000_000 + pd.Series(range(41)) * 1_000,
+            "amount": (2.0 + pd.Series(range(41)) / 100) * 1_000_000,
+        }
+    )
+
+    class FakePro:
+        def shibor(self, **_kwargs):
+            return pd.DataFrame({
+                "date": sessions.strftime("%Y%m%d"),
+                "on": 1.0 + pd.Series(range(41)) / 100,
+            })
+
+        def index_dailybasic(self, **_kwargs):
+            return pd.DataFrame({
+                "trade_date": sessions.strftime("%Y%m%d"),
+                "turnover_rate_f": 2.0 + pd.Series(range(41)) / 10,
+            })
+
+        def etf_share_size(self, **_kwargs):
+            return pd.DataFrame({
+                "trade_date": sessions.strftime("%Y%m%d"),
+                "total_share": 100.0 + pd.Series(range(41)),
+            })
+
+        def index_global(self, **_kwargs):
+            return pd.DataFrame({
+                "trade_date": (sessions - pd.Timedelta(days=1)).strftime("%Y%m%d"),
+                "pct_chg": 0.1 + pd.Series(range(41)) / 100,
+            })
+
+    monkeypatch.setattr(
+        "czsc_trader.causal_feature_gate_runtime.load_market_data",
+        lambda *_args, **_kwargs: SimpleNamespace(daily=market),
+    )
+    result = publish_causal_support(
+        tmp_path,
+        tmp_path / "runtime",
+        "S007-v1",
+        spec,
+        sessions[-1].date().isoformat(),
+        pro=FakePro(),
+    )
+
+    assert result["appended_sessions"] == 1
+    assert result["support_last_session"] == sessions[-1].date().isoformat()
+    target, base, confirmation, features = latest_causal_signal(
+        tmp_path / "runtime", "S007-v1", spec, sessions[-1]
+    )
+    assert target in (0, 1)
+    assert pd.notna(base) and pd.notna(confirmation)
+    assert set(features) == feature_names

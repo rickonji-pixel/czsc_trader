@@ -40,6 +40,7 @@ class MachineEvaluationPolicy(Record):
     stress_minimum_cagr: float = 0.0
     stress_max_drawdown_floor: float = -1.0
     stress_minimum_calmar: float = 0.0
+    blocking_stress_scenarios: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.policy_id.strip() or not self.policy_version.strip():
@@ -54,6 +55,10 @@ class MachineEvaluationPolicy(Record):
             raise ValueError("external maximum drawdown floor must be in [-1, 0]")
         if not -1.0 <= self.stress_max_drawdown_floor <= 0.0:
             raise ValueError("stress maximum drawdown floor must be in [-1, 0]")
+        if any(not item.strip() for item in self.blocking_stress_scenarios):
+            raise ValueError("blocking stress scenario ids must be nonblank")
+        if len(set(self.blocking_stress_scenarios)) != len(self.blocking_stress_scenarios):
+            raise ValueError("blocking stress scenario ids must be unique")
 
 
 @dataclass(frozen=True)
@@ -260,14 +265,33 @@ def _cost_stress(case: MachineEvaluationCase, audit) -> MachineCheckResult:
     ]
     if not observations:
         return _check("cost_stress", CheckStatus.INSUFFICIENT, "MISSING_CANDIDATE_STRESS_METRICS")
+    by_scenario = {item.scenario_id: item for item in observations}
+    blocking_scenarios = (
+        case.policy.blocking_stress_scenarios
+        if case.policy.blocking_stress_scenarios
+        else tuple(sorted(by_scenario))
+    )
+    missing = set(blocking_scenarios) - set(by_scenario)
+    if missing:
+        return _check(
+            "cost_stress",
+            CheckStatus.INSUFFICIENT,
+            "MISSING_BLOCKING_STRESS_SCENARIO",
+            metrics={"missing_blocking_scenarios": ",".join(sorted(missing))},
+        )
     failures: list[str] = []
-    metrics: dict[str, float | int | str] = {"scenarios": len(observations)}
+    metrics: dict[str, float | int | str] = {
+        "scenarios": len(observations),
+        "blocking_scenarios": ",".join(blocking_scenarios),
+    }
     for item in observations:
         prefix = item.scenario_id
         metrics[f"{prefix}.cagr"] = item.net_cagr
         metrics[f"{prefix}.max_drawdown"] = item.max_drawdown
         if item.calmar is not None:
             metrics[f"{prefix}.calmar"] = item.calmar
+        if item.scenario_id not in blocking_scenarios:
+            continue
         if item.net_cagr < case.policy.stress_minimum_cagr:
             failures.append("STRESS_CAGR_BELOW_POLICY")
         if item.max_drawdown < case.policy.stress_max_drawdown_floor:

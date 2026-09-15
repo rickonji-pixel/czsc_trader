@@ -189,11 +189,16 @@ def audit_trial_ledger(
 
 
 def required_stress_scenarios() -> tuple[StressScenario, ...]:
+    """Return the fixed total one-way cost scenarios required as audit evidence.
+
+    The 15bp scenario is the default blocking pressure tier.  Higher-cost tiers
+    are retained as diagnostics; policy decides which scenario ids are gates.
+    """
     return (
-        StressScenario("fee_x2", 2.0, 0),
-        StressScenario("slippage_15bp", 1.0, 15),
-        StressScenario("slippage_30bp", 1.0, 30),
-        StressScenario("slippage_50bp", 1.0, 50),
+        StressScenario("total_cost_15bp", 1.5, 0),
+        StressScenario("total_cost_20bp", 2.0, 0),
+        StressScenario("total_cost_30bp", 3.0, 0),
+        StressScenario("total_cost_50bp", 5.0, 0),
     )
 
 
@@ -209,9 +214,10 @@ def audit_stress_results(
     standard: tuple[MetricObservation, ...],
     results: tuple[StressScenarioResult, ...],
 ) -> StressAudit:
-    required = {item.scenario_id for item in required_stress_scenarios()}
     received = {item.scenario_id for item in results}
-    if not required <= received:
+    current = {item.scenario_id for item in required_stress_scenarios()}
+    legacy = {"fee_x2", "slippage_15bp", "slippage_30bp", "slippage_50bp"}
+    if not (current <= received or legacy <= received):
         return StressAudit(AuditStatus.INSUFFICIENT, (), ("MISSING_STRESS_SCENARIO",))
     if any(item.execution_policy_hash != execution_policy_hash for item in results):
         return StressAudit(AuditStatus.FAIL, (), ("STRESS_EXECUTION_HASH_MISMATCH",))

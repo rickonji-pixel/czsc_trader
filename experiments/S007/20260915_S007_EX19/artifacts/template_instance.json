@@ -1,0 +1,28 @@
+{
+  "instance_id": "STI-F043191F4A64DC11",
+  "digest": "f043191f4a64dc11edb89eefe3a1ed32ae84926650121479be8a07973694fc31",
+  "schema_version": 1,
+  "template_id": "STC-T02-GATED-SCORE",
+  "template_version": 1,
+  "bindings": [
+    {
+      "slot": "confirmation",
+      "source_id": "S007-EX19-CONFIRMATION-ROLE-SCORE",
+      "source_kind": "SIGNAL",
+      "state": "ABOVE_CONFIRMATION_GATE",
+      "weight": 1.0
+    },
+    {
+      "slot": "opportunity",
+      "source_id": "S007-EX19-BASE-WEIGHTED-SCORE",
+      "source_kind": "SIGNAL",
+      "state": "ABOVE_ENTRY_THRESHOLD",
+      "weight": 1.0
+    }
+  ],
+  "parameters": {
+    "confirmation_threshold": 0.0,
+    "opportunity_threshold": 0.07570330231941753,
+    "target_position": 1.0
+  }
+}

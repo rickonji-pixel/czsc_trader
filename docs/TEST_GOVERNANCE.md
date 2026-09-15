@@ -1,7 +1,8 @@
 # 测试用例治理
 
 本文规定CZSC Trader仓库的测试用例如何创建、收敛、执行和周期性审查。目标是在保护
-TDR、SM、SE、PTE关键业务能力的同时，控制TDD带来的用例数量、回归耗时和维护成本。
+TDR、FSC、STC、SM、SE、PTE关键业务能力的同时，控制TDD带来的用例数量、回归耗时和
+维护成本。
 
 这是一份面向个人量化团队（OPC）的操作规范。判断标准是业务风险和维护价值，不追求用例
 数量、代码覆盖率或测试金字塔形式上的完整。
@@ -128,12 +129,12 @@ TDR、SM、SE、PTE关键业务能力的同时，控制TDD带来的用例数量�
 完整离线回归：
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests -q
-.\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q
-.\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q
-.\.venv\Scripts\python.exe -m pytest packages\factor_signal_catalog\tests -q
-.\.venv\Scripts\python.exe -m pytest packages\strategy_template_catalog\tests -q
-.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_manager\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_evaluator\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\factor_signal_catalog\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_template_catalog\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\paper_trading_engine\tests -q
 node --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
 .\.venv\Scripts\python.exe -m ruff check `
   src tests packages\factor_signal_catalog packages\strategy_template_catalog `
@@ -165,17 +166,17 @@ node --test packages\paper_trading_engine\tests\functional\console_state.test.mj
 
 ```powershell
 rg -n "TEMP-TDD" tests packages -g "*.py" -g "*.mjs"
-.\.venv\Scripts\python.exe -m pytest tests packages\strategy_manager\tests `
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests packages\strategy_manager\tests `
   packages\strategy_evaluator\tests packages\factor_signal_catalog\tests `
   packages\strategy_template_catalog\tests `
   packages\paper_trading_engine\tests `
   --collect-only -q
-Measure-Command { .\.venv\Scripts\python.exe -m pytest tests -q }
-Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\strategy_manager\tests -q }
-Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\strategy_evaluator\tests -q }
-Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\factor_signal_catalog\tests -q }
-Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\strategy_template_catalog\tests -q }
-Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_manager\tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_evaluator\tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\factor_signal_catalog\tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_template_catalog\tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\paper_trading_engine\tests -q }
 ```
 
 耗时和数量用于发现趋势。只要新增场景保护了独立的重要风险，就可以接受合理增长；若耗时
@@ -194,8 +195,8 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\paper_trading_en
 - 删除该用例后，哪个主场景继续保护其业务风险？
 - 失败信息能否直接指向模块、契约或状态转换？
 
-审查顺序固定为TDR、SM、SE、PTE。一次可以只治理一个模块，完成验证和记录后再进入下一
-模块，避免大规模删除导致覆盖范围难以复核。
+审查顺序固定为TDR、FSC、STC、SM、SE、PTE。一次可以只治理一个模块，完成验证和记录后
+再进入下一模块，避免大规模删除导致覆盖范围难以复核。
 
 ## 8. 治理记录模板
 
@@ -203,7 +204,7 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest packages\paper_trading_en
 
 ```text
 日期：YYYY-MM-DD
-范围：TDR / SM / SE / PTE
+范围：TDR / FSC / STC / SM / SE / PTE
 触发原因：月度检查 / 耗时增长 / 重构前 / 其他
 
 治理前：测试文件__个，测试项__个，完整耗时__秒

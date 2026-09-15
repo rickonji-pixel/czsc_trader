@@ -61,7 +61,7 @@ def test_search_is_reproducible_and_emits_complete_ledger(tmp_path: Path) -> Non
     assert not list(tmp_path.iterdir())
 
 
-def test_grid_search_resumes_to_total_trial_budget(tmp_path: Path) -> None:
+def test_persistent_grid_resumes_and_rejects_contract_drift(tmp_path: Path) -> None:
     storage = tmp_path / "resume.sqlite3"
     base = dict(
         study_name="resumable-grid",
@@ -98,8 +98,14 @@ def test_grid_search_resumes_to_total_trial_budget(tmp_path: Path) -> None:
     assert unchanged.outcome == "NO_NEW_TRIALS"
     assert unchanged.created_trials == 0
 
+    with pytest.raises(SearchIntegrationError, match="different search contract"):
+        run_search(
+            SearchSpec(**{**base, "seed": 99, "target_trials": 4}),
+            evaluator,
+        )
 
-def test_expected_rejection_is_audited_as_pruned(tmp_path: Path) -> None:
+
+def test_expected_rejection_is_audited_as_pruned() -> None:
     spec = SearchSpec(
         study_name="pruned-grid",
         method="grid",
@@ -107,7 +113,6 @@ def test_expected_rejection_is_audited_as_pruned(tmp_path: Path) -> None:
         objectives=(ObjectiveSpec("quality", "maximize"),),
         target_trials=3,
         seed=1,
-        storage_path=tmp_path / "pruned.sqlite3",
         grid={"x": [0, 1, 2]},
     )
 
@@ -124,8 +129,7 @@ def test_expected_rejection_is_audited_as_pruned(tmp_path: Path) -> None:
     assert rejected["rejection_code"] == "INVALID_COMBINATION"
 
 
-def test_contract_drift_and_evaluator_failure_never_report_success(tmp_path: Path) -> None:
-    storage = tmp_path / "invalid.sqlite3"
+def test_evaluator_failure_and_invalid_contract_never_report_success() -> None:
     spec = SearchSpec(
         study_name="strict-study",
         method="random",
@@ -133,27 +137,9 @@ def test_contract_drift_and_evaluator_failure_never_report_success(tmp_path: Pat
         objectives=(ObjectiveSpec("quality", "maximize"),),
         target_trials=1,
         seed=2,
-        storage_path=storage,
     )
     with pytest.raises(SearchExecutionError, match="evaluator failure"):
         run_search(spec, lambda _: SearchEvaluation({"wrong_name": 1.0}))
-
-    clean_storage = tmp_path / "drift.sqlite3"
-    run_search(
-        SearchSpec(**{**spec.__dict__, "study_name": "drift", "storage_path": clean_storage}),
-        lambda _: SearchEvaluation({"quality": 1.0}),
-    )
-    changed = SearchSpec(
-        **{
-            **spec.__dict__,
-            "study_name": "drift",
-            "storage_path": clean_storage,
-            "seed": 99,
-            "target_trials": 2,
-        }
-    )
-    with pytest.raises(SearchIntegrationError, match="different search contract"):
-        run_search(changed, lambda _: SearchEvaluation({"quality": 1.0}))
 
     with pytest.raises(SearchIntegrationError, match="exceeds grid combinations"):
         run_search(
@@ -164,7 +150,6 @@ def test_contract_drift_and_evaluator_failure_never_report_success(tmp_path: Pat
                 objectives=(ObjectiveSpec("quality", "maximize"),),
                 target_trials=3,
                 seed=1,
-                storage_path=tmp_path / "oversized.sqlite3",
                 grid={"x": [0, 1]},
             ),
             lambda _: SearchEvaluation({"quality": 1.0}),

@@ -4,18 +4,22 @@
 > 研究目标、当前结论和工作流见`research/README.md`，安装与日常操作见`docs/USER_GUIDE.md`，
 > 历史设计与实施过程见`docs/superpowers/`。
 
-## 模块简称
+## 模块与简称
 
 | 简称 | 全称 | 核心职责 |
 | --- | --- | --- |
 | TDR | CZSC Trader | 数据、策略解析、回测、研究编排和交易决策 |
+| — | Dataflows | Tushare数据获取、复权、多频处理和数据发布 |
+| FSC | Factor & Signal Catalog | 项目级信息族、因子和信号定义目录 |
+| STC | Strategy Template Catalog | 策略函数模板、输入角色和参数边界目录 |
 | SM | Strategy Manager | 策略身份、版本、资格、证据和治理审计 |
 | SE | Strategy Evaluator | 候选筛选、排名、体检和统计稳健性审计 |
 | PTE | Paper Trading Engine | 虚拟账户、模拟交易执行、运行审计和观测 |
 | WDG | PTE Watchdog | PTE进程开机自启、探活和故障拉起 |
 
-后续开发、文档和讨论统一使用以上简称。SM、SE和PTE均为仓库内独立包，只通过明确
-契约协作；用户操作入口集中在TDR和PTE。
+后续开发、文档和讨论统一使用以上名称。Dataflows暂不定义简称；FSC、STC、SM、SE和PTE
+均为仓库内独立包，只通过明确契约协作。Search、Feature Mining和`news_events`属于TDR
+内部研究能力，不单独定义模块简称；用户操作入口集中在TDR和PTE。
 
 ## 当前交付状态
 
@@ -85,7 +89,8 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 正式实验档案按`experiments/<策略ID>/<实验ID>/`保存。实验ID全局唯一，TDR按ID定位
 嵌套档案；历史SM证据中的旧路径字符串保持不变，并由兼容解析器映射到当前目录。
 
-依赖方向保持为：`TDR → FSC/STC/SM/SE`、`PTE → TDR CLI`、`WDG → PTE进程`。
+依赖方向保持为：`Dataflows → 已发布数据 → TDR`、`TDR → FSC/STC/SM/SE`、
+`PTE → TDR CLI`、`WDG → PTE进程`。
 
 ## 关键业务不变量
 
@@ -175,9 +180,9 @@ git pull --ff-only origin master
 
 ## OPC测试用例治理
 
-测试目标是用尽量少的稳定业务场景保护TDR、FSC、SM、SE、PTE的完整能力。TDD最小失败用例
-可以临时存在；行为稳定后应并入长期功能场景并删除重复用例。长期用例验证公开入口、关键
-状态转换、持久化结果和安全约束，不围绕私有实现持续增长。
+测试目标是用尽量少的稳定业务场景保护TDR、Dataflows、FSC、STC、SM、SE、PTE和WDG的
+完整能力。TDD最小失败用例可以临时存在；行为稳定后应并入长期功能场景并删除重复用例。
+长期用例验证公开入口、关键状态转换、持久化结果和安全约束，不围绕私有实现持续增长。
 
 用例准入、收敛与删除条件、分级回归命令、月度及触发式审查流程统一见
 [测试用例治理](TEST_GOVERNANCE.md)。该文档是后续周期性治理的唯一操作规范。

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX18",
+  "status": "COMPLETE",
+  "decision": "REVIEW_SUPPORTED_PERSISTENCE_FEATURES",
+  "tested_features": 8,
+  "supported_features": [
+    {
+      "feature": "confirmation_role_contribution",
+      "direction": "HIGHER"
+    }
+  ],
+  "supported_feature_count": 1,
+  "label_is_independent_alpha": false,
+  "next_template_selected": false,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

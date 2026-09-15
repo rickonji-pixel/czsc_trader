@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "symbol": "588300.SH",
+  "vendor_metadata": {
+    "vendor": "tushare",
+    "market": "a_share",
+    "vendor_symbol": "588300.SH",
+    "period": "daily",
+    "asset_type": "etf",
+    "adjustment": "hfq",
+    "adjustment_factor_source": "fund_adj",
+    "adjustment_factor_sha256": "1817f16989fce86ca080f103a5a5c263f077a8fcc3eb2b714e6f4ff42d6b3af8"
+  },
+  "daily_sessions": 1254,
+  "share_sessions": 1254,
+  "first_session": "2021-07-05",
+  "last_session": "2026-09-02",
+  "daily_sha256": "f47a0bc4f1a0f2a70cfdb51628c4b2a3b87eace8cac898410382e84827b759f7",
+  "share_sha256": "b935be3bc9bbfcf505195c3f212dc39692099c775b885e0ef85e3a8194429f4f",
+  "feature_panel_sha256": "e49afd0e074a82c2ca12e4f50f7f69a59c43a25e73faf921650aa60e47c0ba3e",
+  "missing_share_sessions": 0
+}

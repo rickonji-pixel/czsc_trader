@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX30",
+  "status": "COMPLETE",
+  "experiment_type": "fixed_formula_cross_sectional_external_validation",
+  "strategy_id": "S007",
+  "symbol": "588300.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "FULL_REPLICATION",
+  "external_evidence_label": "FAVORABLE",
+  "candidate_created": false,
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 292,
+      "sha256": "dc53cf792f4ff9d684324132904d9c5b4a0c696a84b019224c341ebbc7cb0dd3"
+    },
+    "02_design.md": {
+      "bytes": 1255,
+      "sha256": "4b98f75640991773c6248ddfdeb51b6be7e9b297eae93b317d294c7b2356afc5"
+    },
+    "03_execution.md": {
+      "bytes": 246,
+      "sha256": "f0c9a92306afbca7aa24b8bf6a3d799bde1e5c03a435984e7b1636d8e80af226"
+    },
+    "04_conclusion.md": {
+      "bytes": 599,
+      "sha256": "89b00be02eda73be40d604b5e30007f9d32754791bff2fe218e2e931e5f71e1b"
+    },
+    "artifacts/588300_daily_hfq.csv.gz": {
+      "bytes": 23876,
+      "sha256": "f47a0bc4f1a0f2a70cfdb51628c4b2a3b87eace8cac898410382e84827b759f7"
+    },
+    "artifacts/588300_etf_share_size.csv.gz": {
+      "bytes": 20465,
+      "sha256": "b935be3bc9bbfcf505195c3f212dc39692099c775b885e0ef85e3a8194429f4f"
+    },
+    "artifacts/588300_fixed_formula_panel.csv.gz": {
+      "bytes": 128045,
+      "sha256": "e49afd0e074a82c2ca12e4f50f7f69a59c43a25e73faf921650aa60e47c0ba3e"
+    },
+    "artifacts/external_closed_trades.csv": {
+      "bytes": 4050,
+      "sha256": "3b061751caa655bcdd08491bbfcb15fbdb2b52d74cfb26c4631b0ce12d6f0c37"
+    },
+    "artifacts/external_data_identity.json": {
+      "bytes": 793,
+      "sha256": "113b95f779d995e6a521e04c60190ecd6bfc60e36bf7f242baa14fb4fd478c7b"
+    },
+    "artifacts/external_validation_details.json": {
+      "bytes": 6330,
+      "sha256": "34c363587be1bc48830b56a298268c3f69f35fe2ee7a7f3d471c34d3692190ae"
+    },
+    "artifacts/external_validation_summary.json": {
+      "bytes": 1078,
+      "sha256": "f66ba99d0467cf2e0ae23c7af21b809b6e2c581c16d1dd20ac8c47d0610bf4d2"
+    },
+    "artifacts/external_yearly_metrics.csv": {
+      "bytes": 514,
+      "sha256": "28b8dd8b2b311efcd62f96847dbae1c5342f757c31260ec351d2cce292b81817"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3120,
+      "sha256": "6b226e3a7c7a708af95bb1669a28ed59cef841beef0632b1b5af4d3c7ef01723"
+    },
+    "run_experiment.py": {
+      "bytes": 24586,
+      "sha256": "62891c4ad4ec565ad46e6aa3136646bab999fd15d19acb0459d02577504b4af3"
+    }
+  }
+}

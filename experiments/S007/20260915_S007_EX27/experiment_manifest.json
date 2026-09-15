@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX27",
+  "status": "COMPLETE",
+  "experiment_type": "decoupled_entry_boundary_extension_search_and_platform_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "RETAIN_EX26_BOUNDARY_REVIEW",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 276,
+      "sha256": "39a14e04dbca799c3b016c682b38cd74d12316981b6e175d1ce9703b166b8835"
+    },
+    "02_design.md": {
+      "bytes": 946,
+      "sha256": "196894b3858996caaa1be40a45c4149b3c58181784e45218d5a71c03f8d6791e"
+    },
+    "03_execution.md": {
+      "bytes": 232,
+      "sha256": "e7bc78d125c0e6c3fd8ef827ccc71aaa2ae93489b48d5c56052e7b40a52c21ad"
+    },
+    "04_conclusion.md": {
+      "bytes": 993,
+      "sha256": "cd21a5c41b1ed025fee0d319393ad94e6d8d4eddb77e31977dbd0f5bc2de2d12"
+    },
+    "artifacts/boundary_extension_diagnostic.json": {
+      "bytes": 1308,
+      "sha256": "777a6be6f27643e0dba25ec0cd387787a0acac72ec2adb4113600ed95259e860"
+    },
+    "artifacts/feasible_trials.csv": {
+      "bytes": 3415872,
+      "sha256": "05563f0a5159f538fcdac9154fef298fc91503ec2c4726a2ea256aa0d6b5470b"
+    },
+    "artifacts/local_neighborhood_summary.csv": {
+      "bytes": 118381,
+      "sha256": "e4072c1603152634fba7f7538bcc77f390948e26c0de0037f2b62e9576b30916"
+    },
+    "artifacts/parameter_boundary_summary.csv": {
+      "bytes": 1328,
+      "sha256": "11330d4104405101e86807766e0cd62db72677775cd47477e78a6e714dddde8b"
+    },
+    "artifacts/parameter_components.csv": {
+      "bytes": 44902,
+      "sha256": "358c0a4aa8fade2487e2d335a948bdac3e84bb24d56dc9a3541e1d10b16da897"
+    },
+    "artifacts/pareto_trials.csv": {
+      "bytes": 10955,
+      "sha256": "171b92b9d0a9efe143564e675ec6d14f543d9c89342bbfd5f75d7b8517f3513b"
+    },
+    "artifacts/platform_evidence.json": {
+      "bytes": 1275,
+      "sha256": "d3adbc801a4d578942721496a62f2c2192d84f441ff3b9b24df2383ac66fe3ba"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 5333,
+      "sha256": "ca9fa2c1b13945b6da9ddb9923bd1ff9bf2f78f73daa199f477e8625ab4f77d3"
+    },
+    "artifacts/prototype_comparison.json": {
+      "bytes": 950,
+      "sha256": "edaf31264499561c656cc1066f29fb2a8672894a3faccf873e29f3c45bbfc018"
+    },
+    "artifacts/search_evidence.json": {
+      "bytes": 4694,
+      "sha256": "722f74e8411615f8d54f0335f5ac7b957aa4750dd17dabc1b18598e33bcbce53"
+    },
+    "artifacts/search_trial_ledger.csv.gz": {
+      "bytes": 1337594,
+      "sha256": "5d2109ac48e6705879fbc5303428e121c3ca648235ce16023b6ed7af979dd133"
+    },
+    "run_experiment.py": {
+      "bytes": 37324,
+      "sha256": "efbd8b63cab0ba58be62068ba22109d59450b49f41250f1e6e132cfa87f32470"
+    }
+  }
+}

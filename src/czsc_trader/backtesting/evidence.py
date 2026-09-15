@@ -18,7 +18,7 @@ def build_manifest(
     application: dict[str, str],
     run_date: date,
 ) -> dict[str, object]:
-    return {
+    manifest = {
         "schema_version": 2,
         "engine": "TDR_BACKTEST_V2",
         "run_date": run_date.isoformat(),
@@ -57,3 +57,6 @@ def build_manifest(
         "metrics": metrics,
         "audit": audit,
     }
+    if signals.support_data is not None:
+        manifest["signal_support"] = signals.support_data
+    return manifest

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "release_id": "S007-v1",
+  "source_path": "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz",
+  "source_sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d",
+  "panel_sha256": "cf694b5e27da3307b02293792798c568f62a49c5b7022cca81401afc64d3d4e2",
+  "last_session": "2026-09-15",
+  "features": [
+    "micro_share_change_5d_lag1",
+    "price_close_vwap_deviation",
+    "price_intraday_range",
+    "risk_chinext_turnover_z20",
+    "risk_global_spx_return",
+    "risk_shibor_on_change_5d",
+    "tsfresh__log_volume_change__mean__lb20"
+  ]
+}

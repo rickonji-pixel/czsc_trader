@@ -20,6 +20,7 @@ class SignalReplay:
     calculation_end: pd.Timestamp
     evaluation_start: pd.Timestamp
     evaluation_end: pd.Timestamp
+    support_data: dict[str, str] | None = None
 
 
 def _decision_id(reference: str, signal_date: pd.Timestamp, target: int) -> str:

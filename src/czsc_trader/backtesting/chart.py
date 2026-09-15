@@ -400,6 +400,7 @@ def render_backtest_chart_html(
         font={"color": "#eef5ff"},
         hovermode="x unified",
         hoversubplots="axis",
+        hoverlabel={"bgcolor": "rgba(14, 25, 40, 0.5)"},
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
         margin={"l": 80, "r": 30, "t": 85, "b": 45},
         xaxis_rangeslider_visible=False,

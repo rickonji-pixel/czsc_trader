@@ -99,6 +99,7 @@ def build_ma_chart(
         height=720,
         template="plotly_white",
         hovermode="x unified",
+        hoverlabel={"bgcolor": "rgba(255, 255, 255, 0.5)"},
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "left", "x": 0},
         margin={"l": 60, "r": 30, "t": 100, "b": 50},
         xaxis_rangeslider_visible=False,

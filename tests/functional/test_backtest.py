@@ -145,8 +145,9 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert "| MA5/MA20 |" in report
     assert "[MA5/MA20图表](ma_chart.html)" in report
     ma_chart = (summary.output_dir / "ma_chart.html").read_text(encoding="utf-8")
-    ma_traces, _ = _plotly_payload(ma_chart)
+    ma_traces, ma_layout = _plotly_payload(ma_chart)
     assert {trace["name"] for trace in ma_traces} >= {"日K", "MA5", "MA20"}
+    assert ma_layout["hoverlabel"]["bgcolor"] == "rgba(255, 255, 255, 0.5)"
     chart = (summary.output_dir / "chart.html").read_text(encoding="utf-8")
     traces, layout = _plotly_payload(chart)
     by_name = {trace["name"]: trace for trace in traces}
@@ -154,6 +155,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         "588080.SH | S001-v1 | 2026.01.05 - 2026.09.02"
     )
     assert layout["hovermode"] == "x unified"
+    assert layout["hoverlabel"]["bgcolor"] == "rgba(14, 25, 40, 0.5)"
     for axis_name in ("xaxis", "xaxis2"):
         assert layout[axis_name]["showspikes"] is True
         assert layout[axis_name]["spikecolor"] == "#64748b"
@@ -332,6 +334,38 @@ def test_ft_t03_s007_causal_feature_gate_replays_frozen_candidate() -> None:
             canonical_json_sha256(altered),
             "tampered",
         )
+
+
+def test_ft_t03_s007_registered_backtest_uses_independent_support_data() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    context = RepositoryContext.discover(repo)
+    snapshot = resolve_registered_strategy(context, "S007", "v1")
+    data = load_replay_data(
+        context, "backtest", "588080.SH", "etf", pd.Timestamp("2026-09-15").date()
+    )
+    with pytest.raises(ValueError, match="strategy support data is missing"):
+        build_causal_feature_gate_signals(
+            snapshot,
+            replace(data, root=repo / ".tmp" / "missing-support"),
+            pd.Timestamp("2026-06-25"),
+            pd.Timestamp("2026-09-15"),
+            repo,
+        )
+
+    signals = build_causal_feature_gate_signals(
+        snapshot,
+        data,
+        pd.Timestamp("2026-06-25"),
+        pd.Timestamp("2026-09-15"),
+        repo,
+    )
+
+    assert signals.evaluation_start == pd.Timestamp("2026-06-25")
+    assert signals.evaluation_end == pd.Timestamp("2026-09-15")
+    assert signals.calculation_end == pd.Timestamp("2026-09-15")
+    assert signals.support_data is not None
+    assert signals.support_data["mode"] == "backtest_strategy_support"
+    assert signals.support_data["last_session"] == "2026-09-15"
 
 
 def test_ft_t03_s003_intraday_overlay_replays_frozen_candidate_contract() -> None:

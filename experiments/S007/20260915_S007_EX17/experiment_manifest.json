@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX17",
+  "status": "COMPLETE",
+  "experiment_type": "weighted_score_drawdown_attribution",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "REVIEW_DRAWDOWN_ATTRIBUTION",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 267,
+      "sha256": "725c8517be470b725fe748880e1a6ba2ae7e424d326efaafb8f81d8208b8a891"
+    },
+    "02_design.md": {
+      "bytes": 725,
+      "sha256": "30d4763aedc7c7176619cdfdbc3eecf06c9745a2a4bde687154a2f53713021ff"
+    },
+    "03_execution.md": {
+      "bytes": 174,
+      "sha256": "b2499fc078690488efee9ae290494dd512ac6880456feb9268bf895d443b74b6"
+    },
+    "04_conclusion.md": {
+      "bytes": 1390,
+      "sha256": "cce08d69f7120dcb61fb82dff94899cbea45019d746f7595c786ebff17dcf141"
+    },
+    "artifacts/anchor_metrics.csv": {
+      "bytes": 752,
+      "sha256": "1d76a7ace3829000877ce589d9de6c64fe1e2e413350bf0666b3adf257ff781b"
+    },
+    "artifacts/attribution_evidence.json": {
+      "bytes": 3745,
+      "sha256": "2154d53bc9e6a903486300e551f5b5e186d1d23f44518f9684f4679e3e041545"
+    },
+    "artifacts/attribution_summary.csv": {
+      "bytes": 1105,
+      "sha256": "ae86ac6d10ee41187c74a7b030395b9e1a1c0d5177139e971dd8a70a568d09b8"
+    },
+    "artifacts/context_outcome_summary.csv": {
+      "bytes": 1889,
+      "sha256": "089b7d08dd47b77eaaa7d03795af9596e076be7b47be33b36ce13752b0d88579"
+    },
+    "artifacts/drawdown_episodes.csv": {
+      "bytes": 999,
+      "sha256": "ac83ff9fe8be5209947194802d46b3dae4267ebef18ef4d1fd0c0feff2f17a24"
+    },
+    "artifacts/holding_bucket_summary.csv": {
+      "bytes": 864,
+      "sha256": "8042dacf97ffadbf3a029f2b91c214fc8b236c464af91bff2306f92a167fe785"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1375,
+      "sha256": "cfb49434bc06b76d0d8522bc05428aee6a1779b0e3de598c7ab37c067339efb0"
+    },
+    "artifacts/role_outcome_summary.csv": {
+      "bytes": 649,
+      "sha256": "82c22d1993cfecee79393ac949b075e9906d0b019343dc39c854adb34987212e"
+    },
+    "artifacts/trade_ledger.csv": {
+      "bytes": 95710,
+      "sha256": "8925493df825c97216da58af6353f9cdd3eb931f43ef013f0dd62aff6691f3f1"
+    },
+    "run_experiment.py": {
+      "bytes": 21282,
+      "sha256": "eeabb2d1af3fec64709e56ea5fb8060d94645ec13de5623a654343dcf88860d2"
+    }
+  }
+}

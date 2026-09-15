@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX28",
+  "experiment_type": "platform_representative_selection",
+  "strategy_id": "S007",
+  "proposed_candidate_id": "S007-C001",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex27_archive": "experiments/S007/20260915_S007_EX27",
+    "ex27_manifest_sha256": "90a5ea238ca7d3f049a9c0c8a323d5f01dfe444f14d1a1d70503309b092634f9",
+    "ex27_protocol_sha256": "ca9fa2c1b13945b6da9ddb9923bd1ff9bf2f78f73daa199f477e8625ab4f77d3",
+    "ex27_search_ledger_sha256": "5d2109ac48e6705879fbc5303428e121c3ca648235ce16023b6ed7af979dd133",
+    "ex27_parameter_components_sha256": "358c0a4aa8fade2487e2d335a948bdac3e84bb24d56dc9a3541e1d10b16da897",
+    "ex27_local_neighborhood_sha256": "e4072c1603152634fba7f7538bcc77f390948e26c0de0037f2b62e9576b30916",
+    "ex27_platform_evidence_sha256": "24dda84973fbbece585bf9fe3611c82fe99e0ac1e96bf4f8cc54a419939aaa27"
+  },
+  "selection": {
+    "source_component": "LARGEST_BY_UNIQUE_BEHAVIORS_THEN_PARAMETER_POINTS",
+    "retained_entry_quantile_upper": 0.8,
+    "minimum_cagr": "SELECTION_UNIVERSE_MEDIAN",
+    "minimum_maximum_drawdown": "SELECTION_UNIVERSE_MEDIAN",
+    "minimum_calmar": "SELECTION_UNIVERSE_MEDIAN",
+    "minimum_local_feasible_rate": "SELECTION_UNIVERSE_MEDIAN",
+    "primary_order": "NORMALIZED_PARAMETER_LINF_DISTANCE_TO_UNIVERSE_MEDIAN_ASC",
+    "secondary_order": "LOCAL_FEASIBLE_RATE_DESC",
+    "tertiary_order": "MINIMUM_PERFORMANCE_PERCENTILE_DESC",
+    "final_order": "TRIAL_ID_ASC",
+    "fallback_relaxation": false
+  },
+  "effective_parameter_bounds": {
+    "risk_context_total": [0.1, 0.35],
+    "opportunity_share_nonrisk": [0.5, 0.8],
+    "opp_spx_fraction": [0.25, 0.75],
+    "confirm_share_fraction": [0.25, 0.75],
+    "risk_shibor_fraction": [0.25, 0.75],
+    "entry_quantile": [0.45, 0.8],
+    "exit_quantile": [0.2, 0.65],
+    "confirmation_gate_quantile": [0.0, 0.5]
+  },
+  "reads_new_returns": false,
+  "appends_search_trials": false,
+  "configuration_selection": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

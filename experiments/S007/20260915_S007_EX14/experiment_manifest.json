@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX14",
+  "status": "COMPLETE",
+  "experiment_type": "cost_aware_weighted_score_parameter_search",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_10BP_PARAMETER_PLATFORM_AUDIT",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 261,
+      "sha256": "8b187c3259fb78a3b14668b4c004e148c6cd3dd5766d96a2fa53b4f7f6fdc09d"
+    },
+    "02_design.md": {
+      "bytes": 570,
+      "sha256": "3151fd515c95fdcf9ecdb557e7d1033168311acea8a1dab22324c95468858ffa"
+    },
+    "03_execution.md": {
+      "bytes": 182,
+      "sha256": "421e5cc21c00326bb176658f1ef81aee27a7e31f47ed88f9896c2bea90367739"
+    },
+    "04_conclusion.md": {
+      "bytes": 362,
+      "sha256": "30e56e08439f485545e092680b841200cf501e103a70d5d7a41f79e8d333da04"
+    },
+    "artifacts/feasible_trials.csv": {
+      "bytes": 4684,
+      "sha256": "ab39689c8fbbf89c37131ac76c1699ba15b183ef4606ac23c0fee876c2875561"
+    },
+    "artifacts/pareto_trials.csv": {
+      "bytes": 4684,
+      "sha256": "ab39689c8fbbf89c37131ac76c1699ba15b183ef4606ac23c0fee876c2875561"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 2311,
+      "sha256": "72efa89126c19ef7f49c0da36a6153066f49a906a7549a6fd82acd4498f5784d"
+    },
+    "artifacts/search_evidence.json": {
+      "bytes": 983,
+      "sha256": "8e476bb3b14632e6f62a28aad3eb3d05fc71c1c2d93c9228f0c3c77cb54e5c72"
+    },
+    "artifacts/search_trial_ledger.csv.gz": {
+      "bytes": 513152,
+      "sha256": "4fb6364a577d5c3947d1d2a2aded42c61ebd7c69c11546eec12a3e96cea2eb9f"
+    },
+    "run_experiment.py": {
+      "bytes": 16827,
+      "sha256": "384deb1ff957495da2368ec912171e21746f05cc1ab2816c3c8d69d50792078a"
+    }
+  }
+}

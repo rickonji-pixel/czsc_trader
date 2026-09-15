@@ -1,0 +1,2 @@
+﻿component_id,trials,unique_behaviors,cagr_min,cagr_median,cagr_max,maximum_drawdown_worst,maximum_drawdown_median,trial_ids
+PARAM-COMPONENT-01,1,1,0.2562173768272071,0.2562173768272071,0.2562173768272071,-0.1951843575906139,-0.1951843575906139,"[""S007-EX14-COST-AWARE-WEIGHTED-SCORE-01098""]"

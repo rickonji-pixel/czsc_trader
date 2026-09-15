@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX16",
+  "status": "COMPLETE",
+  "experiment_type": "local_parameter_neighborhood_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "STOP_LOCAL_10BP_PLATFORM_NOT_FOUND",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 171,
+      "sha256": "7fe1c150306e6ca84d3ef086612773634fe468e352e986fdaff886860fa988c9"
+    },
+    "02_design.md": {
+      "bytes": 443,
+      "sha256": "849d784068640fb33a384d6bf2f8817a0e7112a64abdfdae2d496c81186bbce6"
+    },
+    "03_execution.md": {
+      "bytes": 191,
+      "sha256": "b7f19a8a67722d6f890ff3ba9971ebdd2beec51d10a48aa43686086af7da4a5b"
+    },
+    "04_conclusion.md": {
+      "bytes": 216,
+      "sha256": "96b4a01cdb457d4e1d2068b536e0b86558a17c2751a720b953a15da110fb0e7a"
+    },
+    "artifacts/local_perturbations.csv": {
+      "bytes": 217334,
+      "sha256": "6a33cd897697d8aff9781cfcb3703eb42216271fcfd836e3b10d2976783131c0"
+    },
+    "artifacts/neighborhood_evidence.json": {
+      "bytes": 535,
+      "sha256": "aa1be7606369b965c128d7bede96b8cb3af4a6665accf99c3f07cde5cdde47f8"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1185,
+      "sha256": "3d2227cd26a73d52422676472074b4034dab5b50194620094fb086e9fb7143f3"
+    },
+    "run_experiment.py": {
+      "bytes": 12707,
+      "sha256": "79ab24119e06f412644f798c359c1b1a06d4aff2052c5aabcde5f65363fa1102"
+    }
+  }
+}

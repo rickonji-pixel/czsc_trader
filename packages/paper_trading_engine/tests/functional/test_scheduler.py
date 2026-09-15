@@ -4,8 +4,14 @@ from subprocess import CompletedProcess
 from threading import Event, Thread
 import time
 
+import pytest
+
 from paper_trading_engine.audit import AuditRecorder
-from paper_trading_engine.data_publisher import AccountDataPublisher, CliDataPublisher
+from paper_trading_engine.data_publisher import (
+    AccountDataPublisher,
+    CliDataPublisher,
+    DataPublicationError,
+)
 from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.trading_window import is_submission_window
 
@@ -156,6 +162,22 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
         if "prepare-strategy-support" in args
     ]
     assert support_releases == [("S001", "v1"), ("S003", "v1")]
+
+    failed_support = AccountDataPublisher(
+        store=cli_store,
+        executable="czsc-trader",
+        repo_root=".",
+        data_dir=".",
+        start_date="2021-01-01",
+        runner=lambda args, **kwargs: CompletedProcess(
+            args,
+            5,
+            '{"status":"FAIL","error":{"message":"S007 support source unavailable"}}',
+            "",
+        ),
+    )
+    with pytest.raises(DataPublicationError, match="S007 support source unavailable"):
+        failed_support.publish_strategy_support("S007", "v1", "2026-09-15")
 
 
 def test_ft_pte04_failed_account_batch_is_not_marked_complete():

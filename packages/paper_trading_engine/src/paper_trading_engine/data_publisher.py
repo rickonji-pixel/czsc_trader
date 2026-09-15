@@ -148,22 +148,45 @@ class AccountDataPublisher:
             "--format", "json",
         ]
         try:
-            completed = self.runner(
-                arguments,
-                cwd=self.repo_root,
-                check=False,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                timeout=600,
-                shell=False,
-            )
-            if completed.returncode != 0 or len(completed.stdout.splitlines()) != 1:
+            try:
+                completed = self.runner(
+                    arguments,
+                    cwd=self.repo_root,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    timeout=600,
+                    shell=False,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise DataPublicationError(
+                    f"{strategy_id}-{strategy_version}: strategy support publication timed out"
+                ) from exc
+            if completed.returncode != 0:
+                detail = completed.stderr.strip()
+                try:
+                    failure = json.loads(completed.stdout)
+                    machine_message = failure.get("error", {}).get("message")
+                    if isinstance(machine_message, str) and machine_message.strip():
+                        detail = machine_message.strip()
+                except (json.JSONDecodeError, AttributeError):
+                    pass
                 raise DataPublicationError(
                     f"{strategy_id}-{strategy_version}: strategy support publication failed: "
-                    f"{completed.stderr.strip()}"
+                    f"{detail}"
                 )
-            payload = json.loads(completed.stdout)
+            if len(completed.stdout.splitlines()) != 1:
+                raise DataPublicationError(
+                    f"{strategy_id}-{strategy_version}: strategy support stdout must contain "
+                    "one JSON document"
+                )
+            try:
+                payload = json.loads(completed.stdout)
+            except json.JSONDecodeError as exc:
+                raise DataPublicationError(
+                    f"{strategy_id}-{strategy_version}: strategy support returned invalid JSON"
+                ) from exc
             if payload.get("status") != "PASS" or not isinstance(payload.get("result"), dict):
                 raise DataPublicationError(
                     f"{strategy_id}-{strategy_version}: strategy support command did not pass"

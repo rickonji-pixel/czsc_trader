@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import shutil
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -107,15 +107,18 @@ def _read_panel(path: Path) -> pd.DataFrame:
 
 
 def _write_panel(path: Path, panel: pd.DataFrame) -> None:
-    temporary = path.with_name(path.name + ".tmp")
-    panel.reset_index().to_csv(
-        temporary,
-        index=False,
-        encoding="utf-8-sig",
-        compression={"method": "gzip", "compresslevel": 9, "mtime": 0},
-        lineterminator="\n",
-    )
-    shutil.move(temporary, path)
+    temporary = path.with_name(f"{path.name}.{uuid4().hex}.tmp")
+    try:
+        panel.reset_index().to_csv(
+            temporary,
+            index=False,
+            encoding="utf-8-sig",
+            compression={"method": "gzip", "compresslevel": 9, "mtime": 0},
+            lineterminator="\n",
+        )
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _manifest_payload(
@@ -136,10 +139,15 @@ def _manifest_payload(
 
 
 def _write_manifest(path: Path, payload: dict[str, object]) -> None:
-    path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
+    temporary = path.with_name(f"{path.name}.{uuid4().hex}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def seed_support_panel(

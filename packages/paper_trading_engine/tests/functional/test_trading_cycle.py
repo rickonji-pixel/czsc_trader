@@ -200,9 +200,14 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     client = CliAdviceClient(
         executable="czsc-trader", repo_root=tmp_path, data_dir=tmp_path,
         symbol="588080.SH", asset="etf", audit=AuditRecorder(audit_store),
-        runner=lambda args, **kwargs: CompletedProcess(args, 5, "", "provider unavailable"),
+        runner=lambda args, **kwargs: CompletedProcess(
+            args,
+            5,
+            '{"status":"FAIL","error":{"message":"support data unavailable"}}',
+            "",
+        ),
     )
-    with pytest.raises(AdviceClientError):
+    with pytest.raises(AdviceClientError, match="support data unavailable"):
         client.get_decision(
             0, 100_000, strategy_id="S001", strategy_version="v1",
             account_id="s001-v1",

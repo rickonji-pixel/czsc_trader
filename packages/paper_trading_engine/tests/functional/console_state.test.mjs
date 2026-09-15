@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, sortVirtualAccounts, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -22,6 +22,16 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(systemEventLabel('SERVICE_STARTED'), '服务启动');
   assert.equal(systemAlertCount({alerts: ['x'], scheduler_failures: [{operation: 'x'}]}), 2);
   assert.equal(chooseAccountId('baseline-143', [{account_id: 's001-v1'}], 's001-v1'), 's001-v1');
+  assert.deepEqual(
+    sortVirtualAccounts([
+      {account_id:'s007-v1',symbol:'588080.SH',strategy_id:'S007'},
+      {account_id:'s003-v1',symbol:'510500.SH',strategy_id:'S003'},
+      {account_id:'s001-v2',symbol:'588080.SH',strategy_id:'S001'},
+      {account_id:'s002-v1',symbol:'510500.SH',strategy_id:'S002'},
+      {account_id:'s001-v1',symbol:'588080.SH',strategy_id:'S001'},
+    ]).map(item=>item.account_id),
+    ['s002-v1','s003-v1','s001-v1','s001-v2','s007-v1'],
+  );
   assert.deepEqual(navigationOptions('s001-v1'), {showLoading: false, forceRender: false});
   assert.equal(channelOrderAccountLabel({account_id: 's001-v2'}), 's001-v2');
   assert.equal(formatBeijingTime('2026-09-03T11:00:11.806715+00:00'), '2026-09-03 19:00:11');

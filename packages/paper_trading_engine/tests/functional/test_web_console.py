@@ -150,6 +150,8 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
             urlopen(plotly_conditional, timeout=3)
         assert cached_plotly.value.code == 304
         assert 'scrolling="no"' in app_js
+        assert "sortVirtualAccounts(state.accounts)" in app_js
+        assert "交易标的 ${esc(a.symbol)}" in app_js
         assert "ACCOUNT_REFRESH_SECTIONS" in app_js
         assert ".chart-frame-host{height:540px;min-height:540px" in styles_css
         assert ".chart-frame-host iframe{display:block;width:100%;height:100%" in styles_css

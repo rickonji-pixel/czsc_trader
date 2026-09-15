@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX33",
+  "status": "COMPLETE",
+  "experiment_type": "freeze_health_check",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "decision": "KEEP_RESEARCHING",
+  "conditional_decision": "RECOMMEND_FREEZE",
+  "risk_label": "WEAK",
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 402,
+      "sha256": "175eb9983972688805eac512aa55f9ac04663ddf1087d0cf69a6e880ef4e4fb8"
+    },
+    "02_design.md": {
+      "bytes": 1147,
+      "sha256": "0caf5691beb1c97ff11ee713ba2bcfc63150d1f7792888fe4f0d5e628c9327e4"
+    },
+    "03_execution.md": {
+      "bytes": 303,
+      "sha256": "a5f9c796673c89e4a5ee9f683ebf845015394cee685db2305f4c8ca98df6cac8"
+    },
+    "04_conclusion.md": {
+      "bytes": 497,
+      "sha256": "afd0fc3dd395b707b27a3dff58dc9c08a45e8132b1dc1302032c1644d1d2f571"
+    },
+    "artifacts/cost_stress_account_daily.csv": {
+      "bytes": 123800,
+      "sha256": "a41f9d887a538d370916bb352495b62cca214697d901a53e0eea66b452f12b2a"
+    },
+    "artifacts/cost_stress_fills.csv": {
+      "bytes": 44392,
+      "sha256": "acc67c722a7613092cc51d99e2aa7fec7c09eb339eef5ac48315404e14fe558c"
+    },
+    "artifacts/cost_stress_orders.csv": {
+      "bytes": 35513,
+      "sha256": "163464ffb8b46524aea55ddbdbb1cc44b61e26478f0bca9bdb4b77159ad40b0e"
+    },
+    "artifacts/cost_stress_summary.json": {
+      "bytes": 891,
+      "sha256": "33e8c81ddd9e86732a031f73fcdd9507501728a1223b4a5700ea6c32b2df4e6b"
+    },
+    "artifacts/cost_stress_trades.csv": {
+      "bytes": 13373,
+      "sha256": "954afbb59710afae35d12da226eb0874d77cb69c919691185d512ab243c2826d"
+    },
+    "artifacts/freeze_health.json": {
+      "bytes": 7829,
+      "sha256": "a5a519eb4f5d7e2cf82fbd4a5e5f23ce67217a07ef5fd592981c0b76f60937a4"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1893,
+      "sha256": "ed9c263d05af00bc15a01c00bca1acf2979840349994cc25761b133e2e38bad3"
+    },
+    "artifacts/pte_compatibility.json": {
+      "bytes": 937,
+      "sha256": "ccaa894796bfc84a2475132674ec9dd97e54e6d1519e325b8e52891571452195"
+    },
+    "run_experiment.py": {
+      "bytes": 17874,
+      "sha256": "d806314af9d169749177d0881ad2c3b7ca5f0e055e72ba43e20ecdedab892ab9"
+    }
+  }
+}

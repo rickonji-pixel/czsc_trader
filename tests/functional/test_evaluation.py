@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.evaluation_service import (
     accept_evaluation,
@@ -14,11 +16,14 @@ from strategy_evaluator import (
     AuditIdentity,
     AuditStatus,
     ChampionAuditResult,
+    MachineEvaluationReport,
+    MachineVerdict,
     MetricObservation,
     MetricStatus,
     ReturnMatrixEvidence,
     RiskLabel,
 )
+from strategy_manager import canonical_sha256
 
 
 def _write_evaluation_bundle(root: Path) -> Path:
@@ -189,14 +194,45 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
         (),
         direction_flags=(("bootstrap", "MIXED"),),
     )
+    report_payload = {
+        "schema_version": 2,
+        "report_id": "SE-0904_TEST-winner",
+        "candidate_id": "winner",
+        "candidate_hash": "c" * 64,
+        "policy_id": "OPC-MACHINE-ELIGIBILITY",
+        "policy_version": "v1",
+        "evaluator_version": "machine-evaluation-v1",
+        "risk_label": "MIXED",
+        "checks": [],
+        "machine_verdict": "ELIGIBLE_FOR_FREEZE_REVIEW",
+        "reason_codes": [],
+        "evidence_hash": "e" * 64,
+        "audit_result": audit.to_dict(),
+    }
+    machine_report = MachineEvaluationReport(
+        2,
+        "SE-0904_TEST-winner",
+        "winner",
+        "c" * 64,
+        "OPC-MACHINE-ELIGIBILITY",
+        "v1",
+        "machine-evaluation-v1",
+        RiskLabel.MIXED,
+        (),
+        MachineVerdict.ELIGIBLE_FOR_FREEZE_REVIEW,
+        (),
+        "e" * 64,
+        audit,
+        canonical_sha256(report_payload),
+    )
     monkeypatch.setattr(
         "czsc_trader.application.evaluation_service.build_champion_audit_request",
         lambda **_kwargs: sentinel,
     )
     monkeypatch.setattr(
-        "czsc_trader.application.evaluation_service.audit_provisional_champion",
-        lambda request: audit
-        if request is sentinel
+        "czsc_trader.application.evaluation_service.evaluate_machine_eligibility",
+        lambda request: machine_report
+        if request.audit_request is sentinel
         else (_ for _ in ()).throw(AssertionError("unexpected audit request")),
     )
 
@@ -217,6 +253,7 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
         "statistical_audit.json",
         "candidate_returns.csv",
         "comparison_returns.csv",
+        "machine_evaluation.json",
     }
     present = {path.name for path in artifacts.iterdir()}
     assert required <= present, (result.result, sorted(present))
@@ -261,11 +298,41 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
 
     versions_dir = functional_repo / "strategies" / "S001" / "versions"
     versions_before = set(versions_dir.glob("v*.json"))
+    review_path = experiment / "freeze_review.json"
+    review_path.write_text(json.dumps({
+        "schema_version": 1,
+        "strategy_id": "S001",
+        "candidate_id": "winner",
+        "candidate_hash": "c" * 64,
+        "decision": "APPROVE_FREEZE",
+        "reviewed_by": "tester",
+        "rationale": "functional acceptance",
+        "mechanism_review": "APPROVED",
+        "external_relevance_review": "APPROVED",
+        "deployment_review": "APPROVED",
+        "monitoring_plan_review": "APPROVED",
+        "reviewed_at": "2026-09-16T10:00:00+08:00",
+    }), encoding="utf-8")
+    rejected_review = json.loads(review_path.read_text(encoding="utf-8"))
+    rejected_review["deployment_review"] = "PENDING"
+    rejected_review_path = experiment / "rejected_freeze_review.json"
+    rejected_review_path.write_text(json.dumps(rejected_review), encoding="utf-8")
+    with pytest.raises(ValueError, match="deployment_review"):
+        accept_evaluation(
+            context,
+            "0904_TEST",
+            "tester",
+            "functional acceptance",
+            rejected_review_path,
+            pte_runner=fail_then_succeed,
+        )
+    assert set(versions_dir.glob("v*.json")) == versions_before
     first = accept_evaluation(
         context,
         "0904_TEST",
         "tester",
         "functional acceptance",
+        review_path,
         pte_runner=fail_then_succeed,
     )
     second = accept_evaluation(
@@ -273,6 +340,7 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
         "0904_TEST",
         "tester",
         "functional acceptance",
+        review_path,
         pte_runner=fail_then_succeed,
     )
     third = accept_evaluation(
@@ -280,6 +348,7 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
         "0904_TEST",
         "tester",
         "functional acceptance",
+        review_path,
         pte_runner=fail_then_succeed,
     )
     versions_after = set(versions_dir.glob("v*.json"))

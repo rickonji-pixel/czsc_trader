@@ -65,7 +65,9 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
     if action == "evaluate":
         return evaluate_experiment(context, args.experiment)
     if action == "accept-evaluation":
-        return accept_evaluation(context, args.experiment, args.actor, args.reason)
+        return accept_evaluation(
+            context, args.experiment, args.actor, args.reason, args.review,
+        )
     raise ValueError(f"unknown strategy action: {action}")
 
 
@@ -168,6 +170,7 @@ def add_strategy_parser(
 
     accept = actions.add_parser("accept-evaluation")
     accept.add_argument("--experiment", required=True)
+    accept.add_argument("--review", type=Path, required=True)
     _audit(accept)
     add_common(accept)
     accept.set_defaults(command_handler=handler, command_name="strategy.accept-evaluation")

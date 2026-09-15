@@ -110,6 +110,16 @@ from .freeze_health import (
     FreezeHealthResult,
     assess_freeze_health,
 )
+from .machine_evaluation import (
+    CheckStatus,
+    ExternalReplayEvidence,
+    MachineCheckResult,
+    MachineEvaluationCase,
+    MachineEvaluationPolicy,
+    MachineEvaluationReport,
+    MachineVerdict,
+    evaluate_machine_eligibility,
+)
 
 __version__ = "0.1.0"
 
@@ -146,4 +156,7 @@ __all__ = [
     "MandateChallengeRequest", "MandateChallengeResult", "assess_mandate_challenge",
     "FreezeHealthDecision", "FreezeHealthRequest", "FreezeHealthResult",
     "assess_freeze_health",
+    "CheckStatus", "ExternalReplayEvidence", "MachineCheckResult",
+    "MachineEvaluationCase", "MachineEvaluationPolicy", "MachineEvaluationReport",
+    "MachineVerdict", "evaluate_machine_eligibility",
 ]

@@ -314,6 +314,7 @@ class StrategyRegistry:
         reason: str,
         evidence: PerformanceEvidence | dict[str, Any],
         approval: FreezeApproval | dict[str, Any],
+        machine_report: dict[str, Any],
     ) -> tuple[StrategyVersion, LifecycleEvent]:
         actor = require_string(actor, "actor")
         reason = require_string(reason, "reason")
@@ -327,10 +328,38 @@ class StrategyRegistry:
         freeze_approval = (
             approval if isinstance(approval, FreezeApproval) else FreezeApproval.from_dict(dict(approval))
         )
+        report = dict(machine_report)
+        report_hash = report.pop("report_hash", None)
+        if report_hash is None or report_hash != canonical_sha256(report):
+            raise EvidenceRequiredError("freeze machine report hash mismatch")
+        required_report = {
+            "schema_version",
+            "report_id",
+            "candidate_id",
+            "candidate_hash",
+            "machine_verdict",
+            "risk_label",
+        }
+        if not required_report <= report.keys() or report.get("schema_version") != 2:
+            raise EvidenceRequiredError("freeze requires a schema v2 machine report")
+        if report.get("machine_verdict") != "ELIGIBLE_FOR_FREEZE_REVIEW":
+            raise EvidenceRequiredError("freeze machine report is not eligible for review")
+        if (
+            freeze_approval.machine_report_id != report.get("report_id")
+            or freeze_approval.machine_report_hash != report_hash
+            or freeze_approval.machine_verdict != report.get("machine_verdict")
+        ):
+            raise EvidenceRequiredError("freeze approval and machine report differ")
         if freeze_approval.strategy_id != strategy_id:
             raise EvidenceRequiredError("freeze approval belongs to another strategy")
         if str(research.source_candidate) != freeze_approval.candidate_id:
             raise EvidenceRequiredError("freeze approval belongs to another candidate")
+        if (
+            freeze_approval.candidate_id != report.get("candidate_id")
+            or freeze_approval.candidate_hash != report.get("candidate_hash")
+            or freeze_approval.risk_label != report.get("risk_label")
+        ):
+            raise EvidenceRequiredError("freeze candidate and machine report differ")
         candidate_source = research.strategy_payload.get("candidate_source", {})
         payload_hash = candidate_source.get("candidate_hash") if isinstance(candidate_source, dict) else None
         if payload_hash is not None and payload_hash != freeze_approval.candidate_hash:

@@ -117,26 +117,35 @@ def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
             release_hash="a" * 64,
         ),
     )
-    health_source = {
+    machine_report = {
+        "schema_version": 2,
+        "report_id": "SE-0904-TEST-functional-winner",
         "candidate_id": "functional-winner",
         "candidate_hash": "c" * 64,
-        "decision": "RECOMMEND_FREEZE",
+        "machine_verdict": "ELIGIBLE_FOR_FREEZE_REVIEW",
+        "risk_label": "MIXED",
     }
+    machine_report["report_hash"] = canonical_sha256(machine_report)
+    machine_artifact = functional_repo / "experiments" / "0904_TEST" / "artifacts"
+    machine_artifact.mkdir(parents=True)
+    _write_json(machine_artifact / "machine_evaluation.json", machine_report)
     health_path = _write_json(
         functional_repo / "freeze-health.json",
         {
-            "source": health_source,
-            "approval": {
+            "machine_report": machine_report,
+            "review": {
                 "schema_version": 1,
-                "assessment_id": "FHC-0904-TEST-functional-winner",
                 "strategy_id": "S900",
                 "candidate_id": "functional-winner",
                 "candidate_hash": "c" * 64,
-                "decision": "RECOMMEND_FREEZE",
-                "risk_label": "MIXED",
-                "source_experiment": "experiments/0904_TEST",
-                "source_hash": canonical_sha256(health_source),
-                "assessed_at": "2026-09-04T19:00:00+08:00",
+                "decision": "APPROVE_FREEZE",
+                "reviewed_by": "tester",
+                "rationale": "functional lifecycle",
+                "mechanism_review": "APPROVED",
+                "external_relevance_review": "APPROVED",
+                "deployment_review": "APPROVED",
+                "monitoring_plan_review": "APPROVED",
+                "reviewed_at": "2026-09-04T19:00:00+08:00",
             },
         },
     )

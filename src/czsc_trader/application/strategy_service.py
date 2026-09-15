@@ -10,10 +10,10 @@ from strategy_manager import (
     StrategyManagerError,
     StrategyRegistry,
     StrategyVersion,
-    canonical_sha256,
 )
 
 from .context import RepositoryContext
+from .freeze_review import build_freeze_approval
 from .errors import ValidationError
 from .results import CommandResult
 
@@ -190,12 +190,30 @@ def freeze_strategy_version(
 
     def operation() -> dict[str, Any]:
         document = _read_object(context, health_check_path)
-        source = document.get("source")
-        approval = document.get("approval")
-        if not isinstance(source, dict) or not isinstance(approval, dict):
-            raise ValueError("health check must contain source and approval objects")
-        if approval.get("source_hash") != canonical_sha256(source):
-            raise ValueError("health check source hash mismatch")
+        machine_report = document.get("machine_report")
+        review = document.get("review")
+        if not isinstance(machine_report, dict) or not isinstance(review, dict):
+            raise ValueError("health check must contain machine_report and review objects")
+        source_experiment = registry.get_version(
+            strategy_id, version
+        ).source_experiment
+        source_root = (context.root / source_experiment).resolve()
+        experiments_root = context.experiments_root.resolve()
+        if source_root != experiments_root and experiments_root not in source_root.parents:
+            raise ValueError("strategy source experiment is outside the experiment repository")
+        canonical_report_path = source_root / "artifacts" / "machine_evaluation.json"
+        if not canonical_report_path.is_file():
+            raise ValueError("strategy source experiment has no SE machine report")
+        if machine_report != _read_object(context, canonical_report_path):
+            raise ValueError("health check machine report differs from source experiment")
+        approval = build_freeze_approval(
+            machine_report=machine_report,
+            review=review,
+            strategy_id=strategy_id,
+            source_experiment=source_experiment,
+            actor=actor,
+            reason=reason,
+        )
         frozen, event = registry.freeze_version(
             strategy_id,
             version,
@@ -203,6 +221,7 @@ def freeze_strategy_version(
             reason=reason,
             evidence=_read_object(context, evidence_path),
             approval=approval,
+            machine_report=machine_report,
         )
         return {"version": frozen.to_dict(), "event": event.to_dict()}
 

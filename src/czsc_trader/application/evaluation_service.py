@@ -461,6 +461,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
                     policy_id="OPC-MACHINE-ELIGIBILITY",
                     policy_version="v1",
                     allowed_risk_labels=(RiskLabel.FAVORABLE, RiskLabel.MIXED),
+                    blocking_stress_scenarios=("total_cost_15bp",),
                 ),
                 audit_request=audit_request,
             ))

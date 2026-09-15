@@ -1,5 +1,9 @@
+from argparse import Namespace
+from dataclasses import replace
+from datetime import date
 import json
 import hashlib
+from pathlib import Path
 import sqlite3
 import subprocess
 
@@ -8,6 +12,8 @@ import pytest
 
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.account_engine import AccountEngine
+from paper_trading_engine import cli as pte_cli
+from pte_support import decision
 
 
 def create_account(store, account_id, version, marker):
@@ -264,3 +270,103 @@ def test_ft_pte02_selection_cutoff_is_required_immutable_and_safely_backfilled(t
     assert store.backfill_account_selection_cutoff("s001-v1", "a" * 64, "2026-09-01") is False
     assert store.virtual_account("s001-v1")["selection_data_cutoff"] == "2026-08-28"
     store.close()
+
+
+def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
+    tmp_path, monkeypatch,
+):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "588080_manifest.json").write_text(
+        json.dumps({
+            "symbol": "588080.SH",
+            "asset_type": "etf",
+            "requested_end": "2026-09-16",
+            "files": {
+                "588080_daily_2026.csv": {
+                    "frequency": "daily",
+                    "last": "2026-09-15T00:00:00",
+                },
+            },
+        }),
+        encoding="utf-8",
+    )
+    release_hash = "7" * 64
+    identity = {
+        "strategy_id": "S007",
+        "name": "多源机会风险门控",
+        "version": "v1",
+        "release_id": "S007-v1",
+        "release_hash": release_hash,
+        "qualification": "PAPER_READY",
+        "selection_data_cutoff": "2026-09-02",
+        "strategy_payload": {
+            "rule": {"execution": {"capital": {"fee_rate": 0.001}}},
+        },
+    }
+    args = Namespace(
+        account_action="create",
+        database=tmp_path / "runtime.db",
+        data_dir=data_dir,
+        repo_root=tmp_path,
+        advice_executable=Path("czsc-trader"),
+        account_id="s007-v1",
+        name="S007-v1模拟账户",
+        strategy="S007",
+        baseline=None,
+        strategy_version="v1",
+        symbol="588080.SH",
+        asset="etf",
+        initial_cash="100000",
+    )
+    monkeypatch.setattr(pte_cli, "_validate_strategy", lambda _args: identity)
+    support_calls = []
+
+    def fail_support(_self, strategy_id, strategy_version, cutoff):
+        support_calls.append((strategy_id, strategy_version, cutoff))
+        raise RuntimeError("support unavailable")
+
+    monkeypatch.setattr(
+        pte_cli.AccountDataPublisher, "publish_strategy_support", fail_support,
+    )
+    with pytest.raises(RuntimeError, match="support unavailable"):
+        pte_cli._run_account_command(args)
+    assert support_calls == [("S007", "v1", "2026-09-15")]
+    empty = PaperStore(args.database)
+    assert empty.virtual_accounts() == []
+    empty.close()
+
+    monkeypatch.setattr(
+        pte_cli.AccountDataPublisher,
+        "publish_strategy_support",
+        lambda _self, strategy_id, strategy_version, cutoff: {
+            "release_id": f"{strategy_id}-{strategy_version}",
+            "data_cutoff": cutoff,
+            "support_required": True,
+        },
+    )
+    accepted = replace(
+        decision(),
+        signal_date=date(2026, 9, 15),
+        valid_session=date(2026, 9, 16),
+        data_cutoff=date(2026, 9, 15),
+        strategy={
+            "strategy_id": "S007",
+            "name": "多源机会风险门控",
+            "version": "v1",
+            "release_id": "S007-v1",
+            "release_hash": release_hash,
+            "qualification": "PAPER_READY",
+        },
+        fee_rate=0.001,
+    )
+    monkeypatch.setattr(
+        pte_cli.CliAdviceClient,
+        "get_decision",
+        lambda _self, *_args, **_kwargs: accepted,
+    )
+    created = pte_cli._run_account_command(args)
+    assert created["account_id"] == "s007-v1"
+    assert created["strategy_id"] == "S007"
+    assert created["release_hash"] == release_hash
+    assert created["initial_cash"] == "100000.0000"

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "candidate_id": "S007-C001",
+  "fee_semantics": "ONE_WAY_TOTAL_COST_ON_EXECUTED_NOTIONAL",
+  "fee_rate": 0.001,
+  "fee_rate_bp": 10.0,
+  "checks": {
+    "research": {
+      "status": "PASS",
+      "evidence": "candidate rule and EX27-EX32 formal evaluation use fee_rate_one_way=0.001"
+    },
+    "tdr_backtest": {
+      "status": "PASS",
+      "evidence": "execution replay reads frozen capital.fee_rate and deducts gross*fee_rate once per fill side"
+    },
+    "pte_estimate": {
+      "status": "PASS",
+      "evidence": "advice.v4 carries frozen fee_rate; PTE reserves and estimates with that value, then reconciles only the broker-fee difference"
+    }
+  },
+  "channel_actual_cost_policy": "Futu aggregate cash reconciliation supersedes modeled fee by difference without double charging",
+  "principal_dependent_fixed_platform_fee_in_search": false,
+  "sources": {
+    "candidate": "experiments/S007/20260915_S007_EX31/candidate_payload.json",
+    "machine_report": "experiments/S007/20260916_S007_EX35/artifacts/machine_evaluation_report.json",
+    "primary_concentration_diagnostic": "experiments/S007/20260916_S007_EX36/artifacts/concentration_diagnostic.json"
+  }
+}

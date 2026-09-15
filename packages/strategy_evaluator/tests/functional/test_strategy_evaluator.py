@@ -14,6 +14,7 @@ from strategy_evaluator import (
     CandidateDescriptor,
     CandidateProfile,
     ChampionAuditRequest,
+    CheckStatus,
     Decision,
     EvaluationProtocol,
     ExecutionEvidence,
@@ -407,6 +408,7 @@ def test_ft_se02b_machine_eligibility_is_calculated_from_audit_evidence() -> Non
         "OPC-MACHINE-ELIGIBILITY",
         "v1",
         (RiskLabel.FAVORABLE, RiskLabel.MIXED, RiskLabel.WEAK),
+        blocking_stress_scenarios=("total_cost_15bp",),
     )
     report = evaluate_machine_eligibility(MachineEvaluationCase(
         "SE-0904_TEST-R1102", candidate_hash, policy, request,
@@ -439,6 +441,32 @@ def test_ft_se02b_machine_eligibility_is_calculated_from_audit_evidence() -> Non
     ))
     assert external_required.machine_verdict is MachineVerdict.INSUFFICIENT_EVIDENCE
     assert "MISSING_REQUIRED_EXTERNAL_REPLAY" in external_required.reason_codes
+
+    def stressed_request(scenario_id: str) -> ChampionAuditRequest:
+        results = []
+        for scenario in request.stress_results:
+            observations = tuple(
+                replace(item, net_cagr=-0.1, max_drawdown=-0.5, calmar=-0.2)
+                if scenario.scenario_id == scenario_id and item.candidate_id == request.champion_id
+                else item
+                for item in scenario.observations
+            )
+            results.append(replace(scenario, observations=observations))
+        return replace(request, stress_results=tuple(results))
+
+    diagnostic_failure = evaluate_machine_eligibility(MachineEvaluationCase(
+        "SE-0904_TEST-R1102", candidate_hash, policy, stressed_request("total_cost_50bp"),
+    ))
+    assert {
+        item.check_id: item.status for item in diagnostic_failure.checks
+    }["cost_stress"] is CheckStatus.PASS
+
+    blocking_failure = evaluate_machine_eligibility(MachineEvaluationCase(
+        "SE-0904_TEST-R1102", candidate_hash, policy, stressed_request("total_cost_15bp"),
+    ))
+    assert {
+        item.check_id: item.status for item in blocking_failure.checks
+    }["cost_stress"] is CheckStatus.FAIL
 
 
 def test_ft_se03_governance_validation_and_report_are_complete() -> None:

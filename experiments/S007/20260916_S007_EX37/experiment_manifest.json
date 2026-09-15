@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260916_S007_EX37",
+  "status": "COMPLETE",
+  "experiment_type": "human_freeze_acceptance_and_cost_alignment",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "machine_verdict": "ELIGIBLE_FOR_FREEZE_REVIEW",
+  "risk_label": "FAVORABLE",
+  "strategy_frozen": true,
+  "release_hash": "84cd9fc5ee202a47638cd3e2275af72a4105d5e60d6a3f8cc59148a33a124d79",
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 291,
+      "sha256": "e9f5f13dfe8ac8ae3e419286b10e3e92c2c87d50607553ef401e7e364f1c85e8"
+    },
+    "02_design.md": {
+      "bytes": 504,
+      "sha256": "3b5c7b59254ccd550ad193c1ae640f9ece2664f7938b28a5f3668e35e94f02fc"
+    },
+    "03_execution.md": {
+      "bytes": 257,
+      "sha256": "f8e9fd3ee0ed76ca9886d0e45b617234269e654bd93a94fa3408de1a0d55cf81"
+    },
+    "04_conclusion.md": {
+      "bytes": 831,
+      "sha256": "0ad769dd8a0e789c1ce124be50cfffa8d1da3f1003c5cd1f690088a68518ae00"
+    },
+    "artifacts/cost_alignment.json": {
+      "bytes": 1200,
+      "sha256": "3b30ce5d0d02303185341365c43d76a75fdf62fb58bc865c102733e58dc64c6a"
+    },
+    "artifacts/freeze_health.json": {
+      "bytes": 246652,
+      "sha256": "f11761d3e4ea94172fd05d717e30f3a156f311369174f98b97a706d6a851af37"
+    },
+    "artifacts/machine_evaluation.json": {
+      "bytes": 230769,
+      "sha256": "c19312d7e933602e08d432dbb363cf6c407ffef911dc599c8cbe2be3341264e7"
+    },
+    "artifacts/research_evidence.json": {
+      "bytes": 1048,
+      "sha256": "7835e14d9e7bda122f720e41901c4f7223c2181c82d251bfba461c5f9f6e2004"
+    },
+    "artifacts/strategy_create.json": {
+      "bytes": 436,
+      "sha256": "480dfe95f42f92005ad7133b30290563598b91c7db89659db47e5a449ddd3e4d"
+    },
+    "artifacts/version_create.json": {
+      "bytes": 3371,
+      "sha256": "3e317daef508a2924b197e3c83305aec34fd57bf45c7b67366e4a6b91ca3aa6b"
+    },
+    "run_experiment.py": {
+      "bytes": 8383,
+      "sha256": "5815595ac26d7c2430accf17d65307383672f40be93461a71d761afb38b02539"
+    }
+  }
+}

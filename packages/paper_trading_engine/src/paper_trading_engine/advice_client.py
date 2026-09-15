@@ -139,9 +139,17 @@ class CliAdviceClient:
                     f"advice command timed out after {self.timeout_seconds:g}s"
                 ) from exc
             if completed.returncode != 0:
+                detail = completed.stderr.strip()
+                try:
+                    failure = json.loads(completed.stdout)
+                    machine_message = failure.get("error", {}).get("message")
+                    if isinstance(machine_message, str) and machine_message.strip():
+                        detail = machine_message.strip()
+                except (json.JSONDecodeError, AttributeError):
+                    pass
                 raise AdviceClientError(
                     f"advice command exited with exit code {completed.returncode}: "
-                    f"{completed.stderr.strip()}"
+                    f"{detail}"
                 )
             lines = completed.stdout.splitlines()
             if len(lines) != 1:

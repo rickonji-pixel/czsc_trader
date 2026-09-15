@@ -311,6 +311,87 @@ def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
     )
 
 
+def _runtime_data_cutoff(data_dir: Path, symbol: str, asset_type: str) -> str:
+    code = symbol.upper().split(".", 1)[0]
+    path = Path(data_dir) / f"{code}_manifest.json"
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"{symbol}: runtime market-data manifest is missing") from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{symbol}: runtime market-data manifest is invalid") from exc
+    if (
+        manifest.get("symbol") != symbol.upper()
+        or manifest.get("asset_type") != asset_type
+    ):
+        raise RuntimeError(f"{symbol}: runtime market-data identity differs from account")
+    files = manifest.get("files")
+    daily_sessions = [] if not isinstance(files, dict) else [
+        str(record.get("last", ""))[:10]
+        for record in files.values()
+        if isinstance(record, dict) and record.get("frequency") == "daily"
+    ]
+    cutoff = max((value for value in daily_sessions if value), default="")
+    if not cutoff:
+        raise RuntimeError(f"{symbol}: runtime market-data cutoff is missing")
+    return cutoff
+
+
+def _preflight_strategy_account(
+    args: argparse.Namespace,
+    store: PaperStore,
+    identity: dict[str, object],
+) -> None:
+    """Prove data publication and the executable advice contract before account creation."""
+    executable = args.advice_executable or _default_executable(args.repo_root)
+    cutoff = _runtime_data_cutoff(args.data_dir, args.symbol, args.asset)
+    support = AccountDataPublisher(
+        store=store,
+        executable=executable,
+        repo_root=args.repo_root,
+        data_dir=args.data_dir,
+        start_date="2020-01-01",
+    ).publish_strategy_support(
+        str(identity["strategy_id"]), str(identity["version"]), cutoff,
+    )
+    if str(support.get("data_cutoff")) != cutoff:
+        raise RuntimeError("strategy support cutoff differs from runtime market data")
+    initial_cash = Decimal(args.initial_cash).quantize(Decimal("0.0001"))
+    decision = CliAdviceClient(
+        executable=executable,
+        repo_root=args.repo_root,
+        data_dir=args.data_dir,
+    ).get_decision(
+        0,
+        float(initial_cash),
+        strategy_id=str(identity["strategy_id"]),
+        strategy_version=str(identity["version"]),
+        symbol=args.symbol,
+        asset=args.asset,
+    )
+    expected_strategy = (
+        identity["strategy_id"], identity["version"], identity["release_hash"],
+    )
+    actual_strategy = (
+        decision.strategy.get("strategy_id"),
+        decision.strategy.get("version"),
+        decision.strategy.get("release_hash"),
+    )
+    if actual_strategy != expected_strategy:
+        raise RuntimeError("strategy advice identity differs from frozen release")
+    if decision.symbol != args.symbol.upper() or decision.data_cutoff.isoformat() != cutoff:
+        raise RuntimeError("strategy advice data identity differs from virtual account")
+    expected_fee = (
+        identity.get("strategy_payload", {})
+        .get("rule", {})
+        .get("execution", {})
+        .get("capital", {})
+        .get("fee_rate")
+    )
+    if expected_fee is not None and decision.fee_rate != float(expected_fee):
+        raise RuntimeError("strategy advice fee rate differs from frozen release")
+
+
 def _backfill_selection_cutoffs(
     store: PaperStore, audit: AuditRecorder, executable: Path, repo_root: Path,
 ) -> None:
@@ -473,6 +554,10 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
                 args.repo_root / "data" / "raw", args.data_dir, args.symbol
             )
             return existing
+        seed_runtime_data(
+            args.repo_root / "data" / "raw", args.data_dir, args.symbol
+        )
+        _preflight_strategy_account(args, store, identity)
         created = store.create_virtual_account(
             args.account_id, args.name, baseline_version, baseline_hash, args.initial_cash,
             strategy_id=identity["strategy_id"],
@@ -483,9 +568,6 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             selection_data_cutoff=identity["selection_data_cutoff"],
             symbol=args.symbol,
             asset_type=args.asset,
-        )
-        seed_runtime_data(
-            args.repo_root / "data" / "raw", args.data_dir, args.symbol
         )
         return created
     finally:

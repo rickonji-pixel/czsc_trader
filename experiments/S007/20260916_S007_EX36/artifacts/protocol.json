@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260916_S007_EX36",
+  "experiment_type": "primary_symbol_trade_concentration_diagnostic",
+  "strategy_id": "S007",
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "initial_cash": 100000.0,
+  "top_trade_counts": [1, 3, 5],
+  "decision_role": "POSTHOC_DIAGNOSTIC_NOT_A_PREREGISTERED_GATE",
+  "sources": {
+    "experiments/S007/20260915_S007_EX31/candidate_payload.json": "d4c2b6b68de30f1a8e18bc3a8d06d53f96a8dad0864456eae8077fad66257cf7",
+    "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d",
+    "experiments/S007/20260915_S007_EX31/artifacts/trades.csv": "d351bcfae415d8f67b9fc7ee102a96bc9c19f45cdc207e56ac206de9d747e107",
+    "experiments/S007/20260915_S007_EX31/artifacts/account_daily.csv": "bbd8b313be5acb90647d93cfce1f2073593cfbb066836d0d5a3ab48a443875a6"
+  },
+  "creates_strategy_version": false,
+  "strategy_frozen": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

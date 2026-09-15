@@ -78,6 +78,9 @@ def _scenario_settings(scenario: str, base_fee_rate: float) -> tuple[float, int]
         return base_fee_rate * float(scenario.removeprefix("fee_x")), 0
     if scenario.startswith("slippage_") and scenario.endswith("bp"):
         return base_fee_rate, int(scenario.removeprefix("slippage_").removesuffix("bp"))
+    if scenario.startswith("total_cost_") and scenario.endswith("bp"):
+        total_cost_bp = int(scenario.removeprefix("total_cost_").removesuffix("bp"))
+        return total_cost_bp / 10_000.0, 0
     raise ValueError(f"unsupported stress scenario: {scenario}")
 
 

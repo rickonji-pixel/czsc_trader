@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260916_S007_EX36",
+  "status": "COMPLETE",
+  "experiment_type": "primary_symbol_trade_concentration_diagnostic",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "decision_role": "POSTHOC_DIAGNOSTIC_NOT_A_PREREGISTERED_GATE",
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 334,
+      "sha256": "2b1b977dfb6d3c02722c04574c5e3124bfbeee0bc9085d8965b58c07c212809d"
+    },
+    "02_design.md": {
+      "bytes": 682,
+      "sha256": "78200a04829ac2718a0bb44a5495434229b3efe27e465942ab38e100a44bc1ce"
+    },
+    "03_execution.md": {
+      "bytes": 201,
+      "sha256": "ed9a806c0129b7fe255ab6c6ef7347d18d019c9c457f5cd8b0cc81f087c5f09a"
+    },
+    "04_conclusion.md": {
+      "bytes": 424,
+      "sha256": "1ee1c6506c73dacd95e210538eeed4551e7b9d8f03393edb099494e28d240faa"
+    },
+    "artifacts/concentration_diagnostic.json": {
+      "bytes": 1476,
+      "sha256": "c37498d44e8837472163a9d85ed7ba8b37805de9dc83de7f6447525e0b335e76"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1170,
+      "sha256": "95f0d8f85af047d289e76e449404f00aaea21301bf41af356f3cf6ee29276b05"
+    },
+    "artifacts/top_profitable_trades.csv": {
+      "bytes": 689,
+      "sha256": "7ccb2df5ee5fe224ba6bb2c657617ffeee645cabcaadfe3a8fbd37647e175f8e"
+    },
+    "run_experiment.py": {
+      "bytes": 10009,
+      "sha256": "b60579f28ab7b652474022d266f15fec057db71e5e105c8af2e8bff9c945a59c"
+    }
+  }
+}

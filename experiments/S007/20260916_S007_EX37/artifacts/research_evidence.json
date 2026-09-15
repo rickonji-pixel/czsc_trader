@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "evidence_id": "EVD-S007-V1-RESEARCH",
+  "strategy_id": "S007",
+  "version": "v1",
+  "release_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "phase": "RESEARCH_BACKTEST",
+  "period_start": "2021-01-05",
+  "period_end": "2026-09-02",
+  "data_identity": {
+    "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+    "cutoff": "2026-09-02",
+    "dataset": "research",
+    "symbol": "588080.SH"
+  },
+  "initial_capital": 100000.0,
+  "fee_rate": 0.001,
+  "maximum_drawdown": -0.1081234745732389,
+  "calmar_ratio": 2.1980362055036253,
+  "win_loss_ratio": 1.8994731292442995,
+  "win_loss_ratio_status": "VALID",
+  "total_return": 2.1954283480000005,
+  "sharpe_ratio": 1.3859774843583401,
+  "closed_trades": 139,
+  "source_path": "experiments/S007/20260915_S007_EX32/artifacts/benchmark_assessment.json",
+  "source_hash": "1ab229781d7c5be4fd7e4263a289ebe75bf018a1cb0cc3f989f0e62406927453",
+  "recorded_at": "2026-09-16T02:09:40+08:00",
+  "recorded_by": "tomxiao"
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260916_S007_EX35",
+  "status": "COMPLETE",
+  "experiment_type": "cost_policy_correction_and_machine_reevaluation",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "machine_verdict": "ELIGIBLE_FOR_FREEZE_REVIEW",
+  "risk_label": "FAVORABLE",
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 389,
+      "sha256": "6a78a1f5858236779b20effad9bed90546ee2ab2b93863e93c479c5b67583bcf"
+    },
+    "02_design.md": {
+      "bytes": 768,
+      "sha256": "c3776160e6b5be10b49e117da6e9c28bd00f889a6427b5d5cd1f290e0194221b"
+    },
+    "03_execution.md": {
+      "bytes": 366,
+      "sha256": "302e21f79aad5f1bdadabb21308de76de472136fdaf1d7a8aac119b757929d3c"
+    },
+    "04_conclusion.md": {
+      "bytes": 255,
+      "sha256": "30f8106f889aa9813002963d536c5cc79889cd8412aa5d4af0566b8742357698"
+    },
+    "artifacts/machine_evaluation_input.json.gz": {
+      "bytes": 501591,
+      "sha256": "701a11a4fbb28414c84f5694c5942458b80d838540635cab27e82a3efbb8f199"
+    },
+    "artifacts/machine_evaluation_report.json": {
+      "bytes": 230769,
+      "sha256": "c19312d7e933602e08d432dbb363cf6c407ffef911dc599c8cbe2be3341264e7"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1835,
+      "sha256": "8da9a88f0965ab8fb95f6a993b497228cba73bc11500be71bebffdec22ceb78a"
+    },
+    "artifacts/stress_summary.csv": {
+      "bytes": 494,
+      "sha256": "558077f8ae06f986a65ebd40ea85e482a9b2ddc230bb24890d647c4e1931e3f5"
+    },
+    "run_experiment.py": {
+      "bytes": 8623,
+      "sha256": "2222af090919bb5d71063291e6909733d88b4fe28207ae69f2f0a3b14363773c"
+    }
+  }
+}

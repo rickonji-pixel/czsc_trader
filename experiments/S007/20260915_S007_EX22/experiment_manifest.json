@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX22",
+  "status": "COMPLETE",
+  "experiment_type": "joint_gated_score_parameter_search",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_JOINT_PARAMETER_PLATFORM_AUDIT",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 361,
+      "sha256": "0556ef972cb95b75a0da8e1af335ec1531bae3be02f53e937cea2d3ab9827223"
+    },
+    "02_design.md": {
+      "bytes": 887,
+      "sha256": "a234624b1bd16f131650552e1a79b2dc8be4f56e0b93eeb77377c9b674b64016"
+    },
+    "03_execution.md": {
+      "bytes": 189,
+      "sha256": "a0d533cdbbfb8431b8cc544c3b149a47709c6d12e6b392a3cc938f6f3d975f30"
+    },
+    "04_conclusion.md": {
+      "bytes": 378,
+      "sha256": "5e59e3e038252b4a51fcc6f54f0b4238537f3f4c66c218e88286b90daefc6e7e"
+    },
+    "artifacts/feasible_trials.csv": {
+      "bytes": 2065818,
+      "sha256": "2f406f3bcd6881ed636cdf73742affee7ca0fa8642cf8b76b98a5daa25e5f5cd"
+    },
+    "artifacts/pareto_trials.csv": {
+      "bytes": 106207,
+      "sha256": "51dc8dafd01e415d869951d10552bf0da07c288efae5eab4f5b16c01830476ac"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3850,
+      "sha256": "7cec1d11a6b6f4eb52d741d748e8e03c58d1e8ede60429ef678fedcff83fec41"
+    },
+    "artifacts/search_evidence.json": {
+      "bytes": 1330,
+      "sha256": "d96814937a3d3f10b5ac039f499376bdb577e7c0ddedbdc127d96d4a93859333"
+    },
+    "artifacts/search_trial_ledger.csv.gz": {
+      "bytes": 1291376,
+      "sha256": "dca8bc130cbaf7c3136a6bd6398acd7f62a9b0cd5bb7ed4430f0afccb7304077"
+    },
+    "run_experiment.py": {
+      "bytes": 19012,
+      "sha256": "af9901f38af08825349d387c8ca6c0e547d7eefd72d219385c1199f584e81617"
+    }
+  }
+}

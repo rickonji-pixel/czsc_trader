@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX29",
+  "status": "PASS",
+  "evidence_label": "MIXED",
+  "direction_labels": {
+    "pbo": "MIXED",
+    "dsr": "MIXED",
+    "absolute_bootstrap": "FAVORABLE",
+    "buyhold_paired_bootstrap": "FAVORABLE",
+    "parameter_neighborhood": "FAVORABLE"
+  },
+  "selected_trial_id": "S007-EX27-DECOUPLED-ENTRY-BOUNDARY-02821",
+  "final_family_feasible_unique_behaviors": 850,
+  "conservative_raw_trial_upper_bound": 15486,
+  "effective_trial_count": 1.2074903276977362,
+  "pbo": 0.4642857142857143,
+  "dsr_raw_probability": 0.1896364060960653,
+  "dsr_effective_probability": 0.63922853760255,
+  "bootstrap_21d_cagr_lower_90": 0.11658607204184757,
+  "bootstrap_21d_calmar_lower_90": 0.7008014620310382,
+  "buyhold_21d_cagr_win_probability": 0.9833,
+  "buyhold_21d_drawdown_win_probability": 1.0,
+  "buyhold_21d_calmar_win_probability": 0.9999,
+  "candidate_created": false,
+  "promotion_allowed": false
+}

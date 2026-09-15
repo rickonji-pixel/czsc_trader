@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX29",
+  "status": "COMPLETE",
+  "experiment_type": "selected_configuration_statistical_robustness_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "evidence_label": "MIXED",
+  "candidate_created": false,
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 577,
+      "sha256": "fd88ec57f28833914a02b85b9f76cc068a3a7e7b324970ae3b5956803a86e3b4"
+    },
+    "02_design.md": {
+      "bytes": 1129,
+      "sha256": "3519c6ce74303dd2e6d1dbbccc79bd0949ad915df0ce1f7f3bc2b12204e333ca"
+    },
+    "02_protocol.md": {
+      "bytes": 1579,
+      "sha256": "8fd60e49912fb62bcb3f592fc5fecb4027a8601a28ee632b3063623db3f58385"
+    },
+    "03_execution.md": {
+      "bytes": 245,
+      "sha256": "13d28988716d99f46db1b5120da84af0440ee6987c1311def772fb605a3213ff"
+    },
+    "04_conclusion.md": {
+      "bytes": 506,
+      "sha256": "95a1ce2695c6ccadbf14591d95fed46e6983f1a8fe5d93e92938e95f9bb8a59c"
+    },
+    "artifacts/final_family_behavior_ledger.csv": {
+      "bytes": 99333,
+      "sha256": "b5c61c3d467d6a2bf5cb9fc6a9966d45649ecaf03c2b4aefd8afe0e7083bf78c"
+    },
+    "artifacts/final_family_daily_return_matrix.csv.gz": {
+      "bytes": 314382,
+      "sha256": "64611f311f4182b1df0fb65081815200ad37ca60b7ca05aaf66816063c67e85c"
+    },
+    "artifacts/final_family_trial_sharpes.csv": {
+      "bytes": 50805,
+      "sha256": "b59dddcd2839250c9f3868bc35360ab4d8545f00615e5840da48ea5ea3cf20d4"
+    },
+    "artifacts/historical_trial_inventory.csv": {
+      "bytes": 1237,
+      "sha256": "ee9d6387f14f66f14e6cd371fbd593ee6cf56ae13645a1fbb5b18b528b2f4bb8"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 4309,
+      "sha256": "66f63ec266c207c69d7a51970dbf85d4ed0af6b3179f992477465f134b936aa4"
+    },
+    "artifacts/return_matrix_identity.json": {
+      "bytes": 41114,
+      "sha256": "2b38b7965533ba30e42afabdb980884229f7cfa6d51368d46eb0f2e751cf1cbe"
+    },
+    "artifacts/statistical_details.json": {
+      "bytes": 199855,
+      "sha256": "50d8d67929688bd4e24379edcb31f94ab750745203b23e093364754f2bbd44bc"
+    },
+    "artifacts/statistical_summary.json": {
+      "bytes": 954,
+      "sha256": "97b6f8528497951a9c7e0f35b98c4f86b34c7bbe0eeefb032578e5c3b343ce86"
+    },
+    "run_experiment.py": {
+      "bytes": 18088,
+      "sha256": "0ab4b74bffacd6f8d0fcfc078518ca7a759077d183ac4c21b2a5ccc7a33ee282"
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX29",
+  "experiment_type": "selected_configuration_statistical_robustness_audit",
+  "strategy_id": "S007",
+  "proposed_candidate_id": "S007-C001",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex28_archive": "experiments/S007/20260915_S007_EX28",
+    "ex28_manifest_sha256": "2b77a3639c338b00c690f20533b13bcebfbac67f6407f88564b7e24360597933",
+    "selected_configuration_sha256": "1aa7f1569e483de1c5bd951b4e9268519e1a292653506c22613c10d880792301",
+    "ex27_archive": "experiments/S007/20260915_S007_EX27",
+    "ex27_manifest_sha256": "90a5ea238ca7d3f049a9c0c8a323d5f01dfe444f14d1a1d70503309b092634f9",
+    "ex27_protocol_sha256": "ca9fa2c1b13945b6da9ddb9923bd1ff9bf2f78f73daa199f477e8625ab4f77d3",
+    "ex27_search_ledger_sha256": "5d2109ac48e6705879fbc5303428e121c3ca648235ce16023b6ed7af979dd133",
+    "feature_panel": "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz",
+    "feature_panel_sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d",
+    "effective_search_protocol": "experiments/S007/20260915_S007_EX08/artifacts/effective_search_protocol.json",
+    "effective_search_protocol_sha256": "dda377eaeed6d8651bb2c07cf964e87bccd9599e5e3a5bf91221707c61c56ae0",
+    "ex09_script": "experiments/S007/20260915_S007_EX09/run_experiment.py",
+    "ex09_script_sha256": "56d99f39dc8d952e821d0b9056f1f92b57a65eddd1cbb6154b4019df4580d68d",
+    "historical_trial_sources": {
+      "experiments/S007/20260915_S007_EX09/artifacts/search_trial_ledger.csv.gz": "197cd1638d90a6ce05e5c0f5042f1cc4a4e347fc9097e8c8ace9ab0d0b268567",
+      "experiments/S007/20260915_S007_EX14/artifacts/search_trial_ledger.csv.gz": "4fb6364a577d5c3947d1d2a2aded42c61ebd7c69c11546eec12a3e96cea2eb9f",
+      "experiments/S007/20260915_S007_EX20/artifacts/search_trial_ledger.csv": "28b354456d1fd17210e5b0d326bd5226c6f85829c4065c8ce01985bd6bf7fb16",
+      "experiments/S007/20260915_S007_EX22/artifacts/search_trial_ledger.csv.gz": "dca8bc130cbaf7c3136a6bd6398acd7f62a9b0cd5bb7ed4430f0afccb7304077",
+      "experiments/S007/20260915_S007_EX24/artifacts/search_trial_ledger.csv.gz": "c8e408773969f8cef6af79c54ca572a073c1c693d7949f3e5a15063deef64057",
+      "experiments/S007/20260915_S007_EX26/artifacts/search_trial_ledger.csv.gz": "073cfd0328def3f0f68e32d08643e65328f5cf8dcf6111a888adedc4d83e0813",
+      "experiments/S007/20260915_S007_EX27/artifacts/search_trial_ledger.csv.gz": "5d2109ac48e6705879fbc5303428e121c3ca648235ce16023b6ed7af979dd133",
+      "experiments/S007/20260915_S007_EX12/artifacts/single_factor_ablations.csv": "eca92c3f32c562d58defe1bfad10a25df37af463639d7f85a6b5cc1f3b28d701",
+      "experiments/S007/20260915_S007_EX16/artifacts/local_perturbations.csv": "6a33cd897697d8aff9781cfcb3703eb42216271fcfd836e3b10d2976783131c0",
+      "experiments/S007/20260915_S007_EX25/artifacts/paired_ablation_results.csv": "466a447b595bb9ac02eb020030db2b31e3336f7a0176b59a43121f7ddb2891d0"
+    },
+    "daily_sha256": {
+      "data/raw/588080_daily_2021.csv": "24f2ace23811ca32e935236c605230eb00f8e74eacf5e88e8b670c3bccd006a4",
+      "data/raw/588080_daily_2022.csv": "7c7b8c91eff9c9fa546359f4b5b87b6c14b74243a1e327761a309621d8bea18a",
+      "data/raw/588080_daily_2023.csv": "ae964cfb3ec985c54daf112672b7044efe36773e05d8fc77d50b81b6def88bde",
+      "data/raw/588080_daily_2024.csv": "51e90a0fb986522c42ce7b5bc1128efd74492beae2fa36af98a1b78ac2ed42c6",
+      "data/raw/588080_daily_2025.csv": "832649fb5a38919bf53fc0a3d4be2b5bf6b0f58e79893d1fee33374511a78148",
+      "data/raw/588080_daily_2026.csv": "907b1cfb083882b9d8bda4ee54dd61f2f86b92ad182e21d44de65cf3cb0bdaa7"
+    }
+  },
+  "audit": {
+    "cscv_blocks": 10,
+    "bootstrap_repetitions": 10000,
+    "bootstrap_mean_block_lengths": [10, 21, 42],
+    "seed": 20260915,
+    "favorable_pbo_max": 0.4,
+    "adverse_pbo_min_exclusive": 0.5,
+    "favorable_dsr_probability_min": 0.9,
+    "adverse_dsr_probability_below": 0.5
+  },
+  "execution": {
+    "fee_rate_one_way": 0.001,
+    "initial_equity": 1.0,
+    "buy_hold_entry": "FIRST_SESSION_OPEN"
+  },
+  "reads_new_returns": true,
+  "appends_search_trials": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

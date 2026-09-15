@@ -1,0 +1,4 @@
+﻿parameter,direction,old_boundary,share_beyond_old_boundary
+confirmation_total,LOWER,0.2,1.0
+entry_timing_total,UPPER,0.25,0.7698056801195815
+exit_quantile,UPPER,0.55,0.9865470852017937

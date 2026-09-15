@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX31",
+  "status": "COMPLETE",
+  "experiment_type": "candidate_registration_and_tdr_replay",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "decision": "RECOMMEND_REGISTRATION",
+  "risk_label": "MIXED",
+  "candidate_created": true,
+  "strategy_frozen": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 191,
+      "sha256": "8af3ec1690405c4e6ef0f633924ec74e71e037c010c91d4860e09f2e17fdd322"
+    },
+    "02_design.md": {
+      "bytes": 657,
+      "sha256": "30b114aab128625bc0505f88c45e2602bfc3ebe89f7ab83ed289b19c18cff7a6"
+    },
+    "03_execution.md": {
+      "bytes": 196,
+      "sha256": "f58fe5e686c794f04fa141d4066ad851bc1ffb470c2207e54ca2f961004b77a9"
+    },
+    "04_conclusion.md": {
+      "bytes": 238,
+      "sha256": "72fe77ec3cdaef0875921a82354fba0deac2dc7031adcb996e38414994777835"
+    },
+    "artifacts/account_daily.csv": {
+      "bytes": 122340,
+      "sha256": "bbd8b313be5acb90647d93cfce1f2073593cfbb066836d0d5a3ab48a443875a6"
+    },
+    "artifacts/candidate_readiness.json": {
+      "bytes": 760,
+      "sha256": "294a3eed8ae7d7f0a2453962f575242e49050244078b0d0133f60f1f90882497"
+    },
+    "artifacts/decisions.csv": {
+      "bytes": 123379,
+      "sha256": "dafaa7865128027c7cf2bb6647df5194b772538bd750fa39876cbbf95bbe9371"
+    },
+    "artifacts/fills.csv": {
+      "bytes": 44173,
+      "sha256": "1ccef3917094c72e8b9d23ce114fcff9ace54597391fb7cc1720360947c6eb44"
+    },
+    "artifacts/orders.csv": {
+      "bytes": 35519,
+      "sha256": "24d1fddc1f84ade5bb18706dccbea11670bd3a4d8e453b98f6b7dd08700accec"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1486,
+      "sha256": "b7a9333c5c43ba20b30dffdabe9d369238954504358496625fdd376d8678d988"
+    },
+    "artifacts/tdr_replay_summary.json": {
+      "bytes": 686,
+      "sha256": "78b49f2100975fc578d963212475fe589d67a359860408610e85538fdd655707"
+    },
+    "artifacts/trades.csv": {
+      "bytes": 13197,
+      "sha256": "d351bcfae415d8f67b9fc7ee102a96bc9c19f45cdc207e56ac206de9d747e107"
+    },
+    "candidate_manifest.json": {
+      "bytes": 355,
+      "sha256": "5b0f047cd8d2fb0d4f84974cadacdad816480d57f2e1274104215c42c050d550"
+    },
+    "candidate_payload.json": {
+      "bytes": 2725,
+      "sha256": "d4c2b6b68de30f1a8e18bc3a8d06d53f96a8dad0864456eae8077fad66257cf7"
+    },
+    "run_experiment.py": {
+      "bytes": 8888,
+      "sha256": "83d94342cf40b333b6a72b9535255bc2b15d49094fcb5b94a7cc248c191a35d6"
+    }
+  }
+}

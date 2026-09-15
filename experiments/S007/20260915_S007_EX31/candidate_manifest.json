@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "payload_path": "candidate_payload.json",
+  "payload_sha256": "d4c2b6b68de30f1a8e18bc3a8d06d53f96a8dad0864456eae8077fad66257cf7",
+  "registration_decision": "RECOMMEND_REGISTRATION",
+  "risk_label": "MIXED"
+}

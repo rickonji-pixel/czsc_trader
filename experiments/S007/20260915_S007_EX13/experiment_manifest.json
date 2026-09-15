@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX13",
+  "status": "COMPLETE",
+  "experiment_type": "prediction_holding_horizon_alignment",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "REJECT_HOLDING_ALIGNMENT_REMEDY",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 247,
+      "sha256": "f6e7d22fa9d166d3188a3f540a6e27dd2c8fe60051b713e2de1a5ec1dbaa1a7b"
+    },
+    "02_design.md": {
+      "bytes": 465,
+      "sha256": "26212c297098e7b09c7080092d67e310f661626ef35a804f28cb99b8a924169d"
+    },
+    "03_execution.md": {
+      "bytes": 172,
+      "sha256": "d99a43c81f58f181a13767a87e1888d6591b4ed0ecf0997bdb63d84768157a93"
+    },
+    "04_conclusion.md": {
+      "bytes": 251,
+      "sha256": "e25b736cb2f47ad01596be436600de88a54209798be12f57e8c968a1678bab55"
+    },
+    "artifacts/holding_alignment_evidence.json": {
+      "bytes": 503,
+      "sha256": "99b5f087e3f80f7605dfaf017af2888d22a4f323581559a8e33efb6f0e4e3660"
+    },
+    "artifacts/holding_alignment_metrics.csv": {
+      "bytes": 699,
+      "sha256": "12000824b5c6b5e43e27a283da4f00868834e880e1e3635c476c5f4fdf81794f"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1451,
+      "sha256": "6efd84fa432ac20c1fae9a8e89fd161ab7fbe37fab97e30a3bae2557ee181ea8"
+    },
+    "run_experiment.py": {
+      "bytes": 8429,
+      "sha256": "82aa47bfc78689db009e88f0d91dc38fbe8bd795f9d072becb6c48ca761e1b0c"
+    }
+  }
+}

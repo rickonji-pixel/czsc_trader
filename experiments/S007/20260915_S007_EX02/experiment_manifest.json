@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX02",
+  "status": "COMPLETE",
+  "experiment_type": "first_principles_data_and_causality_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "FILL_RISK_APPETITE_DATA_GAP_THEN_PREREGISTER_MECHANISMS",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 223,
+      "sha256": "3b213ffb5a5fc7893b0c4b95efef61949aaadee534274e2e8e02d0c0db9b9c68"
+    },
+    "02_design.md": {
+      "bytes": 859,
+      "sha256": "590474b3fd381c4652e3cc7e1a855075ab85400d1d322b0941706320c5a43107"
+    },
+    "03_execution.md": {
+      "bytes": 234,
+      "sha256": "75da23039005d644bbe6cc1e197a5b31375e459891fc8e766fa2f793c4458441"
+    },
+    "04_conclusion.md": {
+      "bytes": 354,
+      "sha256": "a37965ec134143a06533116fe0223538df959d4da65ee05cc9bf3521387085d5"
+    },
+    "artifacts/data_audit_evidence.json": {
+      "bytes": 1854,
+      "sha256": "147201fec5f6a0c69fbae41a3b28f11fc8f3a6c723bb5ec488787a6d83cae87d"
+    },
+    "artifacts/data_route_audit.csv": {
+      "bytes": 1057,
+      "sha256": "05ba46cc6d91fcea2965988a859f436ef5df22514bbc780074b91c3e2c4c6684"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 3043,
+      "sha256": "2a001405fda57aaebea2922d6aed4e5bc790a5c601cde3425f3c52eefad7b991"
+    },
+    "run_experiment.py": {
+      "bytes": 11233,
+      "sha256": "17f0e99cb372b0f14154b757dd77b9284523c903ad6f74398f988fb4a5717e82"
+    }
+  }
+}

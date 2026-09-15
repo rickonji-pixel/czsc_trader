@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX25",
+  "status": "COMPLETE",
+  "experiment_type": "paired_confirmation_base_score_ablation",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_DECOUPLED_JOINT_SEARCH_REVIEW",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 239,
+      "sha256": "e83b22d0a6aec609a5098d7e090666cbe65ddfab197c096d0e6375c758b9cbc2"
+    },
+    "02_design.md": {
+      "bytes": 1202,
+      "sha256": "901e4cc85b25cd5534a651fedc3303c3852a011c61b74d6641e6cb65c36eacca"
+    },
+    "03_execution.md": {
+      "bytes": 169,
+      "sha256": "26215cbc7a10e5faa365678d1ba91115937bee45d71dc1a8091fffcaa08121d4"
+    },
+    "04_conclusion.md": {
+      "bytes": 522,
+      "sha256": "c1d3b238cf0d85d0cf92ac2a8f1d454755ce3d79e35d13bfa4c49961b0b10b27"
+    },
+    "artifacts/ablation_evidence.json": {
+      "bytes": 1050,
+      "sha256": "0e3db9f316243c14d64b4f0933cd75df28baf8806e58326585c9a4d0c325f6f9"
+    },
+    "artifacts/paired_ablation_results.csv": {
+      "bytes": 535835,
+      "sha256": "466a447b595bb9ac02eb020030db2b31e3336f7a0176b59a43121f7ddb2891d0"
+    },
+    "artifacts/paired_delta_summary.csv": {
+      "bytes": 439,
+      "sha256": "d984c1764796317ce56abb3f57522444192b7d4416a33c46f8fc9b2e40f962cd"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1705,
+      "sha256": "05950bf2d9246e3b43c030fdff2422da9182316151537db0288af5d1d54765ce"
+    },
+    "run_experiment.py": {
+      "bytes": 19631,
+      "sha256": "3306ecb9c6b0cdc46152cfbe2246213ddfb3655723b874d88c4de8faba8773d4"
+    }
+  }
+}

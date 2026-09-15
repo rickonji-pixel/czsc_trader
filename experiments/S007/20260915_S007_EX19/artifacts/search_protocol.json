@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "method": "optuna_grid",
+  "storage": "IN_MEMORY",
+  "seed": 71907,
+  "workers": 1,
+  "parameters": {
+    "confirmation_gate_quantile": {
+      "values": [
+        0.0, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15,
+        0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325,
+        0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5
+      ],
+      "resolution": "quantile of confirmation contribution at original base-score entry signals in 2021-2023 discovery period"
+    }
+  },
+  "fixed_parameters": {
+    "base_anchor_trial_id": "S007-EX09-WEIGHTED-SCORE-00659",
+    "base_entry_threshold": 0.07570330231941753,
+    "base_exit_threshold": -0.01196381617410524,
+    "target_position": 1.0,
+    "fee_rate_one_way": 0.001,
+    "fixed_order_fee": 0,
+    "initial_equity": 1.0
+  },
+  "hard_gates": {
+    "minimum_full_cagr": 0.24078187745776553,
+    "maximum_drawdown_limit": -0.2,
+    "s001_v2_maximum_drawdown": -0.21533380100584476,
+    "minimum_rolling_60_closed_trades_median": 7.0,
+    "minimum_rolling_60_closed_trades_p10": 3.0,
+    "minimum_discovery_cagr": 0.0,
+    "minimum_confirmation_cagr": 0.0,
+    "confirmation_maximum_drawdown_limit": -0.2
+  },
+  "platform": {
+    "minimum_consecutive_feasible_grid_points": 3,
+    "minimum_quantile_span": 0.05,
+    "single_point_selection_forbidden": true
+  },
+  "diagnostics": [
+    "closed_trades",
+    "rolling_60_closed_trades_median",
+    "rolling_60_closed_trades_p10",
+    "short_holding_trade_share",
+    "cost_drag_from_0bp_to_10bp"
+  ]
+}
+

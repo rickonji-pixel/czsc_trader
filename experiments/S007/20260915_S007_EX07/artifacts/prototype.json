@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "template_id": "STC-T01-WEIGHTED-SCORE",
+  "bindings": [
+    {"slot": "scores", "source_id": "F-PROJECT-ETF-SHARE-CHANGE-5D-LAG1", "source_kind": "FACTOR", "state": null, "weight": -0.14285714285714285},
+    {"slot": "scores", "source_id": "F-TSFRESH-MEAN-LOG-VOLUME-CHANGE-20", "source_kind": "FACTOR", "state": null, "weight": 0.14285714285714285},
+    {"slot": "scores", "source_id": "F-PROJECT-DAILY-CLOSE-VWAP-DEVIATION", "source_kind": "FACTOR", "state": null, "weight": -0.14285714285714285},
+    {"slot": "scores", "source_id": "F-PROJECT-PRIOR-US-SPX-RETURN", "source_kind": "FACTOR", "state": null, "weight": 0.14285714285714285},
+    {"slot": "scores", "source_id": "F-PROJECT-CHINEXT-TURNOVER-Z20", "source_kind": "FACTOR", "state": null, "weight": 0.14285714285714285},
+    {"slot": "scores", "source_id": "F-PROJECT-SHIBOR-ON-CHANGE-5D", "source_kind": "FACTOR", "state": null, "weight": -0.14285714285714285},
+    {"slot": "scores", "source_id": "F-PROJECT-DAILY-INTRADAY-RANGE", "source_kind": "FACTOR", "state": null, "weight": 0.14285714285714285}
+  ],
+  "parameters": {
+    "entry_threshold": 0.05,
+    "exit_threshold": 0.0,
+    "target_position": 1.0
+  }
+}
+

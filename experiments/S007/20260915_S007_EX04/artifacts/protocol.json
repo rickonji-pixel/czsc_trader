@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX04",
+  "experiment_type": "unified_causal_feature_materialization",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "decision_time": "20:30 Asia/Shanghai",
+  "planned_execution": "NEXT_TRADING_DAY_OPEN",
+  "tsfresh": {
+    "preset": "minimal",
+    "lookbacks": [20, 60],
+    "value_series": ["return_1d", "intraday_range", "log_volume_change"],
+    "n_jobs": 0
+  },
+  "sources": {
+    "ex02_archive": "experiments/S007/20260915_S007_EX02",
+    "ex03_archive": "experiments/S007/20260915_S007_EX03",
+    "ex03_manifest_sha256": "882b5c5944f3a46c7e44d49639b8bb68c4adf22216cb66d75fac599d6d9a95a2",
+    "shibor_sha256": "dbeea769690a50a748e2811776e6692b85b28a67a05c322c8d1a25ae7043895f",
+    "broad_risk_indices_sha256": "ae83f21f694fa500358b8f94567744834f1f1883672e61ef087a943b847db2f7"
+  },
+  "reads_new_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_catalog": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

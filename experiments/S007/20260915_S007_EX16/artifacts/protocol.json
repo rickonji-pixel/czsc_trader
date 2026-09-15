@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX16",
+  "experiment_type": "local_parameter_neighborhood_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex14_archive": "experiments/S007/20260915_S007_EX14",
+    "ex14_manifest_sha256": "7d8f3e24b49dbc0b746b23df192927067116db5f4319a316a4ddabcae873f6fb",
+    "feasible_trials_sha256": "ab39689c8fbbf89c37131ac76c1699ba15b183ef4606ac23c0fee876c2875561",
+    "ex14_script_sha256": "384deb1ff957495da2368ec912171e21746f05cc1ab2816c3c8d69d50792078a",
+    "ex15_manifest_sha256": "f9c8bec4d282d652384dd9084ae312a928e07b3490b0266a529357caf1332723"
+  },
+  "local_audit": {
+    "seed": 71607,
+    "random_perturbations": 400,
+    "normalized_radius": 0.15,
+    "minimum_unique_behaviors": 10,
+    "minimum_connected_unique_behaviors": 5
+  },
+  "cost_policy": {
+    "fee_rate_one_way": 0.001,
+    "basis_points_one_way": 10,
+    "fixed_order_fee": 0,
+    "initial_equity": 1.0,
+    "channel_neutral": true
+  },
+  "reads_new_returns": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}
+

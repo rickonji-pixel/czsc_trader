@@ -1,0 +1,8 @@
+{
+  "repetitions": 5000,
+  "block_sessions": 20,
+  "positive_annualized_log_excess_probability": 0.9936,
+  "annualized_log_excess_mean": 0.20402830588568135,
+  "annualized_log_excess_ci_lower": 0.06617614001701766,
+  "annualized_log_excess_ci_upper": 0.34355296256960854
+}

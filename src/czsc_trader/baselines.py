@@ -42,6 +42,7 @@ class ResolvedBaseline:
     event_hold: EventHoldSpec | None = None
     constituent_moneyflow_intraday: ConstituentMoneyflowIntradaySpec | None = None
     closing_dislocation_overnight: ClosingDislocationOvernightSpec | None = None
+    causal_feature_gate: CausalFeatureGateSpec | None = None
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,23 @@ class ClosingDislocationOvernightSpec:
     cooldown_sessions: int
     mechanisms: tuple[str, ...]
     entry_risk_filter: MarginEntryRiskFilterSpec | None = None
+
+
+@dataclass(frozen=True)
+class CausalFeatureGateSpec:
+    """A frozen causal feature panel evaluated by a weighted score and entry gate."""
+
+    symbol: str
+    source_path: str
+    source_sha256: str
+    orientations: tuple[tuple[str, int], ...]
+    base_weights: tuple[tuple[str, float], ...]
+    confirmation_weights: tuple[tuple[str, float], ...]
+    normalization_lookback_sessions: int
+    normalization_minimum_observations: int
+    entry_threshold: float
+    exit_threshold: float
+    confirmation_threshold: float
 
 
 @dataclass(frozen=True)
@@ -542,6 +560,82 @@ def _parse_constituent_moneyflow_intraday(
     )
 
 
+def _parse_causal_feature_gate(
+    payload: dict[str, object],
+    *,
+    symbol: str,
+    repository_root: Path | None,
+) -> CausalFeatureGateSpec:
+    rule = payload.get("rule")
+    if not isinstance(rule, dict):
+        raise ValueError("causal-feature-gate strategy must contain a rule object")
+    declared_symbol = str(rule.get("symbol", payload.get("symbol", ""))).upper()
+    if declared_symbol != symbol.upper():
+        raise ValueError("causal-feature-gate symbol differs from requested symbol")
+    source = rule.get("data_source")
+    normalization = rule.get("normalization")
+    score = rule.get("score")
+    if not all(isinstance(item, dict) for item in (source, normalization, score)):
+        raise ValueError("causal-feature-gate source, normalization or score is missing")
+    assert isinstance(source, dict) and isinstance(normalization, dict) and isinstance(score, dict)
+    source_path = str(source.get("path", ""))
+    source_sha256 = str(source.get("sha256", "")).lower()
+    if not source_path or len(source_sha256) != 64:
+        raise ValueError("causal-feature-gate source identity is incomplete")
+    if repository_root is None:
+        raise ValueError("causal-feature-gate strategy requires a repository root")
+    resolved_source = resolve_repository_experiment_reference(repository_root, source_path)
+    if not resolved_source.is_file() or raw_file_sha256(resolved_source) != source_sha256:
+        raise ValueError("causal-feature-gate source is missing or differs")
+    if normalization.get("method") != "CAUSAL_ROLLING_PERCENTILE_CENTERED":
+        raise ValueError("causal-feature-gate normalization is unsupported")
+    lookback = int(normalization.get("lookback_sessions", 0))
+    minimum = int(normalization.get("minimum_observations", 0))
+    if lookback < 2 or minimum < 2 or minimum > lookback:
+        raise ValueError("causal-feature-gate normalization window is invalid")
+
+    def pairs(name: str, *, signed: bool) -> tuple[tuple[str, float], ...]:
+        value = score.get(name)
+        if not isinstance(value, dict) or not value:
+            raise ValueError(f"causal-feature-gate {name} is missing")
+        result = tuple(sorted((str(key), float(item)) for key, item in value.items()))
+        if any(not key or not np.isfinite(item) for key, item in result):
+            raise ValueError(f"causal-feature-gate {name} contains invalid values")
+        if not signed and (any(item < 0 for _, item in result) or not np.isclose(sum(item for _, item in result), 1.0)):
+            raise ValueError(f"causal-feature-gate {name} must be nonnegative and sum to one")
+        return result
+
+    orientations_raw = pairs("orientations", signed=True)
+    if any(value not in {-1.0, 1.0} for _, value in orientations_raw):
+        raise ValueError("causal-feature-gate orientations must be -1 or 1")
+    orientations = tuple((key, int(value)) for key, value in orientations_raw)
+    base_weights = pairs("base_weights", signed=False)
+    confirmation_weights = pairs("confirmation_weights", signed=False)
+    scored = {key for key, _ in base_weights} | {key for key, _ in confirmation_weights}
+    if {key for key, _ in orientations} != scored:
+        raise ValueError("causal-feature-gate orientation identities differ from scored features")
+    if {key for key, _ in base_weights} & {key for key, _ in confirmation_weights}:
+        raise ValueError("causal-feature-gate base and confirmation features overlap")
+    entry = float(score.get("entry_threshold", float("nan")))
+    exit_ = float(score.get("exit_threshold", float("nan")))
+    confirmation = float(score.get("confirmation_threshold", float("nan")))
+    if not all(np.isfinite(value) for value in (entry, exit_, confirmation)) or exit_ >= entry:
+        raise ValueError("causal-feature-gate thresholds are invalid")
+    return CausalFeatureGateSpec(
+        symbol=declared_symbol,
+        source_path=source_path,
+        source_sha256=source_sha256,
+        orientations=orientations,
+        base_weights=base_weights,
+        confirmation_weights=confirmation_weights,
+        normalization_lookback_sessions=lookback,
+        normalization_minimum_observations=minimum,
+        entry_threshold=entry,
+        exit_threshold=exit_,
+        confirmation_threshold=confirmation,
+    )
+
+
 def _parse_closing_dislocation_overnight(
     payload: dict[str, object],
     *,
@@ -791,6 +885,27 @@ def resolve_strategy_payload(
 ) -> ResolvedBaseline:
     """Parse a frozen Strategy Manager payload without creating another baseline."""
     strategy_kind = str(strategy_payload.get("strategy_kind", ""))
+    if strategy_kind == "causal_feature_gate":
+        spec = _parse_causal_feature_gate(
+            strategy_payload,
+            symbol=symbol,
+            repository_root=repository_root,
+        )
+        rule_payload = strategy_payload.get("rule")
+        assert isinstance(rule_payload, dict)
+        execution = _parse_execution(rule_payload, symbol)
+        return ResolvedBaseline(
+            version=release_id,
+            rule=None,
+            rule_payload=dict(rule_payload),
+            sha256=release_hash,
+            strategy=strategy_kind,
+            status="active",
+            scope="symbol",
+            symbol=symbol,
+            execution=execution,
+            causal_feature_gate=spec,
+        )
     if strategy_kind == "closing_dislocation_overnight":
         spec = _parse_closing_dislocation_overnight(
             strategy_payload,

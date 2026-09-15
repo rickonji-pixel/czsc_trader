@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "request": {
+    "candidate_id": "S007-C001",
+    "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+    "benchmark_id": "BuyHold-588080",
+    "integrity": "PASS",
+    "reproducibility": "PASS",
+    "technical_replay": "PASS",
+    "monitoring_plan": "PASS",
+    "candidate_performance": {
+      "cagr": 0.23765931177682997,
+      "max_drawdown": -0.1081234745732389,
+      "calmar": 2.1980362055036275
+    },
+    "benchmark_performance": {
+      "cagr": 0.024606913386112206,
+      "max_drawdown": -0.5995145631067968,
+      "calmar": 0.04104473002055958
+    },
+    "bootstrap": {
+      "champion_id": "S007-C001",
+      "comparator_id": "BuyHold-588080",
+      "repetitions": 10000,
+      "mean_block_length": 21,
+      "cagr": {
+        "metric": "cagr",
+        "direction": "higher_is_better",
+        "point_difference": 0.21305239839071777,
+        "lower_95": -0.023505532934119958,
+        "upper_95": 0.4012314555525371,
+        "probability_favorable": 0.964
+      },
+      "max_drawdown": {
+        "metric": "max_drawdown",
+        "direction": "higher_is_better",
+        "point_difference": 0.49139108853355795,
+        "lower_95": 0.21643881874943796,
+        "upper_95": 0.6938948326570448,
+        "probability_favorable": 1.0
+      },
+      "calmar": {
+        "metric": "calmar",
+        "direction": "higher_is_better",
+        "point_difference": 2.156991475483068,
+        "lower_95": 0.6615043703592095,
+        "upper_95": 4.13752347671746,
+        "probability_favorable": 1.0
+      }
+    },
+    "statistical_evidence": "MIXED",
+    "external_validation": "MIXED",
+    "execution_evidence": "FAVORABLE",
+    "blocking_findings": []
+  },
+  "result": {
+    "candidate_id": "S007-C001",
+    "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+    "benchmark_id": "BuyHold-588080",
+    "decision": "RECOMMEND_HEALTH_CHECK",
+    "risk_label": "MIXED",
+    "reason_codes": [
+      "REQUIRED_AUDITS_PASSED",
+      "BENCHMARK_DOMINATED_ON_POINT_METRICS",
+      "PAIRED_BOOTSTRAP_ADVANTAGE_MAJORITY",
+      "NO_BLOCKING_FINDINGS"
+    ]
+  },
+  "candidate_account_metrics": {
+    "max_drawdown": -0.1081234745732389,
+    "calmar": 2.1980362055036253,
+    "win_loss_ratio": 1.8994731292442995,
+    "win_loss_ratio_status": "VALID",
+    "return": 2.1954283480000005,
+    "sharpe": 1.3859774843583401,
+    "closed_trades": 139
+  },
+  "buyhold_total_return": 0.1416170036859694
+}

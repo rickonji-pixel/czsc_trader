@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "strategy_id": "S007",
+  "working_name": "588080第一性原理策略研究",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "inheritance_policy": {
+    "inherited": [
+      "项目研究纪律与审计基础设施",
+      "用户确认的风险收益和证据速度目标",
+      "已发布且通过身份校验的原始数据与数据接口"
+    ],
+    "not_inherited": [
+      "S005与S006的机制线索和方向判断",
+      "S005与S006的入选因子、信号、组件和组合",
+      "S005与S006的模板偏好、参数范围和候选结论"
+    ]
+  },
+  "data_policy": {
+    "research_pool": "data/raw及经清单校验的历史时点数据",
+    "returns_may_be_read_after": "假设、数据门、因果口径和唯一收益路径完成预注册",
+    "future_data_prohibited": true
+  }
+}

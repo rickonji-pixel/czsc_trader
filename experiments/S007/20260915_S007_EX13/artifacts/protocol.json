@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX13",
+  "experiment_type": "prediction_holding_horizon_alignment",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex12_archive": "experiments/S007/20260915_S007_EX12",
+    "ex12_manifest_sha256": "39e528fd49b2703db36705407c9eb68248cffc6a056940323b320900b7447679",
+    "robustness_evidence_sha256": "d93a40036667507edd0f4bfda240f2d00a273928473eeae5e30ca8c1076a1fa7",
+    "ex11_diagnosis_sha256": "5c503e3832b39f53dc7690827e6eaa7188991c182253d7e0c39cd370ea7a0571",
+    "ex09_archive": "experiments/S007/20260915_S007_EX09",
+    "feasible_trials_sha256": "afe38a5a5e393b378c9a4a52ed0ade2cc576bdcc171846944d85c9f7e322e94b",
+    "ex09_script_sha256": "56d99f39dc8d952e821d0b9056f1f92b57a65eddd1cbb6154b4019df4580d68d",
+    "feature_panel": "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz",
+    "feature_panel_sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d"
+  },
+  "minimum_holding_sessions": 3,
+  "fee_rates_one_way": [0.0005, 0.0015],
+  "hard_gates": {
+    "minimum_cagr": 0.240781877458,
+    "maximum_drawdown_loss": 0.20,
+    "minimum_rolling_60_closed_trades_median": 7,
+    "minimum_rolling_60_closed_trades_p10": 3
+  },
+  "reads_new_returns": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX08",
+  "experiment_type": "prototype_warmup_amendment",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex07_archive": "experiments/S007/20260915_S007_EX07",
+    "ex07_manifest_sha256": "e83f42636edc4c39559247e810d4c5764556227154697a1d019d165e6794241c",
+    "ex07_protocol_sha256": "a909509cb37e754d3edcdedcd6cc43008473c513496a6723d1a363f98beaed68"
+  },
+  "amendment": {
+    "field": "normalization.minimum_observations",
+    "before": 126,
+    "after": 20,
+    "reason": "prevent mechanical half-year cash warmup without pre-development multi-source history"
+  },
+  "reads_new_returns": false,
+  "search_started": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}
+

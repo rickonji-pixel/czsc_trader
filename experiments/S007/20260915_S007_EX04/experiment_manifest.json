@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX04",
+  "status": "COMPLETE",
+  "experiment_type": "unified_causal_feature_materialization",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_INFORMATION_VALUE_AUDIT",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 238,
+      "sha256": "dc58eff037b762d0bfe33adc2af1d0091f82649efe3a3051ab9113dfbdd33377"
+    },
+    "02_design.md": {
+      "bytes": 643,
+      "sha256": "336956e7309593f555b99d92c947673b6ce3543c6200249615544e5d8f7411b9"
+    },
+    "03_execution.md": {
+      "bytes": 207,
+      "sha256": "7a75e1314d70684e762b8f090e5cf84f5e7c74ea7055ded95f24f1fe64e0c4d9"
+    },
+    "04_conclusion.md": {
+      "bytes": 224,
+      "sha256": "60396842800dfc9323e4ccb321f294ce7803a37fb95566ac55980f34b9922514"
+    },
+    "artifacts/causal_feature_panel.csv.gz": {
+      "bytes": 853006,
+      "sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d"
+    },
+    "artifacts/feature_catalog.csv": {
+      "bytes": 10079,
+      "sha256": "ba9eefac65699b3c830d0f3ad54086a06bf8373797ce715cfa9afbb4ac6f7156"
+    },
+    "artifacts/feature_coverage.csv": {
+      "bytes": 11902,
+      "sha256": "6d0445c3c5735e4df9ba904891ba795f79f8e6fdae9ed90fdd948fe67446574e"
+    },
+    "artifacts/materialization_evidence.json": {
+      "bytes": 2588,
+      "sha256": "374f2cd24e6c177b9ae59c66acfe7af47f84d316362dc4de6ba233c26da450f9"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1112,
+      "sha256": "7d444d1b9a384119d12fea5602231cc88c58e2ef7f2504582843c63998d4e862"
+    },
+    "run_experiment.py": {
+      "bytes": 18815,
+      "sha256": "24f8c12e3880745cb8e3973be943900e20971b1e9a118f88af62fb66855821f1"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX03",
+  "status": "PASS",
+  "decision": "PROCEED_TO_HYPOTHESIS_PREREGISTRATION",
+  "audits": [
+    {
+      "source_id": "SHIBOR",
+      "source_rows": 1403,
+      "mapped_sessions": 1374,
+      "coverage": 1.0,
+      "future_source_dates": 0,
+      "maximum_calendar_lag_days": 0
+    },
+    {
+      "source_id": "000001.SH",
+      "source_rows": 1374,
+      "mapped_sessions": 1374,
+      "coverage": 1.0,
+      "future_source_dates": 0,
+      "maximum_calendar_lag_days": 0
+    },
+    {
+      "source_id": "000905.SH",
+      "source_rows": 1374,
+      "mapped_sessions": 1374,
+      "coverage": 1.0,
+      "future_source_dates": 0,
+      "maximum_calendar_lag_days": 0
+    },
+    {
+      "source_id": "399006.SZ",
+      "source_rows": 1374,
+      "mapped_sessions": 1374,
+      "coverage": 1.0,
+      "future_source_dates": 0,
+      "maximum_calendar_lag_days": 0
+    }
+  ],
+  "shibor_rows": 1403,
+  "index_rows": 4122,
+  "index_codes": [
+    "000001.SH",
+    "000905.SH",
+    "399006.SZ"
+  ],
+  "artifacts": {
+    "shibor": {
+      "path": "artifacts/shibor.csv.gz",
+      "sha256": "dbeea769690a50a748e2811776e6692b85b28a67a05c322c8d1a25ae7043895f"
+    },
+    "indices": {
+      "path": "artifacts/broad_risk_indices.csv.gz",
+      "sha256": "ae83f21f694fa500358b8f94567744834f1f1883672e61ef087a943b847db2f7"
+    }
+  },
+  "new_return_paths_read": 0,
+  "input_selected": false,
+  "template_selected": false,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

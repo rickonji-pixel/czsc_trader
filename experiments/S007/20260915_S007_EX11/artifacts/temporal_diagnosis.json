@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX11",
+  "status": "COMPLETE",
+  "decision": "PROCEED_TO_CONFIGURATION_AND_ROBUSTNESS_AUDIT",
+  "medoid_trial_id": "S007-EX09-WEIGHTED-SCORE-00659",
+  "medoid_behavior_hash": "5a34293f504db3aa1c4e0d9a47cdf53d32bd53548d32018f4d325b2894c453d1",
+  "largest_component_unique_behaviors": 13,
+  "medoid_distance_sum": 0.9022894112138262,
+  "segment_excess_cagr": {
+    "DISCOVERY": 0.17912306153905255,
+    "CONFIRMATION": 0.3113720061929457
+  },
+  "segment_combined_score_ic": {
+    "DISCOVERY": 0.11964421447522995,
+    "CONFIRMATION": 0.15135481861859534
+  },
+  "maximum_post_warmup_normalized_coverage_range": 0.0,
+  "relative_performance_consistent": true,
+  "combined_score_direction_consistent": true,
+  "feature_coverage_stable": true,
+  "confirmation_is_independent_out_of_sample": false,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

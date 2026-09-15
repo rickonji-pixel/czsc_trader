@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX30",
+  "experiment_type": "fixed_formula_cross_sectional_external_validation",
+  "strategy_id": "S007",
+  "proposed_candidate_id": "S007-C001",
+  "source_symbol": "588080.SH",
+  "validation_symbol": "588300.SH",
+  "development_cutoff": "2026-09-02",
+  "calibration": {
+    "start": "2021-07-05",
+    "end": "2023-12-31",
+    "return_labels_used": false
+  },
+  "external_evaluation": {
+    "start": "2024-01-01",
+    "end": "2026-09-02"
+  },
+  "sources": {
+    "ex28_archive": "experiments/S007/20260915_S007_EX28",
+    "ex28_manifest_sha256": "2b77a3639c338b00c690f20533b13bcebfbac67f6407f88564b7e24360597933",
+    "selected_configuration_sha256": "1aa7f1569e483de1c5bd951b4e9268519e1a292653506c22613c10d880792301",
+    "ex29_archive": "experiments/S007/20260915_S007_EX29",
+    "ex29_manifest_sha256": "b06b8a3f90bdb7621866883e98a43dfd26764069e330b1366acbba81796cd718",
+    "ex29_statistical_summary_sha256": "c51cf773b887fea35a0318cf6ca12e00207755442faa6a5f9c08c18126cb418e",
+    "ex03_archive": "experiments/S007/20260915_S007_EX03",
+    "ex03_manifest_sha256": "882b5c5944f3a46c7e44d49639b8bb68c4adf22216cb66d75fac599d6d9a95a2",
+    "shibor_sha256": "dbeea769690a50a748e2811776e6692b85b28a67a05c322c8d1a25ae7043895f",
+    "broad_risk_indices_sha256": "ae83f21f694fa500358b8f94567744834f1f1883672e61ef087a943b847db2f7",
+    "global_archive": "experiments/S005/20260913_S005_EX29",
+    "global_manifest_sha256": "ce59f06e48656e273454444cb5e788f15ad355ffb5e3c47476ceb16150d147cc",
+    "global_technology_panel_sha256": "d2aac79851d984cdacce6593bc42a7461b676f5178091b4521629e9d9d28beea",
+    "effective_search_protocol": "experiments/S007/20260915_S007_EX08/artifacts/effective_search_protocol.json",
+    "effective_search_protocol_sha256": "dda377eaeed6d8651bb2c07cf964e87bccd9599e5e3a5bf91221707c61c56ae0",
+    "ex09_script": "experiments/S007/20260915_S007_EX09/run_experiment.py",
+    "ex09_script_sha256": "56d99f39dc8d952e821d0b9056f1f92b57a65eddd1cbb6154b4019df4580d68d",
+    "ex27_script": "experiments/S007/20260915_S007_EX27/run_experiment.py",
+    "ex27_script_sha256": "efbd8b63cab0ba58be62068ba22109d59450b49f41250f1e6e132cfa87f32470"
+  },
+  "data_acquisition": {
+    "vendor": "tushare",
+    "daily_api": "fund_daily+fund_adj",
+    "share_api": "etf_share_size",
+    "start": "2021-07-05",
+    "end": "2026-09-02"
+  },
+  "fixed_execution": {
+    "decision_time": "20:30 Asia/Shanghai",
+    "execution_time": "NEXT_TRADING_DAY_OPEN",
+    "target_positions": [0, 1],
+    "fee_rate_one_way": 0.001,
+    "initial_equity": 1.0
+  },
+  "bootstrap": {
+    "repetitions": 10000,
+    "mean_block_lengths": [10, 21, 42],
+    "seed": 20260915
+  },
+  "replication_gates": {
+    "maximum_drawdown_limit": -0.2,
+    "minimum_rolling_60_closed_trades_median": 5.0,
+    "minimum_primary_drawdown_win_probability": 0.6,
+    "minimum_primary_calmar_win_probability": 0.6
+  },
+  "parameter_search": false,
+  "reads_external_returns": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

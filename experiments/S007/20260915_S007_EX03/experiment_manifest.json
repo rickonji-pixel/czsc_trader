@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX03",
+  "status": "COMPLETE",
+  "experiment_type": "domestic_risk_appetite_data_gate",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_HYPOTHESIS_PREREGISTRATION",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 236,
+      "sha256": "3b7e697a4bd152a19489f762325ad45fed206a43e38bd08b0c03814da3961096"
+    },
+    "02_design.md": {
+      "bytes": 551,
+      "sha256": "d7606b87a112617e71eaecae6d335eb18071a87a39cddd78bd69d9325ade4bf0"
+    },
+    "03_execution.md": {
+      "bytes": 213,
+      "sha256": "f0aacc2acfd598d786f9da556fa3062e4aa6e358a0a684ffee401843ffd61659"
+    },
+    "04_conclusion.md": {
+      "bytes": 202,
+      "sha256": "4c6a7414b1b770b2890ac6d90bec67082b0507dcecec117487da8a92223bc374"
+    },
+    "artifacts/broad_risk_indices.csv.gz": {
+      "bytes": 366929,
+      "sha256": "ae83f21f694fa500358b8f94567744834f1f1883672e61ef087a943b847db2f7"
+    },
+    "artifacts/data_gate_evidence.json": {
+      "bytes": 1562,
+      "sha256": "8c128fc2b3043103c1a9e7cb7bb671905181050aad7d552add00ccb3cb3b9377"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1190,
+      "sha256": "4b0431404b81f1551d2906961ad376b2ac9dd78265e6c08f5b3425fafe434c80"
+    },
+    "artifacts/shibor.csv.gz": {
+      "bytes": 22575,
+      "sha256": "dbeea769690a50a748e2811776e6692b85b28a67a05c322c8d1a25ae7043895f"
+    },
+    "run_experiment.py": {
+      "bytes": 7106,
+      "sha256": "361fc8747d82e5ef1a49cc55171be9373078b8970d7541c29e0f178885fb78fc"
+    }
+  }
+}

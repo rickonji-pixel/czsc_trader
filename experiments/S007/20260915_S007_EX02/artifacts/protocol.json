@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX02",
+  "experiment_type": "first_principles_data_and_causality_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_start": "2021-01-04",
+  "development_cutoff": "2026-09-02",
+  "source_policy": "REUSE_DATA_CACHE_WITHOUT_INHERITING_RESEARCH_CONCLUSIONS",
+  "sources": [
+    {
+      "source_id": "GLOBAL_TECH",
+      "hypothesis_id": "H01-RISK-APPETITE",
+      "archive": "experiments/S005/20260913_S005_EX29",
+      "archive_manifest_sha256": "ce59f06e48656e273454444cb5e788f15ad355ffb5e3c47476ceb16150d147cc",
+      "data": "experiments/S005/20260913_S005_EX29/artifacts/global_technology_panel.csv.gz",
+      "data_sha256": "d2aac79851d984cdacce6593bc42a7461b676f5178091b4521629e9d9d28beea"
+    },
+    {
+      "source_id": "EARNINGS_FORECAST",
+      "hypothesis_id": "H02-EARNINGS-EXPECTATION",
+      "archive": "experiments/S005/20260914_S005_EX66",
+      "archive_manifest_sha256": "64cf49a6f8ccec28a7833f288c308bb2b8a32708a13e90b1d12faf788b0fa3d7",
+      "data": "experiments/S005/20260914_S005_EX66/artifacts/active_constituent_forecasts.csv.gz",
+      "data_sha256": "99ca2aa797852f98d38b576615ae492103edae0526e7f7f2c1cc77b50f31491f"
+    },
+    {
+      "source_id": "HISTORICAL_CONSTITUENTS",
+      "hypothesis_id": "H03-BREADTH-DISPERSION",
+      "archive": "experiments/S005/20260913_S005_EX18",
+      "archive_manifest_sha256": "60269255eeccbb791322a12fd5c091bde5f467a2081d522445ba903baa3a0a4e",
+      "data": "experiments/S005/20260913_S005_EX18/artifacts/constituent_panel.csv.gz",
+      "data_sha256": "46e87a872f8c7f8dffd71a2c5c7e7dd73bd7f32975c839fdbd9e3157cee71b53"
+    },
+    {
+      "source_id": "ETF_OPTION",
+      "hypothesis_id": "H04-ETF-DERIVATIVE-MICROSTRUCTURE",
+      "archive": "experiments/S005/20260913_S005_EX14",
+      "archive_manifest_sha256": "b42c33b85ac0f3a1459257f13d697df2c152df2efed9cf49dd38eccfae6144dd",
+      "data": "experiments/S005/20260913_S005_EX14/artifacts/option_daily.csv.gz",
+      "data_sha256": "4358324fd84a9841f4f44dc4f31176bcda5e391e225caf4680d1a9e1a9f0bbfd"
+    },
+    {
+      "source_id": "ETF_SHARE_NAV",
+      "hypothesis_id": "H04-ETF-DERIVATIVE-MICROSTRUCTURE",
+      "archive": "experiments/S005/20260913_S005_EX26",
+      "archive_manifest_sha256": "760db8c069b61e76344fd588c8df1d9bcbfe57b7796120ac5f20ae2ad4b7ac8d",
+      "data": "experiments/S005/20260913_S005_EX26/artifacts/etf_share_size.csv.gz",
+      "data_sha256": "82566556d83b6c2b469f58544bd513ec2c6b73f73c9bb771a1c06e58fe297ff8"
+    }
+  ],
+  "raw_manifests": {
+    "daily": {
+      "path": "data/raw/588080_manifest.json",
+      "sha256": "88e48b2bd5b01f51e8894d6afa5b8296ca3cba2734d6c25e745c4901d9c5e4f4"
+    },
+    "intraday": {
+      "path": "data/raw/588080_intraday_manifest.json",
+      "sha256": "caeda56df5b29c35cf665b11301eb22c072d6b2a5c522052529cd0de87c2dee4"
+    }
+  },
+  "reads_new_returns": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

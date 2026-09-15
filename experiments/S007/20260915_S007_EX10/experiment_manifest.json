@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX10",
+  "status": "COMPLETE",
+  "experiment_type": "parameter_platform_and_temporal_concentration_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PROCEED_TO_TEMPORAL_MECHANISM_DIAGNOSIS",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 239,
+      "sha256": "9779c7a941da90b655102d41e3352df3036e8f873e36cc0b9ce62a187f919a6c"
+    },
+    "02_design.md": {
+      "bytes": 622,
+      "sha256": "3f1fac7dbc9896f6f45aebbc60c87dbdd95f895c60c7aab86a50ffa1eb40247a"
+    },
+    "03_execution.md": {
+      "bytes": 188,
+      "sha256": "c7761aa46de381830d04c95f98856d6deba1e6dba528459904a03b198031bfd9"
+    },
+    "04_conclusion.md": {
+      "bytes": 286,
+      "sha256": "9deb3c13529f711cd01506db91c28ef3747d0f8df2671e0ba3e49210f5a8eeae"
+    },
+    "artifacts/annual_behavior_metrics.csv": {
+      "bytes": 21972,
+      "sha256": "463c8a61c9f01728b34a1b9a35af5a8906d8818264bce1a498b4e9bd43079642"
+    },
+    "artifacts/parameter_components.csv": {
+      "bytes": 2565,
+      "sha256": "514192413294f42ee95d54a817f372728f7b44bb614eb2fe33a53d20f9c65c38"
+    },
+    "artifacts/platform_evidence.json": {
+      "bytes": 608,
+      "sha256": "6c91d36d14d64397934fd868e8d9445161594aac1c94a4a42209082162c02d77"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1152,
+      "sha256": "c2e8c184e5f2cc46edc38148fff6a903ac24c57046785b0b4aad3c2de28d4d1a"
+    },
+    "artifacts/unique_behavior_metrics.csv": {
+      "bytes": 3805,
+      "sha256": "b150990dce54f2acfade8e42f834f6bcd3208c44aac54d9a0d6c13e57a094b1c"
+    },
+    "run_experiment.py": {
+      "bytes": 11354,
+      "sha256": "d7b181df2b5264c2b545cc0529ecab46ae49af5ba560d0ca2c20ef93f1741de0"
+    }
+  }
+}

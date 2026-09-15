@@ -14,6 +14,9 @@ from czsc_trader.backtesting import load_replay_data, resolve_registered_strateg
 from czsc_trader.backtesting.closing_dislocation_replay import (
     build_closing_dislocation_signals,
 )
+from czsc_trader.backtesting.causal_feature_gate_replay import (
+    build_causal_feature_gate_signals,
+)
 from czsc_trader.backtesting.strategy_source import resolve_candidate_snapshot
 from czsc_trader.identity import canonical_json_sha256
 from czsc_trader.backtesting.execution_replay import replay_account
@@ -285,6 +288,50 @@ def test_ft_t03_s002_event_hold_replays_with_formal_execution() -> None:
     assert metrics["return"] == pytest.approx(0.2514063685)
     evidence = build_replay_evidence(deployed_signals, data, result, 100_000, metrics)
     assert audit_replay(evidence).status is AuditStatus.PASS
+
+
+def test_ft_t03_s007_causal_feature_gate_replays_frozen_candidate() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    context = RepositoryContext.discover(repo)
+    payload_path = repo / "experiments/S007/20260915_S007_EX31/candidate_payload.json"
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    candidate_hash = canonical_json_sha256(payload)
+    snapshot = resolve_candidate_snapshot(
+        context,
+        "S007-C001",
+        payload,
+        candidate_hash,
+        str(payload_path.relative_to(repo)),
+    )
+    data = load_replay_data(
+        context, "research", "588080.SH", "etf", pd.Timestamp("2026-09-02").date()
+    )
+    signals = build_causal_feature_gate_signals(
+        snapshot,
+        data,
+        pd.Timestamp("2021-01-05"),
+        pd.Timestamp("2026-09-02"),
+        repo,
+    )
+    result = replay_account(signals, data, 100_000)
+    metrics = calculate_metrics(result, 100_000)
+
+    assert metrics["closed_trades"] == 139
+    assert metrics["return"] == pytest.approx(2.195428348)
+    assert len(result.orders) == len(result.fills) == 278
+    evidence = build_replay_evidence(signals, data, result, 100_000, metrics)
+    assert audit_replay(evidence).status is AuditStatus.PASS
+
+    altered = json.loads(json.dumps(payload))
+    altered["rule"]["data_source"]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="source is missing or differs"):
+        resolve_candidate_snapshot(
+            context,
+            "S007-C001-TAMPERED",
+            altered,
+            canonical_json_sha256(altered),
+            "tampered",
+        )
 
 
 def test_ft_t03_s003_intraday_overlay_replays_frozen_candidate_contract() -> None:

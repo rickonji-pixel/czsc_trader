@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX21",
+  "status": "COMPLETE",
+  "experiment_type": "frequency_gate_sensitivity_reclassification",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "STOP_RELAXED_FREQUENCY_NO_PLATFORM",
+  "promotion_allowed": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 274,
+      "sha256": "5af9812b1e930f5679abdd43fbf5a327e13b0d5894d2efc74492b845515863fb"
+    },
+    "02_design.md": {
+      "bytes": 477,
+      "sha256": "2eb0971e735e300c884e213b68403fc3dc16d1d16a1596b1893c1a5e61b069f2"
+    },
+    "03_execution.md": {
+      "bytes": 202,
+      "sha256": "dbe6dcd4f9b04b380f3c966d0c8bdb1b907f916d28d0e5c687e8605098fa64c1"
+    },
+    "04_conclusion.md": {
+      "bytes": 384,
+      "sha256": "d245d0aefd09d65273c0c733dff071179eb8ada75cdd6f6aabf370b7b7b4a798"
+    },
+    "artifacts/evaluation_evidence.json": {
+      "bytes": 737,
+      "sha256": "04bd787f54c61ea9d4641981a6ee6ccb6da6a7f26cd804769df8154e5afe98bd"
+    },
+    "artifacts/platforms.json": {
+      "bytes": 45,
+      "sha256": "99d29537d80ea207f5b02d0afa5bfc3d05176106a7956933d7a7507ee52055ac"
+    },
+    "artifacts/protocol.json": {
+      "bytes": 1446,
+      "sha256": "7c7c8009c556841aa91b8c6ab0242b1111e4942c1ddd240713f728d906a10545"
+    },
+    "artifacts/reclassified_grid_results.csv": {
+      "bytes": 10303,
+      "sha256": "be1fa72aeed970a6208e4431734154244c6b4fa5c21f3fb78ce4952c83101a52"
+    },
+    "run_experiment.py": {
+      "bytes": 8427,
+      "sha256": "71ede9d8bd1940f80f440be03ad82259c731a3c253ced97a9c0f5ce4d042c2d0"
+    }
+  }
+}

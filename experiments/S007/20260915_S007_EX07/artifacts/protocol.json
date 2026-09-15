@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX07",
+  "experiment_type": "strategy_prototype_preregistration",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex06_archive": "experiments/S007/20260915_S007_EX06",
+    "ex06_manifest_sha256": "f0fb50e51d63792f3f1b4c605cdeaee5c1c3f895dc5a879e460ce1c9899e5013",
+    "representative_panel_sha256": "d463cd9daf14379cc06bd6de594c0ae01c3909ea4361bef08c4fe96f7134b187",
+    "fsc_digest": "45ec4e1510fdbd1064bb106908e54e4a9022777cd192cfd0986b89958f6b2a44",
+    "s007_factor_definitions_sha256": "5c9ab7c0a555519d00ddef4b888c82d8c6e1b0b1ee5330d070ccf8831d5ff5fd",
+    "information_families_sha256": "74faad3712d4cc08a74ba532c5b10bcb1c44a4cf407265fcd20e48d48ffa928e",
+    "stc_digest": "fe32b6f52e33a1aef684602d872c4d75b45bbeb0f53136784e4ca7cf4b70a284"
+  },
+  "template_id": "STC-T01-WEIGHTED-SCORE",
+  "feature_bindings": {
+    "micro_share_change_5d_lag1": {"factor_id": "F-PROJECT-ETF-SHARE-CHANGE-5D-LAG1", "orientation": -1, "role": "CONFIRMATION"},
+    "tsfresh__log_volume_change__mean__lb20": {"factor_id": "F-TSFRESH-MEAN-LOG-VOLUME-CHANGE-20", "orientation": 1, "role": "CONFIRMATION"},
+    "price_close_vwap_deviation": {"factor_id": "F-PROJECT-DAILY-CLOSE-VWAP-DEVIATION", "orientation": -1, "role": "ENTRY_TIMING"},
+    "risk_global_spx_return": {"factor_id": "F-PROJECT-PRIOR-US-SPX-RETURN", "orientation": 1, "role": "OPPORTUNITY"},
+    "risk_chinext_turnover_z20": {"factor_id": "F-PROJECT-CHINEXT-TURNOVER-Z20", "orientation": 1, "role": "OPPORTUNITY"},
+    "risk_shibor_on_change_5d": {"factor_id": "F-PROJECT-SHIBOR-ON-CHANGE-5D", "orientation": -1, "role": "RISK_CONTEXT"},
+    "price_intraday_range": {"factor_id": "F-PROJECT-DAILY-INTRADAY-RANGE", "orientation": 1, "role": "RISK_CONTEXT"}
+  },
+  "normalization": {
+    "method": "CAUSAL_ROLLING_PERCENTILE_CENTERED",
+    "lookback_sessions": 252,
+    "minimum_observations": 126,
+    "output_range": [-0.5, 0.5]
+  },
+  "search": {
+    "method": "nsga2",
+    "storage": "IN_MEMORY",
+    "target_trials": 1200,
+    "seed": 71507,
+    "workers": 1,
+    "parameters": {
+      "opportunity_total": [0.25, 0.50],
+      "confirmation_total": [0.20, 0.45],
+      "entry_timing_total": [0.05, 0.25],
+      "risk_context_remainder": [0.10, 0.30],
+      "within_role_fraction": [0.25, 0.75],
+      "entry_quantile": [0.45, 0.80],
+      "exit_quantile": [0.20, 0.55],
+      "minimum_quantile_gap": 0.10,
+      "maximum_single_factor_weight": 0.35
+    },
+    "objectives": ["MAXIMIZE_CAGR", "MAXIMIZE_MAX_DRAWDOWN", "MAXIMIZE_CALMAR"]
+  },
+  "execution": {
+    "decision_time": "20:30 Asia/Shanghai",
+    "execution_time": "NEXT_TRADING_DAY_OPEN",
+    "position_values": [0, 1],
+    "target_position": 1.0,
+    "fee_rate_one_way": 0.0005
+  },
+  "hard_gates": {
+    "minimum_full_cagr": 0.24078187745776553,
+    "maximum_drawdown_limit": -0.20,
+    "s001_v2_maximum_drawdown": -0.21533380100584476,
+    "minimum_rolling_60_closed_trades_median": 7.0,
+    "minimum_rolling_60_closed_trades_p10": 3.0,
+    "minimum_discovery_cagr": 0.0,
+    "minimum_confirmation_cagr": 0.0,
+    "confirmation_maximum_drawdown_limit": -0.20
+  },
+  "reads_new_returns": false,
+  "template_selected": true,
+  "search_started": false,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}
+

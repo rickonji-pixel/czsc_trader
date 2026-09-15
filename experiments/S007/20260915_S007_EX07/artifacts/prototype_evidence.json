@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX07",
+  "status": "COMPLETE",
+  "decision": "PROCEED_TO_PREREGISTERED_PARAMETER_SEARCH",
+  "template_id": "STC-T01-WEIGHTED-SCORE",
+  "template_instance_id": "STI-77A5CB41B1F368A7",
+  "input_count": 7,
+  "fsc_digest": "45ec4e1510fdbd1064bb106908e54e4a9022777cd192cfd0986b89958f6b2a44",
+  "stc_digest": "fe32b6f52e33a1aef684602d872c4d75b45bbeb0f53136784e4ca7cf4b70a284",
+  "normalization": {
+    "method": "CAUSAL_ROLLING_PERCENTILE_CENTERED",
+    "lookback_sessions": 252,
+    "minimum_observations": 126,
+    "output_range": [
+      -0.5,
+      0.5
+    ]
+  },
+  "search_contract_frozen": true,
+  "search_started": false,
+  "candidate_created": false,
+  "strategy_manager_mutated": false,
+  "pte_mutated": false
+}

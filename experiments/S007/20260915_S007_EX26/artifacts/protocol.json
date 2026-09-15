@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX26",
+  "experiment_type": "decoupled_gated_score_joint_search_and_platform_audit",
+  "strategy_id": "S007",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "sources": {
+    "ex25_archive": "experiments/S007/20260915_S007_EX25",
+    "ex25_manifest_sha256": "10efbf5dca5db67601492849e9804ba83b4cf516b967c8a62bf9adcd726fc6a2",
+    "ex25_ablation_evidence_sha256": "46f141abf86681182e9ccd2ff0a38f53c6c75fe574d27dc864fdb37927846386",
+    "ex24_archive": "experiments/S007/20260915_S007_EX24",
+    "ex24_manifest_sha256": "d03050938324b3345c2d8b5f19b3b1940d124e1053a13669ec4a14017226d030",
+    "ex24_platform_evidence_sha256": "5653ccdd7648c2ce5b5df4bee5adff7dc57adde91c32a9c6433489db7354c09e",
+    "ex24_search_ledger_sha256": "c8e408773969f8cef6af79c54ca572a073c1c693d7949f3e5a15063deef64057",
+    "ex24_parameter_components_sha256": "e05163731637d05f095533707f33e49a294af6f844fc9af7640cef7133d39ae5",
+    "ex19_archive": "experiments/S007/20260915_S007_EX19",
+    "ex19_manifest_sha256": "8214417b264ca89dcbc81335e0ebf629d20b65b59112c33b0bf12786309f0831",
+    "component_contract_sha256": "27400290ec2d2cef1d760b09cc87372f153b6fad6da410a71a56af2e8baac3c8",
+    "ex21_archive": "experiments/S007/20260915_S007_EX21",
+    "ex21_manifest_sha256": "bbfde6cbca0ac5a67a8e83dbe85f1193fa258f150d37cce28c4522ed0411b297",
+    "ex21_protocol_sha256": "7c7c8009c556841aa91b8c6ab0242b1111e4942c1ddd240713f728d906a10545",
+    "effective_search_protocol": "experiments/S007/20260915_S007_EX08/artifacts/effective_search_protocol.json",
+    "effective_search_protocol_sha256": "dda377eaeed6d8651bb2c07cf964e87bccd9599e5e3a5bf91221707c61c56ae0",
+    "feature_panel": "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz",
+    "feature_panel_sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d",
+    "search_adapter": "src/czsc_trader/search/optuna_adapter.py",
+    "search_adapter_sha256": "53c7de6dabe05018146cdd3891f0cec3541b641a8e929ecdde73b660dcb21d45",
+    "ex09_script": "experiments/S007/20260915_S007_EX09/run_experiment.py",
+    "ex09_script_sha256": "56d99f39dc8d952e821d0b9056f1f92b57a65eddd1cbb6154b4019df4580d68d",
+    "daily_sha256": {
+      "data/raw/588080_daily_2021.csv": "24f2ace23811ca32e935236c605230eb00f8e74eacf5e88e8b670c3bccd006a4",
+      "data/raw/588080_daily_2022.csv": "7c7b8c91eff9c9fa546359f4b5b87b6c14b74243a1e327761a309621d8bea18a",
+      "data/raw/588080_daily_2023.csv": "ae964cfb3ec985c54daf112672b7044efe36773e05d8fc77d50b81b6def88bde",
+      "data/raw/588080_daily_2024.csv": "51e90a0fb986522c42ce7b5bc1128efd74492beae2fa36af98a1b78ac2ed42c6",
+      "data/raw/588080_daily_2025.csv": "832649fb5a38919bf53fc0a3d4be2b5bf6b0f58e79893d1fee33374511a78148",
+      "data/raw/588080_daily_2026.csv": "907b1cfb083882b9d8bda4ee54dd61f2f86b92ad182e21d44de65cf3cb0bdaa7"
+    }
+  },
+  "segments": {
+    "full_start": "2021-01-04",
+    "full_end": "2026-09-02",
+    "discovery_start": "2021-01-04",
+    "discovery_end": "2023-12-31",
+    "confirmation_start": "2024-01-01",
+    "confirmation_end": "2026-09-02"
+  },
+  "search": {
+    "method": "nsga2",
+    "storage": "IN_MEMORY",
+    "target_trials": 3000,
+    "seed": 72607,
+    "workers": 8,
+    "available_logical_processors": 16,
+    "parameters": {
+      "risk_context_total": [0.1, 0.35],
+      "opportunity_share_nonrisk": [0.5, 0.8],
+      "within_role_fraction": [0.25, 0.75],
+      "entry_quantile": [0.45, 0.8],
+      "exit_quantile": [0.2, 0.65],
+      "confirmation_gate_quantile": [0.0, 0.5],
+      "minimum_quantile_gap": 0.1,
+      "maximum_single_factor_weight": 0.35
+    },
+    "objectives": ["MAXIMIZE_CAGR", "MAXIMIZE_MAX_DRAWDOWN", "MAXIMIZE_CALMAR"]
+  },
+  "platform": {
+    "normalized_linf_radius": 0.2,
+    "minimum_unique_behaviors": 10,
+    "minimum_connected_unique_behaviors": 5
+  },
+  "boundary_diagnostic": {
+    "normalized_boundary_margin": 0.05,
+    "dependency_share": 0.5
+  },
+  "neighborhood_diagnostic": {
+    "nearest_parameter_points": 20,
+    "retroactive_gate": false
+  },
+  "execution": {
+    "fee_rate_one_way": 0.001,
+    "fixed_order_fee": 0,
+    "initial_equity": 1.0,
+    "decision_time": "20:30 Asia/Shanghai",
+    "execution_time": "NEXT_TRADING_DAY_OPEN",
+    "target_position": 1.0
+  },
+  "hard_gates": {
+    "minimum_full_cagr": 0.24078187745776553,
+    "maximum_drawdown_limit": -0.2,
+    "s001_v2_maximum_drawdown": -0.21533380100584476,
+    "minimum_rolling_60_closed_trades_median": 5.0,
+    "minimum_discovery_cagr": 0.0,
+    "minimum_confirmation_cagr": 0.0,
+    "confirmation_maximum_drawdown_limit": -0.2
+  },
+  "rolling_60_closed_trades_p10": "OBSERVATION_ONLY",
+  "reads_new_returns": true,
+  "candidate_generation": false,
+  "promotion_allowed": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

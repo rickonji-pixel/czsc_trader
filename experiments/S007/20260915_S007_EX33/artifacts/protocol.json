@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260915_S007_EX33",
+  "experiment_type": "freeze_health_check",
+  "strategy_id": "S007",
+  "candidate_id": "S007-C001",
+  "candidate_hash": "eef64c7c2e18c4158a4d23f66e63efee9553948defc060f69a79eda0bbd2b5cd",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "evaluation_start": "2021-01-05",
+  "initial_cash": 100000.0,
+  "expected_behavior_hash": "d6dafcf9f65c2ea0be11f7c127a2a6e4acf0aa4a4e767dcf6fc3e21042ff26a3",
+  "cost_stress": {
+    "one_way_fee_rate": 0.0015,
+    "minimum_cagr": 0.0,
+    "maximum_drawdown_limit": -0.2,
+    "minimum_calmar": 0.5
+  },
+  "sources": {
+    "ex31_archive": "experiments/S007/20260915_S007_EX31",
+    "ex31_manifest_sha256": "9ca53ae99124c16704c67ea82f805ef50f19dc5bef6cab5fa0919165f7bf5d8b",
+    "candidate_payload_sha256": "d4c2b6b68de30f1a8e18bc3a8d06d53f96a8dad0864456eae8077fad66257cf7",
+    "candidate_manifest_sha256": "4771e62bad3e095cf1c936be033cf0fccf040403408c555b9d8ddbf45b363f89",
+    "candidate_readiness_sha256": "456f8a85b0a38f79e1446ba65d9dd84cd8f71fecb7cf98921791add69b400973",
+    "tdr_replay_summary_sha256": "2817544c19156ac18fb46ae99c4af09e935e048b00e0e4ace580afd19498ec1d",
+    "ex32_archive": "experiments/S007/20260915_S007_EX32",
+    "ex32_manifest_sha256": "f43aee82c9100628bfa3935f3cb5c47b61cbb7a809feafefdfca25ecfc4259cc",
+    "benchmark_assessment_sha256": "f5c2090282702293761024ec375466e1f9c722a477eb3206358854d32e6b373b",
+    "statistical_summary_sha256": "c51cf773b887fea35a0318cf6ca12e00207755442faa6a5f9c08c18126cb418e",
+    "external_validation_summary_sha256": "fa76e220e3faf8f504e5fa81c3d12179b8ea90cd2373dd40bf4db65c7fd002d7",
+    "monitoring_plan_sha256": "addc1965d43431753f5ecf5130990118ff50354368f68fdeb5a567588e46e762"
+  },
+  "creates_strategy_version": false,
+  "strategy_frozen": false,
+  "mutates_strategy_manager": false,
+  "mutates_pte": false
+}

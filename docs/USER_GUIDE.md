@@ -3,6 +3,7 @@
 > 本文是CZSC Trader与CZSC PTE的统一用户手册，覆盖安装、数据、策略、回测、决策、
 > 模拟交易和日常运维。策略研究流程见[策略研究交接](../research/README.md)，系统架构与开发
 > 规则见[技术交接](DEVELOPMENT_HANDOFF.md)。以下命令均在仓库根目录执行。
+> macOS（zsh/bash）下的安装与启动命令见[macOS安装与启动指南](MACOS_GUIDE.md)。
 
 ## 环境与安装
 

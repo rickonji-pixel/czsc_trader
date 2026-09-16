@@ -242,7 +242,10 @@ def run_backtest_v2(
             encoding="utf-8",
         )
         (staging / "chart.html").write_text(
-            render_backtest_chart_html(signals, replay_data, result), encoding="utf-8"
+            render_backtest_chart_html(
+                signals, replay_data, result, request.initial_cash
+            ),
+            encoding="utf-8",
         )
         ma_chart_signals = benchmarks.ma_signals.set_index("date")
         write_ma_chart(

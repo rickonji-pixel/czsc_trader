@@ -84,7 +84,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert result.decisions["signal_date"].max() <= pd.Timestamp("2026-09-02")
     assert set(result.decisions["regime"].dropna()) <= {"trend", "range", "warmup"}
     assert result.account_daily["equity"].gt(0).all()
-    chart = render_backtest_chart_html(signals, data, result)
+    chart = render_backtest_chart_html(signals, data, result, 100_000)
     traces, _ = _plotly_payload(chart)
     trace_names = {trace["name"] for trace in traces}
     assert {"策略得分", "买入阈值", "卖出阈值"} <= trace_names
@@ -299,7 +299,9 @@ def test_ft_t03_s002_event_hold_replays_with_formal_execution() -> None:
     metrics = calculate_metrics(result, 100_000)
     assert metrics["closed_trades"] == 25
     assert metrics["return"] == pytest.approx(0.2514063685)
-    traces, layout = _plotly_payload(render_backtest_chart_html(deployed_signals, data, result))
+    traces, layout = _plotly_payload(
+        render_backtest_chart_html(deployed_signals, data, result, 100_000)
+    )
     by_name = {trace["name"]: trace for trace in traces}
     assert {"事件状态", "信号激活值"} <= set(by_name)
     assert by_name["事件状态"]["line"] == {
@@ -386,7 +388,9 @@ def test_ft_t03_s007_registered_backtest_uses_independent_support_data() -> None
     assert signals.support_data["mode"] == "backtest_strategy_support"
     assert signals.support_data["last_session"] == "2026-09-15"
     result = replay_account(signals, data, 100_000)
-    traces, _ = _plotly_payload(render_backtest_chart_html(signals, data, result))
+    traces, _ = _plotly_payload(
+        render_backtest_chart_html(signals, data, result, 100_000)
+    )
     by_name = {trace["name"]: trace for trace in traces}
     assert {
         "基础分",
@@ -495,6 +499,9 @@ def test_ft_t03_s003_intraday_overlay_replays_frozen_candidate_contract() -> Non
     assert len(by_name["资金流宽度"]["x"]) == len(account)
     assert len(by_name["动态触发阈值"]["x"]) == len(account)
     assert layout["yaxis2"]["title"]["text"] == "资金流宽度"
+    assert f'{metrics["return"]:+.2%}' in (summary.output_dir / "chart.html").read_text(
+        encoding="utf-8"
+    )
     assert "可观测成分权重" in "\n".join(by_name["交易日详情"]["text"])
     buy_y = dict(zip(by_name["买入成交"]["x"], by_name["买入成交"]["y"], strict=True))
     sell_y = dict(zip(by_name["卖出成交"]["x"], by_name["卖出成交"]["y"], strict=True))

@@ -484,6 +484,7 @@ def render_backtest_chart_html(
     signal_replay: SignalReplay,
     replay_data: ReplayData,
     result: BacktestResult,
+    initial_cash: float,
 ) -> str:
     """Render the audited replay as the full interactive backtest chart."""
     prices = _normalize_daily(replay_data.adjusted.daily).loc[
@@ -724,7 +725,6 @@ def render_backtest_chart_html(
         fee_rate = float(resolved.constituent_moneyflow_intraday.one_way_cost)
     else:
         fee_rate = 0.0
-    initial_cash = float(result.account_daily.iloc[0]["cash_before"])
     metrics = calculate_metrics(result, initial_cash)
     return _chart_document(
         figure,

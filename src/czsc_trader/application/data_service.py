@@ -27,6 +27,8 @@ class UpdateBacktestDataCommand:
     symbol: str
     asset_type: str
     through: date
+    strategy_id: str
+    strategy_version: str
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,19 @@ class PrepareStrategySupportCommand:
     strategy_id: str
     strategy_version: str
     through: date
+
+
+def _initial_backtest_start(context: RepositoryContext, code: str) -> date:
+    research_manifest = context.research_data_root / f"{code}_manifest.json"
+    if not research_manifest.is_file():
+        return date(2010, 1, 1)
+    payload = json.loads(research_manifest.read_text(encoding="utf-8"))
+    try:
+        return date.fromisoformat(str(payload["requested_start"]))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{research_manifest.name}: missing or invalid requested_start"
+        ) from exc
 
 
 def _assert_append_only(
@@ -105,15 +120,35 @@ def update_backtest_data(
     request: UpdateBacktestDataCommand,
 ) -> CommandResult:
     """Fetch to staging and publish only an append-compatible backtest dataset."""
+    from czsc_trader.backtesting import (
+        resolve_backtest_data_contract,
+        resolve_registered_strategy,
+    )
     from czsc_trader.market_data_prep import prepare_market_data
 
     code = request.symbol.split(".", 1)[0]
+    try:
+        snapshot = resolve_registered_strategy(
+            context, request.strategy_id, request.strategy_version
+        )
+        contract = resolve_backtest_data_contract(snapshot)
+        if contract.intraday_frequencies and request.asset_type != "etf":
+            raise ValueError("strategy requires ETF intraday data")
+    except Exception as exc:
+        raise ValidationError(
+            "backtest_data_contract_invalid",
+            str(exc),
+            context={
+                "strategy": f"{request.strategy_id}-{request.strategy_version}",
+                "symbol": request.symbol,
+            },
+        ) from exc
     current_manifest = context.backtest_data_root / f"{code}_manifest.json"
     if current_manifest.is_file():
         payload = json.loads(current_manifest.read_text(encoding="utf-8"))
         start = date.fromisoformat(str(payload["requested_start"]))
     else:
-        start = date(2010, 1, 1)
+        start = _initial_backtest_start(context, code)
     data_parent = context.root / "data"
     data_parent.mkdir(parents=True, exist_ok=True)
     staging = create_temporary_directory(
@@ -132,6 +167,17 @@ def update_backtest_data(
             staging,
             env_file=context.root / ".env",
         )
+        intraday_summary: dict[str, object] | None = None
+        if contract.intraday_frequencies:
+            from czsc_trader.intraday_data import prepare_intraday_research_data
+
+            intraday_summary = prepare_intraday_research_data(
+                request.symbol,
+                start,
+                request.through,
+                staging,
+                env_file=context.root / ".env",
+            )
         proposed = [path for path in staging.glob(f"{code}_*") if path.is_file()]
         mutable_week = _mutable_weekly_terminal_period(
             context.backtest_data_root,
@@ -176,6 +222,9 @@ def update_backtest_data(
         "data.update-backtest",
         {
             **summary,
+            "strategy": snapshot.identity.reference,
+            "data_contract": contract.as_dict(),
+            "intraday": intraday_summary,
             "dataset": "backtest",
             "through": request.through.isoformat(),
         },

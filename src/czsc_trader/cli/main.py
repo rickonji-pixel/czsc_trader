@@ -85,7 +85,13 @@ def _data_update_backtest(args: argparse.Namespace):
 
     return update_backtest_data(
         _context(args),
-        UpdateBacktestDataCommand(args.symbol, args.asset, args.through),
+        UpdateBacktestDataCommand(
+            args.symbol,
+            args.asset,
+            args.through,
+            args.strategy,
+            args.strategy_version,
+        ),
     )
 
 
@@ -292,6 +298,8 @@ def build_parser() -> argparse.ArgumentParser:
     data_update = data_actions.add_parser("update-backtest")
     data_update.add_argument("--symbol", required=True)
     data_update.add_argument("--asset", required=True, choices=("stock", "etf"))
+    data_update.add_argument("--strategy", required=True)
+    data_update.add_argument("--strategy-version", required=True)
     data_update.add_argument("--through", required=True, type=date.fromisoformat)
     _add_repository_root(data_update)
     data_update.set_defaults(

@@ -135,7 +135,7 @@ TDR、FSC、STC、SM、SE、PTE关键业务能力的同时，控制TDD带来的�
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\factor_signal_catalog\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_template_catalog\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\paper_trading_engine\tests -q
-node --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
+node --test-isolation=none --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
 .\.venv\Scripts\python.exe -m ruff check `
   src tests packages\factor_signal_catalog packages\strategy_template_catalog `
   packages\strategy_manager packages\strategy_evaluator `

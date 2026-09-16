@@ -126,7 +126,9 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
     def multi_runner(args, **kwargs):
         calls.append(args)
         return CompletedProcess(
-            args, 0, '{"status":"PASS","result":{"data_cutoff":"2026-09-02"}}', ""
+            args, 0,
+            '{"status":"PASS","result":{"data_cutoff":"2026-09-02","generation_id":"GEN-TEST"}}',
+            "",
         )
 
     cli_store.accounts = [
@@ -156,14 +158,13 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
     ]
     assert published_symbols == ["510500.SH", "588080.SH"]
     assert [item["symbol"] for item in multi_result["instruments"]] == published_symbols
-    support_releases = [
-        (args[args.index("--strategy") + 1], args[args.index("--strategy-version") + 1])
-        for args in calls
-        if "prepare-strategy-support" in args
-    ]
-    assert support_releases == [("S001", "v1"), ("S003", "v1")]
+    assert all("publish-runtime" in args for args in calls)
+    assert {
+        args[args.index("--release") + 1] for args in calls
+    } == {"S001:v1", "S003:v1"}
+    assert multi_result["generation_ids"] == ["GEN-TEST", "GEN-TEST"]
 
-    failed_support = AccountDataPublisher(
+    failed_runtime = AccountDataPublisher(
         store=cli_store,
         executable="czsc-trader",
         repo_root=".",
@@ -172,13 +173,14 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
         runner=lambda args, **kwargs: CompletedProcess(
             args,
             5,
-            '{"status":"FAIL","error":{"message":"S007 support source unavailable"}}',
+            '{"status":"FAIL","error":{"message":"runtime support unavailable"}}',
             "",
         ),
     )
-    with pytest.raises(DataPublicationError, match="S007 support source unavailable"):
-        failed_support.publish_strategy_support("S007", "v1", "2026-09-15")
-
+    with pytest.raises(DataPublicationError, match="runtime support unavailable"):
+        failed_runtime.publish_release(
+            "588080.SH", "etf", [("S007", "v1")], "2026-09-15"
+        )
 
 def test_ft_pte04_failed_account_batch_is_not_marked_complete():
     class RetryingEngine(Engine):
@@ -205,14 +207,15 @@ def test_ft_pte04_failed_account_batch_is_not_marked_complete():
 def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
     class Publisher:
         def __init__(self): self.calls = []
-        def publish_strategy_support(self, strategy_id, strategy_version, cutoff):
-            self.calls.append((strategy_id, strategy_version, cutoff))
-            return {"support_required": True, "data_cutoff": cutoff}
+        def publish(self, cutoff):
+            self.calls.append(cutoff)
+            return {"data_cutoff": cutoff, "generation_ids": ["GEN-TEST"]}
 
     store = Store()
     store.values.update(
         last_data_publish_date="2026-09-11",
         last_account_decision_date="2026-09-11",
+        last_data_publish_attempt_date="2026-09-11",
     )
     store.accounts = [{
         "account_id": "s003-v1",
@@ -226,14 +229,14 @@ def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
 
     scheduler.tick_daily(datetime(2026, 9, 11, 20, 45))
 
-    assert publisher.calls == [("S003", "v1", "2026-09-11")]
+    assert publisher.calls == ["2026-09-11"]
     assert ("decision", "s003-v1") in engine.calls
 
     store.accounts[0]["last_decision_payload"] = json.dumps(
         {"signal_date": "2026-09-11"}
     )
     scheduler.tick_daily(datetime(2026, 9, 11, 20, 46))
-    assert publisher.calls == [("S003", "v1", "2026-09-11")]
+    assert publisher.calls == ["2026-09-11"]
 
 
 def test_ft_pte04_slow_daily_publication_does_not_stop_order_reconciliation():

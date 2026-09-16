@@ -378,29 +378,31 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
         initial_cash="100000",
     )
     monkeypatch.setattr(pte_cli, "_validate_strategy", lambda _args: identity)
-    support_calls = []
+    publication_calls = []
 
-    def fail_support(_self, strategy_id, strategy_version, cutoff):
-        support_calls.append((strategy_id, strategy_version, cutoff))
-        raise RuntimeError("support unavailable")
+    def fail_publication(_self, symbol, asset, releases, cutoff):
+        publication_calls.append((symbol, asset, releases, cutoff))
+        raise RuntimeError("runtime publication unavailable")
 
     monkeypatch.setattr(
-        pte_cli.AccountDataPublisher, "publish_strategy_support", fail_support,
+        pte_cli.AccountDataPublisher, "publish_release", fail_publication,
     )
-    with pytest.raises(RuntimeError, match="support unavailable"):
+    with pytest.raises(RuntimeError, match="runtime publication unavailable"):
         pte_cli._run_account_command(args)
-    assert support_calls == [("S007", "v1", "2026-09-15")]
+    assert publication_calls == [
+        ("588080.SH", "etf", [("S007", "v1")], "2026-09-15")
+    ]
     empty = PaperStore(args.database)
     assert empty.virtual_accounts() == []
     empty.close()
 
     monkeypatch.setattr(
         pte_cli.AccountDataPublisher,
-        "publish_strategy_support",
-        lambda _self, strategy_id, strategy_version, cutoff: {
-            "release_id": f"{strategy_id}-{strategy_version}",
+        "publish_release",
+        lambda _self, _symbol, _asset, releases, cutoff: {
+            "generation_id": "GEN-TEST",
+            "strategy_releases": [f"{key}-{value}" for key, value in releases],
             "data_cutoff": cutoff,
-            "support_required": True,
         },
     )
     accepted = replace(

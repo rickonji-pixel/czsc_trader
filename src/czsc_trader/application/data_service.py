@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from hashlib import sha256
 import json
 from pathlib import Path
 import shutil
@@ -36,6 +37,17 @@ class PrepareStrategySupportCommand:
     strategy_id: str
     strategy_version: str
     through: date
+
+
+@dataclass(frozen=True)
+class PublishRuntimeDataCommand:
+    """Publish one complete, strategy-aware runtime data generation."""
+
+    symbol: str
+    asset_type: str
+    start: date
+    through: date
+    strategy_releases: tuple[tuple[str, str], ...]
 
 
 def _initial_backtest_start(context: RepositoryContext, code: str) -> date:
@@ -115,24 +127,222 @@ def _mutable_weekly_terminal_period(
     return None
 
 
+def _runtime_supports(snapshot) -> tuple[tuple[str, object], ...]:
+    """Return every release-owned, point-in-time input required at runtime."""
+    rule = getattr(snapshot, "resolved_rule", None)
+    constituent = getattr(rule, "constituent_moneyflow_intraday", None)
+    causal = getattr(rule, "causal_feature_gate", None)
+    if constituent is not None:
+        return (("constituent_moneyflow", constituent),)
+    if causal is not None:
+        return (("causal_feature", causal),)
+    return ()
+
+
+def _generation_supports(snapshot, contract, dataset: str) -> tuple[tuple[str, object], ...]:
+    """Apply one contract in the target dataset's execution context."""
+    if dataset == "runtime":
+        return _runtime_supports(snapshot)
+    if "causal_feature_panel" in contract.strategy_support:
+        causal = getattr(getattr(snapshot, "resolved_rule", None), "causal_feature_gate", None)
+        if causal is None:
+            raise ValueError("causal-feature strategy support specification is missing")
+        return (("causal_feature", causal),)
+    return ()
+
+
+def _generation_id(
+    *, symbol: str, asset_type: str, data_cutoff: str, releases: tuple[str, ...], files: list[Path],
+) -> str:
+    digest = sha256()
+    digest.update(symbol.encode("utf-8"))
+    digest.update(asset_type.encode("utf-8"))
+    digest.update(data_cutoff.encode("utf-8"))
+    for value in releases:
+        digest.update(value.encode("utf-8"))
+    for path in sorted(files, key=lambda item: item.name):
+        digest.update(path.name.encode("utf-8"))
+        digest.update(path.read_bytes())
+    return f"GEN-{digest.hexdigest()[:16].upper()}"
+
+
+def _commit_generation(
+    staging: Path,
+    target: Path,
+    files: list[Path],
+    *,
+    append_only: bool,
+    code: str,
+) -> None:
+    """Replace one fully-built generation, restoring the previous one on failure."""
+    if append_only:
+        mutable_week = _mutable_weekly_terminal_period(target, staging, code)
+        for current in target.glob(f"{code}_*.csv"):
+            replacement = staging / current.name
+            if not replacement.is_file():
+                raise ValueError(f"{current.name}: update dropped a published file")
+            _assert_append_only(
+                current,
+                replacement,
+                mutable_terminal_period=(
+                    mutable_week if "_weekly_" in current.name else None
+                ),
+            )
+        for source in files:
+            current = target / source.name
+            if current.is_file() and source.suffixes[-2:] == [".csv", ".gz"]:
+                _assert_append_only(current, source)
+
+    target.mkdir(parents=True, exist_ok=True)
+    backup = staging / "backup"
+    backup.mkdir()
+    published: list[Path] = []
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for source in files:
+            destination = target / source.name
+            if destination.exists():
+                saved = backup / source.name
+                destination.replace(saved)
+                moved.append((destination, saved))
+            source.replace(destination)
+            published.append(destination)
+    except Exception:
+        for destination in reversed(published):
+            destination.unlink(missing_ok=True)
+        for destination, saved in moved:
+            if saved.exists():
+                saved.replace(destination)
+        raise
+
+
+def _publish_strategy_generation(
+    context: RepositoryContext,
+    *,
+    symbol: str,
+    asset_type: str,
+    start: date,
+    through: date,
+    snapshots: tuple,
+    target: Path,
+    dataset: str,
+    append_only: bool,
+) -> CommandResult:
+    """Build, validate, and commit all market and release support inputs together."""
+    from czsc_trader.backtesting import resolve_backtest_data_contract
+    from czsc_trader.market_data_prep import prepare_market_data
+
+    code = symbol.split(".", 1)[0]
+    data_parent = context.root / "data"
+    data_parent.mkdir(parents=True, exist_ok=True)
+    staging = create_temporary_directory(
+        data_parent, f"{dataset}-generation", repository_root=context.root
+    )
+    try:
+        summary = prepare_market_data(
+            symbol, asset_type, start, through, staging, env_file=context.root / ".env"
+        )
+        contracts = tuple(resolve_backtest_data_contract(snapshot) for snapshot in snapshots)
+        intraday_summary: dict[str, object] | None = None
+        if any(contract.intraday_frequencies for contract in contracts):
+            from czsc_trader.intraday_data import prepare_intraday_research_data
+
+            intraday_summary = prepare_intraday_research_data(
+                symbol, start, through, staging, env_file=context.root / ".env"
+            )
+
+        support: list[dict[str, object]] = []
+        for snapshot, contract in zip(snapshots, contracts, strict=True):
+            for kind, spec in _generation_supports(snapshot, contract, dataset):
+                if kind == "constituent_moneyflow":
+                    from czsc_trader.constituent_moneyflow_runtime import publish_support_data
+                else:
+                    from czsc_trader.causal_feature_gate_runtime import publish_support_data
+                support.append({
+                    **publish_support_data(
+                        context.root, staging, snapshot.identity.reference, spec,
+                        through.isoformat(),
+                    ),
+                    "support_type": kind,
+                })
+
+        data_cutoff = str(summary.get("data_cutoff") or through.isoformat())
+        for item in support:
+            item.setdefault("data_cutoff", data_cutoff)
+        if any(str(item["data_cutoff"]) != data_cutoff for item in support):
+            raise ValueError("strategy support cutoff differs from market data cutoff")
+        files = [path for path in staging.iterdir() if path.is_file()]
+        releases = tuple(snapshot.identity.reference for snapshot in snapshots)
+        generation_id = _generation_id(
+            symbol=symbol.upper(), asset_type=asset_type, data_cutoff=data_cutoff,
+            releases=releases, files=files,
+        )
+        generation = {
+            "schema_version": 1,
+            "generation_id": generation_id,
+            "dataset": dataset,
+            "symbol": symbol.upper(),
+            "asset_type": asset_type,
+            "data_cutoff": data_cutoff,
+            "strategy_releases": list(releases),
+            "data_contracts": [contract.as_dict() for contract in contracts],
+            "files": {
+                path.name: sha256(path.read_bytes()).hexdigest()
+                for path in sorted(files, key=lambda item: item.name)
+            },
+        }
+        generation_path = staging / f"{code}_strategy_generation.json"
+        generation_path.write_text(
+            json.dumps(generation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        files.append(generation_path)
+        _commit_generation(
+            staging, target, files, append_only=append_only, code=code,
+        )
+    except Exception as exc:
+        raise ValidationError(
+            f"{dataset}_data_publication_failed",
+            str(exc),
+            context={"symbol": symbol, "through": through.isoformat()},
+        ) from exc
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+    return CommandResult(
+        "PASS",
+        f"data.publish-{dataset}",
+        {
+            **summary,
+            "generation_id": generation_id,
+            "strategy_releases": list(releases),
+            "data_contracts": [contract.as_dict() for contract in contracts],
+            "intraday": intraday_summary,
+            "strategy_support": support,
+            "dataset": dataset,
+            "through": through.isoformat(),
+        },
+        {"manifest": str(target / f"{code}_manifest.json")},
+    )
+
+
 def update_backtest_data(
     context: RepositoryContext,
     request: UpdateBacktestDataCommand,
 ) -> CommandResult:
-    """Fetch to staging and publish only an append-compatible backtest dataset."""
+    """Publish a strategy-aware, append-compatible backtest generation."""
     from czsc_trader.backtesting import (
         resolve_backtest_data_contract,
         resolve_registered_strategy,
     )
-    from czsc_trader.market_data_prep import prepare_market_data
 
     code = request.symbol.split(".", 1)[0]
     try:
         snapshot = resolve_registered_strategy(
             context, request.strategy_id, request.strategy_version
         )
-        contract = resolve_backtest_data_contract(snapshot)
-        if contract.intraday_frequencies and request.asset_type != "etf":
+        if (
+            resolve_backtest_data_contract(snapshot).intraday_frequencies
+            and request.asset_type != "etf"
+        ):
             raise ValueError("strategy requires ETF intraday data")
     except Exception as exc:
         raise ValidationError(
@@ -144,120 +354,80 @@ def update_backtest_data(
             },
         ) from exc
     current_manifest = context.backtest_data_root / f"{code}_manifest.json"
-    if current_manifest.is_file():
-        payload = json.loads(current_manifest.read_text(encoding="utf-8"))
-        start = date.fromisoformat(str(payload["requested_start"]))
-    else:
-        start = _initial_backtest_start(context, code)
-    data_parent = context.root / "data"
-    data_parent.mkdir(parents=True, exist_ok=True)
-    staging = create_temporary_directory(
-        data_parent, "backtest-update", repository_root=context.root
+    start = (
+        date.fromisoformat(str(json.loads(current_manifest.read_text(encoding="utf-8"))["requested_start"]))
+        if current_manifest.is_file()
+        else _initial_backtest_start(context, code)
     )
-    backup = staging / "backup"
-    backup.mkdir()
-    published: list[Path] = []
-    moved: list[tuple[Path, Path]] = []
-    try:
-        summary = prepare_market_data(
-            request.symbol,
-            request.asset_type,
-            start,
-            request.through,
-            staging,
-            env_file=context.root / ".env",
-        )
-        intraday_summary: dict[str, object] | None = None
-        if contract.intraday_frequencies:
-            from czsc_trader.intraday_data import prepare_intraday_research_data
-
-            intraday_summary = prepare_intraday_research_data(
-                request.symbol,
-                start,
-                request.through,
-                staging,
-                env_file=context.root / ".env",
-            )
-        strategy_support: dict[str, object] | None = None
-        support_files: list[Path] = []
-        if "causal_feature_panel" in contract.strategy_support:
-            from czsc_trader.causal_feature_gate_runtime import (
-                publish_support_data,
-                support_manifest_path,
-                support_panel_path,
-            )
-
-            spec = snapshot.resolved_rule.causal_feature_gate
-            if spec is None:
-                raise ValueError("causal-feature strategy support specification is missing")
-            strategy_support = publish_support_data(
-                context.root,
-                staging,
-                snapshot.identity.reference,
-                spec,
-                request.through.isoformat(),
-            )
-            support_files = [
-                support_panel_path(staging, snapshot.identity.reference),
-                support_manifest_path(staging, snapshot.identity.reference),
-            ]
-        proposed = [path for path in staging.glob(f"{code}_*") if path.is_file()]
-        proposed.extend(path for path in support_files if path.is_file())
-        mutable_week = _mutable_weekly_terminal_period(
-            context.backtest_data_root,
-            staging,
-            code,
-        )
-        for current in context.backtest_data_root.glob(f"{code}_*.csv"):
-            replacement = staging / current.name
-            if not replacement.is_file():
-                raise ValueError(f"{current.name}: update dropped a published file")
-            _assert_append_only(
-                current,
-                replacement,
-                mutable_terminal_period=(
-                    mutable_week if "_weekly_" in current.name else None
-                ),
-            )
-        if support_files:
-            current_panel = context.backtest_data_root / support_files[0].name
-            if current_panel.is_file():
-                _assert_append_only(current_panel, support_files[0])
-        context.backtest_data_root.mkdir(parents=True, exist_ok=True)
-        for source in proposed:
-            destination = context.backtest_data_root / source.name
-            if destination.exists():
-                saved = backup / source.name
-                destination.replace(saved)
-                moved.append((destination, saved))
-            source.replace(destination)
-            published.append(destination)
-    except Exception as exc:
-        for destination in reversed(published):
-            destination.unlink(missing_ok=True)
-        for destination, saved in moved:
-            if saved.exists():
-                saved.replace(destination)
-        raise ValidationError(
-            "backtest_data_update_failed",
-            str(exc),
-            context={"symbol": request.symbol, "through": request.through.isoformat()},
-        ) from exc
-    finally:
-        shutil.rmtree(staging, ignore_errors=True)
+    result = _publish_strategy_generation(
+        context,
+        symbol=request.symbol,
+        asset_type=request.asset_type,
+        start=start,
+        through=request.through,
+        snapshots=(snapshot,),
+        target=context.backtest_data_root,
+        dataset="backtest",
+        append_only=True,
+    )
     return CommandResult(
-        "PASS",
+        result.status,
         "data.update-backtest",
-        {
-            **summary,
-            "strategy": snapshot.identity.reference,
-            "data_contract": contract.as_dict(),
-            "intraday": intraday_summary,
-            "strategy_support": strategy_support,
-            "dataset": "backtest",
-            "through": request.through.isoformat(),
-        },
-        {"manifest": str(context.backtest_data_root / f"{code}_manifest.json")},
+        {**result.result, "strategy": snapshot.identity.reference,
+         "data_contract": result.result["data_contracts"][0],
+         "strategy_support": (
+             result.result["strategy_support"][0]
+             if len(result.result["strategy_support"]) == 1
+             else result.result["strategy_support"] or None
+         )},
+        result.artifacts,
+    )
+
+
+def publish_runtime_data(
+    context: RepositoryContext,
+    request: PublishRuntimeDataCommand,
+) -> CommandResult:
+    """Publish a complete PTE generation for every release sharing one instrument."""
+    from czsc_trader.backtesting import resolve_registered_strategy
+
+    if not request.strategy_releases:
+        raise ValidationError(
+            "runtime_data_contract_invalid",
+            "runtime data publication requires at least one strategy release",
+            context={"symbol": request.symbol},
+        )
+    try:
+        snapshots = tuple(
+            resolve_registered_strategy(context, strategy_id, version)
+            for strategy_id, version in request.strategy_releases
+        )
+        for snapshot in snapshots:
+            execution = snapshot.resolved_rule.execution
+            rule_symbol = str(
+                execution.instrument.symbol if execution is not None else snapshot.resolved_rule.symbol
+            ).upper()
+            if rule_symbol != request.symbol.upper():
+                raise ValueError(
+                    f"{snapshot.identity.reference}: strategy symbol {rule_symbol} "
+                    f"differs from publication symbol {request.symbol.upper()}"
+                )
+    except Exception as exc:
+        raise ValidationError(
+            "runtime_data_contract_invalid",
+            str(exc),
+            context={"symbol": request.symbol},
+        ) from exc
+    return _publish_strategy_generation(
+        context,
+        symbol=request.symbol,
+        asset_type=request.asset_type,
+        start=request.start,
+        through=request.through,
+        snapshots=snapshots,
+        target=context.raw_dir,
+        dataset="runtime",
+        append_only=False,
     )
 
 

@@ -107,6 +107,34 @@ def _data_prepare_strategy_support(args: argparse.Namespace):
     )
 
 
+def _data_publish_runtime(args: argparse.Namespace):
+    from czsc_trader.application.data_service import (
+        PublishRuntimeDataCommand,
+        publish_runtime_data,
+    )
+
+    releases = []
+    for value in args.release:
+        strategy_id, separator, version = value.partition(":")
+        if not separator or not strategy_id or not version:
+            raise UsageError(
+                "invalid_release_reference",
+                "--release must use STRATEGY_ID:VERSION",
+                context={"release": value},
+            )
+        releases.append((strategy_id, version))
+    return publish_runtime_data(
+        _context(args),
+        PublishRuntimeDataCommand(
+            symbol=args.symbol,
+            asset_type=args.asset,
+            start=args.start,
+            through=args.through,
+            strategy_releases=tuple(releases),
+        ),
+    )
+
+
 def _backtest_run(args: argparse.Namespace):
     from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
 
@@ -290,6 +318,18 @@ def build_parser() -> argparse.ArgumentParser:
     data_support.set_defaults(
         command_handler=_data_prepare_strategy_support,
         command_name="data.prepare-strategy-support",
+    )
+    data_runtime = data_actions.add_parser("publish-runtime")
+    data_runtime.add_argument("--symbol", required=True)
+    data_runtime.add_argument("--asset", required=True, choices=("stock", "etf"))
+    data_runtime.add_argument("--start", required=True, type=date.fromisoformat)
+    data_runtime.add_argument("--through", required=True, type=date.fromisoformat)
+    data_runtime.add_argument("--release", required=True, action="append")
+    data_runtime.add_argument("--data-dir", type=Path)
+    _add_repository_root(data_runtime)
+    data_runtime.set_defaults(
+        command_handler=_data_publish_runtime,
+        command_name="data.publish-runtime",
     )
     data_validate = data_actions.add_parser("validate")
     data_validate.add_argument("--symbol", required=True)

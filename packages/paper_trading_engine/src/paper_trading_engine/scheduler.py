@@ -168,7 +168,18 @@ class RuntimeScheduler:
                         )
                     raise
                 cutoff = str(result.get("data_cutoff") or today)
+                generations = {
+                    str(item["symbol"]): str(item["result"]["generation_id"])
+                    for item in result.get("instruments", [])
+                    if isinstance(item, dict)
+                    and isinstance(item.get("symbol"), str)
+                    and isinstance(item.get("result"), dict)
+                    and isinstance(item["result"].get("generation_id"), str)
+                }
                 self.store.set_setting("last_data_publish_date", cutoff)
+                self.store.set_setting(
+                    "last_data_generation_ids", json.dumps(generations, sort_keys=True),
+                )
                 self.store.set_setting("last_data_publish_attempt_date", today)
                 self.store.set_setting("last_data_publication", now.isoformat())
                 self.store.set_setting("data_publication_error", "")
@@ -202,12 +213,8 @@ class RuntimeScheduler:
                     pending.append(account)
             if pending:
                 def onboard_accounts():
+                    self.publisher.publish(published_date)
                     for account in pending:
-                        self.publisher.publish_strategy_support(
-                            str(account["strategy_id"]),
-                            str(account["strategy_version"]),
-                            published_date,
-                        )
                         self.engine.refresh_decision(str(account["account_id"]))
                 self._guard("account_onboarding", now, onboard_accounts)
 

@@ -120,6 +120,15 @@ class AccountEngine:
             raise ValueError("advice quantity differs from account")
 
         payload = asdict(decision)
+        try:
+            generations = json.loads(
+                self.store.get_setting("last_data_generation_ids") or "{}"
+            )
+        except (json.JSONDecodeError, TypeError):
+            generations = {}
+        generation_id = generations.get(str(account["symbol"]).upper())
+        if isinstance(generation_id, str) and generation_id:
+            payload["data_generation_id"] = generation_id
         self.store.save_account_decision(account_id, payload)
         valued_account = self.store.virtual_account(account_id)
         close = Decimal(str(decision.execution_reference_price))

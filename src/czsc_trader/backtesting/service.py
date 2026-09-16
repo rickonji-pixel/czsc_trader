@@ -231,6 +231,8 @@ def run_backtest_v2(
                 strategy_reference_symbol=application["strategy_reference_symbol"],
                 backtest_symbol=application["backtest_symbol"],
                 application_mode=application["mode"],
+                research_start=snapshot.research_start,
+                research_end=snapshot.research_end,
                 calculation_start=signals.calculation_start.date(),
                 calculation_end=signals.calculation_end.date(),
                 evaluation_start=signals.evaluation_start.date(),

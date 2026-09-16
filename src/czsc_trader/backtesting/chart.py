@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from html import escape
+
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -11,8 +14,26 @@ from czsc_trader.charting import (
 )
 
 from .datasets import ReplayData
+from .metrics import calculate_metrics
 from .result import BacktestResult
 from .signal_replay import SignalReplay
+
+
+@dataclass(frozen=True)
+class _ScoreGuide:
+    name: str
+    value: float
+    color: str
+
+
+@dataclass(frozen=True)
+class _ScorePanel:
+    column: str
+    trace_name: str
+    axis_title: str
+    color: str
+    guides: tuple[_ScoreGuide, ...]
+    dynamic_threshold_column: str | None = None
 
 
 def _dated_fills(fills: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
@@ -41,6 +62,7 @@ def _daily_hover_text(
     exit_threshold: float,
     *,
     event_hold: bool = False,
+    confirmation_threshold: float | None = None,
 ) -> list[str]:
     dated_decisions = decisions.copy()
     dated_decisions["date"] = pd.to_datetime(dated_decisions["signal_date"]).dt.normalize()
@@ -62,19 +84,31 @@ def _daily_hover_text(
         daily_decisions = decision_groups.get(day, pd.DataFrame())
         if not daily_decisions.empty:
             decision = daily_decisions.iloc[-1]
-            regime = {
-                "trend": "趋势（trend）",
-                "range": "震荡（range）",
-                "warmup": "预热（warmup）",
-            }.get(str(decision.get("regime")), "不适用")
-            lines.extend([
-                f"策略得分 {float(decision['factor_score']):.3f}",
-                f"行情状态 {regime}",
-            ])
+            if confirmation_threshold is None:
+                lines.append(f"策略得分 {float(decision['factor_score']):.3f}")
+            else:
+                lines.extend([
+                    f"基础得分 {float(decision['factor_score']):.3f}",
+                    f"确认得分 {float(decision['confirmation_score']):.3f}",
+                ])
+            regime_value = decision.get("regime")
+            if pd.notna(regime_value) and str(regime_value).strip():
+                regime = {
+                    "trend": "趋势（trend）",
+                    "range": "震荡（range）",
+                    "warmup": "预热（warmup）",
+                }.get(str(regime_value), str(regime_value))
+                lines.append(f"行情状态 {regime}")
             if "threshold" in decision and pd.notna(decision["threshold"]):
                 lines.append(f"动态触发阈值 {float(decision['threshold']):.3f}")
             if event_hold:
                 lines.append(f"信号激活值 {float(entry_threshold):.3f}")
+            elif confirmation_threshold is not None:
+                lines.extend([
+                    f"基础分入场阈值 {float(entry_threshold):.3f}",
+                    f"基础分退出阈值 {float(exit_threshold):.3f}",
+                    f"确认分入场门槛 {float(confirmation_threshold):.3f}",
+                ])
             else:
                 lines.extend([
                     f"买入阈值 {float(entry_threshold):.3f}",
@@ -224,12 +258,192 @@ def _price_axis_range(prices: pd.DataFrame, pens: pd.DataFrame) -> tuple[float, 
     return lower - padding, upper + padding
 
 
-def _score_axis_range(scores: pd.Series, entry: float, exit_: float) -> tuple[float, float]:
-    lower = min(float(scores.min()), float(entry), float(exit_))
-    upper = max(float(scores.max()), float(entry), float(exit_))
+def _multi_score_axis_range(
+    series: list[pd.Series], thresholds: list[float]
+) -> tuple[float, float]:
+    values = [float(value) for item in series for value in item.dropna().astype(float)]
+    values.extend(float(value) for value in thresholds)
+    lower = min(values)
+    upper = max(values)
     span = upper - lower
     padding = max(span * 0.1, max(abs(lower), abs(upper), 1.0) * 1e-9)
     return lower - padding, upper + padding
+
+
+def _strategy_family(reference: str) -> str:
+    return reference.split("-", 1)[0].upper()
+
+
+def _score_panels(
+    family: str,
+    entry_threshold: float,
+    exit_threshold: float,
+    *,
+    confirmation_threshold: float | None,
+) -> tuple[_ScorePanel, ...]:
+    if family == "S001":
+        return (
+            _ScorePanel(
+                "factor_score",
+                "策略得分",
+                "策略得分",
+                "#4fa5ff",
+                (
+                    _ScoreGuide("买入阈值", entry_threshold, "#ef4444"),
+                    _ScoreGuide("卖出阈值", exit_threshold, "#22c55e"),
+                ),
+            ),
+        )
+    if family == "S002":
+        return (
+            _ScorePanel(
+                "factor_score",
+                "事件状态",
+                "事件状态",
+                "#4fa5ff",
+                (_ScoreGuide("信号激活值", entry_threshold, "#ef4444"),),
+            ),
+        )
+    if family == "S003":
+        return (
+            _ScorePanel(
+                "factor_score",
+                "资金流宽度",
+                "资金流宽度",
+                "#4fa5ff",
+                (),
+                dynamic_threshold_column="threshold",
+            ),
+        )
+    if family == "S004":
+        return (
+            _ScorePanel(
+                "factor_score",
+                "触发票数",
+                "触发票数",
+                "#4fa5ff",
+                (_ScoreGuide("信号激活值", entry_threshold, "#ef4444"),),
+            ),
+        )
+    if family == "S007" and confirmation_threshold is not None:
+        return (
+            _ScorePanel(
+                "factor_score",
+                "基础分",
+                "基础分",
+                "#4fa5ff",
+                (
+                    _ScoreGuide("基础分入场阈值", entry_threshold, "#ef4444"),
+                    _ScoreGuide("基础分退出阈值", exit_threshold, "#22c55e"),
+                ),
+            ),
+            _ScorePanel(
+                "confirmation_score",
+                "确认分",
+                "确认分",
+                "#c586ff",
+                (
+                    _ScoreGuide("确认门", confirmation_threshold, "#c586ff"),
+                ),
+            ),
+        )
+    raise ValueError(f"strategy family {family} has no backtest chart presenter")
+
+
+def _metric_value(value: object, *, percent: bool = False) -> str:
+    if value is None or pd.isna(value):
+        return "不可用"
+    number = float(value)
+    return f"{number:+.2%}" if percent else f"{number:.3f}"
+
+
+def _chart_document(
+    figure: go.Figure,
+    *,
+    symbol: str,
+    reference: str,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    trading_days: int,
+    fee_rate: float,
+    metrics: dict[str, object],
+) -> str:
+    plot = figure.to_html(
+        full_html=False,
+        include_plotlyjs=True,
+        config={
+            "displaylogo": False,
+            "responsive": True,
+            "scrollZoom": True,
+        },
+    )
+    return_class = "positive" if float(metrics["return"]) >= 0 else "negative"
+    values = (
+        ("收益率", _metric_value(metrics["return"], percent=True), return_class),
+        ("最大回撤", _metric_value(metrics["max_drawdown"], percent=True), ""),
+        ("卡玛比率", _metric_value(metrics["calmar"]), ""),
+        ("盈亏比", _metric_value(metrics["win_loss_ratio"]), ""),
+        ("闭合交易", str(int(metrics["closed_trades"])), ""),
+    )
+    cards = "".join(
+        (
+            '<div class="metric">'
+            f'<div class="metric-label">{escape(label)}</div>'
+            f'<div class="metric-value {css_class}">{escape(value)}</div>'
+            "</div>"
+        )
+        for label, value, css_class in values
+    )
+    title = (
+        f"{escape(symbol)} <span>|</span> {escape(reference)} <span>|</span> "
+        f"{start:%Y.%m.%d} - {end:%Y.%m.%d}"
+    )
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{{--bg:#07111f;--panel:#0b1727;--line:#20344b;--line-soft:#16283c;--text:#edf4ff;--muted:#8195ad;--blue:#4fa5ff;--green:#36d399;--red:#ff5f62}}
+*{{box-sizing:border-box}}html,body{{margin:0;width:100%;background:var(--bg);color:var(--text);font-family:Inter,"Microsoft YaHei",system-ui,sans-serif}}
+.shell{{width:100%;background:var(--bg)}}
+.header{{display:flex;justify-content:space-between;gap:20px;padding:22px 26px 18px;border-bottom:1px solid var(--line-soft)}}
+.eyebrow{{color:var(--blue);font-size:11px;font-weight:500;letter-spacing:.14em;margin-bottom:8px}}
+h1{{margin:0;font-size:22px;line-height:1.35;font-weight:500;letter-spacing:-.015em}}h1 span{{color:var(--muted);font-weight:400}}
+.subtitle{{margin-top:7px;color:var(--muted);font-size:12px}}.status{{color:var(--green);font-size:12px;white-space:nowrap;padding-top:5px}}
+.status:before{{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:8px}}
+.metrics{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line-soft);border-bottom:1px solid var(--line-soft)}}
+.metric{{padding:14px 20px 13px;background:var(--panel)}}.metric-label{{color:var(--muted);font-size:11px;margin-bottom:7px}}.metric-value{{font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}}.metric-value.positive{{color:var(--red)}}.metric-value.negative{{color:var(--green)}}
+.plot{{padding:8px 14px 10px}}.plot>.plotly-graph-div{{overflow:hidden}}
+@media(max-width:720px){{.header{{padding:18px}}.status{{display:none}}.metrics{{grid-template-columns:repeat(2,minmax(0,1fr))}}.metric:last-child{{grid-column:span 2}}.plot{{padding:4px}}}}
+</style>
+</head>
+<body>
+<section class="shell">
+<header class="header"><div><div class="eyebrow">TDR · DETERMINISTIC BACKTEST</div><h1>{title}</h1><div class="subtitle">{trading_days} 个交易日 · 单边成本 {fee_rate * 10_000:.1f}bp · 确定性策略规则</div></div><div class="status">审计通过</div></header>
+<div class="metrics">{cards}</div>
+<main class="plot">{plot}</main>
+</section>
+<script>
+(() => {{
+  const chart = document.querySelector('.plot .plotly-graph-div');
+  if (!chart || typeof chart.on !== 'function') return;
+  chart.on('plotly_hover', event => {{
+    const point = event.points && event.points[0];
+    if (!point) return;
+    Plotly.relayout(chart, {{
+      'shapes[0].x0': point.x,
+      'shapes[0].x1': point.x,
+      'shapes[0].visible': true
+    }});
+  }});
+  chart.on('plotly_unhover', () => {{
+    Plotly.relayout(chart, {{'shapes[0].visible': false}});
+  }});
+}})();
+</script>
+</body>
+</html>"""
 
 
 def render_backtest_chart_html(
@@ -244,6 +458,7 @@ def render_backtest_chart_html(
     resolved = signal_replay.snapshot.resolved_rule
     rule = resolved.rule
     overlay = resolved.constituent_moneyflow_intraday is not None
+    causal_gate = resolved.causal_feature_gate
     event_hold = resolved.strategy in {
         "czsc_event_hold",
         "closing_dislocation_overnight",
@@ -251,9 +466,9 @@ def render_backtest_chart_html(
     if overlay:
         entry_threshold = float(result.decisions["threshold"].median())
         exit_threshold = 0.0
-    elif resolved.causal_feature_gate is not None:
-        entry_threshold = resolved.causal_feature_gate.entry_threshold
-        exit_threshold = resolved.causal_feature_gate.exit_threshold
+    elif causal_gate is not None:
+        entry_threshold = causal_gate.entry_threshold
+        exit_threshold = causal_gate.exit_threshold
     elif resolved.closing_dislocation_overnight is not None:
         entry_threshold = float(resolved.closing_dislocation_overnight.votes_required)
         exit_threshold = 0.0
@@ -263,12 +478,24 @@ def render_backtest_chart_html(
         if rule is None:
             raise ValueError("factor strategy has no score rule")
         entry_threshold, exit_threshold = rule.enter, rule.exit
+    family = _strategy_family(result.identity.reference)
+    panels = _score_panels(
+        family,
+        entry_threshold,
+        exit_threshold,
+        confirmation_threshold=(
+            None if causal_gate is None else causal_gate.confirmation_threshold
+        ),
+    )
+    row_count = 1 + len(panels)
+    price_height = 0.7 if row_count == 2 else 0.62
+    score_height = (1.0 - price_height) / len(panels)
     figure = make_subplots(
-        rows=2,
+        rows=row_count,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.035,
-        row_heights=[0.76, 0.24],
+        vertical_spacing=0.03,
+        row_heights=[price_height, *([score_height] * len(panels))],
     )
     figure.add_trace(
         go.Candlestick(
@@ -300,6 +527,9 @@ def render_backtest_chart_html(
                 entry_threshold,
                 exit_threshold,
                 event_hold=event_hold,
+                confirmation_threshold=(
+                    None if causal_gate is None else causal_gate.confirmation_threshold
+                ),
             ),
             hovertemplate="%{text}<extra></extra>",
         ),
@@ -335,106 +565,136 @@ def render_backtest_chart_html(
     score_rows = result.decisions.copy()
     score_rows["date"] = pd.to_datetime(score_rows["signal_date"]).dt.normalize()
     score_rows = score_rows.loc[score_rows["date"].isin(prices.index)]
-    score_axis_range = _score_axis_range(
-        score_rows["factor_score"], entry_threshold, exit_threshold
-    )
-    figure.add_trace(
-        go.Scatter(
-            x=score_rows["date"],
-            y=score_rows["factor_score"].astype(float),
-            mode="lines",
-            name="策略得分",
-            line={"color": "#fbbf24", "width": 2},
-            hoverinfo="skip",
-        ),
-        row=2,
-        col=1,
-    )
-    if overlay:
+    panel_ranges: list[tuple[float, float]] = []
+    for panel_index, panel in enumerate(panels, start=2):
+        if panel.column not in score_rows:
+            raise ValueError(
+                f"{family} backtest chart requires decision column {panel.column}"
+            )
+        range_series = [score_rows[panel.column]]
+        range_thresholds = [guide.value for guide in panel.guides]
+        if panel.dynamic_threshold_column is not None:
+            if panel.dynamic_threshold_column not in score_rows:
+                raise ValueError(
+                    f"{family} backtest chart requires decision column "
+                    f"{panel.dynamic_threshold_column}"
+                )
+            range_series.append(score_rows[panel.dynamic_threshold_column])
+        panel_range = _multi_score_axis_range(range_series, range_thresholds)
+        panel_ranges.append(panel_range)
         figure.add_trace(
             go.Scatter(
                 x=score_rows["date"],
-                y=score_rows["threshold"].astype(float),
+                y=score_rows[panel.column].astype(float),
                 mode="lines",
-                name="动态触发阈值",
-                line={"color": "#ef4444", "dash": "dash", "width": 1},
-                hoverinfo="skip",
+                name=panel.trace_name,
+                line={"color": panel.color, "width": 2},
+                hoverinfo="none",
             ),
-            row=2,
+            row=panel_index,
             col=1,
         )
-    guides = (
-        ()
-        if overlay
-        else (("信号激活值", entry_threshold, "#ef4444"),)
-        if event_hold
-        else (
-            ("买入阈值", entry_threshold, "#ef4444"),
-            ("卖出阈值", exit_threshold, "#22c55e"),
-        )
+        if panel.dynamic_threshold_column is not None:
+            figure.add_trace(
+                go.Scatter(
+                    x=score_rows["date"],
+                    y=score_rows[panel.dynamic_threshold_column].astype(float),
+                    mode="lines",
+                    name="动态触发阈值",
+                    line={"color": "#ef4444", "dash": "dash", "width": 1},
+                    hoverinfo="none",
+                ),
+                row=panel_index,
+                col=1,
+            )
+        for guide in panel.guides:
+            figure.add_trace(
+                go.Scatter(
+                    x=[prices.index.min(), prices.index.max()],
+                    y=[guide.value, guide.value],
+                    mode="lines",
+                    name=guide.name,
+                    line={"color": guide.color, "dash": "dash", "width": 1},
+                    hoverinfo="none",
+                ),
+                row=panel_index,
+                col=1,
+            )
+
+    figure.add_shape(
+        type="line",
+        x0=prices.index.min(),
+        x1=prices.index.min(),
+        xref="x",
+        y0=0,
+        y1=1,
+        yref="paper",
+        visible=False,
+        line={"color": "#8195ad", "dash": "dot", "width": 1},
+        layer="above",
     )
-    for name, value, color in guides:
-        figure.add_trace(
-            go.Scatter(
-                x=[prices.index.min(), prices.index.max()],
-                y=[float(value), float(value)],
-                mode="lines",
-                name=name,
-                line={"color": color, "dash": "dash", "width": 1},
-                hoverinfo="skip",
-            ),
-            row=2,
-            col=1,
-        )
-    figure.update_traces(xaxis="x", row=2, col=1)
     backtest_symbol = str(signal_replay.snapshot.resolved_rule.symbol)
     figure.update_layout(
-        title=(
-            f"{backtest_symbol} | {result.identity.reference} | "
-            f"{prices.index.min():%Y.%m.%d} - {prices.index.max():%Y.%m.%d}"
-        ),
-        height=720,
+        height=640 if row_count == 2 else 760,
         template="plotly_dark",
-        paper_bgcolor="#07101d",
-        plot_bgcolor="#0e1928",
+        paper_bgcolor="#07111f",
+        plot_bgcolor="#0b1727",
         font={"color": "#eef5ff"},
         hovermode="x unified",
         hoversubplots="axis",
-        hoverlabel={"bgcolor": "rgba(14, 25, 40, 0.5)"},
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
-        margin={"l": 80, "r": 30, "t": 85, "b": 45},
+        hoverlabel={
+            "bgcolor": "rgba(5, 13, 24, 0.5)",
+            "bordercolor": "rgba(129, 149, 173, 0.45)",
+            "font": {"color": "#edf4ff"},
+            "align": "left",
+        },
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "x": 0,
+            "font": {"size": 11, "color": "#a9b8ca"},
+            "groupclick": "toggleitem",
+        },
+        margin={"l": 76, "r": 24, "t": 60, "b": 42},
         xaxis_rangeslider_visible=False,
+        uirevision="tdr-backtest-chart-v2",
     )
     figure.update_xaxes(
         rangebreaks=[{"values": _missing_calendar_dates(prices.index), "dvalue": 86_400_000}],
-        gridcolor="#23344b",
-        zerolinecolor="#23344b",
-        showspikes=True,
-        spikecolor="#64748b",
-        spikedash="dot",
-        spikemode="across",
-        spikesnap="data",
-        spikethickness=1,
+        gridcolor="#16283c",
+        zerolinecolor="#20344b",
+        showspikes=False,
     )
-    figure.update_yaxes(gridcolor="#23344b", zerolinecolor="#23344b")
-    figure.update_yaxes(range=list(price_axis_range), row=1, col=1)
-    figure.update_yaxes(range=list(score_axis_range), row=2, col=1)
-    for title, axis_name in (("后复权价格", "yaxis"), ("策略得分", "yaxis2")):
-        domain = figure.layout[axis_name].domain
-        figure.add_annotation(
-            text=title,
-            x=-0.025,
-            y=sum(domain) / 2,
-            xref="paper",
-            yref="paper",
-            textangle=-90,
-            showarrow=False,
-            xanchor="center",
-            yanchor="middle",
+    figure.update_yaxes(gridcolor="#16283c", zerolinecolor="#20344b")
+    figure.update_yaxes(
+        range=list(price_axis_range), title_text="后复权价格", row=1, col=1
+    )
+    for panel_index, (panel, panel_range) in enumerate(
+        zip(panels, panel_ranges, strict=True), start=2
+    ):
+        figure.update_yaxes(
+            range=list(panel_range),
+            title_text=panel.axis_title,
+            row=panel_index,
+            col=1,
         )
-    html = figure.to_html(full_html=True, include_plotlyjs=True)
-    style = (
-        "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;"
-        "background:#07101d}.plotly-graph-div{overflow:hidden}</style>"
+
+    if resolved.execution is not None:
+        fee_rate = float(resolved.execution.capital.fee_rate)
+    elif resolved.constituent_moneyflow_intraday is not None:
+        fee_rate = float(resolved.constituent_moneyflow_intraday.one_way_cost)
+    else:
+        fee_rate = 0.0
+    initial_cash = float(result.account_daily.iloc[0]["cash_before"])
+    metrics = calculate_metrics(result, initial_cash)
+    return _chart_document(
+        figure,
+        symbol=backtest_symbol,
+        reference=result.identity.reference,
+        start=prices.index.min(),
+        end=prices.index.max(),
+        trading_days=len(prices),
+        fee_rate=fee_rate,
+        metrics=metrics,
     )
-    return html.replace("</head>", f"{style}</head>", 1)

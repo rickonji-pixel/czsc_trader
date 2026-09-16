@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from strategy_manager import StrategyRegistry, canonical_sha256
@@ -42,6 +43,7 @@ def _resolve(
     identity: StrategyIdentity,
     strategy_payload: dict[str, object],
     source_hash: str,
+    research_window: tuple[date, date] | None = None,
 ) -> StrategySnapshot:
     symbol = _rule_symbol(strategy_payload)
     resolved = resolve_strategy_payload(
@@ -58,6 +60,8 @@ def _resolve(
         content_hash=_snapshot_hash(source_hash, resolved),
         strategy_payload=strategy_payload,
         resolved_rule=resolved,
+        research_start=None if research_window is None else research_window[0],
+        research_end=None if research_window is None else research_window[1],
     )
 
 
@@ -69,11 +73,25 @@ def resolve_registered_strategy(
     registry = StrategyRegistry(context.strategy_root)
     release = registry.get_version(strategy_id, version)
     source_hash = release.release_hash or canonical_sha256(release.release_payload())
+    research_evidence = [
+        item
+        for item in registry.evidence(strategy_id, version)
+        if item.phase.value == "RESEARCH_BACKTEST" and item.release_hash == source_hash
+    ]
+    research_window = (
+        (
+            min(date.fromisoformat(item.period_start) for item in research_evidence),
+            max(date.fromisoformat(item.period_end) for item in research_evidence),
+        )
+        if research_evidence
+        else None
+    )
     return _resolve(
         context,
         StrategyIdentity("REGISTERED", release.release_id, str(context.strategy_root)),
         dict(release.strategy_payload),
         source_hash,
+        research_window,
     )
 
 

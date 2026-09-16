@@ -12,6 +12,8 @@ def render_report(
     strategy_reference_symbol: str,
     backtest_symbol: str,
     application_mode: str,
+    research_start: date | None,
+    research_end: date | None,
     calculation_start: date,
     calculation_end: date,
     evaluation_start: date,
@@ -33,6 +35,11 @@ def render_report(
         ("BuyHold", benchmarks["buyhold"]["metrics"]),
         ("MA5/MA20", benchmarks["ma5_ma20"]["metrics"]),
     ]
+    research_window = (
+        "未登记"
+        if research_start is None or research_end is None
+        else f"{research_start.isoformat()}—{research_end.isoformat()}"
+    )
     lines = [
         f"# {snapshot.identity.reference} 回测报告",
         "",
@@ -45,6 +52,7 @@ def render_report(
             if application_mode == "cross_symbol_generalization"
             else "- 应用方式：原始标的回测"
         ),
+        f"- 策略研发窗口：{research_window}",
         f"- 计算窗口：{calculation_start.isoformat()}—{calculation_end.isoformat()}",
         (
             f"- 回测窗口：{evaluation_start.isoformat()}—{evaluation_end.isoformat()}，"
@@ -53,15 +61,15 @@ def render_report(
         "",
         "## 策略比较",
         "",
-        "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |",
+        "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 |",
         "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for label, item in rows:
         if not isinstance(item, dict):
             raise TypeError("one strategy metric row is invalid")
         lines.append(
-            f"| {label} | {percent(item['max_drawdown'])} | {ratio(item['calmar'])} | "
-            f"{ratio(item['win_loss_ratio'])} | {percent(item['return'])} | "
+            f"| {label} | {percent(item['return'])} | {percent(item['max_drawdown'])} | "
+            f"{ratio(item['calmar'])} | {ratio(item['win_loss_ratio'])} | "
             f"{ratio(item['sharpe'])} |"
         )
     lines.extend(

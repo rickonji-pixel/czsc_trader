@@ -14,6 +14,7 @@ from czsc_trader.backtesting import load_replay_data, resolve_registered_strateg
 from czsc_trader.backtesting.closing_dislocation_replay import (
     build_closing_dislocation_signals,
 )
+from czsc_trader.backtesting.chart import render_backtest_chart_html
 from czsc_trader.backtesting.causal_feature_gate_replay import (
     build_causal_feature_gate_signals,
 )
@@ -83,6 +84,18 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert result.decisions["signal_date"].max() <= pd.Timestamp("2026-09-02")
     assert set(result.decisions["regime"].dropna()) <= {"trend", "range", "warmup"}
     assert result.account_daily["equity"].gt(0).all()
+    chart = render_backtest_chart_html(signals, data, result)
+    traces, _ = _plotly_payload(chart)
+    trace_names = {trace["name"] for trace in traces}
+    assert {"策略得分", "买入阈值", "卖出阈值"} <= trace_names
+    assert "基础分" not in trace_names
+    assert "确认分" not in trace_names
+    assert "TDR · DETERMINISTIC BACKTEST" in chart
+    assert "class=\"metrics\"" in chart
+    by_name = {trace["name"]: trace for trace in traces}
+    hover_text = "\n".join(by_name["交易日详情"]["text"])
+    assert "策略得分" in hover_text
+    assert "行情状态" in hover_text
     evidence = build_replay_evidence(
         signals, data, result, 100_000, calculate_metrics(result, 100_000)
     )
@@ -138,8 +151,10 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         "equity"
     ] > 0
     report = (summary.output_dir / "report.md").read_text(encoding="utf-8")
+    assert "- 策略研发窗口：2020-01-01—2026-09-02" in report
     assert "- 计算窗口：2020-11-16—2026-09-02" in report
     assert "- 回测窗口：2026-01-05—2026-09-02，共162个交易日" in report
+    assert "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 |" in report
     assert "| S001-v1 |" in report
     assert "| BuyHold |" in report
     assert "| MA5/MA20 |" in report
@@ -151,18 +166,27 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     chart = (summary.output_dir / "chart.html").read_text(encoding="utf-8")
     traces, layout = _plotly_payload(chart)
     by_name = {trace["name"]: trace for trace in traces}
-    assert layout["title"]["text"] == (
-        "588080.SH | S001-v1 | 2026.01.05 - 2026.09.02"
-    )
+    assert "588080.SH <span>|</span> S001-v1 <span>|</span> " in chart
+    assert "2026.01.05 - 2026.09.02" in chart
     assert layout["hovermode"] == "x unified"
-    assert layout["hoverlabel"]["bgcolor"] == "rgba(14, 25, 40, 0.5)"
+    assert layout["hoverlabel"]["bgcolor"] == "rgba(5, 13, 24, 0.5)"
+    assert ".metric-value.positive{color:var(--red)}" in chart
+    assert ".metric-value.negative{color:var(--green)}" in chart
+    assert by_name["日K"]["increasing"]["line"]["color"] == "#ef4444"
+    assert by_name["日K"]["decreasing"]["line"]["color"] == "#22c55e"
     for axis_name in ("xaxis", "xaxis2"):
-        assert layout[axis_name]["showspikes"] is True
-        assert layout[axis_name]["spikecolor"] == "#64748b"
-        assert layout[axis_name]["spikedash"] == "dot"
-        assert layout[axis_name]["spikemode"] == "across"
-        assert layout[axis_name]["spikesnap"] == "data"
-        assert layout[axis_name]["spikethickness"] == 1
+        assert layout[axis_name]["showspikes"] is False
+    shared_guide = layout["shapes"][0]
+    assert shared_guide["xref"] == "x"
+    assert shared_guide["yref"] == "paper"
+    assert shared_guide["y0"] == 0
+    assert shared_guide["y1"] == 1
+    assert shared_guide["visible"] is False
+    assert shared_guide["line"] == {
+        "color": "#8195ad", "dash": "dot", "width": 1
+    }
+    assert "chart.on('plotly_hover'" in chart
+    assert "'shapes[0].visible': true" in chart
     assert by_name["CZSC笔"]["line"]["width"] == 1
     assert by_name["CZSC笔"]["marker"]["size"] == 3
     for name, symbol, color, angle in (
@@ -204,8 +228,8 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert "实际持仓" not in by_name
     assert by_name["策略得分"]["yaxis"] == "y2"
     for name in ("策略得分", "买入阈值", "卖出阈值"):
-        assert by_name[name]["xaxis"] == "x"
-    assert by_name["策略得分"]["line"] == {"color": "#fbbf24", "width": 2}
+        assert by_name[name]["xaxis"] == "x2"
+    assert by_name["策略得分"]["line"] == {"color": "#4fa5ff", "width": 2}
     assert by_name["买入阈值"]["yaxis"] == "y2"
     assert by_name["买入阈值"]["line"] == {
         "color": "#ef4444", "dash": "dash", "width": 1
@@ -214,21 +238,8 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert by_name["卖出阈值"]["line"] == {
         "color": "#22c55e", "dash": "dash", "width": 1
     }
-    axis_titles = {
-        annotation["text"]: annotation
-        for annotation in layout["annotations"]
-        if annotation["text"] in {"后复权价格", "策略得分"}
-    }
-    assert set(axis_titles) == {"后复权价格", "策略得分"}
-    assert {annotation["x"] for annotation in axis_titles.values()} == {-0.025}
-    assert all(
-        annotation["xref"] == "paper"
-        and annotation["yref"] == "paper"
-        and annotation["textangle"] == -90
-        for annotation in axis_titles.values()
-    )
-    assert "title" not in layout["yaxis"]
-    assert "title" not in layout["yaxis2"]
+    assert layout["yaxis"]["title"]["text"] == "后复权价格"
+    assert layout["yaxis2"]["title"]["text"] == "策略得分"
     details = {
         str(pd.Timestamp(day).date()): text
         for day, text in zip(
@@ -366,6 +377,21 @@ def test_ft_t03_s007_registered_backtest_uses_independent_support_data() -> None
     assert signals.support_data is not None
     assert signals.support_data["mode"] == "backtest_strategy_support"
     assert signals.support_data["last_session"] == "2026-09-15"
+    result = replay_account(signals, data, 100_000)
+    traces, _ = _plotly_payload(render_backtest_chart_html(signals, data, result))
+    by_name = {trace["name"]: trace for trace in traces}
+    assert {
+        "基础分",
+        "确认分",
+        "基础分入场阈值",
+        "基础分退出阈值",
+        "确认门",
+    } <= set(by_name)
+    hover_text = "\n".join(by_name["交易日详情"]["text"])
+    assert "基础得分" in hover_text
+    assert "确认得分" in hover_text
+    assert "确认分入场门槛" in hover_text
+    assert "行情状态 不适用" not in hover_text
 
 
 def test_ft_t03_s003_intraday_overlay_replays_frozen_candidate_contract() -> None:

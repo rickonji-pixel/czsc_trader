@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Literal
 
 from czsc_trader.baselines import ResolvedBaseline
@@ -20,3 +21,5 @@ class StrategySnapshot:
     content_hash: str
     strategy_payload: dict[str, object]
     resolved_rule: ResolvedBaseline
+    research_start: date | None = None
+    research_end: date | None = None

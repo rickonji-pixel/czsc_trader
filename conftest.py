@@ -4,14 +4,19 @@ from collections.abc import Iterator
 import os
 from pathlib import Path
 import shutil
+import sys
 from uuid import uuid4
 
 import pytest
 
 
-_PYTEST_RUN = (
-    Path(__file__).resolve().parent / ".tmp" / "pytest" / f"run-{uuid4().hex}"
-)
+_REPOSITORY_ROOT = Path(__file__).resolve().parent
+_PYTEST_RUN = _REPOSITORY_ROOT / ".tmp" / "pytest" / f"run-{uuid4().hex}"
+_PYTHON_CACHE_ROOT = _REPOSITORY_ROOT / ".tmp" / "pycache"
+
+# The root conftest itself is compiled before this assignment. All modules loaded
+# afterwards are redirected, and pytest_sessionfinish removes that bootstrap cache.
+sys.pycache_prefix = str(_PYTHON_CACHE_ROOT)
 
 
 def _create_directory(path: Path) -> None:
@@ -33,6 +38,7 @@ def tmp_path() -> Iterator[Path]:
 
 
 def pytest_sessionfinish() -> None:
-    """Remove the current process workspace when pytest finishes."""
+    """Remove the process workspace and pytest's root bootstrap bytecode."""
 
     shutil.rmtree(_PYTEST_RUN, ignore_errors=True)
+    shutil.rmtree(_REPOSITORY_ROOT / "__pycache__", ignore_errors=True)

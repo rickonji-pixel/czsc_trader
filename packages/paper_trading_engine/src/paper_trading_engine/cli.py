@@ -39,7 +39,7 @@ class PortUnavailableError(RuntimeError):
 DEFAULT_VIRTUAL_INITIAL_CASH = Decimal("100000.0000")
 LEGACY_VIRTUAL_INITIAL_CASH = Decimal("1000000.0000")
 CURRENT_STRATEGY_ID = "S001"
-CURRENT_STRATEGY_NAME = "综合基线策略"
+CURRENT_STRATEGY_NAME = "科创50多因子趋势策略"
 CURRENT_STRATEGY_VERSION = "v1"
 CURRENT_RELEASE_HASH = "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62"
 CURRENT_SELECTION_DATA_CUTOFF = "2026-08-28"
@@ -217,15 +217,14 @@ def build_engine(args: argparse.Namespace):
             account = store.virtual_account(DEFAULT_VIRTUAL_ACCOUNT_ID)
         expected = (
             DEFAULT_VIRTUAL_ACCOUNT_NAME, CURRENT_LEGACY_BASELINE, CURRENT_LEGACY_BASELINE_HASH,
-            CURRENT_STRATEGY_ID, CURRENT_STRATEGY_NAME, CURRENT_STRATEGY_VERSION,
-            CURRENT_RELEASE_HASH, CURRENT_QUALIFICATION,
+            CURRENT_STRATEGY_ID, CURRENT_STRATEGY_VERSION, CURRENT_RELEASE_HASH,
+            CURRENT_QUALIFICATION,
             args.symbol.upper(), args.asset, str(DEFAULT_VIRTUAL_INITIAL_CASH),
             CURRENT_SELECTION_DATA_CUTOFF,
         )
         actual = (
             account["name"], account["baseline_version"], account["baseline_sha256"],
-            account["strategy_id"], account["strategy_name_snapshot"],
-            account["strategy_version"], account["release_hash"],
+            account["strategy_id"], account["strategy_version"], account["release_hash"],
             account["qualification_snapshot"],
             account["symbol"], account["asset_type"], account["initial_cash"],
             account["selection_data_cutoff"],
@@ -237,6 +236,12 @@ def build_engine(args: argparse.Namespace):
     except KeyError:
         pass
     _backfill_selection_cutoffs(
+        store,
+        audit,
+        args.advice_executable or _default_executable(args.repo_root),
+        args.repo_root,
+    )
+    _synchronize_strategy_names(
         store,
         audit,
         args.advice_executable or _default_executable(args.repo_root),
@@ -430,6 +435,46 @@ def _backfill_selection_cutoffs(
                 release_hash=account.get("release_hash"),
                 symbol=account.get("symbol"),
                 details={"operation": "selection_cutoff_backfill", "error": fingerprint},
+            )
+            store.set_setting(key, fingerprint)
+
+
+def _synchronize_strategy_names(
+    store: PaperStore, audit: AuditRecorder, executable: Path, repo_root: Path,
+) -> None:
+    for account in store.virtual_accounts():
+        try:
+            identity = _strategy_show(
+                executable,
+                repo_root,
+                str(account["strategy_id"]),
+                str(account["strategy_version"]),
+            )
+            if identity["release_hash"] != account["release_hash"]:
+                raise RuntimeError("stored release hash does not match strategy registry")
+            store.synchronize_account_strategy_name(
+                str(account["account_id"]),
+                str(account["release_hash"]),
+                str(identity["name"]),
+            )
+            store.set_setting(f"strategy_name_sync_error:{account['account_id']}", "")
+        except Exception as exc:
+            fingerprint = str(exc)
+            key = f"strategy_name_sync_error:{account['account_id']}"
+            if store.get_setting(key) == fingerprint:
+                continue
+            audit.record(
+                "DEPENDENCY_DEGRADED",
+                source="cli",
+                outcome="FAILURE",
+                actor_type="ENGINE",
+                actor_id="strategy_manager",
+                account_id=account["account_id"],
+                strategy_id=account.get("strategy_id"),
+                strategy_version=account.get("strategy_version"),
+                release_hash=account.get("release_hash"),
+                symbol=account.get("symbol"),
+                details={"operation": "strategy_name_sync", "error": fingerprint},
             )
             store.set_setting(key, fingerprint)
 

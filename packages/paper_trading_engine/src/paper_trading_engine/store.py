@@ -783,6 +783,43 @@ class PaperStore:
             )
         return cursor.rowcount == 1
 
+    def synchronize_account_strategy_name(
+        self, account_id: str, release_hash: str, strategy_name: str,
+    ) -> bool:
+        """Synchronize mutable display metadata while preserving release identity."""
+        normalized_name = str(strategy_name).strip()
+        if not normalized_name:
+            raise ValueError("strategy name is required")
+        with self._lock, self._connection:
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+            if account is None:
+                raise KeyError(account_id)
+            if account["release_hash"] != release_hash:
+                raise ValueError("strategy release hash differs from virtual account")
+            if account["strategy_name_snapshot"] == normalized_name:
+                return False
+            previous_name = account["strategy_name_snapshot"]
+            now = _utc_now()
+            self._connection.execute(
+                "UPDATE virtual_accounts SET strategy_name_snapshot=?,updated_at=? "
+                "WHERE account_id=? AND release_hash=?",
+                (normalized_name, now, account_id, release_hash),
+            )
+            self._insert_audit_event(self._new_audit_event(
+                "ACCOUNT_STRATEGY_NAME_UPDATED",
+                source="account_registry",
+                correlation_id=f"account:{account_id}",
+                account_id=account_id,
+                strategy_id=account["strategy_id"],
+                strategy_version=account["strategy_version"],
+                release_hash=release_hash,
+                symbol=account["symbol"],
+                details={"previous_name": previous_name, "name": normalized_name},
+            ))
+        return True
+
     def rename_virtual_account(self, old_account_id: str, account_id: str, name: str):
         """Atomically migrate a runtime account identity without losing its ledger."""
         if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", str(account_id)) is None:

@@ -84,6 +84,32 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     store.close()
 
 
+def test_strategy_name_sync_is_release_guarded_idempotent_and_audited(tmp_path):
+    store = PaperStore(tmp_path / "strategy-name.db")
+    create_account(store, "s001-v1", "v1", "a")
+
+    assert store.synchronize_account_strategy_name(
+        "s001-v1", "a" * 64, "科创50多因子趋势策略"
+    )
+    assert not store.synchronize_account_strategy_name(
+        "s001-v1", "a" * 64, "科创50多因子趋势策略"
+    )
+    assert store.virtual_account("s001-v1")["strategy_name_snapshot"] == (
+        "科创50多因子趋势策略"
+    )
+    events = store.query_audit_events(event_type="ACCOUNT_STRATEGY_NAME_UPDATED")
+    assert len(events) == 1
+    assert events[0]["details"] == {
+        "previous_name": "综合基线策略",
+        "name": "科创50多因子趋势策略",
+    }
+    with pytest.raises(ValueError, match="release hash differs"):
+        store.synchronize_account_strategy_name(
+            "s001-v1", "b" * 64, "不应写入"
+        )
+    store.close()
+
+
 def test_account_metrics_use_prior_snapshot_as_window_baseline(tmp_path):
     store = PaperStore(tmp_path / "window-metrics.db")
     create_account(store, "s001-v2", "v2", "b")

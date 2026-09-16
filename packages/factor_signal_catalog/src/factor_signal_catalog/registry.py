@@ -20,7 +20,13 @@ _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 def _documents(root: Path, name: str) -> list[dict[str, Any]]:
     path = root / name
-    paths = sorted(path.glob("*.json")) if path.is_dir() else [path]
+    if path.is_dir():
+        canonical = path / "definitions.json"
+        if not canonical.is_file():
+            raise CatalogValidationError(f"{path} must contain definitions.json")
+        paths = [canonical]
+    else:
+        paths = [path]
     rows: list[dict[str, Any]] = []
     for item in paths:
         try:

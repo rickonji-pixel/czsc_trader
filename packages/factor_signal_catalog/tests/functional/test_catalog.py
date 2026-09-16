@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -36,3 +37,12 @@ def test_fsc01_repository_catalog_is_complete_queryable_and_strict() -> None:
         FactorDefinition.from_dict({"factor_id": "F-BROKEN"})
     with pytest.raises(CatalogValidationError, match="unknown information family"):
         catalog.list_definitions(family="MISSING")
+
+
+def test_fsc02_repository_catalog_loads_only_canonical_definition_documents() -> None:
+    catalog = CatalogRegistry(REPO / "catalog")
+    factor_items = json.loads((REPO / "catalog/factors/definitions.json").read_text(encoding="utf-8"))["items"]
+    signal_items = json.loads((REPO / "catalog/signals/definitions.json").read_text(encoding="utf-8"))["items"]
+
+    assert len(catalog.factors) == len(factor_items)
+    assert len(catalog.signals) == len(signal_items)

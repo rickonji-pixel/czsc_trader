@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 import sqlite3
 import subprocess
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -13,6 +14,7 @@ import pytest
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.account_engine import AccountEngine
 from paper_trading_engine import cli as pte_cli
+from paper_trading_engine.web_api import PteWebApi
 from pte_support import decision
 
 
@@ -128,6 +130,36 @@ def test_account_metrics_use_prior_snapshot_as_window_baseline(tmp_path):
     assert metrics["total_return"] == pytest.approx(-0.01)
     assert metrics["calmar_ratio"] is None
     assert metrics["annualization_status"] == "INSUFFICIENT_OBSERVATIONS"
+    store.close()
+
+
+def test_account_comparison_uses_each_accounts_observation_window(tmp_path):
+    store = PaperStore(tmp_path / "comparison-metrics.db")
+    create_account(store, "s001-v1", "v1", "a")
+    create_account(store, "s001-v2", "v2", "b")
+    store.save_account_snapshot("s001-v1", "2026-09-03", {
+        "quantity": 0, "total_assets": "100000.0000",
+    })
+    store.save_account_snapshot("s001-v1", "2026-09-04", {
+        "quantity": 0, "total_assets": "90000.0000",
+    })
+    store.save_account_snapshot("s001-v2", "2026-09-04", {
+        "quantity": 0, "total_assets": "110000.0000",
+    })
+    virtual = AccountEngine(store, advice=None)
+    api = PteWebApi(SimpleNamespace(store=store, virtual=virtual, channel=None))
+
+    result = api.comparison([])
+
+    assert result["metric_basis"] == "ACCOUNT_OBSERVATION_WINDOW"
+    assert "common_window" not in result
+    by_account = {row["account_id"]: row["metrics"] for row in result["accounts"]}
+    assert by_account["s001-v1"]["observation_start"] == "2026-09-03"
+    assert by_account["s001-v1"]["observation_count"] == 2
+    assert by_account["s001-v1"]["total_return"] == pytest.approx(-0.10)
+    assert by_account["s001-v2"]["observation_start"] == "2026-09-04"
+    assert by_account["s001-v2"]["observation_count"] == 1
+    assert by_account["s001-v2"]["total_return"] == pytest.approx(0.10)
     store.close()
 
 

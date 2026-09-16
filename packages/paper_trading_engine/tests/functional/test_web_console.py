@@ -170,6 +170,8 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert "sortVirtualAccounts(state.accounts)" in app_js
         assert "交易标的 ${esc(a.symbol)}" in app_js
         assert "ACCOUNT_STRATEGY_NAME_UPDATED:'更新策略名称'" in app_js
+        assert "各账户按自身前瞻观察窗口统计" in app_js
+        assert "共同观察区间" not in app_js
         assert "ACCOUNT_REFRESH_SECTIONS" in app_js
         assert ".chart-frame-host{height:540px;min-height:540px" in styles_css
         assert ".chart-frame-host iframe{display:block;width:100%;height:100%" in styles_css

@@ -292,21 +292,14 @@ class PteWebApi:
         if missing:
             raise ResourceNotFound(missing)
         statuses = [self.virtual.status(account_id) for account_id in selected]
-        starts = [row["metrics"].get("observation_start") for row in statuses]
-        ends = [row["metrics"].get("observation_end") for row in statuses]
-        common_start = max(starts) if statuses and all(starts) else None
-        common_end = min(ends) if statuses and all(ends) else None
-        valid_window = common_start is not None and common_end is not None and common_start <= common_end
         accounts = []
         for status in statuses:
-            metrics = (self.virtual.metrics(status["account_id"], common_start, common_end)
-                       if valid_window else status["metrics"])
             accounts.append({"account_id": status["account_id"], "name": status["name"],
                              "release_id": f'{status["strategy_id"]}-{status["strategy_version"]}',
-                             "metrics": metrics})
+                             "metrics": status["metrics"]})
         return {
             "scope": {"resource": "comparison"}, "as_of": _now(),
-            "common_window": {"start": common_start, "end": common_end},
+            "metric_basis": "ACCOUNT_OBSERVATION_WINDOW",
             "priority_metrics": ["maximum_drawdown", "calmar_ratio", "win_loss_ratio", "total_return"],
             "accounts": accounts,
         }

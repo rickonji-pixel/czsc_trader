@@ -34,6 +34,7 @@ class _ScorePanel:
     color: str
     guides: tuple[_ScoreGuide, ...]
     dynamic_threshold_column: str | None = None
+    line_shape: str = "linear"
 
 
 def _dated_fills(fills: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
@@ -54,6 +55,20 @@ def _dated_signal_events(decisions: pd.DataFrame, prices: pd.DataFrame) -> pd.Da
     return dated.loc[changed & dated["date"].isin(prices.index)]
 
 
+def _chart_rows(
+    signal_replay: SignalReplay,
+    result: BacktestResult,
+    prices: pd.DataFrame,
+) -> pd.DataFrame:
+    source = result.decisions if signal_replay.chart_data is None else signal_replay.chart_data
+    rows = source.copy()
+    if rows.empty:
+        return pd.DataFrame(columns=["date"])
+    date_column = "date" if "date" in rows else "signal_date"
+    rows["date"] = pd.to_datetime(rows[date_column]).dt.normalize()
+    return rows.loc[rows["date"].isin(prices.index)]
+
+
 def _daily_hover_text(
     prices: pd.DataFrame,
     decisions: pd.DataFrame,
@@ -61,15 +76,14 @@ def _daily_hover_text(
     entry_threshold: float,
     exit_threshold: float,
     *,
+    chart_rows: pd.DataFrame,
+    family: str,
     event_hold: bool = False,
     confirmation_threshold: float | None = None,
 ) -> list[str]:
-    dated_decisions = decisions.copy()
-    dated_decisions["date"] = pd.to_datetime(dated_decisions["signal_date"]).dt.normalize()
-    dated_decisions = dated_decisions.loc[dated_decisions["date"].isin(prices.index)]
     signals = _dated_signal_events(decisions, prices)
     executions = _dated_fills(fills, prices)
-    decision_groups = {date: group for date, group in dated_decisions.groupby("date")}
+    score_groups = {date: group for date, group in chart_rows.groupby("date")}
     signal_groups = {date: group for date, group in signals.groupby("date")}
     fill_groups = {date: group for date, group in executions.groupby("date")}
     output: list[str] = []
@@ -81,10 +95,25 @@ def _daily_hover_text(
             f"低 {float(row['low']):.3f}",
             f"收 {float(row['close']):.3f}",
         ]
-        daily_decisions = decision_groups.get(day, pd.DataFrame())
-        if not daily_decisions.empty:
-            decision = daily_decisions.iloc[-1]
-            if confirmation_threshold is None:
+        daily_scores = score_groups.get(day, pd.DataFrame())
+        if not daily_scores.empty:
+            decision = daily_scores.iloc[-1]
+            if family == "S003":
+                lines.append(f"资金流宽度 {float(decision['factor_score']):.3f}")
+                if pd.notna(decision.get("threshold")):
+                    lines.append(f"动态触发阈值 {float(decision['threshold']):.3f}")
+                if pd.notna(decision.get("observed_weight_ratio")):
+                    lines.append(
+                        f"可观测成分权重 {float(decision['observed_weight_ratio']):.1%}"
+                    )
+                active = decision.get("signal_active")
+                if pd.notna(active):
+                    lines.append(f"事件状态 {'触发' if bool(active) else '未触发'}")
+            elif family == "S002":
+                active = float(decision["factor_score"]) >= entry_threshold
+                lines.append(f"三连跌状态 {'触发' if active else '未触发'}")
+                lines.append(f"信号激活值 {float(entry_threshold):.0f}")
+            elif confirmation_threshold is None:
                 lines.append(f"策略得分 {float(decision['factor_score']):.3f}")
             else:
                 lines.extend([
@@ -99,9 +128,11 @@ def _daily_hover_text(
                     "warmup": "预热（warmup）",
                 }.get(str(regime_value), str(regime_value))
                 lines.append(f"行情状态 {regime}")
-            if "threshold" in decision and pd.notna(decision["threshold"]):
+            if family != "S003" and "threshold" in decision and pd.notna(decision["threshold"]):
                 lines.append(f"动态触发阈值 {float(decision['threshold']):.3f}")
-            if event_hold:
+            if family in {"S002", "S003"}:
+                pass
+            elif event_hold:
                 lines.append(f"信号激活值 {float(entry_threshold):.3f}")
             elif confirmation_threshold is not None:
                 lines.extend([
@@ -229,6 +260,8 @@ def _paired_event_markers(
         return signals, executions
 
     for decision_id, grouped_fills in executions.groupby("decision_id"):
+        if grouped_fills["side"].astype(str).str.upper().nunique() != 1:
+            continue
         signal_indexes = signals.index[signals["decision_id"].eq(decision_id)]
         side = str(grouped_fills.iloc[0]["side"]).upper()
         column = "low" if side == "BUY" else "high"
@@ -302,6 +335,7 @@ def _score_panels(
                 "事件状态",
                 "#4fa5ff",
                 (_ScoreGuide("信号激活值", entry_threshold, "#ef4444"),),
+                line_shape="hv",
             ),
         )
     if family == "S003":
@@ -457,6 +491,7 @@ def render_backtest_chart_html(
     ]
     resolved = signal_replay.snapshot.resolved_rule
     rule = resolved.rule
+    family = _strategy_family(result.identity.reference)
     overlay = resolved.constituent_moneyflow_intraday is not None
     causal_gate = resolved.causal_feature_gate
     event_hold = resolved.strategy in {
@@ -478,7 +513,6 @@ def render_backtest_chart_html(
         if rule is None:
             raise ValueError("factor strategy has no score rule")
         entry_threshold, exit_threshold = rule.enter, rule.exit
-    family = _strategy_family(result.identity.reference)
     panels = _score_panels(
         family,
         entry_threshold,
@@ -526,6 +560,8 @@ def render_backtest_chart_html(
                 result.fills,
                 entry_threshold,
                 exit_threshold,
+                chart_rows=_chart_rows(signal_replay, result, prices),
+                family=family,
                 event_hold=event_hold,
                 confirmation_threshold=(
                     None if causal_gate is None else causal_gate.confirmation_threshold
@@ -562,9 +598,7 @@ def render_backtest_chart_html(
     _signal_markers(figure, signals)
     _fill_markers(figure, executions)
 
-    score_rows = result.decisions.copy()
-    score_rows["date"] = pd.to_datetime(score_rows["signal_date"]).dt.normalize()
-    score_rows = score_rows.loc[score_rows["date"].isin(prices.index)]
+    score_rows = _chart_rows(signal_replay, result, prices)
     panel_ranges: list[tuple[float, float]] = []
     for panel_index, panel in enumerate(panels, start=2):
         if panel.column not in score_rows:
@@ -588,7 +622,11 @@ def render_backtest_chart_html(
                 y=score_rows[panel.column].astype(float),
                 mode="lines",
                 name=panel.trace_name,
-                line={"color": panel.color, "width": 2},
+                line={
+                    "color": panel.color,
+                    "width": 2,
+                    **({} if panel.line_shape == "linear" else {"shape": panel.line_shape}),
+                },
                 hoverinfo="none",
             ),
             row=panel_index,

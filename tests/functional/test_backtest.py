@@ -299,6 +299,14 @@ def test_ft_t03_s002_event_hold_replays_with_formal_execution() -> None:
     metrics = calculate_metrics(result, 100_000)
     assert metrics["closed_trades"] == 25
     assert metrics["return"] == pytest.approx(0.2514063685)
+    traces, layout = _plotly_payload(render_backtest_chart_html(deployed_signals, data, result))
+    by_name = {trace["name"]: trace for trace in traces}
+    assert {"事件状态", "信号激活值"} <= set(by_name)
+    assert by_name["事件状态"]["line"] == {
+        "color": "#4fa5ff", "shape": "hv", "width": 2
+    }
+    assert layout["yaxis2"]["title"]["text"] == "事件状态"
+    assert "三连跌状态" in "\n".join(by_name["交易日详情"]["text"])
     evidence = build_replay_evidence(deployed_signals, data, result, 100_000, metrics)
     assert audit_replay(evidence).status is AuditStatus.PASS
 
@@ -481,6 +489,16 @@ def test_ft_t03_s003_intraday_overlay_replays_frozen_candidate_contract() -> Non
         "INTRADAY_TRADE_PAIRING",
         "INTRADAY_METRICS",
     }
+    traces, layout = _plotly_payload((summary.output_dir / "chart.html").read_text(encoding="utf-8"))
+    by_name = {trace["name"]: trace for trace in traces}
+    assert {"资金流宽度", "动态触发阈值"} <= set(by_name)
+    assert len(by_name["资金流宽度"]["x"]) == len(account)
+    assert len(by_name["动态触发阈值"]["x"]) == len(account)
+    assert layout["yaxis2"]["title"]["text"] == "资金流宽度"
+    assert "可观测成分权重" in "\n".join(by_name["交易日详情"]["text"])
+    buy_y = dict(zip(by_name["买入成交"]["x"], by_name["买入成交"]["y"], strict=True))
+    sell_y = dict(zip(by_name["卖出成交"]["x"], by_name["卖出成交"]["y"], strict=True))
+    assert all(buy_y[day] < sell_y[day] for day in buy_y.keys() & sell_y.keys())
     shutil.rmtree(outputs_root)
 
 

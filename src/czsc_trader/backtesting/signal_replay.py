@@ -21,6 +21,7 @@ class SignalReplay:
     evaluation_start: pd.Timestamp
     evaluation_end: pd.Timestamp
     support_data: dict[str, str] | None = None
+    chart_data: pd.DataFrame | None = None
 
 
 def _decision_id(reference: str, signal_date: pd.Timestamp, target: int) -> str:
@@ -67,6 +68,15 @@ def replay_signals(
                 ),
             }
         )
+    chart_data = pd.DataFrame(
+        {
+            "date": visible,
+            "factor_score": applied.scores.loc[visible].astype(float).to_numpy(),
+            "target_position": applied.target_position.loc[visible].astype(float).to_numpy(),
+        }
+    )
+    if applied.regimes is not None:
+        chart_data["regime"] = applied.regimes.loc[visible].astype("string").to_numpy()
     return SignalReplay(
         snapshot=snapshot,
         decisions=pd.DataFrame(rows),
@@ -74,4 +84,5 @@ def replay_signals(
         calculation_end=sessions[-1],
         evaluation_start=evaluation[0],
         evaluation_end=evaluation[-1],
+        chart_data=chart_data,
     )

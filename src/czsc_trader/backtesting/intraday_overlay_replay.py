@@ -101,6 +101,10 @@ def build_moneyflow_breadth_signals(
                 "action": "INTRADAY_LONG_OVERLAY",
             }
         )
+    chart_data = daily.reindex(evaluation).reset_index(names="date").rename(
+        columns={"moneyflow_breadth": "factor_score"}
+    )
+    chart_data["signal_active"] = chart_data["factor_score"].ge(chart_data["threshold"])
     return SignalReplay(
         snapshot=snapshot,
         decisions=pd.DataFrame(rows),
@@ -108,6 +112,7 @@ def build_moneyflow_breadth_signals(
         calculation_end=max(sessions[-1], daily.index.max()),
         evaluation_start=evaluation[0],
         evaluation_end=evaluation[-1],
+        chart_data=chart_data,
     )
 
 

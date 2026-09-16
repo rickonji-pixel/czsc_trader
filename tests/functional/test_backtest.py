@@ -154,7 +154,8 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert "- 策略研发窗口：2020-01-01—2026-09-02" in report
     assert "- 计算窗口：2020-11-16—2026-09-02" in report
     assert "- 回测窗口：2026-01-05—2026-09-02，共162个交易日" in report
-    assert "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 |" in report
+    assert "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 | 闭合交易 |" in report
+    assert "| S001-v1 |" in report and "| 7 |" in report
     assert "| S001-v1 |" in report
     assert "| BuyHold |" in report
     assert "| MA5/MA20 |" in report
@@ -674,7 +675,7 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     ]
     assert (buy_limits * 1000 % 1 < 1e-9).all()
     report = (output_dir / "report.md").read_text(encoding="utf-8")
-    assert "| 策略 | 最大回撤 | 卡玛比率 | 盈亏比 | 收益率 | 夏普率 |" in report
+    assert "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 | 闭合交易 |" in report
 
     source_root = functional_repo / "data" / "backtest"
     for source in source_root.glob("588080*"):

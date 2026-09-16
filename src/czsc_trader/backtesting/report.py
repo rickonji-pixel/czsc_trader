@@ -61,8 +61,8 @@ def render_report(
         "",
         "## 策略比较",
         "",
-        "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 | 闭合交易 |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for label, item in rows:
         if not isinstance(item, dict):
@@ -70,7 +70,7 @@ def render_report(
         lines.append(
             f"| {label} | {percent(item['return'])} | {percent(item['max_drawdown'])} | "
             f"{ratio(item['calmar'])} | {ratio(item['win_loss_ratio'])} | "
-            f"{ratio(item['sharpe'])} |"
+            f"{ratio(item['sharpe'])} | {int(item['closed_trades'])} |"
         )
     lines.extend(
         [

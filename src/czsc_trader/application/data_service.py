@@ -178,7 +178,31 @@ def update_backtest_data(
                 staging,
                 env_file=context.root / ".env",
             )
+        strategy_support: dict[str, object] | None = None
+        support_files: list[Path] = []
+        if "causal_feature_panel" in contract.strategy_support:
+            from czsc_trader.causal_feature_gate_runtime import (
+                publish_support_data,
+                support_manifest_path,
+                support_panel_path,
+            )
+
+            spec = snapshot.resolved_rule.causal_feature_gate
+            if spec is None:
+                raise ValueError("causal-feature strategy support specification is missing")
+            strategy_support = publish_support_data(
+                context.root,
+                staging,
+                snapshot.identity.reference,
+                spec,
+                request.through.isoformat(),
+            )
+            support_files = [
+                support_panel_path(staging, snapshot.identity.reference),
+                support_manifest_path(staging, snapshot.identity.reference),
+            ]
         proposed = [path for path in staging.glob(f"{code}_*") if path.is_file()]
+        proposed.extend(path for path in support_files if path.is_file())
         mutable_week = _mutable_weekly_terminal_period(
             context.backtest_data_root,
             staging,
@@ -195,6 +219,10 @@ def update_backtest_data(
                     mutable_week if "_weekly_" in current.name else None
                 ),
             )
+        if support_files:
+            current_panel = context.backtest_data_root / support_files[0].name
+            if current_panel.is_file():
+                _assert_append_only(current_panel, support_files[0])
         context.backtest_data_root.mkdir(parents=True, exist_ok=True)
         for source in proposed:
             destination = context.backtest_data_root / source.name
@@ -225,6 +253,7 @@ def update_backtest_data(
             "strategy": snapshot.identity.reference,
             "data_contract": contract.as_dict(),
             "intraday": intraday_summary,
+            "strategy_support": strategy_support,
             "dataset": "backtest",
             "through": request.through.isoformat(),
         },

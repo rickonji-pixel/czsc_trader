@@ -92,3 +92,55 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
     assert result.result["data_contract"]["intraday_frequencies"] == ["5m"]
     assert result.result["intraday"] == {"manifest": "intraday-manifest"}
     assert (context.backtest_data_root / "510500_intraday_manifest.json").is_file()
+
+
+def test_ft_t03_backtest_publication_includes_causal_feature_support(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = _context(tmp_path)
+    context.research_data_root.mkdir(parents=True)
+    (context.research_data_root / "588080_manifest.json").write_text(
+        json.dumps({"requested_start": "2020-01-01"}), encoding="utf-8"
+    )
+
+    def fake_market_data(_symbol, _asset, _start, _through, staging, **_kwargs):
+        (staging / "588080_manifest.json").write_text("{}", encoding="utf-8")
+        return {"manifest": "market-manifest"}
+
+    def fake_support(_root, staging, release_id, _spec, _through):
+        (staging / "s007_v1_causal_feature_panel.csv.gz").write_text(
+            "date,value\n2026-09-15,1\n", encoding="utf-8"
+        )
+        (staging / "s007_v1_causal_feature_manifest.json").write_text(
+            "{}", encoding="utf-8"
+        )
+        assert release_id == "S007-v1"
+        return {"support_last_session": "2026-09-15"}
+
+    monkeypatch.setattr("czsc_trader.market_data_prep.prepare_market_data", fake_market_data)
+    monkeypatch.setattr(
+        "czsc_trader.causal_feature_gate_runtime.publish_support_data", fake_support
+    )
+    monkeypatch.setattr(
+        "czsc_trader.backtesting.resolve_registered_strategy",
+        lambda *_args: SimpleNamespace(
+            identity=SimpleNamespace(reference="S007-v1"),
+            resolved_rule=SimpleNamespace(causal_feature_gate=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        "czsc_trader.backtesting.resolve_backtest_data_contract",
+        lambda _snapshot: BacktestDataContract(strategy_support=("causal_feature_panel",)),
+    )
+
+    result = update_backtest_data(
+        context,
+        UpdateBacktestDataCommand(
+            "588080.SH", "etf", date(2026, 9, 15), "S007", "v1"
+        ),
+    )
+
+    assert result.result["strategy_support"] == {"support_last_session": "2026-09-15"}
+    assert (
+        context.backtest_data_root / "s007_v1_causal_feature_panel.csv.gz"
+    ).is_file()

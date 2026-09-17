@@ -24,6 +24,7 @@ from strategy_runtime import (
     StrategyRunner,
     StrategyStateSnapshot,
 )
+from strategy_runtime.strategies.s002_v1 import _calculate_target_history
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -211,3 +212,65 @@ def test_s002_runner_matches_the_frozen_legacy_signal_at_cutoff() -> None:
     )
     expected = float(applied.target_position.loc[pd.Timestamp("2026-09-08")])
     assert result.decision.target_position == expected
+
+
+def test_s002_complete_target_history_matches_the_frozen_legacy_path() -> None:
+    release, raw = _release()
+    strategy = StrategyLoader().load(release)
+    request = DataRequest(
+        Dataset.ETF_OHLCV,
+        "510500.SH",
+        "2019-10-08",
+        "2026-09-15",
+        "2026-09-15",
+    )
+    daily = _load_years("510500_daily", request)
+
+    payload = raw["strategy_payload"]
+    rule = payload["rule"]
+    actual = _calculate_target_history(
+        daily,
+        symbol="510500.SH",
+        signal=rule["signal"],
+        portfolio=rule["portfolio_rule"],
+    )
+
+    adjusted = daily.rename(
+        columns={
+            "Date": "dt",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "vol",
+            "Amount": "amount",
+        }
+    )
+    adjusted["dt"] = pd.to_datetime(adjusted["dt"])
+    adjusted.insert(1, "symbol", "510500.SH")
+    legacy = resolve_strategy_payload(
+        ROOT / "strategies/dependencies/legacy_rule_baselines",
+        payload,
+        release_id=release.release_id,
+        release_hash=release.release_hash,
+        symbol="510500.SH",
+        repository_root=ROOT,
+    )
+    expected = apply_resolved_strategy(
+        MarketData(pd.DataFrame(), adjusted, pd.DataFrame(), {}, "510500.SH"), legacy
+    ).target_position.astype(float)
+    expected = expected.reindex(actual.index)
+
+    pd.testing.assert_index_equal(actual.index, expected.index, check_names=False)
+    pd.testing.assert_series_equal(
+        actual["target_position"].astype(float),
+        expected,
+        check_names=False,
+    )
+    assert actual.index[0] == pd.Timestamp("2020-10-19")
+    assert actual.index[-1] == pd.Timestamp("2026-09-15")
+    assert len(actual) == 1437
+    changes = actual["target_position"] - actual["target_position"].shift(1, fill_value=0.0)
+    assert int(changes.eq(1.0).sum()) == 28
+    assert int(changes.eq(-1.0).sum()) == 28
+    assert strategy.definition.release_id == "S002-v1"

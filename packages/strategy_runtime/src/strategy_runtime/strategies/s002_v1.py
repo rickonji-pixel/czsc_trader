@@ -102,6 +102,54 @@ def _target_history(states: pd.Series, entry_state: str, holding_sessions: int) 
     return pd.DataFrame(rows).set_index("date")
 
 
+def _calculate_target_history(
+    daily: pd.DataFrame,
+    *,
+    symbol: str,
+    signal: Mapping[str, Any],
+    portfolio: Mapping[str, Any],
+) -> pd.DataFrame:
+    """Calculate the complete S002 target-position history from published daily bars."""
+    frame = daily.rename(
+        columns={
+            "Date": "dt",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "vol",
+            "Amount": "amount",
+        }
+    ).copy()
+    frame["dt"] = pd.to_datetime(frame["dt"])
+    frame.insert(1, "symbol", symbol)
+    bars = czsc.format_standard_kline(
+        frame[["dt", "symbol", "open", "close", "high", "low", "vol", "amount"]],
+        freq="日线",
+    )
+    config = dict(_object(signal.get("config"), "S002-v1 signal config"))
+    output = czsc.generate_czsc_signals(
+        bars,
+        [config],
+        sdt=str(frame["dt"].min().date()),
+        init_n=int(signal.get("warmup_bars", 250)),
+        df=True,
+    )
+    output_key = str(signal.get("output_key", ""))
+    if output_key not in output.columns:
+        raise RuntimeContractError(f"S002-v1 signal output is missing: {output_key}")
+    sessions = pd.DatetimeIndex(pd.to_datetime(output["dt"])).tz_localize(None).normalize()
+    states = pd.Series(
+        output[output_key].map(_primary_value).astype("string").to_numpy(),
+        index=sessions,
+    )
+    return _target_history(
+        states,
+        str(signal.get("entry_state", "")),
+        int(portfolio.get("holding_sessions", 0)),
+    )
+
+
 class S002V1:
     """Executable S002-v1 implementation with no TDR dependency."""
 
@@ -262,43 +310,11 @@ class S002V1:
 
     def calculate(self, request: CalculationRequest) -> StrategyDecision:
         daily = request.publication.input_results[_INPUT_DAILY].dataframe.copy()
-        frame = daily.rename(
-            columns={
-                "Date": "dt",
-                "Open": "open",
-                "High": "high",
-                "Low": "low",
-                "Close": "close",
-                "Volume": "vol",
-                "Amount": "amount",
-            }
-        )
-        frame["dt"] = pd.to_datetime(frame["dt"])
-        frame.insert(1, "symbol", self._symbol)
-        bars = czsc.format_standard_kline(
-            frame[["dt", "symbol", "open", "close", "high", "low", "vol", "amount"]],
-            freq="日线",
-        )
-        config = dict(_object(self._signal.get("config"), "S002-v1 signal config"))
-        output = czsc.generate_czsc_signals(
-            bars,
-            [config],
-            sdt=str(frame["dt"].min().date()),
-            init_n=int(self._signal.get("warmup_bars", 250)),
-            df=True,
-        )
-        output_key = str(self._signal.get("output_key", ""))
-        if output_key not in output.columns:
-            raise RuntimeContractError(f"S002-v1 signal output is missing: {output_key}")
-        sessions = pd.DatetimeIndex(pd.to_datetime(output["dt"])).tz_localize(None).normalize()
-        states = pd.Series(
-            output[output_key].map(_primary_value).astype("string").to_numpy(),
-            index=sessions,
-        )
-        history = _target_history(
-            states,
-            str(self._signal.get("entry_state", "")),
-            int(self._portfolio.get("holding_sessions", 0)),
+        history = _calculate_target_history(
+            daily,
+            symbol=self._symbol,
+            signal=self._signal,
+            portfolio=self._portfolio,
         )
         cutoff = pd.Timestamp(request.publication.requested_cutoff).normalize()
         if cutoff not in history.index:

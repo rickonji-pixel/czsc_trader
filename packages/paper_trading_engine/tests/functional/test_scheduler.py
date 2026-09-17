@@ -1,19 +1,122 @@
 from datetime import datetime, timedelta, timezone
 import json
-from subprocess import CompletedProcess
+from pathlib import Path
 from threading import Event, Thread
 import time
 
 import pytest
+import pandas as pd
+from dataflows import Dataflows, Dataset
 
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.data_publisher import (
     AccountDataPublisher,
-    CliDataPublisher,
     DataPublicationError,
 )
 from paper_trading_engine.scheduler import RuntimeScheduler
+from paper_trading_engine.srt_advice_client import SrtAdviceClient
+from paper_trading_engine.advice_client import AdviceClientError
 from paper_trading_engine.trading_window import is_submission_window
+
+
+def test_account_data_publisher_persists_ready_srt_generation(tmp_path):
+    dates = pd.bdate_range(end="2026-09-02", periods=300)
+    bars = pd.DataFrame(
+        {
+            "Date": dates,
+            "Open": [6.0] * len(dates),
+            "High": [6.1] * len(dates),
+            "Low": [5.9] * len(dates),
+            "Close": [6.0] * len(dates),
+            "Volume": [1000.0] * len(dates),
+            "Amount": [6000.0] * len(dates),
+        }
+    )
+
+    def market(_request):
+        selected = bars.loc[
+            pd.to_datetime(bars["Date"]).between(_request.start, _request.end)
+        ].copy()
+        return selected, {
+            "vendor": "test",
+            "adjustment": "hfq",
+            "primary_key": ["Date"],
+        }
+
+    def execution(_request):
+        selected = bars.loc[
+            pd.to_datetime(bars["Date"]).between(_request.start, _request.end)
+        ].copy()
+        return selected, {
+            "vendor": "test",
+            "adjustment": "none",
+            "primary_key": ["Date"],
+        }
+
+    def calendar(request):
+        frame = pd.DataFrame(
+            {
+                "Date": [request.start, "2026-09-03", request.end],
+                "IsOpen": [1, 1, 1],
+            }
+        ).drop_duplicates("Date").sort_values("Date")
+        return frame, {"vendor": "test", "primary_key": ["Date"]}
+
+    flows = Dataflows(
+        {
+            Dataset.ETF_OHLCV.value: market,
+            Dataset.ETF_UNADJUSTED_DAILY.value: execution,
+            Dataset.TRADING_CALENDAR.value: calendar,
+        }
+    )
+    root = Path(__file__).resolve().parents[4]
+    publisher = AccountDataPublisher(
+        store=Store(),
+        repo_root=root,
+        data_dir=tmp_path / "data",
+        start_date="2021-01-01",
+        dataflows=flows,
+    )
+
+    result = publisher.publish_release(
+        "510500.SH", "etf", [("S002", "v1")], "2026-09-02"
+    )
+
+    assert result["publisher"] == "SRT_DFLS"
+    assert result["data_cutoff"] == "2026-09-02"
+    assert result["strategy_releases"] == ["S002-v1"]
+    assert "srt_s002_v1_publication.json" in result["files"]
+    assert (tmp_path / "data/srt_s002_v1_publication.json").is_file()
+    assert (tmp_path / "data/510500_manifest.json").is_file()
+    assert (tmp_path / "data/510500_execution_manifest.json").is_file()
+    decision = SrtAdviceClient(
+        repo_root=root,
+        data_dir=tmp_path / "data",
+        now=lambda: datetime(2026, 9, 2, 20, 31, tzinfo=timezone(timedelta(hours=8))),
+    ).get_decision(
+        0,
+        100000.0,
+        strategy_id="S002",
+        strategy_version="v1",
+        account_id="preflight",
+        symbol="510500.SH",
+        asset="etf",
+    )
+    assert decision.strategy["release_id"] == "S002-v1"
+    assert decision.data_cutoff.isoformat() == "2026-09-02"
+
+    published_file = tmp_path / "data/510500_execution_manifest.json"
+    published_file.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(AdviceClientError, match="incomplete or mixed"):
+        SrtAdviceClient(repo_root=root, data_dir=tmp_path / "data").get_decision(
+            0,
+            100000.0,
+            strategy_id="S002",
+            strategy_version="v1",
+            account_id="preflight",
+            symbol="510500.SH",
+            asset="etf",
+        )
 
 
 class Engine:
@@ -40,10 +143,14 @@ class Store:
         self.audit_events.append(value)
         return value
     def virtual_accounts(self): return list(self.accounts)
-    def strategy_virtual_accounts(self): return list(self.accounts)
+    def strategy_virtual_accounts(self):
+        return [
+            account for account in self.accounts
+            if account.get("account_type", "STRATEGY") == "STRATEGY"
+        ]
 
 
-def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery():
+def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(tmp_path):
     class Publisher:
         def __init__(self): self.calls = 0
         def publish(self, end_date):
@@ -109,29 +216,6 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
     assert not is_submission_window(datetime(2026, 9, 2, 14, 57, tzinfo=shanghai))
 
     cli_store = Store()
-    publisher_client = CliDataPublisher(
-        executable="czsc-trader", repo_root=".", data_dir=".", symbol="588080.SH",
-        asset="etf", start_date="2021-01-01", audit=AuditRecorder(cli_store),
-        runner=lambda args, **kwargs: CompletedProcess(
-            args, 0, '{"status":"PASS","result":{"data_cutoff":"2026-09-02"}}', ""
-        ),
-    )
-    publisher_client.publish("2026-09-02")
-    external = cli_store.audit_events[-1]
-    assert external["event_type"] == "EXTERNAL_CALL_SUCCEEDED"
-    assert external["details"]["service"] == "trader"
-    assert external["details"]["upstream_service"] == "tushare"
-    assert external["details"]["operation"] == "data.prepare"
-
-    calls: list[list[str]] = []
-    def multi_runner(args, **kwargs):
-        calls.append(args)
-        return CompletedProcess(
-            args, 0,
-            '{"status":"PASS","result":{"data_cutoff":"2026-09-02","generation_id":"GEN-TEST"}}',
-            "",
-        )
-
     cli_store.accounts = [
         {
             "symbol": "588080.SH", "asset_type": "etf", "status": "RUNNING",
@@ -141,47 +225,45 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery()
             "symbol": "510500.SH", "asset_type": "etf", "status": "RUNNING",
             "strategy_id": "S003", "strategy_version": "v1",
         },
+        {
+            "symbol": "FUTU.SIMULATE.CN", "asset_type": "system", "status": "RUNNING",
+            "strategy_id": None, "strategy_version": None,
+            "account_type": "CHANNEL_RECONCILIATION",
+        },
     ]
     multi = AccountDataPublisher(
         store=cli_store,
-        executable="czsc-trader",
         repo_root=".",
         data_dir=".",
         start_date="2021-01-01",
-        runner=multi_runner,
         audit=AuditRecorder(cli_store),
     )
+    calls: list[tuple[str, str, tuple[tuple[str, str], ...], str]] = []
+    def publish_release(symbol, asset, releases, end_date):
+        calls.append((symbol, asset, tuple(releases), end_date))
+        return {"data_cutoff": end_date, "generation_id": "GEN-TEST"}
+    multi.publish_release = publish_release
     multi_result = multi.publish("2026-09-02")
-    published_symbols = [
-        args[args.index("--symbol") + 1]
-        for args in calls
-        if "--symbol" in args
-    ]
+    published_symbols = [item[0] for item in calls]
     assert published_symbols == ["510500.SH", "588080.SH"]
     assert [item["symbol"] for item in multi_result["instruments"]] == published_symbols
-    assert all("publish-runtime" in args for args in calls)
-    assert {
-        args[args.index("--release") + 1] for args in calls
-    } == {"S001:v1", "S003:v1"}
+    assert {item[2][0] for item in calls} == {("S001", "v1"), ("S003", "v1")}
     assert multi_result["generation_ids"] == ["GEN-TEST", "GEN-TEST"]
 
     failed_runtime = AccountDataPublisher(
         store=cli_store,
-        executable="czsc-trader",
         repo_root=".",
-        data_dir=".",
+        data_dir=tmp_path / "failed-data",
         start_date="2021-01-01",
-        runner=lambda args, **kwargs: CompletedProcess(
-            args,
-            5,
-            '{"status":"FAIL","error":{"message":"runtime support unavailable"}}',
-            "",
-        ),
+    )
+    failed_runtime._release = lambda *_args: (_ for _ in ()).throw(
+        DataPublicationError("runtime support unavailable")
     )
     with pytest.raises(DataPublicationError, match="runtime support unavailable"):
         failed_runtime.publish_release(
             "588080.SH", "etf", [("S007", "v1")], "2026-09-15"
         )
+    assert not (tmp_path / "failed-data").exists()
 
 def test_ft_pte04_failed_account_batch_is_not_marked_complete():
     class RetryingEngine(Engine):

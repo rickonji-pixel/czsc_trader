@@ -13,6 +13,7 @@ dependencies = [
     "czsc-factor-signal-catalog==0.1.0",
     "czsc-strategy-evaluator==0.1.0",
     "czsc-strategy-manager==0.1.0",
+    "czsc-strategy-runtime==0.1.0",
     "czsc-strategy-template-catalog==0.1.0",
     "vectorbt==1.1.0",
     "pandas>=3.0.3,<4",

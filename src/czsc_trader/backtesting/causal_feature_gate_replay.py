@@ -60,7 +60,7 @@ def _resolve_panel(
     manifest_path = support_manifest_path(replay_data.root, snapshot.identity.reference)
     if not panel_path.is_file() or not manifest_path.is_file():
         raise ValueError(
-            "backtest strategy support data is missing; run data prepare-strategy-support "
+            "backtest strategy support data is missing; run data update-backtest "
             f"for {snapshot.identity.reference} through the requested end"
         )
     identity = json.loads(manifest_path.read_text(encoding="utf-8"))

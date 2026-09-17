@@ -92,6 +92,7 @@ def run_backtest(
             "dataset": data.dataset,
             "metrics": summary.metrics,
             "audit_status": summary.manifest["audit"]["status"],
+            "runtime_engine": summary.manifest["application"]["runtime_engine"],
         },
         artifacts={"output_dir": str(summary.output_dir)},
     )

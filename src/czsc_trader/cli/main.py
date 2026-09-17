@@ -95,46 +95,6 @@ def _data_update_backtest(args: argparse.Namespace):
     )
 
 
-def _data_prepare_strategy_support(args: argparse.Namespace):
-    from czsc_trader.application.data_service import (
-        PrepareStrategySupportCommand,
-        prepare_strategy_support_data,
-    )
-
-    return prepare_strategy_support_data(
-        _context(args),
-        PrepareStrategySupportCommand(args.strategy, args.strategy_version, args.through),
-    )
-
-
-def _data_publish_runtime(args: argparse.Namespace):
-    from czsc_trader.application.data_service import (
-        PublishRuntimeDataCommand,
-        publish_runtime_data,
-    )
-
-    releases = []
-    for value in args.release:
-        strategy_id, separator, version = value.partition(":")
-        if not separator or not strategy_id or not version:
-            raise UsageError(
-                "invalid_release_reference",
-                "--release must use STRATEGY_ID:VERSION",
-                context={"release": value},
-            )
-        releases.append((strategy_id, version))
-    return publish_runtime_data(
-        _context(args),
-        PublishRuntimeDataCommand(
-            symbol=args.symbol,
-            asset_type=args.asset,
-            start=args.start,
-            through=args.through,
-            strategy_releases=tuple(releases),
-        ),
-    )
-
-
 def _backtest_run(args: argparse.Namespace):
     from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
 
@@ -150,44 +110,6 @@ def _backtest_run(args: argparse.Namespace):
             end=args.end,
             init_cash=args.init_cash,
             outputs_root=args.outputs_root,
-        ),
-    )
-
-
-def _advice_run(args: argparse.Namespace):
-    from czsc_trader.application.advice_service import AdviceCommand, run_advice
-
-    using_cash = args.available_cash is not None
-    using_new = args.actual_quantity is not None or args.position_size is not None or using_cash
-    using_legacy = args.actual_position is not None or args.quantity is not None
-    if using_new and using_legacy:
-        raise UsageError("invalid_arguments", "new and legacy quantity arguments cannot be mixed")
-    if using_new:
-        if args.actual_quantity is None or (args.position_size is None) == (not using_cash):
-            raise UsageError(
-                "invalid_arguments", "use --actual-quantity with exactly one sizing argument"
-            )
-        actual_quantity = args.actual_quantity
-        position_size = args.position_size
-    else:
-        if args.actual_position is None or args.quantity is None:
-            raise UsageError(
-                "invalid_arguments", "provide --actual-quantity/--position-size"
-            )
-        actual_quantity = args.actual_position * args.quantity
-        position_size = args.quantity
-    return run_advice(
-        _context(args),
-        AdviceCommand(
-            symbol=args.symbol,
-            asset_type=args.asset,
-            actual_quantity=actual_quantity,
-            position_size=position_size,
-            available_cash=args.available_cash,
-            baseline=args.baseline,
-            strategy=args.strategy,
-            strategy_version=args.strategy_version,
-            cycle_target_quantity=args.cycle_target_quantity,
         ),
     )
 
@@ -308,28 +230,6 @@ def build_parser() -> argparse.ArgumentParser:
     data_prepare.set_defaults(
         command_handler=_data_prepare,
         command_name="data.prepare",
-    )
-    data_support = data_actions.add_parser("prepare-strategy-support")
-    data_support.add_argument("--strategy", required=True)
-    data_support.add_argument("--strategy-version", required=True)
-    data_support.add_argument("--through", required=True, type=date.fromisoformat)
-    data_support.add_argument("--data-dir", type=Path)
-    _add_repository_root(data_support)
-    data_support.set_defaults(
-        command_handler=_data_prepare_strategy_support,
-        command_name="data.prepare-strategy-support",
-    )
-    data_runtime = data_actions.add_parser("publish-runtime")
-    data_runtime.add_argument("--symbol", required=True)
-    data_runtime.add_argument("--asset", required=True, choices=("stock", "etf"))
-    data_runtime.add_argument("--start", required=True, type=date.fromisoformat)
-    data_runtime.add_argument("--through", required=True, type=date.fromisoformat)
-    data_runtime.add_argument("--release", required=True, action="append")
-    data_runtime.add_argument("--data-dir", type=Path)
-    _add_repository_root(data_runtime)
-    data_runtime.set_defaults(
-        command_handler=_data_publish_runtime,
-        command_name="data.publish-runtime",
     )
     data_validate = data_actions.add_parser("validate")
     data_validate.add_argument("--symbol", required=True)
@@ -492,28 +392,6 @@ def build_parser() -> argparse.ArgumentParser:
     backtest_run.set_defaults(
         command_handler=_backtest_run,
         command_name="backtest.run",
-    )
-    advice = resources.add_parser("advice")
-    advice_actions = advice.add_subparsers(
-        dest="action", required=True, parser_class=CommandParser
-    )
-    advice_run = advice_actions.add_parser("run")
-    advice_run.add_argument("--symbol", required=True)
-    advice_run.add_argument("--asset", required=True, choices=("stock", "etf"))
-    advice_run.add_argument("--actual-quantity", type=int)
-    advice_run.add_argument("--position-size", type=int)
-    advice_run.add_argument("--available-cash", type=float)
-    advice_run.add_argument("--actual-position", type=int, choices=(0, 1))
-    advice_run.add_argument("--quantity", type=int)
-    advice_run.add_argument("--baseline")
-    advice_run.add_argument("--strategy")
-    advice_run.add_argument("--strategy-version")
-    advice_run.add_argument("--cycle-target-quantity", type=int)
-    advice_run.add_argument("--data-dir", type=Path)
-    _add_repository_root(advice_run)
-    advice_run.set_defaults(
-        command_handler=_advice_run,
-        command_name="advice.run",
     )
     archive = resources.add_parser("archive")
     archive_actions = archive.add_subparsers(

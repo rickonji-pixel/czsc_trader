@@ -11,8 +11,16 @@ import pytest
 
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parent
+_EXPECTED_VENV = (_REPOSITORY_ROOT / ".venv").resolve()
 _PYTEST_RUN = _REPOSITORY_ROOT / ".tmp" / "pytest" / f"run-{uuid4().hex}"
 _PYTHON_CACHE_ROOT = _REPOSITORY_ROOT / ".tmp" / "pycache"
+
+if Path(sys.prefix).resolve() != _EXPECTED_VENV:
+    raise pytest.UsageError(
+        "CZSC Trader tests must use the repository virtual environment. "
+        f"Current interpreter: {sys.executable}. "
+        r"Run .\.venv\Scripts\python.exe -m pytest -c pyproject.toml ..."
+    )
 
 # The root conftest itself is compiled before this assignment. All modules loaded
 # afterwards are redirected, and pytest_sessionfinish removes that bootstrap cache.

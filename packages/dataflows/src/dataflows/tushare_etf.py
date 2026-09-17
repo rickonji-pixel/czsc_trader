@@ -18,6 +18,7 @@ from .bar_utils import (
     validate_a_share_intraday_bars,
 )
 from .formatting import format_dataframe_report
+from .errors import EmptyDataError
 from .market_resolver import MARKET_A_SHARE, detect_market, normalize_symbol_for_vendor
 from .tushare_common import get_tushare_pro
 
@@ -69,7 +70,10 @@ def _intraday_boundary(value: str, *, end: bool) -> str:
 
 
 def _calendar_year_segments(
-    start_date: str, end_date: str, *, years_per_segment: int = 1,
+    start_date: str,
+    end_date: str,
+    *,
+    years_per_segment: int = 1,
 ) -> list[tuple[str, str]]:
     """Split long requests to stay below Tushare's silent row caps."""
     if years_per_segment < 1:
@@ -81,9 +85,7 @@ def _calendar_year_segments(
         segment_start = max(start, pd.Timestamp(year=year, month=1, day=1))
         last_year = min(year + years_per_segment - 1, end.year)
         segment_end = min(end, pd.Timestamp(year=last_year, month=12, day=31))
-        segments.append(
-            (segment_start.date().isoformat(), segment_end.date().isoformat())
-        )
+        segments.append((segment_start.date().isoformat(), segment_end.date().isoformat()))
     return segments
 
 
@@ -122,9 +124,7 @@ def _resample_weekly(dataframe: pd.DataFrame) -> pd.DataFrame:
     return weekly.reset_index(drop=True)
 
 
-def _standardize_etf_ohlcv(
-    dataframe: pd.DataFrame, *, intraday: bool
-) -> pd.DataFrame:
+def _standardize_etf_ohlcv(dataframe: pd.DataFrame, *, intraday: bool) -> pd.DataFrame:
     normalized = standardize_vendor_ohlcv(dataframe, intraday=intraday)
     if not intraday:
         normalized["Volume"] = normalized["Volume"] * 100
@@ -147,9 +147,7 @@ def _apply_known_intraday_volume_corrections(
     return frame, corrected_dates
 
 
-def _merge_opening_auction_into_first_bar(
-    dataframe: pd.DataFrame, period: str
-) -> pd.DataFrame:
+def _merge_opening_auction_into_first_bar(dataframe: pd.DataFrame, period: str) -> pd.DataFrame:
     if dataframe.empty:
         return dataframe.copy()
 
@@ -179,11 +177,7 @@ def _merge_opening_auction_into_first_bar(
         frame.at[target_index, "Amount"] += frame.at[auction_index, "Amount"]
         merged_auction_indices.append(auction_index)
 
-    return (
-        frame.drop(index=merged_auction_indices)
-        .sort_values("Date")
-        .reset_index(drop=True)
-    )
+    return frame.drop(index=merged_auction_indices).sort_values("Date").reset_index(drop=True)
 
 
 def _drop_zero_activity_days(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -192,8 +186,10 @@ def _drop_zero_activity_days(dataframe: pd.DataFrame) -> pd.DataFrame:
         return dataframe.copy()
     frame = dataframe.copy()
     trade_dates = pd.to_datetime(frame["Date"], errors="coerce").dt.normalize()
-    active = frame.assign(_trade_date=trade_dates).groupby("_trade_date").agg(
-        Volume=("Volume", "sum"), Amount=("Amount", "sum")
+    active = (
+        frame.assign(_trade_date=trade_dates)
+        .groupby("_trade_date")
+        .agg(Volume=("Volume", "sum"), Amount=("Amount", "sum"))
     )
     active_dates = active.index[(active["Volume"] > 0) | (active["Amount"] > 0)]
     return frame.loc[trade_dates.isin(active_dates)].reset_index(drop=True)
@@ -229,10 +225,14 @@ def _fetch_tushare_etf_ohlcv(
                 start_date, end_date, period
             )
         ]
-        dataframe = pd.concat(
-            [piece for piece in pieces if piece is not None and not piece.empty],
-            ignore_index=True,
-        ) if any(piece is not None and not piece.empty for piece in pieces) else pd.DataFrame()
+        dataframe = (
+            pd.concat(
+                [piece for piece in pieces if piece is not None and not piece.empty],
+                ignore_index=True,
+            )
+            if any(piece is not None and not piece.empty for piece in pieces)
+            else pd.DataFrame()
+        )
     else:
         dataframe = pro.fund_daily(
             ts_code=ts_code,
@@ -280,10 +280,14 @@ def _fetch_hfq_factors(
             start_date, end_date, years_per_segment=5
         )
     ]
-    dataframe = pd.concat(
-        [piece for piece in pieces if piece is not None and not piece.empty],
-        ignore_index=True,
-    ) if any(piece is not None and not piece.empty for piece in pieces) else pd.DataFrame()
+    dataframe = (
+        pd.concat(
+            [piece for piece in pieces if piece is not None and not piece.empty],
+            ignore_index=True,
+        )
+        if any(piece is not None and not piece.empty for piece in pieces)
+        else pd.DataFrame()
+    )
     return normalize_adjustment_factors(dataframe)
 
 
@@ -306,11 +310,9 @@ def fetch_etf_ohlcv(
         env_file=env_file,
     )
     if dataframe.empty:
-        raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
+        raise EmptyDataError(f"Tushare returned no data for {symbol} {normalized_period}")
     correction_dates = dataframe.attrs.get("hardcoded_volume_corrections", [])
-    factors = _fetch_hfq_factors(
-        ts_code, start_date, end_date, env_file=env_file
-    )
+    factors = _fetch_hfq_factors(ts_code, start_date, end_date, env_file=env_file)
     dataframe = apply_hfq_adjustment(dataframe, factors)
     if normalized_period == "weekly":
         dataframe = _resample_weekly(dataframe)
@@ -345,7 +347,7 @@ def fetch_etf_unadjusted_daily(
         env_file=env_file,
     )
     if dataframe.empty:
-        raise ValueError(f"Tushare returned no data for {symbol} unadjusted daily")
+        raise EmptyDataError(f"Tushare returned no data for {symbol} unadjusted daily")
     return dataframe.copy(), {
         "vendor": "tushare",
         "market": market,

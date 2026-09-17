@@ -1,6 +1,6 @@
 # Paper Trading Engine
 
-PTE是仓库内独立的模拟交易包，与TDR通过CLI和版本化JSON契约协作。本文只描述包级边界、
+PTE是仓库内独立的模拟交易包，与SRT通过进程内接口和版本化契约协作。本文只描述包级边界、
 对象模型、技术契约和开发验证。安装、账户操作、控制台使用以及PTE/WDG启停见
 [用户使用说明](../../docs/USER_GUIDE.md)。
 
@@ -14,8 +14,8 @@ PTE负责：
 - SQLite追加式审计、控制台和账户前瞻观察图；
 - 向SM导出人工确认所需的模拟盘里程碑证据。
 
-PTE不负责策略计算、价格调整、目标仓位或委托数量计算，这些事实由TDR通过
-`advice.v4/advice.v5`提供。PTE不导入TDR、SM或SE，也不创建或探测Futu行情连接。内部OHLC模拟成交渠道已经
+PTE不负责策略计算、价格调整、目标仓位或委托数量计算，这些事实由SRT提供。
+PTE不导入TDR、SM或SE，也不创建或探测Futu行情连接。内部OHLC模拟成交渠道已经
 移除；只有Futu累计成交回报能够改变账户现金和持仓。
 
 WDG位于本包内，只管理PTE子进程生命周期和HTTP健康探测。数据发布时间、OpenD连接、
@@ -48,18 +48,21 @@ FutuSimulateCnChannel 1 ─── 1 Futu SIMULATE/CN account
 
 ## 外部契约
 
-### TDR
+### SRT
 
-- `advice.v4`：PTE传入标的、策略版本、实际持仓和可用资金，TDR返回确定性决策、目标
+- `advice.v4`：PTE传入部署、实际持仓和可用资金，SRT返回确定性决策、目标
   数量、执行限价和订单列表；
 - `advice.v5`：在v4账户事实基础上返回原子执行计划。每个计划环节包含交易时点、订单及
   可选成交依赖；PTE持久化全部环节后才接受该决策，并可在重启后恢复。当前日内轮换只在
   开盘买入`FILLED_ALL`后放行11:30卖出；买单未完整成交或错过时点时撤单、阻断后续环节
-  并保留执行缺口。买入限价由TDR给出，Futu自动调价始终关闭；
+  并保留执行缺口。订单价格由SRT冻结执行策略给出，Futu自动调价始终关闭；
 - `account_observation.v1`：PTE通过stdin传入有限行情、决策和账户事实，TDR在内存中
   返回HTML，不读取或保存PTE前瞻行情；PTE使用外置Plotly运行库并长期缓存，账户数据
   刷新时保留图表DOM，只有图表事实变化才加载新的轻量HTML；
 - PTE只接受冻结且资格为`PAPER_READY`的策略发布。
+- 每次数据发布先写完并校验全部文件，最后原子提交generation清单；PTE读取前逐文件复核
+  generation哈希，任何半发布或跨代混合都阻止决策。
+- 当前只部署SRT的`STATELESS`策略；依赖持久状态的运行时明确拒绝上线。
 
 ### Futu
 
@@ -109,7 +112,7 @@ PTE日常运行状态不进入SM。只有人工复核后的里程碑通过自包
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
-.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\paper_trading_engine\tests -q
 node --test-isolation=none --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
 .\.venv\Scripts\python.exe -m ruff check `
   packages\paper_trading_engine\src packages\paper_trading_engine\tests

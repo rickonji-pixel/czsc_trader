@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 dependencies = [
     "futu-api==10.10.7008",
     "plotly==6.9.0",
+    "czsc-strategy-runtime==0.1.0",
     "pywin32>=308; platform_system == 'Windows'",
 ]
 

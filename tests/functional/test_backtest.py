@@ -121,6 +121,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         ),
         outputs_root=functional_repo / "outputs",
         run_date=pd.Timestamp("2026-09-04").date(),
+        repository_root=functional_repo,
     )
     required = {
         "manifest.json", "decisions.csv", "orders.csv", "fills.csv",
@@ -709,6 +710,7 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
         "mode": "cross_symbol_generalization",
         "strategy_reference_symbol": "588080.SH",
         "backtest_symbol": "159352.SZ",
+        "runtime_engine": "srt",
     }
     generalized_report = (generalized_dir / "report.md").read_text(encoding="utf-8")
     assert "- 策略参考标的：588080.SH" in generalized_report

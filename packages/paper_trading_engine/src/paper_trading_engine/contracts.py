@@ -63,8 +63,8 @@ class OrderSpec:
             raise AdviceContractError("order type must be LIMIT or MARKET")
         if side == "BUY" and order_type != "LIMIT":
             raise AdviceContractError("buy orders must use LIMIT")
-        if side == "SELL" and order_type != "MARKET":
-            raise AdviceContractError("sell orders must use MARKET")
+        if side == "SELL" and order_type not in {"LIMIT", "MARKET"}:
+            raise AdviceContractError("sell orders must use LIMIT or MARKET")
         if value.get("time_in_force") != "DAY":
             raise AdviceContractError("order time in force must be DAY")
         return cls(side, quantity, order_type, price, "DAY")
@@ -152,6 +152,8 @@ class AdviceDecision:
     source_decision_id: str = ""
     plan_mode: str = "NONE"
     plan_legs: tuple[PlanLegSpec, ...] = ()
+    runtime_sha256: str = ""
+    input_identity_hashes: dict[str, str] | None = None
 
     @classmethod
     def from_cli_payload(cls, payload: object) -> "AdviceDecision":
@@ -299,6 +301,17 @@ class AdviceDecision:
             raise AdviceContractError("data cutoff must equal signal date")
         if not str(value.get("decision_id", "")).strip():
             raise AdviceContractError("decision id is required")
+        runtime_sha256 = str(value.get("runtime_sha256", ""))
+        input_identities_value = value.get("input_identity_hashes", {})
+        input_identities = _object(input_identities_value, "input identity hashes")
+        if runtime_sha256 and re.fullmatch(r"[0-9a-f]{64}", runtime_sha256) is None:
+            raise AdviceContractError("runtime sha256 has invalid format")
+        if any(
+            not isinstance(name, str)
+            or re.fullmatch(r"[0-9a-f]{64}", str(identity)) is None
+            for name, identity in input_identities.items()
+        ):
+            raise AdviceContractError("input identity hash has invalid format")
         if re.fullmatch(r"[0-9]{6}\.(SH|SZ)", str(value.get("symbol", "")).upper()) is None:
             raise AdviceContractError("advice symbol has invalid format")
         return cls(
@@ -327,4 +340,8 @@ class AdviceDecision:
             source_decision_id=str(value.get("decision_id", "")),
             plan_mode=plan_mode,
             plan_legs=plan_legs,
+            runtime_sha256=runtime_sha256,
+            input_identity_hashes={
+                str(name): str(identity) for name, identity in input_identities.items()
+            },
         )

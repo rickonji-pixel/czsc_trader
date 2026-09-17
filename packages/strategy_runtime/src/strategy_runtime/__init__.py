@@ -1,5 +1,6 @@
 """Strategy Runtime (SRT) public contracts."""
 
+from .backtest_channel import BacktestChannel, BacktestExecutionModel
 from .errors import (
     RuntimeCompatibilityError,
     RuntimeContractError,
@@ -9,11 +10,13 @@ from .errors import (
 from .models import (
     AccountSnapshot,
     CalculationRequest,
+    ChannelCapabilities,
     CutoffRule,
     DecisionContract,
     DeploymentSpec,
     ExecutionPolicy,
     ExecutionReceipt,
+    ExecutionRequest,
     ImplementationRef,
     InputContract,
     InputRequirement,
@@ -23,18 +26,24 @@ from .models import (
     PublishedStrategyData,
     RequiredCapabilities,
     RuntimeDefinition,
+    RuntimeRunResult,
+    RuntimeRunStatus,
     StrategyDecision,
     StrategyExplanation,
     StrategyStateSnapshot,
     canonical_sha256,
 )
 from .protocols import ExecutableStrategy, ExecutionChannel, RuntimeAccount, RuntimeClock
+from .runner import StrategyRunner
 
 __version__ = "0.1.0"
 
 __all__ = [
     "AccountSnapshot",
+    "BacktestChannel",
+    "BacktestExecutionModel",
     "CalculationRequest",
+    "ChannelCapabilities",
     "CutoffRule",
     "DecisionContract",
     "DeploymentSpec",
@@ -42,6 +51,7 @@ __all__ = [
     "ExecutionChannel",
     "ExecutionPolicy",
     "ExecutionReceipt",
+    "ExecutionRequest",
     "ImplementationRef",
     "InputContract",
     "InputRequirement",
@@ -55,10 +65,13 @@ __all__ = [
     "RuntimeCompatibilityError",
     "RuntimeContractError",
     "RuntimeDefinition",
+    "RuntimeRunResult",
+    "RuntimeRunStatus",
     "RuntimeExecutionError",
     "StrategyDecision",
     "StrategyExplanation",
     "StrategyRuntimeError",
+    "StrategyRunner",
     "StrategyStateSnapshot",
     "canonical_sha256",
 ]

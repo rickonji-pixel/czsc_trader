@@ -10,9 +10,10 @@ from dataflows import Dataflows
 from .models import (
     AccountSnapshot,
     CalculationRequest,
+    ChannelCapabilities,
     DeploymentSpec,
-    ExecutionPolicy,
     ExecutionReceipt,
+    ExecutionRequest,
     PublishedStrategyData,
     RuntimeDefinition,
     StrategyDecision,
@@ -35,12 +36,10 @@ class ExecutionChannel(Protocol):
     @property
     def channel_id(self) -> str: ...
 
-    def submit(
-        self,
-        decision: StrategyDecision,
-        policy: ExecutionPolicy,
-        idempotency_key: str,
-    ) -> ExecutionReceipt: ...
+    @property
+    def capabilities(self) -> ChannelCapabilities: ...
+
+    def submit(self, request: ExecutionRequest, idempotency_key: str) -> ExecutionReceipt: ...
 
 
 @runtime_checkable

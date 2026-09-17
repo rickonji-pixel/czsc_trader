@@ -12,7 +12,7 @@ import re
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from dataflows import DataResult, DataStatus
+from dataflows import DataRequest, DataResult, DataStatus
 
 from .errors import RuntimeContractError
 
@@ -94,6 +94,12 @@ class PublicationStatus(StrEnum):
     WAITING_SOURCE = "WAITING_SOURCE"
     INCOMPLETE = "INCOMPLETE"
     FAILED = "FAILED"
+
+
+class RuntimeRunStatus(StrEnum):
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    DATA_NOT_READY = "DATA_NOT_READY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,6 +229,20 @@ class RequiredCapabilities:
 
 
 @dataclass(frozen=True, slots=True)
+class ChannelCapabilities:
+    order_types: tuple[str, ...]
+    checkpoints: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "order_types", _unique_text(self.order_types, "channel order_types")
+        )
+        object.__setattr__(
+            self, "checkpoints", _unique_text(self.checkpoints, "channel checkpoints")
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeDefinition:
     schema_version: int
     strategy_family_id: str
@@ -317,15 +337,25 @@ class PublishedStrategyData:
     release_hash: str
     status: PublicationStatus
     requested_cutoff: str
+    input_requests: Mapping[str, DataRequest]
     input_results: Mapping[str, DataResult]
     error: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "release_id", _text(self.release_id, "publication release_id"))
+        object.__setattr__(
+            self,
+            "requested_cutoff",
+            _text(self.requested_cutoff, "publication requested_cutoff"),
+        )
         if not _SHA256.fullmatch(self.release_hash):
             raise RuntimeContractError("publication release_hash must be lowercase SHA-256")
+        pd_requests = _mapping(self.input_requests, "publication input_requests")
         pd_results = _mapping(self.input_results, "publication input_results")
+        object.__setattr__(self, "input_requests", pd_requests)
         object.__setattr__(self, "input_results", pd_results)
+        if set(pd_requests) != set(pd_results):
+            raise RuntimeContractError("publication request and result names must match")
         ready = self.status is PublicationStatus.READY
         if ready and (
             not pd_results
@@ -439,3 +469,45 @@ class ExecutionReceipt:
         object.__setattr__(self, "idempotency_key", _text(self.idempotency_key, "idempotency_key"))
         object.__setattr__(self, "status", _text(self.status, "execution status"))
         object.__setattr__(self, "message", _text(self.message, "execution message"))
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionRequest:
+    deployment: DeploymentSpec
+    account: AccountSnapshot
+    decision: StrategyDecision
+    policy: ExecutionPolicy
+
+    def __post_init__(self) -> None:
+        if self.deployment.account_id != self.account.account_id:
+            raise RuntimeContractError("execution deployment and account IDs differ")
+        if self.deployment.deployment_id != self.decision.deployment_id:
+            raise RuntimeContractError("execution deployment and decision IDs differ")
+        if self.deployment.release_id != self.decision.release_id:
+            raise RuntimeContractError("execution deployment and decision release IDs differ")
+        if self.deployment.release_hash != self.decision.release_hash:
+            raise RuntimeContractError("execution deployment and decision release hashes differ")
+        if self.account.revision != self.decision.account_revision:
+            raise RuntimeContractError("execution account revision differs from decision")
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeRunResult:
+    status: RuntimeRunStatus
+    publication: PublishedStrategyData
+    decision: StrategyDecision | None = None
+    receipt: ExecutionReceipt | None = None
+
+    def __post_init__(self) -> None:
+        if self.status is RuntimeRunStatus.DATA_NOT_READY:
+            if self.publication.ready or self.decision is not None or self.receipt is not None:
+                raise RuntimeContractError("DATA_NOT_READY result cannot contain execution data")
+            return
+        if not self.publication.ready or self.decision is None or self.receipt is None:
+            raise RuntimeContractError(
+                "accepted or rejected runtime result requires publication and execution"
+            )
+        if self.status is RuntimeRunStatus.ACCEPTED and not self.receipt.accepted:
+            raise RuntimeContractError("ACCEPTED result requires an accepted receipt")
+        if self.status is RuntimeRunStatus.REJECTED and self.receipt.accepted:
+            raise RuntimeContractError("REJECTED result requires a rejected receipt")

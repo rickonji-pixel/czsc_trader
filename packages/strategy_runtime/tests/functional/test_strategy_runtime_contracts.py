@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from dataflows import DataError, DataIdentity, DataResult, DataStatus
+from dataflows import DataError, DataIdentity, DataRequest, DataResult, DataStatus
 from strategy_runtime import (
     AccountSnapshot,
     CalculationRequest,
@@ -77,6 +77,17 @@ def _ready_data() -> DataResult:
     return DataResult(DataStatus.READY, frame, identity)
 
 
+def _data_request() -> DataRequest:
+    return DataRequest(
+        "etf.ohlcv",
+        "588080.SH",
+        "2026-09-17",
+        "2026-09-17",
+        "2026-09-17",
+        "daily",
+    )
+
+
 def _deployment() -> DeploymentSpec:
     return DeploymentSpec(
         "dep-s007-paper",
@@ -133,6 +144,7 @@ def test_ready_publication_requires_every_input_to_be_ready() -> None:
             RELEASE_HASH,
             PublicationStatus.READY,
             "2026-09-17",
+            {"daily_bars": _data_request()},
             {"daily_bars": incomplete},
         )
 
@@ -143,6 +155,7 @@ def test_calculation_request_requires_matching_explicit_snapshots() -> None:
         RELEASE_HASH,
         PublicationStatus.READY,
         "2026-09-17",
+        {"daily_bars": _data_request()},
         {"daily_bars": _ready_data()},
     )
     account = AccountSnapshot("s007-v1", 100_000.0, 100_000.0, 0, 4, NOW)
@@ -160,6 +173,7 @@ def test_calculation_rejects_stale_or_foreign_state_identity() -> None:
         RELEASE_HASH,
         PublicationStatus.READY,
         "2026-09-17",
+        {"daily_bars": _data_request()},
         {"daily_bars": _ready_data()},
     )
     account = AccountSnapshot("s007-v1", 100_000.0, 100_000.0, 0, 4, NOW)

@@ -1,0 +1,194 @@
+"""One deterministic orchestration path for every SRT execution host."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+from dataflows import Dataflows
+
+from .errors import RuntimeCompatibilityError, RuntimeContractError
+from .models import (
+    CalculationRequest,
+    CutoffRule,
+    DeploymentSpec,
+    ExecutionRequest,
+    PublishedStrategyData,
+    RuntimeRunResult,
+    RuntimeRunStatus,
+    RuntimeDefinition,
+    StrategyDecision,
+    StrategyStateSnapshot,
+)
+from .protocols import ExecutableStrategy, ExecutionChannel, RuntimeAccount
+
+
+class StrategyRunner:
+    """Publish, calculate, validate, and submit one strategy cycle."""
+
+    def run(
+        self,
+        *,
+        strategy: ExecutableStrategy,
+        deployment: DeploymentSpec,
+        state: StrategyStateSnapshot,
+        dataflows: Dataflows,
+        account: RuntimeAccount,
+        channel: ExecutionChannel,
+        through: datetime,
+        calculation_time: datetime,
+    ) -> RuntimeRunResult:
+        if through.tzinfo is None:
+            raise RuntimeContractError("publication through must be timezone-aware")
+        definition = strategy.definition
+        self._validate_compatibility(definition, deployment, channel)
+
+        publication = strategy.publish_data(dataflows, deployment, through)
+        self._validate_publication(definition, publication)
+        if not publication.ready:
+            return RuntimeRunResult(RuntimeRunStatus.DATA_NOT_READY, publication)
+
+        account_snapshot = account.snapshot(deployment)
+        request = CalculationRequest(
+            deployment=deployment,
+            publication=publication,
+            account=account_snapshot,
+            state=state,
+            calculation_time=calculation_time,
+        )
+        decision = strategy.calculate(request)
+        self._validate_decision(definition, request, decision)
+
+        execution_request = ExecutionRequest(
+            deployment=deployment,
+            account=account_snapshot,
+            decision=decision,
+            policy=definition.execution,
+        )
+        idempotency_key = f"{deployment.channel_id}:{decision.decision_id}"
+        receipt = channel.submit(execution_request, idempotency_key)
+        if receipt.idempotency_key != idempotency_key:
+            raise RuntimeContractError("execution receipt idempotency key differs from request")
+        status = RuntimeRunStatus.ACCEPTED if receipt.accepted else RuntimeRunStatus.REJECTED
+        return RuntimeRunResult(status, publication, decision, receipt)
+
+    @staticmethod
+    def _validate_compatibility(
+        definition: RuntimeDefinition,
+        deployment: DeploymentSpec,
+        channel: ExecutionChannel,
+    ) -> None:
+        if definition.release_id != deployment.release_id:
+            raise RuntimeCompatibilityError("strategy and deployment release IDs differ")
+        if definition.release_hash != deployment.release_hash:
+            raise RuntimeCompatibilityError("strategy and deployment release hashes differ")
+        if deployment.channel_id != channel.channel_id:
+            raise RuntimeCompatibilityError("deployment and execution channel IDs differ")
+        missing_orders = set(definition.capabilities.order_types) - set(
+            channel.capabilities.order_types
+        )
+        missing_checkpoints = set(definition.capabilities.checkpoints) - set(
+            channel.capabilities.checkpoints
+        )
+        if missing_orders or missing_checkpoints:
+            raise RuntimeCompatibilityError(
+                "execution channel lacks required capabilities: "
+                f"order_types={sorted(missing_orders)}, "
+                f"checkpoints={sorted(missing_checkpoints)}"
+            )
+
+    @staticmethod
+    def _validate_publication(
+        definition: RuntimeDefinition, publication: PublishedStrategyData
+    ) -> None:
+        if publication.release_id != definition.release_id:
+            raise RuntimeContractError("strategy and publication release IDs differ")
+        if publication.release_hash != definition.release_hash:
+            raise RuntimeContractError("strategy and publication release hashes differ")
+        expected_inputs = {item.name for item in definition.inputs.requirements}
+        actual_inputs = set(publication.input_results)
+        if actual_inputs != expected_inputs:
+            raise RuntimeContractError(
+                "publication inputs differ from the declared contract: "
+                f"missing={sorted(expected_inputs - actual_inputs)}, "
+                f"unexpected={sorted(actual_inputs - expected_inputs)}"
+            )
+        requested_cutoff = pd.Timestamp(publication.requested_cutoff)
+        requirements = {item.name: item for item in definition.inputs.requirements}
+        for name, requirement in requirements.items():
+            data_request = publication.input_requests[name]
+            data_result = publication.input_results[name]
+            if str(data_request.dataset) != requirement.dataset:
+                raise RuntimeContractError(f"publication dataset differs for input {name}")
+            if data_request.symbol != requirement.subject:
+                raise RuntimeContractError(f"publication subject differs for input {name}")
+            if data_request.frequency != requirement.frequency:
+                raise RuntimeContractError(f"publication frequency differs for input {name}")
+            if requirement.cutoff_rule is CutoffRule.SIGNAL_SESSION:
+                if (
+                    data_request.required_cutoff is None
+                    or pd.Timestamp(data_request.required_cutoff) != requested_cutoff
+                ):
+                    raise RuntimeContractError(
+                        f"publication cutoff differs from signal session for input {name}"
+                    )
+            elif requirement.cutoff_rule is CutoffRule.PREVIOUS_SESSION:
+                if (
+                    data_request.required_cutoff is None
+                    or pd.Timestamp(data_request.required_cutoff) >= requested_cutoff
+                ):
+                    raise RuntimeContractError(
+                        f"publication cutoff is not before signal session for input {name}"
+                    )
+            if data_result.ready:
+                identity = data_result.identity
+                if identity.dataset != str(data_request.dataset):
+                    raise RuntimeContractError(
+                        f"published identity dataset differs for input {name}"
+                    )
+                if identity.symbol != data_request.symbol:
+                    raise RuntimeContractError(
+                        f"published identity subject differs for input {name}"
+                    )
+                if (
+                    requirement.cutoff_rule is CutoffRule.LATEST_AVAILABLE
+                    and requirement.maximum_staleness_days
+                    and pd.Timestamp(identity.data_cutoff)
+                    < requested_cutoff - pd.Timedelta(days=requirement.maximum_staleness_days)
+                ):
+                    raise RuntimeContractError(
+                        f"published input exceeds maximum staleness for input {name}"
+                    )
+
+    @staticmethod
+    def _validate_decision(
+        definition: RuntimeDefinition,
+        request: CalculationRequest,
+        decision: StrategyDecision,
+    ) -> None:
+        if decision.deployment_id != request.deployment.deployment_id:
+            raise RuntimeContractError("decision deployment ID differs from request")
+        if decision.release_id != definition.release_id:
+            raise RuntimeContractError("decision release ID differs from strategy")
+        if decision.release_hash != definition.release_hash:
+            raise RuntimeContractError("decision release hash differs from strategy")
+        if decision.generated_at != request.calculation_time:
+            raise RuntimeContractError("decision generated_at must equal calculation_time")
+        if decision.valid_at < decision.generated_at:
+            raise RuntimeContractError("decision valid_at precedes generated_at")
+        if not (
+            definition.decision.minimum_target
+            <= decision.target_position
+            <= definition.decision.maximum_target
+        ):
+            raise RuntimeContractError("decision target_position exceeds declared bounds")
+        if decision.account_revision != request.account.revision:
+            raise RuntimeContractError("decision account revision differs from request")
+        if decision.state_revision != request.state.revision:
+            raise RuntimeContractError("decision state revision differs from request")
+        expected_identities = {
+            name: result.identity.content_sha256
+            for name, result in request.publication.input_results.items()
+        }
+        if dict(decision.input_identity_hashes) != expected_identities:
+            raise RuntimeContractError("decision input identities differ from publication")

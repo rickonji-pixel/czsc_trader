@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date
 from hashlib import sha256
 import json
@@ -45,19 +45,41 @@ def _initial_backtest_start(context: RepositoryContext, code: str) -> date:
         ) from exc
 
 
+def _append_only_keys(
+    old,
+    new,
+    current: Path,
+    declared: tuple[str, ...] | None = None,
+) -> list[str]:
+    """Resolve a stable key for time-series and cross-sectional inputs."""
+
+    keys = list(declared or (str(old.columns[0]),))
+    if not keys or any(key not in old or key not in new for key in keys):
+        raise ValueError(f"{current.name}: invalid primary key")
+    time_key = keys[0]
+    if declared is None and old[time_key].duplicated().any():
+        for candidate in ("ConstituentSymbol", "Symbol", "symbol"):
+            if candidate in old and candidate in new:
+                keys.append(candidate)
+                break
+    if old.duplicated(keys).any() or new.duplicated(keys).any():
+        raise ValueError(f"{current.name}: invalid primary key")
+    return keys
+
+
 def _assert_append_only(
     current: Path,
     proposed: Path,
     *,
     mutable_terminal_period=None,
+    primary_key: tuple[str, ...] | None = None,
 ) -> None:
     import pandas as pd
 
     old = pd.read_csv(current, dtype=str).fillna("")
     new = pd.read_csv(proposed, dtype=str).fillna("")
-    key = str(old.columns[0])
-    if key not in new or old[key].duplicated().any() or new[key].duplicated().any():
-        raise ValueError(f"{current.name}: invalid time key")
+    keys = _append_only_keys(old, new, current, primary_key)
+    key = keys[0]
     immutable = old
     if mutable_terminal_period is not None:
         old_periods = pd.to_datetime(old[key]).dt.to_period("W-SUN")
@@ -76,8 +98,8 @@ def _assert_append_only(
             raise ValueError(f"{current.name}: invalid terminal weekly roll-forward")
         else:
             immutable = old.loc[~mutable_old]
-    aligned = new.set_index(key).reindex(immutable[key])
-    if aligned.isna().any().any() or not immutable.set_index(key).equals(aligned):
+    aligned = new.set_index(keys).reindex(immutable.set_index(keys).index)
+    if aligned.isna().any().any() or not immutable.set_index(keys).equals(aligned):
         raise ValueError(f"{current.name}: update would mutate published rows")
 
 
@@ -109,14 +131,103 @@ def _mutable_weekly_terminal_period(
     return None
 
 
-def _generation_supports(snapshot, contract, dataset: str) -> tuple[tuple[str, object], ...]:
-    """Apply one contract in the target dataset's execution context."""
-    if "causal_feature_panel" in contract.strategy_support:
-        causal = getattr(getattr(snapshot, "resolved_rule", None), "causal_feature_gate", None)
-        if causal is None:
-            raise ValueError("causal-feature strategy support specification is missing")
-        return (("causal_feature", causal),)
-    return ()
+def _srt_primary_keys(staging: Path) -> dict[str, tuple[str, ...]]:
+    """Read DFLS primary keys from SRT publication manifests in one generation."""
+
+    result: dict[str, tuple[str, ...]] = {}
+    for path in staging.glob("srt_*_publication.json"):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        inputs = payload.get("inputs") if isinstance(payload, dict) else None
+        if not isinstance(inputs, dict):
+            raise ValueError(f"{path.name}: invalid SRT publication manifest")
+        for value in inputs.values():
+            identity = value.get("identity") if isinstance(value, dict) else None
+            metadata = identity.get("metadata") if isinstance(identity, dict) else None
+            filename = value.get("file") if isinstance(value, dict) else None
+            primary_key = metadata.get("primary_key") if isinstance(metadata, dict) else None
+            if isinstance(filename, str) and isinstance(primary_key, list) and primary_key:
+                result[filename] = tuple(str(item) for item in primary_key)
+    return result
+
+
+def _runtime_data_contract(strategy) -> dict[str, object]:
+    """Describe the sole SRT-owned input contract and TDR channel needs."""
+
+    definition = strategy.definition
+    return {
+        "source": "SRT",
+        "release_id": definition.release_id,
+        "runtime_sha256": definition.runtime_sha256,
+        "inputs": [asdict(item) for item in definition.inputs.requirements],
+        "execution_intraday_frequencies": (
+            ["5m"] if "11:30_CLOSE" in definition.capabilities.checkpoints else []
+        ),
+    }
+
+
+def _publish_runtime_history(
+    context: RepositoryContext,
+    *,
+    strategy,
+    symbol: str,
+    start: date,
+    through: date,
+    staging: Path,
+) -> dict[str, object]:
+    """Ask SRT to publish and validate all historical strategy inputs."""
+
+    from dataflows import Dataflows
+    from strategy_runtime import (
+        DeploymentSpec,
+        StrategyRunner,
+        publish_history,
+        write_publication,
+    )
+
+    definition = strategy.definition
+    deployment = DeploymentSpec(
+        "backtest-data-publication",
+        definition.release_id,
+        definition.release_hash,
+        symbol.upper(),
+        "backtest-data",
+        "backtest",
+        {"env_file": str(context.root / ".env")},
+    )
+    publication = publish_history(
+        strategy,
+        Dataflows(),
+        deployment,
+        start=start,
+        through=through,
+    )
+    StrategyRunner.validate_publication(strategy, publication)
+    if not publication.ready:
+        raise ValueError(
+            "SRT historical publication is not ready: "
+            f"status={publication.status.value}, error={publication.error or 'UNKNOWN'}"
+        )
+    if publication.requested_cutoff != through.isoformat():
+        raise ValueError("SRT historical publication cutoff differs from requested cutoff")
+    manifest = write_publication(publication, staging)
+    return {
+        "status": publication.status.value,
+        "release_id": definition.release_id,
+        "release_hash": definition.release_hash,
+        "runtime_sha256": definition.runtime_sha256,
+        "requested_cutoff": publication.requested_cutoff,
+        "manifest": manifest.name,
+        "inputs": {
+            name: {
+                "dataset": result.identity.dataset,
+                "subject": result.identity.symbol,
+                "data_start": result.identity.data_start,
+                "data_cutoff": result.identity.data_cutoff,
+                "content_sha256": result.identity.content_sha256,
+            }
+            for name, result in sorted(publication.input_results.items())
+        },
+    }
 
 
 def _generation_id(
@@ -145,6 +256,7 @@ def _commit_generation(
     """Replace one fully-built generation, restoring the previous one on failure."""
     if append_only:
         mutable_week = _mutable_weekly_terminal_period(target, staging, code)
+        srt_primary_keys = _srt_primary_keys(staging)
         for current in target.glob(f"{code}_*.csv"):
             replacement = staging / current.name
             if not replacement.is_file():
@@ -159,7 +271,11 @@ def _commit_generation(
         for source in files:
             current = target / source.name
             if current.is_file() and source.suffixes[-2:] == [".csv", ".gz"]:
-                _assert_append_only(current, source)
+                _assert_append_only(
+                    current,
+                    source,
+                    primary_key=srt_primary_keys.get(source.name),
+                )
 
     target.mkdir(parents=True, exist_ok=True)
     backup = staging / "backup"
@@ -191,13 +307,12 @@ def _publish_strategy_generation(
     asset_type: str,
     start: date,
     through: date,
-    snapshots: tuple,
+    strategy,
     target: Path,
     dataset: str,
     append_only: bool,
 ) -> CommandResult:
     """Build, validate, and commit all market and release support inputs together."""
-    from czsc_trader.backtesting import resolve_backtest_data_contract
     from czsc_trader.market_data_prep import prepare_market_data
 
     code = symbol.split(".", 1)[0]
@@ -210,37 +325,29 @@ def _publish_strategy_generation(
         summary = prepare_market_data(
             symbol, asset_type, start, through, staging, env_file=context.root / ".env"
         )
-        contracts = tuple(resolve_backtest_data_contract(snapshot) for snapshot in snapshots)
+        contract = _runtime_data_contract(strategy)
         intraday_summary: dict[str, object] | None = None
-        if any(contract.intraday_frequencies for contract in contracts):
+        if contract["execution_intraday_frequencies"]:
             from czsc_trader.intraday_data import prepare_intraday_research_data
 
             intraday_summary = prepare_intraday_research_data(
                 symbol, start, through, staging, env_file=context.root / ".env"
             )
 
-        support: list[dict[str, object]] = []
-        for snapshot, contract in zip(snapshots, contracts, strict=True):
-            for kind, spec in _generation_supports(snapshot, contract, dataset):
-                if kind == "constituent_moneyflow":
-                    from czsc_trader.constituent_moneyflow_runtime import publish_support_data
-                else:
-                    from czsc_trader.causal_feature_gate_runtime import publish_support_data
-                support.append({
-                    **publish_support_data(
-                        context.root, staging, snapshot.identity.reference, spec,
-                        through.isoformat(),
-                    ),
-                    "support_type": kind,
-                })
+        runtime_publication = _publish_runtime_history(
+            context,
+            strategy=strategy,
+            symbol=symbol,
+            start=start,
+            through=through,
+            staging=staging,
+        )
 
         data_cutoff = str(summary.get("data_cutoff") or through.isoformat())
-        for item in support:
-            item.setdefault("data_cutoff", data_cutoff)
-        if any(str(item["data_cutoff"]) != data_cutoff for item in support):
-            raise ValueError("strategy support cutoff differs from market data cutoff")
+        if runtime_publication["requested_cutoff"] != data_cutoff:
+            raise ValueError("SRT publication cutoff differs from market data cutoff")
         files = [path for path in staging.iterdir() if path.is_file()]
-        releases = tuple(snapshot.identity.reference for snapshot in snapshots)
+        releases = (strategy.definition.release_id,)
         generation_id = _generation_id(
             symbol=symbol.upper(), asset_type=asset_type, data_cutoff=data_cutoff,
             releases=releases, files=files,
@@ -253,7 +360,8 @@ def _publish_strategy_generation(
             "asset_type": asset_type,
             "data_cutoff": data_cutoff,
             "strategy_releases": list(releases),
-            "data_contracts": [contract.as_dict() for contract in contracts],
+            "data_contracts": [contract],
+            "runtime_publications": [runtime_publication],
             "files": {
                 path.name: sha256(path.read_bytes()).hexdigest()
                 for path in sorted(files, key=lambda item: item.name)
@@ -282,9 +390,9 @@ def _publish_strategy_generation(
             **summary,
             "generation_id": generation_id,
             "strategy_releases": list(releases),
-            "data_contracts": [contract.as_dict() for contract in contracts],
+            "data_contracts": [contract],
             "intraday": intraday_summary,
-            "strategy_support": support,
+            "runtime_publication": runtime_publication,
             "dataset": dataset,
             "through": through.isoformat(),
         },
@@ -297,20 +405,18 @@ def update_backtest_data(
     request: UpdateBacktestDataCommand,
 ) -> CommandResult:
     """Publish a strategy-aware, append-compatible backtest generation."""
-    from czsc_trader.backtesting import (
-        resolve_backtest_data_contract,
-        resolve_registered_strategy,
-    )
+    from strategy_manager import StrategyRegistry
+    from strategy_runtime import StrategyLoader, StrategyRelease
 
     code = request.symbol.split(".", 1)[0]
     try:
-        snapshot = resolve_registered_strategy(
-            context, request.strategy_id, request.strategy_version
+        version = StrategyRegistry(context.strategy_root).get_version(
+            request.strategy_id, request.strategy_version
         )
-        if (
-            resolve_backtest_data_contract(snapshot).intraday_frequencies
-            and request.asset_type != "etf"
-        ):
+        release = StrategyRelease.from_mapping(version.to_dict())
+        strategy = StrategyLoader().load(release)
+        contract = _runtime_data_contract(strategy)
+        if contract["execution_intraday_frequencies"] and request.asset_type != "etf":
             raise ValueError("strategy requires ETF intraday data")
     except Exception as exc:
         raise ValidationError(
@@ -333,7 +439,7 @@ def update_backtest_data(
         asset_type=request.asset_type,
         start=start,
         through=request.through,
-        snapshots=(snapshot,),
+        strategy=strategy,
         target=context.backtest_data_root,
         dataset="backtest",
         append_only=True,
@@ -341,13 +447,9 @@ def update_backtest_data(
     return CommandResult(
         result.status,
         "data.update-backtest",
-        {**result.result, "strategy": snapshot.identity.reference,
+        {**result.result, "strategy": strategy.definition.release_id,
          "data_contract": result.result["data_contracts"][0],
-         "strategy_support": (
-             result.result["strategy_support"][0]
-             if len(result.result["strategy_support"]) == 1
-             else result.result["strategy_support"] or None
-         )},
+         "runtime_publication": result.result["runtime_publication"]},
         result.artifacts,
     )
 

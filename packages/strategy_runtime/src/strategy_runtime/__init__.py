@@ -8,6 +8,7 @@ from .errors import (
 )
 from .loader import StrategyLoader
 from .execution_planner import build_execution_plan
+from .historical_publication import publish_history
 from .models import (
     AccountSnapshot,
     CalculationRequest,
@@ -85,4 +86,5 @@ __all__ = [
     "StrategyStateSnapshot",
     "canonical_sha256",
     "build_execution_plan",
+    "publish_history",
 ]

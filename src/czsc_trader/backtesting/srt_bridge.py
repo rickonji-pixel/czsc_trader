@@ -6,7 +6,6 @@ from datetime import datetime, time
 from hashlib import sha256
 import json
 from pathlib import Path
-from typing import Mapping
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -17,6 +16,7 @@ from strategy_runtime import (
     StrategyLoader,
     StrategyRelease,
     StrategyRunner,
+    read_publication,
 )
 
 from .channel import BacktestChannel
@@ -27,20 +27,6 @@ from .signal_replay import SignalReplay
 
 
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
-
-
-def _published(frame: pd.DataFrame) -> pd.DataFrame:
-    return frame.rename(
-        columns={
-            "dt": "Date",
-            "open": "Open",
-            "high": "High",
-            "low": "Low",
-            "close": "Close",
-            "vol": "Volume",
-            "amount": "Amount",
-        }
-    ).drop(columns=["symbol"], errors="ignore")
 
 
 def _decision_id(reference: str, signal_date: pd.Timestamp, target: int) -> str:
@@ -57,34 +43,6 @@ def _load_release(repository_root: Path, reference: str) -> StrategyRelease:
     family, version = reference.split("-", 1)
     path = Path(repository_root) / "strategies" / family / "versions" / f"{version}.json"
     return StrategyRelease.from_mapping(json.loads(path.read_text(encoding="utf-8")))
-
-
-def _strategy_evidence(
-    release: StrategyRelease,
-    replay_data: ReplayData,
-    repository_root: Path,
-    requested_end: pd.Timestamp,
-) -> pd.DataFrame | None:
-    rule = release.payload.get("rule")
-    source = rule.get("data_source") if isinstance(rule, Mapping) else None
-    path_value = source.get("path") if isinstance(source, Mapping) else None
-    if not isinstance(path_value, str):
-        return None
-    frozen_path = (Path(repository_root) / path_value).resolve()
-    frozen = pd.read_csv(frozen_path)
-    date_column = "date" if "date" in frozen else "dt"
-    frozen_end = pd.to_datetime(frozen[date_column]).max().normalize()
-    if requested_end <= frozen_end:
-        return frozen
-    safe = release.release_id.lower().replace("-", "_")
-    matches = sorted(Path(replay_data.root).glob(f"{safe}_*_panel.csv.gz"))
-    if len(matches) != 1:
-        raise ValueError(f"SRT historical support data is unavailable for {release.release_id}")
-    support = pd.read_csv(matches[0])
-    support_end = pd.to_datetime(support[date_column]).max().normalize()
-    if requested_end > support_end:
-        raise ValueError(f"SRT historical support data ends at {support_end.date().isoformat()}")
-    return support
 
 
 def build_srt_signal_replay(
@@ -105,15 +63,16 @@ def build_srt_signal_replay(
     evaluation = sessions[(sessions >= start.normalize()) & (sessions <= end.normalize())]
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
+    publication = read_publication(replay_data.root, release.release_id)
+    StrategyRunner.validate_publication(strategy, publication)
+    if pd.Timestamp(publication.requested_cutoff) < evaluation[-1]:
+        raise ValueError(
+            "SRT historical publication ends before the requested backtest interval"
+        )
     inputs = {
-        "adjusted_30m": _published(replay_data.adjusted.intraday),
-        "adjusted_daily": _published(replay_data.adjusted.daily),
-        "adjusted_weekly": _published(replay_data.adjusted.weekly),
-        "execution_daily": _published(replay_data.execution_daily),
+        name: result.dataframe
+        for name, result in publication.input_results.items()
     }
-    evidence = _strategy_evidence(release, replay_data, repository_root, evaluation[-1])
-    if evidence is not None:
-        inputs["strategy_evidence"] = evidence
     history = strategy.calculate_history(inputs, sessions)
     first_location = int(sessions.get_loc(evaluation[0]))
     visible = sessions[max(0, first_location - 1) : int(sessions.get_loc(evaluation[-1])) + 1]
@@ -184,6 +143,20 @@ def build_srt_signal_replay(
         calculation_end=pd.Timestamp(calculations.max()),
         evaluation_start=evaluation[0],
         evaluation_end=evaluation[-1],
+        support_data={
+            "mode": "srt_input_contract",
+            "release_id": release.release_id,
+            "requested_cutoff": publication.requested_cutoff,
+            "publication_sha256": sha256(
+                json.dumps(
+                    {
+                        name: result.identity.content_sha256
+                        for name, result in sorted(publication.input_results.items())
+                    },
+                    sort_keys=True,
+                ).encode()
+            ).hexdigest(),
+        },
         chart_data=chart_data,
     )
     return strategy, replay
@@ -215,8 +188,9 @@ def replay_srt_account(
         "backtest-account",
         channel.channel_id,
     )
+    publication_hash = (signals.support_data or {}).get("publication_sha256", "")
     identity_hash = sha256(
-        f"{replay_data.fingerprint}|{definition.runtime_sha256}".encode()
+        f"{replay_data.fingerprint}|{publication_hash}|{definition.runtime_sha256}".encode()
     ).hexdigest()
     runner = StrategyRunner()
     valid = signals.decisions.dropna(subset=["valid_session"])

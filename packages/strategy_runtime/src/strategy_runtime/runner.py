@@ -172,6 +172,8 @@ class StrategyRunner:
             raise RuntimeContractError("decision release ID differs from strategy")
         if decision.release_hash != definition.release_hash:
             raise RuntimeContractError("decision release hash differs from strategy")
+        if decision.runtime_sha256 != definition.runtime_sha256:
+            raise RuntimeContractError("decision runtime identity differs from strategy")
         if decision.generated_at != request.calculation_time:
             raise RuntimeContractError("decision generated_at must equal calculation_time")
         if decision.valid_at < decision.generated_at:

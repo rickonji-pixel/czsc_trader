@@ -272,6 +272,67 @@ class RuntimeDefinition:
         if not required_datasets.issubset(self.capabilities.datasets):
             raise RuntimeContractError("input datasets must be declared as required capabilities")
 
+    @property
+    def runtime_sha256(self) -> str:
+        return canonical_sha256(
+            {
+                "release_id": self.release_id,
+                "release_hash": self.release_hash,
+                "implementation": {
+                    "module": self.implementation.module,
+                    "qualname": self.implementation.qualname,
+                    "contract_version": self.implementation.contract_version,
+                    "source_sha256": self.implementation.source_sha256,
+                },
+                "parameters_sha256": self.parameters.sha256,
+            }
+        )
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class StrategyRelease:
+    strategy_family_id: str
+    version: str
+    release_id: str
+    release_hash: str
+    payload: Mapping[str, Any]
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "StrategyRelease":
+        if not isinstance(value, Mapping):
+            raise RuntimeContractError("strategy release must be a mapping")
+        raw = dict(value)
+        required = {"strategy_id", "version", "release_id", "release_hash", "strategy_payload"}
+        missing = required - set(raw)
+        if missing:
+            raise RuntimeContractError(f"strategy release fields are missing: {sorted(missing)}")
+        release_hash = str(raw["release_hash"])
+        if not _SHA256.fullmatch(release_hash):
+            raise RuntimeContractError("release_hash must be lowercase SHA-256")
+        release_payload = {key: item for key, item in raw.items() if key != "release_hash"}
+        if canonical_sha256(release_payload) != release_hash:
+            raise RuntimeContractError("release_hash does not match the complete frozen record")
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "strategy_family_id", str(raw["strategy_id"]))
+        object.__setattr__(instance, "version", str(raw["version"]))
+        object.__setattr__(instance, "release_id", str(raw["release_id"]))
+        object.__setattr__(instance, "release_hash", release_hash)
+        object.__setattr__(
+            instance,
+            "payload",
+            _json_mapping(raw["strategy_payload"], "strategy payload"),
+        )
+        instance._validate_identity()
+        return instance
+
+    def _validate_identity(self) -> None:
+        if not _FAMILY_ID.fullmatch(self.strategy_family_id):
+            raise RuntimeContractError("strategy_family_id must look like S001")
+        if not _VERSION.fullmatch(self.version):
+            raise RuntimeContractError("version must look like v1")
+        if self.release_id != f"{self.strategy_family_id}-{self.version}":
+            raise RuntimeContractError("release_id must equal strategy_family_id-version")
+
 
 @dataclass(frozen=True, slots=True)
 class DeploymentSpec:
@@ -406,6 +467,7 @@ class StrategyDecision:
     deployment_id: str
     release_id: str
     release_hash: str
+    runtime_sha256: str
     generated_at: datetime
     valid_at: datetime
     target_position: float
@@ -420,6 +482,8 @@ class StrategyDecision:
             object.__setattr__(self, field_name, _text(getattr(self, field_name), field_name))
         if not _SHA256.fullmatch(self.release_hash):
             raise RuntimeContractError("decision release_hash must be lowercase SHA-256")
+        if not _SHA256.fullmatch(self.runtime_sha256):
+            raise RuntimeContractError("decision runtime_sha256 must be lowercase SHA-256")
         if self.generated_at.tzinfo is None or self.valid_at.tzinfo is None:
             raise RuntimeContractError("decision timestamps must be timezone-aware")
         if not math.isfinite(self.target_position):

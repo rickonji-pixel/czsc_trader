@@ -7,6 +7,7 @@ from .errors import (
     RuntimeExecutionError,
     StrategyRuntimeError,
 )
+from .loader import StrategyLoader
 from .models import (
     AccountSnapshot,
     CalculationRequest,
@@ -30,6 +31,7 @@ from .models import (
     RuntimeRunStatus,
     StrategyDecision,
     StrategyExplanation,
+    StrategyRelease,
     StrategyStateSnapshot,
     canonical_sha256,
 )
@@ -70,6 +72,8 @@ __all__ = [
     "RuntimeExecutionError",
     "StrategyDecision",
     "StrategyExplanation",
+    "StrategyLoader",
+    "StrategyRelease",
     "StrategyRuntimeError",
     "StrategyRunner",
     "StrategyStateSnapshot",

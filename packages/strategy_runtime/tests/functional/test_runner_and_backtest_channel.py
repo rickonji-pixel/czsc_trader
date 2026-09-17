@@ -174,6 +174,7 @@ class FakeStrategy:
             request.deployment.deployment_id,
             request.deployment.release_id,
             request.deployment.release_hash,
+            self.definition.runtime_sha256,
             request.calculation_time,
             request.calculation_time + timedelta(days=1),
             self.target_position,

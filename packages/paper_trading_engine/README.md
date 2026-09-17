@@ -31,12 +31,17 @@ StrategyRelease 1 ─── N VirtualAccount
                          ├── N OrderIntent ─── N FutuFill
                          └── N AccountSnapshot
 
-FutuChannel 1 ─── N VirtualAccount
-FutuChannel 1 ─── 1 Futu SIMULATE/CN account
+FutuSimulateCnChannel 1 ─── N StrategyVirtualAccount
+FutuSimulateCnChannel 1 ─── 1 ChannelReconciliationAccount
+FutuSimulateCnChannel 1 ─── 1 Futu SIMULATE/CN account
 ```
 
-- 一个虚拟账户绑定一个不可变策略发布、一个交易标的和一个渠道；
-- Futu渠道可承载多个虚拟账户及多个中国市场标的，渠道本身不绑定策略；
+- 一个策略虚拟账户绑定一个不可变策略发布、一个交易标的和一个渠道；
+- `futu_simulate_cn`是唯一已实现的Futu渠道身份，固定对应`TrdEnv.SIMULATE`与
+  `TrdMarket.CN`；未明确定义和实现的渠道、盘类型、市场组合在启动和运行时拒绝；
+- 该渠道可承载多个策略虚拟账户及多个中国市场标的，渠道本身不绑定策略；
+- 渠道平账账户是零初始资金的系统账户，不参与策略决策、账户比较或策略绩效；它仅记录
+  经验证的Futu实际费用与策略模型费用之间的渠道差额，余额可为正或负；
 - 每条决策、订单和成交必须追溯到虚拟账户、策略发布和关联ID；
 - 未知活动订单或底层持仓与账户汇总不一致时，渠道阻止新单；
 - 委托受理不代表成交，没有明确成交增量时保持账户账本不变。
@@ -58,9 +63,11 @@ FutuChannel 1 ─── 1 Futu SIMULATE/CN account
 
 ### Futu
 
-- 固定使用`TrdEnv.SIMULATE`与中国市场模拟账户；
+- 固定使用渠道身份`futu_simulate_cn`、`TrdEnv.SIMULATE`与`TrdMarket.CN`模拟账户；
 - PTE独占底层账户，所有虚拟账户订单共享该渠道容量；
 - 订单状态和`dealt_qty`用于增量对账，明确回报前不改变账本；
+- 策略虚拟账户持续按策略模型计算交易费用；仅在Futu实际费用已验证且处于允许范围时，
+  与模型费用的差额才记入渠道平账账户，避免批次订单的费用归属改变策略比较结果；
 - `TIMEOUT`按结果未知处理并持续查询当前及历史订单；未知状态、订单缺失或字段不一致立即
   阻塞，不能推断为失败或成功；
 - Futu不参与策略计算、定价和改量。
@@ -83,6 +90,9 @@ PTE日常运行状态不进入SM。只有人工复核后的里程碑通过自包
 
 本机运行数据库、行情副本、图表缓存和日志位于`state/paper_trading/`，均不进入Git。
 跨机延续同一模拟盘序列需要迁移完整运行目录，并重新核对Futu活动订单、成交和持仓。
+
+控制台中的订单意图、订单和成交表均以交易时间倒序展示；同一时间使用稳定记录ID排序，
+便于优先检查最近的执行事实。
 
 `serve`和`once`会竞争同一个`runtime.db`独占锁，确保同一运行状态只有一个自动交易进程。服务
 启动前自动生成一致性SQLite备份并滚动保留3份。订单/账户快速对账与每日数据发布、决策

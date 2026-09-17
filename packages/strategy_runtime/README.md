@@ -34,12 +34,12 @@ SM、SE、PTE/TDR 等执行宿主以及 WDG 承担。
 7. 分别返回 `ACCEPTED` 或 `REJECTED`。渠道接受请求不代表订单已经成交，实际执行
    结果只能读取 `ExecutionReceipt.status`，避免形成“假成交”。
 
-## 回测渠道
+## 执行渠道
 
-`BacktestChannel` 与未来的 Futu 模拟、实盘渠道遵守相同的 `ExecutionChannel`
-协议。它负责能力声明、严格幂等和执行回执留存；具体成交规则由
-`BacktestExecutionModel` 注入。这样可以复用现有回测成交模型，同时避免把撮合细节
-或策略逻辑写入 SRT。
+SRT只定义`ExecutionChannel`协议和请求、回执等公共模型，具体渠道由执行宿主维护。
+TDR维护`BacktestChannel`以及历史撮合和回测账本；PTE维护Futu模拟渠道以及订单对账
+和虚拟账户账本。这样SRT可以向不同宿主提交同一种执行请求，同时不会依赖任何具体
+回测或券商实现。
 
 ## 策略版本加载
 

@@ -13,7 +13,7 @@ from czsc_trader.strategy_runtime import apply_resolved_strategy
 from dataflows import DataRequest, Dataflows, Dataset
 from strategy_runtime import (
     AccountSnapshot,
-    BacktestChannel,
+    ChannelCapabilities,
     DeploymentSpec,
     ExecutionReceipt,
     RuntimeCompatibilityError,
@@ -102,6 +102,17 @@ class _Execution:
         return ExecutionReceipt(idempotency_key, True, None, "NO_ACTION", "recorded")
 
 
+class _Channel:
+    channel_id = "backtest"
+    capabilities = ChannelCapabilities(("LIMIT",))
+
+    def __init__(self) -> None:
+        self.execution = _Execution()
+
+    def submit(self, request, idempotency_key: str) -> ExecutionReceipt:
+        return self.execution.execute(request, idempotency_key)
+
+
 def test_loader_discovers_s002_without_a_central_release_switch() -> None:
     release, _ = _release()
 
@@ -162,7 +173,7 @@ def test_s002_runner_matches_the_frozen_legacy_signal_at_cutoff() -> None:
         state=state,
         dataflows=dataflows,
         account=_Account(),
-        channel=BacktestChannel(_Execution(), order_types=("LIMIT",)),
+        channel=_Channel(),
         through=NOW,
         calculation_time=NOW,
     )

@@ -12,18 +12,15 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from strategy_runtime import (
     AccountSnapshot,
-    BacktestChannel,
     DeploymentSpec,
-    ExecutionReceipt,
     StrategyDecision,
     StrategyLoader,
     StrategyRelease,
     StrategyRunner,
 )
 
+from .channel import BacktestChannel
 from .datasets import ReplayData
-from .execution_replay import replay_account
-from .intraday_overlay_replay import replay_intraday_overlay
 from .models import StrategySnapshot
 from .result import BacktestResult
 from .signal_replay import SignalReplay
@@ -192,21 +189,6 @@ def build_srt_signal_replay(
     return strategy, replay
 
 
-class _BufferedExecutionModel:
-    def __init__(self) -> None:
-        self.decision_ids: list[str] = []
-
-    def execute(self, request, idempotency_key: str) -> ExecutionReceipt:
-        self.decision_ids.append(request.decision.decision_id)
-        return ExecutionReceipt(
-            idempotency_key,
-            True,
-            request.decision.decision_id,
-            "BUFFERED",
-            "accepted for deterministic batch replay",
-        )
-
-
 def replay_srt_account(
     *,
     strategy,
@@ -216,10 +198,12 @@ def replay_srt_account(
 ) -> BacktestResult:
     """Route SRT decisions through StrategyRunner and BacktestChannel, then settle."""
 
-    model = _BufferedExecutionModel()
     definition = strategy.definition
     channel = BacktestChannel(
-        model,
+        signals=signals,
+        replay_data=replay_data,
+        initial_cash=initial_cash,
+        output_kind=definition.decision.output_kind,
         order_types=definition.capabilities.order_types,
         checkpoints=definition.capabilities.checkpoints,
     )
@@ -271,8 +255,4 @@ def replay_srt_account(
             channel=channel,
             decision=decision,
         )
-    if model.decision_ids != valid["decision_id"].astype(str).tolist():
-        raise ValueError("backtest channel decision sequence differs from SRT replay")
-    if definition.decision.output_kind == "INTRADAY_OVERLAY":
-        return replay_intraday_overlay(signals, replay_data, initial_cash)
-    return replay_account(signals, replay_data, initial_cash)
+    return channel.finalize()

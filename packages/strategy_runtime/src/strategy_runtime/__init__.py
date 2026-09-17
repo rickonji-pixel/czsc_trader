@@ -1,6 +1,5 @@
 """Strategy Runtime (SRT) public contracts."""
 
-from .backtest_channel import BacktestChannel, BacktestExecutionModel
 from .errors import (
     RuntimeCompatibilityError,
     RuntimeContractError,
@@ -48,8 +47,6 @@ __version__ = "0.1.0"
 
 __all__ = [
     "AccountSnapshot",
-    "BacktestChannel",
-    "BacktestExecutionModel",
     "CalculationRequest",
     "ChannelCapabilities",
     "CutoffRule",

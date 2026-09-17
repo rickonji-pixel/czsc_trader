@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+from strategy_runtime import RuntimeContractError
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
+from czsc_trader.backtesting.channel import BacktestChannel
 from czsc_trader.backtesting.causal_feature_gate_replay import (
     build_causal_feature_gate_signals,
 )
@@ -82,3 +85,25 @@ def test_srt_backtest_matches_complete_legacy_ledger(
             check_dtype=False,
         )
     assert calculate_metrics(actual, 100_000) == calculate_metrics(legacy, 100_000)
+
+
+def test_tdr_backtest_channel_refuses_to_finalize_an_unsubmitted_decision() -> None:
+    signals = SimpleNamespace(
+        decisions=pd.DataFrame(
+            [{
+                "decision_id": "DEC-MISSING",
+                "valid_session": pd.Timestamp("2026-09-18"),
+                "target_position": 1.0,
+            }]
+        )
+    )
+    channel = BacktestChannel(
+        signals=signals,
+        replay_data=None,
+        initial_cash=100_000,
+        output_kind="TARGET_POSITION",
+        order_types=("LIMIT",),
+    )
+
+    with pytest.raises(RuntimeContractError, match="decision sequence differs"):
+        channel.finalize()

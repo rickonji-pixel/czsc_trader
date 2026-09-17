@@ -8,8 +8,8 @@ import pytest
 from dataflows import DataError, DataIdentity, DataRequest, DataResult, DataStatus, Dataflows
 from strategy_runtime import (
     AccountSnapshot,
-    BacktestChannel,
     CalculationRequest,
+    ChannelCapabilities,
     CutoffRule,
     DecisionContract,
     DeploymentSpec,
@@ -208,11 +208,39 @@ class FakeExecutionModel:
         )
 
 
+class TestExecutionChannel:
+    """Host-owned test double for the SRT ExecutionChannel protocol."""
+
+    __test__ = False
+
+    def __init__(self, model: FakeExecutionModel, *, order_types: tuple[str, ...]) -> None:
+        self.channel_id = "backtest"
+        self.capabilities = ChannelCapabilities(order_types)
+        self.model = model
+        self._requests = {}
+        self._receipts = {}
+
+    @property
+    def receipts(self):
+        return tuple(self._receipts.values())
+
+    def submit(self, request, idempotency_key: str) -> ExecutionReceipt:
+        existing = self._requests.get(idempotency_key)
+        if existing is not None:
+            if existing != request:
+                raise RuntimeContractError("idempotency key was reused for another request")
+            return self._receipts[idempotency_key]
+        receipt = self.model.execute(request, idempotency_key)
+        self._requests[idempotency_key] = request
+        self._receipts[idempotency_key] = receipt
+        return receipt
+
+
 def _state() -> StrategyStateSnapshot:
     return StrategyStateSnapshot("dep-s007-backtest", RELEASE_HASH, 2, NOW, {})
 
 
-def _run(strategy: FakeStrategy, account: FakeAccount, channel: BacktestChannel):
+def _run(strategy: FakeStrategy, account: FakeAccount, channel: TestExecutionChannel):
     return StrategyRunner().run(
         strategy=strategy,
         deployment=_deployment(),
@@ -227,7 +255,7 @@ def _run(strategy: FakeStrategy, account: FakeAccount, channel: BacktestChannel)
 
 def test_runner_completes_one_deterministic_backtest_cycle() -> None:
     model = FakeExecutionModel()
-    channel = BacktestChannel(model, order_types=("LIMIT",))
+    channel = TestExecutionChannel(model, order_types=("LIMIT",))
     strategy = FakeStrategy(_ready_publication())
     account = FakeAccount()
 
@@ -240,7 +268,7 @@ def test_runner_completes_one_deterministic_backtest_cycle() -> None:
 
 def test_runner_stops_before_snapshot_when_data_is_not_ready() -> None:
     model = FakeExecutionModel()
-    channel = BacktestChannel(model, order_types=("LIMIT",))
+    channel = TestExecutionChannel(model, order_types=("LIMIT",))
     strategy = FakeStrategy(_not_ready_publication())
     account = FakeAccount()
 
@@ -284,13 +312,13 @@ def test_runner_rejects_fake_ready_data_before_calculation() -> None:
     model = FakeExecutionModel()
 
     with pytest.raises(RuntimeContractError, match="cutoff differs from signal session"):
-        _run(strategy, account, BacktestChannel(model, order_types=("LIMIT",)))
+        _run(strategy, account, TestExecutionChannel(model, order_types=("LIMIT",)))
     assert strategy.calculate_calls == account.calls == model.calls == 0
 
 
 def test_runner_rejects_unsupported_channel_before_publication() -> None:
     model = FakeExecutionModel()
-    channel = BacktestChannel(model, order_types=("MARKET",))
+    channel = TestExecutionChannel(model, order_types=("MARKET",))
     strategy = FakeStrategy(_ready_publication())
 
     with pytest.raises(RuntimeCompatibilityError, match="lacks required capabilities"):
@@ -300,7 +328,7 @@ def test_runner_rejects_unsupported_channel_before_publication() -> None:
 
 def test_runner_rejects_decision_outside_declared_bounds() -> None:
     model = FakeExecutionModel()
-    channel = BacktestChannel(model, order_types=("LIMIT",))
+    channel = TestExecutionChannel(model, order_types=("LIMIT",))
     strategy = FakeStrategy(_ready_publication(), target_position=1.5)
 
     with pytest.raises(RuntimeContractError, match="target_position"):
@@ -322,7 +350,7 @@ def test_runner_accepts_morning_catchup_after_decision_effective_time() -> None:
         state=_state(),
         dataflows=Dataflows(),
         account=FakeAccount(),
-        channel=BacktestChannel(model, order_types=("LIMIT",)),
+        channel=TestExecutionChannel(model, order_types=("LIMIT",)),
         through=NOW,
         calculation_time=calculation_time,
     )
@@ -342,13 +370,13 @@ def test_runner_rejects_decision_effective_on_publication_session() -> None:
         _run(
             strategy,
             FakeAccount(),
-            BacktestChannel(FakeExecutionModel(), order_types=("LIMIT",)),
+            TestExecutionChannel(FakeExecutionModel(), order_types=("LIMIT",)),
         )
 
 
-def test_backtest_channel_replays_same_idempotent_result() -> None:
+def test_host_channel_replays_same_idempotent_result() -> None:
     model = FakeExecutionModel()
-    channel = BacktestChannel(model, order_types=("LIMIT",))
+    channel = TestExecutionChannel(model, order_types=("LIMIT",))
     strategy = FakeStrategy(_ready_publication())
     account = FakeAccount()
 
@@ -383,7 +411,7 @@ def test_runner_rejects_ready_publication_with_insufficient_history() -> None:
 
 def test_runner_preserves_channel_rejection_as_an_explicit_result() -> None:
     model = FakeExecutionModel(accepted=False)
-    channel = BacktestChannel(model, order_types=("LIMIT",))
+    channel = TestExecutionChannel(model, order_types=("LIMIT",))
 
     result = _run(FakeStrategy(_ready_publication()), FakeAccount(), channel)
 
@@ -391,9 +419,9 @@ def test_runner_preserves_channel_rejection_as_an_explicit_result() -> None:
     assert result.receipt is not None and result.receipt.status == "REJECTED"
 
 
-def test_backtest_channel_rejects_idempotency_key_collision() -> None:
+def test_host_channel_rejects_idempotency_key_collision() -> None:
     model = FakeExecutionModel()
-    channel = BacktestChannel(model, order_types=("LIMIT",))
+    channel = TestExecutionChannel(model, order_types=("LIMIT",))
     _run(FakeStrategy(_ready_publication(), target_position=1.0), FakeAccount(), channel)
 
     with pytest.raises(RuntimeContractError, match="reused for another request"):

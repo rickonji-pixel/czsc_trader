@@ -18,6 +18,7 @@ from .bar_utils import (
     validate_a_share_intraday_bars,
 )
 from .formatting import format_dataframe_report
+from .errors import EmptyDataError
 from .market_resolver import MARKET_A_SHARE, detect_market, normalize_symbol_for_vendor
 from .tushare_common import get_tushare_pro
 
@@ -306,7 +307,7 @@ def fetch_etf_ohlcv(
         env_file=env_file,
     )
     if dataframe.empty:
-        raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
+        raise EmptyDataError(f"Tushare returned no data for {symbol} {normalized_period}")
     correction_dates = dataframe.attrs.get("hardcoded_volume_corrections", [])
     factors = _fetch_hfq_factors(
         ts_code, start_date, end_date, env_file=env_file
@@ -345,7 +346,7 @@ def fetch_etf_unadjusted_daily(
         env_file=env_file,
     )
     if dataframe.empty:
-        raise ValueError(f"Tushare returned no data for {symbol} unadjusted daily")
+        raise EmptyDataError(f"Tushare returned no data for {symbol} unadjusted daily")
     return dataframe.copy(), {
         "vendor": "tushare",
         "market": market,

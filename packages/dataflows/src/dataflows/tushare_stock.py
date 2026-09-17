@@ -18,6 +18,7 @@ from .bar_utils import (
     validate_a_share_intraday_bars,
 )
 from .formatting import format_dataframe_report
+from .errors import EmptyDataError
 from .indicator_utils import compute_indicator_report
 from .market_resolver import (
     MARKET_A_SHARE,
@@ -240,7 +241,7 @@ def fetch_stock_ohlcv(
         env_file=env_file,
     )
     if dataframe.empty:
-        raise ValueError(f"Tushare returned no data for {symbol} {normalized_period}")
+        raise EmptyDataError(f"Tushare returned no data for {symbol} {normalized_period}")
     metadata = {
         "vendor": "tushare",
         "market": market,
@@ -284,7 +285,7 @@ def fetch_stock_unadjusted_daily(
     if market != MARKET_A_SHARE:
         raise ValueError("unadjusted execution prices currently require an A-share symbol")
     if dataframe.empty:
-        raise ValueError(f"Tushare returned no data for {symbol} unadjusted daily")
+        raise EmptyDataError(f"Tushare returned no data for {symbol} unadjusted daily")
     return dataframe.copy(), {
         "vendor": "tushare",
         "market": market,

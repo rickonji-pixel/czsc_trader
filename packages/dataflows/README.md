@@ -22,6 +22,53 @@ The process environment takes precedence over the explicit credential file. The
 application passes the ignored repository-root `.env`; the reusable package does
 not assume a repository layout.
 
+## Stable publication contract
+
+Strategy runtimes should depend on the DFLS facade rather than vendor-specific
+functions. Every request returns an explicit status; a non-`READY` result never
+exposes data that could be mistaken for a successful publication.
+
+```python
+from dataflows import Dataflows, DataRequest, DataStatus, Dataset
+
+result = Dataflows().fetch(
+    DataRequest(
+        dataset=Dataset.ETF_OHLCV,
+        symbol="588080.SH",
+        start="2026-01-01",
+        end="2026-09-15",
+        required_cutoff="2026-09-15",
+        frequency="daily",
+        options={"env_file": ".env"},
+    )
+)
+if result.status is DataStatus.READY:
+    bars = result.dataframe
+    identity = result.identity
+else:
+    error = result.error
+```
+
+The public statuses are `READY`, `WAITING_SOURCE`, `EMPTY`, `INCOMPLETE`, and
+`FAILED`. Successful identities include the actual data boundary and a stable
+content hash. The facade rejects unordered, duplicate, invalid, or
+out-of-request-boundary timestamps. Existing vendor adapters remain available
+for compatibility, but new strategy runtime code should use this facade.
+
+The initial registry covers every raw-data dependency of the active frozen
+strategies (`S001-v1`, `S001-v2`, `S002-v1`, `S003-v1`, and `S007-v1`):
+
+- stock/ETF adjusted OHLCV and unadjusted daily execution prices;
+- SHIBOR, mainland-index daily basics, global-index daily returns, and ETF shares;
+- point-in-time index constituent weights and stock money flow;
+- exchange trading sessions.
+
+DFLS publishes canonical source data and identities. Causal lags, rolling
+features, CZSC signals, scores, and decisions remain strategy-runtime concerns.
+Every caller must explicitly set `required_cutoff` on `DataRequest`, using
+`None` only for a consciously accepted snapshot/as-of query. DFLS returns
+`INCOMPLETE` instead of `READY` when the source does not reach a declared cutoff.
+
 ## Stock and ETF bars
 
 The A-share adapters accept `period="daily"`, `period="weekly"`, `period="30m"`,

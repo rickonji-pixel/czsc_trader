@@ -143,7 +143,11 @@ class Store:
         self.audit_events.append(value)
         return value
     def virtual_accounts(self): return list(self.accounts)
-    def strategy_virtual_accounts(self): return list(self.accounts)
+    def strategy_virtual_accounts(self):
+        return [
+            account for account in self.accounts
+            if account.get("account_type", "STRATEGY") == "STRATEGY"
+        ]
 
 
 def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(tmp_path):
@@ -220,6 +224,11 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(t
         {
             "symbol": "510500.SH", "asset_type": "etf", "status": "RUNNING",
             "strategy_id": "S003", "strategy_version": "v1",
+        },
+        {
+            "symbol": "FUTU.SIMULATE.CN", "asset_type": "system", "status": "RUNNING",
+            "strategy_id": None, "strategy_version": None,
+            "account_type": "CHANNEL_RECONCILIATION",
         },
     ]
     multi = AccountDataPublisher(

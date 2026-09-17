@@ -443,7 +443,7 @@ class AccountDataPublisher:
 
     def publish(self, end_date: str) -> dict[str, object]:
         accounts = [
-            account for account in self.store.virtual_accounts()
+            account for account in self.store.strategy_virtual_accounts()
             if account.get("status") != "RETIRED"
         ]
         if not accounts:

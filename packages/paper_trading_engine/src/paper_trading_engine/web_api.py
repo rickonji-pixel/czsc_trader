@@ -18,6 +18,24 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _descending_transaction_rows(
+    rows: list[dict[str, object]], *, time_field: str, id_field: str,
+) -> list[dict[str, object]]:
+    """Give every account-table a stable newest-transaction-first order."""
+    def key(row: dict[str, object]) -> tuple[float, str]:
+        value = row.get(time_field)
+        try:
+            moment = datetime.fromisoformat(str(value))
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=SHANGHAI)
+            stamp = moment.astimezone(timezone.utc).timestamp()
+        except (TypeError, ValueError):
+            stamp = float("-inf")
+        return stamp, str(row.get(id_field) or "")
+
+    return sorted(rows, key=key, reverse=True)
+
+
 def _is_stale(value: str | None, *, seconds: float) -> bool:
     if not value:
         return False
@@ -205,9 +223,17 @@ class PteWebApi:
             "as_of": _now(),
             "account": {key: status.get(key) for key in account_keys},
             "decision": status.get("last_decision"),
-            "orders": [row for row in status.get("orders", []) if row.get("account_id") == account_id],
-            "intents": self.store.account_intents(account_id),
-            "fills": [row for row in status.get("fills", []) if row.get("account_id") == account_id],
+            "orders": _descending_transaction_rows(
+                [row for row in status.get("orders", []) if row.get("account_id") == account_id],
+                time_field="created_at", id_field="channel_order_id",
+            ),
+            "intents": _descending_transaction_rows(
+                self.store.account_intents(account_id), time_field="created_at", id_field="intent_id",
+            ),
+            "fills": _descending_transaction_rows(
+                [row for row in status.get("fills", []) if row.get("account_id") == account_id],
+                time_field="occurred_at", id_field="fill_id",
+            ),
             "metrics": metrics,
             "alerts": account_alerts,
             "events": events,

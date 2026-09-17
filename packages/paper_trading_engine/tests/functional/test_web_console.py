@@ -9,7 +9,19 @@ import pytest
 from paper_trading_engine.web import create_server
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.store import PaperStore
-from paper_trading_engine.web_api import PteWebApi
+from paper_trading_engine.web_api import PteWebApi, _descending_transaction_rows
+
+
+def test_transaction_rows_are_newest_first_with_stable_id_tiebreaker():
+    rows = [
+        {"intent_id": "INT-1", "created_at": "2026-09-17T09:30:00+08:00"},
+        {"intent_id": "INT-3", "created_at": "2026-09-17T09:31:00+08:00"},
+        {"intent_id": "INT-2", "created_at": "2026-09-17T09:31:00+08:00"},
+    ]
+
+    result = _descending_transaction_rows(rows, time_field="created_at", id_field="intent_id")
+
+    assert [row["intent_id"] for row in result] == ["INT-3", "INT-2", "INT-1"]
 
 
 class FakeEngine:

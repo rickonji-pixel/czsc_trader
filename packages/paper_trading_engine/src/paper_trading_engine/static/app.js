@@ -74,8 +74,13 @@ export function decisionExecutionLabel(decision,intents=[]){
   if(['WAIT','HOLD'].includes(String(decision.action||'').toUpperCase()))return '本次决策无需下单';
   const related=intents.filter(item=>item.decision_id===decision.decision_id);
   if(!related.length)return '尚未创建订单意图';
-  const latest=related.at(-1);
-  const failed=related.slice(0,-1).filter(item=>['REJECTED','SUBMISSION_FAILED','SUBMIT_FAILED','TIMEOUT'].includes(item.status)).length;
+  const latest=related.reduce((current,item)=>{
+    const currentTime=Date.parse(current.created_at||'');
+    const itemTime=Date.parse(item.created_at||'');
+    if(Number.isFinite(itemTime)&&(!Number.isFinite(currentTime)||itemTime>currentTime))return item;
+    return !Number.isFinite(itemTime)&&!Number.isFinite(currentTime)?item:current;
+  });
+  const failed=related.filter(item=>item!==latest&&['REJECTED','SUBMISSION_FAILED','SUBMIT_FAILED','TIMEOUT'].includes(item.status)).length;
   return `${statusLabel(latest.status)}${failed?`（此前 ${failed} 次未成功）`:''}`;
 }
 export function auditSummary(event){

@@ -12,6 +12,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
+from ..execution_planner import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
@@ -179,14 +180,10 @@ class S002V1:
         self._signal = signal
         self._portfolio = portfolio
         self._symbol = symbol
-        order_types = tuple(
-            sorted(
-                {
-                    str(_object(execution.get("entry"), "entry execution").get("order_type")),
-                    str(_object(execution.get("exit"), "exit execution").get("order_type")),
-                }
-            )
-        )
+        order_types = tuple(sorted({
+            effective_target_order_type(execution, "BUY"),
+            effective_target_order_type(execution, "SELL"),
+        }))
         self._definition = RuntimeDefinition(
             schema_version=1,
             strategy_family_id=release.strategy_family_id,

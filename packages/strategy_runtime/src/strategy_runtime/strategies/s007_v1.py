@@ -12,6 +12,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
+from ..execution_planner import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
@@ -43,6 +44,8 @@ _SHARES = "etf_share_size"
 _SPX = "spx_daily"
 _EXECUTION = "execution_daily"
 _CALENDAR = "trading_calendar"
+_EVIDENCE = "strategy_evidence"
+_FROZEN_HISTORY_START = pd.Timestamp("2021-01-04")
 
 
 def _object(value: Any, field_name: str) -> Mapping[str, Any]:
@@ -135,7 +138,12 @@ def materialize_s007_features(inputs: Mapping[str, pd.DataFrame]) -> pd.DataFram
         allow_exact_matches=False,
     ).set_index("date")
     output["risk_global_spx_return"] = mapped["PercentChange"].astype(float)
-    return output
+    # S007-v1 was researched and frozen with a feature panel beginning on this
+    # session.  Earlier market rows may be published as calculation context,
+    # but admitting them into rolling normalization changes the frozen target
+    # sequence during 2021.  Keep the historical initialization boundary part
+    # of the executable version identity.
+    return output.loc[output.index >= _FROZEN_HISTORY_START]
 
 
 def calculate_s007_history(
@@ -189,6 +197,31 @@ def calculate_s007_history(
     )
 
 
+def resolve_s007_feature_panel(
+    inputs: Mapping[str, pd.DataFrame],
+    score: Mapping[str, Any],
+    sessions: pd.DatetimeIndex,
+) -> pd.DataFrame:
+    """Combine immutable development evidence with post-cutoff DFLS features."""
+
+    features = sorted(score["orientations"])
+    evidence = inputs.get(_EVIDENCE)
+    if evidence is None:
+        panel = materialize_s007_features(inputs)
+    else:
+        frozen = evidence.copy()
+        date_column = "Date" if "Date" in frozen else "date"
+        frozen[date_column] = pd.to_datetime(frozen[date_column]).dt.normalize()
+        frozen = frozen.set_index(date_column).sort_index().loc[:, features]
+        if sessions.max() <= frozen.index.max():
+            panel = frozen
+        else:
+            materialized = materialize_s007_features(inputs)
+            additions = materialized.loc[materialized.index > frozen.index.max(), features]
+            panel = pd.concat([frozen, additions])
+    return panel[~panel.index.duplicated(keep="last")].sort_index().reindex(sessions)
+
+
 class S007V1:
     """Executable S007-v1; every feature is materialized from DFLS inputs."""
 
@@ -199,6 +232,7 @@ class S007V1:
         rule = _object(payload.get("rule"), "S007-v1 rule")
         self._normalization = _object(rule.get("normalization"), "S007-v1 normalization")
         self._score = _object(rule.get("score"), "S007-v1 score")
+        self._data_source = _object(rule.get("data_source"), "S007-v1 data source")
         execution = _object(rule.get("execution"), "S007-v1 execution")
         self._symbol = str(rule.get("symbol", "")).upper()
         if self._symbol != "588080.SH":
@@ -257,6 +291,14 @@ class S007V1:
                 0,
                 CutoffRule.LATEST_AVAILABLE,
             ),
+            InputRequirement(
+                _EVIDENCE,
+                Dataset.STRATEGY_FEATURE_EVIDENCE.value,
+                release.release_id,
+                "daily",
+                252,
+                CutoffRule.LATEST_AVAILABLE,
+            ),
         )
         self._definition = RuntimeDefinition(
             1,
@@ -276,7 +318,11 @@ class S007V1:
             ExecutionPolicy("FROZEN_RULE", execution),
             MonitoringPolicy("FORWARD_OBSERVATION", {"frozen": True}),
             RequiredCapabilities(
-                tuple(sorted({item.dataset for item in requirements})), ("LIMIT",)
+                tuple(sorted({item.dataset for item in requirements})),
+                tuple(sorted({
+                    effective_target_order_type(execution, "BUY"),
+                    effective_target_order_type(execution, "SELL"),
+                })),
             ),
         )
 
@@ -295,12 +341,7 @@ class S007V1:
         inputs: Mapping[str, pd.DataFrame],
         sessions: pd.DatetimeIndex,
     ) -> pd.DataFrame:
-        if "strategy_evidence" in inputs:
-            panel = inputs["strategy_evidence"].copy()
-            panel["date"] = pd.to_datetime(panel["date"]).dt.normalize()
-            panel = panel.set_index("date").sort_index().reindex(sessions)
-        else:
-            panel = materialize_s007_features(inputs).reindex(sessions)
+        panel = resolve_s007_feature_panel(inputs, self._score, sessions)
         return calculate_s007_history(panel, self._normalization, self._score)
 
     def publish_data(
@@ -312,6 +353,14 @@ class S007V1:
         options: dict[str, object] = {}
         if deployment.settings.get("env_file") is not None:
             options["env_file"] = str(deployment.settings["env_file"])
+        if deployment.settings.get("repository_root") is not None:
+            options.update(
+                {
+                    "repository_root": str(deployment.settings["repository_root"]),
+                    "source_path": str(self._data_source["path"]),
+                    "source_sha256": str(self._data_source["sha256"]),
+                }
+            )
         calendar_request = DataRequest(
             Dataset.TRADING_CALENDAR,
             "SSE",
@@ -346,13 +395,25 @@ class S007V1:
                     cutoff.isoformat(),
                     "daily",
                 ),
+                _EVIDENCE: (
+                    Dataset.STRATEGY_FEATURE_EVIDENCE,
+                    self._release.release_id,
+                    None,
+                    "daily",
+                ),
             }
             for name, (dataset, symbol, required, frequency) in specs.items():
                 request_end = previous_date if name == _SHARES else cutoff.isoformat()
                 requests[name] = DataRequest(
                     dataset,
                     symbol,
-                    start.isoformat() if name != _EXECUTION else cutoff.isoformat(),
+                    (
+                        _FROZEN_HISTORY_START.date().isoformat()
+                        if name == _EVIDENCE
+                        else cutoff.isoformat()
+                        if name == _EXECUTION
+                        else start.isoformat()
+                    ),
                     request_end,
                     required,
                     frequency,
@@ -399,7 +460,10 @@ class S007V1:
         frames = {
             name: result.dataframe for name, result in request.publication.input_results.items()
         }
-        panel = materialize_s007_features(frames)
+        sessions = pd.DatetimeIndex(
+            pd.to_datetime(frames[_MARKET]["Date"]).dt.normalize().sort_values().unique()
+        )
+        panel = resolve_s007_feature_panel(frames, self._score, sessions)
         history = calculate_s007_history(panel, self._normalization, self._score)
         cutoff = pd.Timestamp(request.publication.requested_cutoff).normalize()
         if (

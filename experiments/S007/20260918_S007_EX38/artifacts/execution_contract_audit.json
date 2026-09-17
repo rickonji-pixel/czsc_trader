@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "behavior_hash": "d6dafcf9f65c2ea0be11f7c127a2a6e4acf0aa4a4e767dcf6fc3e21042ff26a3",
+  "behavior_diff_sessions": 0,
+  "metrics": {
+    "max_drawdown": -0.1081234745732389,
+    "calmar": 2.1980362055036253,
+    "win_loss_ratio": 1.8994731292442995,
+    "win_loss_ratio_status": "VALID",
+    "return": 2.1954283480000005,
+    "sharpe": 1.3859774843583401,
+    "closed_trades": 139
+  },
+  "orders": 278,
+  "fills": 278,
+  "buy_limit_filled": 139,
+  "sell_market_filled": 139,
+  "sell_open_market_fills": 139,
+  "se_audit": {
+    "status": "PASS",
+    "evidence_hash": "db9f8000c69489a8eb66fdc9e19830fbf5cf54a90c8704626433a31cb260c910",
+    "checks": [
+      "ORDER_AND_FILL_CAUSALITY",
+      "ACCOUNT_LEDGER",
+      "TRADE_PAIRING",
+      "METRICS"
+    ],
+    "reason_codes": []
+  },
+  "output_hashes": {
+    "audit.json": "5b13f27e6afe11b2b58715a6fe040589376b1bf11074d33eceb6a614dfb6cf31",
+    "manifest.json": "f685ad1c8ed43302aa43afb7b73a3cd2b902efa98f1fb863967560fc1d2e009e",
+    "metrics.json": "0f9f120a0edb30c3e375064a218d376f67c52bbdc2ee684ba04e6ffa8fe68ad6",
+    "orders.csv": "836864eb39bb3c7f317cb60073141e0cf1edd42946f59c3820eeb940cef4419c",
+    "fills.csv": "259fbbccfd51413b47d551bd8b2cbadcb6f03f3d03c5ff1d2bbc54e2619cde69",
+    "trades.csv": "24842317097b7dcae0672cc83577ac76cb20490a4109f9065c8f524e7eb0b1e6"
+  },
+  "source_archives_validated": [
+    "experiments/S007/20260915_S007_EX31",
+    "experiments/S007/20260916_S007_EX34",
+    "experiments/S007/20260916_S007_EX35",
+    "experiments/S007/20260916_S007_EX37"
+  ]
+}

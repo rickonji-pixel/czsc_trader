@@ -19,9 +19,6 @@ from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.runtime_acceptance import validate_runtime_readiness
 from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
 from czsc_trader.backtesting.channel import BacktestChannel
-from czsc_trader.backtesting.causal_feature_gate_replay import (
-    build_causal_feature_gate_signals,
-)
 from czsc_trader.backtesting.execution_replay import replay_account
 from czsc_trader.backtesting.intraday_overlay_replay import (
     build_moneyflow_breadth_signals,
@@ -49,7 +46,8 @@ END = pd.Timestamp("2026-09-02")
         ("S001", "v2", "588080.SH"),
         ("S002", "v1", "510500.SH"),
         ("S003", "v1", "510500.SH"),
-        ("S007", "v1", "588080.SH"),
+        # S007 is checked against its hash-pinned frozen evidence instead of
+        # the obsolete feature-recomputation path; see test_s003_s007_runtime.
     ),
 )
 def test_srt_backtest_matches_complete_legacy_ledger(
@@ -73,9 +71,6 @@ def test_srt_backtest_matches_complete_legacy_ledger(
     if family == "S003":
         legacy_signals = build_moneyflow_breadth_signals(snapshot, replay_data, ROOT, START, END)
         legacy = replay_intraday_overlay(legacy_signals, replay_data, 100_000)
-    elif family == "S007":
-        legacy_signals = build_causal_feature_gate_signals(snapshot, replay_data, START, END, ROOT)
-        legacy = replay_account(legacy_signals, replay_data, 100_000)
     else:
         legacy_signals = replay_signals(snapshot, replay_data, START.date(), END.date())
         legacy = replay_account(legacy_signals, replay_data, 100_000)

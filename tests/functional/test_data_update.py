@@ -164,7 +164,7 @@ def test_ft_t03_backtest_publication_uses_srt_inputs_without_legacy_support(
     )
 
     assert result.result["data_contract"]["source"] == "SRT"
-    assert len(result.result["data_contract"]["inputs"]) == 7
+    assert len(result.result["data_contract"]["inputs"]) == 8
     assert result.result["runtime_publication"]["inputs"] == {
         "adjusted_daily": {"dataset": "etf.ohlcv"}
     }

@@ -192,7 +192,10 @@ def _publish_runtime_history(
         symbol.upper(),
         "backtest-data",
         "backtest",
-        {"env_file": str(context.root / ".env")},
+        {
+            "env_file": str(context.root / ".env"),
+            "repository_root": str(context.root),
+        },
     )
     publication = publish_history(
         strategy,

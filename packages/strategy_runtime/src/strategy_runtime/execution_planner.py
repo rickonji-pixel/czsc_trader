@@ -20,6 +20,27 @@ def _round_tick(value: float, tick: float, rounding: str) -> float:
     return float(scaled.to_integral_value(rounding=modes[rounding]) * quantum)
 
 
+def effective_target_order_type(settings: Mapping[str, Any], side: str) -> str:
+    """Resolve the channel-neutral order type for a target-position policy.
+
+    Historical frozen releases described an immediately marketable sell as a
+    LIMIT order while also declaring ``virtual_fill.sell`` as
+    ``marketable_limit_at_open``. Research and deterministic replay executed
+    those exits at the opening market price. SRT treats that fill semantic as
+    authoritative so live and backtest channels preserve the audited behavior.
+    """
+
+    normalized = side.upper()
+    if normalized == "BUY":
+        return str(dict(settings["entry"])["order_type"])
+    if normalized != "SELL":
+        raise RuntimeContractError(f"unsupported target order side: {side}")
+    virtual_fill = dict(settings.get("virtual_fill", {}))
+    if str(virtual_fill.get("sell", "")).lower() == "marketable_limit_at_open":
+        return "MARKET"
+    return str(dict(settings["exit"])["order_type"])
+
+
 def _target_plan(
     request: ExecutionRequest,
     *,
@@ -65,22 +86,26 @@ def _target_plan(
         delta = max(0, target - actual)
         action = "BUY" if delta else ("HOLD" if actual else "WAIT")
         side = "BUY"
-        order_type = str(entry["order_type"])
+        order_type = effective_target_order_type(settings, "BUY")
     else:
+        order_type = effective_target_order_type(settings, "SELL")
         limit_ratio = float(exit_rule["limit_ratio"])
         lower_guard = _round_tick(
             _round_tick(execution_reference_price * (1 - limit_ratio), tick, "ceil") + tick,
             tick,
             "half_up",
         )
-        price = lower_guard
+        price = (
+            _round_tick(execution_reference_price, tick, "half_up")
+            if order_type == "MARKET"
+            else lower_guard
+        )
         target = 0
         delta = -actual
         action = "SELL" if actual else "WAIT"
         previous_cycle = request.deployment.settings.get("cycle_target_quantity")
         cycle_target = 0 if not actual else int(previous_cycle or actual)
         side = "SELL"
-        order_type = str(exit_rule["order_type"])
     remaining = abs(delta)
     maximum = int(instrument["maximum_order_quantity"])
     while remaining:

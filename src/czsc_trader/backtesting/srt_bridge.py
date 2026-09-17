@@ -15,6 +15,7 @@ from strategy_runtime import (
     StrategyLoader,
     StrategyRelease,
     StrategyRunner,
+    effective_target_order_type,
     read_publication,
 )
 
@@ -132,9 +133,23 @@ def build_srt_signal_replay(
                 ],
             }
         )
+        if "confirmation_score" in history:
+            chart_data["confirmation_score"] = (
+                history.loc[visible, "confirmation_score"].astype(float).to_numpy()
+            )
         if "regime" in history:
             chart_data["regime"] = history.loc[visible, "regime"].astype("string").to_numpy()
     calculations = history.index
+    execution = strategy.definition.execution
+    target_order_types: dict[str, str | None] = {
+        "entry_order_type": None,
+        "exit_order_type": None,
+    }
+    if execution.policy_type == "FROZEN_RULE":
+        target_order_types = {
+            "entry_order_type": effective_target_order_type(execution.settings, "BUY"),
+            "exit_order_type": effective_target_order_type(execution.settings, "SELL"),
+        }
     replay = SignalReplay(
         snapshot=snapshot,
         decisions=pd.DataFrame(rows),
@@ -145,6 +160,7 @@ def build_srt_signal_replay(
         support_data={
             "mode": "srt_input_contract",
             "release_id": release.release_id,
+            **target_order_types,
             "requested_cutoff": publication.requested_cutoff,
             "publication_sha256": sha256(
                 json.dumps(

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260918_S007_EX38",
+  "experiment_type": "EXECUTION_CONTRACT_CORRECTION_AUDIT",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "candidate_id": "S007-C001",
+  "symbol": "588080.SH",
+  "evaluation_start": "2021-01-05",
+  "development_cutoff": "2026-09-02",
+  "initial_cash": 100000.0,
+  "expected_behavior_hash": "d6dafcf9f65c2ea0be11f7c127a2a6e4acf0aa4a4e767dcf6fc3e21042ff26a3",
+  "expected_closed_trades": 139,
+  "expected_entry_order_type": "LIMIT",
+  "expected_exit_order_type": "MARKET",
+  "sources": {
+    "formal_replay_archive": "experiments/S007/20260915_S007_EX31",
+    "formal_replay_manifest_sha256": "5f61bd6c5caf8ff7eb9dbbe6a3063d495d13084bbfeec11b4ddf3f970cf8f2e5",
+    "parameter_audit_archive": "experiments/S007/20260916_S007_EX34",
+    "parameter_audit_manifest_sha256": "f8525c2e5e3fdd8804e8286b27bb3721f707c0f92bb31817d2f1e3a21db9e3b7",
+    "cost_audit_archive": "experiments/S007/20260916_S007_EX35",
+    "cost_audit_manifest_sha256": "7387f8d365eacd823b4d5aaa274ff483880edca55f4a030eee158e9e8cb390d8",
+    "freeze_archive": "experiments/S007/20260916_S007_EX37",
+    "freeze_manifest_sha256": "0d2f0bcf6741f87f286830c1209be01de7c438d632204a83cdf1660a1f949808",
+    "corrected_backtest": "outputs/588080_0918_BT04"
+  },
+  "creates_strategy_version": false,
+  "changes_strategy_parameters": false,
+  "reruns_parameter_search": false,
+  "mutates_pte": false
+}

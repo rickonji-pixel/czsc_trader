@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from hashlib import sha256
+
 import pandas as pd
 
 from dataflows import (
@@ -162,9 +164,37 @@ def test_default_registry_covers_all_active_frozen_strategy_inputs() -> None:
         Dataset.INDEX_CONSTITUENT_WEIGHT.value,
         Dataset.STOCK_MONEYFLOW.value,
         Dataset.TRADING_CALENDAR.value,
+        Dataset.STRATEGY_FEATURE_EVIDENCE.value,
     }
 
     assert expected.issubset(Dataflows().datasets)
+
+
+def test_strategy_feature_evidence_is_hash_pinned_and_bounded(tmp_path) -> None:
+    source = tmp_path / "evidence.csv"
+    source.write_text(
+        "date,feature\n2026-09-01,1.0\n2026-09-02,2.0\n",
+        encoding="utf-8",
+    )
+    request = DataRequest(
+        Dataset.STRATEGY_FEATURE_EVIDENCE,
+        "S007-v1",
+        "2026-09-02",
+        "2026-09-03",
+        None,
+        options={
+            "repository_root": str(tmp_path),
+            "source_path": source.name,
+            "source_sha256": sha256(source.read_bytes()).hexdigest(),
+        },
+    )
+
+    result = Dataflows().fetch(request)
+
+    assert result.status is DataStatus.READY
+    assert result.dataframe["Date"].dt.strftime("%Y-%m-%d").tolist() == ["2026-09-02"]
+    assert result.identity is not None
+    assert result.identity.source == "repository"
 
 
 def test_required_cutoff_prevents_stale_data_from_becoming_ready() -> None:

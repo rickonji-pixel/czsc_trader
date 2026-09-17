@@ -20,7 +20,7 @@ class SignalReplay:
     calculation_end: pd.Timestamp
     evaluation_start: pd.Timestamp
     evaluation_end: pd.Timestamp
-    support_data: dict[str, str] | None = None
+    support_data: dict[str, object] | None = None
     chart_data: pd.DataFrame | None = None
 
 

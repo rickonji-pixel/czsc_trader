@@ -10,6 +10,11 @@ packages/*/dist/
 # Local fixed-rule backtest outputs; formal research is tracked in experiments/.
 outputs/
 
+# Reproducible SRT publication caches; immutable sources remain tracked.
+data/backtest/srt_*_publication.json
+data/backtest/srt_*_*.csv.gz
+data/backtest/*_strategy_generation.json
+
 # Local runtime state and audit data.
 state/
 

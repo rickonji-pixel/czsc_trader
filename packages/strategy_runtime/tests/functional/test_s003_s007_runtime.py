@@ -6,13 +6,27 @@ from hashlib import sha256
 from pathlib import Path
 
 import pandas as pd
-from dataflows import DataIdentity, DataResult, DataStatus, Dataset
+import pytest
+from dataflows import DataIdentity, DataRequest, DataResult, DataStatus, Dataset
 
 from czsc_trader.baselines import resolve_strategy_payload
 from czsc_trader.causal_feature_gate_runtime import score_feature_panel
-from strategy_runtime import DeploymentSpec, StrategyLoader, StrategyRelease
+from strategy_runtime import (
+    AccountSnapshot,
+    CalculationRequest,
+    DeploymentSpec,
+    PublicationStatus,
+    PublishedStrategyData,
+    StrategyLoader,
+    StrategyRelease,
+    StrategyStateSnapshot,
+)
 from strategy_runtime.strategies.s003_v1 import calculate_s003_history
-from strategy_runtime.strategies.s007_v1 import calculate_s007_history
+from strategy_runtime.strategies.s007_v1 import (
+    calculate_s007_history,
+    materialize_s007_features,
+    resolve_s007_feature_panel,
+)
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -102,6 +116,10 @@ def test_s007_complete_decision_history_matches_frozen_legacy_path() -> None:
     panel = panel.set_index("date").sort_index()
     rule = raw["strategy_payload"]["rule"]
     actual = calculate_s007_history(panel, rule["normalization"], rule["score"])
+    evidence = panel.loc[:, sorted(rule["score"]["orientations"])].copy().reset_index()
+    runtime_actual = strategy.calculate_history(
+        {"strategy_evidence": evidence}, panel.index
+    )
 
     resolved = resolve_strategy_payload(
         ROOT / "strategies/dependencies/legacy_rule_baselines",
@@ -119,7 +137,160 @@ def test_s007_complete_decision_history_matches_frozen_legacy_path() -> None:
     pd.testing.assert_series_equal(
         actual["target_position"], expected_target.astype(int), check_names=False
     )
+    pd.testing.assert_series_equal(
+        runtime_actual["target_position"], expected_target.astype(int), check_names=False
+    )
     assert strategy.definition.release_id == "S007-v1"
+
+
+def test_s007_live_calculation_uses_the_same_frozen_evidence_as_history() -> None:
+    raw, release = _release("S007")
+    strategy = StrategyLoader().load(release)
+    evidence = pd.read_csv(
+        ROOT / "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz"
+    )
+    evidence["date"] = pd.to_datetime(evidence["date"]).dt.normalize()
+    panel = evidence.set_index("date").sort_index()
+    cutoff = panel.index.max()
+    expected = calculate_s007_history(
+        panel,
+        raw["strategy_payload"]["rule"]["normalization"],
+        raw["strategy_payload"]["rule"]["score"],
+    ).loc[cutoff]
+    frames = {
+        "adjusted_daily": pd.DataFrame({"Date": panel.index}),
+        "shibor_daily": pd.DataFrame({"Date": [cutoff]}),
+        "chinext_daily_basic": pd.DataFrame({"Date": [cutoff]}),
+        "etf_share_size": pd.DataFrame({"Date": [cutoff]}),
+        "spx_daily": pd.DataFrame({"Date": [cutoff]}),
+        "execution_daily": pd.DataFrame({"Date": [cutoff], "Close": [1.0]}),
+        "trading_calendar": pd.DataFrame(
+            {"Date": [cutoff, cutoff + pd.Timedelta(days=1)], "IsOpen": [1, 1]}
+        ),
+        "strategy_evidence": evidence,
+    }
+    input_results = {
+        name: DataResult(
+            DataStatus.READY,
+            frame,
+            DataIdentity(
+                "test.dataset",
+                "test",
+                release.release_id,
+                str(cutoff.date()),
+                str(cutoff.date()),
+                sha256(name.encode()).hexdigest(),
+                {},
+            ),
+        )
+        for name, frame in frames.items()
+    }
+    publication = PublishedStrategyData(
+        release.release_id,
+        release.release_hash,
+        PublicationStatus.READY,
+        str(cutoff.date()),
+        {
+            name: DataRequest(
+                "test.dataset",
+                release.release_id,
+                str(cutoff.date()),
+                str(cutoff.date()),
+                None,
+                "daily",
+            )
+            for name in frames
+        },
+        input_results,
+    )
+    now = datetime(2026, 9, 2, 20, 30, tzinfo=timezone(timedelta(hours=8)))
+    deployment = DeploymentSpec(
+        "dep-s007-v1",
+        release.release_id,
+        release.release_hash,
+        "588080.SH",
+        "s007-v1",
+        "futu_simulate_cn",
+    )
+    decision = strategy.calculate(
+        CalculationRequest(
+            deployment,
+            publication,
+            AccountSnapshot("s007-v1", 100_000, 100_000, 0, 0, now),
+            StrategyStateSnapshot(
+                "dep-s007-v1", release.release_hash, 0, now, {}
+            ),
+            now,
+        )
+    )
+
+    assert decision.target_position == float(expected["target_position"])
+    assert decision.evidence["base_score"] == float(expected["base_score"])
+    assert decision.evidence["confirmation_score"] == float(
+        expected["confirmation_score"]
+    )
+
+
+def test_s007_materialized_history_preserves_frozen_start_boundary() -> None:
+    sessions = pd.to_datetime(["2020-12-31", "2021-01-04"])
+    market = pd.DataFrame(
+        {
+            "Date": sessions,
+            "Close": [1.0, 1.1],
+            "High": [1.1, 1.2],
+            "Low": [0.9, 1.0],
+            "Volume": [100.0, 110.0],
+            "Amount": [100.0, 121.0],
+        }
+    )
+    inputs = {
+        "adjusted_daily": market,
+        "shibor_daily": pd.DataFrame(
+            {"Date": sessions, "OvernightRate": [2.0, 2.1]}
+        ),
+        "chinext_daily_basic": pd.DataFrame(
+            {"Date": sessions, "TurnoverRateFreeFloat": [1.0, 1.1]}
+        ),
+        "etf_share_size": pd.DataFrame(
+            {"Date": sessions, "TotalShare": [100.0, 101.0]}
+        ),
+        "spx_daily": pd.DataFrame(
+            {
+                "Date": pd.to_datetime(["2020-12-30", "2021-01-01"]),
+                "PercentChange": [0.1, 0.2],
+            }
+        ),
+    }
+
+    actual = materialize_s007_features(inputs)
+
+    assert actual.index.tolist() == [pd.Timestamp("2021-01-04")]
+
+
+def test_s007_feature_panel_appends_dfLS_rows_only_after_frozen_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw, _release_record = _release("S007")
+    features = sorted(raw["strategy_payload"]["rule"]["score"]["orientations"])
+    dates = pd.date_range("2026-09-01", periods=3, freq="D")
+    evidence = pd.DataFrame({"Date": dates[:2], **{name: [1.0, 1.0] for name in features}})
+    materialized = pd.DataFrame(
+        {name: [9.0, 9.0, 2.0] for name in features}, index=dates
+    )
+    monkeypatch.setattr(
+        "strategy_runtime.strategies.s007_v1.materialize_s007_features",
+        lambda _inputs: materialized,
+    )
+
+    actual = resolve_s007_feature_panel(
+        {"strategy_evidence": evidence},
+        raw["strategy_payload"]["rule"]["score"],
+        dates,
+    )
+
+    assert actual.loc[dates[0], features[0]] == 1.0
+    assert actual.loc[dates[1], features[0]] == 1.0
+    assert actual.loc[dates[2], features[0]] == 2.0
 
 
 def test_s007_publication_resolves_previous_session_by_position() -> None:

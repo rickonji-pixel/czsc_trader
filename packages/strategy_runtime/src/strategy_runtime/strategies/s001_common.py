@@ -15,6 +15,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
+from ..execution_planner import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
@@ -369,14 +370,10 @@ class S001Base:
         self._release = release
         self._rule = rule
         self._symbol = symbol
-        order_types = tuple(
-            sorted(
-                {
-                    str(_object(execution.get("entry"), "entry execution").get("order_type")),
-                    str(_object(execution.get("exit"), "exit execution").get("order_type")),
-                }
-            )
-        )
+        order_types = tuple(sorted({
+            effective_target_order_type(execution, "BUY"),
+            effective_target_order_type(execution, "SELL"),
+        }))
         datasets = (
             Dataset.ETF_OHLCV.value,
             Dataset.ETF_UNADJUSTED_DAILY.value,

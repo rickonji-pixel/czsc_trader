@@ -314,7 +314,10 @@ class AccountDataPublisher:
                         normalized_symbol,
                         "publication",
                         "futu_simulate_cn",
-                        {"env_file": str(Path(self.repo_root) / ".env")},
+                        {
+                            "env_file": str(Path(self.repo_root) / ".env"),
+                            "repository_root": str(Path(self.repo_root)),
+                        },
                     )
                     publication = strategy.publish_data(
                         self.dataflows,

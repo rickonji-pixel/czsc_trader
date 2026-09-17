@@ -7,7 +7,7 @@ from .errors import (
     StrategyRuntimeError,
 )
 from .loader import StrategyLoader
-from .execution_planner import build_execution_plan
+from .execution_planner import build_execution_plan, effective_target_order_type
 from .historical_publication import publish_history
 from .models import (
     AccountSnapshot,
@@ -86,5 +86,6 @@ __all__ = [
     "StrategyStateSnapshot",
     "canonical_sha256",
     "build_execution_plan",
+    "effective_target_order_type",
     "publish_history",
 ]

@@ -34,6 +34,7 @@ class Dataset(StrEnum):
     INDEX_CONSTITUENT_WEIGHT = "index.constituent_weight"
     STOCK_MONEYFLOW = "stock.moneyflow"
     TRADING_CALENDAR = "calendar.trading_sessions"
+    STRATEGY_FEATURE_EVIDENCE = "strategy.feature_evidence"
 
 
 @dataclass(frozen=True, slots=True)

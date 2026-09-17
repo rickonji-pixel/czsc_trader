@@ -18,6 +18,35 @@ from .models import (
 from .protocols import ExecutableStrategy
 
 
+def _request_options(
+    definition,
+    deployment: DeploymentSpec,
+    requirement,
+    base: Mapping[str, object],
+) -> dict[str, object]:
+    options = dict(base)
+    if requirement.dataset != Dataset.STRATEGY_FEATURE_EVIDENCE.value:
+        return options
+    repository_root = deployment.settings.get("repository_root")
+    rule = definition.parameters.values.get("rule")
+    data_source = rule.get("data_source") if isinstance(rule, Mapping) else None
+    if (
+        repository_root is None
+        or not isinstance(data_source, Mapping)
+        or not isinstance(data_source.get("path"), str)
+        or not isinstance(data_source.get("sha256"), str)
+    ):
+        raise RuntimeContractError("strategy evidence publication settings are incomplete")
+    options.update(
+        {
+            "repository_root": str(repository_root),
+            "source_path": str(data_source["path"]),
+            "source_sha256": str(data_source["sha256"]),
+        }
+    )
+    return options
+
+
 def _publication_status(results: Mapping[str, DataResult]) -> PublicationStatus:
     statuses = {item.status for item in results.values()}
     if statuses == {DataStatus.READY}:
@@ -137,7 +166,7 @@ def publish_history(
                 request_end.isoformat(),
                 required_cutoff,
                 requirement.frequency,
-                request_options,
+                _request_options(definition, deployment, requirement, request_options),
             )
             requests[name] = request
             results[name] = dataflows.fetch(request)
@@ -152,7 +181,7 @@ def publish_history(
                 through.isoformat(),
                 None,
                 requirement.frequency,
-                options,
+                _request_options(definition, deployment, requirement, options),
             )
             requests[name] = request
             results[name] = DataResult(DataStatus.INCOMPLETE, error=calendar_result.error)

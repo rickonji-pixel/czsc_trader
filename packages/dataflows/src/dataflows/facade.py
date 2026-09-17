@@ -180,6 +180,7 @@ class Dataflows:
 
 
 def _default_providers() -> dict[str, Provider]:
+    from .local_strategy_data import fetch_strategy_feature_evidence
     from .tushare_etf import fetch_etf_ohlcv, fetch_etf_unadjusted_daily
     from .tushare_strategy_data import (
         fetch_etf_share_size,
@@ -302,6 +303,7 @@ def _default_providers() -> dict[str, Provider]:
         Dataset.INDEX_CONSTITUENT_WEIGHT.value: index_weights,
         Dataset.STOCK_MONEYFLOW.value: stock_moneyflow,
         Dataset.TRADING_CALENDAR.value: trading_calendar,
+        Dataset.STRATEGY_FEATURE_EVIDENCE.value: fetch_strategy_feature_evidence,
     }
 
 

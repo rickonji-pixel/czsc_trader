@@ -75,6 +75,7 @@ def _deployment(strategy, symbol: str) -> DeploymentSpec:
         symbol,
         "backtest-data",
         "backtest",
+        {"repository_root": str(ROOT)},
     )
 
 
@@ -101,7 +102,7 @@ def test_price_strategies_publish_every_declared_history_input(
     }
 
 
-def test_s007_history_is_derived_from_seven_declared_inputs() -> None:
+def test_s007_history_includes_frozen_evidence_and_declared_market_inputs() -> None:
     strategy = _strategy("S007-v1")
     dataflows = RecordingDataflows()
 

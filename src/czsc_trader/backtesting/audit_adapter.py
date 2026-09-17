@@ -30,6 +30,7 @@ def build_replay_evidence(
 ) -> ReplayEvidence:
     spec = signals.snapshot.resolved_rule.execution
     overlay = signals.snapshot.resolved_rule.constituent_moneyflow_intraday
+    support = signals.support_data or {}
     if overlay is not None:
         if data.execution_five_minute is None:
             raise ValueError("intraday overlay audit requires 5m execution data")
@@ -57,7 +58,7 @@ def build_replay_evidence(
                 "t_plus_one_inventory_rotation": overlay.t_plus_one_inventory_rotation,
                 "order_semantics": (
                     "SRT_PLAN"
-                    if (signals.support_data or {}).get("mode") == "srt_input_contract"
+                    if support.get("mode") == "srt_input_contract"
                     else "LEGACY_REPLAY"
                 ),
             },
@@ -87,10 +88,12 @@ def build_replay_evidence(
         execution_spec={
             "entry_limit_parameter": spec.entry_limit_parameter,
             "exit_limit_ratio": spec.exit_limit_ratio,
-            "entry_order_type": spec.entry_order_type,
+            "entry_order_type": str(
+                support.get("entry_order_type") or spec.entry_order_type
+            ),
             "exit_order_type": (
-                spec.exit_order_type
-                if (signals.support_data or {}).get("mode") == "srt_input_contract"
+                str(support.get("exit_order_type") or spec.exit_order_type)
+                if support.get("mode") == "srt_input_contract"
                 else "MARKET"
             ),
             "fee_rate": spec.capital.fee_rate,

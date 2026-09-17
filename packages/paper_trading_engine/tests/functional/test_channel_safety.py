@@ -140,18 +140,27 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     execution = FutuExecution(store, broker, symbol="588080.SH", today=lambda: date(2026, 9, 4))
     execution.refresh_account()
     execution.submit_pending()
-    submitted = broker.value.orders
-    filled = tuple(
-        replace(
-            order, status="FILLED_ALL", cumulative_filled_quantity=1000,
-            average_fill_price=1.67 if order.symbol == "588080.SH" else 7.49,
-        )
-        for order in submitted
+    assert len(broker.value.orders) == 1
+    first_order = replace(
+        broker.value.orders[0], status="FILLED_ALL", cumulative_filled_quantity=1000,
+        average_fill_price=1.67,
     )
     broker.value = BrokerSnapshot(
         broker.value.account,
+        (BrokerPosition("588080.SH", 1000),), (first_order,),
+    )
+    execution.refresh_orders()
+    execution.submit_pending()
+    assert len(broker.value.orders) == 2
+    second_order = replace(
+        broker.value.orders[1], status="FILLED_ALL", cumulative_filled_quantity=1000,
+        average_fill_price=7.49,
+    )
+    submitted = (first_order, second_order)
+    broker.value = BrokerSnapshot(
+        broker.value.account,
         (BrokerPosition("588080.SH", 1000), BrokerPosition("510500.SH", 1000)),
-        filled,
+        submitted,
     )
     execution.refresh_orders()
     assert store.virtual_account("s001-v1")["quantity"] == 0
@@ -216,6 +225,94 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     with pytest.raises(PaperTradingSafetyError, match="China-market"):
         gateway.place_order(OrderIntent("PTE-X", "DEC-Z", "AAPL.US", "BUY", 1000, 1.0))
     audit_store.close()
+
+
+def test_ft_pte03_serializes_futu_simulated_cn_fee_attribution_per_order(tmp_path):
+    store = PaperStore(tmp_path / "serialized-fees.db")
+    for account_id, symbol in (("s001-v1", "588080.SH"), ("s002-v1", "510500.SH")):
+        store.create_virtual_account(
+            account_id, f"{account_id}模拟账户", "legacy", account_id[-1] * 64, 100_000,
+            strategy_id=account_id[:4].upper(), strategy_name_snapshot="测试策略",
+            strategy_version="v1", release_hash=account_id[-1] * 64,
+            qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
+            symbol=symbol,
+        )
+    store.create_account_intent(
+        account_id="s001-v1", decision_id="DEC-1", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000, limit_price="1.680",
+        valid_session="2026-09-04", fee_rate="0.0005",
+    )
+    store.create_account_intent(
+        account_id="s002-v1", decision_id="DEC-2", order_sequence=0,
+        symbol="510500.SH", side="BUY", quantity=1000, limit_price="7.500",
+        valid_session="2026-09-04", fee_rate="0.0005",
+    )
+    broker = FakeBroker()
+    execution = FutuExecution(
+        store, broker, now=lambda: datetime.fromisoformat("2026-09-04T10:00:00+08:00"),
+    )
+
+    execution.submit_pending()
+    assert len(broker.placed) == 1
+    assert store.account_order("1001")["pte_fee_attribution"]["status"] == "PENDING"
+
+    first = replace(
+        broker.value.orders[0], status="FILLED_ALL", cumulative_filled_quantity=1000,
+        average_fill_price=1.67,
+    )
+    broker.value = BrokerSnapshot(
+        BrokerAccount("SIMULATE", "CN", 998_329.00, 999_999.00, 0),
+        (BrokerPosition("588080.SH", 1000),), (first,),
+    )
+    execution.refresh_orders()
+    assert float(store.virtual_account("s001-v1")["cash"]) == pytest.approx(98_329.00)
+
+    execution.submit_pending()
+    assert len(broker.placed) == 2
+    second = replace(
+        broker.value.orders[1], status="FILLED_ALL", cumulative_filled_quantity=1000,
+        average_fill_price=7.49,
+    )
+    broker.value = BrokerSnapshot(
+        BrokerAccount("SIMULATE", "CN", 990_834.50, 1_000_000.00, 0),
+        (BrokerPosition("588080.SH", 1000), BrokerPosition("510500.SH", 1000)),
+        (first, second),
+    )
+    execution.refresh_orders()
+
+    assert float(store.virtual_account("s002-v1")["cash"]) == pytest.approx(92_505.50)
+    assert store.get_setting("futu_cash_reconciliation_status") == "OK"
+    assert [
+        row["pte_fee_attribution"]["status"] for row in store.account_orders()
+    ] == ["RECONCILED", "RECONCILED"]
+    events = store.query_audit_events(event_type="BROKER_FEE_RECONCILED")
+    assert {event["account_id"] for event in events} == {"s001-v1", "s002-v1"}
+    assert store.account_invariant_violations() == []
+    store.close()
+
+
+def test_ft_pte03_fee_attribution_rejects_live_futu_snapshot(tmp_path):
+    store = PaperStore(tmp_path / "live-futu-rejected.db")
+    broker = FakeBroker()
+    broker.value = BrokerSnapshot(BrokerAccount("REAL", "CN", 1_000_000, 1_000_000, 0), (), ())
+    execution = FutuExecution(store, broker)
+
+    with pytest.raises(PaperTradingSafetyError, match="environment must be SIMULATE"):
+        execution.refresh_account()
+    store.close()
+
+
+def test_ft_pte03_fee_attribution_ignores_other_channels(tmp_path):
+    class OtherChannelBroker(FakeBroker):
+        channel_id = "other"
+
+    store = PaperStore(tmp_path / "other-channel.db")
+    broker = OtherChannelBroker()
+    execution = FutuExecution(store, broker)
+    execution.refresh_account()
+
+    assert execution._fee_attribution_baseline() is None
+    store.close()
 
 
 def test_ft_pte03_failed_or_cancelled_buy_releases_reserved_cash(tmp_path):

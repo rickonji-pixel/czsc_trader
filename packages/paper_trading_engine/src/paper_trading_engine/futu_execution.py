@@ -385,6 +385,127 @@ class FutuExecution:
         )
         self.store.set_setting("futu_cash_reconciliation_status", "OK")
 
+    def _is_futu_simulated_cn_fee_scope(self) -> bool:
+        """Cash-delta fee attribution is available only for the locked Futu test channel."""
+        if self._snapshot is None:
+            return False
+        account = self._snapshot.account
+        return (
+            getattr(self.broker, "channel_id", None) == "futu"
+            and account.environment == "SIMULATE"
+            and account.market == "CN"
+        )
+
+    def _fee_attribution_baseline(self) -> dict[str, str] | None:
+        """Capture the Futu simulated-CN cash immediately before one serialized submission."""
+        self.refresh_account()
+        if not self._is_futu_simulated_cn_fee_scope():
+            return None
+        return {
+            "schema": "futu.simulate_cn_fee_attribution.v1",
+            "status": "PENDING",
+            "broker_cash_before": str(
+                Decimal(str(self._snapshot.account.cash)).quantize(Decimal("0.0001"))
+            ),
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def _reconcile_simulated_cn_order_fees(self) -> None:
+        """Reconcile one serialized Futu SIMULATE/CN order from its cash delta.
+
+        Futu simulated accounts do not expose an order-level fee or settlement amount.
+        Capturing cash immediately before a single submission makes the terminal cash delta
+        attributable to that order, without assigning a multi-account aggregate by guesswork.
+        """
+        if not self._is_futu_simulated_cn_fee_scope() or self._snapshot is None:
+            return
+        if Decimal(str(self._snapshot.account.frozen_cash)) > Decimal("0.01"):
+            return
+        broker_cash = Decimal(str(self._snapshot.account.cash)).quantize(Decimal("0.0001"))
+        for order in self.store.account_orders():
+            attribution = order.get("pte_fee_attribution")
+            if not isinstance(attribution, dict) or attribution.get("status") != "PENDING":
+                continue
+            if order.get("status") not in TERMINAL_ORDER_STATUSES:
+                continue
+            other_active_orders = [
+                row for row in self.store.account_orders()
+                if row["channel_order_id"] != order["channel_order_id"]
+                and row.get("channel_order_id")
+                and row.get("status") not in TERMINAL_ORDER_STATUSES
+            ]
+            if other_active_orders:
+                return
+            fills = [
+                row for row in self.store.account_fills(order["account_id"])
+                if row["order_id"] == order["channel_order_id"]
+            ]
+            reference = (
+                f"futu-sim-cn:{order['channel_order_id']}:"
+                f"{attribution['broker_cash_before']}:{broker_cash}"
+            )
+            if not fills:
+                if abs(broker_cash - Decimal(str(attribution["broker_cash_before"]))) > Decimal("0.01"):
+                    self.store.set_setting("futu_cash_reconciliation_status", "UNATTRIBUTED")
+                    return
+                self.store.complete_futu_simulated_cn_fee_attribution(
+                    order["channel_order_id"], reference=reference, actual_fee="0.0000",
+                    adjustment="0.0000", broker_cash_after=str(broker_cash),
+                )
+                continue
+            sides = {str(row["side"]).upper() for row in fills}
+            if len(sides) != 1:
+                self.store.set_setting("futu_cash_reconciliation_status", "AMBIGUOUS")
+                return
+            side = sides.pop()
+            turnover = sum(
+                (Decimal(str(row["price"])) * int(row["quantity"]) for row in fills),
+                Decimal("0"),
+            )
+            modeled_fee = sum((Decimal(row["fee"]) for row in fills), Decimal("0"))
+            before_cash = Decimal(str(attribution["broker_cash_before"]))
+            gross_cash_change = -turnover if side == "BUY" else turnover
+            actual_fee = (gross_cash_change - (broker_cash - before_cash)).quantize(
+                Decimal("0.0001")
+            )
+            maximum_fee = (turnover * Decimal("0.005") + Decimal("1")).quantize(
+                Decimal("0.0001")
+            )
+            if actual_fee < Decimal("-0.01") or actual_fee > maximum_fee:
+                self.store.set_setting("futu_cash_reconciliation_status", "OUT_OF_RANGE")
+                return
+            adjustment = (modeled_fee - actual_fee).quantize(Decimal("0.0001"))
+            account = self.store.virtual_account(order["account_id"])
+            treatment = "COST_BASIS" if side == "BUY" else "REALIZED"
+            event = self.audit.build(
+                "BROKER_FEE_RECONCILED", source="futu_execution",
+                account_id=order["account_id"], strategy_id=account.get("strategy_id"),
+                strategy_version=account.get("strategy_version"),
+                release_hash=account.get("release_hash"), symbol=account.get("symbol"),
+                channel="futu", order_id=order["channel_order_id"], correlation_id=reference,
+                details={
+                    "scope": "FUTU_SIMULATE_CN", "method": "cash_delta_minus_turnover",
+                    "broker_cash_before": str(before_cash),
+                    "broker_cash_after": str(broker_cash), "modeled_fee": str(modeled_fee),
+                    "actual_fee": str(actual_fee), "adjustment": str(adjustment),
+                    "fill_count": len(fills), "treatment": treatment,
+                },
+            )
+            if adjustment:
+                self.store.apply_broker_fee_reconciliation(
+                    order["account_id"], adjustment, reference=reference, treatment=treatment,
+                    occurred_at=datetime.now(timezone.utc).isoformat(), event=event,
+                    realized_fill_id=(
+                        str(fills[-1]["fill_id"]) if treatment == "REALIZED" else None
+                    ),
+                )
+            else:
+                self.store.append_audit_event(event)
+            self.store.complete_futu_simulated_cn_fee_attribution(
+                order["channel_order_id"], reference=reference, actual_fee=str(actual_fee),
+                adjustment=str(adjustment), broker_cash_after=str(broker_cash),
+            )
+
     @staticmethod
     def _validate_order(intent, order) -> None:
         intent_order_type = str(intent["payload"].get("order_type", "LIMIT")).upper()
@@ -596,6 +717,7 @@ class FutuExecution:
                         f"Futu持仓与虚拟账户分账不一致({symbol}): "
                         f"{broker_quantity}!={logical_quantity}"
                     )
+        self._reconcile_simulated_cn_order_fees()
         self._reconcile_broker_fees()
         violations = self.store.account_invariant_violations()
         if violations:
@@ -681,6 +803,7 @@ class FutuExecution:
                 order_type=str(row["payload"].get("order_type", "LIMIT")),
                 account_id=row["account_id"],
             )
+            fee_attribution = self._fee_attribution_baseline()
             try:
                 order = self.broker.place_order(intent)
             except BrokerOrderRejectedError as exc:
@@ -748,8 +871,11 @@ class FutuExecution:
                 },
             )
             try:
+                order_payload = asdict(order)
+                if fee_attribution is not None:
+                    order_payload["pte_fee_attribution"] = fee_attribution
                 self.store.bind_channel_order(
-                    row["intent_id"], order.channel_order_id, asdict(order), submitted_event,
+                    row["intent_id"], order.channel_order_id, order_payload, submitted_event,
                 )
             except Exception:
                 self.store.update_account_intent_status(
@@ -760,6 +886,10 @@ class FutuExecution:
                     "Futu已返回订单，但本地绑定失败，等待双向对账",
                 )
                 raise
+            # Futu SIMULATE/CN exposes only aggregate cash.  Keep one submitted order
+            # in flight so its terminal cash delta has exactly one virtual-account owner.
+            if fee_attribution is not None:
+                break
         return self.status()
 
     def acknowledge_execution_gap(

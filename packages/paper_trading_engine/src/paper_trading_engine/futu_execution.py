@@ -46,13 +46,23 @@ class FutuExecution:
     def begin_shutdown(self) -> None:
         self._draining = True
 
-    def refresh_account(self):
-        method = getattr(self.broker, "account_snapshot", None)
-        snapshot = method() if method is not None else self.broker.snapshot()
+    def _require_supported_channel(self) -> None:
+        if getattr(self.broker, "channel_id", None) != "futu":
+            raise PaperTradingSafetyError("broker channel must be futu")
+
+    def _require_supported_futu_scope(self, snapshot) -> None:
+        """Fail closed unless this executor is bound to the sole supported broker scope."""
+        self._require_supported_channel()
         if snapshot.account.environment != "SIMULATE":
             raise PaperTradingSafetyError("broker environment must be SIMULATE")
         if snapshot.account.market != "CN":
             raise PaperTradingSafetyError("broker market must be CN")
+
+    def refresh_account(self):
+        self._require_supported_channel()
+        method = getattr(self.broker, "account_snapshot", None)
+        snapshot = method() if method is not None else self.broker.snapshot()
+        self._require_supported_futu_scope(snapshot)
         allocated = sum(
             float(row["initial_cash"])
             for row in self.store.virtual_accounts()
@@ -549,6 +559,9 @@ class FutuExecution:
             raise ValueError("sell average fill price is below limit")
 
     def refresh_orders(self):
+        # Validate the exact supported channel/environment/market tuple before
+        # querying or reconciling any broker order.
+        self.refresh_account()
         previous_reconciliation = self.store.get_setting("channel_reconciliation_status")
         orders = self._order_snapshot()
         seen_intents: set[str] = set()
@@ -747,12 +760,15 @@ class FutuExecution:
         return self.status()
 
     def submit_pending(self, *, reconcile: bool = True):
+        self._require_supported_channel()
         if self._draining:
             return self.status()
         if reconcile:
             self.refresh_orders()
         elif self._snapshot is None:
             self.refresh_account()
+        else:
+            self._require_supported_futu_scope(self._snapshot)
         if self.store.is_paused():
             return self.status()
         moment = self.now()

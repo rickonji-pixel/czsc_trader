@@ -126,7 +126,7 @@ class FutuGateway:
             row
             for row in rows
             if row.get("trd_env") == self.sdk.TrdEnv.SIMULATE
-            and row.get("trd_market", self.sdk.TrdMarket.CN) == self.sdk.TrdMarket.CN
+            and row.get("trd_market") == self.sdk.TrdMarket.CN
         ]
         if len(matches) != 1:
             raise FutuGatewayError(f"expected one CN SIMULATE account, found {len(matches)}")

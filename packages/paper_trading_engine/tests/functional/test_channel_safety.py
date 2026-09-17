@@ -302,16 +302,43 @@ def test_ft_pte03_fee_attribution_rejects_live_futu_snapshot(tmp_path):
     store.close()
 
 
-def test_ft_pte03_fee_attribution_ignores_other_channels(tmp_path):
+def test_ft_pte03_executor_rejects_undefined_channel_environment_market_scope(tmp_path):
     class OtherChannelBroker(FakeBroker):
         channel_id = "other"
 
     store = PaperStore(tmp_path / "other-channel.db")
     broker = OtherChannelBroker()
     execution = FutuExecution(store, broker)
-    execution.refresh_account()
+    with pytest.raises(PaperTradingSafetyError, match="channel must be futu"):
+        execution.refresh_account()
 
-    assert execution._fee_attribution_baseline() is None
+    broker = FakeBroker()
+    broker.value = BrokerSnapshot(BrokerAccount("SIMULATE", "US", 1_000_000, 1_000_000, 0), (), ())
+    execution = FutuExecution(store, broker)
+    with pytest.raises(PaperTradingSafetyError, match="market must be CN"):
+        execution.refresh_account()
+
+    store.close()
+
+
+def test_ft_pte03_gateway_rejects_account_without_explicit_cn_market(tmp_path):
+    class TradeContext:
+        def get_acc_list(self):
+            return 0, [{"acc_id": 77, "trd_env": "SIMULATE"}]
+
+        def close(self):
+            pass
+
+    sdk = SimpleNamespace(
+        RET_OK=0, TrdEnv=SimpleNamespace(SIMULATE="SIMULATE"),
+        TrdMarket=SimpleNamespace(CN="CN"),
+        SysConfig=SimpleNamespace(enable_console_log=lambda enabled: None),
+    )
+    store = PaperStore(tmp_path / "missing-market.db")
+    gateway = FutuGateway(sdk=sdk, trade_context=TradeContext(), audit=AuditRecorder(store))
+
+    with pytest.raises(FutuGatewayError, match="expected one CN SIMULATE account"):
+        gateway.account_snapshot()
     store.close()
 
 

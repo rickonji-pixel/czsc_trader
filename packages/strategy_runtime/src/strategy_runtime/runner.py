@@ -28,6 +28,14 @@ from .protocols import ExecutableStrategy, ExecutionChannel, RuntimeAccount
 class StrategyRunner:
     """Publish, calculate, validate, and submit one strategy cycle."""
 
+    @classmethod
+    def validate_publication(
+        cls, strategy: ExecutableStrategy, publication: PublishedStrategyData
+    ) -> None:
+        """Validate one publication against its strategy's declared input contract."""
+
+        cls._validate_publication(strategy.definition, publication)
+
     def run(
         self,
         *,
@@ -118,6 +126,47 @@ class StrategyRunner:
         if receipt.idempotency_key != idempotency_key:
             raise RuntimeContractError("execution receipt idempotency key differs from request")
         return receipt
+
+    def run_published(
+        self,
+        *,
+        strategy: ExecutableStrategy,
+        deployment: DeploymentSpec,
+        state: StrategyStateSnapshot,
+        publication: PublishedStrategyData,
+        account: RuntimeAccount,
+        channel: ExecutionChannel,
+        calculation_time: datetime,
+    ) -> RuntimeRunResult:
+        """Calculate and submit from an already persisted READY publication."""
+
+        definition = strategy.definition
+        self._validate_compatibility(definition, deployment, channel)
+        self._validate_publication(definition, publication)
+        if not publication.ready:
+            return RuntimeRunResult(RuntimeRunStatus.DATA_NOT_READY, publication)
+        account_snapshot = account.snapshot(deployment)
+        request = CalculationRequest(
+            deployment=deployment,
+            publication=publication,
+            account=account_snapshot,
+            state=state,
+            calculation_time=calculation_time,
+        )
+        decision = strategy.calculate(request)
+        self._validate_decision(definition, request, decision)
+        execution_request = ExecutionRequest(
+            deployment=deployment,
+            account=account_snapshot,
+            decision=decision,
+            policy=definition.execution,
+        )
+        idempotency_key = f"{deployment.channel_id}:{decision.decision_id}"
+        receipt = channel.submit(execution_request, idempotency_key)
+        if receipt.idempotency_key != idempotency_key:
+            raise RuntimeContractError("execution receipt idempotency key differs from request")
+        status = RuntimeRunStatus.ACCEPTED if receipt.accepted else RuntimeRunStatus.REJECTED
+        return RuntimeRunResult(status, publication, decision, receipt)
 
     @staticmethod
     def _validate_compatibility(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 from hashlib import sha256
 import json
@@ -17,10 +17,11 @@ from strategy_runtime import (
     ChannelCapabilities,
     DeploymentSpec,
     ExecutionReceipt,
-    StrategyDecision,
     StrategyLoader,
     StrategyRelease,
     StrategyRunner,
+    StrategyStateSnapshot,
+    read_publication,
 )
 
 from .advice_client import AdviceClientError
@@ -104,7 +105,7 @@ class _PublishedInputs:
     execution_close: float
 
 
-def _load_inputs(data_dir: Path, symbol: str, release_id: str) -> _PublishedInputs:
+def _load_inputs(data_dir: Path, symbol: str) -> _PublishedInputs:
     code = symbol.split(".", 1)[0]
     adjusted_manifest_path = data_dir / f"{code}_manifest.json"
     execution_manifest_path = data_dir / f"{code}_execution_manifest.json"
@@ -150,26 +151,8 @@ def _load_inputs(data_dir: Path, symbol: str, release_id: str) -> _PublishedInpu
         inputs["adjusted_30m"] = _published(adjusted["30m"])
     if "weekly" in adjusted:
         inputs["adjusted_weekly"] = _published(adjusted["weekly"])
-    safe = release_id.lower().replace("-", "_")
-    support_matches = sorted(data_dir.glob(f"{safe}_*_panel.csv.gz"))
-    if support_matches:
-        if len(support_matches) != 1:
-            raise AdviceClientError(f"multiple published support panels found for {release_id}")
-        support = support_matches[0]
-        support_manifest = support.with_name(support.name.replace("_panel.csv.gz", "_manifest.json"))
-        support_metadata = _load_manifest(support_manifest)
-        if support_metadata.get("release_id") != release_id:
-            raise AdviceClientError("strategy support release differs from requested release")
-        if support_metadata.get("panel_sha256") != _sha256(support):
-            raise AdviceClientError("strategy support panel hash differs from manifest")
-        if pd.Timestamp(str(support_metadata.get("last_session"))).normalize() != adjusted_cutoff:
-            raise AdviceClientError("strategy support cutoff differs from market-data cutoff")
-        inputs["strategy_evidence"] = pd.read_csv(support)
-
     digest = sha256()
     identity_paths = [adjusted_manifest_path, execution_manifest_path, validation_path]
-    if support_matches:
-        identity_paths.extend([support_matches[0], support_manifest])
     for path in identity_paths:
         digest.update(path.name.encode("utf-8"))
         digest.update(path.read_bytes())
@@ -418,11 +401,19 @@ class _PteCaptureChannel:
         self.decision: AdviceDecision | None = None
 
     def submit(self, request, idempotency_key: str) -> ExecutionReceipt:
+        suffix = sha256(
+            (
+                f"{request.decision.release_hash}|{self.published.cutoff.date()}|"
+                f"{request.decision.target_position}|{self.published.identity}"
+            ).encode()
+        ).hexdigest()[:12].upper()
+        source_decision_id = f"SRT-{self.published.cutoff:%Y%m%d}-{suffix}"
         payload = (
             _overlay_payload(request, self.identity, self.published)
             if request.decision.release_id == "S003-v1"
             else _normal_payload(request, self.identity, self.published)
         )
+        payload["decision_id"] = source_decision_id
         try:
             self.decision = AdviceDecision.from_cli_payload(
                 {"status": "PASS", "result": payload}
@@ -452,7 +443,7 @@ class SrtAdviceClient:
         self.audit = audit
         self.now = now or (lambda: datetime.now(_BEIJING))
         self._published_cache: dict[tuple[str, str, str], _PublishedInputs] = {}
-        self._history_cache: dict[tuple[str, str], pd.DataFrame] = {}
+        self._srt_publication_cache: dict[tuple[str, str], object] = {}
 
     def _load_release(self, strategy_id: str, strategy_version: str) -> StrategyRelease:
         path = self.repo_root / "strategies" / strategy_id / "versions" / f"{strategy_version}.json"
@@ -460,11 +451,22 @@ class SrtAdviceClient:
 
     def _publication_key(self, symbol: str, release_id: str) -> tuple[str, str, str]:
         digest = sha256(self.data_identity(symbol).encode("ascii"))
-        safe = release_id.lower().replace("-", "_")
-        for path in sorted(self.data_dir.glob(f"{safe}_*_manifest.json")):
-            digest.update(path.name.encode("utf-8"))
-            digest.update(path.read_bytes())
         return symbol, release_id, digest.hexdigest()
+
+    def _stored_publication(self, release_id: str):
+        path = self.data_dir / f"srt_{release_id.lower().replace('-', '_')}_publication.json"
+        identity = _sha256(path)
+        key = (release_id, identity)
+        publication = self._srt_publication_cache.get(key)
+        if publication is None:
+            publication = read_publication(self.data_dir, release_id)
+            self._srt_publication_cache = {
+                cached_key: value
+                for cached_key, value in self._srt_publication_cache.items()
+                if cached_key[0] != release_id
+            }
+            self._srt_publication_cache[key] = publication
+        return publication
 
     def _audit_call(self, started: float, *, error=None, **scope) -> None:
         if self.audit is None or error is None:
@@ -521,33 +523,22 @@ class SrtAdviceClient:
             publication_key = self._publication_key(selected_symbol, release.release_id)
             published = self._published_cache.get(publication_key)
             if published is None:
-                published = _load_inputs(self.data_dir, selected_symbol, release.release_id)
+                published = _load_inputs(self.data_dir, selected_symbol)
                 self._published_cache = {
                     key: value
                     for key, value in self._published_cache.items()
                     if key[:2] != publication_key[:2]
                 }
                 self._published_cache[publication_key] = published
-            sessions = pd.DatetimeIndex(
-                pd.to_datetime(published.inputs["adjusted_daily"]["Date"]).dt.normalize(),
-                name="dt",
-            )
-            history_key = (release.release_id, published.identity)
-            history = self._history_cache.get(history_key)
-            if history is None:
-                history = strategy.calculate_history(published.inputs, sessions)
-                self._history_cache[history_key] = history
+            publication = self._stored_publication(release.release_id)
             cutoff = published.cutoff
-            if cutoff not in history.index:
-                raise AdviceClientError("SRT history does not reach published cutoff")
-            row = history.loc[cutoff]
-            target = float(row["target_position"])
+            if pd.Timestamp(publication.requested_cutoff).normalize() != cutoff:
+                raise AdviceClientError("SRT and operational publication cutoffs differ")
             generated_at = self.now()
             if generated_at.tzinfo is None:
                 generated_at = generated_at.replace(tzinfo=_BEIJING)
             else:
                 generated_at = generated_at.astimezone(_BEIJING)
-            valid_at = datetime.combine(published.next_session.date(), time(9, 30), _BEIJING)
             deployment = DeploymentSpec(
                 f"pte:{account_id}",
                 release.release_id,
@@ -566,40 +557,30 @@ class SrtAdviceClient:
                 0,
                 generated_at,
             )
-            suffix = sha256(
-                f"{release.release_hash}|{cutoff.date()}|{target}|{published.identity}".encode()
-            ).hexdigest()[:12].upper()
-            evidence = {
-                "signal_date": cutoff.date().isoformat(),
-                "execution_reference_price": published.execution_close,
-            }
-            for key in ("action", "factor_score", "regime", "base_score", "confirmation_score", "moneyflow_breadth", "threshold", "observed_weight_ratio"):
-                if key in row and not pd.isna(row[key]):
-                    value = row[key]
-                    evidence[key] = value.item() if hasattr(value, "item") else value
-            runtime_decision = StrategyDecision(
-                f"SRT-{cutoff:%Y%m%d}-{suffix}",
-                deployment.deployment_id,
-                release.release_id,
-                release.release_hash,
-                strategy.definition.runtime_sha256,
-                generated_at,
-                valid_at,
-                target,
-                0,
-                0,
-                {"runtime_publication": published.identity},
-                evidence,
-                {"signal_date": cutoff.date().isoformat(), "target_position": target},
-            )
             channel = _PteCaptureChannel(identity, published)
-            StrategyRunner().submit_precomputed(
+            state = StrategyStateSnapshot(
+                deployment.deployment_id,
+                release.release_hash,
+                0,
+                generated_at,
+                {},
+            )
+
+            class SnapshotAccount:
+                def snapshot(self, _deployment):
+                    return account
+
+            result = StrategyRunner().run_published(
                 strategy=strategy,
                 deployment=deployment,
-                account_snapshot=account,
+                state=state,
+                publication=publication,
+                account=SnapshotAccount(),
                 channel=channel,
-                decision=runtime_decision,
+                calculation_time=generated_at,
             )
+            if result.decision is None:
+                raise AdviceClientError("SRT returned no strategy decision")
             if channel.decision is None:
                 raise AdviceClientError("SRT execution channel returned no PTE decision")
             decision = channel.decision

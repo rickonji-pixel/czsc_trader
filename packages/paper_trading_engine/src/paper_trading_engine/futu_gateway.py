@@ -67,8 +67,6 @@ def _project_symbol(code: str) -> str:
 
 
 class FutuGateway:
-    channel_id = "futu"
-
     def __init__(
         self,
         *,

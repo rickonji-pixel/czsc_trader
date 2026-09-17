@@ -1931,12 +1931,6 @@ class PaperStore:
             intent = self._connection.execute(
                 "SELECT status FROM intents WHERE intent_id=?", (order["intent_id"],)
             ).fetchone()
-            stored_payload = json.loads(order["payload"])
-            payload = dict(payload)
-            # Execution-owned metadata is captured at submission time.  Broker reports
-            # do not echo it, so retain it across every order-state refresh.
-            if "pte_fee_attribution" in stored_payload:
-                payload["pte_fee_attribution"] = stored_payload["pte_fee_attribution"]
             self._connection.execute(
                 "UPDATE orders SET payload=?,updated_at=? WHERE channel_order_id=?",
                 (json.dumps(payload, ensure_ascii=False, default=str), now, channel_order_id),
@@ -1953,44 +1947,6 @@ class PaperStore:
             and previous_status not in TERMINAL_INTENT_STATUSES
         ):
             self.release_account_intent(intent_id, status)
-        return self.account_order(channel_order_id)
-
-    def complete_futu_simulated_cn_fee_attribution(
-        self, channel_order_id: str, *, reference: str, actual_fee: str,
-        adjustment: str, broker_cash_after: str,
-    ) -> dict[str, Any]:
-        """Mark a persisted Futu SIMULATE/CN cash observation as consumed once."""
-        if not str(reference).strip():
-            raise ValueError("fee attribution reference is required")
-        with self._lock, self._connection:
-            order = self._connection.execute(
-                "SELECT payload FROM orders WHERE channel_order_id=?", (channel_order_id,)
-            ).fetchone()
-            if order is None:
-                raise KeyError(channel_order_id)
-            payload = json.loads(order["payload"])
-            attribution = payload.get("pte_fee_attribution")
-            if not isinstance(attribution, dict):
-                raise ValueError("Futu fee attribution metadata is missing")
-            if attribution.get("schema") != "futu.simulate_cn_fee_attribution.v1":
-                raise ValueError("Futu fee attribution metadata schema is invalid")
-            if attribution.get("status") == "RECONCILED":
-                return self.account_order(channel_order_id)
-            if attribution.get("status") != "PENDING":
-                raise ValueError("Futu fee attribution metadata state is invalid")
-            attribution.update({
-                "status": "RECONCILED",
-                "reference": str(reference),
-                "actual_fee": str(actual_fee),
-                "adjustment": str(adjustment),
-                "broker_cash_after": str(broker_cash_after),
-                "reconciled_at": _utc_now(),
-            })
-            payload["pte_fee_attribution"] = attribution
-            self._connection.execute(
-                "UPDATE orders SET payload=?,updated_at=? WHERE channel_order_id=?",
-                (json.dumps(payload, ensure_ascii=False, default=str), _utc_now(), channel_order_id),
-            )
         return self.account_order(channel_order_id)
 
     def account_order(self, channel_order_id: str) -> dict[str, Any]:

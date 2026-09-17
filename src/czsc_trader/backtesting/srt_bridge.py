@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 from strategy_runtime import (
-    AccountSnapshot,
     DeploymentSpec,
     StrategyDecision,
     StrategyLoader,
@@ -173,20 +172,14 @@ def replay_srt_account(
 
     definition = strategy.definition
     channel = BacktestChannel(
-        signals=signals,
+        identity=signals.snapshot.identity,
         replay_data=replay_data,
+        evaluation_start=signals.evaluation_start,
+        evaluation_end=signals.evaluation_end,
         initial_cash=initial_cash,
-        output_kind=definition.decision.output_kind,
+        execution_policy=definition.execution,
         order_types=definition.capabilities.order_types,
         checkpoints=definition.capabilities.checkpoints,
-    )
-    deployment = DeploymentSpec(
-        "backtest-deployment",
-        definition.release_id,
-        definition.release_hash,
-        replay_data.adjusted.symbol,
-        "backtest-account",
-        channel.channel_id,
     )
     publication_hash = (signals.support_data or {}).get("publication_sha256", "")
     identity_hash = sha256(
@@ -199,14 +192,31 @@ def replay_srt_account(
         generated_at = datetime.combine(signal_date.date(), time(20, 30), _SHANGHAI)
         valid_session = pd.Timestamp(row.valid_session)
         valid_at = datetime.combine(valid_session.date(), time(9, 30), _SHANGHAI)
-        account = AccountSnapshot(
-            deployment.account_id,
-            initial_cash,
-            initial_cash,
-            0,
-            0,
-            generated_at,
+        deployment = DeploymentSpec(
+            "backtest-deployment",
+            definition.release_id,
+            definition.release_hash,
+            replay_data.adjusted.symbol,
+            "backtest-account",
+            channel.channel_id,
+            channel.deployment_settings,
         )
+        account = channel.account_snapshot(deployment.account_id, generated_at)
+        evidence: dict[str, object] = {"signal_date": signal_date.date().isoformat()}
+        for key in (
+            "factor_score",
+            "confirmation_score",
+            "regime",
+            "threshold",
+            "observed_weight_ratio",
+            "action",
+        ):
+            if not hasattr(row, key):
+                continue
+            value = getattr(row, key)
+            if pd.isna(value):
+                continue
+            evidence[key] = value.item() if hasattr(value, "item") else value
         decision = StrategyDecision(
             str(row.decision_id),
             deployment.deployment_id,
@@ -216,10 +226,10 @@ def replay_srt_account(
             generated_at,
             valid_at,
             float(row.target_position),
-            0,
+            account.revision,
             0,
             {"historical_replay": identity_hash},
-            {"signal_date": signal_date.date().isoformat()},
+            evidence,
             {"target_position": float(row.target_position)},
         )
         runner.submit_precomputed(

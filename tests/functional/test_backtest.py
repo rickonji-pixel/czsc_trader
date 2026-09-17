@@ -134,6 +134,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert not any((functional_repo / ".tmp" / "backtest").iterdir())
     assert set(summary.metrics) == {"strategy", "benchmarks"}
     assert summary.metrics["strategy"]["reference"] == "S001-v1"
+    assert summary.metrics["strategy"]["metrics"] == calculate_metrics(result, 100_000)
     assert METRIC_KEYS < set(summary.metrics["strategy"]["metrics"])
     assert summary.metrics["strategy"]["metrics"]["closed_trades"] == 7
     assert set(summary.metrics["benchmarks"]) == {"buyhold", "ma5_ma20"}

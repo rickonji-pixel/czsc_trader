@@ -146,6 +146,7 @@ def _audit_intraday_overlay(
     checks.append("INTRADAY_ORDER_CONTRACT")
 
     bars_by_time = {str(row["time"])[0:16]: row for row in evidence.execution_intraday}
+    daily_by_date = {str(row["date"])[:10]: row for row in evidence.execution_daily}
     for order in evidence.orders:
         fill = fills_by_order.get(str(order["order_id"]))
         if fill is None:
@@ -160,11 +161,28 @@ def _audit_intraday_overlay(
             continue
         expected_price = float(bar["open"] if checkpoint == "OPEN" else bar["close"])
         quantity = int(order["quantity"])
+        signal = daily_by_date.get(str(order["signal_date"])[:10])
+        if signal is None:
+            reasons.append("MISSING_EXECUTION_PRICE")
+            continue
+        srt_plan = str(spec.get("order_semantics")) == "SRT_PLAN"
+        expected_order_type = "LIMIT" if side == "BUY" else "MARKET"
+        type_matches = (
+            str(order.get("order_type")) == expected_order_type if srt_plan else True
+        )
+        if srt_plan and side == "BUY":
+            expected_limit = _floor(float(signal["close"]) * 1.10, 0.001)
+            limit_matches = abs(float(order["limit_price"]) - expected_limit) <= tolerance
+        elif srt_plan:
+            limit_matches = True
+        else:
+            limit_matches = abs(float(order["limit_price"]) - expected_price) <= tolerance
         if (
             str(fill["side"]) != side
             or int(fill["quantity"]) != quantity
+            or not type_matches
             or abs(float(fill["price"]) - expected_price) > tolerance
-            or abs(float(order["limit_price"]) - expected_price) > tolerance
+            or not limit_matches
             or abs(float(fill["fees"]) - quantity * expected_price * fee_rate) > tolerance
         ):
             reasons.append("INTRADAY_FILL_MISMATCH")
@@ -356,16 +374,25 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
             reasons.append("MISSING_EXECUTION_PRICE")
             continue
         if order["side"] == "BUY":
-            expected_order_type = "LIMIT"
+            expected_order_type = str(spec.get("entry_order_type", "LIMIT"))
             signal_close = float(signal["close"])
             expected_limit = min(
                 _floor(signal_close * (1 + float(spec["entry_limit_parameter"])), tick),
                 _floor(signal_close * (1 + price_limit_ratio), tick) - tick,
             )
         else:
-            expected_order_type = "MARKET"
+            expected_order_type = str(spec.get("exit_order_type", "MARKET"))
             signal_close = float(signal["close"])
-            expected_limit = _nearest(signal_close, tick)
+            if expected_order_type == "MARKET":
+                expected_limit = _nearest(signal_close, tick)
+            else:
+                expected_limit = _nearest(
+                    _ceil(
+                        signal_close * (1 - float(spec["exit_limit_ratio"])), tick
+                    )
+                    + tick,
+                    tick,
+                )
         if str(order.get("order_type", "LIMIT")) != expected_order_type:
             reasons.append("ORDER_TYPE_MISMATCH")
         if abs(float(order["limit_price"]) - expected_limit) > tolerance:

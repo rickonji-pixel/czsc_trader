@@ -2,31 +2,47 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from hashlib import sha256
+from typing import Any, Mapping
+
 import pandas as pd
 from strategy_runtime import (
+    AccountSnapshot,
     ChannelCapabilities,
+    ExecutionPolicy,
     ExecutionReceipt,
     ExecutionRequest,
     RuntimeContractError,
+    build_execution_plan,
 )
 
 from .datasets import ReplayData
-from .execution_replay import replay_account
-from .intraday_overlay_replay import replay_intraday_overlay
+from .models import StrategyIdentity
 from .result import BacktestResult
-from .signal_replay import SignalReplay
+
+
+def _id(prefix: str, *parts: object) -> str:
+    raw = "|".join(map(str, parts)).encode()
+    return f"{prefix}-" + sha256(raw).hexdigest()[:20].upper()
+
+
+def _frame(rows: list[dict[str, object]], columns: list[str]) -> pd.DataFrame:
+    return pd.DataFrame(rows, columns=columns)
 
 
 class BacktestChannel:
-    """Admit SRT requests and settle them through TDR's replay engine."""
+    """Execute admitted SRT requests and maintain one deterministic TDR ledger."""
 
     def __init__(
         self,
         *,
-        signals: SignalReplay,
+        identity: StrategyIdentity,
         replay_data: ReplayData,
+        evaluation_start: pd.Timestamp,
+        evaluation_end: pd.Timestamp,
         initial_cash: float,
-        output_kind: str,
+        execution_policy: ExecutionPolicy,
         order_types: tuple[str, ...],
         checkpoints: tuple[str, ...] = (),
         channel_id: str = "backtest",
@@ -35,19 +51,45 @@ class BacktestChannel:
             raise RuntimeContractError("backtest channel_id must be non-empty")
         if initial_cash <= 0:
             raise RuntimeContractError("backtest initial_cash must be positive")
-        if output_kind not in {"TARGET_POSITION", "INTRADAY_OVERLAY"}:
+        if execution_policy.policy_type not in {"FROZEN_RULE", "INTRADAY_OVERLAY"}:
             raise RuntimeContractError(
-                f"unsupported backtest decision output kind: {output_kind}"
+                f"unsupported backtest execution policy: {execution_policy.policy_type}"
             )
         self._channel_id = channel_id.strip()
         self._capabilities = ChannelCapabilities(order_types, checkpoints)
-        self._signals = signals
+        self._identity = identity
         self._replay_data = replay_data
+        self._policy = execution_policy
         self._initial_cash = float(initial_cash)
-        self._output_kind = output_kind
+        self._daily = replay_data.execution_daily.set_index("dt").sort_index()
+        self._signal_daily = replay_data.adjusted.daily.set_index("dt").sort_index()
+        self._intraday = replay_data.execution_intraday.set_index("dt").sort_index()
+        self._evaluation = self._daily.loc[
+            pd.Timestamp(evaluation_start).normalize() : pd.Timestamp(evaluation_end).normalize()
+        ]
+        if self._evaluation.empty:
+            raise RuntimeContractError("backtest channel evaluation interval is empty")
+
+        self._cash = self._initial_cash
+        self._quantity = 0
+        self._cycle_target: int | None = None
+        self._cycle_id: str | None = None
+        self._revision = 0
+        self._last_execution: pd.Timestamp | None = None
         self._requests: dict[str, ExecutionRequest] = {}
         self._receipts: dict[str, ExecutionReceipt] = {}
+        self._decision_rows: list[dict[str, object]] = []
+        self._order_rows: list[dict[str, object]] = []
+        self._fill_rows: list[dict[str, object]] = []
+        self._trade_rows: list[dict[str, object]] = []
+        self._state_by_date: dict[pd.Timestamp, dict[str, object]] = {}
+        self._open_trade: dict[str, object] | None = None
         self._result: BacktestResult | None = None
+
+        if execution_policy.policy_type == "INTRADAY_OVERLAY":
+            self._bootstrap_overlay_core()
+        self._opening_cash = self._cash
+        self._opening_quantity = self._quantity
 
     @property
     def channel_id(self) -> str:
@@ -61,6 +103,33 @@ class BacktestChannel:
     def receipts(self) -> tuple[ExecutionReceipt, ...]:
         return tuple(self._receipts.values())
 
+    @property
+    def deployment_settings(self) -> Mapping[str, object]:
+        """Return channel-owned mutable execution state for the next request."""
+
+        if self._cycle_target is None:
+            return {}
+        return {"cycle_target_quantity": self._cycle_target}
+
+    def account_snapshot(self, account_id: str, as_of: datetime) -> AccountSnapshot:
+        """Expose the confirmed ledger state consumed by the next SRT decision."""
+
+        if as_of.tzinfo is None:
+            raise RuntimeContractError("backtest account snapshot time must be timezone-aware")
+        session = pd.Timestamp(as_of.date())
+        prices = self._daily.loc[self._daily.index <= session, "close"]
+        if prices.empty:
+            raise RuntimeContractError("backtest account snapshot has no reference close")
+        total_assets = self._cash + self._quantity * float(prices.iloc[-1])
+        return AccountSnapshot(
+            account_id,
+            self._cash,
+            total_assets,
+            self._quantity,
+            self._revision,
+            as_of,
+        )
+
     def submit(self, request: ExecutionRequest, idempotency_key: str) -> ExecutionReceipt:
         if self._result is not None:
             raise RuntimeContractError("backtest channel is already finalized")
@@ -72,47 +141,465 @@ class BacktestChannel:
             if existing != request:
                 raise RuntimeContractError("idempotency key was reused for another request")
             return self._receipts[key]
+        self._validate_request(request)
+
+        signal_date = pd.Timestamp(
+            request.decision.evidence.get("signal_date", request.decision.generated_at.date())
+        ).normalize()
+        execution_date = pd.Timestamp(request.decision.valid_at.date()).normalize()
+        signal_reference_price = float(self._signal_daily.loc[signal_date, "close"])
+        execution_reference_price = float(self._daily.loc[signal_date, "close"])
+        plan = build_execution_plan(
+            request,
+            signal_reference_price=signal_reference_price,
+            execution_reference_price=execution_reference_price,
+        )
+        if self._policy.policy_type == "INTRADAY_OVERLAY":
+            self._execute_overlay(request, plan, signal_date, execution_date)
+        else:
+            self._execute_target(request, plan, signal_date, execution_date)
+        self._record_decision(request, signal_date, execution_date)
+        self._revision += 1
+        self._last_execution = execution_date
 
         receipt = ExecutionReceipt(
             key,
             True,
             request.decision.decision_id,
-            "BUFFERED",
-            "accepted for deterministic TDR settlement",
+            "SETTLED",
+            "executed by deterministic TDR backtest channel",
         )
         self._requests[key] = request
         self._receipts[key] = receipt
         return receipt
 
     def finalize(self) -> BacktestResult:
-        """Settle the complete admitted sequence exactly once."""
+        """Close the deterministic ledger exactly once."""
 
         if self._result is not None:
             return self._result
-        expected = self._signals.decisions.dropna(subset=["valid_session"])
-        requests = list(self._requests.values())
-        expected_ids = expected["decision_id"].astype(str).tolist()
-        actual_ids = [request.decision.decision_id for request in requests]
-        if actual_ids != expected_ids:
-            raise RuntimeContractError(
-                "backtest channel decision sequence differs from strategy replay"
-            )
-        for request, row in zip(requests, expected.itertuples(index=False), strict=True):
-            decision = request.decision
-            if float(decision.target_position) != float(row.target_position):
+        if self._policy.policy_type == "FROZEN_RULE":
+            submitted = pd.DatetimeIndex(sorted(self._state_by_date))
+            expected = pd.DatetimeIndex(self._evaluation.index)
+            if not submitted.equals(expected):
+                missing = expected.difference(submitted)
+                unexpected = submitted.difference(expected)
                 raise RuntimeContractError(
-                    f"backtest request target differs for decision {decision.decision_id}"
+                    "backtest channel has incomplete target-position requests: "
+                    f"missing={[item.date().isoformat() for item in missing]}, "
+                    f"unexpected={[item.date().isoformat() for item in unexpected]}"
                 )
-            if pd.Timestamp(decision.valid_at).date() != pd.Timestamp(row.valid_session).date():
-                raise RuntimeContractError(
-                    f"backtest request valid session differs for decision {decision.decision_id}"
-                )
-        if self._output_kind == "INTRADAY_OVERLAY":
-            self._result = replay_intraday_overlay(
-                self._signals, self._replay_data, self._initial_cash
+
+        account_rows = self._account_daily_rows()
+        trades = list(self._trade_rows)
+        if self._open_trade is not None:
+            entry_quantity = int(self._open_trade["quantity"])
+            entry_gross = float(self._open_trade["gross"])
+            trades.append(
+                {
+                    "cycle_id": self._open_trade["cycle_id"],
+                    "status": "OPEN",
+                    "entry_date": self._open_trade["entry_date"],
+                    "exit_date": pd.NaT,
+                    "quantity": entry_quantity,
+                    "entry_price": entry_gross / entry_quantity,
+                    "exit_price": float("nan"),
+                    "net_return": float("nan"),
+                }
             )
-        else:
-            self._result = replay_account(
-                self._signals, self._replay_data, self._initial_cash
-            )
+        order_columns = [
+            "order_id", "decision_id", "cycle_id", "signal_date", "execution_date",
+            "side", "quantity", "order_type", "limit_price", "status",
+        ]
+        if self._policy.policy_type == "INTRADAY_OVERLAY":
+            order_columns.append("checkpoint")
+        self._result = BacktestResult(
+            identity=self._identity,
+            decisions=pd.DataFrame(self._decision_rows),
+            orders=_frame(self._order_rows, order_columns),
+            fills=_frame(
+                self._fill_rows,
+                [
+                    "fill_id", "order_id", "decision_id", "cycle_id", "signal_date",
+                    "fill_time", "side", "quantity", "price", "fees", "trigger",
+                ],
+            ),
+            account_daily=pd.DataFrame(account_rows),
+            trades=_frame(
+                trades,
+                [
+                    "cycle_id", "status", "entry_date", "exit_date", "quantity",
+                    "entry_price", "exit_price", "net_return",
+                ],
+            ),
+        )
         return self._result
+
+    def _bootstrap_overlay_core(self) -> None:
+        settings = dict(self._policy.settings)
+        prior = self._daily.loc[self._daily.index < self._evaluation.index[0]]
+        if prior.empty:
+            raise RuntimeContractError(
+                "intraday overlay backtest requires one pre-window session"
+            )
+        price = float(prior.iloc[-1]["close"])
+        lot = int(settings["lot_size"])
+        fee = float(settings["one_way_cost"])
+        budget = self._initial_cash * float(settings["core_fraction"])
+        quantity = int(budget / (price * (1.0 + fee)) // lot * lot)
+        if quantity <= 0:
+            raise RuntimeContractError("initial cash cannot establish one overlay core lot")
+        self._quantity = quantity
+        self._cycle_target = quantity
+        self._cash -= quantity * price * (1.0 + fee)
+
+    def _validate_request(self, request: ExecutionRequest) -> None:
+        if request.policy != self._policy:
+            raise RuntimeContractError("backtest request policy differs from channel policy")
+        execution_date = pd.Timestamp(request.decision.valid_at.date()).normalize()
+        if execution_date not in self._evaluation.index:
+            raise RuntimeContractError("backtest request is outside the evaluation interval")
+        if self._last_execution is not None and execution_date <= self._last_execution:
+            raise RuntimeContractError("backtest requests must use increasing sessions")
+        expected_cycle = request.deployment.settings.get("cycle_target_quantity")
+        if expected_cycle != self._cycle_target:
+            raise RuntimeContractError("backtest deployment execution state is stale")
+        account = request.account
+        if account.revision != self._revision:
+            raise RuntimeContractError("backtest request account revision is stale")
+        if account.position_quantity != self._quantity:
+            raise RuntimeContractError("backtest request position differs from ledger")
+        if abs(account.available_cash - self._cash) > 1e-6:
+            raise RuntimeContractError("backtest request cash differs from ledger")
+
+    def _execute_target(
+        self,
+        request: ExecutionRequest,
+        plan: Mapping[str, Any],
+        signal_date: pd.Timestamp,
+        execution_date: pd.Timestamp,
+    ) -> None:
+        price_row = self._evaluation.loc[execution_date]
+        cash_before = self._cash
+        quantity_before = self._quantity
+        target = int(request.decision.target_position)
+        if target == 1 and self._quantity == 0 and self._cycle_id is None:
+            self._cycle_id = _id("CYC", self._identity.reference, signal_date)
+        exit_proceeds = 0.0
+        exit_fees = 0.0
+        exit_time: pd.Timestamp | None = None
+        exit_quantity = 0
+        fee_rate = float(plan["fee_rate"])
+        day_bars = self._intraday.loc[
+            self._intraday.index.normalize() == execution_date.normalize()
+        ]
+        for slice_number, order in enumerate(plan["orders"], start=1):
+            order_id = _id(
+                "ORD", request.decision.decision_id, execution_date, slice_number
+            )
+            side = str(order["side"])
+            quantity = int(order["quantity"])
+            order_type = str(order["order_type"])
+            limit_price = float(order["limit_price"])
+            trigger: str | None = None
+            fill_price: float | None = None
+            fill_time: pd.Timestamp | None = None
+            if side == "BUY":
+                if float(price_row["open"]) <= limit_price:
+                    trigger, fill_price, fill_time = "OPEN", float(price_row["open"]), execution_date
+                else:
+                    touches = day_bars.loc[day_bars["low"].astype(float).lt(limit_price)]
+                    if not touches.empty:
+                        trigger, fill_price, fill_time = (
+                            "INTRADAY_LIMIT", limit_price, pd.Timestamp(touches.index[0])
+                        )
+                required = (
+                    quantity * fill_price * (1.0 + fee_rate)
+                    if fill_price is not None
+                    else None
+                )
+                if required is not None and required > self._cash + 1e-8:
+                    trigger = fill_price = fill_time = None
+            elif side == "SELL":
+                if order_type == "MARKET":
+                    trigger, fill_price, fill_time = (
+                        "OPEN_MARKET", float(price_row["open"]), execution_date
+                    )
+                elif float(price_row["open"]) >= limit_price:
+                    trigger, fill_price, fill_time = "OPEN", float(price_row["open"]), execution_date
+                else:
+                    touches = day_bars.loc[day_bars["high"].astype(float).gt(limit_price)]
+                    if not touches.empty:
+                        trigger, fill_price, fill_time = (
+                            "INTRADAY_LIMIT", limit_price, pd.Timestamp(touches.index[0])
+                        )
+            else:
+                raise RuntimeContractError(f"unsupported backtest order side: {side}")
+            self._order_rows.append(
+                {
+                    "order_id": order_id,
+                    "decision_id": request.decision.decision_id,
+                    "cycle_id": self._cycle_id,
+                    "signal_date": signal_date,
+                    "execution_date": execution_date,
+                    "side": side,
+                    "quantity": quantity,
+                    "order_type": order_type,
+                    "limit_price": limit_price,
+                    "status": "FILLED" if fill_price is not None else "UNFILLED",
+                }
+            )
+            if fill_price is None or fill_time is None:
+                continue
+            gross = quantity * fill_price
+            fees = gross * fee_rate
+            if side == "BUY":
+                self._cash -= gross + fees
+                self._quantity += quantity
+            else:
+                self._cash += gross - fees
+                self._quantity -= quantity
+            self._fill_rows.append(
+                {
+                    "fill_id": _id("FIL", order_id, fill_time),
+                    "order_id": order_id,
+                    "decision_id": request.decision.decision_id,
+                    "cycle_id": self._cycle_id,
+                    "signal_date": signal_date,
+                    "fill_time": fill_time,
+                    "side": side,
+                    "quantity": quantity,
+                    "price": fill_price,
+                    "fees": fees,
+                    "trigger": trigger,
+                }
+            )
+            if side == "BUY":
+                if self._open_trade is None:
+                    self._open_trade = {
+                        "cycle_id": self._cycle_id,
+                        "entry_date": fill_time,
+                        "quantity": 0,
+                        "gross": 0.0,
+                        "fees": 0.0,
+                    }
+                self._open_trade["quantity"] = int(self._open_trade["quantity"]) + quantity
+                self._open_trade["gross"] = float(self._open_trade["gross"]) + gross
+                self._open_trade["fees"] = float(self._open_trade["fees"]) + fees
+            else:
+                exit_proceeds += gross - fees
+                exit_fees += fees
+                exit_time = fill_time
+                exit_quantity += quantity
+        if (
+            exit_quantity
+            and self._quantity == 0
+            and self._open_trade is not None
+            and exit_time is not None
+        ):
+            entry_quantity = int(self._open_trade["quantity"])
+            entry_gross = float(self._open_trade["gross"])
+            entry_cost = entry_gross + float(self._open_trade["fees"])
+            self._trade_rows.append(
+                {
+                    "cycle_id": self._cycle_id,
+                    "status": "CLOSED",
+                    "entry_date": self._open_trade["entry_date"],
+                    "exit_date": exit_time,
+                    "quantity": entry_quantity,
+                    "entry_price": entry_gross / entry_quantity,
+                    "exit_price": (exit_proceeds + exit_fees) / exit_quantity,
+                    "net_return": exit_proceeds / entry_cost - 1.0,
+                }
+            )
+            self._open_trade = None
+        self._cycle_target = int(plan["cycle_target_quantity"])
+        if target == 0 and self._quantity == 0:
+            self._cycle_target = None
+            self._cycle_id = None
+        self._state_by_date[execution_date] = {
+            "signal_date": signal_date,
+            "target_position": target,
+            "cash_before": cash_before,
+            "quantity_before": quantity_before,
+            "cash": self._cash,
+            "quantity": self._quantity,
+        }
+
+    def _execute_overlay(
+        self,
+        request: ExecutionRequest,
+        plan: Mapping[str, Any],
+        signal_date: pd.Timestamp,
+        execution_date: pd.Timestamp,
+    ) -> None:
+        if plan["plan_mode"] != "CORE_EVENT_INTRADAY_ROTATION":
+            raise RuntimeContractError(
+                "historical overlay account must enter the window with a sellable core"
+            )
+        five = self._replay_data.execution_five_minute
+        if five is None:
+            raise RuntimeContractError("intraday overlay requires 5m execution data")
+        bars = five.copy()
+        bars["date"] = pd.to_datetime(bars["dt"]).dt.normalize()
+        bars["clock"] = pd.to_datetime(bars["dt"]).dt.strftime("%H:%M")
+        day = bars.loc[bars["date"].eq(execution_date)]
+        opening = day.loc[day["clock"].eq("09:35"), "open"]
+        closing = day.loc[day["clock"].eq("11:30"), "close"]
+        if len(opening) != 1 or len(closing) != 1:
+            raise RuntimeContractError("intraday overlay has incomplete execution checkpoints")
+        cash_before = self._cash
+        quantity_before = self._quantity
+        cycle_id = _id("CYC", request.decision.decision_id, execution_date)
+        fee_rate = float(plan["fee_rate"])
+        leg_status: dict[int, str] = {}
+        entry_price = 0.0
+        exit_price = 0.0
+        trade_quantity = 0
+        for leg in plan["plan_legs"]:
+            sequence = int(leg["sequence"])
+            dependency = leg["dependency_sequence"]
+            if dependency is not None and leg_status.get(int(dependency)) != "FILLED_ALL":
+                leg_status[sequence] = "BLOCKED"
+                continue
+            order = dict(leg["order"])
+            side = str(order["side"])
+            quantity = int(order["quantity"])
+            order_type = str(order["order_type"])
+            checkpoint = str(leg["checkpoint"])
+            reference = float(opening.iloc[0] if checkpoint == "OPEN" else closing.iloc[0])
+            limit_price = float(order["limit_price"])
+            can_fill = order_type == "MARKET" or (
+                side == "BUY" and reference <= limit_price
+            ) or (side == "SELL" and reference >= limit_price)
+            if side == "BUY" and can_fill:
+                can_fill = quantity * reference * (1.0 + fee_rate) <= self._cash + 1e-8
+            status = "FILLED" if can_fill else "UNFILLED"
+            leg_status[sequence] = "FILLED_ALL" if can_fill else status
+            order_id = _id("ORD", cycle_id, side)
+            self._order_rows.append(
+                {
+                    "order_id": order_id,
+                    "decision_id": request.decision.decision_id,
+                    "cycle_id": cycle_id,
+                    "signal_date": signal_date,
+                    "execution_date": execution_date,
+                    "side": side,
+                    "quantity": quantity,
+                    "order_type": order_type,
+                    "limit_price": limit_price,
+                    "status": status,
+                    "checkpoint": checkpoint,
+                }
+            )
+            if not can_fill:
+                continue
+            fees = quantity * reference * fee_rate
+            if side == "BUY":
+                self._cash -= quantity * reference + fees
+                self._quantity += quantity
+                entry_price = reference
+                trade_quantity = quantity
+            else:
+                self._cash += quantity * reference - fees
+                self._quantity -= quantity
+                exit_price = reference
+            fill_time = (
+                execution_date + pd.Timedelta(hours=9, minutes=30)
+                if checkpoint == "OPEN"
+                else execution_date + pd.Timedelta(hours=11, minutes=30)
+            )
+            self._fill_rows.append(
+                {
+                    "fill_id": _id("FIL", order_id, checkpoint),
+                    "order_id": order_id,
+                    "decision_id": request.decision.decision_id,
+                    "cycle_id": cycle_id,
+                    "signal_date": signal_date,
+                    "fill_time": fill_time,
+                    "side": side,
+                    "quantity": quantity,
+                    "price": reference,
+                    "fees": fees,
+                    "trigger": checkpoint,
+                }
+            )
+        if entry_price and exit_price and trade_quantity:
+            self._trade_rows.append(
+                {
+                    "cycle_id": cycle_id,
+                    "status": "CLOSED",
+                    "entry_date": execution_date + pd.Timedelta(hours=9, minutes=30),
+                    "exit_date": execution_date + pd.Timedelta(hours=11, minutes=30),
+                    "quantity": trade_quantity,
+                    "entry_price": entry_price,
+                    "exit_price": exit_price,
+                    "net_return": exit_price * (1.0 - fee_rate) / (
+                        entry_price * (1.0 + fee_rate)
+                    ) - 1.0,
+                }
+            )
+        if self._quantity != self._cycle_target:
+            raise RuntimeContractError("intraday overlay did not restore its sellable core")
+        self._state_by_date[execution_date] = {
+            "signal_date": signal_date,
+            "target_position": float(self._policy.settings["core_fraction"]),
+            "cash_before": cash_before,
+            "quantity_before": quantity_before,
+            "cash": self._cash,
+            "quantity": self._quantity,
+        }
+
+    def _record_decision(
+        self,
+        request: ExecutionRequest,
+        signal_date: pd.Timestamp,
+        execution_date: pd.Timestamp,
+    ) -> None:
+        row: dict[str, object] = {
+            "decision_id": request.decision.decision_id,
+            "signal_date": signal_date,
+            "valid_session": execution_date,
+            "target_position": request.decision.target_position,
+        }
+        for key, value in request.decision.evidence.items():
+            if key not in row:
+                row[key] = value
+        self._decision_rows.append(row)
+
+    def _account_daily_rows(self) -> list[dict[str, object]]:
+        cash = self._opening_cash
+        quantity = self._opening_quantity
+        rows: list[dict[str, object]] = []
+        for day, price_row in self._evaluation.iterrows():
+            state = self._state_by_date.get(pd.Timestamp(day))
+            if state is None:
+                cash_before = cash
+                quantity_before = quantity
+                signal_date = pd.NaT
+                target = (
+                    float(self._policy.settings["core_fraction"])
+                    if self._policy.policy_type == "INTRADAY_OVERLAY"
+                    else float(quantity > 0)
+                )
+            else:
+                cash_before = float(state["cash_before"])
+                quantity_before = int(state["quantity_before"])
+                cash = float(state["cash"])
+                quantity = int(state["quantity"])
+                signal_date = state["signal_date"]
+                target = state["target_position"]
+            rows.append(
+                {
+                    "date": pd.Timestamp(day),
+                    "signal_date": signal_date,
+                    "target_position": target,
+                    "cash_before": cash_before,
+                    "quantity_before": quantity_before,
+                    "cash": cash,
+                    "quantity": quantity,
+                    "close": float(price_row["close"]),
+                    "equity": cash + quantity * float(price_row["close"]),
+                }
+            )
+        return rows

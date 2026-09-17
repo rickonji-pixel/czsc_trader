@@ -55,6 +55,11 @@ def build_replay_evidence(
                 "entry_checkpoint": overlay.entry_checkpoint,
                 "exit_checkpoint": overlay.exit_checkpoint,
                 "t_plus_one_inventory_rotation": overlay.t_plus_one_inventory_rotation,
+                "order_semantics": (
+                    "SRT_PLAN"
+                    if (signals.support_data or {}).get("mode") == "srt_input_contract"
+                    else "LEGACY_REPLAY"
+                ),
             },
             decisions=_records(result.decisions, ("signal_date", "valid_session")),
             orders=_records(result.orders, ("signal_date", "execution_date")),
@@ -82,6 +87,12 @@ def build_replay_evidence(
         execution_spec={
             "entry_limit_parameter": spec.entry_limit_parameter,
             "exit_limit_ratio": spec.exit_limit_ratio,
+            "entry_order_type": spec.entry_order_type,
+            "exit_order_type": (
+                spec.exit_order_type
+                if (signals.support_data or {}).get("mode") == "srt_input_contract"
+                else "MARKET"
+            ),
             "fee_rate": spec.capital.fee_rate,
             "capital_mode": spec.capital.mode,
             "allocation_fraction": spec.capital.allocation_fraction,

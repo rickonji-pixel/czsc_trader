@@ -26,6 +26,17 @@ from strategy_evaluator import (
 from strategy_manager import canonical_sha256
 
 
+def _runtime_pass(version):
+    release_hash = version.release_hash or canonical_sha256(version.release_payload())
+    return {
+        "schema_version": 1,
+        "status": "PASS",
+        "release_id": version.release_id,
+        "release_hash": release_hash,
+        "runtime_sha256": "f" * 64,
+    }
+
+
 def _write_evaluation_bundle(root: Path) -> Path:
     experiment = root / "experiments" / "S001" / "0904_TEST"
     experiment.mkdir(parents=True)
@@ -325,8 +336,33 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
             "functional acceptance",
             rejected_review_path,
             pte_runner=fail_then_succeed,
+            runtime_validator=_runtime_pass,
         )
     assert set(versions_dir.glob("v*.json")) == versions_before
+
+    runtime_checks = []
+
+    def reject_runtime(version):
+        runtime_checks.append(version.release_id)
+        raise ValueError("strategy implementation is unavailable")
+
+    with pytest.raises(ValueError, match="implementation is unavailable"):
+        accept_evaluation(
+            context,
+            "0904_TEST",
+            "tester",
+            "functional acceptance",
+            review_path,
+            pte_runner=fail_then_succeed,
+            runtime_validator=reject_runtime,
+        )
+    research_versions = set(versions_dir.glob("v*.json")) - versions_before
+    assert len(research_versions) == 1
+    assert json.loads(next(iter(research_versions)).read_text(encoding="utf-8"))["release_hash"] is None
+    assert len(runtime_checks) == 1
+    assert runtime_checks[0].startswith("S001-v")
+    assert calls == []
+
     first = accept_evaluation(
         context,
         "0904_TEST",
@@ -334,6 +370,7 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
         "functional acceptance",
         review_path,
         pte_runner=fail_then_succeed,
+        runtime_validator=_runtime_pass,
     )
     second = accept_evaluation(
         context,
@@ -342,6 +379,7 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
         "functional acceptance",
         review_path,
         pte_runner=fail_then_succeed,
+        runtime_validator=_runtime_pass,
     )
     third = accept_evaluation(
         context,
@@ -350,9 +388,11 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
         "functional acceptance",
         review_path,
         pte_runner=fail_then_succeed,
+        runtime_validator=_runtime_pass,
     )
     versions_after = set(versions_dir.glob("v*.json"))
     assert first.result["activation_state"] == "PAPER_ACTIVATION_PENDING"
+    assert first.result["runtime_acceptance"]["release_hash"] == first.result["release_hash"]
     assert second.result["activation_state"] == "PAPER_ACTIVE"
     assert third.result == second.result
     assert len(calls) == 2

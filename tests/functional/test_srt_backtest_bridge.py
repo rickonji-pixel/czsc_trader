@@ -8,6 +8,7 @@ import pytest
 from strategy_runtime import RuntimeContractError
 
 from czsc_trader.application.context import RepositoryContext
+from czsc_trader.application.runtime_acceptance import validate_runtime_readiness
 from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
 from czsc_trader.backtesting.channel import BacktestChannel
 from czsc_trader.backtesting.causal_feature_gate_replay import (
@@ -24,6 +25,7 @@ from czsc_trader.backtesting.srt_bridge import (
     build_srt_signal_replay,
     replay_srt_account,
 )
+from strategy_manager import StrategyRegistry
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +47,11 @@ def test_srt_backtest_matches_complete_legacy_ledger(
     family: str, version: str, symbol: str
 ) -> None:
     context = RepositoryContext.discover(ROOT)
+    readiness = validate_runtime_readiness(
+        StrategyRegistry(context.strategy_root).get_version(family, version)
+    )
+    assert readiness["status"] == "PASS"
+    assert readiness["release_id"] == f"{family}-{version}"
     snapshot = resolve_registered_strategy(context, family, version)
     replay_data = load_replay_data(
         context,

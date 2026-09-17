@@ -16,6 +16,7 @@ from .context import RepositoryContext
 from .freeze_review import build_freeze_approval
 from .errors import ValidationError
 from .results import CommandResult
+from .runtime_acceptance import require_runtime_readiness, validate_runtime_readiness
 
 
 def _registry(context: RepositoryContext) -> StrategyRegistry:
@@ -214,6 +215,9 @@ def freeze_strategy_version(
             actor=actor,
             reason=reason,
         )
+        runtime_acceptance = require_runtime_readiness(
+            registry.get_version(strategy_id, version), validate_runtime_readiness
+        )
         frozen, event = registry.freeze_version(
             strategy_id,
             version,
@@ -223,7 +227,11 @@ def freeze_strategy_version(
             approval=approval,
             machine_report=machine_report,
         )
-        return {"version": frozen.to_dict(), "event": event.to_dict()}
+        return {
+            "version": frozen.to_dict(),
+            "event": event.to_dict(),
+            "runtime_acceptance": runtime_acceptance,
+        }
 
     result = _domain_call("strategy.freeze", operation)
     return CommandResult(status="PASS", command="strategy.freeze", result=result)

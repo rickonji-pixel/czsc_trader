@@ -56,6 +56,7 @@ from czsc_trader.identity import canonical_json_sha256
 from .context import RepositoryContext
 from .freeze_review import build_freeze_approval
 from .results import CommandResult
+from .runtime_acceptance import require_runtime_readiness, validate_runtime_readiness
 
 Runner = Callable[..., tuple[MetricObservation, ...]]
 SCREENING_AUDIT_FILES = (
@@ -652,7 +653,8 @@ def _ensure_frozen(
     actor: str,
     reason: str,
     review: dict[str, Any],
-) -> StrategyVersion:
+    runtime_validator: Callable[[StrategyVersion], dict[str, object]],
+) -> tuple[StrategyVersion, dict[str, object]]:
     experiment = _experiment_path(context, experiment_id)
     experiment_reference = experiment_repository_reference(
         context.experiments_root, experiment
@@ -717,9 +719,10 @@ def _ensure_frozen(
                 "strategy_payload": payload, "release_hash": None,
             }), actor=actor, reason=reason,
         )
+    runtime_acceptance = require_runtime_readiness(version, runtime_validator)
     qualification = registry.current_qualification(strategy_id, version.version)
     if qualification.value == "PAPER_READY":
-        return registry.get_version(strategy_id, version.version)
+        return registry.get_version(strategy_id, version.version), runtime_acceptance
     metric = _full_metric(experiment, candidate_id)
     calmar = metric.get("calmar")
     if calmar in {None, "", "None"}:
@@ -746,7 +749,7 @@ def _ensure_frozen(
         approval=approval,
         machine_report=machine_report,
     )
-    return frozen
+    return frozen, runtime_acceptance
 
 
 def accept_evaluation(
@@ -757,6 +760,9 @@ def accept_evaluation(
     review_path: Path,
     *,
     pte_runner: Callable[..., Any] = subprocess.run,
+    runtime_validator: Callable[
+        [StrategyVersion], dict[str, object]
+    ] = validate_runtime_readiness,
 ) -> CommandResult:
     experiment = _experiment_path(context, experiment_id)
     result = _read_object(experiment / "artifacts" / "evaluation_result.json")
@@ -787,8 +793,16 @@ def accept_evaluation(
     if journal is not None and journal.get("activation_state") == "PAPER_ACTIVE":
         return CommandResult("PASS", "strategy.accept-evaluation", journal)
     if journal is None:
-        frozen = _ensure_frozen(
-            context, experiment_id, result, manifest, winner, actor, reason, review,
+        frozen, runtime_acceptance = _ensure_frozen(
+            context,
+            experiment_id,
+            result,
+            manifest,
+            winner,
+            actor,
+            reason,
+            review,
+            runtime_validator,
         )
         journal = {
             "schema_version": 1, "experiment_id": experiment_id,
@@ -796,6 +810,7 @@ def accept_evaluation(
             "strategy_id": frozen.strategy_id, "strategy_version": frozen.version,
             "release_id": frozen.release_id, "release_hash": frozen.release_hash,
             "sm_state": "PAPER_READY", "activation_state": "PAPER_ACTIVATION_PENDING",
+            "runtime_acceptance": runtime_acceptance,
             "actor": actor, "reason": reason, "accepted_at": datetime.now().astimezone().isoformat(),
         }
         _atomic_json(journal_path, journal)

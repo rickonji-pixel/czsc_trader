@@ -77,8 +77,22 @@ def test_backtest_strategy_sources_preserve_identity_and_rule(
 
 
 def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(
-    functional_repo: Path, capsys
+    functional_repo: Path, capsys, monkeypatch
 ) -> None:
+    def runtime_pass(version):
+        release_hash = version.release_hash or canonical_sha256(version.release_payload())
+        return {
+            "schema_version": 1,
+            "status": "PASS",
+            "release_id": version.release_id,
+            "release_hash": release_hash,
+            "runtime_sha256": "f" * 64,
+        }
+
+    monkeypatch.setattr(
+        "czsc_trader.application.strategy_service.validate_runtime_readiness",
+        runtime_pass,
+    )
     strategy_input = _write_json(
         functional_repo / "strategy.json",
         {

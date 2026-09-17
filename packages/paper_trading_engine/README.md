@@ -109,7 +109,7 @@ PTE日常运行状态不进入SM。只有人工复核后的里程碑通过自包
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
-.\.venv\Scripts\python.exe -m pytest packages\paper_trading_engine\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\paper_trading_engine\tests -q
 node --test-isolation=none --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
 .\.venv\Scripts\python.exe -m ruff check `
   packages\paper_trading_engine\src packages\paper_trading_engine\tests

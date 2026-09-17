@@ -2,7 +2,23 @@ from __future__ import annotations
 
 from datetime import date
 from itertools import count
+import os
 from pathlib import Path
+import time
+
+
+def _replace_directory(staging: Path, destination: Path) -> None:
+    """Rename a completed run, tolerating short-lived Windows file locks."""
+
+    attempts = 6 if os.name == "nt" else 1
+    for attempt in range(attempts):
+        try:
+            staging.replace(destination)
+            return
+        except PermissionError:
+            if attempt + 1 == attempts:
+                raise
+            time.sleep(0.05 * (2**attempt))
 
 
 def publish_run_directory(
@@ -21,7 +37,7 @@ def publish_run_directory(
         if destination.exists():
             continue
         try:
-            staging.replace(destination)
+            _replace_directory(staging, destination)
         except FileExistsError:
             continue
         return destination.resolve()

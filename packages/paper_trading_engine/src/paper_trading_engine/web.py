@@ -132,8 +132,8 @@ def create_server(
                 elif path.startswith("/charts/") and path.endswith("/observation.html"):
                     account_id = unquote(path[len("/charts/"):-len("/observation.html")].strip("/"))
                     self._chart(account_id, parse_qs(parsed.query, keep_blank_values=True))
-                elif path == "/api/channels/futu/snapshot":
-                    self._json(200, api.channel_snapshot("futu"))
+                elif path == "/api/channels/futu-simulate-cn/snapshot":
+                    self._json(200, api.channel_snapshot("futu_simulate_cn"))
                 elif path == "/api/comparison":
                     self._json(200, api.comparison(parse_qs(parsed.query).get("account_id", [])))
                 elif path == "/api/audit-events":
@@ -142,7 +142,7 @@ def create_server(
                     self._json(200, api.audit_events(filters))
                 elif path.startswith("/static/"):
                     self._resource(path.removeprefix("/static/"))
-                elif path in {"/", "/comparison", "/audit-events", "/channels/futu"} or path.startswith("/accounts/"):
+                elif path in {"/", "/comparison", "/audit-events", "/channels/futu-simulate-cn"} or path.startswith("/accounts/"):
                     self._resource("index.html")
                 else:
                     self._json(404, {"error": "not found"})
@@ -170,19 +170,25 @@ def create_server(
                     self._json(202, {"status": "RESTART_ACCEPTED", "instance_id": runtime_instance_id})
                     Thread(target=restart_callback, name="pte-graceful-restart", daemon=True).start()
                     return
-                if path in {"/api/pause", "/api/channels/futu/pause"}:
+                if path == "/api/channels/futu-simulate-cn/reconciliation-account":
+                    supplied = self.headers.get("X-PTE-Control-Token", "")
+                    if control_token is None or not secrets.compare_digest(supplied, control_token):
+                        self._json(403, {"error": "invalid PTE control token"})
+                        return
+                    result = operations.store.create_channel_reconciliation_account()
+                elif path in {"/api/pause", "/api/channels/futu-simulate-cn/pause"}:
                     result = operations.pause()
                     if path.startswith("/api/channels/"):
-                        result = api.channel_snapshot("futu")
-                elif path in {"/api/resume", "/api/channels/futu/resume"}:
+                        result = api.channel_snapshot("futu_simulate_cn")
+                elif path in {"/api/resume", "/api/channels/futu-simulate-cn/resume"}:
                     result = operations.resume()
                     if path.startswith("/api/channels/"):
-                        result = api.channel_snapshot("futu")
-                elif path in {"/api/cancel-token", "/api/channels/futu/cancel-token"}:
+                        result = api.channel_snapshot("futu_simulate_cn")
+                elif path in {"/api/cancel-token", "/api/channels/futu-simulate-cn/cancel-token"}:
                     result = {"token": operations.issue_cancel_token(
                         str(body["account_id"]), str(body["channel_order_id"])
                     )}
-                elif path in {"/api/cancel", "/api/channels/futu/cancel"}:
+                elif path in {"/api/cancel", "/api/channels/futu-simulate-cn/cancel"}:
                     result = operations.confirm_cancel(
                         str(body["account_id"]), str(body["channel_order_id"]), str(body["token"])
                     )

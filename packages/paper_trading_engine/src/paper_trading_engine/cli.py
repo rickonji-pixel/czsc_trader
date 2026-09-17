@@ -25,6 +25,7 @@ from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
 from .futu_gateway import FutuGateway
+from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
 from .store import PaperStore, backup_runtime_database
 from .scheduler import RuntimeScheduler
 from .web import create_server
@@ -117,6 +118,9 @@ def build_parser() -> argparse.ArgumentParser:
     identity.add_argument("--baseline")
     create.add_argument("--strategy-version")
     create.add_argument("--initial-cash", default="100000")
+    reconciliation = account_actions.add_parser("create-reconciliation")
+    _common(reconciliation)
+    reconciliation.add_argument("--account-id", default="futu-simulate-cn-reconciliation")
     performance = actions.add_parser("performance")
     performance_actions = performance.add_subparsers(dest="performance_action", required=True)
     export = performance_actions.add_parser("export")
@@ -139,6 +143,10 @@ def build_parser() -> argparse.ArgumentParser:
     repair.add_argument("--port", default=8080, type=int)
     repair.add_argument("--account-id", required=True)
     repair.add_argument("--intent-id", required=True)
+    reconciliation = control_actions.add_parser("create-reconciliation")
+    _common(reconciliation)
+    reconciliation.add_argument("--host", default="127.0.0.1")
+    reconciliation.add_argument("--port", default=8080, type=int)
     return parser
 
 
@@ -169,7 +177,7 @@ def build_engine(args: argparse.Namespace):
     except Exception as exc:
         audit.record(
             "DEPENDENCY_DEGRADED", source="cli", outcome="FAILURE",
-            actor_type="EXTERNAL", actor_id="futu", channel="futu",
+            actor_type="EXTERNAL", actor_id="futu", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
             details={"service": "futu", "operation": "initialize", "error": str(exc)},
         )
         execution = ReconnectableExecution(
@@ -247,7 +255,7 @@ def build_engine(args: argparse.Namespace):
         args.advice_executable or _default_executable(args.repo_root),
         args.repo_root,
     )
-    for account in store.virtual_accounts():
+    for account in store.strategy_virtual_accounts():
         seed_runtime_data(
             args.repo_root / "data" / "raw", args.data_dir, account["symbol"]
         )
@@ -403,7 +411,7 @@ def _preflight_strategy_account(
 def _backfill_selection_cutoffs(
     store: PaperStore, audit: AuditRecorder, executable: Path, repo_root: Path,
 ) -> None:
-    for account in store.virtual_accounts():
+    for account in store.strategy_virtual_accounts():
         if account.get("selection_data_cutoff"):
             continue
         try:
@@ -445,7 +453,7 @@ def _backfill_selection_cutoffs(
 def _synchronize_strategy_names(
     store: PaperStore, audit: AuditRecorder, executable: Path, repo_root: Path,
 ) -> None:
-    for account in store.virtual_accounts():
+    for account in store.strategy_virtual_accounts():
         try:
             identity = _strategy_show(
                 executable,
@@ -567,15 +575,38 @@ def _repair_running_ledger(args: argparse.Namespace) -> dict[str, object]:
     return result
 
 
+def _create_running_reconciliation_account(args: argparse.Namespace) -> dict[str, object]:
+    if args.host != "127.0.0.1":
+        raise ValueError("PTE control host must be 127.0.0.1")
+    store = PaperStore(args.database)
+    try:
+        token = store.get_setting("control_token")
+    finally:
+        store.close()
+    if not token:
+        raise RuntimeError("PTE control token is unavailable")
+    url = f"http://{args.host}:{args.port}/api/channels/futu-simulate-cn/reconciliation-account"
+    request = Request(
+        url, data=b"{}", method="POST",
+        headers={"Content-Type": "application/json", "X-PTE-Control-Token": token},
+    )
+    _, result = _read_json(url, request=request)
+    if result.get("account_type") != "CHANNEL_RECONCILIATION":
+        raise RuntimeError("PTE did not create the channel reconciliation account")
+    return result
+
+
 def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[dict[str, object]]:
     store = PaperStore(args.database)
     try:
         if args.account_action == "list":
-            return store.virtual_accounts()
+            return store.strategy_virtual_accounts()
         if args.account_action == "pause":
             return store.set_virtual_paused(args.account_id, True)
         if args.account_action == "resume":
             return store.set_virtual_paused(args.account_id, False)
+        if args.account_action == "create-reconciliation":
+            return store.create_channel_reconciliation_account(account_id=args.account_id)
         identity = _validate_strategy(args)
         legacy = identity["strategy_payload"].get("legacy_identity", {})
         baseline_version = legacy.get("version", identity["release_id"])
@@ -660,6 +691,8 @@ def main(
         if args.action == "control":
             if args.control_action == "restart":
                 result = _restart_running_pte(args)
+            elif args.control_action == "create-reconciliation":
+                result = _create_running_reconciliation_account(args)
             else:
                 result = _repair_running_ledger(args)
             _write({

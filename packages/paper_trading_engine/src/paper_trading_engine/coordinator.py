@@ -4,6 +4,7 @@ from threading import RLock
 
 from .audit import AuditRecorder
 from .futu_gateway import FutuGatewayError
+from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
 
 
 class UnavailableExecution:
@@ -137,7 +138,7 @@ class PteCoordinator:
         except Exception as exc:
             self.audit.record(
                 "DEPENDENCY_DEGRADED", source="coordinator", outcome="FAILURE",
-                actor_type="EXTERNAL", actor_id="futu", channel="futu",
+                actor_type="EXTERNAL", actor_id="futu", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                 details={"service": "futu", "operation": "refresh", "error": str(exc)},
             )
         self.accounts.refresh_all()
@@ -150,7 +151,7 @@ class PteCoordinator:
         except Exception as exc:
             self.audit.record(
                 "DEPENDENCY_DEGRADED", source="coordinator", outcome="FAILURE",
-                actor_type="EXTERNAL", actor_id="futu", channel="futu",
+                actor_type="EXTERNAL", actor_id="futu", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                 details={"service": "futu", "operation": "startup", "error": str(exc)},
             )
         return self.status()
@@ -168,7 +169,7 @@ class PteCoordinator:
 
     def status(self):
         channel = self.execution.status()
-        accounts = [self.accounts.status(row["account_id"]) for row in self.store.virtual_accounts()]
+        accounts = [self.accounts.status(row["account_id"]) for row in self.store.strategy_virtual_accounts()]
         starts = [row["metrics"]["observation_start"] for row in accounts if row["metrics"]["observation_start"]]
         ends = [row["metrics"]["observation_end"] for row in accounts if row["metrics"]["observation_end"]]
         common_start = max(starts) if len(starts) == len(accounts) and accounts else None
@@ -204,7 +205,7 @@ class PteCoordinator:
             "ACCOUNT_PAUSED" if paused else "ACCOUNT_RESUMED", source="web.control",
             actor_type="OPERATOR", account_id=account_id,
             strategy_id=account.get("strategy_id"), strategy_version=account.get("strategy_version"),
-            release_hash=account.get("release_hash"), channel="futu",
+            release_hash=account.get("release_hash"), channel=FUTU_SIMULATE_CN_CHANNEL_ID,
         )
         return account
 

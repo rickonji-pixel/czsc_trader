@@ -201,7 +201,7 @@ class RuntimeScheduler:
             self._guard("account_decisions", now, refresh_accounts)
         elif published_date is not None:
             pending = []
-            for account in self.store.virtual_accounts():
+            for account in self.store.strategy_virtual_accounts():
                 if account.get("status") == "RETIRED":
                     continue
                 payload = account.get("last_decision_payload")

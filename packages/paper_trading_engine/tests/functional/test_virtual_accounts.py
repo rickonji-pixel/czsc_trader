@@ -31,10 +31,10 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     store = PaperStore(tmp_path / "account-centric.db")
     create_account(store, "s001-v1", "v1", "a")
     create_account(store, "s001-v2", "v2", "b")
-    assert {row["channel_id"] for row in store.virtual_accounts()} == {"futu"}
+    assert {row["channel_id"] for row in store.virtual_accounts()} == {"futu_simulate_cn"}
     assert {row["selection_data_cutoff"] for row in store.virtual_accounts()} == {"2026-09-02"}
     assert len(store.query_audit_events(event_type="ACCOUNT_STRATEGY_BOUND")) == 2
-    assert len(store.query_audit_events(event_type="ACCOUNT_CHANNEL_BOUND", channel="futu")) == 2
+    assert len(store.query_audit_events(event_type="ACCOUNT_CHANNEL_BOUND", channel="futu_simulate_cn")) == 2
     tables = {row[0] for row in store._connection.execute(
         "SELECT name FROM sqlite_master WHERE type='table'"
     )}
@@ -60,7 +60,7 @@ def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path)
     assert store.virtual_account("s001-v2")["quantity"] == 1000
     assert store.virtual_account("s001-v2")["cash"] == "98329.1650"
     assert store.virtual_account("s001-v2")["total_assets"] == "99999.1650"
-    assert store.account_fills("s001-v2")[0]["channel_id"] == "futu"
+    assert store.account_fills("s001-v2")[0]["channel_id"] == "futu_simulate_cn"
 
     sell_intent = store.create_account_intent(
         account_id="s001-v2", decision_id="DEC-3", order_sequence=0,

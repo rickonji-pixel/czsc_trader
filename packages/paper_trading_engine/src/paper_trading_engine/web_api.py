@@ -6,6 +6,7 @@ from datetime import datetime, time, timezone
 
 from .audit import AuditCategory, AuditOutcome, AuditSeverity, EVENT_CATALOG
 from .store import DEFAULT_FUTU_CAPITAL_POOL
+from .channel import FUTU_SIMULATE_CN_CHANNEL_ID, STRATEGY_ACCOUNT_TYPE
 from .trading_window import SHANGHAI
 
 
@@ -43,18 +44,18 @@ class PteWebApi:
         return chart.current_error(account_id)
 
     def system_status(self) -> dict[str, object]:
-        channel = self.channel_snapshot("futu")
+        channel = self.channel_snapshot(FUTU_SIMULATE_CN_CHANNEL_ID)
         failures = channel.get("scheduler_failures", self.store.operation_failures())
         alerts = list(channel.get("alerts", []))
         if self.store.get_setting("data_publication_error"):
             alerts.append("DATA_PUBLICATION_FAILED")
-        if any(row.get("health") == "BLOCKED" for row in self.store.virtual_accounts()):
+        if any(row.get("health") == "BLOCKED" for row in self.store.strategy_virtual_accounts()):
             alerts.append("VIRTUAL_ACCOUNT_BLOCKED")
         if self.store.unresolved_account_intents():
             alerts.append("ORDER_SUBMISSION_UNRESOLVED")
         if any(
             self._account_chart_error(row["account_id"])
-            for row in self.store.virtual_accounts()
+            for row in self.store.strategy_virtual_accounts()
         ):
             alerts.append("ACCOUNT_CHART_UNAVAILABLE")
         heartbeat = self.store.get_setting("scheduler_heartbeat_at")
@@ -146,7 +147,7 @@ class PteWebApi:
 
     def virtual_accounts(self) -> dict[str, object]:
         accounts = []
-        for row in self.store.virtual_accounts():
+        for row in self.store.strategy_virtual_accounts():
             status = self.virtual.status(row["account_id"])
             decision = status.get("last_decision") or {}
             chart_error = self._account_chart_error(row["account_id"])
@@ -168,6 +169,10 @@ class PteWebApi:
 
     def virtual_account_snapshot(self, account_id: str) -> dict[str, object]:
         try:
+            if account_id not in {
+                row["account_id"] for row in self.store.strategy_virtual_accounts()
+            }:
+                raise ResourceNotFound(account_id)
             status = self.virtual.status(account_id)
         except KeyError as exc:
             raise ResourceNotFound(account_id) from exc
@@ -223,10 +228,10 @@ class PteWebApi:
         return self.operations.account_chart.chart_path(account_id)
 
     def channel_snapshot(self, channel: str) -> dict[str, object]:
-        if channel != "futu":
+        if channel != FUTU_SIMULATE_CN_CHANNEL_ID:
             raise ResourceNotFound(channel)
         status = self.channel.status()
-        events = self.store.query_audit_events(channel="futu", limit=200)
+        events = self.store.query_audit_events(channel=FUTU_SIMULATE_CN_CHANNEL_ID, limit=200)
         accounts = [
             {
                 "account_id": row["account_id"], "name": row["name"],
@@ -238,21 +243,30 @@ class PteWebApi:
                 "paused": bool(row["paused"]), "status": row["status"],
             }
             for row in self.store.virtual_accounts()
-            if row.get("channel_id") == "futu"
+            if row.get("channel_id") == FUTU_SIMULATE_CN_CHANNEL_ID
+            and row.get("account_type", STRATEGY_ACCOUNT_TYPE) == STRATEGY_ACCOUNT_TYPE
+        ]
+        channel_accounts = [
+            row for row in self.store.virtual_accounts()
+            if row.get("channel_id") == FUTU_SIMULATE_CN_CHANNEL_ID
+            and row.get("status") != "RETIRED"
         ]
         capital_pool = float(
             self.store.get_setting("futu_capital_pool") or DEFAULT_FUTU_CAPITAL_POOL
         )
-        allocated = sum(float(row["initial_cash"]) for row in accounts)
+        allocated = sum(float(row["initial_cash"]) for row in channel_accounts)
+        strategy_allocated = sum(float(row["initial_cash"]) for row in accounts)
         unallocated = capital_pool - allocated
         # PTE reserves cash before a future-session order reaches Futu.  The
         # reservation changes the virtual account's available cash, but the
         # money is still present in the shared broker account.  Include both
         # available and internally frozen cash when reconciling with Futu.
         logical_cash = unallocated + sum(
-            float(row["cash"]) + float(row["frozen_cash"]) for row in accounts
+            float(row["cash"]) + float(row["frozen_cash"]) for row in channel_accounts
         )
-        logical_total_assets = unallocated + sum(float(row["total_assets"]) for row in accounts)
+        logical_total_assets = unallocated + sum(
+            float(row["total_assets"]) for row in channel_accounts
+        )
         broker_account = status.get("account") or {}
         broker_cash = broker_account.get("cash")
         broker_total_assets = broker_account.get("total_assets")
@@ -267,12 +281,13 @@ class PteWebApi:
         if cash_difference is not None and abs(cash_difference) > 0.01:
             alerts.append("CHANNEL_CASH_MISMATCH")
         return {
-            "scope": {"channel": "futu", "account_type": "broker_simulation"},
+            "scope": {"channel": FUTU_SIMULATE_CN_CHANNEL_ID, "account_type": "broker_simulation"},
             "as_of": _now(),
             "account": status.get("account"), "actual_quantity": status.get("actual_quantity"),
             "accounts": accounts,
             "capital_pool": capital_pool,
             "allocated_capital": allocated,
+            "strategy_allocated_capital": strategy_allocated,
             "unallocated_capital": unallocated,
             "logical_cash": logical_cash,
             "logical_total_assets": logical_total_assets,
@@ -282,12 +297,15 @@ class PteWebApi:
             "orders": status.get("orders", []), "fills": self.store.account_fills(),
             "paused": status.get("paused"),
             "reconciliation_status": status.get("reconciliation_status"),
+            "reconciliation_account": self.store.channel_reconciliation_account(
+                FUTU_SIMULATE_CN_CHANNEL_ID
+            ),
             "connection_error": status.get("channel_error"), "alerts": list(dict.fromkeys(alerts)),
             "scheduler_failures": status.get("scheduler_failures", []), "events": events,
         }
 
     def comparison(self, account_ids: list[str]) -> dict[str, object]:
-        known = {row["account_id"] for row in self.store.virtual_accounts()}
+        known = {row["account_id"] for row in self.store.strategy_virtual_accounts()}
         selected = list(dict.fromkeys(account_ids)) if account_ids else sorted(known)
         missing = next((item for item in selected if item not in known), None)
         if missing:

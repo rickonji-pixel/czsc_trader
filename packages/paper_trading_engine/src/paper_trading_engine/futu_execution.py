@@ -18,6 +18,7 @@ from .broker import (
     TERMINAL_INTENT_STATUSES,
     TERMINAL_ORDER_STATUSES,
 )
+from .channel import FUTU_SIMULATE_CN_CHANNEL_ID, require_futu_simulate_cn_broker
 from .trading_window import SHANGHAI, is_submission_window, shanghai_now
 
 
@@ -47,6 +48,7 @@ class FutuExecution:
         self._draining = True
 
     def refresh_account(self):
+        require_futu_simulate_cn_broker(self.broker)
         method = getattr(self.broker, "account_snapshot", None)
         snapshot = method() if method is not None else self.broker.snapshot()
         if snapshot.account.environment != "SIMULATE":
@@ -78,7 +80,7 @@ class FutuExecution:
             self.store.set_virtual_health(account_id, "BLOCKED", message)
         self.audit.record(
             "CHANNEL_RECONCILIATION_FAILED", source="futu_execution",
-            outcome="FAILURE", channel="futu", account_id=account_id,
+            outcome="FAILURE", channel=FUTU_SIMULATE_CN_CHANNEL_ID, account_id=account_id,
             decision_id=None if intent is None else intent["decision_id"],
             order_id=order_id,
             details={"reason": reason, **(details or {})},
@@ -130,7 +132,7 @@ class FutuExecution:
                 "ACCOUNT_RECONCILIATION_RECOVERED", source="futu_execution",
                 account_id=account_id, strategy_id=account.get("strategy_id"),
                 strategy_version=account.get("strategy_version"),
-                release_hash=account.get("release_hash"), channel="futu",
+                release_hash=account.get("release_hash"), channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                 details={"reason": "transient_order_state_resolved"},
             )
 
@@ -146,7 +148,7 @@ class FutuExecution:
         self.store.set_virtual_health(intent["account_id"], "BLOCKED", message)
         self.audit.record(
             "EXECUTION_PLAN_BLOCKED", source="futu_execution", outcome="FAILURE",
-            account_id=intent["account_id"], channel="futu",
+            account_id=intent["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
             decision_id=intent["decision_id"], correlation_id=intent["decision_id"],
             details={
                 "intent_id": intent["intent_id"],
@@ -172,7 +174,7 @@ class FutuExecution:
                 "ORDER_INTENT_RECOVERED", source="futu_execution",
                 account_id=intent["account_id"], strategy_id=account.get("strategy_id"),
                 strategy_version=account.get("strategy_version"),
-                release_hash=account.get("release_hash"), channel="futu",
+                release_hash=account.get("release_hash"), channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                 decision_id=intent["decision_id"], correlation_id=intent["decision_id"],
                 details={
                     "intent_id": intent["intent_id"],
@@ -213,7 +215,7 @@ class FutuExecution:
                 if self.store.activate_dependency_intent(intent["intent_id"]):
                     self.audit.record(
                         "EXECUTION_PLAN_LEG_READY", source="futu_execution",
-                        account_id=intent["account_id"], channel="futu",
+                        account_id=intent["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                         decision_id=intent["decision_id"],
                         correlation_id=intent["decision_id"],
                         details={
@@ -255,7 +257,7 @@ class FutuExecution:
                 )
                 self.audit.record(
                     "CANCEL_FAILED", source="futu_execution", outcome="FAILURE",
-                    account_id=intent["account_id"], channel="futu",
+                    account_id=intent["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     decision_id=intent["decision_id"],
                     order_id=intent["channel_order_id"],
                     correlation_id=intent["decision_id"],
@@ -265,7 +267,7 @@ class FutuExecution:
             self.store.update_account_intent_status(intent["intent_id"], "CANCELLING_ALL")
             self.audit.record(
                 "CANCEL_REQUESTED", source="futu_execution",
-                account_id=intent["account_id"], channel="futu",
+                account_id=intent["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                 strategy_id=account["strategy_id"],
                 strategy_version=account["strategy_version"],
                 release_hash=account["release_hash"],
@@ -275,12 +277,10 @@ class FutuExecution:
             )
 
     def _reconcile_broker_fees(self) -> None:
-        """Correct estimated fees from aggregate Futu cash when ownership is unambiguous."""
+        """Reconcile verified aggregate Futu fees without altering strategy PnL."""
         if self._snapshot is None:
             return
-        accounts = [
-            row for row in self.store.virtual_accounts() if row.get("status") != "RETIRED"
-        ]
+        accounts = [row for row in self.store.virtual_accounts() if row.get("status") != "RETIRED"]
         if self.store.unresolved_account_intents() or any(
             Decimal(row["frozen_cash"]) != 0 for row in accounts
         ):
@@ -312,23 +312,6 @@ class FutuExecution:
         if not fills:
             self.store.set_setting("futu_cash_reconciliation_status", "UNATTRIBUTED")
             return
-        account_ids = {str(fill["account_id"]) for fill in fills}
-        if len(account_ids) != 1:
-            self.store.set_setting("futu_cash_reconciliation_status", "AMBIGUOUS")
-            return
-        account_id = next(iter(account_ids))
-        account = self.store.virtual_account(account_id)
-        sides = {str(fill["side"]).upper() for fill in fills}
-        if int(account["quantity"]) == 0:
-            treatment = "REALIZED"
-        elif sides == {"BUY"}:
-            treatment = "COST_BASIS"
-        elif sides == {"SELL"}:
-            treatment = "REALIZED"
-        else:
-            self.store.set_setting("futu_cash_reconciliation_status", "AMBIGUOUS")
-            return
-
         turnover = sum(
             (Decimal(str(fill["price"])) * int(fill["quantity"]) for fill in fills),
             Decimal("0"),
@@ -353,28 +336,34 @@ class FutuExecution:
             self.store.set_setting("futu_cash_reconciliation_status", "OUT_OF_RANGE")
             return
         reference = f"futu:{fill_rowid + 1}-{latest_rowid}:{broker_cash}"
+        account_ids = {str(fill["account_id"]) for fill in fills}
+        # Strategy accounts retain their modeled fee.  Every verified broker
+        # variance belongs to the dedicated channel account, including a
+        # one-account batch, so comparison metrics never depend on batching.
+        reconciliation = self.store.channel_reconciliation_account(FUTU_SIMULATE_CN_CHANNEL_ID)
+        if reconciliation is None:
+            self.store.set_setting("futu_cash_reconciliation_status", "AMBIGUOUS")
+            return
         event = self.audit.build(
-            "BROKER_FEE_RECONCILED", source="futu_execution", account_id=account_id,
-            strategy_id=account.get("strategy_id"),
-            strategy_version=account.get("strategy_version"),
-            release_hash=account.get("release_hash"), symbol=account.get("symbol"),
-            channel="futu", correlation_id=reference,
+            "CHANNEL_FEE_VARIANCE_RECONCILED", source="futu_execution",
+            account_id=reconciliation["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+            correlation_id=reference,
             details={
                 "adjustment": str(difference), "modeled_fee": str(modeled_fee),
                 "actual_fee": str(actual_fee), "fill_count": len(fills),
                 "fill_rowid_from": fill_rowid + 1, "fill_rowid_to": latest_rowid,
-                "treatment": treatment,
+                "strategy_account_ids": sorted(account_ids),
+                "treatment": "CHANNEL_RECONCILIATION_ACCOUNT",
             },
         )
-        self.store.apply_broker_fee_reconciliation(
-            account_id, difference, reference=reference, treatment=treatment,
-            occurred_at=datetime.now(timezone.utc).isoformat(), event=event,
-            realized_fill_id=next(
-                (str(fill["fill_id"]) for fill in reversed(fills)
-                 if str(fill["side"]).upper() == "SELL"),
-                None,
-            ),
-        )
+        try:
+            self.store.apply_channel_fee_variance(
+                adjustment=difference, reference=reference,
+                occurred_at=datetime.now(timezone.utc).isoformat(), event=event,
+            )
+        except ValueError:
+            self.store.set_setting("futu_cash_reconciliation_status", "OUT_OF_RANGE")
+            return
         self.store.set_setting(
             "futu_cash_reconciliation_checkpoint",
             json.dumps({
@@ -428,6 +417,7 @@ class FutuExecution:
             raise ValueError("sell average fill price is below limit")
 
     def refresh_orders(self):
+        require_futu_simulate_cn_broker(self.broker)
         previous_reconciliation = self.store.get_setting("channel_reconciliation_status")
         orders = self._order_snapshot()
         seen_intents: set[str] = set()
@@ -460,7 +450,7 @@ class FutuExecution:
                     "ORDER_INTENT_RECOVERED", source="futu_execution",
                     account_id=intent["account_id"], strategy_id=account["strategy_id"],
                     strategy_version=account["strategy_version"],
-                    release_hash=account["release_hash"], channel="futu",
+                    release_hash=account["release_hash"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     decision_id=intent["decision_id"], order_id=order.channel_order_id,
                     correlation_id=intent["decision_id"],
                     details={"intent_id": intent["intent_id"], "status": order.status},
@@ -484,7 +474,7 @@ class FutuExecution:
                 self.audit.record(
                     event_type, source="futu_execution", account_id=intent["account_id"],
                     strategy_id=self.store.virtual_account(intent["account_id"])["strategy_id"],
-                    channel="futu", decision_id=intent["decision_id"],
+                    channel=FUTU_SIMULATE_CN_CHANNEL_ID, decision_id=intent["decision_id"],
                     order_id=order.channel_order_id, correlation_id=intent["decision_id"],
                     details={
                         "side": order.side, "quantity": fill["quantity"],
@@ -504,7 +494,7 @@ class FutuExecution:
                 account = self.store.virtual_account(intent["account_id"])
                 self.audit.record(
                     "CANCEL_SUCCEEDED", source="futu_execution",
-                    account_id=intent["account_id"], channel="futu",
+                    account_id=intent["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     strategy_id=account["strategy_id"],
                     strategy_version=account["strategy_version"],
                     release_hash=account["release_hash"],
@@ -526,7 +516,7 @@ class FutuExecution:
                     "ORDER_TERMINATED", source="futu_execution",
                     account_id=intent["account_id"], strategy_id=account["strategy_id"],
                     strategy_version=account["strategy_version"],
-                    release_hash=account["release_hash"], channel="futu",
+                    release_hash=account["release_hash"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     decision_id=intent["decision_id"], order_id=order.channel_order_id,
                     correlation_id=intent["decision_id"],
                     details={
@@ -554,7 +544,7 @@ class FutuExecution:
         self.refresh_account()
         if self._snapshot is not None:
             accounts = [
-                account for account in self.store.virtual_accounts()
+                account for account in self.store.strategy_virtual_accounts()
                 if account.get("status") != "RETIRED"
             ]
             owned_symbols = {str(account["symbol"]).upper() for account in accounts}
@@ -566,7 +556,7 @@ class FutuExecution:
                 self.store.set_setting("channel_reconciliation_status", "BLOCKED")
                 self.audit.record(
                     "CHANNEL_RECONCILIATION_FAILED", source="futu_execution",
-                    outcome="FAILURE", channel="futu",
+                    outcome="FAILURE", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     details={
                         "reason": "unowned_position",
                         "positions": [asdict(position) for position in foreign_positions],
@@ -586,7 +576,7 @@ class FutuExecution:
                     self.store.set_setting("channel_reconciliation_status", "BLOCKED")
                     self.audit.record(
                         "CHANNEL_RECONCILIATION_FAILED", source="futu_execution",
-                        outcome="FAILURE", channel="futu", symbol=symbol,
+                        outcome="FAILURE", channel=FUTU_SIMULATE_CN_CHANNEL_ID, symbol=symbol,
                         details={
                             "reason": "position_mismatch", "broker_quantity": broker_quantity,
                             "logical_quantity": logical_quantity,
@@ -618,13 +608,14 @@ class FutuExecution:
         if previous_reconciliation == "BLOCKED":
             self.audit.record(
                 "CHANNEL_RECONCILIATION_RECOVERED", source="futu_execution",
-                channel="futu", details={"reason": "orders_and_positions_reconciled"},
+                channel=FUTU_SIMULATE_CN_CHANNEL_ID, details={"reason": "orders_and_positions_reconciled"},
             )
         for account_id in sorted(touched_accounts):
             self._recover_transient_account_health(account_id)
         return self.status()
 
     def submit_pending(self, *, reconcile: bool = True):
+        require_futu_simulate_cn_broker(self.broker)
         if self._draining:
             return self.status()
         if reconcile:
@@ -655,7 +646,7 @@ class FutuExecution:
                 self.store.set_virtual_health(row["account_id"], "BLOCKED", message)
                 self.audit.record(
                     "DECISION_EXPIRED", source="futu_execution", outcome="SKIPPED",
-                    account_id=row["account_id"], channel="futu",
+                    account_id=row["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     decision_id=row["decision_id"], correlation_id=row["decision_id"],
                     details={"intent_id": row["intent_id"], "valid_session": row["valid_session"]},
                 )
@@ -692,7 +683,7 @@ class FutuExecution:
                 )
                 self.audit.record(
                     "ORDER_REJECTED", source="futu_execution", outcome="REJECTED",
-                    account_id=row["account_id"], channel="futu",
+                    account_id=row["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     decision_id=row["decision_id"], correlation_id=row["decision_id"],
                     details={"side": row["side"], "quantity": row["quantity"], "error": str(exc)},
                 )
@@ -704,7 +695,7 @@ class FutuExecution:
                 self.store.set_virtual_health(row["account_id"], "BLOCKED", str(exc))
                 self.audit.record(
                     "ORDER_SUBMISSION_FAILED", source="futu_execution", outcome="FAILURE",
-                    account_id=row["account_id"], channel="futu",
+                    account_id=row["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     decision_id=row["decision_id"], correlation_id=row["decision_id"],
                     details={"side": row["side"], "quantity": row["quantity"], "error": str(exc)},
                 )
@@ -719,7 +710,7 @@ class FutuExecution:
                 )
                 self.audit.record(
                     "ORDER_SUBMISSION_FAILED", source="futu_execution", outcome="FAILURE",
-                    account_id=row["account_id"], channel="futu",
+                    account_id=row["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                     decision_id=row["decision_id"], correlation_id=row["decision_id"],
                     details={"side": row["side"], "quantity": row["quantity"], "error": str(exc)},
                 )
@@ -738,7 +729,7 @@ class FutuExecution:
             submitted_event = self.audit.build(
                 "ORDER_SUBMITTED", source="futu_execution", account_id=row["account_id"],
                 strategy_id=account["strategy_id"], strategy_version=account["strategy_version"],
-                release_hash=account["release_hash"], channel="futu",
+                release_hash=account["release_hash"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                 decision_id=row["decision_id"], order_id=order.channel_order_id,
                 correlation_id=row["decision_id"],
                 details={
@@ -782,7 +773,7 @@ class FutuExecution:
             actor_type="OPERATOR", account_id=account_id,
             strategy_id=account.get("strategy_id"),
             strategy_version=account.get("strategy_version"),
-            release_hash=account.get("release_hash"), channel="futu",
+            release_hash=account.get("release_hash"), channel=FUTU_SIMULATE_CN_CHANNEL_ID,
             decision_id=intent["decision_id"],
             details={
                 "reason": "execution_gap_acknowledged", "intent_id": intent_id,
@@ -802,7 +793,7 @@ class FutuExecution:
             int(row.quantity) for row in self._snapshot.positions if row.symbol == symbol
         )
         logical_quantity = sum(
-            int(row["quantity"]) for row in self.store.virtual_accounts()
+            int(row["quantity"]) for row in self.store.strategy_virtual_accounts()
             if row["symbol"] == symbol and row.get("status") != "RETIRED"
         )
         if broker_quantity != logical_quantity:
@@ -815,7 +806,7 @@ class FutuExecution:
             actor_type="OPERATOR", account_id=account_id,
             strategy_id=account.get("strategy_id"),
             strategy_version=account.get("strategy_version"),
-            release_hash=account.get("release_hash"), symbol=symbol, channel="futu",
+            release_hash=account.get("release_hash"), symbol=symbol, channel=FUTU_SIMULATE_CN_CHANNEL_ID,
             decision_id=intent["decision_id"], correlation_id=intent_id,
             details={
                 "intent_id": intent_id,
@@ -834,7 +825,7 @@ class FutuExecution:
         account = None if self._snapshot is None else asdict(self._snapshot.account)
         positions = [] if self._snapshot is None else [asdict(row) for row in self._snapshot.positions]
         reconciliation = self.store.get_setting("channel_reconciliation_status")
-        symbols = sorted({row["symbol"] for row in self.store.virtual_accounts()})
+        symbols = sorted({row["symbol"] for row in self.store.strategy_virtual_accounts()})
         actual_by_symbol = {
             symbol: sum(row["quantity"] for row in positions if row["symbol"] == symbol)
             for symbol in symbols
@@ -885,7 +876,7 @@ class FutuExecution:
         account = self.store.virtual_account(account_id)
         self.audit.record(
             "CANCEL_REQUESTED", source="futu_execution", actor_type="OPERATOR",
-            account_id=account_id, channel="futu", decision_id=order["decision_id"],
+            account_id=account_id, channel=FUTU_SIMULATE_CN_CHANNEL_ID, decision_id=order["decision_id"],
             strategy_id=account["strategy_id"],
             strategy_version=account["strategy_version"],
             release_hash=account["release_hash"],
@@ -896,7 +887,7 @@ class FutuExecution:
         except Exception as exc:
             self.audit.record(
                 "CANCEL_FAILED", source="futu_execution", outcome="FAILURE",
-                actor_type="OPERATOR", account_id=account_id, channel="futu",
+                actor_type="OPERATOR", account_id=account_id, channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                 strategy_id=account["strategy_id"],
                 strategy_version=account["strategy_version"],
                 release_hash=account["release_hash"],

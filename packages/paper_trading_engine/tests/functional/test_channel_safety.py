@@ -33,6 +33,7 @@ def test_ft_pte03_estimated_fees_reconcile_to_futu_cash_exactly_once(tmp_path):
         strategy_version="v2", release_hash="b" * 64,
         qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
     )
+    store.create_channel_reconciliation_account()
     buy = store.create_account_intent(
         account_id="s001-v2", decision_id="DEC-BUY", order_sequence=0,
         symbol="588080.SH", side="BUY", quantity=1000,
@@ -53,15 +54,16 @@ def test_ft_pte03_estimated_fees_reconcile_to_futu_cash_exactly_once(tmp_path):
     )
     execution.refresh_orders()
     bought = store.virtual_account("s001-v2")
-    assert float(bought["cash"]) == pytest.approx(98_326.66)
-    assert float(bought["average_cost"]) == pytest.approx(1.67334)
+    assert float(bought["cash"]) == pytest.approx(98_329.165)
+    assert float(bought["average_cost"]) == pytest.approx(1.670835)
+    assert float(store.channel_reconciliation_account()["cash"]) == pytest.approx(-2.505)
     assert store.get_setting("futu_cash_reconciliation_status") == "OK"
-    assert len(store.query_audit_events(event_type="BROKER_FEE_RECONCILED")) == 1
+    assert len(store.query_audit_events(event_type="CHANNEL_FEE_VARIANCE_RECONCILED")) == 1
 
     # Repeating the same broker snapshot is idempotent.
     execution.refresh_orders()
-    assert float(store.virtual_account("s001-v2")["cash"]) == pytest.approx(98_326.66)
-    assert len(store.query_audit_events(event_type="BROKER_FEE_RECONCILED")) == 1
+    assert float(store.virtual_account("s001-v2")["cash"]) == pytest.approx(98_329.165)
+    assert len(store.query_audit_events(event_type="CHANNEL_FEE_VARIANCE_RECONCILED")) == 1
 
     store.create_account_intent(
         account_id="s001-v2", decision_id="DEC-SELL", order_sequence=0,
@@ -80,11 +82,12 @@ def test_ft_pte03_estimated_fees_reconcile_to_futu_cash_exactly_once(tmp_path):
     )
     execution.refresh_orders()
     closed = store.virtual_account("s001-v2")
-    assert float(closed["cash"]) == pytest.approx(99_923.46)
-    assert float(closed["total_assets"]) == pytest.approx(99_923.46)
-    assert float(closed["realized_pnl"]) == pytest.approx(-76.54)
+    assert float(closed["cash"]) == pytest.approx(99_928.365)
+    assert float(closed["total_assets"]) == pytest.approx(99_928.365)
+    assert float(closed["realized_pnl"]) == pytest.approx(-71.635)
+    assert float(store.channel_reconciliation_account()["cash"]) == pytest.approx(-4.905)
     assert store.account_invariant_violations() == []
-    assert len(store.query_audit_events(event_type="BROKER_FEE_RECONCILED")) == 2
+    assert len(store.query_audit_events(event_type="CHANNEL_FEE_VARIANCE_RECONCILED")) == 2
     assert store.account_intent(buy["intent_id"])["status"] == "FILLED_ALL"
     store.close()
 
@@ -97,9 +100,9 @@ def test_ft_pte03_estimated_fees_reconcile_to_futu_cash_exactly_once(tmp_path):
             "UPDATE fills SET realized_pnl='-75.0000' WHERE account_id='s001-v2' AND side='SELL'"
         )
     migrated = PaperStore(tmp_path / "fee-reconciliation.db")
-    assert float(migrated.virtual_account("s001-v2")["realized_pnl"]) == pytest.approx(-76.54)
+    assert float(migrated.virtual_account("s001-v2")["realized_pnl"]) == pytest.approx(-71.635)
     assert sum(float(row["realized_pnl"]) for row in migrated.account_fills("s001-v2")) == (
-        pytest.approx(-76.54)
+        pytest.approx(-71.635)
     )
     migration_count = len(migrated.query_audit_events(event_type="ACCOUNT_EXECUTION_MIGRATED"))
     migrated.close()
@@ -108,6 +111,21 @@ def test_ft_pte03_estimated_fees_reconcile_to_futu_cash_exactly_once(tmp_path):
         migration_count
     )
     reopened.close()
+
+
+def test_ft_pte03_rejects_undefined_execution_channel_and_protects_system_account(tmp_path):
+    store = PaperStore(tmp_path / "strict-channel.db")
+    reconciliation = store.create_channel_reconciliation_account()
+    with pytest.raises(ValueError, match="cannot create order intents"):
+        store.create_account_intent(
+            account_id=reconciliation["account_id"], decision_id="DEC-SYSTEM", order_sequence=0,
+            symbol="588080.SH", side="BUY", quantity=100, limit_price="1.680",
+            valid_session="2026-09-04",
+        )
+    broker = FakeBroker()
+    broker.channel_id = "futu"
+    with pytest.raises(PaperTradingSafetyError, match="futu_simulate_cn"):
+        FutuExecution(store, broker).refresh_account()
 
 
 def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):

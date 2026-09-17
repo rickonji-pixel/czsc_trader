@@ -119,7 +119,7 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
             "account": None, "orders": [], "quote_health": "DEGRADED_QUOTE",
         }),
     ))
-    assert "quote_health" not in channel_api.channel_snapshot("futu")
+    assert "quote_health" not in channel_api.channel_snapshot("futu_simulate_cn")
     store.close()
 
     account_store = PaperStore(tmp_path / "account-index.db")
@@ -175,7 +175,7 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert "ACCOUNT_REFRESH_SECTIONS" in app_js
         assert ".chart-frame-host{height:540px;min-height:540px" in styles_css
         assert ".chart-frame-host iframe{display:block;width:100%;height:100%" in styles_css
-        assert html.index("Futu渠道") < html.index("审计事件") < html.index("账户比较")
+        assert html.index("Futu模拟盘CN") < html.index("审计事件") < html.index("账户比较")
         with urlopen(base + "/audit-events", timeout=3) as response:
             assert response.status == 200
         assert request_json(base + "/api/system/status")[1]["instance_id"] == "old"
@@ -193,7 +193,7 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         with pytest.raises(HTTPError) as unchanged:
             urlopen(conditional, timeout=3)
         assert unchanged.value.code == 304
-        assert request_json(base + "/api/channels/futu/snapshot")[1]["scope"]["channel"] == "futu"
+        assert request_json(base + "/api/channels/futu-simulate-cn/snapshot")[1]["scope"]["channel"] == "futu_simulate_cn"
         audit = request_json(
             base + "/api/audit-events?category=STRATEGY&account_id=alpha&correlation_id=DEC-1&limit=20"
         )[1]
@@ -272,7 +272,7 @@ def test_channel_capital_uses_static_principal_allocations(tmp_path):
         channel=SimpleNamespace(status=lambda: status),
     ))
 
-    snapshot = api.channel_snapshot("futu")
+    snapshot = api.channel_snapshot("futu_simulate_cn")
 
     assert snapshot["capital_pool"] == pytest.approx(1_000_000)
     assert snapshot["allocated_capital"] == pytest.approx(200_000)
@@ -315,7 +315,7 @@ def test_channel_cash_reconciliation_includes_internal_frozen_cash(tmp_path):
         channel=SimpleNamespace(status=lambda: status),
     ))
 
-    snapshot = api.channel_snapshot("futu")
+    snapshot = api.channel_snapshot("futu_simulate_cn")
 
     assert snapshot["logical_cash"] == pytest.approx(1_000_000.0)
     assert snapshot["cash_difference"] == pytest.approx(0.0)

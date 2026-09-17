@@ -10,6 +10,7 @@ import json
 
 from .audit import AuditRecorder
 from .broker import TERMINAL_INTENT_STATUSES
+from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
 from .store import PaperStore
 
 
@@ -205,7 +206,7 @@ class AccountEngine:
                 for leg in decision.plan_legs:
                     order = leg.order
                     plan_events.append(self.audit.build(
-                        "ORDER_INTENT_CREATED", source="account_engine", channel="futu",
+                        "ORDER_INTENT_CREATED", source="account_engine", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                         **scope,
                         details={
                             "side": order.side,
@@ -247,7 +248,7 @@ class AccountEngine:
                 )
             for sequence, order in enumerate(decision.orders):
                 intent_event = self.audit.build(
-                    "ORDER_INTENT_CREATED", source="account_engine", channel="futu", **scope,
+                    "ORDER_INTENT_CREATED", source="account_engine", channel=FUTU_SIMULATE_CN_CHANNEL_ID, **scope,
                     details={
                         "side": order.side, "quantity": order.quantity,
                         "order_type": order.order_type,
@@ -269,7 +270,7 @@ class AccountEngine:
     def refresh_all(self):
         results = []
         failures = []
-        for account in self.store.virtual_accounts():
+        for account in self.store.strategy_virtual_accounts():
             if account.get("status") == "RETIRED":
                 continue
             try:

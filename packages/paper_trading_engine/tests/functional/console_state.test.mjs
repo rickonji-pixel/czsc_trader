@@ -4,7 +4,7 @@ import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionLabel, actionsForRoute, au
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
-  assert.deepEqual(parseRoute('/channels/futu'), {page: 'channel', channel: 'futu'});
+  assert.deepEqual(parseRoute('/channels/futu-simulate-cn'), {page: 'channel', channel: 'futu_simulate_cn'});
   assert.deepEqual(parseRoute('/comparison'), {page: 'comparison'});
   assert.deepEqual(parseRoute('/audit-events'), {page: 'audit'});
   const loader = new ScopedLoader();
@@ -76,16 +76,16 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(auditSummary({event_type:'BROKER_FEE_RECONCILED',details:{modeled_fee:'98.0403',actual_fee:'202.4380',adjustment:'-104.3977'}}), '估算费用 98.04，Futu实际费用 202.44，账务调整 -104.40');
   const accounts = [{account_id: 's001-v2', name: 'S001-v2模拟账户'}];
   assert.equal(
-    auditScopeLabel({account_id: 's001-v2', channel: 'futu'}, accounts),
+    auditScopeLabel({account_id: 's001-v2', channel: 'futu_simulate_cn'}, accounts),
     '虚拟账户 · S001-v2模拟账户（s001-v2）',
   );
-  assert.equal(auditScopeLabel({account_id: null, channel: 'futu'}, accounts), 'Futu模拟渠道');
+  assert.equal(auditScopeLabel({account_id: null, channel: 'futu_simulate_cn'}, accounts), 'Futu模拟盘CN渠道');
   assert.equal(
-    auditScopeLabel({event_type: 'DECISION_GENERATED', account_id: null, channel: 'futu'}, accounts),
+    auditScopeLabel({event_type: 'DECISION_GENERATED', account_id: null, channel: 'futu_simulate_cn'}, accounts),
     '历史记录 · 虚拟账户未记录',
   );
   assert.equal(
-    auditScopeLabel({account_id: 's001-v2', channel: 'futu'}, accounts),
+    auditScopeLabel({account_id: 's001-v2', channel: 'futu_simulate_cn'}, accounts),
     '虚拟账户 · S001-v2模拟账户（s001-v2）',
   );
   assert.equal(auditScopeLabel({account_id: null, channel: null}, accounts), '历史记录 · 作用域未记录');

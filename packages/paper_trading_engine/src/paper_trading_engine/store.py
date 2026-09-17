@@ -26,6 +26,13 @@ from .broker import (
     TERMINAL_ORDER_STATUSES,
     UNRESOLVED_INTENT_STATUSES,
 )
+from .channel import (
+    CHANNEL_RECONCILIATION_ACCOUNT_TYPE,
+    FUTU_SIMULATE_CN_CHANNEL_ID,
+    LEGACY_FUTU_CHANNEL_ID,
+    STRATEGY_ACCOUNT_TYPE,
+    require_futu_simulate_cn,
+)
 
 
 DEFAULT_FUTU_CAPITAL_POOL = "1000000.0000"
@@ -109,7 +116,7 @@ class PaperStore:
                 account_id TEXT NOT NULL,
                 decision_id TEXT NOT NULL,
                 order_sequence INTEGER NOT NULL,
-                channel_id TEXT NOT NULL DEFAULT 'futu',
+                channel_id TEXT NOT NULL DEFAULT 'futu_simulate_cn',
                 symbol TEXT NOT NULL,
                 side TEXT NOT NULL,
                 quantity INTEGER NOT NULL,
@@ -132,7 +139,7 @@ class PaperStore:
                 intent_id TEXT NOT NULL UNIQUE,
                 account_id TEXT NOT NULL,
                 decision_id TEXT NOT NULL,
-                channel_id TEXT NOT NULL DEFAULT 'futu',
+                channel_id TEXT NOT NULL DEFAULT 'futu_simulate_cn',
                 payload TEXT NOT NULL,
                 cumulative_filled_quantity INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
@@ -152,7 +159,7 @@ class PaperStore:
                 account_id TEXT NOT NULL,
                 order_id TEXT NOT NULL,
                 decision_id TEXT NOT NULL,
-                channel_id TEXT NOT NULL DEFAULT 'futu',
+                channel_id TEXT NOT NULL DEFAULT 'futu_simulate_cn',
                 side TEXT NOT NULL,
                 quantity INTEGER NOT NULL,
                 price TEXT NOT NULL,
@@ -220,7 +227,8 @@ class PaperStore:
                 last_decision_payload TEXT,
                 health TEXT NOT NULL DEFAULT 'READY',
                 last_error TEXT,
-                channel_id TEXT NOT NULL DEFAULT 'futu',
+                channel_id TEXT NOT NULL DEFAULT 'futu_simulate_cn',
+                account_type TEXT NOT NULL DEFAULT 'STRATEGY',
                 status TEXT NOT NULL DEFAULT 'RUNNING',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -247,7 +255,8 @@ class PaperStore:
         self._ensure_column("virtual_accounts", "release_hash", "TEXT")
         self._ensure_column("virtual_accounts", "selection_data_cutoff", "TEXT")
         self._ensure_column("virtual_accounts", "qualification_snapshot", "TEXT")
-        self._ensure_column("virtual_accounts", "channel_id", "TEXT NOT NULL DEFAULT 'futu'")
+        self._ensure_column("virtual_accounts", "channel_id", "TEXT NOT NULL DEFAULT 'futu_simulate_cn'")
+        self._ensure_column("virtual_accounts", "account_type", "TEXT NOT NULL DEFAULT 'STRATEGY'")
         self._ensure_column("virtual_accounts", "status", "TEXT NOT NULL DEFAULT 'RUNNING'")
         self._ensure_column("fills", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("orders", "created_at", "TEXT")
@@ -282,11 +291,12 @@ class PaperStore:
         ):
             self._ensure_column("events", column, "TEXT")
         self._migrate_audit_events()
+        self._migrate_futu_channel_scope()
         if account_schema_migrated:
             self._insert_audit_event(self._new_audit_event(
                 "ACCOUNT_EXECUTION_MIGRATED", source="store", actor_type="ENGINE",
                 correlation_id="account-execution-migration",
-                details={"schema": "account_execution.v1", "channel": "futu"},
+                details={"schema": "account_execution.v1", "channel": FUTU_SIMULATE_CN_CHANNEL_ID},
             ))
             for account in self.virtual_accounts():
                 correlation_id = f"account-binding:{account['account_id']}"
@@ -296,7 +306,8 @@ class PaperStore:
                     strategy_id=account.get("strategy_id"),
                     strategy_version=account.get("strategy_version"),
                     release_hash=account.get("release_hash"), symbol=account.get("symbol"),
-                    channel="futu", details={"migration": True, "channel_id": "futu"},
+                    channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                    details={"migration": True, "channel_id": FUTU_SIMULATE_CN_CHANNEL_ID},
                 ))
                 if account.get("strategy_id"):
                     self._insert_audit_event(self._new_audit_event(
@@ -508,6 +519,57 @@ class PaperStore:
                     "ALTER TABLE virtual_accounts DROP COLUMN is_futu_reference"
                 )
 
+    def _migrate_futu_channel_scope(self) -> None:
+        """Map the legacy broad Futu label to the sole supported execution tuple.
+
+        Runtime tables are migrated atomically.  Historical audit events remain
+        immutable; the migration event records their legacy interpretation.
+        """
+        tables = ("virtual_accounts", "intents", "orders", "fills")
+        values: set[str] = set()
+        for table in tables:
+            values.update(
+                str(row[0]) for row in self._connection.execute(
+                    f"SELECT DISTINCT channel_id FROM {table} WHERE channel_id IS NOT NULL"
+                )
+            )
+        unsupported = values - {LEGACY_FUTU_CHANNEL_ID, FUTU_SIMULATE_CN_CHANNEL_ID}
+        if unsupported:
+            raise RuntimeError(
+                "unsupported persisted execution channel(s): " + ", ".join(sorted(unsupported))
+            )
+        if LEGACY_FUTU_CHANNEL_ID not in values:
+            return
+        with self._connection:
+            for table in tables:
+                self._connection.execute(
+                    f"UPDATE {table} SET channel_id=? WHERE channel_id=?",
+                    (FUTU_SIMULATE_CN_CHANNEL_ID, LEGACY_FUTU_CHANNEL_ID),
+                )
+            for table, key in (("intents", "intent_id"), ("orders", "channel_order_id")):
+                rows = self._connection.execute(
+                    f"SELECT {key},payload FROM {table}"
+                ).fetchall()
+                for row in rows:
+                    payload = json.loads(row["payload"])
+                    if payload.get("channel_id") == LEGACY_FUTU_CHANNEL_ID:
+                        payload["channel_id"] = FUTU_SIMULATE_CN_CHANNEL_ID
+                        self._connection.execute(
+                            f"UPDATE {table} SET payload=? WHERE {key}=?",
+                            (json.dumps(payload, ensure_ascii=False), row[key]),
+                        )
+            self._insert_audit_event(self._new_audit_event(
+                "CHANNEL_SCOPE_MIGRATED", source="store", actor_type="ENGINE",
+                correlation_id="futu-simulate-cn-channel-scope-v1",
+                channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                details={
+                    "from_channel": LEGACY_FUTU_CHANNEL_ID,
+                    "to_channel": FUTU_SIMULATE_CN_CHANNEL_ID,
+                    "scope": {"broker": "Futu", "environment": "SIMULATE", "market": "CN"},
+                    "historical_events_preserved": True,
+                },
+            ))
+
     def _migrate_account_execution_schema(self) -> bool:
         """Replace empty pre-account-centric trading tables without rewriting history."""
         tables = {
@@ -554,7 +616,7 @@ class PaperStore:
                     CREATE TABLE intents (
                         intent_id TEXT PRIMARY KEY, account_id TEXT NOT NULL,
                         decision_id TEXT NOT NULL, order_sequence INTEGER NOT NULL,
-                        channel_id TEXT NOT NULL DEFAULT 'futu', symbol TEXT NOT NULL,
+                        channel_id TEXT NOT NULL DEFAULT 'futu_simulate_cn', symbol TEXT NOT NULL,
                         side TEXT NOT NULL, quantity INTEGER NOT NULL, limit_price TEXT NOT NULL,
                         valid_session TEXT NOT NULL, payload TEXT NOT NULL, status TEXT NOT NULL,
                         channel_order_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
@@ -563,7 +625,7 @@ class PaperStore:
                     CREATE TABLE orders (
                         channel_order_id TEXT PRIMARY KEY, intent_id TEXT NOT NULL UNIQUE,
                         account_id TEXT NOT NULL, decision_id TEXT NOT NULL,
-                        channel_id TEXT NOT NULL DEFAULT 'futu', payload TEXT NOT NULL,
+                        channel_id TEXT NOT NULL DEFAULT 'futu_simulate_cn', payload TEXT NOT NULL,
                         cumulative_filled_quantity INTEGER NOT NULL,
                         created_at TEXT NOT NULL, updated_at TEXT NOT NULL
                     );
@@ -695,9 +757,11 @@ class PaperStore:
         *, symbol="588080.SH", asset_type="etf", strategy_id=None,
         strategy_name_snapshot=None, strategy_version=None, release_hash=None,
         qualification_snapshot=None, selection_data_cutoff=None,
+        channel_id=FUTU_SIMULATE_CN_CHANNEL_ID,
     ):
         from decimal import Decimal
         cash = Decimal(initial_cash).quantize(Decimal("0.0001"))
+        require_futu_simulate_cn(channel_id)
         if not cash.is_finite() or cash <= 0:
             raise ValueError("initial cash must be positive")
         if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", str(account_id)) is None:
@@ -738,13 +802,13 @@ class PaperStore:
                 "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,"
                 "strategy_id,strategy_name_snapshot,strategy_version,release_hash,"
                 "selection_data_cutoff,qualification_snapshot,symbol,asset_type,initial_cash,cash,total_assets,"
-                "channel_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "channel_id,account_type,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     account_id, name, baseline_version, baseline_sha256, strategy_id,
                     strategy_name_snapshot, strategy_version, release_hash,
                     selection_data_cutoff, qualification_snapshot, symbol.upper(), asset_type,
                     str(cash), str(cash), str(cash),
-                    "futu", "RUNNING", now, now,
+                    FUTU_SIMULATE_CN_CHANNEL_ID, STRATEGY_ACCOUNT_TYPE, "RUNNING", now, now,
                 ),
             )
             scope = {
@@ -762,8 +826,40 @@ class PaperStore:
             ))
             self._insert_audit_event(self._new_audit_event(
                 "ACCOUNT_CHANNEL_BOUND", source="account_registry",
-                correlation_id=f"account:{account_id}", channel="futu", **scope,
-                details={"channel_id": "futu"},
+                correlation_id=f"account:{account_id}", channel=FUTU_SIMULATE_CN_CHANNEL_ID, **scope,
+                details={"channel_id": FUTU_SIMULATE_CN_CHANNEL_ID},
+            ))
+        return self.virtual_account(account_id)
+
+    def create_channel_reconciliation_account(self, *, account_id: str = "futu-simulate-cn-reconciliation"):
+        """Create the zero-balance system ledger for verified channel fee variance."""
+        from decimal import Decimal
+
+        require_futu_simulate_cn(FUTU_SIMULATE_CN_CHANNEL_ID)
+        baseline = hashlib.sha256(b"futu_simulate_cn:channel_reconciliation.v1").hexdigest()
+        with self._lock, self._connection:
+            existing = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE channel_id=? AND account_type=?",
+                (FUTU_SIMULATE_CN_CHANNEL_ID, CHANNEL_RECONCILIATION_ACCOUNT_TYPE),
+            ).fetchone()
+            if existing is not None:
+                if Decimal(existing["initial_cash"]) != 0:
+                    raise ValueError("reconciliation account must have zero initial balance")
+                return dict(existing)
+            now = _utc_now()
+            self._connection.execute(
+                "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,"
+                "symbol,asset_type,initial_cash,cash,total_assets,channel_id,account_type,status,"
+                "created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (account_id, "Futu模拟盘CN渠道平账账户", "channel_reconciliation.v1", baseline,
+                 "CASH.CN", "cash", "0.0000", "0.0000", "0.0000",
+                 FUTU_SIMULATE_CN_CHANNEL_ID, CHANNEL_RECONCILIATION_ACCOUNT_TYPE, "SYSTEM", now, now),
+            )
+            self._insert_audit_event(self._new_audit_event(
+                "CHANNEL_RECONCILIATION_ACCOUNT_CREATED", source="account_registry",
+                actor_type="OPERATOR", correlation_id=f"channel-reconciliation:{account_id}",
+                account_id=account_id, channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                details={"initial_balance": "0.0000", "account_type": CHANNEL_RECONCILIATION_ACCOUNT_TYPE},
             ))
         return self.virtual_account(account_id)
 
@@ -951,8 +1047,28 @@ class PaperStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def strategy_virtual_accounts(self):
+        return [
+            row for row in self.virtual_accounts()
+            if row.get("account_type", STRATEGY_ACCOUNT_TYPE) == STRATEGY_ACCOUNT_TYPE
+        ]
+
+    def channel_reconciliation_account(self, channel_id: str = FUTU_SIMULATE_CN_CHANNEL_ID):
+        require_futu_simulate_cn(channel_id)
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE channel_id=? AND account_type=?",
+                (channel_id, CHANNEL_RECONCILIATION_ACCOUNT_TYPE),
+            ).fetchone()
+        return None if row is None else dict(row)
+
     def set_virtual_paused(self, account_id: str, paused: bool):
         with self._lock, self._connection:
+            account = self._connection.execute(
+                "SELECT account_type FROM virtual_accounts WHERE account_id=?", (account_id,)
+            ).fetchone()
+            if account is not None and account["account_type"] != STRATEGY_ACCOUNT_TYPE:
+                raise ValueError("system reconciliation account cannot be paused")
             changed = self._connection.execute(
                 "UPDATE virtual_accounts SET paused=?, updated_at=? WHERE account_id=?",
                 (int(paused), _utc_now(), account_id),
@@ -1227,8 +1343,9 @@ class PaperStore:
             ).fetchone()
             if account is None:
                 raise KeyError(account_id)
-            if account["channel_id"] != "futu":
-                raise ValueError("account execution channel must be futu")
+            require_futu_simulate_cn(account["channel_id"])
+            if account["account_type"] != STRATEGY_ACCOUNT_TYPE:
+                raise ValueError("channel reconciliation account cannot create order intents")
             if side == "SELL" and quantity > int(account["quantity"]):
                 raise ValueError("sell quantity exceeds account position")
             if side == "SELL":
@@ -1261,7 +1378,7 @@ class PaperStore:
                 )
             payload = {
                 "account_id": account_id, "decision_id": decision_id,
-                "order_sequence": order_sequence, "channel_id": "futu",
+                "order_sequence": order_sequence, "channel_id": account["channel_id"],
                 "symbol": symbol.upper(), "side": side, "quantity": quantity,
                 "limit_price": str(price), "valid_session": valid_session,
                 "fee_rate": str(fee), "order_type": order_type,
@@ -1272,7 +1389,7 @@ class PaperStore:
                 "reservation_generation,created_at,updated_at) "
                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,'PENDING_SUBMIT',?,?,?)",
                 (
-                    intent_id, account_id, decision_id, order_sequence, "futu", symbol.upper(),
+                    intent_id, account_id, decision_id, order_sequence, account["channel_id"], symbol.upper(),
                     side, quantity, str(price), valid_session,
                     json.dumps(payload, ensure_ascii=False), int(side == "BUY"), now, now,
                 ),
@@ -1370,8 +1487,9 @@ class PaperStore:
             ).fetchone()
             if account is None:
                 raise KeyError(account_id)
-            if account["channel_id"] != "futu":
-                raise ValueError("account execution channel must be futu")
+            require_futu_simulate_cn(account["channel_id"])
+            if account["account_type"] != STRATEGY_ACCOUNT_TYPE:
+                raise ValueError("channel reconciliation account cannot create order intents")
             buy_reserve = Decimal("0")
             planned_sell = 0
             normalized: list[dict[str, object]] = []
@@ -1449,7 +1567,7 @@ class PaperStore:
                     "account_id": account_id,
                     "decision_id": decision_id,
                     "order_sequence": sequence,
-                    "channel_id": "futu",
+                    "channel_id": account["channel_id"],
                     "symbol": symbol.upper(),
                     "side": leg["side"],
                     "quantity": leg["quantity"],
@@ -1471,7 +1589,7 @@ class PaperStore:
                     "reservation_generation,created_at,updated_at) "
                     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
-                        intent_ids[sequence], account_id, decision_id, sequence, "futu",
+                        intent_ids[sequence], account_id, decision_id, sequence, account["channel_id"],
                         symbol.upper(), leg["side"], leg["quantity"], leg["limit_price"],
                         valid_session, json.dumps(payload, ensure_ascii=False), status,
                         int(leg["side"] == "BUY"), now, now,
@@ -1755,7 +1873,7 @@ class PaperStore:
                 "ON CONFLICT(channel_order_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at",
                 (
                     str(channel_order_id), intent_id, intent["account_id"], intent["decision_id"],
-                    "futu", json.dumps(initial_payload, ensure_ascii=False, default=str),
+                    intent["channel_id"], json.dumps(initial_payload, ensure_ascii=False, default=str),
                     0, now, now,
                 ),
             )
@@ -2067,7 +2185,7 @@ class PaperStore:
                 "price,fee,realized_pnl,occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     fill_id, order["account_id"], str(channel_order_id), order["decision_id"],
-                    "futu", intent["side"], increment, str(incremental_price), str(fee),
+                    intent["channel_id"], intent["side"], increment, str(incremental_price), str(fee),
                     str((realized - Decimal(account["realized_pnl"])).quantize(Decimal("0.0001"))),
                     occurred_at,
                 ),
@@ -2237,6 +2355,45 @@ class PaperStore:
             "applied": True, "ledger_entry_id": ledger_id,
             "account": self.virtual_account(account_id),
         }
+
+    def apply_channel_fee_variance(
+        self, *, adjustment, reference: str, occurred_at: str, event: AuditEvent,
+    ) -> dict[str, Any]:
+        """Book a verified aggregate Futu fee variance only to the system account."""
+        from decimal import Decimal
+
+        amount = Decimal(str(adjustment)).quantize(Decimal("0.0001"))
+        if not amount.is_finite() or amount == 0:
+            raise ValueError("channel fee variance must be finite and non-zero")
+        if event.event_type != "CHANNEL_FEE_VARIANCE_RECONCILED":
+            raise ValueError("channel fee variance audit event is invalid")
+        account = self.channel_reconciliation_account(FUTU_SIMULATE_CN_CHANNEL_ID)
+        if account is None:
+            raise ValueError("channel reconciliation account has not been initialized")
+        if event.account_id != account["account_id"]:
+            raise ValueError("channel fee variance audit account does not match")
+        ledger_id = str(uuid5(NAMESPACE_URL, f"pte-channel-fee-variance:{reference}"))
+        with self._lock, self._connection:
+            existing = self._connection.execute(
+                "SELECT 1 FROM account_ledger WHERE ledger_entry_id=?", (ledger_id,)
+            ).fetchone()
+            if existing is not None:
+                return {"applied": False, "ledger_entry_id": ledger_id, "account": account}
+            cash = (Decimal(account["cash"]) + amount).quantize(Decimal("0.0001"))
+            total_assets = (Decimal(account["total_assets"]) + amount).quantize(Decimal("0.0001"))
+            self._connection.execute(
+                "UPDATE virtual_accounts SET cash=?,total_assets=?,updated_at=? WHERE account_id=?",
+                (str(cash), str(total_assets), _utc_now(), account["account_id"]),
+            )
+            self._connection.execute(
+                "INSERT INTO account_ledger(ledger_entry_id,account_id,entry_type,order_id,fill_id,"
+                "cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,quantity_after,occurred_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (ledger_id, account["account_id"], "CHANNEL_FEE_VARIANCE", None, None,
+                 str(amount), "0.0000", 0, str(-amount), str(cash), 0, occurred_at),
+            )
+            self._insert_audit_event(event)
+        return {"applied": True, "ledger_entry_id": ledger_id, "account": self.virtual_account(account["account_id"])}
 
     def account_invariant_violations(self) -> list[dict[str, object]]:
         """Return ledger/account disagreements without mutating runtime state."""

@@ -75,6 +75,7 @@ class FakeAdvice:
 
 
 class FakeBroker:
+    channel_id = "futu_simulate_cn"
     def __init__(self):
         self.value = broker_snapshot()
         self.placed = []

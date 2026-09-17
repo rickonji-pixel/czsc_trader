@@ -7,6 +7,7 @@ import time
 import re
 
 from .audit import AuditRecorder
+from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
 
 from .broker import (
     BrokerAccount,
@@ -67,6 +68,8 @@ def _project_symbol(code: str) -> str:
 
 
 class FutuGateway:
+    channel_id = FUTU_SIMULATE_CN_CHANNEL_ID
+
     def __init__(
         self,
         *,
@@ -102,7 +105,7 @@ class FutuGateway:
             "EXTERNAL_CALL_FAILED" if error else "EXTERNAL_CALL_SUCCEEDED",
             source="futu_gateway", outcome="FAILURE" if error else "SUCCESS",
             actor_type="EXTERNAL", actor_id="futu", correlation_id=correlation_id,
-            account_id=account_id, symbol=symbol or self.symbol, channel="futu", order_id=order_id,
+            account_id=account_id, symbol=symbol or self.symbol, channel=self.channel_id, order_id=order_id,
             details={
                 "service": "futu", "operation": operation,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 3),
@@ -120,9 +123,12 @@ class FutuGateway:
         if self._account_id is not None:
             return self._account_id
         rows = _records(self._ok("get_acc_list", self.trade_context.get_acc_list()))
+        # OpenD account-list rows on the live simulator omit ``trd_market``.
+        # The adapter itself creates the context with filter_trdmarket=CN, so
+        # that fixed constructor contract is the explicit market authority;
+        # a returned market, when present, must still agree with it.
         matches = [
-            row
-            for row in rows
+            row for row in rows
             if row.get("trd_env") == self.sdk.TrdEnv.SIMULATE
             and row.get("trd_market", self.sdk.TrdMarket.CN) == self.sdk.TrdMarket.CN
         ]

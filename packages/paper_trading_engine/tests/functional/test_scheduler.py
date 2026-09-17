@@ -40,6 +40,7 @@ class Store:
         self.audit_events.append(value)
         return value
     def virtual_accounts(self): return list(self.accounts)
+    def strategy_virtual_accounts(self): return list(self.accounts)
 
 
 def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery():

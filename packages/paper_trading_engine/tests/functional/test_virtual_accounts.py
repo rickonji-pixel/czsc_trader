@@ -421,7 +421,7 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
         fee_rate=0.001,
     )
     monkeypatch.setattr(
-        pte_cli.CliAdviceClient,
+        pte_cli.SrtAdviceClient,
         "get_decision",
         lambda _self, *_args, **_kwargs: accepted,
     )

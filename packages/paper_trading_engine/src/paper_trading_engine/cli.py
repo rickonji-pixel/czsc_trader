@@ -19,7 +19,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from .audit import AuditRecorder
-from .advice_client import CliAdviceClient
+from .srt_advice_client import SrtAdviceClient
 from .data_publisher import AccountDataPublisher, seed_runtime_data
 from .account_engine import AccountEngine
 from .account_chart import AccountChartService
@@ -161,8 +161,7 @@ def build_engine(args: argparse.Namespace):
         backup_runtime_database(args.database)
     store = PaperStore(args.database)
     audit = AuditRecorder(store)
-    advice = CliAdviceClient(
-        executable=args.advice_executable or _default_executable(args.repo_root),
+    advice = SrtAdviceClient(
         repo_root=args.repo_root,
         data_dir=args.data_dir,
         asset=args.asset,
@@ -373,8 +372,7 @@ def _preflight_strategy_account(
     if str(publication.get("data_cutoff")) != cutoff:
         raise RuntimeError("runtime data generation cutoff differs from account")
     initial_cash = Decimal(args.initial_cash).quantize(Decimal("0.0001"))
-    decision = CliAdviceClient(
-        executable=executable,
+    decision = SrtAdviceClient(
         repo_root=args.repo_root,
         data_dir=args.data_dir,
     ).get_decision(
@@ -382,6 +380,7 @@ def _preflight_strategy_account(
         float(initial_cash),
         strategy_id=str(identity["strategy_id"]),
         strategy_version=str(identity["version"]),
+        account_id="preflight",
         symbol=args.symbol,
         asset=args.asset,
     )

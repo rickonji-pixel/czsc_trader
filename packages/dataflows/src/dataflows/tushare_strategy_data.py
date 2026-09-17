@@ -33,15 +33,13 @@ def _canonicalize(
             f"Tushare {dataset} response is missing required fields",
             missing_fields=missing,
         )
-    output = frame[[date_column, *columns]].rename(
-        columns={date_column: "Date", **columns}
-    )
+    output = frame[[date_column, *columns]].rename(columns={date_column: "Date", **columns})
     output["Date"] = pd.to_datetime(output["Date"].astype(str), errors="raise").dt.normalize()
     for column in numeric_columns:
         output[column] = pd.to_numeric(output[column], errors="raise")
-    return output.sort_values(["Date", *[item for item in output.columns if item != "Date"]]).reset_index(
-        drop=True
-    )
+    return output.sort_values(
+        ["Date", *[item for item in output.columns if item != "Date"]]
+    ).reset_index(drop=True)
 
 
 def fetch_shibor_daily(
@@ -191,9 +189,7 @@ def fetch_stock_moneyflow(
     pro: object | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     if symbol is None and pd.Timestamp(start_date) != pd.Timestamp(end_date):
-        raise DataContractError(
-            "all-market stock moneyflow requests must cover exactly one day"
-        )
+        raise DataContractError("all-market stock moneyflow requests must cover exactly one day")
     parameters = {
         "fields": "ts_code,trade_date,net_mf_amount",
         "start_date": start_date.replace("-", ""),
@@ -213,6 +209,47 @@ def fetch_stock_moneyflow(
         "vendor_symbol": symbol,
         "frequency": "daily",
         "primary_key": ["Date", "Symbol"],
+    }
+
+
+def fetch_stock_moneyflow_sessions(
+    trading_dates: tuple[str, ...],
+    *,
+    env_file: str | Path | None = None,
+    pro: object | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Fetch all-market moneyflow for explicit trading sessions.
+
+    Tushare exposes the all-market snapshot one session at a time.  Keeping the
+    session list explicit prevents weekend/holiday requests and makes the
+    publication boundary auditable.
+    """
+
+    if not trading_dates:
+        raise DataContractError("stock moneyflow trading_dates must not be empty")
+    client = _client(pro, env_file)
+    frames: list[pd.DataFrame] = []
+    for value in trading_dates:
+        session = pd.Timestamp(value).strftime("%Y%m%d")
+        frame = _canonicalize(
+            client.moneyflow(
+                trade_date=session,
+                fields="ts_code,trade_date,net_mf_amount",
+            ),
+            dataset=f"all-market stock moneyflow {session}",
+            date_column="trade_date",
+            columns={"ts_code": "Symbol", "net_mf_amount": "NetMoneyflowAmount"},
+            numeric_columns=("NetMoneyflowAmount",),
+        )
+        frames.append(frame)
+    dataframe = (
+        pd.concat(frames, ignore_index=True).sort_values(["Date", "Symbol"]).reset_index(drop=True)
+    )
+    return dataframe, {
+        "vendor": "tushare",
+        "frequency": "daily",
+        "primary_key": ["Date", "Symbol"],
+        "requested_trading_dates": list(trading_dates),
     }
 
 

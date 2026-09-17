@@ -57,9 +57,7 @@ def _resample_weekly(dataframe: pd.DataFrame) -> pd.DataFrame:
     return weekly.reset_index(drop=True)
 
 
-def _standardize_a_share_tushare_ohlcv(
-    dataframe: pd.DataFrame, *, intraday: bool
-) -> pd.DataFrame:
+def _standardize_a_share_tushare_ohlcv(dataframe: pd.DataFrame, *, intraday: bool) -> pd.DataFrame:
     """Normalize Tushare A-share bars to shares and yuan."""
 
     normalized = standardize_vendor_ohlcv(dataframe, intraday=intraday)
@@ -69,9 +67,7 @@ def _standardize_a_share_tushare_ohlcv(
     return normalized
 
 
-def _merge_opening_auction_into_first_bar(
-    dataframe: pd.DataFrame, period: str
-) -> pd.DataFrame:
+def _merge_opening_auction_into_first_bar(dataframe: pd.DataFrame, period: str) -> pd.DataFrame:
     """Fold Tushare's 09:30 auction record into the first completed bar."""
 
     if dataframe.empty:
@@ -103,11 +99,7 @@ def _merge_opening_auction_into_first_bar(
         frame.at[target_index, "Amount"] += frame.at[auction_index, "Amount"]
         merged_auction_indices.append(auction_index)
 
-    return (
-        frame.drop(index=merged_auction_indices)
-        .sort_values("Date")
-        .reset_index(drop=True)
-    )
+    return frame.drop(index=merged_auction_indices).sort_values("Date").reset_index(drop=True)
 
 
 def _fetch_tushare_ohlcv(
@@ -135,10 +127,7 @@ def _fetch_tushare_ohlcv(
         fetch_frequency = {
             "daily": "D",
             "weekly": "W",
-            **{
-                item: f"{minutes}min"
-                for item, minutes in INTRADAY_PERIOD_MINUTES.items()
-            },
+            **{item: f"{minutes}min" for item, minutes in INTRADAY_PERIOD_MINUTES.items()},
         }[period]
         dataframe = module.pro_bar(
             ts_code=ts_code,
@@ -148,9 +137,7 @@ def _fetch_tushare_ohlcv(
                 else start_date.replace("-", "")
             ),
             end_date=(
-                _intraday_boundary(end_date, end=True)
-                if intraday
-                else end_date.replace("-", "")
+                _intraday_boundary(end_date, end=True) if intraday else end_date.replace("-", "")
             ),
             freq=fetch_frequency,
             asset="E",
@@ -158,9 +145,7 @@ def _fetch_tushare_ohlcv(
         )
         if dataframe is None or dataframe.empty:
             return pd.DataFrame(), market, ts_code
-        normalized = _standardize_a_share_tushare_ohlcv(
-            dataframe, intraday=intraday
-        )
+        normalized = _standardize_a_share_tushare_ohlcv(dataframe, intraday=intraday)
         if intraday:
             normalized = _merge_opening_auction_into_first_bar(normalized, period)
             normalized = drop_incomplete_intraday_bar(normalized)
@@ -169,12 +154,12 @@ def _fetch_tushare_ohlcv(
 
     pro = get_tushare_pro(env_file)
     if period in {"1m", "5m", "15m"}:
-        raise ValueError(
-            "Tushare HK/US minute bars are currently wired only for period=30m"
-        )
+        raise ValueError("Tushare HK/US minute bars are currently wired only for period=30m")
     if period == "30m" and market == MARKET_US:
         raise ValueError("Tushare US 30m bars are not wired in this implementation")
-    method_name = "hk_mins" if period == "30m" else {MARKET_HK: "hk_daily", MARKET_US: "us_daily"}[market]
+    method_name = (
+        "hk_mins" if period == "30m" else {MARKET_HK: "hk_daily", MARKET_US: "us_daily"}[market]
+    )
     query = getattr(pro, method_name)
     kwargs = {
         "ts_code": ts_code,
@@ -184,9 +169,7 @@ def _fetch_tushare_ohlcv(
             else start_date.replace("-", "")
         ),
         "end_date": (
-            _intraday_boundary(end_date, end=True)
-            if period == "30m"
-            else end_date.replace("-", "")
+            _intraday_boundary(end_date, end=True) if period == "30m" else end_date.replace("-", "")
         ),
     }
     if period == "30m":
@@ -250,9 +233,7 @@ def fetch_stock_ohlcv(
         "asset_type": "stock",
     }
     if market == MARKET_A_SHARE:
-        factors = _fetch_hfq_factors(
-            ts_code, start_date, end_date, env_file=env_file
-        )
+        factors = _fetch_hfq_factors(ts_code, start_date, end_date, env_file=env_file)
         dataframe = apply_hfq_adjustment(dataframe, factors)
         if normalized_period == "weekly":
             dataframe = _resample_weekly(dataframe)

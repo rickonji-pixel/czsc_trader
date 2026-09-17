@@ -46,9 +46,7 @@ def normalize_period(period: str) -> str:
     }
     value = aliases.get(value, value)
     if value not in SUPPORTED_PERIODS:
-        raise ValueError(
-            f"Unsupported period `{period}`. Choose from: {sorted(SUPPORTED_PERIODS)}"
-        )
+        raise ValueError(f"Unsupported period `{period}`. Choose from: {sorted(SUPPORTED_PERIODS)}")
     return value
 
 
@@ -89,7 +87,9 @@ def standardize_vendor_ohlcv(dataframe: pd.DataFrame, *, intraday: bool = False)
     if dataframe is None or dataframe.empty:
         return pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume", "Amount"])
 
-    mapping = {column: _COLUMN_ALIASES.get(str(column), str(column)) for column in dataframe.columns}
+    mapping = {
+        column: _COLUMN_ALIASES.get(str(column), str(column)) for column in dataframe.columns
+    }
     renamed = dataframe.rename(columns=mapping).copy()
     required = ["Date", "Open", "High", "Low", "Close"]
     missing = [column for column in required if column not in renamed.columns]
@@ -103,14 +103,14 @@ def standardize_vendor_ohlcv(dataframe: pd.DataFrame, *, intraday: bool = False)
     timestamps = pd.to_datetime(renamed["Date"], errors="coerce")
     renamed = renamed.loc[timestamps.notna()].copy()
     timestamps = timestamps.loc[timestamps.notna()]
-    renamed["Date"] = timestamps.dt.strftime(
-        "%Y-%m-%d %H:%M:%S" if intraday else "%Y-%m-%d"
-    )
+    renamed["Date"] = timestamps.dt.strftime("%Y-%m-%d %H:%M:%S" if intraday else "%Y-%m-%d")
     for column in ["Open", "High", "Low", "Close", "Volume", "Amount"]:
         renamed[column] = pd.to_numeric(renamed[column], errors="coerce")
-    return renamed[["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]].sort_values(
-        "Date"
-    ).reset_index(drop=True)
+    return (
+        renamed[["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]]
+        .sort_values("Date")
+        .reset_index(drop=True)
+    )
 
 
 def normalize_adjustment_factors(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -147,9 +147,7 @@ def adjustment_factor_sha256(dataframe: pd.DataFrame) -> str:
     return sha256(payload.encode("utf-8")).hexdigest()
 
 
-def apply_hfq_adjustment(
-    dataframe: pd.DataFrame, factors: pd.DataFrame
-) -> pd.DataFrame:
+def apply_hfq_adjustment(dataframe: pd.DataFrame, factors: pd.DataFrame) -> pd.DataFrame:
     """Apply backward adjustment to OHLC and inverse adjustment to volume."""
     if dataframe is None or dataframe.empty:
         return dataframe.copy()
@@ -223,14 +221,11 @@ def validate_a_share_intraday_bars(
     counts = timestamps.groupby(timestamps.dt.strftime("%Y-%m-%d")).size()
     expected_count = len(expected_times)
     partial_days = [
-        f"{date} has {int(count)} bars"
-        for date, count in counts.items()
-        if count != expected_count
+        f"{date} has {int(count)} bars" for date, count in counts.items() if count != expected_count
     ]
     if require_complete_days and partial_days:
         raise ValueError(
-            f"Incomplete A-share {normalized_period} trading day: "
-            + ", ".join(partial_days)
+            f"Incomplete A-share {normalized_period} trading day: " + ", ".join(partial_days)
         )
     return {
         "bar_count": len(dataframe),
@@ -291,31 +286,31 @@ def validate_intraday_against_daily(
     reference = daily_frame.drop_duplicates("_date", keep="last").set_index("_date")
     common_days = sorted(set(aggregate.index).intersection(reference.index))
     if not common_days:
-        raise ValueError(
-            f"No common trading days between {normalized_period} and daily data"
-        )
+        raise ValueError(f"No common trading days between {normalized_period} and daily data")
 
     failures: list[str] = []
     for day in common_days:
         mismatched_fields: list[str] = []
         for field in ["Open", "High", "Low", "Close"]:
-            if abs(float(aggregate.at[day, field]) - float(reference.at[day, field])) > price_tolerance:
+            if (
+                abs(float(aggregate.at[day, field]) - float(reference.at[day, field]))
+                > price_tolerance
+            ):
                 mismatched_fields.append(field)
         for field, tolerance in [
             ("Volume", volume_relative_tolerance),
             ("Amount", amount_relative_tolerance),
         ]:
             expected = float(reference.at[day, field])
-            relative_error = abs(float(aggregate.at[day, field]) - expected) / max(abs(expected), 1.0)
+            relative_error = abs(float(aggregate.at[day, field]) - expected) / max(
+                abs(expected), 1.0
+            )
             if relative_error > tolerance:
                 mismatched_fields.append(field)
         if mismatched_fields:
             failures.append(f"{day}: {', '.join(mismatched_fields)}")
     if failures:
-        raise ValueError(
-            f"{normalized_period}/daily reconciliation failed: "
-            + "; ".join(failures)
-        )
+        raise ValueError(f"{normalized_period}/daily reconciliation failed: " + "; ".join(failures))
     return {"matched_day_count": len(common_days), "matched_days": common_days}
 
 

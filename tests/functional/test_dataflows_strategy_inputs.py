@@ -11,6 +11,7 @@ from dataflows.tushare_strategy_data import (
     fetch_index_daily_basic,
     fetch_shibor_daily,
     fetch_stock_moneyflow,
+    fetch_stock_moneyflow_sessions,
     fetch_trading_calendar,
 )
 
@@ -38,9 +39,10 @@ class FakePro:
         )
 
     def moneyflow(self, **kwargs):
+        trade_date = kwargs.get("trade_date", "20260915")
         return pd.DataFrame(
             {
-                "trade_date": ["20260915", "20260915"],
+                "trade_date": [trade_date, trade_date],
                 "ts_code": ["000001.SZ", "600000.SH"],
                 "net_mf_amount": [10.0, -5.0],
             }
@@ -59,12 +61,8 @@ class FakePro:
 def test_s007_non_ohlcv_inputs_are_canonical() -> None:
     pro = FakePro()
     shibor, _ = fetch_shibor_daily("2026-09-15", "2026-09-15", pro=pro)
-    chinext, _ = fetch_index_daily_basic(
-        "399006.SZ", "2026-09-15", "2026-09-15", pro=pro
-    )
-    shares, share_meta = fetch_etf_share_size(
-        "588080.SH", "2026-09-15", "2026-09-15", pro=pro
-    )
+    chinext, _ = fetch_index_daily_basic("399006.SZ", "2026-09-15", "2026-09-15", pro=pro)
+    shares, share_meta = fetch_etf_share_size("588080.SH", "2026-09-15", "2026-09-15", pro=pro)
     spx, _ = fetch_global_index_daily("SPX", "2026-09-15", "2026-09-15", pro=pro)
 
     assert shibor.loc[0, "OvernightRate"] == pytest.approx(1.25)
@@ -79,9 +77,7 @@ def test_s003_constituent_inputs_preserve_multi_entity_keys() -> None:
     weights, weight_meta = fetch_index_constituent_weight(
         "000905.SH", "2026-09-15", "2026-09-15", pro=pro
     )
-    flows, flow_meta = fetch_stock_moneyflow(
-        "2026-09-15", "2026-09-15", pro=pro
-    )
+    flows, flow_meta = fetch_stock_moneyflow("2026-09-15", "2026-09-15", pro=pro)
 
     assert list(weights.columns) == ["Date", "ConstituentSymbol", "Weight"]
     assert weight_meta["primary_key"] == ["Date", "ConstituentSymbol"]
@@ -95,10 +91,16 @@ def test_all_market_moneyflow_rejects_unsafe_multi_day_request() -> None:
         fetch_stock_moneyflow("2026-09-14", "2026-09-15", pro=FakePro())
 
 
+def test_all_market_moneyflow_can_publish_explicit_sessions() -> None:
+    flows, metadata = fetch_stock_moneyflow_sessions(("2026-09-15", "2026-09-16"), pro=FakePro())
+
+    assert len(flows) == 4
+    assert metadata["requested_trading_dates"] == ["2026-09-15", "2026-09-16"]
+    assert metadata["primary_key"] == ["Date", "Symbol"]
+
+
 def test_trading_calendar_is_canonical() -> None:
-    calendar, metadata = fetch_trading_calendar(
-        "SSE", "2026-09-15", "2026-09-16", pro=FakePro()
-    )
+    calendar, metadata = fetch_trading_calendar("SSE", "2026-09-15", "2026-09-16", pro=FakePro())
 
     assert list(calendar.columns) == ["Date", "IsOpen", "PreviousTradingDate"]
     assert calendar["IsOpen"].tolist() == [1, 1]

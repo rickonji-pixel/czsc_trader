@@ -188,6 +188,7 @@ def _default_providers() -> dict[str, Provider]:
         fetch_index_daily_basic,
         fetch_shibor_daily,
         fetch_stock_moneyflow,
+        fetch_stock_moneyflow_sessions,
         fetch_trading_calendar,
     )
     from .tushare_stock import fetch_stock_ohlcv, fetch_stock_unadjusted_daily
@@ -227,9 +228,7 @@ def _default_providers() -> dict[str, Provider]:
         )
 
     def shibor(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
-        return fetch_shibor_daily(
-            request.start, request.end, env_file=_env_file(request)
-        )
+        return fetch_shibor_daily(request.start, request.end, env_file=_env_file(request))
 
     def index_basic(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
         return fetch_index_daily_basic(
@@ -264,6 +263,18 @@ def _default_providers() -> dict[str, Provider]:
         )
 
     def stock_moneyflow(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        trading_dates = request.options.get("trading_dates")
+        if trading_dates is not None:
+            if request.symbol is not None:
+                raise DataContractError(
+                    "explicit-session stock moneyflow requests must be all-market"
+                )
+            if not isinstance(trading_dates, list | tuple):
+                raise DataContractError("trading_dates must be a list or tuple")
+            return fetch_stock_moneyflow_sessions(
+                tuple(str(item) for item in trading_dates),
+                env_file=_env_file(request),
+            )
         return fetch_stock_moneyflow(
             request.start,
             request.end,

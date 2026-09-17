@@ -16,7 +16,6 @@ from czsc_trader.backtesting.intraday_overlay_replay import (
     replay_intraday_overlay,
 )
 from czsc_trader.backtesting.metrics import calculate_metrics
-from czsc_trader.backtesting.service import BacktestRequestV2, run_backtest_v2
 from czsc_trader.backtesting.signal_replay import replay_signals
 from czsc_trader.backtesting.srt_bridge import (
     build_srt_signal_replay,
@@ -83,53 +82,3 @@ def test_srt_backtest_matches_complete_legacy_ledger(
             check_dtype=False,
         )
     assert calculate_metrics(actual, 100_000) == calculate_metrics(legacy, 100_000)
-
-
-def test_srt_service_matches_legacy_for_cross_symbol_publication(tmp_path: Path) -> None:
-    context = RepositoryContext.discover(ROOT)
-    snapshot = resolve_registered_strategy(context, "S001", "v2")
-    replay_data = load_replay_data(
-        context,
-        "backtest",
-        "510500.SH",
-        "etf",
-        END.date(),
-    )
-    common = {
-        "symbol": "510500.SH",
-        "asset_type": "etf",
-        "dataset": "backtest",
-        "start": START.date(),
-        "end": END.date(),
-        "initial_cash": 100_000,
-    }
-    legacy = run_backtest_v2(
-        snapshot=snapshot,
-        replay_data=replay_data,
-        request=BacktestRequestV2(**common, runtime_engine="legacy"),
-        outputs_root=tmp_path / "legacy",
-        run_date=pd.Timestamp("2026-09-17").date(),
-        repository_root=ROOT,
-    )
-    actual = run_backtest_v2(
-        snapshot=snapshot,
-        replay_data=replay_data,
-        request=BacktestRequestV2(**common, runtime_engine="srt"),
-        outputs_root=tmp_path / "srt",
-        run_date=pd.Timestamp("2026-09-17").date(),
-        repository_root=ROOT,
-    )
-
-    for name in ("decisions", "orders", "fills", "account_daily", "trades"):
-        pd.testing.assert_frame_equal(
-            pd.read_csv(actual.output_dir / f"{name}.csv"),
-            pd.read_csv(legacy.output_dir / f"{name}.csv"),
-            check_dtype=False,
-        )
-    assert actual.metrics == legacy.metrics
-    assert actual.manifest["application"] == {
-        "mode": "cross_symbol_generalization",
-        "strategy_reference_symbol": "588080.SH",
-        "backtest_symbol": "510500.SH",
-        "runtime_engine": "srt",
-    }

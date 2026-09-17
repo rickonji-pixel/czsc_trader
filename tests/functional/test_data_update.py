@@ -9,10 +9,8 @@ import pytest
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.data_service import (
-    PublishRuntimeDataCommand,
     UpdateBacktestDataCommand,
     _initial_backtest_start,
-    publish_runtime_data,
     update_backtest_data,
 )
 from czsc_trader.backtesting import BacktestDataContract
@@ -63,9 +61,7 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
 
     def fake_intraday_data(symbol, start, through, staging, **_kwargs):
         calls.append((symbol, start, through))
-        (staging / "510500_intraday_manifest.json").write_text(
-            "{}", encoding="utf-8"
-        )
+        (staging / "510500_intraday_manifest.json").write_text("{}", encoding="utf-8")
         return {"manifest": "intraday-manifest"}
 
     monkeypatch.setattr("czsc_trader.market_data_prep.prepare_market_data", fake_market_data)
@@ -74,9 +70,7 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
     )
     monkeypatch.setattr(
         "czsc_trader.backtesting.resolve_registered_strategy",
-        lambda *_args: SimpleNamespace(
-            identity=SimpleNamespace(reference="S003-v1")
-        ),
+        lambda *_args: SimpleNamespace(identity=SimpleNamespace(reference="S003-v1")),
     )
     monkeypatch.setattr(
         "czsc_trader.backtesting.resolve_backtest_data_contract",
@@ -85,9 +79,7 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
 
     result = update_backtest_data(
         context,
-        UpdateBacktestDataCommand(
-            "510500.SH", "etf", date(2026, 9, 15), "S003", "v1"
-        ),
+        UpdateBacktestDataCommand("510500.SH", "etf", date(2026, 9, 15), "S003", "v1"),
     )
 
     assert calls == [("510500.SH", date(2019, 10, 8), date(2026, 9, 15))]
@@ -113,9 +105,7 @@ def test_ft_t03_backtest_publication_includes_causal_feature_support(
         (staging / "s007_v1_causal_feature_panel.csv.gz").write_text(
             "date,value\n2026-09-15,1\n", encoding="utf-8"
         )
-        (staging / "s007_v1_causal_feature_manifest.json").write_text(
-            "{}", encoding="utf-8"
-        )
+        (staging / "s007_v1_causal_feature_manifest.json").write_text("{}", encoding="utf-8")
         assert release_id == "S007-v1"
         return {"support_last_session": "2026-09-15"}
 
@@ -137,9 +127,7 @@ def test_ft_t03_backtest_publication_includes_causal_feature_support(
 
     result = update_backtest_data(
         context,
-        UpdateBacktestDataCommand(
-            "588080.SH", "etf", date(2026, 9, 15), "S007", "v1"
-        ),
+        UpdateBacktestDataCommand("588080.SH", "etf", date(2026, 9, 15), "S007", "v1"),
     )
 
     assert result.result["strategy_support"] == {
@@ -147,51 +135,4 @@ def test_ft_t03_backtest_publication_includes_causal_feature_support(
         "data_cutoff": "2026-09-15",
         "support_type": "causal_feature",
     }
-    assert (
-        context.backtest_data_root / "s007_v1_causal_feature_panel.csv.gz"
-    ).is_file()
-
-
-def test_ft_t04_runtime_publication_commits_one_strategy_generation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    context = _context(tmp_path)
-
-    def fake_market_data(_symbol, _asset, _start, _through, staging, **_kwargs):
-        (staging / "588080_manifest.json").write_text("{}", encoding="utf-8")
-        return {"manifest": "market-manifest", "data_cutoff": "2026-09-15"}
-
-    snapshot = SimpleNamespace(
-        identity=SimpleNamespace(reference="S001-v2"),
-        resolved_rule=SimpleNamespace(
-            execution=SimpleNamespace(
-                instrument=SimpleNamespace(symbol="588080.SH")
-            ),
-            constituent_moneyflow_intraday=None,
-            causal_feature_gate=None,
-        ),
-    )
-    monkeypatch.setattr("czsc_trader.market_data_prep.prepare_market_data", fake_market_data)
-    monkeypatch.setattr(
-        "czsc_trader.backtesting.resolve_registered_strategy", lambda *_args: snapshot
-    )
-    monkeypatch.setattr(
-        "czsc_trader.backtesting.resolve_backtest_data_contract",
-        lambda _snapshot: BacktestDataContract(),
-    )
-
-    result = publish_runtime_data(
-        context,
-        PublishRuntimeDataCommand(
-            "588080.SH", "etf", date(2020, 1, 1), date(2026, 9, 15),
-            (("S001", "v2"),),
-        ),
-    )
-
-    generation = json.loads(
-        (context.raw_dir / "588080_strategy_generation.json").read_text(encoding="utf-8")
-    )
-    assert result.result["generation_id"] == generation["generation_id"]
-    assert generation["dataset"] == "runtime"
-    assert generation["strategy_releases"] == ["S001-v2"]
-    assert generation["data_cutoff"] == "2026-09-15"
+    assert (context.backtest_data_root / "s007_v1_causal_feature_panel.csv.gz").is_file()

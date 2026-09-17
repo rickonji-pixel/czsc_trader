@@ -121,6 +121,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         ),
         outputs_root=functional_repo / "outputs",
         run_date=pd.Timestamp("2026-09-04").date(),
+        repository_root=functional_repo,
     )
     required = {
         "manifest.json", "decisions.csv", "orders.csv", "fills.csv",

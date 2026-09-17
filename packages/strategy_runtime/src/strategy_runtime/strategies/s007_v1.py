@@ -334,7 +334,7 @@ class S007V1:
             previous = dates[dates < pd.Timestamp(cutoff)]
             if previous.empty:
                 raise RuntimeContractError("S007-v1 calendar has no previous session")
-            previous_date = previous[-1].date().isoformat()
+            previous_date = previous.iloc[-1].date().isoformat()
             specs = {
                 _MARKET: (Dataset.ETF_OHLCV, self._symbol, cutoff.isoformat(), "daily"),
                 _SHIBOR: (Dataset.SHIBOR_DAILY, None, cutoff.isoformat(), "daily"),

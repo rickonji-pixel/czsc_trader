@@ -32,24 +32,6 @@ class UpdateBacktestDataCommand:
     strategy_version: str
 
 
-@dataclass(frozen=True)
-class PrepareStrategySupportCommand:
-    strategy_id: str
-    strategy_version: str
-    through: date
-
-
-@dataclass(frozen=True)
-class PublishRuntimeDataCommand:
-    """Publish one complete, strategy-aware runtime data generation."""
-
-    symbol: str
-    asset_type: str
-    start: date
-    through: date
-    strategy_releases: tuple[tuple[str, str], ...]
-
-
 def _initial_backtest_start(context: RepositoryContext, code: str) -> date:
     research_manifest = context.research_data_root / f"{code}_manifest.json"
     if not research_manifest.is_file():
@@ -127,22 +109,8 @@ def _mutable_weekly_terminal_period(
     return None
 
 
-def _runtime_supports(snapshot) -> tuple[tuple[str, object], ...]:
-    """Return every release-owned, point-in-time input required at runtime."""
-    rule = getattr(snapshot, "resolved_rule", None)
-    constituent = getattr(rule, "constituent_moneyflow_intraday", None)
-    causal = getattr(rule, "causal_feature_gate", None)
-    if constituent is not None:
-        return (("constituent_moneyflow", constituent),)
-    if causal is not None:
-        return (("causal_feature", causal),)
-    return ()
-
-
 def _generation_supports(snapshot, contract, dataset: str) -> tuple[tuple[str, object], ...]:
     """Apply one contract in the target dataset's execution context."""
-    if dataset == "runtime":
-        return _runtime_supports(snapshot)
     if "causal_feature_panel" in contract.strategy_support:
         causal = getattr(getattr(snapshot, "resolved_rule", None), "causal_feature_gate", None)
         if causal is None:
@@ -384,53 +352,6 @@ def update_backtest_data(
     )
 
 
-def publish_runtime_data(
-    context: RepositoryContext,
-    request: PublishRuntimeDataCommand,
-) -> CommandResult:
-    """Publish a complete PTE generation for every release sharing one instrument."""
-    from czsc_trader.backtesting import resolve_registered_strategy
-
-    if not request.strategy_releases:
-        raise ValidationError(
-            "runtime_data_contract_invalid",
-            "runtime data publication requires at least one strategy release",
-            context={"symbol": request.symbol},
-        )
-    try:
-        snapshots = tuple(
-            resolve_registered_strategy(context, strategy_id, version)
-            for strategy_id, version in request.strategy_releases
-        )
-        for snapshot in snapshots:
-            execution = snapshot.resolved_rule.execution
-            rule_symbol = str(
-                execution.instrument.symbol if execution is not None else snapshot.resolved_rule.symbol
-            ).upper()
-            if rule_symbol != request.symbol.upper():
-                raise ValueError(
-                    f"{snapshot.identity.reference}: strategy symbol {rule_symbol} "
-                    f"differs from publication symbol {request.symbol.upper()}"
-                )
-    except Exception as exc:
-        raise ValidationError(
-            "runtime_data_contract_invalid",
-            str(exc),
-            context={"symbol": request.symbol},
-        ) from exc
-    return _publish_strategy_generation(
-        context,
-        symbol=request.symbol,
-        asset_type=request.asset_type,
-        start=request.start,
-        through=request.through,
-        snapshots=snapshots,
-        target=context.raw_dir,
-        dataset="runtime",
-        append_only=False,
-    )
-
-
 def prepare_data(
     context: RepositoryContext,
     request: PrepareDataCommand,
@@ -457,95 +378,6 @@ def prepare_data(
         command="data.prepare",
         result=summary,
         artifacts={"manifest": summary["manifest"]},
-    )
-
-
-def prepare_strategy_support_data(
-    context: RepositoryContext,
-    request: PrepareStrategySupportCommand,
-) -> CommandResult:
-    """Publish extra point-in-time inputs required by one deployable strategy release."""
-    from strategy_manager import StrategyRegistry
-
-    from czsc_trader.baselines import resolve_strategy_payload
-    from czsc_trader.causal_feature_gate_runtime import (
-        publish_support_data as publish_causal_feature_support,
-    )
-    from czsc_trader.constituent_moneyflow_runtime import (
-        publish_support_data as publish_constituent_support,
-    )
-
-    try:
-        registry = StrategyRegistry(context.strategy_root)
-        release = registry.resolve_strategy(request.strategy_id, request.strategy_version)
-        registry.assert_deployable(release.strategy_id, release.version, "PAPER")
-        if release.release_hash is None:
-            raise ValueError("deployable strategy version must have a release hash")
-        rule = release.strategy_payload.get("rule")
-        rule_symbol = rule.get("symbol") if isinstance(rule, dict) else None
-        strategy_symbol = release.strategy_payload.get("symbol") or rule_symbol
-        if not isinstance(strategy_symbol, str) or not strategy_symbol.strip():
-            strategy = registry.get_strategy(release.strategy_id)
-            if isinstance(strategy.scope, list) and len(strategy.scope) == 1:
-                strategy_symbol = strategy.scope[0]
-        if not isinstance(strategy_symbol, str) or not strategy_symbol.strip():
-            raise ValueError("strategy support data requires one explicit symbol")
-        resolved = resolve_strategy_payload(
-            context.strategy_dependency_root,
-            release.strategy_payload,
-            release_id=release.release_id,
-            release_hash=release.release_hash,
-            symbol=strategy_symbol,
-            repository_root=context.root,
-        )
-        if resolved.strategy == "constituent_moneyflow_intraday_overlay":
-            spec = resolved.constituent_moneyflow_intraday
-            if spec is None:
-                raise ValueError("intraday overlay strategy support specification is missing")
-            result = {
-                **publish_constituent_support(
-                    context.root,
-                    context.raw_dir,
-                    release.release_id,
-                    spec,
-                    request.through.isoformat(),
-                ),
-                "support_required": True,
-            }
-        elif resolved.strategy == "causal_feature_gate":
-            spec = resolved.causal_feature_gate
-            if spec is None:
-                raise ValueError("causal-feature strategy support specification is missing")
-            result = {
-                **publish_causal_feature_support(
-                    context.root,
-                    context.raw_dir,
-                    release.release_id,
-                    spec,
-                    request.through.isoformat(),
-                ),
-                "support_required": True,
-            }
-        else:
-            result = {
-                "release_id": release.release_id,
-                "data_cutoff": request.through.isoformat(),
-                "support_required": False,
-            }
-    except Exception as exc:
-        raise ValidationError(
-            "strategy_support_data_preparation_failed",
-            str(exc),
-            context={
-                "strategy": request.strategy_id,
-                "strategy_version": request.strategy_version,
-                "through": request.through.isoformat(),
-            },
-        ) from exc
-    return CommandResult(
-        status="PASS",
-        command="data.prepare-strategy-support",
-        result=result,
     )
 
 

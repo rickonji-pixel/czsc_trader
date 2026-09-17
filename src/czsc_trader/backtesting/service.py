@@ -17,14 +17,14 @@ from .benchmarks import replay_benchmarks
 from .datasets import DatasetName, ReplayData
 from .audit_adapter import build_replay_evidence
 from .chart import render_backtest_chart_html
+from .causal_feature_gate_replay import build_causal_feature_gate_signals
+from .closing_dislocation_replay import build_closing_dislocation_signals
 from .evidence import build_manifest
 from .execution_replay import replay_account
 from .intraday_overlay_replay import (
     build_moneyflow_breadth_signals,
     replay_intraday_overlay,
 )
-from .closing_dislocation_replay import build_closing_dislocation_signals
-from .causal_feature_gate_replay import build_causal_feature_gate_signals
 from .metrics import calculate_metrics
 from .models import StrategySnapshot
 from .report import render_report
@@ -40,7 +40,6 @@ class BacktestRequestV2:
     start: date
     end: date
     initial_cash: float
-    runtime_engine: str = "legacy"
 
 
 @dataclass(frozen=True)
@@ -146,11 +145,9 @@ def run_backtest_v2(
     if replay_data.adjusted.asset_type != request.asset_type:
         raise ValueError("request asset type differs from loaded replay data")
     applied_snapshot, application = _bind_backtest_symbol(snapshot, request)
-    if request.runtime_engine not in {"legacy", "srt"}:
-        raise ValueError("runtime_engine must be legacy or srt")
-    if request.runtime_engine == "srt":
+    if applied_snapshot.identity.kind == "REGISTERED":
         if repository_root is None:
-            raise ValueError("SRT backtest requires a repository root")
+            raise ValueError("registered strategy backtest requires a repository root")
         strategy, signals = build_srt_signal_replay(
             snapshot=applied_snapshot,
             replay_data=replay_data,
@@ -164,9 +161,10 @@ def run_backtest_v2(
             replay_data=replay_data,
             initial_cash=request.initial_cash,
         )
+        application["runtime_engine"] = "srt"
     elif applied_snapshot.resolved_rule.causal_feature_gate is not None:
         if repository_root is None:
-            raise ValueError("causal-feature-gate backtest requires a repository root")
+            raise ValueError("causal-feature candidate requires a repository root")
         signals = build_causal_feature_gate_signals(
             applied_snapshot,
             replay_data,
@@ -175,9 +173,10 @@ def run_backtest_v2(
             repository_root,
         )
         result = replay_account(signals, replay_data, request.initial_cash)
+        application["runtime_engine"] = "research_candidate"
     elif applied_snapshot.resolved_rule.constituent_moneyflow_intraday is not None:
         if repository_root is None:
-            raise ValueError("intraday overlay backtest requires a repository root")
+            raise ValueError("intraday-overlay candidate requires a repository root")
         signals = build_moneyflow_breadth_signals(
             applied_snapshot,
             replay_data,
@@ -186,6 +185,7 @@ def run_backtest_v2(
             pd.Timestamp(request.end),
         )
         result = replay_intraday_overlay(signals, replay_data, request.initial_cash)
+        application["runtime_engine"] = "research_candidate"
     elif applied_snapshot.resolved_rule.closing_dislocation_overnight is not None:
         signals = build_closing_dislocation_signals(
             applied_snapshot,
@@ -195,10 +195,11 @@ def run_backtest_v2(
             repository_root,
         )
         result = replay_account(signals, replay_data, request.initial_cash)
+        application["runtime_engine"] = "research_candidate"
     else:
         signals = replay_signals(applied_snapshot, replay_data, request.start, request.end)
         result = replay_account(signals, replay_data, request.initial_cash)
-    application["runtime_engine"] = request.runtime_engine
+        application["runtime_engine"] = "research_candidate"
     strategy_metrics = calculate_metrics(result, request.initial_cash)
     evidence = build_replay_evidence(
         signals, replay_data, result, request.initial_cash, strategy_metrics

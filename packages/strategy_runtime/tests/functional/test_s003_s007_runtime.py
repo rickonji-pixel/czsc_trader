@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 
 import pandas as pd
+from dataflows import DataIdentity, DataResult, DataStatus, Dataset
 
 from czsc_trader.baselines import resolve_strategy_payload
 from czsc_trader.causal_feature_gate_runtime import score_feature_panel
-from strategy_runtime import StrategyLoader, StrategyRelease
+from strategy_runtime import DeploymentSpec, StrategyLoader, StrategyRelease
 from strategy_runtime.strategies.s003_v1 import calculate_s003_history
 from strategy_runtime.strategies.s007_v1 import calculate_s007_history
 
@@ -117,3 +120,54 @@ def test_s007_complete_decision_history_matches_frozen_legacy_path() -> None:
         actual["target_position"], expected_target.astype(int), check_names=False
     )
     assert strategy.definition.release_id == "S007-v1"
+
+
+def test_s007_publication_resolves_previous_session_by_position() -> None:
+    _raw, release = _release("S007")
+    strategy = StrategyLoader().load(release)
+    requests = []
+
+    class Flows:
+        def fetch(self, request):
+            requests.append(request)
+            if str(request.dataset) == Dataset.TRADING_CALENDAR.value:
+                frame = pd.DataFrame(
+                    {
+                        "Date": ["2026-09-15", "2026-09-16", "2026-09-17"],
+                        "IsOpen": [1, 1, 1],
+                    }
+                )
+            else:
+                frame = pd.DataFrame({"Date": [request.end], "Value": [1.0]})
+            identity = DataIdentity(
+                str(request.dataset),
+                "test",
+                request.symbol,
+                str(frame["Date"].min()),
+                str(frame["Date"].max()),
+                sha256(str(request).encode()).hexdigest(),
+                {},
+            )
+            return DataResult(DataStatus.READY, frame, identity)
+
+    publication = strategy.publish_data(
+        Flows(),
+        DeploymentSpec(
+            "test",
+            release.release_id,
+            release.release_hash,
+            "588080.SH",
+            "test",
+            "test",
+            {},
+        ),
+        datetime(2026, 9, 16, 20, 30, tzinfo=timezone(timedelta(hours=8))),
+    )
+
+    shares = next(
+        request
+        for request in requests
+        if str(request.dataset) == Dataset.ETF_SHARE_SIZE.value
+    )
+    assert shares.required_cutoff == "2026-09-15"
+    assert publication.requested_cutoff == "2026-09-16"

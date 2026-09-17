@@ -10,7 +10,7 @@ from czsc_trader.cli.main import build_parser, main
 
 
 EXPECTED_ACTIONS = {
-    "data": {"prepare", "prepare-strategy-support", "validate", "update-backtest"},
+    "data": {"prepare", "validate", "update-backtest"},
     "baseline": {"list", "show", "validate"},
     "strategy": {
         "list",
@@ -29,7 +29,6 @@ EXPECTED_ACTIONS = {
         "accept-evaluation",
     },
     "backtest": {"run"},
-    "advice": {"run"},
     "archive": {"validate"},
     "chart": {"observation"},
     "news": {"extract"},

@@ -278,7 +278,6 @@ def build_publisher(
 ) -> AccountDataPublisher:
     return AccountDataPublisher(
         store=store,
-        executable=args.advice_executable or _default_executable(args.repo_root),
         repo_root=args.repo_root,
         data_dir=args.data_dir,
         start_date=args.data_start,
@@ -355,11 +354,9 @@ def _preflight_strategy_account(
     identity: dict[str, object],
 ) -> None:
     """Prove data publication and the executable advice contract before account creation."""
-    executable = args.advice_executable or _default_executable(args.repo_root)
     cutoff = _runtime_data_cutoff(args.data_dir, args.symbol, args.asset)
     publication = AccountDataPublisher(
         store=store,
-        executable=executable,
         repo_root=args.repo_root,
         data_dir=args.data_dir,
         start_date="2020-01-01",

@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
-from subprocess import CompletedProcess
 from threading import Event, Thread
 import time
 
@@ -12,7 +11,6 @@ from dataflows import Dataflows, Dataset
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.data_publisher import (
     AccountDataPublisher,
-    CliDataPublisher,
     DataPublicationError,
 )
 from paper_trading_engine.scheduler import RuntimeScheduler
@@ -66,7 +64,6 @@ def test_account_data_publisher_persists_ready_srt_generation(tmp_path):
     root = Path(__file__).resolve().parents[4]
     publisher = AccountDataPublisher(
         store=Store(),
-        executable="unused",
         repo_root=root,
         data_dir=tmp_path / "data",
         start_date="2021-01-01",
@@ -194,20 +191,6 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(t
     assert not is_submission_window(datetime(2026, 9, 2, 14, 57, tzinfo=shanghai))
 
     cli_store = Store()
-    publisher_client = CliDataPublisher(
-        executable="czsc-trader", repo_root=".", data_dir=".", symbol="588080.SH",
-        asset="etf", start_date="2021-01-01", audit=AuditRecorder(cli_store),
-        runner=lambda args, **kwargs: CompletedProcess(
-            args, 0, '{"status":"PASS","result":{"data_cutoff":"2026-09-02"}}', ""
-        ),
-    )
-    publisher_client.publish("2026-09-02")
-    external = cli_store.audit_events[-1]
-    assert external["event_type"] == "EXTERNAL_CALL_SUCCEEDED"
-    assert external["details"]["service"] == "trader"
-    assert external["details"]["upstream_service"] == "tushare"
-    assert external["details"]["operation"] == "data.prepare"
-
     cli_store.accounts = [
         {
             "symbol": "588080.SH", "asset_type": "etf", "status": "RUNNING",
@@ -220,7 +203,6 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(t
     ]
     multi = AccountDataPublisher(
         store=cli_store,
-        executable="czsc-trader",
         repo_root=".",
         data_dir=".",
         start_date="2021-01-01",
@@ -240,7 +222,6 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(t
 
     failed_runtime = AccountDataPublisher(
         store=cli_store,
-        executable="czsc-trader",
         repo_root=".",
         data_dir=tmp_path / "failed-data",
         start_date="2021-01-01",

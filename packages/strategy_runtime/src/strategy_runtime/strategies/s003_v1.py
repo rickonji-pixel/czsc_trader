@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
-from hashlib import sha256
-from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
@@ -13,6 +11,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
+from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
     CutoffRule,
@@ -194,7 +193,7 @@ class S003V1:
                 __name__,
                 self.__class__.__name__,
                 1,
-                sha256(Path(__file__).read_bytes()).hexdigest(),
+                implementation_sha256(("strategies/s003_v1.py", "execution_planner.py")),
             ),
             ParameterSet(release.payload),
             InputContract(
@@ -204,7 +203,7 @@ class S003V1:
                         Dataset.INDEX_CONSTITUENT_WEIGHT.value,
                         _INDEX_SYMBOL,
                         "snapshot",
-                        60,
+                        1,
                         CutoffRule.LATEST_AVAILABLE,
                         370,
                     ),
@@ -227,7 +226,7 @@ class S003V1:
                 )
             ),
             DecisionContract("INTRADAY_OVERLAY", 0.0, 1.0, "NEXT_SESSION_OPEN_TO_11_30"),
-            ExecutionPolicy("FROZEN_RULE", execution),
+            ExecutionPolicy("INTRADAY_OVERLAY", execution),
             MonitoringPolicy("FORWARD_OBSERVATION", {"frozen": True}),
             RequiredCapabilities(
                 (
@@ -235,7 +234,7 @@ class S003V1:
                     Dataset.STOCK_MONEYFLOW.value,
                     Dataset.TRADING_CALENDAR.value,
                 ),
-                ("MARKETABLE_LIMIT",),
+                ("LIMIT", "MARKET"),
                 ("OPEN", "11:30_CLOSE"),
             ),
         )

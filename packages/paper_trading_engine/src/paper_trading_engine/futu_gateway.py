@@ -235,10 +235,10 @@ class FutuGateway:
         if intent.time_in_force != "DAY":
             raise PaperTradingSafetyError("gateway accepts DAY orders only")
         if (intent.side, intent.order_type) not in {
-            ("BUY", "LIMIT"), ("SELL", "MARKET"),
+            ("BUY", "LIMIT"), ("SELL", "LIMIT"), ("SELL", "MARKET"),
         }:
             raise PaperTradingSafetyError(
-                "gateway requires LIMIT buys and MARKET sells"
+                "gateway requires LIMIT buys and LIMIT or MARKET sells"
             )
         side = self.sdk.TrdSide.BUY if intent.side == "BUY" else self.sdk.TrdSide.SELL
         order_type = (

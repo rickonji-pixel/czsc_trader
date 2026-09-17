@@ -256,6 +256,7 @@ class RuntimeDefinition:
     execution: ExecutionPolicy
     monitoring: MonitoringPolicy
     capabilities: RequiredCapabilities
+    state_mode: str = "STATELESS"
 
     def __post_init__(self) -> None:
         if self.schema_version != 1:
@@ -271,6 +272,8 @@ class RuntimeDefinition:
         required_datasets = {item.dataset for item in self.inputs.requirements}
         if not required_datasets.issubset(self.capabilities.datasets):
             raise RuntimeContractError("input datasets must be declared as required capabilities")
+        if self.state_mode not in {"STATELESS", "PERSISTED"}:
+            raise RuntimeContractError("runtime state_mode must be STATELESS or PERSISTED")
 
     @property
     def runtime_sha256(self) -> str:

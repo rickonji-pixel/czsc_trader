@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
-from hashlib import sha256
-from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
@@ -14,6 +12,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
+from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
     CutoffRule,
@@ -269,7 +268,7 @@ class S007V1:
                 __name__,
                 self.__class__.__name__,
                 1,
-                sha256(Path(__file__).read_bytes()).hexdigest(),
+                implementation_sha256(("strategies/s007_v1.py", "execution_planner.py")),
             ),
             ParameterSet(release.payload),
             InputContract(requirements),

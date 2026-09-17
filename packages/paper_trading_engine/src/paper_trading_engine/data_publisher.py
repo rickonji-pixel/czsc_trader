@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, time as datetime_time, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
@@ -230,10 +231,16 @@ class AccountDataPublisher:
         published: list[Path] = []
         moved: list[tuple[Path, Path]] = []
         try:
-            for source in sorted(
+            sources = sorted(
                 (path for path in staging.iterdir() if path.is_file()),
-                key=lambda item: item.name,
-            ):
+                key=lambda item: (
+                    item.name.endswith("_strategy_generation.json"),
+                    item.name,
+                ),
+            )
+            # The generation manifest is the publication commit marker.  It
+            # must become visible only after every file it authenticates.
+            for source in sources:
                 destination = target / source.name
                 if destination.exists():
                     saved = backup / source.name
@@ -263,10 +270,27 @@ class AccountDataPublisher:
         selected_releases = sorted(set(releases))
         target = Path(self.data_dir).resolve()
         target.parent.mkdir(parents=True, exist_ok=True)
+        code = normalized_symbol.split(".", 1)[0]
         staging = (target.parent / f".pte-publication-{uuid4().hex}").resolve()
         if staging.parent != target.parent or staging == target:
             raise DataPublicationError("unsafe PTE publication staging path")
         staging.mkdir()
+        lock_path = target.parent / f".pte-publication-{code}.lock"
+        try:
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError as exc:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise DataPublicationError(
+                f"{normalized_symbol}: another publication is already running"
+            ) from exc
+        try:
+            os.write(lock_fd, f"pid={os.getpid()}\n".encode("ascii"))
+        except Exception:
+            os.close(lock_fd)
+            lock_path.unlink(missing_ok=True)
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        os.close(lock_fd)
         try:
             try:
                 publications = []
@@ -378,7 +402,6 @@ class AccountDataPublisher:
                     "publisher": "SRT_DFLS",
                     "files": generation_files,
                 }
-                code = normalized_symbol.split(".", 1)[0]
                 (staging / f"{code}_strategy_generation.json").write_text(
                     json.dumps(
                         {"schema_version": 2, **result}, ensure_ascii=False, indent=2
@@ -389,6 +412,7 @@ class AccountDataPublisher:
                 self._commit(staging, target)
             finally:
                 shutil.rmtree(staging, ignore_errors=True)
+                lock_path.unlink(missing_ok=True)
         except Exception as exc:
             if self.audit is not None:
                 self.audit.record(

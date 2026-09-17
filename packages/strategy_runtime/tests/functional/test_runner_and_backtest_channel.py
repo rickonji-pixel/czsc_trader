@@ -78,9 +78,10 @@ def _deployment() -> DeploymentSpec:
 
 
 def _ready_publication() -> PublishedStrategyData:
+    dates = pd.bdate_range(end="2026-09-17", periods=60)
     data = DataResult(
         DataStatus.READY,
-        pd.DataFrame({"Date": ["2026-09-17"], "Close": [1.0]}),
+        pd.DataFrame({"Date": dates, "Close": [1.0] * len(dates)}),
         DataIdentity(
             "etf.ohlcv",
             "test",
@@ -99,7 +100,7 @@ def _ready_publication() -> PublishedStrategyData:
             "daily_bars": DataRequest(
                 "etf.ohlcv",
                 "588080.SH",
-                "2026-09-17",
+                dates[0].date().isoformat(),
                 "2026-09-17",
                 "2026-09-17",
                 "daily",
@@ -150,10 +151,12 @@ class FakeStrategy:
         *,
         target_position: float = 1.0,
         definition: RuntimeDefinition | None = None,
+        valid_at: datetime | None = None,
     ) -> None:
         self._definition = definition or _definition()
         self.publication = publication
         self.target_position = target_position
+        self.valid_at = valid_at
         self.publish_calls = 0
         self.calculate_calls = 0
 
@@ -176,7 +179,7 @@ class FakeStrategy:
             request.deployment.release_hash,
             self.definition.runtime_sha256,
             request.calculation_time,
-            request.calculation_time + timedelta(days=1),
+            self.valid_at or request.calculation_time + timedelta(days=1),
             self.target_position,
             request.account.revision,
             request.state.revision,
@@ -305,6 +308,44 @@ def test_runner_rejects_decision_outside_declared_bounds() -> None:
     assert model.calls == 0
 
 
+def test_runner_accepts_morning_catchup_after_decision_effective_time() -> None:
+    calculation_time = datetime.fromisoformat("2026-09-18T10:00:00+08:00")
+    strategy = FakeStrategy(
+        _ready_publication(),
+        valid_at=datetime.fromisoformat("2026-09-18T09:30:00+08:00"),
+    )
+    model = FakeExecutionModel()
+
+    result = StrategyRunner().run(
+        strategy=strategy,
+        deployment=_deployment(),
+        state=_state(),
+        dataflows=Dataflows(),
+        account=FakeAccount(),
+        channel=BacktestChannel(model, order_types=("LIMIT",)),
+        through=NOW,
+        calculation_time=calculation_time,
+    )
+
+    assert result.status is RuntimeRunStatus.ACCEPTED
+    assert result.decision is not None
+    assert result.decision.valid_at < result.decision.generated_at
+
+
+def test_runner_rejects_decision_effective_on_publication_session() -> None:
+    strategy = FakeStrategy(
+        _ready_publication(),
+        valid_at=datetime.fromisoformat("2026-09-17T09:30:00+08:00"),
+    )
+
+    with pytest.raises(RuntimeContractError, match="must follow the publication cutoff"):
+        _run(
+            strategy,
+            FakeAccount(),
+            BacktestChannel(FakeExecutionModel(), order_types=("LIMIT",)),
+        )
+
+
 def test_backtest_channel_replays_same_idempotent_result() -> None:
     model = FakeExecutionModel()
     channel = BacktestChannel(model, order_types=("LIMIT",))
@@ -317,6 +358,27 @@ def test_backtest_channel_replays_same_idempotent_result() -> None:
     assert first.receipt == second.receipt
     assert len(channel.receipts) == 1
     assert model.calls == 1
+
+
+def test_runner_rejects_ready_publication_with_insufficient_history() -> None:
+    publication = _ready_publication()
+    result = publication.input_results["daily_bars"]
+    short = DataResult(
+        DataStatus.READY,
+        result.dataframe.tail(1),
+        result.identity,
+    )
+    invalid = PublishedStrategyData(
+        publication.release_id,
+        publication.release_hash,
+        publication.status,
+        publication.requested_cutoff,
+        publication.input_requests,
+        {"daily_bars": short},
+    )
+
+    with pytest.raises(RuntimeContractError, match="insufficient history"):
+        StrategyRunner.validate_publication(FakeStrategy(invalid), invalid)
 
 
 def test_runner_preserves_channel_rejection_as_an_explicit_result() -> None:

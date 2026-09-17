@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
+from decimal import Decimal
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -21,6 +21,7 @@ from strategy_runtime import (
     StrategyRelease,
     StrategyRunner,
     StrategyStateSnapshot,
+    build_execution_plan,
     read_publication,
 )
 
@@ -68,6 +69,27 @@ def _load_manifest(path: Path) -> dict[str, object]:
     return value
 
 
+def _verify_generation(data_dir: Path, symbol: str) -> dict[str, object]:
+    code = symbol.split(".", 1)[0]
+    manifest = _load_manifest(data_dir / f"{code}_strategy_generation.json")
+    if manifest.get("schema_version") != 2:
+        raise AdviceClientError("published strategy generation schema is unsupported")
+    if str(manifest.get("symbol", "")).upper() != symbol.upper():
+        raise AdviceClientError("published strategy generation symbol differs from account")
+    files = manifest.get("files")
+    if not isinstance(files, dict) or not files:
+        raise AdviceClientError("published strategy generation has no authenticated files")
+    for name, expected in files.items():
+        if not isinstance(name, str) or not isinstance(expected, str):
+            raise AdviceClientError("published strategy generation file entry is invalid")
+        path = data_dir / name
+        if not path.is_file() or _sha256(path) != expected:
+            raise AdviceClientError(
+                f"published strategy generation is incomplete or mixed: {name}"
+            )
+    return manifest
+
+
 def _load_manifest_frames(data_dir: Path, manifest: Mapping[str, object]) -> dict[str, pd.DataFrame]:
     files = manifest.get("files")
     if not isinstance(files, dict) or not files:
@@ -106,6 +128,7 @@ class _PublishedInputs:
 
 
 def _load_inputs(data_dir: Path, symbol: str) -> _PublishedInputs:
+    _verify_generation(data_dir, symbol)
     code = symbol.split(".", 1)[0]
     adjusted_manifest_path = data_dir / f"{code}_manifest.json"
     execution_manifest_path = data_dir / f"{code}_execution_manifest.json"
@@ -166,13 +189,6 @@ def _load_inputs(data_dir: Path, symbol: str) -> _PublishedInputs:
     )
 
 
-def _round_tick(value: float, tick: float, rounding: str) -> float:
-    quantum = Decimal(str(tick))
-    scaled = Decimal(str(value)) / quantum
-    modes = {"floor": ROUND_FLOOR, "ceil": ROUND_CEILING, "half_up": ROUND_HALF_UP}
-    return float(scaled.to_integral_value(rounding=modes[rounding]) * quantum)
-
-
 def _strategy_identity(repo_root: Path, release: StrategyRelease) -> dict[str, str]:
     root = repo_root / "strategies" / release.strategy_family_id
     family = _load_manifest(root / "strategy.json")
@@ -194,201 +210,6 @@ def _strategy_identity(repo_root: Path, release: StrategyRelease) -> dict[str, s
     }
 
 
-def _normal_payload(request, identity: Mapping[str, str], published: _PublishedInputs) -> dict[str, object]:
-    settings = dict(request.policy.settings)
-    instrument = dict(settings["instrument"])
-    capital = dict(settings["capital"])
-    entry = dict(settings["entry"])
-    actual = request.account.position_quantity
-    cash = Decimal(str(request.account.available_cash))
-    lot = int(instrument["lot_size"])
-    tick = float(instrument["price_tick"])
-    target_position = int(request.decision.target_position)
-    orders: list[dict[str, object]] = []
-    if target_position:
-        requested = _round_tick(
-            published.execution_close * (1 + float(entry["limit_parameter"])), tick, "floor"
-        )
-        guard = _round_tick(
-            _round_tick(
-                published.execution_close * (1 + float(instrument["price_limit_ratio"])),
-                tick,
-                "floor",
-            )
-            - tick,
-            tick,
-            "half_up",
-        )
-        price = min(requested, guard)
-        allocation = Decimal(str(capital.get("allocation_fraction", 1.0)))
-        unit_cost = Decimal(str(price)) * (1 + Decimal(str(capital["fee_rate"])))
-        affordable = actual + int((cash * allocation / (unit_cost * lot)).to_integral_value(rounding=ROUND_FLOOR)) * lot
-        previous_cycle = request.deployment.settings.get("cycle_target_quantity")
-        cycle_target = affordable if previous_cycle is None else int(previous_cycle)
-        target = min(cycle_target, affordable)
-        delta = max(0, target - actual)
-        action = "BUY" if delta else ("HOLD" if actual else "WAIT")
-        side = "BUY"
-        order_type = "LIMIT"
-    else:
-        price = _round_tick(published.execution_close, tick, "half_up")
-        target = 0
-        delta = -actual
-        action = "SELL" if actual else "WAIT"
-        previous_cycle = request.deployment.settings.get("cycle_target_quantity")
-        cycle_target = 0 if not actual else int(previous_cycle or actual)
-        side = "SELL"
-        order_type = "MARKET"
-    remaining = abs(delta)
-    maximum = int(instrument["maximum_order_quantity"])
-    while remaining:
-        quantity = min(remaining, maximum)
-        orders.append(
-            {
-                "side": side,
-                "quantity": quantity,
-                "order_type": order_type,
-                "limit_price": price,
-                "time_in_force": "DAY",
-            }
-        )
-        remaining -= quantity
-    fee = Decimal(str(capital["fee_rate"]))
-    estimated = sum(
-        (
-            Decimal(order["quantity"]) * Decimal(str(order["limit_price"])) * (1 + fee)
-            for order in orders
-            if order["side"] == "BUY"
-        ),
-        Decimal("0"),
-    )
-    return {
-        "contract_version": "advice.v4",
-        "decision_id": request.decision.decision_id,
-        "symbol": request.deployment.symbol,
-        "signal_date": published.cutoff.date().isoformat(),
-        "valid_session": published.next_session.date().isoformat(),
-        "actual_quantity": actual,
-        "cycle_target_quantity": cycle_target,
-        "target_quantity": target,
-        "delta_quantity": delta,
-        "target_position": target_position,
-        "action": action,
-        "strategy": dict(identity),
-        "signal_reference_price": published.signal_close,
-        "execution_reference_price": published.execution_close,
-        "order": orders[0] if len(orders) == 1 else None,
-        "orders": orders,
-        "available_cash": float(cash),
-        "fee_rate": float(fee),
-        "estimated_order_cost": float(estimated.quantize(Decimal("0.01"))),
-        "unallocated_cash": float((cash - estimated).quantize(Decimal("0.01"))),
-        "capital_rule": {
-            "mode": capital["mode"],
-            "allocation_fraction": float(capital.get("allocation_fraction", 1.0)),
-            "target_scope": capital["target_scope"],
-        },
-        "data_cutoff": published.cutoff.date().isoformat(),
-    }
-
-
-def _overlay_payload(request, identity: Mapping[str, str], published: _PublishedInputs) -> dict[str, object]:
-    settings = dict(request.policy.settings)
-    actual = request.account.position_quantity
-    cash = Decimal(str(request.account.available_cash))
-    lot = int(settings["lot_size"])
-    fee = Decimal("0.0005")
-    buy_limit = Decimal(str(_round_tick(published.execution_close * 1.10, 0.001, "floor")))
-
-    def affordable(budget: Decimal) -> int:
-        raw = int(budget / (buy_limit * (1 + fee)))
-        return raw // lot * lot
-
-    previous_cycle = request.deployment.settings.get("cycle_target_quantity")
-    plan_mode = "NONE"
-    action = "HOLD"
-    target = actual
-    cycle_target = int(previous_cycle or 0)
-    reserve = Decimal("0")
-    legs: list[dict[str, object]] = []
-    if previous_cycle is None:
-        if actual:
-            raise AdviceClientError("S003 core identity is missing for a non-flat account")
-        target = affordable(cash * Decimal(str(settings["core_fraction"])))
-        if target <= 0:
-            raise AdviceClientError("S003 account cannot afford one core lot")
-        cycle_target = target
-        action = "BUY"
-        plan_mode = "CORE_SETUP"
-        reserve = buy_limit * target * (1 + fee)
-        legs = [{
-            "sequence": 0,
-            "role": "CORE_SETUP",
-            "checkpoint": "OPEN",
-            "submit_after": "09:30:00",
-            "submit_before": "09:35:00",
-            "dependency_sequence": None,
-            "dependency_required_status": None,
-            "order": {"side": "BUY", "quantity": target, "order_type": "LIMIT", "limit_price": float(buy_limit), "time_in_force": "DAY"},
-        }]
-    else:
-        if actual != int(previous_cycle):
-            raise AdviceClientError("S003 account differs from its settled core quantity")
-        if request.decision.target_position > 0:
-            event_quantity = min(int(previous_cycle), affordable(cash))
-            if event_quantity <= 0:
-                raise AdviceClientError("S003 event cash cannot afford one lot")
-            action = "ROTATE"
-            plan_mode = "CORE_EVENT_INTRADAY_ROTATION"
-            reserve = buy_limit * event_quantity * (1 + fee)
-            legs = [
-                {
-                    "sequence": 0,
-                    "role": "ROTATION_ENTRY",
-                    "checkpoint": "OPEN",
-                    "submit_after": "09:30:00",
-                    "submit_before": "09:35:00",
-                    "dependency_sequence": None,
-                    "dependency_required_status": None,
-                    "order": {"side": "BUY", "quantity": event_quantity, "order_type": "LIMIT", "limit_price": float(buy_limit), "time_in_force": "DAY"},
-                },
-                {
-                    "sequence": 1,
-                    "role": "ROTATION_EXIT",
-                    "checkpoint": "11:30_CLOSE",
-                    "submit_after": "11:29:00",
-                    "submit_before": "11:30:00",
-                    "dependency_sequence": 0,
-                    "dependency_required_status": "FILLED_ALL",
-                    "order": {"side": "SELL", "quantity": event_quantity, "order_type": "MARKET", "limit_price": published.signal_close, "time_in_force": "DAY"},
-                },
-            ]
-    return {
-        "contract_version": "advice.v5",
-        "decision_id": request.decision.decision_id,
-        "symbol": request.deployment.symbol,
-        "signal_date": published.cutoff.date().isoformat(),
-        "valid_session": published.next_session.date().isoformat(),
-        "actual_quantity": actual,
-        "cycle_target_quantity": cycle_target,
-        "target_quantity": target,
-        "delta_quantity": target - actual,
-        "action": action,
-        "strategy": dict(identity),
-        "signal_reference_price": published.signal_close,
-        "execution_reference_price": published.execution_close,
-        "order": None,
-        "orders": [],
-        "available_cash": float(cash),
-        "fee_rate": float(fee),
-        "estimated_order_cost": float(reserve.quantize(Decimal("0.0001"))),
-        "unallocated_cash": float((cash - reserve).quantize(Decimal("0.0001"))),
-        "plan_mode": plan_mode,
-        "plan_legs": legs,
-        "data_cutoff": published.cutoff.date().isoformat(),
-    }
-
-
 class _PteCaptureChannel:
     channel_id = _CHANNEL_ID
 
@@ -401,19 +222,42 @@ class _PteCaptureChannel:
         self.decision: AdviceDecision | None = None
 
     def submit(self, request, idempotency_key: str) -> ExecutionReceipt:
+        decision_identity = {
+            "release_hash": request.decision.release_hash,
+            "signal_date": self.published.cutoff.date().isoformat(),
+            "target_position": request.decision.target_position,
+            "runtime_sha256": request.decision.runtime_sha256,
+            "inputs": dict(sorted(request.decision.input_identity_hashes.items())),
+        }
         suffix = sha256(
-            (
-                f"{request.decision.release_hash}|{self.published.cutoff.date()}|"
-                f"{request.decision.target_position}|{self.published.identity}"
-            ).encode()
+            json.dumps(
+                decision_identity,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
         ).hexdigest()[:12].upper()
         source_decision_id = f"SRT-{self.published.cutoff:%Y%m%d}-{suffix}"
-        payload = (
-            _overlay_payload(request, self.identity, self.published)
-            if request.decision.release_id == "S003-v1"
-            else _normal_payload(request, self.identity, self.published)
+        payload = dict(
+            build_execution_plan(
+                request,
+                signal_reference_price=self.published.signal_close,
+                execution_reference_price=self.published.execution_close,
+            )
         )
-        payload["decision_id"] = source_decision_id
+        payload.update(
+            {
+                "decision_id": source_decision_id,
+                "symbol": request.deployment.symbol,
+                "signal_date": self.published.cutoff.date().isoformat(),
+                "valid_session": self.published.next_session.date().isoformat(),
+                "strategy": dict(self.identity),
+                "signal_reference_price": self.published.signal_close,
+                "execution_reference_price": self.published.execution_close,
+                "data_cutoff": self.published.cutoff.date().isoformat(),
+                "runtime_sha256": request.decision.runtime_sha256,
+                "input_identity_hashes": dict(request.decision.input_identity_hashes),
+            }
+        )
         try:
             self.decision = AdviceDecision.from_cli_payload(
                 {"status": "PASS", "result": payload}
@@ -519,6 +363,10 @@ class SrtAdviceClient:
                 raise AdviceClientError("SRT advice requires one ETF symbol")
             release = self._load_release(strategy_id, strategy_version)
             strategy = StrategyLoader().load(release)
+            if strategy.definition.state_mode != "STATELESS":
+                raise AdviceClientError(
+                    "PTE does not support persisted SRT strategy state yet"
+                )
             identity = _strategy_identity(self.repo_root, release)
             publication_key = self._publication_key(selected_symbol, release.release_id)
             published = self._published_cache.get(publication_key)
@@ -598,7 +446,9 @@ class SrtAdviceClient:
         if not selected_symbol:
             raise AdviceClientError("data identity symbol is required")
         code = selected_symbol.split(".", 1)[0]
+        generation = _verify_generation(self.data_dir, selected_symbol)
         digest = sha256()
+        digest.update(str(generation["generation_id"]).encode("utf-8"))
         for name in (
             f"{code}_manifest.json",
             f"{code}_validation.json",

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
-from hashlib import sha256
-from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
@@ -14,6 +12,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
+from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
     CutoffRule,
@@ -43,7 +42,7 @@ _INPUT_CALENDAR = "trading_calendar"
 
 
 def _source_sha256() -> str:
-    return sha256(Path(__file__).read_bytes()).hexdigest()
+    return implementation_sha256(("strategies/s002_v1.py", "execution_planner.py"))
 
 
 def _object(value: Any, field_name: str) -> Mapping[str, Any]:

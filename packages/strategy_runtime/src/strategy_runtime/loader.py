@@ -5,6 +5,7 @@ from __future__ import annotations
 from importlib import import_module
 
 from .errors import RuntimeCompatibilityError
+from .implementation_identity import implementation_sha256, load_runtime_binding
 from .models import StrategyRelease
 from .protocols import ExecutableStrategy
 
@@ -49,5 +50,18 @@ class StrategyLoader:
         ):
             raise RuntimeCompatibilityError(
                 "loaded implementation identity differs from convention"
+            )
+        binding = load_runtime_binding(release.release_id)
+        if binding.get("release_hash") != release.release_hash:
+            raise RuntimeCompatibilityError("runtime binding release hash differs from release")
+        source_files = tuple(binding["source_files"])
+        actual_sha256 = implementation_sha256(source_files)
+        if actual_sha256 != binding["implementation_sha256"]:
+            raise RuntimeCompatibilityError(
+                f"frozen implementation differs from runtime binding: {release.release_id}"
+            )
+        if definition.implementation.source_sha256 != actual_sha256:
+            raise RuntimeCompatibilityError(
+                "runtime definition implementation hash differs from its source closure"
             )
         return strategy

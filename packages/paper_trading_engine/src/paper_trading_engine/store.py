@@ -154,6 +154,8 @@ class PaperStore:
                 generated_at TEXT NOT NULL,
                 PRIMARY KEY(account_id, decision_id)
             );
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_decisions_account_signal_date
+            ON decisions(account_id, signal_date);
             CREATE TABLE IF NOT EXISTS fills (
                 fill_id TEXT PRIMARY KEY,
                 account_id TEXT NOT NULL,
@@ -1309,8 +1311,12 @@ class PaperStore:
         fee = Decimal(str(fee_rate))
         if side not in {"BUY", "SELL"}:
             raise ValueError("intent side must be BUY or SELL")
-        if (side, order_type) not in {("BUY", "LIMIT"), ("SELL", "MARKET")}:
-            raise ValueError("buy intents must be LIMIT and sell intents must be MARKET")
+        if (side, order_type) not in {
+            ("BUY", "LIMIT"),
+            ("SELL", "LIMIT"),
+            ("SELL", "MARKET"),
+        }:
+            raise ValueError("buy intents must be LIMIT; sell intents must be LIMIT or MARKET")
         if quantity <= 0 or quantity % 100:
             raise ValueError("intent quantity must use positive 100-share lots")
         identity = f"{account_id}\0{decision_id}\0{order_sequence}".encode("utf-8")
@@ -1502,8 +1508,14 @@ class PaperStore:
                 dependency_sequence = leg.get("dependency_sequence")
                 if side not in {"BUY", "SELL"}:
                     raise ValueError("plan intent side must be BUY or SELL")
-                if (side, order_type) not in {("BUY", "LIMIT"), ("SELL", "MARKET")}:
-                    raise ValueError("plan buys must be LIMIT and plan sells must be MARKET")
+                if (side, order_type) not in {
+                    ("BUY", "LIMIT"),
+                    ("SELL", "LIMIT"),
+                    ("SELL", "MARKET"),
+                }:
+                    raise ValueError(
+                        "plan buys must be LIMIT; plan sells must be LIMIT or MARKET"
+                    )
                 if quantity <= 0 or quantity % 100:
                     raise ValueError("plan intent quantity must use positive 100-share lots")
                 if price <= 0:
@@ -1633,6 +1645,14 @@ class PaperStore:
             # The planned quantity remains available in the immutable decision payload.
             cycle_target = None
         with self._lock, self._connection:
+            same_session = self._connection.execute(
+                "SELECT decision_id FROM decisions WHERE account_id=? AND signal_date=?",
+                (account_id, signal_date),
+            ).fetchone()
+            if same_session is not None and same_session["decision_id"] != decision_id:
+                raise ValueError(
+                    "account already has another decision for the same signal date"
+                )
             existing = self._connection.execute(
                 "SELECT payload FROM decisions WHERE account_id=? AND decision_id=?",
                 (account_id, decision_id),

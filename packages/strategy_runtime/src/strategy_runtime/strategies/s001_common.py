@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, time, timedelta
-from hashlib import sha256
-from pathlib import Path
 import re
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -17,6 +15,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
+from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
     CutoffRule,
@@ -93,8 +92,14 @@ _FALLBACK_WEIGHTS = {
 
 
 def _source_sha256(strategy_class: type) -> str:
-    module = __import__(strategy_class.__module__, fromlist=[strategy_class.__name__])
-    return sha256(Path(module.__file__).read_bytes()).hexdigest()
+    wrapper = strategy_class.__module__.rsplit(".", 1)[-1]
+    return implementation_sha256(
+        (
+            f"strategies/{wrapper}.py",
+            "strategies/s001_common.py",
+            "execution_planner.py",
+        )
+    )
 
 
 def _object(value: Any, field_name: str) -> Mapping[str, Any]:

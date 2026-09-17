@@ -255,6 +255,54 @@ class StrategyRunner:
                     raise RuntimeContractError(
                         f"published input exceeds maximum staleness for input {name}"
                     )
+                StrategyRunner._validate_history_depth(
+                    name,
+                    requirement.lookback_sessions,
+                    data_result.dataframe,
+                )
+
+    @staticmethod
+    def _validate_history_depth(
+        input_name: str,
+        required_observations: int,
+        dataframe: pd.DataFrame,
+    ) -> None:
+        """Reject READY inputs that do not contain the declared history depth.
+
+        The contract name predates multi-frequency inputs.  Its operational
+        meaning is the number of distinct observations at the declared
+        frequency: bars for intraday/weekly data and sessions for daily data.
+        Multi-row cross-sectional datasets are counted by their distinct
+        observation date, never by raw row count.
+        """
+
+        if required_observations <= 0:
+            return
+        date_column = next(
+            (
+                candidate
+                for candidate in (
+                    "Date",
+                    "date",
+                    "datetime",
+                    "dt",
+                    "trade_date",
+                    "cal_date",
+                )
+                if candidate in dataframe.columns
+            ),
+            None,
+        )
+        if date_column is None:
+            raise RuntimeContractError(
+                f"published input {input_name} has no observation timestamp"
+            )
+        observed = pd.to_datetime(dataframe[date_column], errors="coerce").dropna().nunique()
+        if observed < required_observations:
+            raise RuntimeContractError(
+                f"published input {input_name} has insufficient history: "
+                f"required={required_observations}, observed={observed}"
+            )
 
     @staticmethod
     def _validate_decision(
@@ -272,8 +320,11 @@ class StrategyRunner:
             raise RuntimeContractError("decision runtime identity differs from strategy")
         if decision.generated_at != request.calculation_time:
             raise RuntimeContractError("decision generated_at must equal calculation_time")
-        if decision.valid_at < decision.generated_at:
-            raise RuntimeContractError("decision valid_at precedes generated_at")
+        publication_cutoff = pd.Timestamp(request.publication.requested_cutoff).date()
+        if decision.valid_at.date() <= publication_cutoff:
+            raise RuntimeContractError(
+                "decision valid session must follow the publication cutoff"
+            )
         if not (
             definition.decision.minimum_target
             <= decision.target_position

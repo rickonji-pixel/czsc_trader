@@ -8,16 +8,17 @@
 
 | 简称 | 全称 | 核心职责 |
 | --- | --- | --- |
-| TDR | CZSC Trader | 数据、策略解析、回测、研究编排和交易决策 |
-| — | Dataflows | Tushare数据获取、复权、多频处理和数据发布 |
+| TDR | CZSC Trader | 回测、研究编排和项目应用入口 |
+| DFLS | Dataflows | Tushare数据获取、复权、多频处理和数据发布 |
 | FSC | Factor & Signal Catalog | 项目级信息族、因子和信号定义目录 |
 | STC | Strategy Template Catalog | 策略函数模板、输入角色和参数边界目录 |
 | SM | Strategy Manager | 策略身份、版本、资格、证据和治理审计 |
 | SE | Strategy Evaluator | 候选筛选、排名、体检和统计稳健性审计 |
+| SRT | Strategy Runtime | 冻结策略的数据契约、决策计算、执行计划和运行身份 |
 | PTE | Paper Trading Engine | 虚拟账户、模拟交易执行、运行审计和观测 |
 | WDG | PTE Watchdog | PTE进程开机自启、探活和故障拉起 |
 
-后续开发、文档和讨论统一使用以上名称。Dataflows暂不定义简称；FSC、STC、SM、SE和PTE
+后续开发、文档和讨论统一使用以上名称。FSC、STC、SM、SE、SRT和PTE
 均为仓库内独立包，只通过明确契约协作。Search、Feature Mining和`news_events`属于TDR
 内部研究能力，不单独定义模块简称；用户操作入口集中在TDR和PTE。
 
@@ -32,7 +33,7 @@
   S001与S007账户交易588080.SH，S002与S003账户交易510500.SH；左侧入口按交易标的代码、
   策略编号和版本依次排序。
 - SM冻结必须携带SE冻结前体检批准书；批准书与策略、候选ID及候选哈希不一致时拒绝冻结。
-- TDR/PTE机器契约：普通决策为`advice.v4`，原子时点计划为`advice.v5`，纯绘图为
+- SRT/PTE机器契约：普通决策为`advice.v4`，原子时点计划为`advice.v5`，纯绘图为
   `account_observation.v1`。
 - PTE控制台：<http://127.0.0.1:8080>。
 - WDG Windows服务：`CZSC-PTE-Watchdog`。
@@ -54,8 +55,8 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
                  FSC（输入定义） → TDR ← STC（函数模板）
               ┌──────────┼──────────┐
               ↓          ↓          ↓
-             SM         SE   advice.v4/v5
-                                     ↓ CLI
+             SM         SE    SRT ← DFLS
+                              ↓ advice.v4/v5
                                     PTE ← WDG
                                      ↓
               N个虚拟账户 / N个标的 → Futu模拟渠道
@@ -65,8 +66,7 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 
 ### 模块边界
 
-- **TDR**位于`src/czsc_trader/`。它拥有正式数据口径、策略执行语义、因果回测、实验编排
-  和`advice.v4/advice.v5`决策生成，并作为SM、SE的应用入口。
+- **TDR**位于`src/czsc_trader/`。它负责因果回测、实验编排，并作为FSC、STC、SM、SE的应用入口。
 - **FSC**位于`packages/factor_signal_catalog/`，定义数据位于`catalog/`。它记录项目级信息族、
   因子和信号的稳定语义、实现入口、参数及因果可用时间；不保存标的计算值、收益证据、实验
   结论或运行状态。TDR只读引用FSC，各研究线拥有自己的物化缓存与证据。
@@ -78,8 +78,10 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
   绩效证据和追加式治理审计；它不管理策略进程与账户运行状态。
 - **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的事实，执行筛劣、Pareto排名、
   临时冠军体检及统计稳健性审计，输出判定和证据；它不读取仓库或改变SM、PTE状态。
-- **PTE**位于`packages/paper_trading_engine/`。它通过CLI调用TDR，管理账户分账、决策、
-  订单意图、Futu回报、调度、SQLite审计和控制台，不导入TDR、SM或SE。
+- **SRT**位于`packages/strategy_runtime/`。它把SM冻结版本投影为可执行策略，声明并通过DFLS
+  发布数据，计算决策与执行计划；源码闭包、冻结版本和参数共同形成运行身份。
+- **PTE**位于`packages/paper_trading_engine/`。它直接加载SRT，管理账户分账、决策、订单意图、
+  Futu回报、调度、SQLite审计和控制台，不导入TDR、SM或SE。
 - **WDG**位于PTE包内。它只负责PTE子进程生命周期和HTTP探活，不包含交易业务逻辑。
 - **dataflows**负责Tushare数据获取、复权、多频发布和清单；TDR消费已发布数据。
 - **新闻事件抽取**位于TDR的`news_events`独立内部包。dataflows或实验脚本负责缓存原文，
@@ -89,12 +91,12 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 正式实验档案按`experiments/<策略ID>/<实验ID>/`保存。实验ID全局唯一，TDR按ID定位
 嵌套档案；历史SM证据中的旧路径字符串保持不变，并由兼容解析器映射到当前目录。
 
-依赖方向保持为：`Dataflows → 已发布数据 → TDR`、`TDR → FSC/STC/SM/SE`、
-`PTE → TDR CLI`、`WDG → PTE进程`。
+依赖方向保持为：`TDR → FSC/STC/SM/SE`、`SRT → DFLS`、`PTE → SRT`、
+`WDG → PTE进程`。
 
 ## 跨模块硬约束
 
-1. TDR拥有策略、价格、费率、目标仓位和委托参数的计算权；PTE只消费TDR决策并负责执行，
+1. SRT拥有策略、价格、费率、目标仓位和委托参数的计算权；PTE只消费SRT决策并负责执行，
    Futu回报是订单与成交状态的事实来源，渠道不得改写策略决策。
 2. 虚拟账户是PTE业务归属中心。每个账户绑定一个不可变策略发布、一个交易标的和一个渠道；
    一个渠道可以承载多个账户，渠道本身不绑定策略。PTE独占底层Futu模拟账户。
@@ -104,7 +106,7 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
    交易保持单写进程，意图与计划必须幂等、事务化持久，并能在重启后恢复。
 5. 研究、回测和运行时决策必须遵守因果时间边界。市场数据与策略附加数据使用一致截止日，
    发布失败必须明确失败并阻止决策；普通回测只读取已发布数据，不在回测过程中修改数据。
-6. 正式策略与研究候选共享TDR因果回放核心；SM管理身份和资格，SE执行数值化审计，PTE只
+6. 正式策略通过SRT运行，研究候选继续使用TDR受控回放；SM管理身份和资格，SE执行数值化审计，PTE只
    部署`PAPER_READY`版本。研究、模拟盘和未来实盘证据分阶段保存，不得相互替代。
 7. WDG只负责PTE进程启动、探活和故障拉起，不包含交易、数据发布或账户状态判断。
 

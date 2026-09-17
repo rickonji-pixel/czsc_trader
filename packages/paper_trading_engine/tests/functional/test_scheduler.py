@@ -15,31 +15,39 @@ from paper_trading_engine.data_publisher import (
 )
 from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.srt_advice_client import SrtAdviceClient
+from paper_trading_engine.advice_client import AdviceClientError
 from paper_trading_engine.trading_window import is_submission_window
 
 
 def test_account_data_publisher_persists_ready_srt_generation(tmp_path):
+    dates = pd.bdate_range(end="2026-09-02", periods=300)
     bars = pd.DataFrame(
         {
-            "Date": ["2026-09-02"],
-            "Open": [6.0],
-            "High": [6.1],
-            "Low": [5.9],
-            "Close": [6.0],
-            "Volume": [1000.0],
-            "Amount": [6000.0],
+            "Date": dates,
+            "Open": [6.0] * len(dates),
+            "High": [6.1] * len(dates),
+            "Low": [5.9] * len(dates),
+            "Close": [6.0] * len(dates),
+            "Volume": [1000.0] * len(dates),
+            "Amount": [6000.0] * len(dates),
         }
     )
 
     def market(_request):
-        return bars.copy(), {
+        selected = bars.loc[
+            pd.to_datetime(bars["Date"]).between(_request.start, _request.end)
+        ].copy()
+        return selected, {
             "vendor": "test",
             "adjustment": "hfq",
             "primary_key": ["Date"],
         }
 
     def execution(_request):
-        return bars.copy(), {
+        selected = bars.loc[
+            pd.to_datetime(bars["Date"]).between(_request.start, _request.end)
+        ].copy()
+        return selected, {
             "vendor": "test",
             "adjustment": "none",
             "primary_key": ["Date"],
@@ -96,6 +104,19 @@ def test_account_data_publisher_persists_ready_srt_generation(tmp_path):
     )
     assert decision.strategy["release_id"] == "S002-v1"
     assert decision.data_cutoff.isoformat() == "2026-09-02"
+
+    published_file = tmp_path / "data/510500_execution_manifest.json"
+    published_file.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(AdviceClientError, match="incomplete or mixed"):
+        SrtAdviceClient(repo_root=root, data_dir=tmp_path / "data").get_decision(
+            0,
+            100000.0,
+            strategy_id="S002",
+            strategy_version="v1",
+            account_id="preflight",
+            symbol="510500.SH",
+            asset="etf",
+        )
 
 
 class Engine:

@@ -27,6 +27,7 @@ class BacktestCommand:
     end: date
     init_cash: float
     outputs_root: Path | None = None
+    runtime_engine: str = "srt"
 
 
 def _repository_path(context: RepositoryContext, path: Path | None) -> Path | None:
@@ -69,6 +70,7 @@ def run_backtest(
                 start=request.start,
                 end=request.end,
                 initial_cash=request.init_cash,
+                runtime_engine=request.runtime_engine,
             ),
             outputs_root=_repository_path(context, request.outputs_root) or context.outputs_root,
             run_date=run_date or datetime.now().astimezone().date(),
@@ -92,6 +94,7 @@ def run_backtest(
             "dataset": data.dataset,
             "metrics": summary.metrics,
             "audit_status": summary.manifest["audit"]["status"],
+            "runtime_engine": summary.manifest["application"]["runtime_engine"],
         },
         artifacts={"output_dir": str(summary.output_dir)},
     )

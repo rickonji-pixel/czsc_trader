@@ -143,11 +143,15 @@ def _calculate_target_history(
         output[output_key].map(_primary_value).astype("string").to_numpy(),
         index=sessions,
     )
-    return _target_history(
+    history = _target_history(
         states,
         str(signal.get("entry_state", "")),
         int(portfolio.get("holding_sessions", 0)),
     )
+    history["factor_score"] = (
+        history["signal_state"].eq(str(signal.get("entry_state", ""))).astype(float)
+    )
+    return history
 
 
 class S002V1:
@@ -244,6 +248,19 @@ class S002V1:
     @property
     def definition(self) -> RuntimeDefinition:
         return self._definition
+
+    def calculate_history(
+        self,
+        inputs: Mapping[str, pd.DataFrame],
+        sessions: pd.DatetimeIndex,
+    ) -> pd.DataFrame:
+        del sessions
+        return _calculate_target_history(
+            inputs[_INPUT_DAILY],
+            symbol=self._symbol,
+            signal=self._signal,
+            portfolio=self._portfolio,
+        )
 
     def publish_data(
         self,

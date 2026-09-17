@@ -150,6 +150,7 @@ def _backtest_run(args: argparse.Namespace):
             end=args.end,
             init_cash=args.init_cash,
             outputs_root=args.outputs_root,
+            runtime_engine=args.runtime_engine,
         ),
     )
 
@@ -488,6 +489,12 @@ def build_parser() -> argparse.ArgumentParser:
     backtest_run.add_argument("--end", required=True, type=date.fromisoformat)
     backtest_run.add_argument("--init-cash", required=True, type=float)
     backtest_run.add_argument("--outputs-root", type=Path)
+    backtest_run.add_argument(
+        "--runtime-engine",
+        choices=("srt", "legacy"),
+        default="srt",
+        help="strategy runtime engine; legacy is retained for migration parity checks",
+    )
     _add_repository_root(backtest_run)
     backtest_run.set_defaults(
         command_handler=_backtest_run,

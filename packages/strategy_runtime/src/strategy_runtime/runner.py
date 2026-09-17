@@ -9,10 +9,12 @@ from dataflows import Dataflows
 
 from .errors import RuntimeCompatibilityError, RuntimeContractError
 from .models import (
+    AccountSnapshot,
     CalculationRequest,
     CutoffRule,
     DeploymentSpec,
     ExecutionRequest,
+    ExecutionReceipt,
     PublishedStrategyData,
     RuntimeRunResult,
     RuntimeRunStatus,
@@ -71,6 +73,51 @@ class StrategyRunner:
             raise RuntimeContractError("execution receipt idempotency key differs from request")
         status = RuntimeRunStatus.ACCEPTED if receipt.accepted else RuntimeRunStatus.REJECTED
         return RuntimeRunResult(status, publication, decision, receipt)
+
+    def submit_precomputed(
+        self,
+        *,
+        strategy: ExecutableStrategy,
+        deployment: DeploymentSpec,
+        account_snapshot: AccountSnapshot,
+        channel: ExecutionChannel,
+        decision: StrategyDecision,
+    ) -> ExecutionReceipt:
+        """Validate and submit one batch-calculated historical decision.
+
+        Historical replay calculates a complete decision series once for
+        performance, then routes every row through the same execution boundary.
+        """
+
+        definition = strategy.definition
+        self._validate_compatibility(definition, deployment, channel)
+        if decision.deployment_id != deployment.deployment_id:
+            raise RuntimeContractError("decision deployment ID differs from deployment")
+        if decision.release_id != definition.release_id:
+            raise RuntimeContractError("decision release ID differs from strategy")
+        if decision.release_hash != definition.release_hash:
+            raise RuntimeContractError("decision release hash differs from strategy")
+        if decision.runtime_sha256 != definition.runtime_sha256:
+            raise RuntimeContractError("decision runtime identity differs from strategy")
+        if decision.account_revision != account_snapshot.revision:
+            raise RuntimeContractError("decision account revision differs from snapshot")
+        if not (
+            definition.decision.minimum_target
+            <= decision.target_position
+            <= definition.decision.maximum_target
+        ):
+            raise RuntimeContractError("decision target_position exceeds declared bounds")
+        execution_request = ExecutionRequest(
+            deployment=deployment,
+            account=account_snapshot,
+            decision=decision,
+            policy=definition.execution,
+        )
+        idempotency_key = f"{deployment.channel_id}:{decision.decision_id}"
+        receipt = channel.submit(execution_request, idempotency_key)
+        if receipt.idempotency_key != idempotency_key:
+            raise RuntimeContractError("execution receipt idempotency key differs from request")
+        return receipt
 
     @staticmethod
     def _validate_compatibility(

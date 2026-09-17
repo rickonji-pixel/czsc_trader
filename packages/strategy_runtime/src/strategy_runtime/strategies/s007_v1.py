@@ -291,6 +291,19 @@ class S007V1:
     def definition(self) -> RuntimeDefinition:
         return self._definition
 
+    def calculate_history(
+        self,
+        inputs: Mapping[str, pd.DataFrame],
+        sessions: pd.DatetimeIndex,
+    ) -> pd.DataFrame:
+        if "strategy_evidence" in inputs:
+            panel = inputs["strategy_evidence"].copy()
+            panel["date"] = pd.to_datetime(panel["date"]).dt.normalize()
+            panel = panel.set_index("date").sort_index().reindex(sessions)
+        else:
+            panel = materialize_s007_features(inputs).reindex(sessions)
+        return calculate_s007_history(panel, self._normalization, self._score)
+
     def publish_data(
         self, dataflows: Dataflows, deployment: DeploymentSpec, through: datetime
     ) -> PublishedStrategyData:

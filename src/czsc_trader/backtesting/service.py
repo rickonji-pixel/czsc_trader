@@ -29,6 +29,7 @@ from .metrics import calculate_metrics
 from .models import StrategySnapshot
 from .report import render_report
 from .signal_replay import replay_signals
+from .srt_bridge import build_srt_signal_replay, replay_srt_account
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class BacktestRequestV2:
     start: date
     end: date
     initial_cash: float
+    runtime_engine: str = "legacy"
 
 
 @dataclass(frozen=True)
@@ -144,7 +146,25 @@ def run_backtest_v2(
     if replay_data.adjusted.asset_type != request.asset_type:
         raise ValueError("request asset type differs from loaded replay data")
     applied_snapshot, application = _bind_backtest_symbol(snapshot, request)
-    if applied_snapshot.resolved_rule.causal_feature_gate is not None:
+    if request.runtime_engine not in {"legacy", "srt"}:
+        raise ValueError("runtime_engine must be legacy or srt")
+    if request.runtime_engine == "srt":
+        if repository_root is None:
+            raise ValueError("SRT backtest requires a repository root")
+        strategy, signals = build_srt_signal_replay(
+            snapshot=applied_snapshot,
+            replay_data=replay_data,
+            start=pd.Timestamp(request.start),
+            end=pd.Timestamp(request.end),
+            repository_root=repository_root,
+        )
+        result = replay_srt_account(
+            strategy=strategy,
+            signals=signals,
+            replay_data=replay_data,
+            initial_cash=request.initial_cash,
+        )
+    elif applied_snapshot.resolved_rule.causal_feature_gate is not None:
         if repository_root is None:
             raise ValueError("causal-feature-gate backtest requires a repository root")
         signals = build_causal_feature_gate_signals(
@@ -178,6 +198,7 @@ def run_backtest_v2(
     else:
         signals = replay_signals(applied_snapshot, replay_data, request.start, request.end)
         result = replay_account(signals, replay_data, request.initial_cash)
+    application["runtime_engine"] = request.runtime_engine
     strategy_metrics = calculate_metrics(result, request.initial_cash)
     evidence = build_replay_evidence(
         signals, replay_data, result, request.initial_cash, strategy_metrics
@@ -242,9 +263,7 @@ def run_backtest_v2(
             encoding="utf-8",
         )
         (staging / "chart.html").write_text(
-            render_backtest_chart_html(
-                signals, replay_data, result, request.initial_cash
-            ),
+            render_backtest_chart_html(signals, replay_data, result, request.initial_cash),
             encoding="utf-8",
         )
         ma_chart_signals = benchmarks.ma_signals.set_index("date")
@@ -258,11 +277,22 @@ def run_backtest_v2(
             staging / "ma_chart.html",
         )
         expected = {
-            "manifest.json", "decisions.csv", "orders.csv", "fills.csv",
-            "account_daily.csv", "trades.csv", "metrics.json", "audit.json",
-            "report.md", "chart.html", "buyhold_account_daily.csv",
-            "ma_signals.csv", "ma_orders.csv", "ma_account_daily.csv",
-            "ma_trades.csv", "ma_chart.html",
+            "manifest.json",
+            "decisions.csv",
+            "orders.csv",
+            "fills.csv",
+            "account_daily.csv",
+            "trades.csv",
+            "metrics.json",
+            "audit.json",
+            "report.md",
+            "chart.html",
+            "buyhold_account_daily.csv",
+            "ma_signals.csv",
+            "ma_orders.csv",
+            "ma_account_daily.csv",
+            "ma_trades.csv",
+            "ma_chart.html",
         }
         if {item.name for item in staging.iterdir()} != expected:
             raise AssertionError("backtest publication is structurally incomplete")

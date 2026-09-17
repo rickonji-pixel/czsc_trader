@@ -127,6 +127,49 @@ def calculate_s003_history(
     return daily
 
 
+def calculate_s003_evidence_history(
+    panel: pd.DataFrame, feature: Mapping[str, Any]
+) -> pd.DataFrame:
+    """Replay the accepted panel with its original tradable-member filter intact."""
+
+    source = panel.copy()
+    source["dt"] = pd.to_datetime(source["dt"]).dt.normalize()
+    source["weight"] = pd.to_numeric(source["weight"], errors="raise")
+    source["net_mf_amount"] = pd.to_numeric(source["net_mf_amount"], errors="coerce")
+    observed = (
+        source["observed_moneyflow"]
+        .astype(str)
+        .str.lower()
+        .map({"true": True, "false": False, "1": True, "0": False})
+    )
+    if observed.isna().any():
+        raise RuntimeContractError("S003-v1 evidence has invalid observed flags")
+    source["observed_weight"] = source["weight"].where(observed, 0.0)
+    source["positive_weight"] = source["weight"].where(source["net_mf_amount"].gt(0), 0.0)
+    daily = source.groupby("dt", sort=True, observed=True).agg(
+        total_weight=("weight", "sum"),
+        observed_weight=("observed_weight", "sum"),
+        positive_weight=("positive_weight", "sum"),
+    )
+    daily.index.name = "date"
+    daily["observed_weight_ratio"] = daily["observed_weight"] / daily["total_weight"]
+    daily["moneyflow_breadth"] = daily["positive_weight"] / daily["observed_weight"]
+    daily.loc[
+        daily["observed_weight_ratio"].lt(float(feature["minimum_observed_weight_ratio"])),
+        "moneyflow_breadth",
+    ] = pd.NA
+    values = daily["moneyflow_breadth"]
+    if feature["threshold_excludes_current_session"]:
+        values = values.shift(1)
+    lookback = int(feature["threshold_lookback_sessions"])
+    daily["threshold"] = values.rolling(lookback, min_periods=lookback).quantile(
+        float(feature["threshold_quantile"])
+    )
+    daily["signal_active"] = daily["moneyflow_breadth"].ge(daily["threshold"])
+    daily["target_position"] = daily["signal_active"].astype(float)
+    return daily
+
+
 class S003V1:
     """Executable S003-v1 with DFLS-owned raw inputs and no TDR dependency."""
 
@@ -206,6 +249,16 @@ class S003V1:
     @property
     def definition(self) -> RuntimeDefinition:
         return self._definition
+
+    def calculate_history(
+        self,
+        inputs: Mapping[str, pd.DataFrame],
+        sessions: pd.DatetimeIndex,
+    ) -> pd.DataFrame:
+        if "strategy_evidence" in inputs:
+            history = calculate_s003_evidence_history(inputs["strategy_evidence"], self._feature)
+            return history.reindex(sessions)
+        return calculate_s003_history(inputs[_WEIGHTS], inputs[_MONEYFLOW], sessions, self._feature)
 
     def publish_data(
         self, dataflows: Dataflows, deployment: DeploymentSpec, through: datetime

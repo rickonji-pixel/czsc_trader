@@ -709,6 +709,7 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
         "mode": "cross_symbol_generalization",
         "strategy_reference_symbol": "588080.SH",
         "backtest_symbol": "159352.SZ",
+        "runtime_engine": "srt",
     }
     generalized_report = (generalized_dir / "report.md").read_text(encoding="utf-8")
     assert "- 策略参考标的：588080.SH" in generalized_report

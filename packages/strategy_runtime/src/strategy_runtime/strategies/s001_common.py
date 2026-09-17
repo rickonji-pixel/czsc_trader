@@ -449,6 +449,20 @@ class S001Base:
     def definition(self) -> RuntimeDefinition:
         return self._definition
 
+    def calculate_history(
+        self,
+        inputs: Mapping[str, pd.DataFrame],
+        sessions: pd.DatetimeIndex,
+    ) -> pd.DataFrame:
+        del sessions
+        return calculate_s001_history(
+            inputs[_INTRADAY],
+            inputs[_DAILY],
+            inputs[_WEEKLY],
+            self._rule,
+            self._symbol,
+        )
+
     def publish_data(
         self, dataflows: Dataflows, deployment: DeploymentSpec, through: datetime
     ) -> PublishedStrategyData:

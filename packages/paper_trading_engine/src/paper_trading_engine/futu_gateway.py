@@ -171,6 +171,7 @@ class FutuGateway:
                 cash=float(account_row.get("cash", 0.0)),
                 total_assets=float(account_row.get("total_assets", 0.0)),
                 frozen_cash=float(account_row.get("frozen_cash", 0.0)),
+                market_value=float(account_row.get("market_val", 0.0)),
             ),
             positions=tuple(
                 BrokerPosition(_project_symbol(str(row["code"])), int(row["qty"]))

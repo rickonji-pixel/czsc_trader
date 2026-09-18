@@ -51,6 +51,7 @@ class BrokerAccount:
     cash: float
     total_assets: float
     frozen_cash: float
+    market_value: float = 0.0
 
 
 @dataclass(frozen=True)

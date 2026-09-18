@@ -317,7 +317,10 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     class TradeContext:
         def __init__(self): self.place_calls, self.modify_calls = [], []
         def get_acc_list(self): return 0, [{"acc_id": 77, "trd_env": "SIMULATE", "trd_market": "CN"}]
-        def accinfo_query(self, **kwargs): return 0, [{"cash": 900_000, "total_assets": 1_000_000, "frozen_cash": 0}]
+        def accinfo_query(self, **kwargs): return 0, [{
+            "cash": 900_000, "market_val": 100_000,
+            "total_assets": 1_000_000, "frozen_cash": 0,
+        }]
         def position_list_query(self, **kwargs): return 0, []
         def order_list_query(self, **kwargs): return 0, []
         def place_order(self, **kwargs):
@@ -345,6 +348,7 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
     )
     snapshot = gateway.account_snapshot()
     assert snapshot.account.environment == "SIMULATE"
+    assert snapshot.account.market_value == pytest.approx(100_000)
     gateway.place_order(OrderIntent("PTE-s001-v1-X", "DEC-X", "588080.SH", "BUY", 1000, 1.68))
     assert trade.place_calls[0]["trd_env"] == "SIMULATE"
     assert trade.place_calls[0]["adjust_limit"] == 0

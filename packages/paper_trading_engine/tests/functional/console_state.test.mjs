@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, accountOperatingStatus, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, sortVirtualAccounts, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, accountMarkup, accountOperatingStatus, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, sortVirtualAccounts, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -100,4 +100,19 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
     auditQuery({category: 'TRADING', account_id: 's001-v1', correlation_id: 'DEC 1'}),
     'category=TRADING&account_id=s001-v1&correlation_id=DEC+1',
   );
+});
+
+test('virtual account orders show order time and remain newest first', () => {
+  const html = accountMarkup({
+    scope: {account_id:'s001-v1',release_id:'S001-v1'},
+    account: {account_id:'s001-v1',initial_cash:'100000',total_assets:'100000'},
+    accounts: [{account_id:'s001-v1',release_id:'S001-v1'}],
+    decision: {}, intents: [], fills: [], events: [], alerts: [], metrics: {},
+    orders: [
+      {account_id:'s001-v1',channel_order_id:'NEW',created_at:'2026-09-17T09:31:00+08:00'},
+      {account_id:'s001-v1',channel_order_id:'OLD',created_at:'2026-09-17T09:30:00+08:00'},
+    ],
+  });
+  assert.match(html, /下单时间/);
+  assert.ok(html.indexOf('2026-09-17 09:31:00') < html.indexOf('2026-09-17 09:30:00'));
 });

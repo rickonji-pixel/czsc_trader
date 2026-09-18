@@ -49,6 +49,28 @@ def test_schema_v2_release_hash_covers_executable_identity_not_governance() -> N
     assert StrategyRelease.from_mapping(changed).release_hash == release.release_hash
 
 
+def test_schema_v3_release_hash_accepts_sgc_governance_projection() -> None:
+    from strategy_runtime import StrategyRelease, canonical_sha256
+
+    executable = {
+        "schema_version": 3,
+        "strategy_id": "S008",
+        "version": "v1",
+        "release_id": "S008-v1",
+        "strategy_payload": {"symbol": "588080.SH", "runtime": "example"},
+    }
+    payload = {
+        **executable,
+        "governance": {
+            "credential_id": "SGC-S008-001",
+            "approval_seal_hash": "a" * 64,
+        },
+        "release_hash": canonical_sha256(executable),
+    }
+    release = StrategyRelease.from_mapping(payload)
+    assert release.release_hash == payload["release_hash"]
+
+
 NOW = datetime.fromisoformat("2026-09-17T10:00:00+08:00")
 
 
@@ -72,9 +94,7 @@ def test_every_active_frozen_release_has_a_matching_source_binding() -> None:
 
 def test_loader_rejects_source_that_differs_from_frozen_binding(monkeypatch) -> None:
     root = Path(__file__).resolve().parents[4]
-    payload = json.loads(
-        (root / "strategies/S007/versions/v1.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads((root / "strategies/S007/versions/v1.json").read_text(encoding="utf-8"))
     monkeypatch.setattr("strategy_runtime.loader.implementation_sha256", lambda _files: "0" * 64)
 
     with pytest.raises(RuntimeCompatibilityError, match="differs from runtime binding"):
@@ -101,9 +121,7 @@ def test_symbol_binding_is_explicit_and_fails_closed() -> None:
         (root / "strategies/S007/versions/v1.json").read_text(encoding="utf-8")
     )
     with pytest.raises(RuntimeCompatibilityError, match="does not support"):
-        StrategyLoader().load_for_symbol(
-            StrategyRelease.from_mapping(s007_payload), "588300.SH"
-        )
+        StrategyLoader().load_for_symbol(StrategyRelease.from_mapping(s007_payload), "588300.SH")
 
 
 def test_target_execution_plan_honors_frozen_limit_exit() -> None:

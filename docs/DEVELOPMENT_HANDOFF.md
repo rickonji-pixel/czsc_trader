@@ -79,9 +79,10 @@ SM冻结版本 → SRT → TDR BacktestChannel → TXE → 回测账本
   策略函数模板、输入职责、参数边界和实现复杂度，并生成确定性实例身份；不读取行情、不搜索
   参数、不回测、不评价候选。TDR只读引用STC，负责交叉核对FSC输入，并在具体研究实现中落实
   模板语义。
-- **SM**位于`packages/strategy_manager/`。它持久化`StrategyFamily`、不可变候选快照、最终
-  `EvaluationMandate`、`FreezeReviewCase`、裁判报告、冻结版本、资格和追加式治理事件；
-  它不计算绩效，不管理策略进程与账户运行状态。
+- **SM**位于`packages/strategy_manager/`。它持久化`StrategyFamily`、追加式
+  `StrategyGovernanceCredential`、冻结版本、资格和生命周期事件；候选快照、最终
+  `EvaluationMandate`、裁判报告和人工批准均作为同一凭据链上的印章内容保存。它不计算绩效，
+  不管理策略进程与账户运行状态。
 - **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的事实，执行筛劣、Pareto排名、
   临时冠军体检及统计稳健性审计，输出判定和证据；它不读取仓库或改变SM、PTE状态。
 - **SRT**位于`packages/strategy_runtime/`。它把SM冻结版本投影为可执行策略，声明并通过DFLS

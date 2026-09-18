@@ -78,9 +78,7 @@ def _mandate(strategy_id: str = "S008") -> EvaluationMandate:
         "candidate_id": "C001",
         "development_cutoff": "2026-09-02",
         "forward_start": "2026-09-03",
-        "evaluation_windows": {
-            "full": {"start": "2021-01-01", "end": "2026-09-02"}
-        },
+        "evaluation_windows": {"full": {"start": "2021-01-01", "end": "2026-09-02"}},
         "benchmark": {"type": "strategy", "id": "S001-v2"},
         "objectives": [
             {"metric": "annual_return", "operator": ">=", "value": 0.15},
@@ -110,7 +108,7 @@ def _report(
     missing_audit: str | None = None,
     verdict: str = "ELIGIBLE_FOR_FREEZE_REVIEW",
 ) -> AdjudicationReport:
-    case, snapshot, mandate = registry.get_freeze_review(strategy_id, review_id)
+    case, snapshot, mandate = registry._legacy_get_freeze_review(strategy_id, review_id)
     audits = {
         name: {"status": "PASS", "evidence_hash": canonical_sha256({"audit": name})}
         for name in mandate.required_audits
@@ -209,16 +207,14 @@ def _ready_registry(root: Path) -> tuple[StrategyRegistry, CandidateSnapshot]:
     registry = StrategyRegistry(root)
     registry.create_family(_family(), actor="owner", reason="批准立项")
     candidate = _candidate()
-    registry.open_freeze_review(
-        "FR-S008-C001-001", candidate, _mandate(), actor="owner"
-    )
-    registry.record_adjudication(_report(registry))
+    registry._legacy_open_freeze_review("FR-S008-C001-001", candidate, _mandate(), actor="owner")
+    registry._legacy_record_adjudication(_report(registry))
     return registry, candidate
 
 
 def test_ft_sm01_three_gate_governance_is_persistent_and_auditable(tmp_path: Path) -> None:
     registry, candidate = _ready_registry(tmp_path)
-    frozen, event = registry.create_frozen_version(
+    frozen, event = registry._legacy_create_frozen_version(
         "S008",
         "FR-S008-C001-001",
         actor="owner",
@@ -230,9 +226,7 @@ def test_ft_sm01_three_gate_governance_is_persistent_and_auditable(tmp_path: Pat
     )
 
     reopened = StrategyRegistry(tmp_path)
-    case, snapshot, mandate = reopened.get_freeze_review(
-        "S008", "FR-S008-C001-001"
-    )
+    case, snapshot, mandate = reopened._legacy_get_freeze_review("S008", "FR-S008-C001-001")
     assert case.status is ReviewStatus.FROZEN
     assert snapshot.candidate_hash == candidate.candidate_hash
     assert mandate.mandate_hash == frozen.governance["evaluation_mandate_hash"]
@@ -251,23 +245,19 @@ def test_ft_sm02_missing_audit_and_hash_drift_cannot_freeze(tmp_path: Path) -> N
     registry = StrategyRegistry(tmp_path)
     registry.create_family(_family(), actor="owner", reason="批准立项")
     candidate = _candidate()
-    registry.open_freeze_review(
-        "FR-S008-C001-001", candidate, _mandate(), actor="owner"
-    )
+    registry._legacy_open_freeze_review("FR-S008-C001-001", candidate, _mandate(), actor="owner")
     with pytest.raises(RegistryError, match="omits required audits"):
-        registry.record_adjudication(
-            _report(registry, missing_audit="cost_stress")
-        )
+        registry._legacy_record_adjudication(_report(registry, missing_audit="cost_stress"))
 
     incomplete = _report(
         registry,
         missing_audit="cost_stress",
         verdict="INCOMPLETE",
     )
-    case = registry.record_adjudication(incomplete)
+    case = registry._legacy_record_adjudication(incomplete)
     assert case.status is ReviewStatus.INCOMPLETE
     with pytest.raises(EvidenceRequiredError, match="not eligible"):
-        registry.create_frozen_version(
+        registry._legacy_create_frozen_version(
             "S008",
             "FR-S008-C001-001",
             actor="owner",
@@ -278,27 +268,19 @@ def test_ft_sm02_missing_audit_and_hash_drift_cannot_freeze(tmp_path: Path) -> N
             change_summary="不得冻结",
         )
 
-    snapshot_path = (
-        tmp_path
-        / "S008"
-        / "reviews"
-        / "FR-S008-C001-001"
-        / "candidate_snapshot.json"
-    )
+    snapshot_path = tmp_path / "S008" / "reviews" / "FR-S008-C001-001" / "candidate_snapshot.json"
     raw = json.loads(snapshot_path.read_text(encoding="utf-8"))
     raw["strategy_payload"]["tampered"] = True
     snapshot_path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises((RegistryError, ValidationError), match="hash"):
-        registry.get_freeze_review("S008", "FR-S008-C001-001")
+        registry._legacy_get_freeze_review("S008", "FR-S008-C001-001")
 
 
 def test_ft_sm03_family_and_mandate_contracts_reject_false_success() -> None:
     with pytest.raises(ValidationError, match="unknown fields"):
         StrategyFamily.from_dict({**_family().to_dict(), "unexpected": True})
     with pytest.raises(ValidationError, match="strategy_id"):
-        StrategyFamily.from_dict(
-            {**_family().to_dict(), "strategy_id": "baseline-143"}
-        )
+        StrategyFamily.from_dict({**_family().to_dict(), "strategy_id": "baseline-143"})
     raw = _mandate().to_dict()
     raw["evidence_seen_through"] = "2026-09-03"
     payload = dict(raw)
@@ -310,7 +292,7 @@ def test_ft_sm03_family_and_mandate_contracts_reject_false_success() -> None:
 
 def test_ft_sm04_existing_frozen_version_remains_hash_protected(tmp_path: Path) -> None:
     registry, candidate = _ready_registry(tmp_path)
-    frozen, _ = registry.create_frozen_version(
+    frozen, _ = registry._legacy_create_frozen_version(
         "S008",
         "FR-S008-C001-001",
         actor="owner",
@@ -336,7 +318,7 @@ def test_ft_sm04b_governance_hash_and_runtime_release_are_independently_protecte
     mismatched_runtime = _runtime(candidate)
     mismatched_runtime["release_hash"] = "0" * 64
     with pytest.raises(EvidenceRequiredError, match="release hash differs"):
-        registry.create_frozen_version(
+        registry._legacy_create_frozen_version(
             "S008",
             "FR-S008-C001-001",
             actor="owner",
@@ -347,7 +329,7 @@ def test_ft_sm04b_governance_hash_and_runtime_release_are_independently_protecte
             change_summary="首个冻结版本",
         )
 
-    frozen, _ = registry.create_frozen_version(
+    frozen, _ = registry._legacy_create_frozen_version(
         "S008",
         "FR-S008-C001-001",
         actor="owner",
@@ -379,7 +361,7 @@ def test_ft_sm04c_failed_freeze_commit_leaves_no_partial_version(
 
     monkeypatch.setattr(registry, "_atomic_write", fail_runtime_write)
     with pytest.raises(OSError, match="injected"):
-        registry.create_frozen_version(
+        registry._legacy_create_frozen_version(
             "S008",
             "FR-S008-C001-001",
             actor="owner",
@@ -391,9 +373,7 @@ def test_ft_sm04c_failed_freeze_commit_leaves_no_partial_version(
         )
 
     clean = StrategyRegistry(tmp_path)
-    case, _snapshot, _mandate_value = clean.get_freeze_review(
-        "S008", "FR-S008-C001-001"
-    )
+    case, _snapshot, _mandate_value = clean._legacy_get_freeze_review("S008", "FR-S008-C001-001")
     assert case.status is ReviewStatus.ELIGIBLE
     assert clean.versions("S008") == ()
     assert clean.evidence("S008") == []
@@ -426,7 +406,7 @@ def test_ft_sm05_legacy_governance_event_is_idempotent(tmp_path: Path) -> None:
             "release_hash": None,
         }
     )
-    registry.create_version(version, actor="migration", reason="历史迁移")
+    registry._legacy_create_version(version, actor="migration", reason="历史迁移")
     report_payload = {
         "schema_version": 2,
         "report_id": "SE-LEGACY",
@@ -461,7 +441,7 @@ def test_ft_sm05_legacy_governance_event_is_idempotent(tmp_path: Path) -> None:
             "reviewed_at": "2026-09-18T10:00:00+08:00",
         }
     )
-    registry.freeze_version(
+    registry._legacy_freeze_version(
         "S008",
         "v1",
         actor="migration",
@@ -550,6 +530,153 @@ def test_ft_sm06_governance_credential_is_one_append_only_hash_chain(
     assert frozen.credential_hash == frozen.seals[-1].seal_hash
     assert [seal.sequence for seal in frozen.seals] == [1, 2, 3, 4, 5]
     assert frozen.stage is GovernanceStage.VERSION_FROZEN
+
+
+def test_ft_sm06a_legacy_governance_writers_are_not_public_api(tmp_path: Path) -> None:
+    registry = StrategyRegistry(tmp_path)
+    assert not hasattr(registry, "create_version")
+    assert not hasattr(registry, "freeze_version")
+    assert not hasattr(registry, "open_freeze_review")
+    assert not hasattr(registry, "record_adjudication")
+    assert not hasattr(registry, "create_frozen_version")
+
+
+def test_ft_sm06aa_approved_credential_can_resume_after_atomic_freeze_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    registry = StrategyRegistry(tmp_path)
+    registry.create_family(
+        _family(),
+        actor="owner",
+        reason="创建研究批次",
+        credential_id="SGC-S008-001",
+        credential_content={"research_intent": "验证冻结故障恢复"},
+    )
+    candidate = _candidate()
+    mandate = _mandate()
+    opened = registry.get_governance_credential("S008", "SGC-S008-001")
+    policy = {
+        "policy_version": "tdr-freeze-v2",
+        "required_audits": mandate.required_audits,
+    }
+    submitted = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.CANDIDATE_SUBMITTED,
+        result=GovernanceResult.OPEN,
+        actor="owner",
+        expected_previous_hash=opened.credential_hash,
+        content={
+            "submission_id": "SUB-SGC-S008-001-2",
+            "candidate_snapshot": candidate.to_dict(),
+            "evaluation_mandate": mandate.to_dict(),
+            "audit_policy": policy,
+        },
+    )
+    report_payload = {
+        "schema_version": 1,
+        "report_id": "ADR-SGC-S008-001-2",
+        "review_id": "SGC-S008-001",
+        "strategy_id": "S008",
+        "candidate_id": candidate.candidate_id,
+        "candidate_hash": candidate.candidate_hash,
+        "evaluation_mandate_hash": mandate.mandate_hash,
+        "audit_policy_hash": canonical_sha256(policy),
+        "claim_checks": [],
+        "audit_results": {
+            audit: {"status": "PASS", "evidence_hash": "d" * 64}
+            for audit in mandate.required_audits
+        },
+        "machine_verdict": "ELIGIBLE_FOR_FREEZE_REVIEW",
+        "risk_label": "MIXED",
+        "blocking_findings": [],
+        "reservations": [],
+        "generated_at": "2026-09-18T12:00:00+08:00",
+    }
+    report = AdjudicationReport.from_dict(_hashed(report_payload, "report_hash"))
+    adjudicated = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.TDR_ADJUDICATED,
+        result=GovernanceResult.ELIGIBLE,
+        actor="TDR",
+        expected_previous_hash=submitted.credential_hash,
+        content={
+            "submission_seal_hash": submitted.seals[-1].seal_hash,
+            "adjudication_report": report.to_dict(),
+        },
+    )
+    decision = {
+        "credential_id": "SGC-S008-001",
+        "strategy_id": "S008",
+        "candidate_id": candidate.candidate_id,
+        "candidate_hash": candidate.candidate_hash,
+        "decision": "APPROVE_FREEZE",
+        "actor": "owner",
+        "reason": "批准低成本模拟观察",
+        "decided_at": "2026-09-18T13:00:00+08:00",
+    }
+    runtime = _runtime(candidate)
+    runtime["release_hash"] = canonical_sha256(
+        {
+            "schema_version": 3,
+            "strategy_id": "S008",
+            "version": "v1",
+            "release_id": "S008-v1",
+            "strategy_payload": candidate.strategy_payload,
+        }
+    )
+    runtime["strategy_payload_hash"] = canonical_sha256(candidate.strategy_payload)
+    approved = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.FREEZE_APPROVED,
+        result=GovernanceResult.APPROVED,
+        actor="owner",
+        expected_previous_hash=adjudicated.credential_hash,
+        content={
+            "adjudication_report_hash": report.report_hash,
+            "human_decision": decision,
+            "runtime_acceptance": runtime,
+        },
+    )
+    original = registry._atomic_write
+    failed = False
+
+    def fail_first_version(path: Path, text: str, expected: bytes | None = None) -> None:
+        nonlocal failed
+        if not failed and path.parent.name == "versions":
+            failed = True
+            raise OSError("injected version write failure")
+        original(path, text, expected)
+
+    monkeypatch.setattr(registry, "_atomic_write", fail_first_version)
+    with pytest.raises(OSError, match="injected"):
+        registry.create_frozen_version_from_credential(
+            "S008",
+            "SGC-S008-001",
+            actor="owner",
+            reason="批准低成本模拟观察",
+            evidence=_evidence(),
+            change_summary="首个冻结版本",
+        )
+    assert (
+        registry.get_governance_credential("S008", "SGC-S008-001").credential_hash
+        == approved.credential_hash
+    )
+    assert registry.versions("S008") == ()
+
+    monkeypatch.setattr(registry, "_atomic_write", original)
+    version, _event, completed = registry.create_frozen_version_from_credential(
+        "S008",
+        "SGC-S008-001",
+        actor="owner",
+        reason="批准低成本模拟观察",
+        evidence=_evidence(),
+        change_summary="首个冻结版本",
+    )
+    assert version.release_id == "S008-v1"
+    assert completed.stage is GovernanceStage.VERSION_FROZEN
 
 
 def test_ft_sm06b_governance_credential_rejects_skips_stale_writes_and_tampering(
@@ -659,7 +786,7 @@ def test_ft_sm06c_noneligible_adjudication_requires_a_new_submission_seal(
 
 def test_ft_sm06_lifecycle_still_requires_forward_evidence(tmp_path: Path) -> None:
     registry, candidate = _ready_registry(tmp_path)
-    frozen, _ = registry.create_frozen_version(
+    frozen, _ = registry._legacy_create_frozen_version(
         "S008",
         "FR-S008-C001-001",
         actor="owner",
@@ -670,9 +797,7 @@ def test_ft_sm06_lifecycle_still_requires_forward_evidence(tmp_path: Path) -> No
         change_summary="首个冻结版本",
     )
     with pytest.raises(EvidenceRequiredError, match="PAPER_FORWARD"):
-        registry.promote_version(
-            "S008", "v1", actor="owner", reason="证据不足", evidence_ids=[]
-        )
+        registry.promote_version("S008", "v1", actor="owner", reason="证据不足", evidence_ids=[])
     paper_raw = _evidence()
     paper_raw.update(
         {
@@ -693,6 +818,4 @@ def test_ft_sm06_lifecycle_still_requires_forward_evidence(tmp_path: Path) -> No
     )
     registry.retire_version("S008", "v1", actor="owner", reason="停止部署")
     with pytest.raises(InvalidTransitionError):
-        registry.promote_version(
-            "S008", "v1", actor="owner", reason="不得恢复", evidence_ids=[]
-        )
+        registry.promote_version("S008", "v1", actor="owner", reason="不得恢复", evidence_ids=[])

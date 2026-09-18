@@ -150,9 +150,7 @@ class FreezeApproval:
             risk_label=risk_label,
             source_experiment=require_string(value["source_experiment"], "source_experiment"),
             machine_report_id=require_identifier(value["machine_report_id"], "machine_report_id"),
-            machine_report_hash=require_sha256(
-                value["machine_report_hash"], "machine_report_hash"
-            ),
+            machine_report_hash=require_sha256(value["machine_report_hash"], "machine_report_hash"),
             machine_verdict=machine_verdict,
             reviewed_by=require_string(value["reviewed_by"], "reviewed_by"),
             rationale=require_string(value["rationale"], "rationale"),
@@ -168,9 +166,9 @@ class FreezeApproval:
 
 
 def canonical_sha256(payload: Any) -> str:
-    encoded = json.dumps(
-        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -196,8 +194,7 @@ def _validate_governance_transition(
 ) -> None:
     if current.result not in _GOVERNANCE_STAGE_RESULTS[current.stage]:
         raise ValidationError(
-            f"governance stage {current.stage.value} does not allow result "
-            f"{current.result.value}"
+            f"governance stage {current.stage.value} does not allow result {current.result.value}"
         )
     if previous is None:
         if current.stage is not GovernanceStage.RESEARCH_INITIATED:
@@ -207,12 +204,10 @@ def _validate_governance_transition(
         if previous.stage in {GovernanceStage.VERSION_FROZEN, GovernanceStage.INVALIDATED}:
             raise ValidationError("terminal governance credential cannot be invalidated")
         return
-    if current.stage is GovernanceStage.CANDIDATE_SUBMITTED and (
-        previous.stage is GovernanceStage.INVALIDATED
-        or (
-            previous.stage is GovernanceStage.TDR_ADJUDICATED
-            and previous.result in {GovernanceResult.INCOMPLETE, GovernanceResult.REJECTED}
-        )
+    if (
+        current.stage is GovernanceStage.CANDIDATE_SUBMITTED
+        and previous.stage is GovernanceStage.TDR_ADJUDICATED
+        and previous.result in {GovernanceResult.INCOMPLETE, GovernanceResult.REJECTED}
     ):
         return
     allowed: dict[GovernanceStage, GovernanceStage] = {
@@ -328,9 +323,7 @@ class StrategyGovernanceCredential:
     seals: tuple[StrategyGovernanceSeal, ...]
 
     @classmethod
-    def from_seals(
-        cls, seals: tuple[StrategyGovernanceSeal, ...]
-    ) -> StrategyGovernanceCredential:
+    def from_seals(cls, seals: tuple[StrategyGovernanceSeal, ...]) -> StrategyGovernanceCredential:
         if not seals:
             raise ValidationError("governance credential must contain at least one seal")
         first = seals[0]
@@ -415,9 +408,7 @@ class StrategyFamily:
             name=require_string(value["name"], "name"),
             scope=scope,
             research_intent=dict(intent),
-            research_state=_enum(
-                ResearchState, value["research_state"], "research_state"
-            ),
+            research_state=_enum(ResearchState, value["research_state"], "research_state"),
             created_at=require_timestamp(value["created_at"], "created_at"),
             created_by=require_string(value["created_by"], "created_by"),
             updated_at=require_timestamp(value["updated_at"], "updated_at"),
@@ -466,9 +457,7 @@ class CandidateSnapshot:
             schema_version=require_schema_version(value["schema_version"]),
             strategy_id=require_strategy_id(value["strategy_id"]),
             candidate_id=require_identifier(value["candidate_id"], "candidate_id"),
-            source_experiment=require_string(
-                value["source_experiment"], "source_experiment"
-            ),
+            source_experiment=require_string(value["source_experiment"], "source_experiment"),
             strategy_payload=dict(value["strategy_payload"]),
             data_contract=dict(value["data_contract"]),
             execution_policy=dict(value["execution_policy"]),
@@ -533,13 +522,17 @@ class EvaluationMandate:
             if not isinstance(value[field], dict) or not value[field]:
                 raise ValidationError(f"{field} must be a nonempty JSON object")
         objectives = value["objectives"]
-        if not isinstance(objectives, list) or not objectives or any(
-            not isinstance(item, dict) or not item for item in objectives
+        if (
+            not isinstance(objectives, list)
+            or not objectives
+            or any(not isinstance(item, dict) or not item for item in objectives)
         ):
             raise ValidationError("objectives must be a nonempty list of JSON objects")
         required_audits = value["required_audits"]
-        if not isinstance(required_audits, list) or not required_audits or any(
-            not isinstance(item, str) or not item.strip() for item in required_audits
+        if (
+            not isinstance(required_audits, list)
+            or not required_audits
+            or any(not isinstance(item, str) or not item.strip() for item in required_audits)
         ):
             raise ValidationError("required_audits must be a nonempty list of names")
         if len(set(required_audits)) != len(required_audits):
@@ -549,9 +542,7 @@ class EvaluationMandate:
             mandate_id=require_identifier(value["mandate_id"], "mandate_id"),
             strategy_id=require_strategy_id(value["strategy_id"]),
             candidate_id=require_identifier(value["candidate_id"], "candidate_id"),
-            development_cutoff=require_date(
-                value["development_cutoff"], "development_cutoff"
-            ),
+            development_cutoff=require_date(value["development_cutoff"], "development_cutoff"),
             forward_start=require_date(value["forward_start"], "forward_start"),
             evaluation_windows=dict(value["evaluation_windows"]),
             benchmark=dict(value["benchmark"]),
@@ -571,9 +562,7 @@ class EvaluationMandate:
         if instance.forward_start <= instance.development_cutoff:
             raise ValidationError("forward_start must be after development_cutoff")
         if instance.evidence_seen_through > instance.development_cutoff:
-            raise ValidationError(
-                "evidence_seen_through must not exceed development_cutoff"
-            )
+            raise ValidationError("evidence_seen_through must not exceed development_cutoff")
         return instance
 
     def hash_payload(self) -> dict[str, Any]:
@@ -637,9 +626,7 @@ class FreezeReviewCase:
             evaluation_mandate_hash=require_sha256(
                 value["evaluation_mandate_hash"], "evaluation_mandate_hash"
             ),
-            audit_policy_hash=require_sha256(
-                value["audit_policy_hash"], "audit_policy_hash"
-            ),
+            audit_policy_hash=require_sha256(value["audit_policy_hash"], "audit_policy_hash"),
             status=_enum(ReviewStatus, value["status"], "status"),
             adjudication_report_hash=require_sha256(
                 value["adjudication_report_hash"],
@@ -702,8 +689,7 @@ class AdjudicationReport:
         if not isinstance(checks, list) or any(not isinstance(item, dict) for item in checks):
             raise ValidationError("claim_checks must be a list of JSON objects")
         if not isinstance(audits, dict) or any(
-            not isinstance(name, str) or not isinstance(item, dict)
-            for name, item in audits.items()
+            not isinstance(name, str) or not isinstance(item, dict) for name, item in audits.items()
         ):
             raise ValidationError("audit_results must map names to JSON objects")
         findings = value["blocking_findings"]
@@ -727,9 +713,7 @@ class AdjudicationReport:
             evaluation_mandate_hash=require_sha256(
                 value["evaluation_mandate_hash"], "evaluation_mandate_hash"
             ),
-            audit_policy_hash=require_sha256(
-                value["audit_policy_hash"], "audit_policy_hash"
-            ),
+            audit_policy_hash=require_sha256(value["audit_policy_hash"], "audit_policy_hash"),
             claim_checks=[dict(item) for item in checks],
             audit_results={str(name): dict(item) for name, item in audits.items()},
             machine_verdict=verdict,
@@ -787,10 +771,10 @@ class StrategyVersion:
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> StrategyVersion:
         schema_version = value.get("schema_version")
-        optional = ("governance", "governance_hash") if schema_version == 2 else ()
+        optional = ("governance", "governance_hash") if schema_version in {2, 3} else ()
         require_exact_fields(value, cls.FIELDS, optional)
-        if schema_version not in {1, 2} or isinstance(schema_version, bool):
-            raise ValidationError("strategy version schema_version must be 1 or 2")
+        if schema_version not in {1, 2, 3} or isinstance(schema_version, bool):
+            raise ValidationError("strategy version schema_version must be 1, 2 or 3")
         strategy_id = require_strategy_id(value["strategy_id"])
         version = require_version(value["version"])
         release_id = require_string(value["release_id"], "release_id")
@@ -804,35 +788,46 @@ class StrategyVersion:
             raise ValidationError("strategy_payload must be a nonempty JSON object")
         governance = value.get("governance")
         governance_hash = value.get("governance_hash")
-        if schema_version == 2:
+        if schema_version in {2, 3}:
             if not isinstance(governance, dict):
-                raise ValidationError("schema v2 strategy version requires governance")
-            required_governance = {
-                "review_id",
-                "candidate_snapshot_hash",
-                "evaluation_mandate_hash",
-                "adjudication_report_hash",
-                "human_decision_hash",
-                "runtime_acceptance_hash",
-            }
+                raise ValidationError(
+                    f"schema v{schema_version} strategy version requires governance"
+                )
+            required_governance = (
+                {
+                    "review_id",
+                    "candidate_snapshot_hash",
+                    "evaluation_mandate_hash",
+                    "adjudication_report_hash",
+                    "human_decision_hash",
+                    "runtime_acceptance_hash",
+                }
+                if schema_version == 2
+                else {
+                    "credential_id",
+                    "candidate_submission_seal_hash",
+                    "adjudication_seal_hash",
+                    "approval_seal_hash",
+                    "candidate_snapshot_hash",
+                    "evaluation_mandate_hash",
+                    "adjudication_report_hash",
+                }
+            )
             if set(governance) != required_governance:
                 raise ValidationError("strategy version governance fields are incomplete")
+            identity_field = "review_id" if schema_version == 2 else "credential_id"
             governance = {
-                "review_id": require_identifier(governance["review_id"], "review_id"),
+                identity_field: require_identifier(governance[identity_field], identity_field),
                 **{
                     name: require_sha256(governance[name], name)
-                    for name in required_governance - {"review_id"}
+                    for name in required_governance - {identity_field}
                 },
             }
-            governance_hash = require_sha256(
-                governance_hash, "governance_hash"
-            )
+            governance_hash = require_sha256(governance_hash, "governance_hash")
             if governance_hash != canonical_sha256(governance):
                 raise ValidationError("governance_hash does not match governance")
         elif governance is not None or governance_hash is not None:
-            raise ValidationError(
-                "schema v1 strategy version must not contain governance"
-            )
+            raise ValidationError("schema v1 strategy version must not contain governance")
         instance = cls(
             schema_version=int(schema_version),
             strategy_id=strategy_id,
@@ -858,9 +853,9 @@ class StrategyVersion:
         return instance
 
     def release_payload(self) -> dict[str, Any]:
-        if self.schema_version == 2:
+        if self.schema_version in {2, 3}:
             return {
-                "schema_version": 2,
+                "schema_version": self.schema_version,
                 "strategy_id": self.strategy_id,
                 "version": self.version,
                 "release_id": self.release_id,
@@ -998,7 +993,11 @@ class PerformanceEvidence:
         if not isinstance(data_identity, dict) or not data_identity:
             raise ValidationError("data_identity must be a nonempty JSON object")
         closed_trades = value["closed_trades"]
-        if isinstance(closed_trades, bool) or not isinstance(closed_trades, int) or closed_trades < 0:
+        if (
+            isinstance(closed_trades, bool)
+            or not isinstance(closed_trades, int)
+            or closed_trades < 0
+        ):
             raise ValidationError("closed_trades must be a nonnegative integer")
         win_loss_ratio = value["win_loss_ratio"]
         sharpe_ratio = value["sharpe_ratio"]

@@ -7,6 +7,8 @@ from strategy_manager import (
     AdjudicationReport,
     CandidateSnapshot,
     EvaluationMandate,
+    GovernanceResult,
+    GovernanceStage,
     StrategyFamily,
     StrategyRegistry,
     canonical_sha256,
@@ -57,8 +59,15 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     )
     created = invoke_main(
         [
-            "research", "create", "--input", str(family),
-            "--actor", "tester", "--reason", "批准研究立项", *root,
+            "research",
+            "create",
+            "--input",
+            str(family),
+            "--actor",
+            "tester",
+            "--reason",
+            "批准研究立项",
+            *root,
         ],
         capsys,
     )
@@ -85,9 +94,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         "candidate_id": "C001",
         "development_cutoff": "2026-09-02",
         "forward_start": "2026-09-03",
-        "evaluation_windows": {
-            "full": {"start": "2021-01-01", "end": "2026-09-02"}
-        },
+        "evaluation_windows": {"full": {"start": "2021-01-01", "end": "2026-09-02"}},
         "benchmark": {"type": "strategy", "id": "S001-v2"},
         "objectives": [
             {"metric": "annual_return", "operator": ">=", "value": 0.15},
@@ -159,25 +166,56 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
 
     opened = invoke_main(
         [
-            "strategy", "review", "open", "--review", "FR-S900-C001-001",
-            "--candidate", str(snapshot), "--mandate", str(mandate),
-            "--actor", "tester", *root,
+            "strategy",
+            "review",
+            "open",
+            "--credential",
+            "SGC-S900-001",
+            "--candidate",
+            str(snapshot),
+            "--mandate",
+            str(mandate),
+            "--actor",
+            "tester",
+            "--reason",
+            "批准候选进入冻结流程",
+            *root,
+        ],
+        capsys,
+    )
+    opened_replay = invoke_main(
+        [
+            "strategy",
+            "review",
+            "open",
+            "--credential",
+            "SGC-S900-001",
+            "--candidate",
+            str(snapshot),
+            "--mandate",
+            str(mandate),
+            "--actor",
+            "tester",
+            "--reason",
+            "批准候选进入冻结流程",
+            *root,
         ],
         capsys,
     )
     registry = StrategyRegistry(functional_repo / "strategies")
-    case, stored_snapshot, stored_mandate = registry.get_freeze_review(
-        "S900", "FR-S900-C001-001"
-    )
+    credential = registry.get_governance_credential("S900", "SGC-S900-001")
+    submission = credential.seals[-1]
+    stored_snapshot = CandidateSnapshot.from_dict(submission.content["candidate_snapshot"])
+    stored_mandate = EvaluationMandate.from_dict(submission.content["evaluation_mandate"])
     report_payload = {
         "schema_version": 1,
-        "report_id": "ADR-FR-S900-C001-001",
-        "review_id": case.review_id,
+        "report_id": "ADR-SGC-S900-001-2",
+        "review_id": "SGC-S900-001",
         "strategy_id": "S900",
         "candidate_id": stored_snapshot.candidate_id,
         "candidate_hash": stored_snapshot.candidate_hash,
         "evaluation_mandate_hash": stored_mandate.mandate_hash,
-        "audit_policy_hash": case.audit_policy_hash,
+        "audit_policy_hash": canonical_sha256(submission.content["audit_policy"]),
         "claim_checks": [],
         "audit_results": {
             name: {"status": "PASS", "evidence_hash": "d" * 64}
@@ -189,37 +227,79 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         "reservations": ["functional"],
         "generated_at": "2026-09-18T12:00:00+08:00",
     }
-    registry.record_adjudication(
-        AdjudicationReport.from_dict(_hashed(report_payload, "report_hash"))
+    report = AdjudicationReport.from_dict(_hashed(report_payload, "report_hash"))
+    registry.append_governance_seal(
+        "S900",
+        "SGC-S900-001",
+        stage=GovernanceStage.TDR_ADJUDICATED,
+        result=GovernanceResult.ELIGIBLE,
+        actor="TDR",
+        expected_previous_hash=credential.credential_hash,
+        content={
+            "submission_seal_hash": submission.seal_hash,
+            "adjudication_report": report.to_dict(),
+        },
+        artifact_hashes={"adjudication_report": report.report_hash},
     )
     frozen = invoke_main(
         [
-            "strategy", "freeze", "--strategy", "S900",
-            "--review", "FR-S900-C001-001",
-            "--change-summary", "首个冻结版本",
-            "--actor", "tester", "--reason", "批准低成本模拟观察", *root,
+            "strategy",
+            "freeze",
+            "--strategy",
+            "S900",
+            "--credential",
+            "SGC-S900-001",
+            "--change-summary",
+            "首个冻结版本",
+            "--actor",
+            "tester",
+            "--reason",
+            "批准低成本模拟观察",
+            *root,
         ],
         capsys,
     )
     replay = invoke_main(
         [
-            "strategy", "freeze", "--strategy", "S900",
-            "--review", "FR-S900-C001-001",
-            "--change-summary", "首个冻结版本",
-            "--actor", "tester", "--reason", "批准低成本模拟观察", *root,
+            "strategy",
+            "freeze",
+            "--strategy",
+            "S900",
+            "--credential",
+            "SGC-S900-001",
+            "--change-summary",
+            "首个冻结版本",
+            "--actor",
+            "tester",
+            "--reason",
+            "批准低成本模拟观察",
+            *root,
         ],
         capsys,
     )
 
     assert created["result"]["family"]["strategy_id"] == "S900"
-    assert opened["result"]["review_case"]["status"] == "OPEN"
+    assert opened["result"]["governance_credential"]["stage"] == "CANDIDATE_SUBMITTED"
+    assert len(opened_replay["result"]["governance_credential"]["seals"]) == 2
     assert frozen["result"]["version"]["release_id"] == "S900-v1"
     assert frozen["result"]["pte_deployment"] == "NOT_REQUESTED"
     assert replay["result"]["idempotent_replay"] is True
     assert len(registry.versions("S900")) == 1
-    assert [
-        event.event_type for event in registry.lifecycle_events("S900")
-    ] == ["RESEARCH_BATCH_CREATED", "VERSION_FROZEN"]
+    completed = registry.get_governance_credential("S900", "SGC-S900-001")
+    assert [seal.stage.value for seal in completed.seals] == [
+        "RESEARCH_INITIATED",
+        "CANDIDATE_SUBMITTED",
+        "TDR_ADJUDICATED",
+        "FREEZE_APPROVED",
+        "VERSION_FROZEN",
+    ]
+    assert completed.seals[-1].content["release_id"] == "S900-v1"
+    assert not (functional_repo / "strategies" / "S900" / "reviews").exists()
+    assert registry.validate_all()["credentials"] == 1
+    assert [event.event_type for event in registry.lifecycle_events("S900")] == [
+        "RESEARCH_BATCH_CREATED",
+        "VERSION_FROZEN",
+    ]
 
 
 def test_ft_t05_old_direct_creation_commands_are_absent() -> None:
@@ -231,9 +311,7 @@ def test_ft_t05_old_direct_creation_commands_are_absent() -> None:
         if action.__class__.__name__ == "_SubParsersAction"
     ).choices["strategy"]
     actions = next(
-        action
-        for action in strategy._actions
-        if action.__class__.__name__ == "_SubParsersAction"
+        action for action in strategy._actions if action.__class__.__name__ == "_SubParsersAction"
     ).choices
     assert "create" not in actions
     assert "version" not in actions
@@ -262,6 +340,8 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         ),
         actor="tester",
         reason="批准研究立项",
+        credential_id="SGC-S901-001",
+        credential_content={"research_intent": "验证TDR独立复核"},
     )
     policy = {"buy": "LIMIT", "sell": "MARKET", "fee_rate": 0.001}
     snapshot_raw = {
@@ -292,9 +372,7 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         "candidate_id": "C001",
         "development_cutoff": "2026-09-02",
         "forward_start": "2026-09-03",
-        "evaluation_windows": {
-            "full": {"start": "2021-01-01", "end": "2026-09-02"}
-        },
+        "evaluation_windows": {"full": {"start": "2021-01-01", "end": "2026-09-02"}},
         "benchmark": {"type": "strategy", "id": "S001-v2"},
         "objectives": [
             {"metric": "annual_return", "operator": ">=", "value": 0.15},
@@ -308,8 +386,29 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         "finalized_by": "tester",
     }
     mandate = EvaluationMandate.from_dict(_hashed(mandate_raw, "mandate_hash"))
-    registry.open_freeze_review(
-        "FR-S901-C001-001", snapshot, mandate, actor="tester"
+    credential = registry.get_governance_credential("S901", "SGC-S901-001")
+    audit_policy = {
+        "policy_version": "tdr-freeze-v2",
+        "required_audits": mandate.required_audits,
+    }
+    registry.append_governance_seal(
+        "S901",
+        "SGC-S901-001",
+        stage=GovernanceStage.CANDIDATE_SUBMITTED,
+        result=GovernanceResult.OPEN,
+        actor="tester",
+        expected_previous_hash=credential.credential_hash,
+        content={
+            "submission_id": "SUB-SGC-S901-001-2",
+            "candidate_snapshot": snapshot.to_dict(),
+            "evaluation_mandate": mandate.to_dict(),
+            "audit_policy": audit_policy,
+        },
+        artifact_hashes={
+            "candidate_snapshot": canonical_sha256(snapshot.to_dict()),
+            "evaluation_mandate": mandate.mandate_hash,
+            "audit_policy": canonical_sha256(audit_policy),
+        },
     )
 
     experiment = context.experiments_root / "S901" / "0918_TEST"
@@ -421,7 +520,8 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         },
     )
 
-    result = evaluate_freeze_review(context, "S901", "FR-S901-C001-001")
+    result = evaluate_freeze_review(context, "S901", "SGC-S901-001")
+    replay = evaluate_freeze_review(context, "S901", "SGC-S901-001")
 
     assert calls == [
         (
@@ -429,7 +529,9 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
             {"use_cached_result": False, "allow_artifact_reuse": False},
         )
     ]
-    assert result.result["review_case"]["status"] == "ELIGIBLE"
+    assert replay.result["idempotent_replay"] is True
+    assert result.result["governance_credential"]["stage"] == "TDR_ADJUDICATED"
+    assert result.result["governance_credential"]["result"] == "ELIGIBLE"
     report = result.result["adjudication_report"]
     assert report["machine_verdict"] == "ELIGIBLE_FOR_FREEZE_REVIEW"
     assert set(report["audit_results"]) == set(audits)

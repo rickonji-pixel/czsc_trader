@@ -37,20 +37,21 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
     if action == "review.open":
         return open_freeze_review(
             context,
-            review_id=args.review,
+            credential_id=args.credential,
             candidate_path=args.candidate,
             mandate_path=args.mandate,
             actor=args.actor,
+            reason=args.reason,
         )
     if action == "review.evaluate":
-        return evaluate_freeze_review(context, args.strategy, args.review)
+        return evaluate_freeze_review(context, args.strategy, args.credential)
     if action == "review.show":
-        return show_freeze_review(context, args.strategy, args.review)
+        return show_freeze_review(context, args.strategy, args.credential)
     if action == "freeze":
         return freeze_review_candidate(
             context,
             args.strategy,
-            args.review,
+            args.credential,
             actor=args.actor,
             reason=args.reason,
             change_summary=args.change_summary,
@@ -117,10 +118,10 @@ def add_strategy_parser(
         dest="review_action", required=True, parser_class=type(strategy)
     )
     review_open = review_actions.add_parser("open")
-    review_open.add_argument("--review", required=True)
+    review_open.add_argument("--credential", required=True)
     review_open.add_argument("--candidate", type=Path, required=True)
     review_open.add_argument("--mandate", type=Path, required=True)
-    review_open.add_argument("--actor", required=True)
+    _audit(review_open)
     add_common(review_open)
     review_open.set_defaults(
         strategy_action="review.open",
@@ -130,7 +131,7 @@ def add_strategy_parser(
     for action in ("evaluate", "show"):
         leaf = review_actions.add_parser(action)
         leaf.add_argument("--strategy", required=True)
-        leaf.add_argument("--review", required=True)
+        leaf.add_argument("--credential", required=True)
         add_common(leaf)
         leaf.set_defaults(
             strategy_action=f"review.{action}",
@@ -140,7 +141,7 @@ def add_strategy_parser(
 
     freeze = actions.add_parser("freeze")
     freeze.add_argument("--strategy", required=True)
-    freeze.add_argument("--review", required=True)
+    freeze.add_argument("--credential", required=True)
     freeze.add_argument("--change-summary", required=True)
     _audit(freeze)
     add_common(freeze)

@@ -120,9 +120,7 @@ class StrategyRegistry:
             except OSError as exc:
                 failures.append(f"{path}: {exc}")
         if failures:
-            raise RegistryError(
-                "governance transaction rollback failed: " + "; ".join(failures)
-            )
+            raise RegistryError("governance transaction rollback failed: " + "; ".join(failures))
 
     def _strategy_dir(self, strategy_id: str) -> Path:
         return self.root / strategy_id
@@ -163,9 +161,7 @@ class StrategyRegistry:
             "content_hash": canonical_sha256(content),
             "artifact_hashes": artifact_hashes,
         }
-        return StrategyGovernanceSeal.from_dict(
-            {**payload, "seal_hash": canonical_sha256(payload)}
-        )
+        return StrategyGovernanceSeal.from_dict({**payload, "seal_hash": canonical_sha256(payload)})
 
     def get_governance_credential(
         self, strategy_id: str, credential_id: str
@@ -181,9 +177,7 @@ class StrategyRegistry:
             )
             return StrategyGovernanceCredential.from_seals(seals)
         except (OSError, json.JSONDecodeError, ValidationError) as exc:
-            raise RegistryError(
-                f"invalid governance credential: {credential_id}"
-            ) from exc
+            raise RegistryError(f"invalid governance credential: {credential_id}") from exc
 
     def open_governance_credential(
         self,
@@ -281,8 +275,7 @@ class StrategyRegistry:
 
     def list_families(self) -> list[StrategyFamily]:
         return [
-            self.get_family(item["strategy_id"])
-            for item in self._load_registry()["strategies"]
+            self.get_family(item["strategy_id"]) for item in self._load_registry()["strategies"]
         ]
 
     def get_family(self, strategy_id: str) -> StrategyFamily:
@@ -297,8 +290,7 @@ class StrategyRegistry:
             (
                 item
                 for item in registry["strategies"]
-                if reference == item["strategy_id"]
-                or reference in item.get("aliases", [])
+                if reference == item["strategy_id"] or reference in item.get("aliases", [])
             ),
             None,
         )
@@ -349,13 +341,14 @@ class StrategyRegistry:
         actor: str,
         reason: str,
         aliases: list[str] | None = None,
+        credential_id: str | None = None,
+        credential_content: dict[str, Any] | None = None,
+        credential_artifact_hashes: dict[str, str] | None = None,
     ) -> StrategyFamily:
         require_string(actor, "actor")
         require_string(reason, "reason")
         model = (
-            strategy
-            if isinstance(strategy, StrategyFamily)
-            else StrategyFamily.from_dict(strategy)
+            strategy if isinstance(strategy, StrategyFamily) else StrategyFamily.from_dict(strategy)
         )
         registry = self._load_registry()
         if any(item["strategy_id"] == model.strategy_id for item in registry["strategies"]):
@@ -369,7 +362,9 @@ class StrategyRegistry:
             for item in registry["strategies"]
             for reference in [item["strategy_id"], *item.get("aliases", [])]
         }
-        if model.strategy_id in alias_list or any(alias in known_references for alias in alias_list):
+        if model.strategy_id in alias_list or any(
+            alias in known_references for alias in alias_list
+        ):
             raise RegistryError("strategy aliases must be unique")
         registry["strategies"].append(
             {"strategy_id": model.strategy_id, "path": model.strategy_id, "aliases": alias_list}
@@ -391,9 +386,43 @@ class StrategyRegistry:
             [f"FAMILY:{canonical_sha256(model.to_dict())}"],
             None,
         )
+        credential_path: Path | None = None
+        credential_text: str | None = None
+        if credential_id is not None:
+            credential_id = require_string(credential_id, "credential_id")
+            if not isinstance(credential_content, dict) or not credential_content:
+                raise RegistryError(
+                    "credential_content is required when creating a governance credential"
+                )
+            for family in self.list_families():
+                if self._credential_path(family.strategy_id, credential_id).exists():
+                    raise RegistryError(f"governance credential id already exists: {credential_id}")
+            seal = self._build_governance_seal(
+                credential_id=credential_id,
+                strategy_id=model.strategy_id,
+                sequence=1,
+                stage=GovernanceStage.RESEARCH_INITIATED,
+                result=GovernanceResult.OPEN,
+                actor=actor,
+                previous_seal_hash=None,
+                content=credential_content,
+                artifact_hashes=credential_artifact_hashes or {},
+            )
+            credential_path = self._credential_path(model.strategy_id, credential_id)
+            credential_text = (
+                json.dumps(
+                    seal.to_dict(),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n"
+            )
         try:
             self._atomic_write(strategy_path, _canonical_json(model.to_dict()), None)
             self._append_jsonl(strategy_dir / "lifecycle.jsonl", event.to_dict())
+            if credential_path is not None and credential_text is not None:
+                self._atomic_write(credential_path, credential_text, None)
             self._atomic_write(
                 self.registry_path,
                 _canonical_json(registry),
@@ -453,9 +482,7 @@ class StrategyRegistry:
         family_before = family_path.read_bytes()
         lifecycle_before = lifecycle_path.read_bytes() if lifecycle_path.exists() else None
         try:
-            self._atomic_write(
-                family_path, _canonical_json(updated.to_dict()), family_before
-            )
+            self._atomic_write(family_path, _canonical_json(updated.to_dict()), family_before)
             self._append_jsonl(lifecycle_path, event.to_dict())
         except Exception:
             self._atomic_write(
@@ -474,7 +501,7 @@ class StrategyRegistry:
             raise
         return updated
 
-    def open_freeze_review(
+    def _legacy_open_freeze_review(
         self,
         review_id: str,
         candidate: CandidateSnapshot | dict[str, Any],
@@ -532,9 +559,7 @@ class StrategyRegistry:
             "review_case.json": case.to_dict(),
         }
         if destination.exists():
-            existing = {
-                name: self._read_json(destination / name) for name in documents
-            }
+            existing = {name: self._read_json(destination / name) for name in documents}
             if existing == documents:
                 return case
             raise RegistryError(f"freeze review already exists: {review_id}")
@@ -551,7 +576,7 @@ class StrategyRegistry:
             raise
         return case
 
-    def get_freeze_review(
+    def _legacy_get_freeze_review(
         self, strategy_id: str, review_id: str
     ) -> tuple[FreezeReviewCase, CandidateSnapshot, EvaluationMandate]:
         directory = self._review_dir(strategy_id, review_id)
@@ -577,7 +602,7 @@ class StrategyRegistry:
             raise RegistryError("freeze review audit policy hash mismatch")
         return case, snapshot, mandate
 
-    def record_adjudication(
+    def _legacy_record_adjudication(
         self,
         report: AdjudicationReport | dict[str, Any],
     ) -> FreezeReviewCase:
@@ -586,9 +611,7 @@ class StrategyRegistry:
             if isinstance(report, AdjudicationReport)
             else AdjudicationReport.from_dict(report)
         )
-        case, snapshot, mandate = self.get_freeze_review(
-            model.strategy_id, model.review_id
-        )
+        case, snapshot, mandate = self._legacy_get_freeze_review(model.strategy_id, model.review_id)
         if case.status in {ReviewStatus.INVALIDATED, ReviewStatus.FROZEN}:
             raise RegistryError(f"freeze review cannot be evaluated: {case.status.value}")
         if (
@@ -632,11 +655,11 @@ class StrategyRegistry:
             raise
         return updated
 
-    def invalidate_freeze_review(
+    def _legacy_invalidate_freeze_review(
         self, strategy_id: str, review_id: str, *, reason: str
     ) -> FreezeReviewCase:
         reason = require_string(reason, "reason")
-        case, _snapshot, _mandate = self.get_freeze_review(strategy_id, review_id)
+        case, _snapshot, _mandate = self._legacy_get_freeze_review(strategy_id, review_id)
         if case.status is ReviewStatus.FROZEN:
             raise RegistryError("frozen review cannot be invalidated")
         updated = replace(
@@ -651,7 +674,7 @@ class StrategyRegistry:
         )
         return updated
 
-    def create_version(
+    def _legacy_create_version(
         self,
         version: StrategyVersion | dict[str, Any],
         *,
@@ -660,7 +683,9 @@ class StrategyRegistry:
     ) -> tuple[StrategyVersion, LifecycleEvent]:
         actor = require_string(actor, "actor")
         reason = require_string(reason, "reason")
-        model = version if isinstance(version, StrategyVersion) else StrategyVersion.from_dict(version)
+        model = (
+            version if isinstance(version, StrategyVersion) else StrategyVersion.from_dict(version)
+        )
         self.get_family(model.strategy_id)
         versions = self._versions(model.strategy_id)
         next_number = len(versions) + 1
@@ -688,10 +713,12 @@ class StrategyRegistry:
             _canonical_json(model.to_dict()),
             None,
         )
-        self._append_jsonl(self._strategy_dir(model.strategy_id) / "lifecycle.jsonl", event.to_dict())
+        self._append_jsonl(
+            self._strategy_dir(model.strategy_id) / "lifecycle.jsonl", event.to_dict()
+        )
         return model, event
 
-    def create_frozen_version(
+    def _legacy_create_frozen_version(
         self,
         strategy_id: str,
         review_id: str,
@@ -706,7 +733,7 @@ class StrategyRegistry:
         actor = require_string(actor, "actor")
         reason = require_string(reason, "reason")
         change_summary = require_string(change_summary, "change_summary")
-        case, snapshot, mandate = self.get_freeze_review(strategy_id, review_id)
+        case, snapshot, mandate = self._legacy_get_freeze_review(strategy_id, review_id)
         if case.status is ReviewStatus.FROZEN:
             matching = [
                 item
@@ -738,9 +765,7 @@ class StrategyRegistry:
                 raise RegistryError("frozen review lifecycle event is inconsistent")
             return existing, events[0]
         if case.status is not ReviewStatus.ELIGIBLE:
-            raise EvidenceRequiredError(
-                f"freeze review is not eligible: {case.status.value}"
-            )
+            raise EvidenceRequiredError(f"freeze review is not eligible: {case.status.value}")
         report_path = self._review_dir(strategy_id, review_id) / "adjudication_report.json"
         if not report_path.is_file():
             raise EvidenceRequiredError("freeze review has no adjudication report")
@@ -779,7 +804,10 @@ class StrategyRegistry:
         require_timestamp(human_decision["decided_at"], "decided_at")
         if not isinstance(runtime_acceptance, dict) or runtime_acceptance.get("status") != "PASS":
             raise EvidenceRequiredError("runtime acceptance must PASS before freeze")
-        if runtime_acceptance.get("release_id") != f"{strategy_id}-v{len(self._versions(strategy_id)) + 1}":
+        if (
+            runtime_acceptance.get("release_id")
+            != f"{strategy_id}-v{len(self._versions(strategy_id)) + 1}"
+        ):
             raise EvidenceRequiredError("runtime acceptance belongs to another release")
         if runtime_acceptance.get("strategy_payload_hash") != canonical_sha256(
             snapshot.strategy_payload
@@ -901,6 +929,279 @@ class StrategyRegistry:
             raise
         return frozen, event
 
+    def create_frozen_version_from_credential(
+        self,
+        strategy_id: str,
+        credential_id: str,
+        *,
+        actor: str,
+        reason: str,
+        evidence: dict[str, Any],
+        change_summary: str,
+    ) -> tuple[StrategyVersion, LifecycleEvent, StrategyGovernanceCredential]:
+        """Atomically freeze the version and stamp the existing governance credential."""
+
+        actor = require_string(actor, "actor")
+        reason = require_string(reason, "reason")
+        change_summary = require_string(change_summary, "change_summary")
+        credential = self.get_governance_credential(strategy_id, credential_id)
+        if credential.stage is GovernanceStage.VERSION_FROZEN:
+            matching = [
+                item
+                for item in self._versions(strategy_id)
+                if item.schema_version == 3
+                and item.governance is not None
+                and item.governance.get("credential_id") == credential_id
+            ]
+            if len(matching) != 1:
+                raise RegistryError(
+                    "frozen governance credential does not resolve to exactly one version"
+                )
+            version = matching[0]
+            approval = next(
+                (
+                    seal
+                    for seal in reversed(credential.seals)
+                    if seal.stage is GovernanceStage.FREEZE_APPROVED
+                ),
+                None,
+            )
+            decision = approval.content.get("human_decision") if approval is not None else None
+            if (
+                not isinstance(decision, dict)
+                or decision.get("actor") != actor
+                or decision.get("reason") != reason
+                or version.change_summary != change_summary
+            ):
+                raise RegistryError("governance credential already froze with different input")
+            events = [
+                item
+                for item in self.lifecycle_events(strategy_id)
+                if item.version == version.version
+                and item.event_type == "VERSION_FROZEN"
+                and credential_id in item.evidence_ids
+            ]
+            if len(events) != 1:
+                raise RegistryError("frozen governance lifecycle event is inconsistent")
+            return version, events[0], credential
+        if credential.stage is not GovernanceStage.FREEZE_APPROVED:
+            raise EvidenceRequiredError(
+                f"governance credential is not approved: {credential.stage.value}"
+            )
+
+        submission = next(
+            (
+                seal
+                for seal in reversed(credential.seals)
+                if seal.stage is GovernanceStage.CANDIDATE_SUBMITTED
+            ),
+            None,
+        )
+        adjudication = next(
+            (
+                seal
+                for seal in reversed(credential.seals)
+                if seal.stage is GovernanceStage.TDR_ADJUDICATED
+            ),
+            None,
+        )
+        approval = credential.seals[-1]
+        if submission is None or adjudication is None:
+            raise EvidenceRequiredError(
+                "governance credential is missing submission or adjudication"
+            )
+        try:
+            snapshot = CandidateSnapshot.from_dict(dict(submission.content["candidate_snapshot"]))
+            mandate = EvaluationMandate.from_dict(dict(submission.content["evaluation_mandate"]))
+            report = AdjudicationReport.from_dict(dict(adjudication.content["adjudication_report"]))
+            human_decision = dict(approval.content["human_decision"])
+            runtime_acceptance = dict(approval.content["runtime_acceptance"])
+        except (KeyError, TypeError, ValueError, ValidationError) as exc:
+            raise EvidenceRequiredError(
+                "governance credential content is incomplete or invalid"
+            ) from exc
+        if (
+            snapshot.strategy_id != strategy_id
+            or mandate.strategy_id != strategy_id
+            or report.strategy_id != strategy_id
+            or mandate.candidate_id != snapshot.candidate_id
+            or report.candidate_id != snapshot.candidate_id
+            or report.candidate_hash != snapshot.candidate_hash
+            or report.evaluation_mandate_hash != mandate.mandate_hash
+            or report.machine_verdict != "ELIGIBLE_FOR_FREEZE_REVIEW"
+            or adjudication.result is not GovernanceResult.ELIGIBLE
+        ):
+            raise EvidenceRequiredError("governance credential identities or verdict differ")
+        if (
+            human_decision.get("credential_id") != credential_id
+            or human_decision.get("strategy_id") != strategy_id
+            or human_decision.get("candidate_id") != snapshot.candidate_id
+            or human_decision.get("candidate_hash") != snapshot.candidate_hash
+            or human_decision.get("decision") != "APPROVE_FREEZE"
+            or human_decision.get("actor") != actor
+            or human_decision.get("reason") != reason
+        ):
+            raise EvidenceRequiredError("human freeze decision does not match credential")
+        require_timestamp(human_decision.get("decided_at"), "decided_at")
+        if runtime_acceptance.get("status") != "PASS":
+            raise EvidenceRequiredError("runtime acceptance must PASS before freeze")
+        if runtime_acceptance.get("strategy_payload_hash") != canonical_sha256(
+            snapshot.strategy_payload
+        ):
+            raise EvidenceRequiredError("runtime acceptance belongs to another strategy payload")
+        runtime_sha256 = runtime_acceptance.get("runtime_sha256")
+        if not isinstance(runtime_sha256, str) or len(runtime_sha256) != 64:
+            raise EvidenceRequiredError("runtime acceptance is missing runtime identity")
+
+        versions = self._versions(strategy_id)
+        version_name = f"v{len(versions) + 1}"
+        release_id = f"{strategy_id}-{version_name}"
+        if runtime_acceptance.get("release_id") != release_id:
+            raise EvidenceRequiredError("runtime acceptance belongs to another release")
+        governance = {
+            "credential_id": credential_id,
+            "candidate_submission_seal_hash": submission.seal_hash,
+            "adjudication_seal_hash": adjudication.seal_hash,
+            "approval_seal_hash": approval.seal_hash,
+            "candidate_snapshot_hash": canonical_sha256(snapshot.to_dict()),
+            "evaluation_mandate_hash": mandate.mandate_hash,
+            "adjudication_report_hash": report.report_hash,
+        }
+        draft = StrategyVersion.from_dict(
+            {
+                "schema_version": 3,
+                "strategy_id": strategy_id,
+                "version": version_name,
+                "release_id": release_id,
+                "parent_version": versions[-1].version if versions else None,
+                "change_summary": change_summary,
+                "source_experiment": snapshot.source_experiment,
+                "source_candidate": snapshot.candidate_id,
+                "selection_data_cutoff": mandate.development_cutoff,
+                "forward_start": mandate.forward_start,
+                "strategy_payload": snapshot.strategy_payload,
+                "release_hash": None,
+                "governance": governance,
+                "governance_hash": canonical_sha256(governance),
+            }
+        )
+        frozen = replace(draft, release_hash=canonical_sha256(draft.release_payload()))
+        if runtime_acceptance.get("release_hash") != frozen.release_hash:
+            raise EvidenceRequiredError(
+                "runtime acceptance release hash differs from the frozen release"
+            )
+        incoming = dict(evidence)
+        incoming.update(
+            {
+                "strategy_id": strategy_id,
+                "version": version_name,
+                "release_hash": frozen.release_hash,
+            }
+        )
+        research_evidence = PerformanceEvidence.from_dict(incoming)
+        if research_evidence.phase is not EvidencePhase.RESEARCH_BACKTEST:
+            raise EvidenceRequiredError("freeze requires RESEARCH_BACKTEST evidence")
+        event = self._event(
+            "VERSION_FROZEN",
+            strategy_id,
+            version_name,
+            None,
+            Qualification.PAPER_READY,
+            actor,
+            reason,
+            [
+                research_evidence.evidence_id,
+                credential_id,
+                f"APPROVAL_SEAL:{approval.seal_hash}",
+            ],
+            frozen.release_hash,
+        )
+        final_content = {
+            "release_id": release_id,
+            "release_hash": frozen.release_hash,
+            "version_record_hash": canonical_sha256(frozen.to_dict()),
+            "evidence_id": research_evidence.evidence_id,
+            "lifecycle_event_id": event.event_id,
+        }
+        final_seal = self._build_governance_seal(
+            credential_id=credential_id,
+            strategy_id=strategy_id,
+            sequence=len(credential.seals) + 1,
+            stage=GovernanceStage.VERSION_FROZEN,
+            result=GovernanceResult.FROZEN,
+            actor=actor,
+            previous_seal_hash=credential.credential_hash,
+            content=final_content,
+            artifact_hashes={
+                "strategy_version": canonical_sha256(frozen.to_dict()),
+                "research_evidence": canonical_sha256(research_evidence.to_dict()),
+            },
+        )
+        updated_credential = StrategyGovernanceCredential.from_seals(
+            (*credential.seals, final_seal)
+        )
+
+        version_path = self._version_path(strategy_id, version_name)
+        if version_path.exists():
+            raise RegistryError(f"strategy version already exists: {release_id}")
+        evidence_path = self._strategy_dir(strategy_id) / "evidence.jsonl"
+        lifecycle_path = self._strategy_dir(strategy_id) / "lifecycle.jsonl"
+        credential_path = self._credential_path(strategy_id, credential_id)
+        before_evidence = evidence_path.read_bytes() if evidence_path.exists() else None
+        before_lifecycle = lifecycle_path.read_bytes() if lifecycle_path.exists() else None
+        before_credential = credential_path.read_bytes()
+        evidence_text = before_evidence.decode("utf-8") if before_evidence else ""
+        lifecycle_text = before_lifecycle.decode("utf-8") if before_lifecycle else ""
+        credential_text = before_credential.decode("utf-8")
+        snapshots = [
+            (version_path, None),
+            (evidence_path, before_evidence),
+            (lifecycle_path, before_lifecycle),
+            (credential_path, before_credential),
+        ]
+        try:
+            self._atomic_write(version_path, _canonical_json(frozen.to_dict()), None)
+            self._atomic_write(
+                evidence_path,
+                evidence_text
+                + json.dumps(
+                    research_evidence.to_dict(),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                before_evidence,
+            )
+            self._atomic_write(
+                lifecycle_path,
+                lifecycle_text
+                + json.dumps(
+                    event.to_dict(),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                before_lifecycle,
+            )
+            self._atomic_write(
+                credential_path,
+                credential_text
+                + json.dumps(
+                    final_seal.to_dict(),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                before_credential,
+            )
+        except Exception:
+            self._restore_files(snapshots)
+            raise
+        return frozen, event, updated_credential
+
     def record_legacy_governance_acceptance(
         self,
         strategy_id: str,
@@ -917,8 +1218,7 @@ class StrategyRegistry:
         existing = [
             item
             for item in self.lifecycle_events(strategy_id)
-            if item.version == version
-            and item.event_type == "LEGACY_GOVERNANCE_ACCEPTED"
+            if item.version == version and item.event_type == "LEGACY_GOVERNANCE_ACCEPTED"
         ]
         if existing:
             return existing[-1]
@@ -934,9 +1234,7 @@ class StrategyRegistry:
             ["TDR_GOVERNANCE_V2", f"CUTOVER:{cutover_commit}"],
             release.release_hash,
         )
-        self._append_jsonl(
-            self._strategy_dir(strategy_id) / "lifecycle.jsonl", event.to_dict()
-        )
+        self._append_jsonl(self._strategy_dir(strategy_id) / "lifecycle.jsonl", event.to_dict())
         return event
 
     def lifecycle_events(self, strategy_id: str) -> list[LifecycleEvent]:
@@ -953,9 +1251,7 @@ class StrategyRegistry:
             raise RegistryError(f"invalid lifecycle history: {strategy_id}") from exc
 
     def current_qualification(self, strategy_id: str, version: str) -> Qualification:
-        events = [
-            event for event in self.lifecycle_events(strategy_id) if event.version == version
-        ]
+        events = [event for event in self.lifecycle_events(strategy_id) if event.version == version]
         if not events:
             raise RegistryError(f"strategy version has no lifecycle: {strategy_id}-{version}")
         return events[-1].to_state
@@ -998,7 +1294,9 @@ class StrategyRegistry:
                 raise RegistryError("source evidence bundle is missing its source object")
             if canonical_sha256(source_payload) != model.source_hash:
                 raise RegistryError("source evidence hash mismatch")
-            destination = self._strategy_dir(model.strategy_id) / "evidence" / f"{model.evidence_id}.json"
+            destination = (
+                self._strategy_dir(model.strategy_id) / "evidence" / f"{model.evidence_id}.json"
+            )
             destination.parent.mkdir(parents=True, exist_ok=True)
             if destination.exists() and destination.read_bytes() != source.read_bytes():
                 raise RegistryError(f"evidence artifact already exists: {model.evidence_id}")
@@ -1011,7 +1309,7 @@ class StrategyRegistry:
         )
         return model
 
-    def freeze_version(
+    def _legacy_freeze_version(
         self,
         strategy_id: str,
         version: str,
@@ -1028,11 +1326,15 @@ class StrategyRegistry:
         validate_transition(current, Qualification.PAPER_READY)
         research = self.get_version(strategy_id, version)
         if research.release_hash is not None:
-            raise ImmutableVersionError(f"strategy version is already frozen: {research.release_id}")
+            raise ImmutableVersionError(
+                f"strategy version is already frozen: {research.release_id}"
+            )
         release_hash = canonical_sha256(research.release_payload())
         frozen = replace(research, release_hash=release_hash)
         freeze_approval = (
-            approval if isinstance(approval, FreezeApproval) else FreezeApproval.from_dict(dict(approval))
+            approval
+            if isinstance(approval, FreezeApproval)
+            else FreezeApproval.from_dict(dict(approval))
         )
         report = dict(machine_report)
         report_hash = report.pop("report_hash", None)
@@ -1067,17 +1369,23 @@ class StrategyRegistry:
         ):
             raise EvidenceRequiredError("freeze candidate and machine report differ")
         candidate_source = research.strategy_payload.get("candidate_source", {})
-        payload_hash = candidate_source.get("candidate_hash") if isinstance(candidate_source, dict) else None
+        payload_hash = (
+            candidate_source.get("candidate_hash") if isinstance(candidate_source, dict) else None
+        )
         if payload_hash is not None and payload_hash != freeze_approval.candidate_hash:
             raise EvidenceRequiredError("freeze approval candidate hash mismatch")
-        incoming = evidence.to_dict() if isinstance(evidence, PerformanceEvidence) else dict(evidence)
+        incoming = (
+            evidence.to_dict() if isinstance(evidence, PerformanceEvidence) else dict(evidence)
+        )
         incoming.update(
             {"strategy_id": strategy_id, "version": version, "release_hash": release_hash}
         )
         research_evidence = PerformanceEvidence.from_dict(incoming)
         if research_evidence.phase is not EvidencePhase.RESEARCH_BACKTEST:
             raise EvidenceRequiredError("freeze requires RESEARCH_BACKTEST evidence")
-        if any(item.evidence_id == research_evidence.evidence_id for item in self.evidence(strategy_id)):
+        if any(
+            item.evidence_id == research_evidence.evidence_id for item in self.evidence(strategy_id)
+        ):
             raise RegistryError(f"evidence_id already exists: {research_evidence.evidence_id}")
         event = self._event(
             "VERSION_FROZEN",
@@ -1254,8 +1562,7 @@ class StrategyRegistry:
         qualification = self.current_qualification(strategy_id, version)
         if not qualification_is_deployable(qualification, environment):
             raise InvalidTransitionError(
-                f"{strategy_id}-{version} is not deployable to {environment}: "
-                f"{qualification.value}"
+                f"{strategy_id}-{version} is not deployable to {environment}: {qualification.value}"
             )
         return self.get_version(strategy_id, version)
 
@@ -1287,6 +1594,79 @@ class StrategyRegistry:
                     )
                 credential_ids.add(credential.credential_id)
                 credential_count += 1
+                if credential.stage is GovernanceStage.VERSION_FROZEN:
+                    final = credential.seals[-1]
+                    release_id = final.content.get("release_id")
+                    if not isinstance(release_id, str) or "-" not in release_id:
+                        raise RegistryError(
+                            f"frozen credential has no release identity: {credential.credential_id}"
+                        )
+                    matching = [item for item in versions if item.release_id == release_id]
+                    if len(matching) != 1:
+                        raise RegistryError(
+                            f"frozen credential release is missing: {credential.credential_id}"
+                        )
+                    version = matching[0]
+                    submission = next(
+                        seal
+                        for seal in reversed(credential.seals)
+                        if seal.stage is GovernanceStage.CANDIDATE_SUBMITTED
+                    )
+                    adjudication = next(
+                        seal
+                        for seal in reversed(credential.seals)
+                        if seal.stage is GovernanceStage.TDR_ADJUDICATED
+                    )
+                    approval = next(
+                        seal
+                        for seal in reversed(credential.seals)
+                        if seal.stage is GovernanceStage.FREEZE_APPROVED
+                    )
+                    snapshot = CandidateSnapshot.from_dict(
+                        dict(submission.content["candidate_snapshot"])
+                    )
+                    mandate = EvaluationMandate.from_dict(
+                        dict(submission.content["evaluation_mandate"])
+                    )
+                    report = AdjudicationReport.from_dict(
+                        dict(adjudication.content["adjudication_report"])
+                    )
+                    expected_governance = {
+                        "credential_id": credential.credential_id,
+                        "candidate_submission_seal_hash": submission.seal_hash,
+                        "adjudication_seal_hash": adjudication.seal_hash,
+                        "approval_seal_hash": approval.seal_hash,
+                        "candidate_snapshot_hash": canonical_sha256(snapshot.to_dict()),
+                        "evaluation_mandate_hash": mandate.mandate_hash,
+                        "adjudication_report_hash": report.report_hash,
+                    }
+                    evidence_id = final.content.get("evidence_id")
+                    matching_evidence = [
+                        item for item in evidence if item.evidence_id == evidence_id
+                    ]
+                    if (
+                        final.content.get("release_hash") != version.release_hash
+                        or final.content.get("version_record_hash")
+                        != canonical_sha256(version.to_dict())
+                        or version.governance is None
+                        or version.governance.get(
+                            "credential_id" if version.schema_version == 3 else "review_id"
+                        )
+                        != credential.credential_id
+                        or (
+                            version.schema_version == 3
+                            and version.governance != expected_governance
+                        )
+                        or len(matching_evidence) != 1
+                        or final.artifact_hashes.get("strategy_version")
+                        != canonical_sha256(version.to_dict())
+                        or final.artifact_hashes.get("research_evidence")
+                        != canonical_sha256(matching_evidence[0].to_dict())
+                    ):
+                        raise RegistryError(
+                            f"frozen credential and strategy version differ: "
+                            f"{credential.credential_id}"
+                        )
             for item in versions:
                 self.current_qualification(item.strategy_id, item.version)
             for item in evidence:

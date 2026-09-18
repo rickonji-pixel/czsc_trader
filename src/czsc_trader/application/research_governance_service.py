@@ -7,6 +7,7 @@ StrategyFamily identity that a human explicitly approved.
 from __future__ import annotations
 
 import json
+import hashlib
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -98,11 +99,24 @@ def create_research_batch(
         try:
             handoff = destination / "HANDOFF.md"
             temporary_handoff = destination / ".HANDOFF.md.tmp"
-            temporary_handoff.write_text(
-                _handoff_text(family), encoding="utf-8", newline="\n"
-            )
+            handoff_text = _handoff_text(family)
+            temporary_handoff.write_text(handoff_text, encoding="utf-8", newline="\n")
             temporary_handoff.replace(handoff)
-            registry.create_family(family, actor=actor, reason=reason)
+            credential_id = f"SGC-{family.strategy_id}-001"
+            registry.create_family(
+                family,
+                actor=actor,
+                reason=reason,
+                credential_id=credential_id,
+                credential_content={
+                    "research_batch": family.to_dict(),
+                    "reason": reason,
+                },
+                credential_artifact_hashes={
+                    "research_handoff": hashlib.sha256(handoff_text.encode("utf-8")).hexdigest()
+                },
+            )
+            credential = registry.get_governance_credential(family.strategy_id, credential_id)
         except Exception:
             shutil.rmtree(destination, ignore_errors=True)
             raise
@@ -117,6 +131,12 @@ def create_research_batch(
         "research.create",
         {
             "family": family.to_dict(),
+            "governance_credential": {
+                "credential_id": credential.credential_id,
+                "stage": credential.stage.value,
+                "result": credential.result.value,
+                "credential_hash": credential.credential_hash,
+            },
             "research_directory": str(destination.relative_to(context.root)),
         },
     )
@@ -137,9 +157,7 @@ def update_research_intent(
         allowed = {"research_intent", "research_state"}
         unknown = sorted(set(raw) - allowed)
         if unknown or not raw:
-            raise ValueError(
-                f"research intent update has invalid fields: {unknown or sorted(raw)}"
-            )
+            raise ValueError(f"research intent update has invalid fields: {unknown or sorted(raw)}")
         family = StrategyRegistry(context.strategy_root).update_family(
             strategy_id,
             research_intent=raw.get("research_intent"),

@@ -13,8 +13,11 @@ from strategy_manager import (
     AdjudicationReport,
     CandidateSnapshot,
     EvaluationMandate,
-    ReviewStatus,
+    GovernanceResult,
+    GovernanceStage,
     StrategyManagerError,
+    StrategyGovernanceCredential,
+    StrategyGovernanceSeal,
     StrategyRegistry,
     StrategyVersion,
     canonical_sha256,
@@ -87,19 +90,78 @@ def _hash_file(path: Path) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
+def _credential_view(credential: StrategyGovernanceCredential) -> dict[str, Any]:
+    return {
+        "credential_id": credential.credential_id,
+        "strategy_id": credential.strategy_id,
+        "stage": credential.stage.value,
+        "result": credential.result.value,
+        "credential_hash": credential.credential_hash,
+        "seals": [seal.to_dict() for seal in credential.seals],
+    }
+
+
+def _latest_seal(
+    credential: StrategyGovernanceCredential, stage: GovernanceStage
+) -> StrategyGovernanceSeal:
+    match = next((seal for seal in reversed(credential.seals) if seal.stage is stage), None)
+    if match is None:
+        raise ValueError(f"governance credential has no {stage.value} seal")
+    return match
+
+
+def _submission_from_credential(
+    credential: StrategyGovernanceCredential,
+) -> tuple[StrategyGovernanceSeal, CandidateSnapshot, EvaluationMandate, dict[str, Any]]:
+    seal = _latest_seal(credential, GovernanceStage.CANDIDATE_SUBMITTED)
+    try:
+        snapshot = CandidateSnapshot.from_dict(dict(seal.content["candidate_snapshot"]))
+        mandate = EvaluationMandate.from_dict(dict(seal.content["evaluation_mandate"]))
+        audit_policy = dict(seal.content["audit_policy"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("candidate submission seal is incomplete") from exc
+    if (
+        snapshot.strategy_id != credential.strategy_id
+        or mandate.strategy_id != credential.strategy_id
+        or mandate.candidate_id != snapshot.candidate_id
+    ):
+        raise ValueError("candidate submission identities differ")
+    expected_policy = {
+        "policy_version": "tdr-freeze-v2",
+        "required_audits": mandate.required_audits,
+    }
+    if audit_policy != expected_policy:
+        raise ValueError("candidate submission audit policy differs from mandate")
+    return seal, snapshot, mandate, audit_policy
+
+
+def _adjudication_from_credential(
+    credential: StrategyGovernanceCredential,
+) -> tuple[StrategyGovernanceSeal, AdjudicationReport]:
+    seal = _latest_seal(credential, GovernanceStage.TDR_ADJUDICATED)
+    try:
+        report = AdjudicationReport.from_dict(dict(seal.content["adjudication_report"]))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("TDR adjudication seal is incomplete") from exc
+    return seal, report
+
+
 def open_freeze_review(
     context: RepositoryContext,
     *,
-    review_id: str,
+    credential_id: str,
     candidate_path: Path,
     mandate_path: Path,
     actor: str,
+    reason: str,
 ) -> CommandResult:
     """Human gate 2: freeze candidate, final mandate, and audit policy."""
 
     try:
         snapshot = CandidateSnapshot.from_dict(_read_object(context, candidate_path))
         mandate = EvaluationMandate.from_dict(_read_object(context, mandate_path))
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("candidate submission reason must be nonblank")
         unknown = sorted(set(mandate.required_audits) - KNOWN_AUDITS)
         if unknown:
             raise ValueError(f"evaluation mandate has unsupported audits: {unknown}")
@@ -108,41 +170,87 @@ def open_freeze_review(
         experiment = _experiment_path(context, snapshot.source_experiment)
         if experiment.name not in snapshot.source_experiment:
             raise ValueError("candidate source experiment identity is ambiguous")
-        case = StrategyRegistry(context.strategy_root).open_freeze_review(
-            review_id, snapshot, mandate, actor=actor
+        registry = StrategyRegistry(context.strategy_root)
+        credential = registry.get_governance_credential(snapshot.strategy_id, credential_id)
+        audit_policy = {
+            "policy_version": "tdr-freeze-v2",
+            "required_audits": mandate.required_audits,
+        }
+        submission_content = {
+            "submission_id": f"SUB-{credential_id}-{len(credential.seals) + 1}",
+            "candidate_snapshot": snapshot.to_dict(),
+            "evaluation_mandate": mandate.to_dict(),
+            "audit_policy": audit_policy,
+            "reason": reason.strip(),
+        }
+        submission_artifacts = {
+            "candidate_snapshot": canonical_sha256(snapshot.to_dict()),
+            "evaluation_mandate": mandate.mandate_hash,
+            "audit_policy": canonical_sha256(audit_policy),
+        }
+        last = credential.seals[-1]
+        same_submission = (
+            last.stage is GovernanceStage.CANDIDATE_SUBMITTED
+            and last.actor == actor
+            and last.content.get("candidate_snapshot") == snapshot.to_dict()
+            and last.content.get("evaluation_mandate") == mandate.to_dict()
+            and last.content.get("audit_policy") == audit_policy
+            and last.content.get("reason") == reason.strip()
+            and last.artifact_hashes == submission_artifacts
         )
+        if not same_submission:
+            credential = registry.append_governance_seal(
+                snapshot.strategy_id,
+                credential_id,
+                stage=GovernanceStage.CANDIDATE_SUBMITTED,
+                result=GovernanceResult.OPEN,
+                actor=actor,
+                expected_previous_hash=credential.credential_hash,
+                content=submission_content,
+                artifact_hashes=submission_artifacts,
+            )
     except (StrategyManagerError, OSError, ValueError, json.JSONDecodeError) as exc:
         raise ValidationError(
             "freeze_review_open_failed",
             str(exc),
-            context={"command": "strategy.review.open", "review_id": review_id},
+            context={
+                "command": "strategy.review.open",
+                "credential_id": credential_id,
+            },
         ) from exc
     return CommandResult(
         "PASS",
         "strategy.review.open",
-        {"review_case": case.to_dict()},
+        {"governance_credential": _credential_view(credential)},
     )
 
 
 def show_freeze_review(
-    context: RepositoryContext, strategy_id: str, review_id: str
+    context: RepositoryContext, strategy_id: str, credential_id: str
 ) -> CommandResult:
     try:
         registry = StrategyRegistry(context.strategy_root)
-        case, snapshot, mandate = registry.get_freeze_review(strategy_id, review_id)
-        report_path = context.strategy_root / strategy_id / "reviews" / review_id / "adjudication_report.json"
-        report = None if not report_path.is_file() else json.loads(report_path.read_text(encoding="utf-8"))
+        credential = registry.get_governance_credential(strategy_id, credential_id)
+        _seal, snapshot, mandate, _policy = _submission_from_credential(credential)
+        try:
+            _report_seal, adjudication = _adjudication_from_credential(credential)
+            report = adjudication.to_dict()
+        except ValueError:
+            report = None
     except (StrategyManagerError, OSError, ValueError, json.JSONDecodeError) as exc:
         raise ValidationError(
             "freeze_review_read_failed",
             str(exc),
-            context={"command": "strategy.review.show", "review_id": review_id},
+            context={
+                "command": "strategy.review.show",
+                "credential_id": credential_id,
+            },
         ) from exc
     return CommandResult(
         "PASS",
         "strategy.review.show",
         {
-            "review_case": case.to_dict(),
+            "governance_credential": _credential_view(credential),
             "candidate_snapshot": snapshot.to_dict(),
             "evaluation_mandate": mandate.to_dict(),
             "adjudication_report": report,
@@ -229,9 +337,7 @@ def _claim_checks(snapshot: CandidateSnapshot, metric: dict[str, str]) -> list[d
     for name, claim in snapshot.research_claims.items():
         metric_name = METRIC_ALIASES.get(name)
         if metric_name is None:
-            checks.append(
-                {"claim": name, "status": "UNVERIFIABLE", "reason": "unsupported metric"}
-            )
+            checks.append({"claim": name, "status": "UNVERIFIABLE", "reason": "unsupported metric"})
             continue
         if isinstance(claim, dict):
             claimed = _number(claim.get("value"))
@@ -290,16 +396,17 @@ def _prospective_runtime(
     versions = registry.versions(snapshot.strategy_id)
     version = f"v{len(versions) + 1}"
     placeholder_governance = {
-        "review_id": "PROSPECTIVE",
+        "credential_id": "PROSPECTIVE",
+        "candidate_submission_seal_hash": "0" * 64,
+        "adjudication_seal_hash": "0" * 64,
+        "approval_seal_hash": "0" * 64,
         "candidate_snapshot_hash": "0" * 64,
         "evaluation_mandate_hash": "0" * 64,
         "adjudication_report_hash": "0" * 64,
-        "human_decision_hash": "0" * 64,
-        "runtime_acceptance_hash": "0" * 64,
     }
     draft = StrategyVersion.from_dict(
         {
-            "schema_version": 2,
+            "schema_version": 3,
             "strategy_id": snapshot.strategy_id,
             "version": version,
             "release_id": f"{snapshot.strategy_id}-{version}",
@@ -320,9 +427,7 @@ def _prospective_runtime(
     return report
 
 
-def _artifact_audit(
-    experiment: Path, audit: str, machine: dict[str, Any]
-) -> dict[str, Any]:
+def _artifact_audit(experiment: Path, audit: str, machine: dict[str, Any]) -> dict[str, Any]:
     artifact = experiment / "artifacts"
     mapping = {
         "parameter_robustness": "parameter_neighborhood.csv",
@@ -344,9 +449,10 @@ def _artifact_audit(
         document = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(document, dict) or not document:
             return {"status": "INCOMPLETE", "artifact": mapping[audit]}
-        if audit in {"external_validation", "monitoring_plan"} and document.get(
-            "status"
-        ) not in {"PASS", "APPROVED"}:
+        if audit in {"external_validation", "monitoring_plan"} and document.get("status") not in {
+            "PASS",
+            "APPROVED",
+        }:
             return {"status": "INCOMPLETE", "artifact": mapping[audit], "detail": document}
     machine_checks = {
         "parameter_robustness": "parameter_robustness",
@@ -399,15 +505,30 @@ def _artifact_audit(
 
 
 def evaluate_freeze_review(
-    context: RepositoryContext, strategy_id: str, review_id: str
+    context: RepositoryContext, strategy_id: str, credential_id: str
 ) -> CommandResult:
     """Independently recompute the candidate and issue one immutable report."""
 
     registry = StrategyRegistry(context.strategy_root)
     try:
-        case, snapshot, mandate = registry.get_freeze_review(strategy_id, review_id)
-        if case.status not in {ReviewStatus.OPEN, ReviewStatus.EVALUATING}:
-            raise ValueError(f"freeze review cannot be evaluated: {case.status.value}")
+        credential = registry.get_governance_credential(strategy_id, credential_id)
+        if credential.stage is GovernanceStage.TDR_ADJUDICATED:
+            _submission, snapshot, _mandate, _policy = _submission_from_credential(credential)
+            _adjudication, report = _adjudication_from_credential(credential)
+            experiment = _experiment_path(context, snapshot.source_experiment)
+            return CommandResult(
+                "PASS",
+                "strategy.review.evaluate",
+                {
+                    "governance_credential": _credential_view(credential),
+                    "adjudication_report": report.to_dict(),
+                    "idempotent_replay": True,
+                },
+                {"source_experiment": str(experiment.relative_to(context.root))},
+            )
+        if credential.stage is not GovernanceStage.CANDIDATE_SUBMITTED:
+            raise ValueError(f"governance credential cannot be evaluated: {credential.stage.value}")
+        submission, snapshot, mandate, audit_policy = _submission_from_credential(credential)
         experiment = _experiment_path(context, snapshot.source_experiment)
         protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
         _assert_mandate_alignment(protocol, manifest, mandate)
@@ -492,13 +613,13 @@ def evaluate_freeze_review(
             verdict = "ELIGIBLE_FOR_FREEZE_REVIEW"
         report_payload = {
             "schema_version": 1,
-            "report_id": f"ADR-{review_id}",
-            "review_id": review_id,
+            "report_id": f"ADR-{credential_id}-{submission.sequence}",
+            "review_id": credential_id,
             "strategy_id": strategy_id,
             "candidate_id": snapshot.candidate_id,
             "candidate_hash": snapshot.candidate_hash,
             "evaluation_mandate_hash": mandate.mandate_hash,
-            "audit_policy_hash": case.audit_policy_hash,
+            "audit_policy_hash": canonical_sha256(audit_policy),
             "claim_checks": claims,
             "audit_results": audit_results,
             "machine_verdict": verdict,
@@ -510,17 +631,48 @@ def evaluate_freeze_review(
         report = AdjudicationReport.from_dict(
             {**report_payload, "report_hash": canonical_sha256(report_payload)}
         )
-        updated = registry.record_adjudication(report)
+        result = {
+            "ELIGIBLE_FOR_FREEZE_REVIEW": GovernanceResult.ELIGIBLE,
+            "INCOMPLETE": GovernanceResult.INCOMPLETE,
+            "REJECTED": GovernanceResult.REJECTED,
+        }[report.machine_verdict]
+        updated = registry.append_governance_seal(
+            strategy_id,
+            credential_id,
+            stage=GovernanceStage.TDR_ADJUDICATED,
+            result=result,
+            actor="TDR",
+            expected_previous_hash=credential.credential_hash,
+            content={
+                "submission_seal_hash": submission.seal_hash,
+                "adjudication_report": report.to_dict(),
+            },
+            artifact_hashes={
+                "adjudication_report": report.report_hash,
+                "source_experiment": canonical_sha256(
+                    {
+                        "path": str(experiment.relative_to(context.root)).replace("\\", "/"),
+                        "canonical_metric_hash": evaluation.result.get("canonical_metric_hash"),
+                    }
+                ),
+            },
+        )
     except (StrategyManagerError, OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
         raise ValidationError(
             "freeze_review_evaluation_failed",
             str(exc),
-            context={"command": "strategy.review.evaluate", "review_id": review_id},
+            context={
+                "command": "strategy.review.evaluate",
+                "credential_id": credential_id,
+            },
         ) from exc
     return CommandResult(
         "PASS",
         "strategy.review.evaluate",
-        {"review_case": updated.to_dict(), "adjudication_report": report.to_dict()},
+        {
+            "governance_credential": _credential_view(updated),
+            "adjudication_report": report.to_dict(),
+        },
         {"source_experiment": str(experiment.relative_to(context.root))},
     )
 
@@ -528,7 +680,7 @@ def evaluate_freeze_review(
 def freeze_review_candidate(
     context: RepositoryContext,
     strategy_id: str,
-    review_id: str,
+    credential_id: str,
     *,
     actor: str,
     reason: str,
@@ -538,15 +690,13 @@ def freeze_review_candidate(
 
     registry = StrategyRegistry(context.strategy_root)
     try:
-        case, snapshot, mandate = registry.get_freeze_review(strategy_id, review_id)
-        if case.status is ReviewStatus.FROZEN:
-            version, event = registry.create_frozen_version(
+        credential = registry.get_governance_credential(strategy_id, credential_id)
+        if credential.stage is GovernanceStage.VERSION_FROZEN:
+            version, event, credential = registry.create_frozen_version_from_credential(
                 strategy_id,
-                review_id,
+                credential_id,
                 actor=actor,
                 reason=reason,
-                human_decision={},
-                runtime_acceptance={},
                 evidence={},
                 change_summary=change_summary,
             )
@@ -556,37 +706,59 @@ def freeze_review_candidate(
                 {
                     "version": version.to_dict(),
                     "event": event.to_dict(),
-                    "review_id": review_id,
+                    "governance_credential": _credential_view(credential),
                     "pte_deployment": "NOT_REQUESTED",
                     "idempotent_replay": True,
                 },
             )
-        if case.status is not ReviewStatus.ELIGIBLE:
-            raise ValueError(f"freeze review is not eligible: {case.status.value}")
-        decision_payload = {
-            "schema_version": 1,
-            "review_id": review_id,
-            "strategy_id": strategy_id,
-            "candidate_id": snapshot.candidate_id,
-            "candidate_hash": snapshot.candidate_hash,
-            "decision": "APPROVE_FREEZE",
-            "actor": actor,
-            "reason": reason,
-            "decided_at": _now(),
-        }
-        human_decision = {
-            **decision_payload,
-            "decision_hash": canonical_sha256(decision_payload),
-        }
-        runtime = _prospective_runtime(registry, snapshot, mandate)
+        if credential.stage not in {
+            GovernanceStage.TDR_ADJUDICATED,
+            GovernanceStage.FREEZE_APPROVED,
+        }:
+            raise ValueError("governance credential does not contain an eligible TDR adjudication")
+        if (
+            credential.stage is GovernanceStage.TDR_ADJUDICATED
+            and credential.result is not GovernanceResult.ELIGIBLE
+        ):
+            raise ValueError("governance credential does not contain an eligible TDR adjudication")
+        _submission, snapshot, mandate, _audit_policy = _submission_from_credential(credential)
+        _adjudication, report = _adjudication_from_credential(credential)
+        if credential.stage is GovernanceStage.TDR_ADJUDICATED:
+            human_decision = {
+                "credential_id": credential_id,
+                "strategy_id": strategy_id,
+                "candidate_id": snapshot.candidate_id,
+                "candidate_hash": snapshot.candidate_hash,
+                "decision": "APPROVE_FREEZE",
+                "actor": actor,
+                "reason": reason,
+                "decided_at": _now(),
+            }
+            runtime = _prospective_runtime(registry, snapshot, mandate)
+            runtime["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
+            credential = registry.append_governance_seal(
+                strategy_id,
+                credential_id,
+                stage=GovernanceStage.FREEZE_APPROVED,
+                result=GovernanceResult.APPROVED,
+                actor=actor,
+                expected_previous_hash=credential.credential_hash,
+                content={
+                    "adjudication_report_hash": report.report_hash,
+                    "human_decision": human_decision,
+                    "runtime_acceptance": runtime,
+                },
+                artifact_hashes={
+                    "human_decision": canonical_sha256(human_decision),
+                    "runtime_acceptance": canonical_sha256(runtime),
+                },
+            )
         experiment = _experiment_path(context, snapshot.source_experiment)
-        _protocol, manifest, _candidate = _load_protocol_and_candidate(
-            experiment, snapshot
-        )
+        _protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
         metric = _formal_metric(experiment, snapshot.candidate_id)
         evidence = {
             "schema_version": 1,
-            "evidence_id": f"EVD-{strategy_id}-{snapshot.candidate_id}-{review_id}",
+            "evidence_id": f"EVD-{strategy_id}-{snapshot.candidate_id}-{credential_id}",
             "strategy_id": strategy_id,
             "version": "v1",
             "release_hash": "0" * 64,
@@ -594,7 +766,8 @@ def freeze_review_candidate(
             "period_start": str(mandate.evaluation_windows["full"]["start"]),
             "period_end": str(mandate.evaluation_windows["full"]["end"]),
             "data_identity": {
-                "candidate_snapshot_hash": case.candidate_snapshot_hash,
+                "governance_credential_id": credential_id,
+                "candidate_snapshot_hash": canonical_sha256(snapshot.to_dict()),
                 "evaluation_mandate_hash": mandate.mandate_hash,
             },
             "initial_capital": float(manifest.get("init_cash", 1_000_000.0)),
@@ -615,13 +788,11 @@ def freeze_review_candidate(
             "recorded_at": _now(),
             "recorded_by": actor,
         }
-        version, event = registry.create_frozen_version(
+        version, event, credential = registry.create_frozen_version_from_credential(
             strategy_id,
-            review_id,
+            credential_id,
             actor=actor,
             reason=reason,
-            human_decision=human_decision,
-            runtime_acceptance=runtime,
             evidence=evidence,
             change_summary=change_summary,
         )
@@ -629,7 +800,10 @@ def freeze_review_candidate(
         raise ValidationError(
             "strategy_freeze_failed",
             str(exc),
-            context={"command": "strategy.freeze", "review_id": review_id},
+            context={
+                "command": "strategy.freeze",
+                "credential_id": credential_id,
+            },
         ) from exc
     return CommandResult(
         "PASS",
@@ -637,7 +811,7 @@ def freeze_review_candidate(
         {
             "version": version.to_dict(),
             "event": event.to_dict(),
-            "review_id": review_id,
+            "governance_credential": _credential_view(credential),
             "pte_deployment": "NOT_REQUESTED",
         },
     )

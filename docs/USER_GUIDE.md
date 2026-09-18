@@ -120,28 +120,31 @@ Optuna搜索、SE评估和SM治理。
 # 节点一：人工批准建立研究批次和StrategyFamily
 .\.venv\Scripts\czsc-trader.exe research create `
   --input .\research-batch.json --actor tom --reason "批准研究立项"
+# 返回的governance_credential.credential_id用于后续两个节点
 
 # 节点二：人工批准候选进入冻结评审；此时最终评价目标才正式锁定
 .\.venv\Scripts\czsc-trader.exe strategy review open `
-  --review FR-S008-C001-001 `
+  --credential SGC-S008-001 `
   --candidate .\candidate-snapshot.json `
-  --mandate .\evaluation-mandate.json --actor tom
+  --mandate .\evaluation-mandate.json --actor tom `
+  --reason "批准候选进入冻结流程"
 
 # TDR禁用既有评价缓存和实验制品复用，独立重算并检查全部强制体检项
 .\.venv\Scripts\czsc-trader.exe strategy review evaluate `
-  --strategy S008 --review FR-S008-C001-001
+  --strategy S008 --credential SGC-S008-001
 
 .\.venv\Scripts\czsc-trader.exe strategy review show `
-  --strategy S008 --review FR-S008-C001-001
+  --strategy S008 --credential SGC-S008-001
 
 # 节点三：人工阅读裁判报告后批准正式冻结
 .\.venv\Scripts\czsc-trader.exe strategy freeze `
-  --strategy S008 --review FR-S008-C001-001 `
+  --strategy S008 --credential SGC-S008-001 `
   --change-summary "首个冻结版本" `
   --actor tom --reason "批准低成本模拟观察"
 ```
 
-冻结成功只创建SM策略版本并进入`PAPER_READY`，返回结果明确标记PTE部署尚未请求。创建PTE
+同一份SGC以追加式哈希链依次记录立项、候选送审、TDR裁决、人工批准和版本冻结；正式流程
+不再创建独立`FreezeReviewCase`文件。冻结成功只创建SM策略版本并进入`PAPER_READY`，返回结果明确标记PTE部署尚未请求。创建PTE
 账户仍使用后文独立的`pte account create`命令。旧的`strategy create`、
 `strategy version create`、任意证据直冻和`strategy accept-evaluation`入口已经退出。
 

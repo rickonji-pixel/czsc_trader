@@ -37,9 +37,7 @@ EXPECTED_ACTIONS = {
 
 def _subparsers(parser: argparse.ArgumentParser) -> argparse._SubParsersAction:
     actions = [
-        action
-        for action in parser._actions
-        if isinstance(action, argparse._SubParsersAction)
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
     ]
     assert len(actions) == 1
     return actions[0]
@@ -88,22 +86,24 @@ def test_ft_t08_strategy_governance_documented_commands_parse() -> None:
             "strategy",
             "review",
             "open",
-            "--review",
-            "FR-S008-C001-001",
+            "--credential",
+            "SGC-S008-001",
             "--candidate",
             "candidate-snapshot.json",
             "--mandate",
             "evaluation-mandate.json",
             "--actor",
             "tomxiao",
+            "--reason",
+            "批准候选进入冻结流程",
         ],
         [
             "strategy",
             "freeze",
             "--strategy",
             "S008",
-            "--review",
-            "FR-S008-C001-001",
+            "--credential",
+            "SGC-S008-001",
             "--change-summary",
             "首个冻结版本",
             "--actor",

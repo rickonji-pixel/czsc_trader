@@ -312,18 +312,16 @@ class StrategyRelease:
         release_hash = str(raw["release_hash"])
         if not _SHA256.fullmatch(release_hash):
             raise RuntimeContractError("release_hash must be lowercase SHA-256")
-        if raw.get("schema_version") == 2:
+        if raw.get("schema_version") in {2, 3}:
             release_payload = {
-                "schema_version": 2,
+                "schema_version": raw["schema_version"],
                 "strategy_id": raw["strategy_id"],
                 "version": raw["version"],
                 "release_id": raw["release_id"],
                 "strategy_payload": raw["strategy_payload"],
             }
         else:
-            release_payload = {
-                key: item for key, item in raw.items() if key != "release_hash"
-            }
+            release_payload = {key: item for key, item in raw.items() if key != "release_hash"}
         if canonical_sha256(release_payload) != release_hash:
             raise RuntimeContractError("release_hash does not match the complete frozen record")
         instance = object.__new__(cls)

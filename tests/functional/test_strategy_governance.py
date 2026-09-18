@@ -30,7 +30,6 @@ from czsc_trader.application.freeze_review_service import (
 )
 from czsc_trader.application.freeze_review_service import _candidate_runtime, _submitted_runtime
 from czsc_trader.application.runtime_acceptance import validate_candidate_readiness
-from test_candidate_runtime_execution import candidate_payload
 from czsc_trader.application.results import CommandResult
 from czsc_trader.application.research_governance_service import create_research_batch
 from functional_support import invoke_main, invoke_main_failure

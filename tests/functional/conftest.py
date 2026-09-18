@@ -3,6 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 import json
+import importlib
+import sys
+
+import strategy_runtime.strategies
+from strategy_runtime import implementation_identity
 
 import pandas as pd
 import pytest
@@ -19,6 +24,33 @@ from czsc_trader.generation_integrity import file_sha256
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture
+def candidate_payload(tmp_path, monkeypatch):
+    package = tmp_path / "runtime"
+    strategies = package / "strategies"
+    strategies.mkdir(parents=True)
+    source = Path(__file__).parents[1] / "fixtures" / "candidate_runtime.py"
+    shutil.copyfile(source, strategies / "candidate_fixture.py")
+    module_name = "strategy_runtime.strategies.candidate_fixture"
+    monkeypatch.setattr(strategy_runtime.strategies, "__path__", [str(strategies)])
+    monkeypatch.setattr(implementation_identity, "files", lambda _: package)
+    importlib.invalidate_caches()
+    payload = {
+        "runtime": {
+            "module": module_name,
+            "qualname": "CandidateFixture",
+            "contract_version": 1,
+            "source_files": ["strategies/candidate_fixture.py"],
+            "source_sha256": implementation_identity.implementation_sha256(
+                ("strategies/candidate_fixture.py",),
+            ),
+        },
+        "parameters": {"threshold": 0.5},
+    }
+    yield payload, package
+    sys.modules.pop(module_name, None)
 
 
 def _frame(root: Path, pattern: str, date_column: str) -> pd.DataFrame:

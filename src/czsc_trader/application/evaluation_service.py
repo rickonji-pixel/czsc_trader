@@ -16,6 +16,7 @@ from czsc_trader.temp_workspace import create_temporary_directory
 from strategy_evaluator import (
     CandidateDescriptor,
     EvaluationProtocol,
+    ExternalReplayEvidence,
     MachineEvaluationCase,
     MachineEvaluationPolicy,
     MetricObservation,
@@ -32,6 +33,7 @@ from strategy_evaluator import (
     screen_candidates,
     validate_protocol,
 )
+from trading_execution_engine import EXECUTION_CONTRACT_VERSION
 
 from czsc_trader.application.evaluation_evidence import build_champion_audit_request
 from czsc_trader.candidate_evaluation import (
@@ -340,6 +342,10 @@ def evaluate_experiment(
     runner: Runner = evaluate_candidate_payloads,
     use_cached_result: bool = True,
     allow_artifact_reuse: bool = True,
+    machine_policy: MachineEvaluationPolicy | None = None,
+    stress_scenarios: tuple[str, ...] | None = None,
+    frequency_window_days: int = 60,
+    external_replays: tuple[ExternalReplayEvidence, ...] = (),
 ) -> CommandResult:
     experiment = _experiment_path(context, experiment_id)
     protocol_raw = _read_object(experiment / "evaluation_protocol.json")
@@ -361,7 +367,14 @@ def evaluate_experiment(
     payloads = tuple(item for item in raw_candidates if isinstance(item, dict))
     candidates = tuple(_descriptor(item) for item in payloads)
     trials = tuple(_trial(item) for item in raw_trials if isinstance(item, dict))
-    input_hash = _canonical_hash(protocol_raw, manifest)
+    evaluation_directive = {
+        "machine_policy": None if machine_policy is None else machine_policy.to_dict(),
+        "stress_scenarios": None if stress_scenarios is None else list(stress_scenarios),
+        "frequency_window_days": frequency_window_days,
+        "allow_artifact_reuse": allow_artifact_reuse,
+        "external_replays": [item.to_dict() for item in external_replays],
+    }
+    input_hash = _canonical_hash(protocol_raw, manifest, evaluation_directive)
     artifact_dir = experiment / "artifacts"
     result_path = artifact_dir / "evaluation_result.json"
     if result_path.is_file() and use_cached_result:
@@ -382,7 +395,7 @@ def evaluate_experiment(
     run_context = CandidateEvaluationContext(
         context, str(manifest["symbol"]), str(manifest.get("asset_type", "etf")), periods,
         float(manifest.get("fee_rate", 0.0005)), float(manifest.get("init_cash", 1_000_000.0)),
-        workers,
+        workers, frequency_window_days,
     )
     reuse_ledger: list[ReuseLedgerRow] = []
     reuse_diagnostics: list[str] = []
@@ -439,7 +452,7 @@ def evaluate_experiment(
     repeated: tuple[MetricObservation, ...] = ()
     if ranking.champion_id:
         pair = (protocol.incumbent_id, ranking.champion_id)
-        scenarios = (
+        scenarios = stress_scenarios or (
             tuple(item.scenario_id for item in required_stress_scenarios())
             if protocol.standard_version == "opc-v3" else ("fee_x2",)
         )
@@ -460,13 +473,15 @@ def evaluate_experiment(
             machine_report = evaluate_machine_eligibility(MachineEvaluationCase(
                 report_id=f"SE-{experiment_id}-{ranking.champion_id}",
                 candidate_hash=champion.candidate_hash,
-                policy=MachineEvaluationPolicy(
+                policy=machine_policy
+                or MachineEvaluationPolicy(
                     policy_id="OPC-MACHINE-ELIGIBILITY",
                     policy_version="v1",
                     allowed_risk_labels=(RiskLabel.FAVORABLE, RiskLabel.MIXED),
                     blocking_stress_scenarios=("total_cost_15bp",),
                 ),
                 audit_request=audit_request,
+                external_replays=external_replays,
             ))
             champion_audit = machine_report.audit_result
         else:
@@ -487,6 +502,17 @@ def evaluate_experiment(
         "standard_version": protocol.standard_version,
         "input_hash": input_hash,
         "canonical_metric_hash": _canonical_hash(metric_rows),
+        "formal_evaluation_contract": {
+            "development_cutoff": protocol.development_cutoff,
+            "windows": manifest["windows"],
+            "benchmark_id": protocol.incumbent_id,
+            "primary_fee_rate": run_context.fee_rate,
+            "stress_scenarios": list(scenarios) if ranking.champion_id else [],
+            "frequency_window_days": frequency_window_days,
+            "execution_policy_hash": protocol.execution_policy_hash,
+            "execution_engine": EXECUTION_CONTRACT_VERSION,
+            "artifact_reuse": reuse,
+        },
     }
     if reuse:
         result_document["artifact_reuse_diagnostics"] = reuse_diagnostics

@@ -46,13 +46,21 @@ def validate_runtime_readiness(version: StrategyVersion) -> dict[str, object]:
         "input_contract_sha256": canonical_sha256(
             [asdict(item) for item in definition.inputs.requirements]
         ),
+        "input_contract": {
+            "requirements": [asdict(item) for item in definition.inputs.requirements],
+        },
         "decision_contract_sha256": canonical_sha256(asdict(definition.decision)),
+        "decision_contract": asdict(definition.decision),
         "execution_policy_sha256": canonical_sha256(
             {
                 "policy_type": definition.execution.policy_type,
                 "settings": _plain(definition.execution.settings),
             }
         ),
+        "execution_policy": {
+            "policy_type": definition.execution.policy_type,
+            "settings": _plain(definition.execution.settings),
+        },
         "state_mode": definition.state_mode,
     }
 

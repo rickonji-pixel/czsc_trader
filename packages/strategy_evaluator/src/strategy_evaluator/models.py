@@ -168,11 +168,25 @@ class MetricObservation(Record):
     turnover: float | None = None
     cost_drag: float | None = None
     objective_values: tuple[tuple[str, float], ...] = ()
+    frequency_window_days: int | None = None
+    rolling_closed_trades_median: float | None = None
+    rolling_closed_trades_p10: float | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> MetricObservation:
         required = {"candidate_id", "window_id", "scenario_id", "measurement_tier", "net_cagr", "total_return", "max_drawdown", "calmar", "calmar_status", "profit_factor", "profit_factor_status", "closed_trades"}
-        _exact(data, required, {"turnover", "cost_drag", "objective_values"})
+        _exact(
+            data,
+            required,
+            {
+                "turnover",
+                "cost_drag",
+                "objective_values",
+                "frequency_window_days",
+                "rolling_closed_trades_median",
+                "rolling_closed_trades_p10",
+            },
+        )
         return cls(
             str(data["candidate_id"]), str(data["window_id"]), str(data["scenario_id"]), str(data["measurement_tier"]),
             float(data["net_cagr"]), float(data["total_return"]), float(data["max_drawdown"]), None if data["calmar"] is None else float(data["calmar"]),
@@ -180,6 +194,9 @@ class MetricObservation(Record):
             _enum(MetricStatus, data["profit_factor_status"], "profit_factor_status"), int(data["closed_trades"]),
             None if data.get("turnover") is None else float(data["turnover"]), None if data.get("cost_drag") is None else float(data["cost_drag"]),
             tuple((key, float(value)) for key, value in _pairs(data.get("objective_values", {}), "objective_values")),
+            None if data.get("frequency_window_days") is None else int(data["frequency_window_days"]),
+            None if data.get("rolling_closed_trades_median") is None else float(data["rolling_closed_trades_median"]),
+            None if data.get("rolling_closed_trades_p10") is None else float(data["rolling_closed_trades_p10"]),
         )
 
 

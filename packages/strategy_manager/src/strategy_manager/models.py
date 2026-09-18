@@ -490,6 +490,7 @@ class EvaluationMandate:
     objectives: list[dict[str, Any]]
     cost_policy: dict[str, Any]
     frequency_policy: dict[str, Any]
+    audit_requirements: dict[str, Any]
     required_audits: list[str]
     evidence_seen_through: str
     finalized_at: str
@@ -508,6 +509,7 @@ class EvaluationMandate:
         "objectives",
         "cost_policy",
         "frequency_policy",
+        "audit_requirements",
         "required_audits",
         "evidence_seen_through",
         "finalized_at",
@@ -518,7 +520,13 @@ class EvaluationMandate:
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> EvaluationMandate:
         require_exact_fields(value, cls.FIELDS)
-        for field in ("evaluation_windows", "benchmark", "cost_policy", "frequency_policy"):
+        for field in (
+            "evaluation_windows",
+            "benchmark",
+            "cost_policy",
+            "frequency_policy",
+            "audit_requirements",
+        ):
             if not isinstance(value[field], dict) or not value[field]:
                 raise ValidationError(f"{field} must be a nonempty JSON object")
         objectives = value["objectives"]
@@ -549,6 +557,7 @@ class EvaluationMandate:
             objectives=[dict(item) for item in objectives],
             cost_policy=dict(value["cost_policy"]),
             frequency_policy=dict(value["frequency_policy"]),
+            audit_requirements=dict(value["audit_requirements"]),
             required_audits=[item.strip() for item in required_audits],
             evidence_seen_through=require_date(
                 value["evidence_seen_through"], "evidence_seen_through"

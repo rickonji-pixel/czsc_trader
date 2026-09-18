@@ -5,7 +5,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-from datetime import datetime
+import math
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,14 @@ from strategy_manager import (
     StrategyVersion,
     canonical_sha256,
 )
-from strategy_evaluator import EvaluationProtocol
+from strategy_evaluator import (
+    EvaluationProtocol,
+    ExternalReplayEvidence,
+    MachineEvaluationPolicy,
+    RiskLabel,
+    required_stress_scenarios,
+)
+from trading_execution_engine import EXECUTION_CONTRACT_VERSION
 
 from czsc_trader.experiment_archive import (
     resolve_experiment_dir,
@@ -36,12 +44,25 @@ from .results import CommandResult
 from .runtime_acceptance import validate_runtime_readiness
 
 
-KNOWN_AUDITS = frozenset(
+COMPLETE_AUDITS = frozenset(
     {
         "objective_recalculation",
+        "frequency_recalculation",
         "parameter_robustness",
         "statistical_robustness",
         "cost_stress",
+        "technical_replay",
+        "external_validation",
+        "runtime_acceptance",
+        "monitoring_plan",
+    }
+)
+KNOWN_AUDITS = COMPLETE_AUDITS
+
+AUDIT_REQUIREMENT_KEYS = frozenset(
+    {
+        "parameter_robustness",
+        "statistical_robustness",
         "technical_replay",
         "external_validation",
         "runtime_acceptance",
@@ -66,6 +87,294 @@ METRIC_ALIASES = {
 
 def _now() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _finite_number(value: Any, field: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be numeric")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be numeric") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be finite")
+    return number
+
+
+def _validate_candidate_contract(snapshot: CandidateSnapshot) -> None:
+    data_contract = snapshot.data_contract
+    if set(data_contract) != {"symbol", "asset_type", "requirements"}:
+        raise ValueError(
+            "candidate data_contract must contain symbol, asset_type, and requirements"
+        )
+    if not isinstance(data_contract["symbol"], str) or not data_contract["symbol"].strip():
+        raise ValueError("candidate data_contract symbol must be nonblank")
+    if not isinstance(data_contract["asset_type"], str) or not data_contract["asset_type"].strip():
+        raise ValueError("candidate data_contract asset_type must be nonblank")
+    requirements = data_contract["requirements"]
+    if (
+        not isinstance(requirements, list)
+        or not requirements
+        or any(not isinstance(item, dict) or not item for item in requirements)
+    ):
+        raise ValueError("candidate data_contract requirements must be a nonempty list")
+    names = [str(item.get("name", "")) for item in requirements]
+    if any(not name for name in names) or len(names) != len(set(names)):
+        raise ValueError("candidate data_contract requirement names must be unique and nonblank")
+    execution = snapshot.execution_policy
+    if set(execution) != {"policy_type", "settings"}:
+        raise ValueError("candidate execution_policy must contain policy_type and settings")
+    if not isinstance(execution["policy_type"], str) or not execution["policy_type"].strip():
+        raise ValueError("candidate execution_policy policy_type must be nonblank")
+    if not isinstance(execution["settings"], dict) or not execution["settings"]:
+        raise ValueError("candidate execution_policy settings must be a nonempty object")
+
+
+def _validate_mandate_contract(mandate: EvaluationMandate) -> None:
+    required = set(mandate.required_audits)
+    if required != COMPLETE_AUDITS:
+        missing = sorted(COMPLETE_AUDITS - required)
+        extra = sorted(required - COMPLETE_AUDITS)
+        raise ValueError(
+            f"evaluation mandate must require the complete audit matrix; "
+            f"missing={missing}, extra={extra}"
+        )
+    if set(mandate.audit_requirements) != AUDIT_REQUIREMENT_KEYS:
+        missing = sorted(AUDIT_REQUIREMENT_KEYS - set(mandate.audit_requirements))
+        extra = sorted(set(mandate.audit_requirements) - AUDIT_REQUIREMENT_KEYS)
+        raise ValueError(
+            f"evaluation audit requirements are incomplete; missing={missing}, extra={extra}"
+        )
+    if any(
+        not isinstance(mandate.audit_requirements[name], dict)
+        or not mandate.audit_requirements[name]
+        for name in AUDIT_REQUIREMENT_KEYS
+    ):
+        raise ValueError("each audit requirement must be a nonempty object")
+    expected_requirement_fields = {
+        "parameter_robustness": {"minimum_valid_neighbors"},
+        "statistical_robustness": {
+            "allowed_risk_labels",
+            "minimum_bootstrap_probability",
+            "maximum_pbo",
+            "minimum_dsr_probability",
+        },
+        "technical_replay": {"mode", "allow_artifact_reuse", "execution_engine"},
+        "external_validation": {
+            "required_replays",
+            "minimum_cagr",
+            "max_drawdown_floor",
+        },
+        "runtime_acceptance": {"required_status"},
+        "monitoring_plan": {"required_status", "minimum_rules"},
+    }
+    for name, fields in expected_requirement_fields.items():
+        if set(mandate.audit_requirements[name]) != fields:
+            raise ValueError(f"{name} audit requirement fields are invalid")
+    parameter = mandate.audit_requirements["parameter_robustness"]
+    if (
+        type(parameter["minimum_valid_neighbors"]) is not int
+        or parameter["minimum_valid_neighbors"] < 1
+    ):
+        raise ValueError("parameter minimum_valid_neighbors must be a positive integer")
+    statistical = mandate.audit_requirements["statistical_robustness"]
+    for field in (
+        "minimum_bootstrap_probability",
+        "maximum_pbo",
+        "minimum_dsr_probability",
+    ):
+        value = _finite_number(statistical[field], f"statistical {field}")
+        if not 0 <= value <= 1:
+            raise ValueError(f"statistical {field} must be in [0, 1]")
+    technical = mandate.audit_requirements["technical_replay"]
+    if technical != {
+        "mode": "FULL_RECOMPUTE",
+        "allow_artifact_reuse": False,
+        "execution_engine": EXECUTION_CONTRACT_VERSION,
+    }:
+        raise ValueError("technical replay must require a full recompute without artifact reuse")
+    runtime = mandate.audit_requirements["runtime_acceptance"]
+    if runtime["required_status"] != "PASS":
+        raise ValueError("runtime acceptance must require PASS")
+    monitoring = mandate.audit_requirements["monitoring_plan"]
+    if monitoring["required_status"] != "APPROVED":
+        raise ValueError("monitoring plan must require APPROVED")
+    if type(monitoring["minimum_rules"]) is not int or monitoring["minimum_rules"] < 1:
+        raise ValueError("monitoring minimum_rules must be a positive integer")
+
+    windows = mandate.evaluation_windows
+    full = windows.get("full")
+    if not isinstance(full, dict):
+        raise ValueError("evaluation windows must contain full")
+    for name, value in windows.items():
+        if not isinstance(value, dict) or set(value) != {"start", "end"}:
+            raise ValueError(f"evaluation window {name} must contain start and end")
+        try:
+            start, end = date.fromisoformat(str(value["start"])), date.fromisoformat(
+                str(value["end"])
+            )
+        except ValueError as exc:
+            raise ValueError(f"evaluation window {name} has invalid dates") from exc
+        if start > end:
+            raise ValueError(f"evaluation window {name} starts after it ends")
+        if end > date.fromisoformat(mandate.development_cutoff):
+            raise ValueError(f"evaluation window {name} exceeds development cutoff")
+    if str(full["end"]) != mandate.development_cutoff:
+        raise ValueError("full evaluation window must end at development cutoff")
+
+    benchmark = mandate.benchmark
+    if set(benchmark) != {"type", "id"} or not all(
+        isinstance(benchmark[name], str) and benchmark[name].strip() for name in ("type", "id")
+    ):
+        raise ValueError("evaluation benchmark must contain nonblank type and id")
+
+    objective_names: list[str] = []
+    for objective in mandate.objectives:
+        if set(objective) != {"metric", "operator", "value"}:
+            raise ValueError("each objective must contain metric, operator, and value")
+        metric = str(objective["metric"]).strip()
+        if not metric:
+            raise ValueError("objective metric must be nonblank")
+        if objective["operator"] not in {">=", ">", "<=", "<", "=="}:
+            raise ValueError(f"objective {metric} has unsupported operator")
+        _finite_number(objective["value"], f"objective {metric} value")
+        objective_names.append(metric)
+    if len(objective_names) != len(set(objective_names)):
+        raise ValueError("evaluation objective metrics must be unique")
+
+    cost = mandate.cost_policy
+    required_cost = {
+        "primary_fee_rate",
+        "stress_scenarios",
+        "blocking_scenarios",
+        "minimum_cagr",
+        "max_drawdown_floor",
+        "minimum_calmar",
+    }
+    if set(cost) != required_cost:
+        raise ValueError("cost_policy fields are incomplete")
+    primary_fee = _finite_number(cost["primary_fee_rate"], "primary_fee_rate")
+    if not 0 <= primary_fee < 1:
+        raise ValueError("primary_fee_rate must be in [0, 1)")
+    scenarios = cost["stress_scenarios"]
+    blocking = cost["blocking_scenarios"]
+    if (
+        not isinstance(scenarios, list)
+        or not scenarios
+        or any(not isinstance(item, str) or not item for item in scenarios)
+        or len(scenarios) != len(set(scenarios))
+    ):
+        raise ValueError("stress_scenarios must be a nonempty unique list")
+    if (
+        not isinstance(blocking, list)
+        or not blocking
+        or any(item not in scenarios for item in blocking)
+    ):
+        raise ValueError("blocking_scenarios must be a nonempty subset of stress_scenarios")
+    standard_scenarios = {item.scenario_id for item in required_stress_scenarios()}
+    if not standard_scenarios.issubset(scenarios):
+        raise ValueError("stress_scenarios omit the standard diagnostic tiers")
+    _finite_number(cost["minimum_cagr"], "cost minimum_cagr")
+    drawdown_floor = _finite_number(cost["max_drawdown_floor"], "cost max_drawdown_floor")
+    if not -1 <= drawdown_floor <= 0:
+        raise ValueError("cost max_drawdown_floor must be in [-1, 0]")
+    _finite_number(cost["minimum_calmar"], "cost minimum_calmar")
+
+    frequency = mandate.frequency_policy
+    if set(frequency) not in (
+        {"mode", "window_days"},
+        {"mode", "window_days", "minimum_closed_trades"},
+    ):
+        raise ValueError("frequency_policy fields are invalid")
+    if frequency.get("mode") not in {"OBSERVE", "HARD"}:
+        raise ValueError("frequency_policy mode must be OBSERVE or HARD")
+    if type(frequency.get("window_days")) is not int or frequency["window_days"] <= 0:
+        raise ValueError("frequency_policy window_days must be a positive integer")
+    if frequency["mode"] == "HARD":
+        if type(frequency.get("minimum_closed_trades")) is not int:
+            raise ValueError("HARD frequency policy requires integer minimum_closed_trades")
+        if frequency["minimum_closed_trades"] < 0:
+            raise ValueError("minimum_closed_trades must be nonnegative")
+
+
+def _machine_policy_from_mandate(mandate: EvaluationMandate) -> MachineEvaluationPolicy:
+    statistical = mandate.audit_requirements["statistical_robustness"]
+    external = mandate.audit_requirements["external_validation"]
+    allowed_raw = statistical.get("allowed_risk_labels")
+    if (
+        not isinstance(allowed_raw, list)
+        or not allowed_raw
+        or any(item not in {label.value for label in RiskLabel} for item in allowed_raw)
+    ):
+        raise ValueError("statistical policy allowed_risk_labels is invalid")
+    minimum_bootstrap = _finite_number(
+        statistical.get("minimum_bootstrap_probability"),
+        "minimum_bootstrap_probability",
+    )
+    if not 0 <= minimum_bootstrap < 1:
+        raise ValueError("minimum_bootstrap_probability must be in [0, 1)")
+    required_replays = external.get("required_replays")
+    if type(required_replays) is not int or required_replays < 0:
+        raise ValueError("external required_replays must be a nonnegative integer")
+    external_drawdown = _finite_number(
+        external.get("max_drawdown_floor"), "external max_drawdown_floor"
+    )
+    if not -1 <= external_drawdown <= 0:
+        raise ValueError("external max_drawdown_floor must be in [-1, 0]")
+    cost = mandate.cost_policy
+    return MachineEvaluationPolicy(
+        policy_id=mandate.mandate_id,
+        policy_version="evaluation-mandate-v1",
+        allowed_risk_labels=tuple(RiskLabel(item) for item in allowed_raw),
+        minimum_bootstrap_probability=minimum_bootstrap,
+        required_external_replays=required_replays,
+        external_minimum_cagr=_finite_number(
+            external.get("minimum_cagr"), "external minimum_cagr"
+        ),
+        external_max_drawdown_floor=external_drawdown,
+        stress_minimum_cagr=_finite_number(cost["minimum_cagr"], "cost minimum_cagr"),
+        stress_max_drawdown_floor=_finite_number(
+            cost["max_drawdown_floor"], "cost max_drawdown_floor"
+        ),
+        stress_minimum_calmar=_finite_number(
+            cost["minimum_calmar"], "cost minimum_calmar"
+        ),
+        blocking_stress_scenarios=tuple(cost["blocking_scenarios"]),
+    )
+
+
+def _external_replays(
+    experiment: Path,
+    snapshot: CandidateSnapshot,
+) -> tuple[ExternalReplayEvidence, ...]:
+    path = experiment / "artifacts" / "external_validation.json"
+    if not path.is_file():
+        return ()
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(document, dict):
+        raise ValueError("external validation evidence must be an object")
+    if document.get("candidate_id") != snapshot.candidate_id:
+        raise ValueError("external validation candidate identity differs")
+    if document.get("candidate_hash") != snapshot.candidate_hash:
+        raise ValueError("external validation candidate hash differs")
+    values = document.get("replays")
+    if not isinstance(values, list):
+        raise ValueError("external validation evidence has no replay list")
+    replays: list[ExternalReplayEvidence] = []
+    for value in values:
+        if not isinstance(value, dict):
+            raise ValueError("external validation replay must be an object")
+        replays.append(
+            ExternalReplayEvidence(
+                replay_id=str(value["replay_id"]),
+                symbol=str(value["symbol"]),
+                candidate_id=snapshot.candidate_id,
+                candidate_hash=snapshot.candidate_hash,
+                dates=tuple(map(str, value["dates"])),
+                returns=tuple(map(float, value["returns"])),
+            )
+        )
+    return tuple(replays)
 
 
 def _read_object(context: RepositoryContext, path: Path) -> dict[str, Any]:
@@ -127,8 +436,9 @@ def _submission_from_credential(
     ):
         raise ValueError("candidate submission identities differ")
     expected_policy = {
-        "policy_version": "tdr-freeze-v2",
+        "policy_version": "tdr-freeze-v3",
         "required_audits": mandate.required_audits,
+        "requirements": mandate.audit_requirements,
     }
     if audit_policy != expected_policy:
         raise ValueError("candidate submission audit policy differs from mandate")
@@ -160,6 +470,8 @@ def open_freeze_review(
     try:
         snapshot = CandidateSnapshot.from_dict(_read_object(context, candidate_path))
         mandate = EvaluationMandate.from_dict(_read_object(context, mandate_path))
+        _validate_candidate_contract(snapshot)
+        _validate_mandate_contract(mandate)
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError("candidate submission reason must be nonblank")
         unknown = sorted(set(mandate.required_audits) - KNOWN_AUDITS)
@@ -170,11 +482,14 @@ def open_freeze_review(
         experiment = _experiment_path(context, snapshot.source_experiment)
         if experiment.name not in snapshot.source_experiment:
             raise ValueError("candidate source experiment identity is ambiguous")
+        protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
+        _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
         registry = StrategyRegistry(context.strategy_root)
         credential = registry.get_governance_credential(snapshot.strategy_id, credential_id)
         audit_policy = {
-            "policy_version": "tdr-freeze-v2",
+            "policy_version": "tdr-freeze-v3",
             "required_audits": mandate.required_audits,
+            "requirements": mandate.audit_requirements,
         }
         submission_content = {
             "submission_id": f"SUB-{credential_id}-{len(credential.seals) + 1}",
@@ -282,6 +597,10 @@ def _load_protocol_and_candidate(
         raise ValueError("review candidate is absent from source experiment")
     if candidate.get("strategy_payload") != snapshot.strategy_payload:
         raise ValueError("candidate snapshot payload differs from source experiment")
+    rule = snapshot.strategy_payload.get("rule")
+    payload_execution = rule.get("execution") if isinstance(rule, dict) else None
+    if payload_execution != snapshot.execution_policy["settings"]:
+        raise ValueError("candidate payload execution rules differ from declared execution policy")
     manifest_policy_hash = candidate.get("execution_policy_hash")
     if manifest_policy_hash != canonical_sha256(snapshot.execution_policy):
         raise ValueError("candidate execution policy differs from source experiment")
@@ -292,6 +611,7 @@ def _assert_mandate_alignment(
     protocol: EvaluationProtocol,
     manifest: dict[str, Any],
     mandate: EvaluationMandate,
+    snapshot: CandidateSnapshot,
 ) -> None:
     if protocol.development_cutoff != mandate.development_cutoff:
         raise ValueError("evaluation development cutoff differs from mandate")
@@ -304,6 +624,17 @@ def _assert_mandate_alignment(
         raise ValueError("evaluation primary cost differs from mandate")
     if str(manifest.get("forward_start")) != mandate.forward_start:
         raise ValueError("evaluation forward start differs from mandate")
+    if str(manifest.get("symbol", "")).upper() != str(
+        snapshot.data_contract["symbol"]
+    ).upper():
+        raise ValueError("evaluation symbol differs from candidate data contract")
+    if str(manifest.get("asset_type", "etf")).lower() != str(
+        snapshot.data_contract["asset_type"]
+    ).lower():
+        raise ValueError("evaluation asset type differs from candidate data contract")
+    execution_hash = canonical_sha256(snapshot.execution_policy)
+    if protocol.execution_policy_hash != execution_hash:
+        raise ValueError("evaluation protocol execution policy differs from candidate")
 
 
 def _formal_metric(experiment: Path, candidate_id: str) -> dict[str, str]:
@@ -324,6 +655,27 @@ def _formal_metric(experiment: Path, candidate_id: str) -> dict[str, str]:
     if match is None:
         raise ValueError("candidate has no formal full-window metric")
     return match
+
+
+def _assert_formal_evaluation_contract(
+    evaluation: CommandResult,
+    mandate: EvaluationMandate,
+    snapshot: CandidateSnapshot,
+) -> None:
+    actual = evaluation.result.get("formal_evaluation_contract")
+    expected = {
+        "development_cutoff": mandate.development_cutoff,
+        "windows": mandate.evaluation_windows,
+        "benchmark_id": str(mandate.benchmark["id"]),
+        "primary_fee_rate": float(mandate.cost_policy["primary_fee_rate"]),
+        "stress_scenarios": list(mandate.cost_policy["stress_scenarios"]),
+        "frequency_window_days": int(mandate.frequency_policy["window_days"]),
+        "execution_policy_hash": canonical_sha256(snapshot.execution_policy),
+        "execution_engine": EXECUTION_CONTRACT_VERSION,
+        "artifact_reuse": False,
+    }
+    if actual != expected:
+        raise ValueError("formal evaluation contract differs from evaluation mandate")
 
 
 def _number(value: Any) -> float:
@@ -390,6 +742,40 @@ def _objective_checks(mandate: EvaluationMandate, metric: dict[str, str]) -> lis
     return checks
 
 
+def _frequency_check(
+    mandate: EvaluationMandate,
+    metric: dict[str, str],
+) -> dict[str, Any]:
+    policy = mandate.frequency_policy
+    try:
+        window_days = int(metric["frequency_window_days"])
+        median = _number(metric["rolling_closed_trades_median"])
+        p10 = _number(metric["rolling_closed_trades_p10"])
+    except (KeyError, ValueError) as exc:
+        return {
+            "status": "INCOMPLETE",
+            "reason": f"frequency evidence is unavailable: {exc}",
+        }
+    if window_days != int(policy["window_days"]):
+        return {
+            "status": "FAIL",
+            "reason": "frequency window differs from mandate",
+            "window_days": window_days,
+        }
+    status = "PASS"
+    minimum = policy.get("minimum_closed_trades")
+    if policy["mode"] == "HARD" and median < int(minimum):
+        status = "FAIL"
+    return {
+        "status": status,
+        "mode": policy["mode"],
+        "window_days": window_days,
+        "rolling_closed_trades_median": median,
+        "rolling_closed_trades_p10": p10,
+        "minimum_closed_trades": minimum,
+    }
+
+
 def _prospective_runtime(
     registry: StrategyRegistry, snapshot: CandidateSnapshot, mandate: EvaluationMandate
 ) -> dict[str, Any]:
@@ -427,7 +813,41 @@ def _prospective_runtime(
     return report
 
 
-def _artifact_audit(experiment: Path, audit: str, machine: dict[str, Any]) -> dict[str, Any]:
+def _runtime_audit(snapshot: CandidateSnapshot, runtime: dict[str, Any]) -> dict[str, Any]:
+    if runtime.get("status") != "PASS":
+        return {"status": "FAIL", "reason": "runtime readiness did not pass"}
+    runtime_inputs = runtime.get("input_contract")
+    expected_inputs = {"requirements": snapshot.data_contract["requirements"]}
+    if runtime_inputs != expected_inputs:
+        return {
+            "status": "FAIL",
+            "reason": "runtime input contract differs from candidate data contract",
+            "expected_hash": canonical_sha256(expected_inputs),
+            "actual_hash": canonical_sha256(runtime_inputs),
+        }
+    if runtime.get("execution_policy") != snapshot.execution_policy:
+        return {
+            "status": "FAIL",
+            "reason": "runtime execution policy differs from candidate",
+            "expected_hash": canonical_sha256(snapshot.execution_policy),
+            "actual_hash": canonical_sha256(runtime.get("execution_policy")),
+        }
+    return {
+        "status": "PASS",
+        "runtime_sha256": runtime["runtime_sha256"],
+        "strategy_payload_hash": runtime["strategy_payload_hash"],
+        "input_contract_sha256": runtime["input_contract_sha256"],
+        "execution_policy_sha256": runtime["execution_policy_sha256"],
+        "evidence_hash": canonical_sha256(runtime),
+    }
+
+
+def _artifact_audit(
+    experiment: Path,
+    audit: str,
+    machine: dict[str, Any],
+    requirement: dict[str, Any],
+) -> dict[str, Any]:
     artifact = experiment / "artifacts"
     mapping = {
         "parameter_robustness": "parameter_neighborhood.csv",
@@ -449,15 +869,21 @@ def _artifact_audit(experiment: Path, audit: str, machine: dict[str, Any]) -> di
         document = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(document, dict) or not document:
             return {"status": "INCOMPLETE", "artifact": mapping[audit]}
-        if audit in {"external_validation", "monitoring_plan"} and document.get("status") not in {
-            "PASS",
-            "APPROVED",
-        }:
-            return {"status": "INCOMPLETE", "artifact": mapping[audit], "detail": document}
+        if audit == "monitoring_plan":
+            rules = document.get("rules")
+            if document.get("status") != requirement["required_status"]:
+                return {"status": "FAIL", "artifact": mapping[audit], "detail": document}
+            if not isinstance(rules, list) or len(rules) < int(requirement["minimum_rules"]):
+                return {
+                    "status": "INCOMPLETE",
+                    "artifact": mapping[audit],
+                    "reason": "monitoring plan has too few structured rules",
+                }
     machine_checks = {
         "parameter_robustness": "parameter_robustness",
         "statistical_robustness": "statistical_robustness",
         "cost_stress": "cost_stress",
+        "external_validation": "external_reproduction",
     }
     check_id = machine_checks.get(audit)
     if check_id is not None:
@@ -489,12 +915,31 @@ def _artifact_audit(experiment: Path, audit: str, machine: dict[str, Any]) -> di
             "INSUFFICIENT": "INCOMPLETE",
             "NOT_APPLICABLE": "INCOMPLETE",
         }.get(status, "INCOMPLETE")
+        if (
+            audit == "external_validation"
+            and status == "NOT_APPLICABLE"
+            and int(requirement["required_replays"]) == 0
+        ):
+            normalized = "PASS"
+        metrics = dict(check.get("metrics", {}))
+        if audit == "parameter_robustness" and normalized == "PASS":
+            if int(metrics.get("valid_neighbor_count", 0)) < int(
+                requirement["minimum_valid_neighbors"]
+            ):
+                normalized = "FAIL"
+        if audit == "statistical_robustness" and normalized == "PASS":
+            if float(metrics.get("pbo", 1.0)) > float(requirement["maximum_pbo"]):
+                normalized = "FAIL"
+            if float(metrics.get("dsr_effective_probability", 0.0)) < float(
+                requirement["minimum_dsr_probability"]
+            ):
+                normalized = "FAIL"
         return {
             "status": normalized,
             "artifact": mapping[audit],
             "machine_status": status,
             "reason_codes": list(check.get("reason_codes", [])),
-            "metrics": dict(check.get("metrics", {})),
+            "metrics": metrics,
             "evidence_hash": _hash_file(path),
         }
     return {
@@ -531,16 +976,24 @@ def evaluate_freeze_review(
         submission, snapshot, mandate, audit_policy = _submission_from_credential(credential)
         experiment = _experiment_path(context, snapshot.source_experiment)
         protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
-        _assert_mandate_alignment(protocol, manifest, mandate)
+        _validate_candidate_contract(snapshot)
+        _validate_mandate_contract(mandate)
+        _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
+        machine_policy = _machine_policy_from_mandate(mandate)
         evaluation = evaluate_experiment(
             context,
             experiment.name,
             use_cached_result=False,
             allow_artifact_reuse=False,
+            machine_policy=machine_policy,
+            stress_scenarios=tuple(mandate.cost_policy["stress_scenarios"]),
+            frequency_window_days=int(mandate.frequency_policy["window_days"]),
+            external_replays=_external_replays(experiment, snapshot),
         )
         machine = evaluation.result.get("machine_evaluation")
         if not isinstance(machine, dict):
             raise ValueError("formal evaluation produced no machine report")
+        _assert_formal_evaluation_contract(evaluation, mandate, snapshot)
         if evaluation.result.get("recommended_candidate_id") != snapshot.candidate_id:
             raise ValueError("formal evaluation recommended another candidate")
         metric = _formal_metric(experiment, snapshot.candidate_id)
@@ -556,13 +1009,14 @@ def evaluate_freeze_review(
                     "checks": objectives,
                     "evidence_hash": _hash_file(experiment / "artifacts" / "formal_metrics.csv"),
                 }
+            elif audit == "frequency_recalculation":
+                frequency = _frequency_check(mandate, metric)
+                frequency["evidence_hash"] = _hash_file(
+                    experiment / "artifacts" / "formal_metrics.csv"
+                )
+                audit_results[audit] = frequency
             elif audit == "runtime_acceptance":
-                audit_results[audit] = {
-                    "status": "PASS",
-                    "runtime_sha256": runtime["runtime_sha256"],
-                    "strategy_payload_hash": runtime["strategy_payload_hash"],
-                    "evidence_hash": canonical_sha256(runtime),
-                }
+                audit_results[audit] = _runtime_audit(snapshot, runtime)
             elif audit == "technical_replay":
                 metric_hash = evaluation.result.get("canonical_metric_hash")
                 if not isinstance(metric_hash, str) or len(metric_hash) != 64:
@@ -571,9 +1025,18 @@ def evaluate_freeze_review(
                         "reason": "independent replay produced no canonical metric hash",
                     }
                 else:
+                    requirement = mandate.audit_requirements["technical_replay"]
+                    engine = evaluation.result["formal_evaluation_contract"].get(
+                        "execution_engine"
+                    )
+                    engine_matches = engine == requirement["execution_engine"]
                     audit_results[audit] = {
-                        "status": "PASS",
+                        "status": "PASS" if engine_matches else "FAIL",
                         "mode": "FULL_RECOMPUTE_WITHOUT_ARTIFACT_REUSE",
+                        "required_mode": requirement["mode"],
+                        "artifact_reuse": False,
+                        "execution_engine": engine,
+                        "required_execution_engine": requirement["execution_engine"],
                         "canonical_metric_hash": metric_hash,
                         "evidence_hash": canonical_sha256(
                             {
@@ -584,7 +1047,14 @@ def evaluate_freeze_review(
                         ),
                     }
             else:
-                audit_results[audit] = _artifact_audit(experiment, audit, machine)
+                requirement = (
+                    mandate.cost_policy
+                    if audit == "cost_stress"
+                    else mandate.audit_requirements[audit]
+                )
+                audit_results[audit] = _artifact_audit(
+                    experiment, audit, machine, requirement
+                )
         blocking: list[str] = []
         if any(item["status"] == "CLAIM_MISMATCH" for item in claims):
             blocking.append("CLAIM_MISMATCH")

@@ -31,6 +31,30 @@ def _hashed(payload: dict, field: str) -> dict:
     return value
 
 
+def _audit_requirements() -> dict:
+    return {
+        "parameter_robustness": {"minimum_valid_neighbors": 10},
+        "statistical_robustness": {
+            "allowed_risk_labels": ["FAVORABLE", "MIXED"],
+            "minimum_bootstrap_probability": 0.5,
+            "maximum_pbo": 0.5,
+            "minimum_dsr_probability": 0.5,
+        },
+        "technical_replay": {
+            "mode": "FULL_RECOMPUTE",
+            "allow_artifact_reuse": False,
+            "execution_engine": "TXE-v1",
+        },
+        "external_validation": {
+            "required_replays": 0,
+            "minimum_cagr": 0.0,
+            "max_drawdown_floor": -1.0,
+        },
+        "runtime_acceptance": {"required_status": "PASS"},
+        "monitoring_plan": {"required_status": "APPROVED", "minimum_rules": 1},
+    }
+
+
 def _family(strategy_id: str = "S008", name: str = "治理功能测试策略") -> StrategyFamily:
     return StrategyFamily.from_dict(
         {
@@ -86,6 +110,7 @@ def _mandate(strategy_id: str = "S008") -> EvaluationMandate:
         ],
         "cost_policy": {"primary_fee_rate": 0.001, "stress_fee_rate": 0.0015},
         "frequency_policy": {"mode": "OBSERVE", "window_days": 60},
+        "audit_requirements": _audit_requirements(),
         "required_audits": [
             "objective_recalculation",
             "parameter_robustness",

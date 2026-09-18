@@ -37,6 +37,7 @@ class CandidateEvaluationContext:
     fee_rate: float = 0.0005
     init_cash: float = 1_000_000.0
     workers: int = 1
+    frequency_window_days: int = 60
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,28 @@ def prepare_evaluation_workspace(
         protocol.development_cutoff,
     )
     data = replay_data.adjusted
+    cutoff = pd.Timestamp(protocol.development_cutoff).normalize()
+    market_dates = pd.DatetimeIndex(pd.to_datetime(data.daily["dt"])).normalize()
+    execution_dates = pd.DatetimeIndex(
+        pd.to_datetime(replay_data.execution_daily["dt"])
+    ).normalize()
+    if market_dates.empty or market_dates.max() != cutoff:
+        actual = None if market_dates.empty else market_dates.max().date().isoformat()
+        raise ValueError(
+            f"research market data does not reach development cutoff: "
+            f"requested={protocol.development_cutoff}, actual={actual}"
+        )
+    if execution_dates.empty or execution_dates.max() != cutoff:
+        actual = None if execution_dates.empty else execution_dates.max().date().isoformat()
+        raise ValueError(
+            f"execution data does not reach development cutoff: "
+            f"requested={protocol.development_cutoff}, actual={actual}"
+        )
+    for name, (start, end) in dict(context.periods).items():
+        if start.normalize() not in market_dates or end.normalize() not in market_dates:
+            raise ValueError(f"evaluation window {name} is not bounded by trading sessions")
+        if end.normalize() > cutoff:
+            raise ValueError(f"evaluation window {name} exceeds development cutoff")
     factors = generate_factor_frame(data)
     daily_close = pd.Series(
         data.daily["close"].astype(float).to_numpy(),
@@ -193,6 +216,7 @@ def _run_behavior_chunk(
     fee_rate: float,
     init_cash: float,
     slippage_bp: int = 0,
+    frequency_window_days: int = 60,
 ) -> tuple[BehaviorResult, ...]:
     output: list[BehaviorResult] = []
     daily_dates = pd.DatetimeIndex(pd.to_datetime(workspace.data.daily["dt"]))
@@ -240,6 +264,7 @@ def _run_behavior_chunk(
                     effective.orders,
                     init_cash,
                     extra,
+                    frequency_window_days=frequency_window_days,
                 ))
         output.append(BehaviorResult(task.key, tuple(observations)))
     return tuple(output)
@@ -254,6 +279,7 @@ def _evaluate_behavior_tasks(
     init_cash: float,
     workers: int,
     slippage_bp: int = 0,
+    frequency_window_days: int = 60,
 ) -> tuple[BehaviorResult, ...]:
     chunks = _contiguous_chunks(tasks, workers)
     if workers == 1 or len(tasks) < 32:
@@ -261,13 +287,27 @@ def _evaluate_behavior_tasks(
             item
             for chunk in chunks
             for item in _run_behavior_chunk(
-                workspace, chunk, tier, scenario, fee_rate, init_cash, slippage_bp,
+                workspace,
+                chunk,
+                tier,
+                scenario,
+                fee_rate,
+                init_cash,
+                slippage_bp,
+                frequency_window_days,
             )
         )
     with parallel_config(backend="loky", inner_max_num_threads=1):
         pieces = Parallel(n_jobs=min(workers, len(chunks)), max_nbytes="1M", mmap_mode="r")(
             delayed(_run_behavior_chunk)(
-                workspace, chunk, tier, scenario, fee_rate, init_cash, slippage_bp,
+                workspace,
+                chunk,
+                tier,
+                scenario,
+                fee_rate,
+                init_cash,
+                slippage_bp,
+                frequency_window_days,
             )
             for chunk in chunks
         )
@@ -288,7 +328,41 @@ def _profit_factor(orders: pd.DataFrame) -> tuple[float | None, MetricStatus, in
     return float(wins.sum() / abs(losses.sum())), MetricStatus.VALID, count
 
 
-def _observation(candidate_id: str, window: str, tier: str, scenario: str, equity: pd.Series, orders: pd.DataFrame, init_cash: float, extra_objectives: tuple[tuple[str, float], ...] = ()) -> MetricObservation:
+def _rolling_closed_trade_frequency(
+    equity: pd.Series,
+    orders: pd.DataFrame,
+    window_days: int,
+) -> tuple[float | None, float | None]:
+    if window_days <= 0:
+        raise ValueError("frequency window must be positive")
+    sessions = pd.DatetimeIndex(pd.to_datetime(equity.index)).normalize()
+    if len(sessions) < window_days:
+        return None, None
+    ledger = closed_trade_ledger(orders)
+    exits = (
+        pd.DatetimeIndex(pd.to_datetime(ledger["exit_date"])).normalize()
+        if not ledger.empty
+        else pd.DatetimeIndex([])
+    )
+    counts = [
+        float(((exits >= sessions[index - window_days + 1]) & (exits <= sessions[index])).sum())
+        for index in range(window_days - 1, len(sessions))
+    ]
+    return float(np.median(counts)), float(np.quantile(counts, 0.10))
+
+
+def _observation(
+    candidate_id: str,
+    window: str,
+    tier: str,
+    scenario: str,
+    equity: pd.Series,
+    orders: pd.DataFrame,
+    init_cash: float,
+    extra_objectives: tuple[tuple[str, float], ...] = (),
+    *,
+    frequency_window_days: int = 60,
+) -> MetricObservation:
     total_return = float(equity.iloc[-1] / init_cash - 1.0)
     net_cagr = float((equity.iloc[-1] / init_cash) ** (252.0 / len(equity)) - 1.0)
     max_drawdown = float(equity.div(equity.cummax()).sub(1.0).min())
@@ -302,11 +376,17 @@ def _observation(candidate_id: str, window: str, tier: str, scenario: str, equit
     else:
         turnover = float((orders["size"].astype(float) * orders["price"].astype(float)).abs().sum() / init_cash)
         cost_drag = float(orders["fees"].astype(float).sum() / init_cash)
+    frequency_median, frequency_p10 = _rolling_closed_trade_frequency(
+        equity, orders, frequency_window_days
+    )
     return MetricObservation(
         candidate_id, window, scenario, tier, net_cagr, total_return, max_drawdown,
         calmar, MetricStatus.VALID if calmar is not None and np.isfinite(calmar) else MetricStatus.UNAVAILABLE,
         pf, pf_status, closed_trades, turnover, cost_drag,
         (("net_cagr", net_cagr), ("total_return", total_return), (f"{window}_return", total_return), *extra_objectives),
+        frequency_window_days,
+        frequency_median,
+        frequency_p10,
     )
 
 
@@ -399,7 +479,19 @@ def _evaluate_candidate_payloads_reference(
                 extra = () if regimes is None else range_cycle_objectives(
                     effective.orders, regimes, pd.DatetimeIndex(pd.to_datetime(data.daily["dt"])),
                 )
-                output.append(_observation(candidate_id, window, tier, scenario, effective.equity, effective.orders, context.init_cash, extra))
+                output.append(
+                    _observation(
+                        candidate_id,
+                        window,
+                        tier,
+                        scenario,
+                        effective.equity,
+                        effective.orders,
+                        context.init_cash,
+                        extra,
+                        frequency_window_days=context.frequency_window_days,
+                    )
+                )
     return tuple(output)
 
 
@@ -503,7 +595,7 @@ def evaluate_candidate_payloads(
         )
         behavior_results = _evaluate_behavior_tasks(
             workspace, tasks, tier, scenario, fee_rate, context.init_cash, context.workers,
-            slippage_bp,
+            slippage_bp, context.frequency_window_days,
         )
         for result in behavior_results:
             for observation in result.observations:

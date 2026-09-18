@@ -5,6 +5,13 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pandas as pd
+import pytest
+
+from czsc_trader.candidate_evaluation import (
+    CandidateEvaluationContext,
+    prepare_evaluation_workspace,
+)
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.evaluation_service import evaluate_experiment
 from strategy_evaluator import (
@@ -17,8 +24,66 @@ from strategy_evaluator import (
     MetricStatus,
     ReturnMatrixEvidence,
     RiskLabel,
+    EvaluationProtocol,
 )
 from strategy_manager import canonical_sha256
+
+
+def test_formal_evaluation_rejects_data_that_stops_before_development_cutoff(
+    functional_repo: Path, monkeypatch
+) -> None:
+    protocol = EvaluationProtocol.from_dict(
+        {
+            "schema_version": 1,
+            "standard_version": "opc-v3",
+            "experiment_id": "STALE",
+            "research_objective": "reject false success",
+            "development_cutoff": "2026-09-02",
+            "incumbent_id": "BuyHold",
+            "incumbent_hash": "a" * 64,
+            "decision_windows": ["full"],
+            "target_windows": ["full"],
+            "execution_policy_hash": "b" * 64,
+            "tightened_margins": {},
+            "shortlist_limit": 1,
+            "target_requirements": [
+                {
+                    "metric": "full_return",
+                    "direction": "maximize",
+                    "minimum_improvement": 0.0,
+                }
+            ],
+            "candidate_manifest": "candidate_manifest.json",
+        }
+    )
+    stale = pd.DataFrame(
+        {
+            "dt": pd.to_datetime(["2026-09-01"]),
+            "open": [1.0],
+            "high": [1.0],
+            "low": [1.0],
+            "close": [1.0],
+            "vol": [1.0],
+            "amount": [1.0],
+        }
+    )
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.load_replay_data",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            adjusted=SimpleNamespace(daily=stale),
+            execution_daily=stale,
+            execution_intraday=pd.DataFrame(),
+        ),
+    )
+    context = CandidateEvaluationContext(
+        RepositoryContext.discover(functional_repo, explicit_root=functional_repo),
+        "588080.SH",
+        "etf",
+        (("full", (pd.Timestamp("2026-09-01"), pd.Timestamp("2026-09-02"))),),
+    )
+
+    with pytest.raises(ValueError, match="does not reach development cutoff"):
+        prepare_evaluation_workspace(context, protocol)
 
 
 def _write_evaluation_bundle(root: Path) -> Path:

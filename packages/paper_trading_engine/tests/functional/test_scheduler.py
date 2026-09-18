@@ -15,7 +15,7 @@ from paper_trading_engine.data_publisher import (
 )
 from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.srt_advice_client import SrtAdviceClient
-from paper_trading_engine.advice_client import AdviceClientError
+from paper_trading_engine.errors import AdviceClientError
 from paper_trading_engine.trading_window import is_submission_window
 
 
@@ -107,8 +107,13 @@ def test_account_data_publisher_persists_ready_srt_generation(tmp_path):
 
     published_file = tmp_path / "data/510500_execution_manifest.json"
     published_file.write_text("{}\n", encoding="utf-8")
+    audit_store = Store()
     with pytest.raises(AdviceClientError, match="incomplete or mixed"):
-        SrtAdviceClient(repo_root=root, data_dir=tmp_path / "data").get_decision(
+        SrtAdviceClient(
+            repo_root=root,
+            data_dir=tmp_path / "data",
+            audit=AuditRecorder(audit_store),
+        ).get_decision(
             0,
             100000.0,
             strategy_id="S002",
@@ -117,6 +122,14 @@ def test_account_data_publisher_persists_ready_srt_generation(tmp_path):
             symbol="510500.SH",
             asset="etf",
         )
+    failed = [
+        item
+        for item in audit_store.audit_events
+        if item["event_type"] == "DECISION_GENERATION_FAILED"
+    ]
+    assert len(failed) == 1
+    assert failed[0]["account_id"] == "preflight"
+    assert failed[0]["source"] == "srt_advice_client"
 
 
 class Engine:

@@ -153,15 +153,15 @@ def _srt_primary_keys(staging: Path) -> dict[str, tuple[str, ...]]:
 def _runtime_data_contract(strategy) -> dict[str, object]:
     """Describe the sole SRT-owned input contract and TDR channel needs."""
 
+    from czsc_trader.backtesting.srt_bridge import execution_intraday_frequencies
+
     definition = strategy.definition
     return {
         "source": "SRT",
         "release_id": definition.release_id,
         "runtime_sha256": definition.runtime_sha256,
         "inputs": [asdict(item) for item in definition.inputs.requirements],
-        "execution_intraday_frequencies": (
-            ["5m"] if "11:30_CLOSE" in definition.capabilities.checkpoints else []
-        ),
+        "execution_intraday_frequencies": list(execution_intraday_frequencies(strategy)),
     }
 
 
@@ -417,7 +417,7 @@ def update_backtest_data(
             request.strategy_id, request.strategy_version
         )
         release = StrategyRelease.from_mapping(version.to_dict())
-        strategy = StrategyLoader().load(release)
+        strategy = StrategyLoader().load_for_symbol(release, request.symbol)
         contract = _runtime_data_contract(strategy)
         if contract["execution_intraday_frequencies"] and request.asset_type != "etf":
             raise ValueError("strategy requires ETF intraday data")

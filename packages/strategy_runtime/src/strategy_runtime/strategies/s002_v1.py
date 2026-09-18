@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
+import re
 from types import MappingProxyType
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
@@ -157,7 +158,7 @@ def _calculate_target_history(
 class S002V1:
     """Executable S002-v1 implementation with no TDR dependency."""
 
-    def __init__(self, release: StrategyRelease) -> None:
+    def __init__(self, release: StrategyRelease, deployment_symbol: str | None = None) -> None:
         payload = _object(release.payload, "strategy payload")
         if payload.get("strategy_kind") != "czsc_event_hold":
             raise RuntimeContractError("S002-v1 strategy_kind must be czsc_event_hold")
@@ -166,9 +167,15 @@ class S002V1:
         portfolio = _object(rule.get("portfolio_rule"), "S002-v1 portfolio rule")
         execution = _object(rule.get("execution"), "S002-v1 execution")
         instrument = _object(execution.get("instrument"), "S002-v1 instrument")
-        symbol = str(rule.get("symbol", "")).upper()
-        if symbol != "510500.SH" or str(instrument.get("symbol", "")).upper() != symbol:
+        frozen_symbol = str(rule.get("symbol", "")).upper()
+        if (
+            frozen_symbol != "510500.SH"
+            or str(instrument.get("symbol", "")).upper() != frozen_symbol
+        ):
             raise RuntimeContractError("S002-v1 frozen symbol must be 510500.SH")
+        symbol = (deployment_symbol or frozen_symbol).upper()
+        if not re.fullmatch(r"\d{6}\.(?:SH|SZ)", symbol):
+            raise RuntimeContractError("S002-v1 deployment symbol must be an A-share instrument")
         if signal.get("trigger") != "fresh_transition":
             raise RuntimeContractError("S002-v1 requires fresh_transition")
         if portfolio.get("ignore_entries_while_holding") is not True:
@@ -240,6 +247,14 @@ class S002V1:
         if release.release_id != "S002-v1":
             raise RuntimeContractError("S002V1 can only load S002-v1")
         return cls(release)
+
+    @classmethod
+    def from_release_for_symbol(
+        cls, release: StrategyRelease, symbol: str
+    ) -> "S002V1":
+        if release.release_id != "S002-v1":
+            raise RuntimeContractError("S002V1 can only load S002-v1")
+        return cls(release, symbol)
 
     @property
     def definition(self) -> RuntimeDefinition:

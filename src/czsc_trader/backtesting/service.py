@@ -29,7 +29,12 @@ from .metrics import calculate_metrics
 from .models import StrategySnapshot
 from .report import render_report
 from .signal_replay import replay_signals
-from .srt_bridge import build_srt_signal_replay, replay_srt_account
+from .srt_bridge import (
+    build_srt_signal_replay,
+    load_srt_strategy,
+    replay_srt_account,
+    strategy_reference_symbol,
+)
 
 
 @dataclass(frozen=True)
@@ -144,10 +149,23 @@ def run_backtest_v2(
         raise ValueError("request symbol differs from loaded replay data")
     if replay_data.adjusted.asset_type != request.asset_type:
         raise ValueError("request asset type differs from loaded replay data")
-    applied_snapshot, application = _bind_backtest_symbol(snapshot, request)
-    if applied_snapshot.identity.kind == "REGISTERED":
+    if snapshot.identity.kind == "REGISTERED":
         if repository_root is None:
             raise ValueError("registered strategy backtest requires a repository root")
+        _, frozen_strategy = load_srt_strategy(
+            repository_root, snapshot.identity.reference
+        )
+        reference_symbol = strategy_reference_symbol(frozen_strategy)
+        applied_snapshot = snapshot
+        application = {
+            "mode": (
+                "native_symbol"
+                if reference_symbol == request.symbol
+                else "cross_symbol_generalization"
+            ),
+            "strategy_reference_symbol": reference_symbol,
+            "backtest_symbol": request.symbol,
+        }
         strategy, signals = build_srt_signal_replay(
             snapshot=applied_snapshot,
             replay_data=replay_data,
@@ -162,43 +180,44 @@ def run_backtest_v2(
             initial_cash=request.initial_cash,
         )
         application["runtime_engine"] = "srt"
-    elif applied_snapshot.resolved_rule.causal_feature_gate is not None:
-        if repository_root is None:
-            raise ValueError("causal-feature candidate requires a repository root")
-        signals = build_causal_feature_gate_signals(
-            applied_snapshot,
-            replay_data,
-            pd.Timestamp(request.start),
-            pd.Timestamp(request.end),
-            repository_root,
-        )
-        result = replay_account(signals, replay_data, request.initial_cash)
-        application["runtime_engine"] = "research_candidate"
-    elif applied_snapshot.resolved_rule.constituent_moneyflow_intraday is not None:
-        if repository_root is None:
-            raise ValueError("intraday-overlay candidate requires a repository root")
-        signals = build_moneyflow_breadth_signals(
-            applied_snapshot,
-            replay_data,
-            repository_root,
-            pd.Timestamp(request.start),
-            pd.Timestamp(request.end),
-        )
-        result = replay_intraday_overlay(signals, replay_data, request.initial_cash)
-        application["runtime_engine"] = "research_candidate"
-    elif applied_snapshot.resolved_rule.closing_dislocation_overnight is not None:
-        signals = build_closing_dislocation_signals(
-            applied_snapshot,
-            replay_data,
-            pd.Timestamp(request.start),
-            pd.Timestamp(request.end),
-            repository_root,
-        )
-        result = replay_account(signals, replay_data, request.initial_cash)
-        application["runtime_engine"] = "research_candidate"
     else:
-        signals = replay_signals(applied_snapshot, replay_data, request.start, request.end)
-        result = replay_account(signals, replay_data, request.initial_cash)
+        applied_snapshot, application = _bind_backtest_symbol(snapshot, request)
+        if applied_snapshot.resolved_rule.causal_feature_gate is not None:
+            if repository_root is None:
+                raise ValueError("causal-feature candidate requires a repository root")
+            signals = build_causal_feature_gate_signals(
+                applied_snapshot,
+                replay_data,
+                pd.Timestamp(request.start),
+                pd.Timestamp(request.end),
+                repository_root,
+            )
+            result = replay_account(signals, replay_data, request.initial_cash)
+        elif applied_snapshot.resolved_rule.constituent_moneyflow_intraday is not None:
+            if repository_root is None:
+                raise ValueError("intraday-overlay candidate requires a repository root")
+            signals = build_moneyflow_breadth_signals(
+                applied_snapshot,
+                replay_data,
+                repository_root,
+                pd.Timestamp(request.start),
+                pd.Timestamp(request.end),
+            )
+            result = replay_intraday_overlay(signals, replay_data, request.initial_cash)
+        elif applied_snapshot.resolved_rule.closing_dislocation_overnight is not None:
+            signals = build_closing_dislocation_signals(
+                applied_snapshot,
+                replay_data,
+                pd.Timestamp(request.start),
+                pd.Timestamp(request.end),
+                repository_root,
+            )
+            result = replay_account(signals, replay_data, request.initial_cash)
+        else:
+            signals = replay_signals(
+                applied_snapshot, replay_data, request.start, request.end
+            )
+            result = replay_account(signals, replay_data, request.initial_cash)
         application["runtime_engine"] = "research_candidate"
     strategy_metrics = calculate_metrics(result, request.initial_cash)
     evidence = build_replay_evidence(

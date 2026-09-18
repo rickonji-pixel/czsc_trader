@@ -6,6 +6,7 @@ from datetime import datetime, time
 from hashlib import sha256
 import json
 from pathlib import Path
+from collections.abc import Mapping
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -45,6 +46,61 @@ def _load_release(repository_root: Path, reference: str) -> StrategyRelease:
     return StrategyRelease.from_mapping(json.loads(path.read_text(encoding="utf-8")))
 
 
+def load_srt_strategy(
+    repository_root: Path,
+    reference: str,
+    *,
+    deployment_symbol: str | None = None,
+):
+    """Load a frozen runtime, optionally bound to an explicit backtest symbol."""
+
+    release = _load_release(repository_root, reference)
+    loader = StrategyLoader()
+    strategy = (
+        loader.load_for_symbol(release, deployment_symbol)
+        if deployment_symbol is not None
+        else loader.load(release)
+    )
+    return release, strategy
+
+
+def strategy_reference_symbol(strategy) -> str:
+    """Return the single ETF instrument declared by one frozen runtime."""
+
+    subjects = {
+        item.subject.upper()
+        for item in strategy.definition.inputs.requirements
+        if item.subject and item.dataset.startswith("etf.")
+    }
+    if len(subjects) != 1:
+        payload = strategy.definition.parameters.values
+        rule = payload.get("rule")
+        if isinstance(rule, Mapping):
+            execution = rule.get("execution")
+            if isinstance(execution, Mapping):
+                instrument = execution.get("instrument")
+                if isinstance(instrument, Mapping) and isinstance(
+                    instrument.get("symbol"), str
+                ):
+                    return str(instrument["symbol"]).upper()
+            if isinstance(rule.get("symbol"), str):
+                return str(rule["symbol"]).upper()
+        if isinstance(payload.get("symbol"), str):
+            return str(payload["symbol"]).upper()
+        raise ValueError("SRT strategy does not declare exactly one ETF instrument")
+    return next(iter(subjects))
+
+
+def execution_intraday_frequencies(strategy) -> tuple[str, ...]:
+    """Map SRT channel checkpoints to TDR execution-price datasets."""
+
+    checkpoints = set(strategy.definition.capabilities.checkpoints)
+    unsupported = checkpoints - {"OPEN", "11:30_CLOSE"}
+    if unsupported:
+        raise ValueError(f"unsupported SRT execution checkpoints: {sorted(unsupported)}")
+    return ("5m",) if "11:30_CLOSE" in checkpoints else ()
+
+
 def build_srt_signal_replay(
     *,
     snapshot: StrategySnapshot,
@@ -55,8 +111,11 @@ def build_srt_signal_replay(
 ) -> tuple[object, SignalReplay]:
     """Calculate one complete historical decision series inside its SRT class."""
 
-    release = _load_release(repository_root, snapshot.identity.reference)
-    strategy = StrategyLoader().load(release)
+    release, strategy = load_srt_strategy(
+        repository_root,
+        snapshot.identity.reference,
+        deployment_symbol=replay_data.adjusted.symbol,
+    )
     sessions = pd.DatetimeIndex(
         pd.to_datetime(replay_data.adjusted.daily["dt"]).dt.normalize(), name="dt"
     )

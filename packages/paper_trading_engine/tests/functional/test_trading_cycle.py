@@ -1,12 +1,9 @@
 from dataclasses import asdict, replace
 from datetime import date, datetime, time, timezone
 import re
-from subprocess import CompletedProcess
-
 import pytest
 
 from paper_trading_engine.account_engine import AccountEngine, AccountRefreshBatchError
-from paper_trading_engine.advice_client import AdviceClientError, CliAdviceClient
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.contracts import AdviceDecision, OrderSpec, PlanLegSpec
 from paper_trading_engine.futu_execution import FutuExecution
@@ -195,29 +192,6 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     assert len(reopened.account_orders("s001-v1")) == 1
     assert len(reopened.account_fills("s001-v1")) == 2
     reopened.close()
-
-    audit_store = PaperStore(tmp_path / "advice-failure.db")
-    client = CliAdviceClient(
-        executable="czsc-trader", repo_root=tmp_path, data_dir=tmp_path,
-        symbol="588080.SH", asset="etf", audit=AuditRecorder(audit_store),
-        runner=lambda args, **kwargs: CompletedProcess(
-            args,
-            5,
-            '{"status":"FAIL","error":{"message":"support data unavailable"}}',
-            "",
-        ),
-    )
-    with pytest.raises(AdviceClientError, match="support data unavailable"):
-        client.get_decision(
-            0, 100_000, strategy_id="S001", strategy_version="v1",
-            account_id="s001-v1",
-        )
-    failed = audit_store.query_audit_events(event_type="DECISION_GENERATION_FAILED")[0]
-    assert failed["account_id"] == "s001-v1"
-    external = audit_store.query_audit_events(event_type="EXTERNAL_CALL_FAILED")[0]
-    assert external["account_id"] == "s001-v1"
-    audit_store.close()
-
 
 def test_account_snapshot_values_position_with_execution_price(tmp_path):
     store = PaperStore(tmp_path / "valuation.db")

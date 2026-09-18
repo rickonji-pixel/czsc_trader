@@ -104,7 +104,7 @@ class _Execution:
 
 class _Channel:
     channel_id = "backtest"
-    capabilities = ChannelCapabilities(("LIMIT",))
+    capabilities = ChannelCapabilities(("LIMIT", "MARKET"))
 
     def __init__(self) -> None:
         self.execution = _Execution()

@@ -25,7 +25,7 @@ from strategy_runtime import (
     read_publication,
 )
 
-from .advice_client import AdviceClientError
+from .errors import AdviceClientError
 from .audit import AuditRecorder
 from .contracts import AdviceContractError, AdviceDecision
 

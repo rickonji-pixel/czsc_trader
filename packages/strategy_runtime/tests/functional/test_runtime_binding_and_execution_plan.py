@@ -51,6 +51,31 @@ def test_loader_rejects_source_that_differs_from_frozen_binding(monkeypatch) -> 
         StrategyLoader().load(StrategyRelease.from_mapping(payload))
 
 
+def test_symbol_binding_is_explicit_and_fails_closed() -> None:
+    root = Path(__file__).resolve().parents[4]
+
+    s001_payload = json.loads(
+        (root / "strategies/S001/versions/v2.json").read_text(encoding="utf-8")
+    )
+    bound = StrategyLoader().load_for_symbol(
+        StrategyRelease.from_mapping(s001_payload), "159352.SZ"
+    )
+    etf_subjects = {
+        item.subject
+        for item in bound.definition.inputs.requirements
+        if item.dataset.startswith("etf.")
+    }
+    assert etf_subjects == {"159352.SZ"}
+
+    s007_payload = json.loads(
+        (root / "strategies/S007/versions/v1.json").read_text(encoding="utf-8")
+    )
+    with pytest.raises(RuntimeCompatibilityError, match="does not support"):
+        StrategyLoader().load_for_symbol(
+            StrategyRelease.from_mapping(s007_payload), "588300.SH"
+        )
+
+
 def test_target_execution_plan_honors_frozen_limit_exit() -> None:
     release_hash = "a" * 64
     deployment = DeploymentSpec(

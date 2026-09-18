@@ -691,6 +691,13 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
             )
         else:
             shutil.copy2(source, destination)
+    srt_publication = source_root / "srt_s001_v1_publication.json"
+    srt_publication.write_text(
+        srt_publication.read_text(encoding="utf-8")
+        .replace("588080.SH", "159352.SZ")
+        .replace("588080", "159352"),
+        encoding="utf-8",
+    )
     generalized = invoke_main(
         [
             "backtest", "run",

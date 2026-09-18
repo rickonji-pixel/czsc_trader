@@ -355,7 +355,7 @@ class S001Base:
 
     expected_release_id = ""
 
-    def __init__(self, release: StrategyRelease) -> None:
+    def __init__(self, release: StrategyRelease, deployment_symbol: str | None = None) -> None:
         if release.release_id != self.expected_release_id:
             raise RuntimeContractError(
                 f"{self.__class__.__name__} can only load {self.expected_release_id}"
@@ -364,9 +364,12 @@ class S001Base:
         rule = _object(payload.get("rule"), "S001 rule")
         execution = _object(rule.get("execution"), "S001 execution")
         instrument = _object(execution.get("instrument"), "S001 instrument")
-        symbol = str(instrument.get("symbol", "")).upper()
-        if symbol != "588080.SH":
+        frozen_symbol = str(instrument.get("symbol", "")).upper()
+        if frozen_symbol != "588080.SH":
             raise RuntimeContractError("S001 frozen symbol must be 588080.SH")
+        symbol = (deployment_symbol or frozen_symbol).upper()
+        if not re.fullmatch(r"\d{6}\.(?:SH|SZ)", symbol):
+            raise RuntimeContractError("S001 deployment symbol must be an A-share instrument")
         self._release = release
         self._rule = rule
         self._symbol = symbol
@@ -446,6 +449,12 @@ class S001Base:
     @classmethod
     def from_release(cls, release: StrategyRelease) -> "S001Base":
         return cls(release)
+
+    @classmethod
+    def from_release_for_symbol(
+        cls, release: StrategyRelease, symbol: str
+    ) -> "S001Base":
+        return cls(release, symbol)
 
     @property
     def definition(self) -> RuntimeDefinition:

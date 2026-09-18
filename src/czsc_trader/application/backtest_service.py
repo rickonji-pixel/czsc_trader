@@ -10,6 +10,10 @@ from czsc_trader.backtesting import (
     resolve_registered_strategy,
     run_backtest_v2,
 )
+from czsc_trader.backtesting.srt_bridge import (
+    execution_intraday_frequencies,
+    load_srt_strategy,
+)
 
 from .context import RepositoryContext
 from .errors import ExecutionError
@@ -46,18 +50,20 @@ def run_backtest(
         snapshot = resolve_registered_strategy(
             context, request.strategy_id, request.strategy_version
         )
-        overlay = snapshot.resolved_rule.constituent_moneyflow_intraday
-        closing_dislocation = snapshot.resolved_rule.closing_dislocation_overnight
-        if snapshot.resolved_rule.execution is None and overlay is None:
-            raise ValueError("strategy has no complete execution rule")
+        _, strategy = load_srt_strategy(
+            context.root,
+            snapshot.identity.reference,
+            deployment_symbol=request.symbol,
+        )
+        intraday_frequencies = execution_intraday_frequencies(strategy)
         data = load_replay_data(
             context,
             request.dataset,  # type: ignore[arg-type]
             request.symbol,
             request.asset_type,
             request.end,
-            include_five_minute=overlay is not None,
-            include_one_minute=closing_dislocation is not None,
+            include_five_minute="5m" in intraday_frequencies,
+            include_one_minute="1m" in intraday_frequencies,
         )
         summary = run_backtest_v2(
             snapshot=snapshot,

@@ -59,7 +59,15 @@ def _publication_status(results: Mapping[str, DataResult]) -> PublicationStatus:
 
 
 def _declared_symbol(strategy: ExecutableStrategy) -> str | None:
-    """Read the frozen trading symbol from the existing payload shapes."""
+    """Read the effective deployment symbol from the runtime input contract."""
+
+    input_subjects = {
+        item.subject.upper()
+        for item in strategy.definition.inputs.requirements
+        if item.subject and item.dataset.startswith("etf.")
+    }
+    if len(input_subjects) == 1:
+        return next(iter(input_subjects))
 
     payload = strategy.definition.parameters.values
     rule = payload.get("rule")

@@ -347,7 +347,14 @@ def evaluate_experiment(
     stress_scenarios: tuple[str, ...] | None = None,
     frequency_window_days: int = 60,
     external_replays: tuple[ExternalReplayEvidence, ...] = (),
+    review_data_root: Path | None = None,
+    review_data_hash: str | None = None,
 ) -> CommandResult:
+    if (review_data_root is None) != (review_data_hash is None):
+        raise ValueError("review dataset directory and sealed hash must be supplied together")
+    if review_data_root is not None:
+        from .review_data import verify_review_dataset
+        verify_review_dataset(review_data_root, review_data_hash)
     experiment = _experiment_path(context, experiment_id)
     protocol_raw = _read_object(experiment / "evaluation_protocol.json")
     protocol = EvaluationProtocol.from_dict(protocol_raw)
@@ -370,6 +377,7 @@ def evaluate_experiment(
     trials = tuple(_trial(item) for item in raw_trials if isinstance(item, dict))
     evaluation_directive = {
         "metric_semantics_version": METRIC_SEMANTICS_VERSION,
+        "review_data_hash": review_data_hash,
         "machine_policy": None if machine_policy is None else machine_policy.to_dict(),
         "stress_scenarios": None if stress_scenarios is None else list(stress_scenarios),
         "frequency_window_days": frequency_window_days,
@@ -398,6 +406,7 @@ def evaluate_experiment(
         context, str(manifest["symbol"]), str(manifest.get("asset_type", "etf")), periods,
         float(manifest.get("fee_rate", 0.0005)), float(manifest.get("init_cash", 1_000_000.0)),
         workers, frequency_window_days, str(manifest.get("strategy_id", experiment.parent.name)),
+        review_data_root, review_data_hash,
     )
     reuse_ledger: list[ReuseLedgerRow] = []
     reuse_diagnostics: list[str] = []
@@ -506,6 +515,7 @@ def evaluate_experiment(
         "canonical_metric_hash": _canonical_hash(metric_rows),
         "formal_evaluation_contract": {
             "metric_semantics_version": METRIC_SEMANTICS_VERSION,
+            "review_data_hash": review_data_hash,
             "development_cutoff": protocol.development_cutoff,
             "windows": manifest["windows"],
             "benchmark_id": protocol.incumbent_id,

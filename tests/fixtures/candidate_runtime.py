@@ -49,7 +49,10 @@ class CandidateFixture:
                         1,
                         CutoffRule.SIGNAL_SESSION,
                     ),
-                )
+                ) + ((InputRequirement(
+                    "calendar", "calendar.trading_sessions", "SSE", "daily", 0,
+                    CutoffRule.LATEST_AVAILABLE,
+                ),) if payload["parameters"].get("with_calendar") else ())
             ),
             decision=DecisionContract("TARGET_POSITION", 0.0, 1.0, "NEXT_SESSION"),
             execution=ExecutionPolicy(
@@ -60,7 +63,7 @@ class CandidateFixture:
                         "mode": "full_available_cash",
                         "target_scope": "entry_cycle",
                     },
-                    "entry": {"limit_parameter": 0.0, "order_type": "LIMIT"},
+                    "entry": {"limit_parameter": payload["parameters"].get("entry_premium", 0.0), "order_type": "LIMIT"},
                     "exit": {"limit_ratio": 0.1, "order_type": "MARKET"},
                     "instrument": {
                         "lot_size": 100,
@@ -71,7 +74,10 @@ class CandidateFixture:
                 },
             ),
             monitoring=MonitoringPolicy("OBSERVE", {}),
-            capabilities=RequiredCapabilities(("etf.share",), ("LIMIT", "MARKET")),
+            capabilities=RequiredCapabilities(
+                ("etf.share",) + (("calendar.trading_sessions",) if payload["parameters"].get("with_calendar") else ()),
+                ("LIMIT", "MARKET"),
+            ),
             identity_kind="CANDIDATE" if candidate else "RELEASE",
             candidate_id=identity.candidate_id if candidate else None,
         )
@@ -94,11 +100,16 @@ class CandidateFixture:
         values = flow.set_index("Date").reindex(sessions)["Flow"].astype(float)
         if values.isna().any():
             raise ValueError("fixture flow does not cover the calculation sessions")
-        return pd.DataFrame({"target_position": (values > threshold).astype(float)}, index=sessions)
+        target = (values > threshold).astype(float)
+        if self.definition.parameters.values.get("invert", False):
+            target = 1.0 - target
+        return pd.DataFrame({"target_position": target}, index=sessions)
 
     def calculate(self, request):
         frame = request.publication.input_results["flow"].dataframe
         target = float(frame.iloc[-1]["Flow"] > self.definition.parameters.values["threshold"])
+        if self.definition.parameters.values.get("invert", False):
+            target = 1.0 - target
         definition = self.definition
         return StrategyDecision(
             f"fixture-{request.calculation_time.isoformat()}",

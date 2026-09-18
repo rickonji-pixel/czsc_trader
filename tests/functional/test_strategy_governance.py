@@ -168,7 +168,15 @@ def test_tdr_rejects_incomplete_audit_matrix_and_stale_formal_contract() -> None
         },
     )
     with pytest.raises(ValueError, match="differs from evaluation mandate"):
-        _assert_formal_evaluation_contract(stale, mandate, snapshot)
+        _assert_formal_evaluation_contract(stale, mandate, snapshot, "d" * 64)
+    from czsc_trader.candidate_evaluation import METRIC_SEMANTICS_VERSION
+    contract = stale.result["formal_evaluation_contract"]
+    contract.update(development_cutoff=mandate.development_cutoff,
+                    metric_semantics_version=METRIC_SEMANTICS_VERSION, review_data_hash="d" * 64)
+    _assert_formal_evaluation_contract(stale, mandate, snapshot, "d" * 64)
+    contract["metric_semantics_version"] = "legacy"
+    with pytest.raises(ValueError, match="differs from evaluation mandate"):
+        _assert_formal_evaluation_contract(stale, mandate, snapshot, "d" * 64)
 
 
 def test_tdr_rejects_execution_contract_false_success(tmp_path: Path) -> None:
@@ -566,13 +574,19 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
             "submission_seal_hash": submission.seal_hash,
             "adjudication_report": report.to_dict(),
         },
-        artifact_hashes={"adjudication_report": report.report_hash},
+        artifact_hashes={"adjudication_report": report.report_hash, "review_dataset": "d" * 64},
     )
     # A release factory must preserve reviewed contracts, not only its parameters.
     from strategy_runtime import MonitoringPolicy
     from czsc_trader.application.errors import ValidationError
     from czsc_trader.application.freeze_review_service import freeze_review_candidate
     original_factory = type(loaded).from_release
+    # This test isolates lifecycle/identity gates; snapshot publication is exercised
+    # with real SRT + DFLS + TXE in test_candidate_runtime_execution.
+    monkeypatch.setattr(
+        "czsc_trader.application.freeze_review_service._verified_review_evidence",
+        lambda *args: experiment,
+    )
 
     def changed_release(cls, release):
         strategy = original_factory(release)
@@ -755,28 +769,6 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
             "required_audits": mandate.required_audits,
             "requirements": mandate.audit_requirements,
     }
-    registry.append_governance_seal(
-        "S901",
-        "SGC-S901-001",
-        stage=GovernanceStage.CANDIDATE_SUBMITTED,
-        result=GovernanceResult.OPEN,
-        actor="tester",
-        expected_previous_hash=credential.credential_hash,
-        content={
-            "submission_id": "SUB-SGC-S901-001-2",
-            "candidate_snapshot": snapshot.to_dict(),
-            "evaluation_mandate": mandate.to_dict(),
-            "audit_policy": audit_policy,
-            "candidate_runtime": candidate_runtime,
-        },
-        artifact_hashes={
-            "candidate_snapshot": canonical_sha256(snapshot.to_dict()),
-            "evaluation_mandate": mandate.mandate_hash,
-            "audit_policy": canonical_sha256(audit_policy),
-            "candidate_runtime": canonical_sha256(candidate_runtime),
-        },
-    )
-
     experiment = context.experiments_root / "S901" / "0918_TEST"
     artifacts = experiment / "artifacts"
     artifacts.mkdir(parents=True)
@@ -850,15 +842,46 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         {"status": "APPROVED", "rules": [{"metric": "drawdown", "operator": "<"}]},
     )
 
+    from czsc_trader.application.freeze_review_service import _evaluation_inputs
+    from czsc_trader.candidate_evaluation import METRIC_SEMANTICS_VERSION
+    protocol, manifest, _ = _load_protocol_and_candidate(experiment, snapshot)
+    inputs = _evaluation_inputs(experiment, protocol, manifest)
+    registry.append_governance_seal(
+        "S901", "SGC-S901-001", stage=GovernanceStage.CANDIDATE_SUBMITTED,
+        result=GovernanceResult.OPEN, actor="tester", expected_previous_hash=credential.credential_hash,
+        content={
+            "submission_id": "SUB-SGC-S901-001-2", "candidate_snapshot": snapshot.to_dict(),
+            "evaluation_mandate": mandate.to_dict(), "audit_policy": audit_policy,
+            "candidate_runtime": candidate_runtime, "evaluation_inputs": inputs,
+        },
+        artifact_hashes={
+            "candidate_snapshot": canonical_sha256(snapshot.to_dict()),
+            "evaluation_mandate": mandate.mandate_hash, "audit_policy": canonical_sha256(audit_policy),
+            "candidate_runtime": canonical_sha256(candidate_runtime), "evaluation_inputs": canonical_sha256(inputs),
+        },
+    )
+    # Orchestration test stubs data ingestion and numerical assessment; it asserts
+    # isolated destinations and sealed input propagation, not statistical validity.
+    monkeypatch.setattr("czsc_trader.application.freeze_review_service.publish_review_dataset",
+                        lambda *args: {"snapshot_hash": "d" * 64})
+    monkeypatch.setattr("czsc_trader.application.freeze_review_service.verify_review_dataset",
+                        lambda *args: {"snapshot_hash": "d" * 64})
     calls = []
 
     def recompute(_context, experiment_id, **kwargs):
         calls.append((experiment_id, kwargs))
+        import shutil
+        isolated = _context.experiments_root / "S901" / experiment_id / "artifacts"
+        assert isolated != artifacts
+        for path in artifacts.iterdir():
+            if path.name not in {"external_validation.json", "monitoring_plan.json"}:
+                shutil.copyfile(path, isolated / path.name)
         return CommandResult(
             "PASS",
             "strategy.evaluate",
             {
                 "recommended_candidate_id": "C001",
+                "ranking": {"champion_id": "C001"},
                 "machine_evaluation": {
                     "machine_verdict": "ELIGIBLE_FOR_FREEZE_REVIEW",
                     "risk_label": "MIXED",
@@ -894,6 +917,8 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
                 "decision_hash": "1" * 64,
                 "reason_codes": [],
                 "formal_evaluation_contract": {
+                    "metric_semantics_version": METRIC_SEMANTICS_VERSION,
+                    "review_data_hash": kwargs["review_data_hash"],
                     "development_cutoff": mandate.development_cutoff,
                     "windows": mandate.evaluation_windows,
                     "benchmark_id": mandate.benchmark["id"],
@@ -912,8 +937,18 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         recompute,
     )
 
+    from czsc_trader.application.errors import ValidationError
+    source_hashes = {path.name: _hash_file(path) for path in artifacts.iterdir()}
+    changed = deepcopy(manifest)
+    changed["init_cash"] *= 2
+    _write_json(experiment / "candidate_manifest.json", changed)
+    with pytest.raises(ValidationError, match="submission seal"):
+        evaluate_freeze_review(context, "S901", "SGC-S901-001")
+    assert not calls
+    _write_json(experiment / "candidate_manifest.json", manifest)
     result = evaluate_freeze_review(context, "S901", "SGC-S901-001")
     replay = evaluate_freeze_review(context, "S901", "SGC-S901-001")
+    assert {path.name: _hash_file(path) for path in artifacts.iterdir()} == source_hashes
 
     assert len(calls) == 1
     experiment_id, kwargs = calls[0]

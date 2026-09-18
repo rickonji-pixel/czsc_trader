@@ -373,3 +373,252 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
         evaluate_candidate_payloads(context, protocol, payloads, ("C001",), "STRESS", ("slippage_15bp",))
     with pytest.raises(ValueError, match="invalid cost"):
         evaluate_candidate_payloads(context, protocol, payloads, ("C001",), "STRESS", ("fee_xnan",))
+
+
+def test_review_data_republication_is_offline_isolated_and_fails_closed(candidate_payload, tmp_path, monkeypatch):
+    from hashlib import sha256
+    from czsc_trader.application.review_data import (
+        publish_review_dataset, load_review_dataset, verify_review_dataset,
+    )
+    from czsc_trader.backtesting.datasets import ReplayData, _fingerprint
+    from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
+    from czsc_trader.data import MarketData
+
+    payload, _ = candidate_payload
+    payload["parameters"]["with_calendar"] = True
+    sessions = pd.bdate_range("2026-09-14", periods=6)
+    daily = pd.DataFrame({"dt": sessions, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0})
+    market = MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf")
+    pool = tmp_path / "data" / "raw"
+    pool.mkdir(parents=True)
+    replay = ReplayData(
+        "research", pool, market, daily, daily.copy(),
+        _fingerprint("research", market, daily, daily), sessions[-1].date(),
+    )
+    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("review publication must not access remote adapters")
+    monkeypatch.setattr("dataflows.facade._default_providers", forbidden)
+    context = SimpleNamespace(root=tmp_path, research_data_root=pool)
+    sources = []
+    for name, dataset, symbol, frame in (
+        ("flow.csv", "etf.share", "588080.SH", pd.DataFrame({"Date": sessions, "Flow": [.1, .8, .8, .1, 0, 0]})),
+        ("calendar.csv", "calendar.trading_sessions", "SSE",
+         pd.DataFrame({"Date": pd.date_range(sessions[0], sessions[-1] + pd.Timedelta(days=20))}).assign(
+             IsOpen=lambda frame: (frame.Date.dt.dayofweek < 5).astype(int))),
+    ):
+        path = pool / name
+        frame.to_csv(path, index=False)
+        sources.append({"dataset": dataset, "symbol": symbol, "frequency": "daily", "path": name,
+                        "sha256": sha256(path.read_bytes()).hexdigest()})
+    raw_protocol = {"development_cutoff": "2026-09-21"}
+    protocol = SimpleNamespace(**raw_protocol, to_dict=lambda: raw_protocol)
+    manifest = {
+        "strategy_id": "S900", "symbol": "588080.SH", "asset_type": "etf",
+        "windows": {"full": {"start": "2026-09-15", "end": "2026-09-21"}},
+        "candidates": [{"candidate_id": "C001", "strategy_payload": payload}],
+        "review_data_sources": sources,
+    }
+    directory = tmp_path / "data" / "review" / "SGC-TEST" / ("a" * 64)
+    published = publish_review_dataset(context, manifest, protocol, directory)
+    restored = load_review_dataset(directory, published["snapshot_hash"])
+    assert_frame_equal(restored.execution_daily, daily)
+    assert_frame_equal(restored.adjusted.daily, daily)
+    assert restored.root != pool
+    run = CandidateEvaluationContext(
+        context, "588080.SH", "etf", (("full", (sessions[1], sessions[-1])),),
+        .001, 100_000, family_id="S900", review_data_root=directory,
+        review_data_hash=published["snapshot_hash"],
+    )
+    rows = evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL")
+    assert rows[0].closed_trades == 1
+
+    # Source changes after publication cannot change already sealed review results.
+    original = (pool / "flow.csv").read_bytes()
+    (pool / "flow.csv").write_bytes(original + b"\n")
+    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", forbidden)
+    assert publish_review_dataset(context, manifest, protocol, directory) == published
+    assert evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL") == rows
+    with pytest.raises(ValueError, match="sealed snapshot"):
+        load_review_dataset(directory, "0" * 64)
+    changed = deepcopy(manifest)
+    changed["candidates"][0]["strategy_payload"]["parameters"]["threshold"] = .7
+    with pytest.raises(ValueError, match="different evaluation inputs"):
+        publish_review_dataset(context, changed, protocol, directory)
+
+    # A new publication checks pinned source hashes, missing inputs and cutoff coverage.
+    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
+    failed_directory = directory.parent / ("b" * 64)
+    with pytest.raises(ValueError, match="publication failed"):
+        publish_review_dataset(context, manifest, protocol, failed_directory)
+    assert not failed_directory.exists()
+    (pool / "flow.csv").write_bytes(original)
+    missing = deepcopy(manifest)
+    missing["review_data_sources"] = sources[1:]
+    with pytest.raises(ValueError, match="publication failed"):
+        publish_review_dataset(context, missing, protocol, failed_directory)
+    short = pd.read_csv(pool / "flow.csv").iloc[:-1]
+    short.to_csv(pool / "flow.csv", index=False)
+    incomplete = deepcopy(manifest)
+    incomplete["review_data_sources"][0]["sha256"] = sha256((pool / "flow.csv").read_bytes()).hexdigest()
+    with pytest.raises(ValueError, match="INCOMPLETE"):
+        publish_review_dataset(context, incomplete, protocol, failed_directory)
+    outside = deepcopy(manifest)
+    outside["review_data_sources"][0]["path"] = "../outside.csv"
+    with pytest.raises(ValueError, match="controlled research pool"):
+        publish_review_dataset(context, outside, protocol, failed_directory)
+    assert not failed_directory.exists()
+
+    snapshot_file = directory / "execution_daily.csv.gz"
+    snapshot_file.write_bytes(snapshot_file.read_bytes() + b"changed")
+    with pytest.raises(ValueError, match="file hash mismatch"):
+        verify_review_dataset(directory, published["snapshot_hash"])
+    with pytest.raises(ValueError, match="file hash mismatch"):
+        evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL")
+
+
+def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_payload, tmp_path, monkeypatch):
+    """Synthetic economics; only raw-pool loading is stubbed, all assessment runs."""
+    from hashlib import sha256
+    import json
+    import numpy as np
+    from czsc_trader.application.evaluation_service import evaluate_experiment
+    from czsc_trader.application.context import RepositoryContext
+    from czsc_trader.application.runtime_acceptance import _runtime_report
+    from czsc_trader.application.review_data import publish_review_dataset
+    from czsc_trader.backtesting.datasets import ReplayData, _fingerprint
+    from czsc_trader.data import MarketData
+    from strategy_evaluator import EvaluationProtocol
+
+    payload, _ = candidate_payload
+    sessions = pd.bdate_range("2026-01-05", periods=132)
+    changes = np.array([.02 if i % 2 else -.02 for i in range(len(sessions))])
+    changes[::14] = .015
+    changes[13::14] = -.015
+    closes = 2 * np.cumprod(1 + changes)
+    daily = pd.DataFrame({"dt": sessions, "open": np.r_[2.0, closes[:-1]], "close": closes})
+    daily["high"] = daily[["open", "close"]].max(axis=1)
+    daily["low"] = daily[["open", "close"]].min(axis=1)
+    market = MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf")
+    pool = tmp_path / "data" / "raw"
+    pool.mkdir(parents=True)
+    replay = ReplayData("research", pool, market, daily, daily.copy(),
+                        _fingerprint("research", market, daily, daily), sessions[-1].date())
+    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
+    context = RepositoryContext(
+        root=tmp_path, raw_dir=pool, research_data_root=pool, backtest_data_root=tmp_path / "data/backtest",
+        baseline_root=tmp_path / "baselines", strategy_root=tmp_path / "strategies",
+        strategy_dependency_root=tmp_path / "dependencies", experiments_root=tmp_path / "experiments",
+        outputs_root=tmp_path / "outputs",
+    )
+    cutoff = sessions[-1].date().isoformat()
+    sources = []
+    for name, dataset, symbol, frame in (
+        ("flow.csv", "etf.share", "588080.SH", pd.DataFrame({"Date": sessions, "Flow": [float(i % 2 == 0) for i in range(len(sessions))]})),
+        ("calendar.csv", "calendar.trading_sessions", "SSE",
+         pd.DataFrame({"Date": pd.date_range(sessions[0], sessions[-1] + pd.Timedelta(days=20))}).assign(
+             IsOpen=lambda frame: (frame.Date.dt.dayofweek < 5).astype(int))),
+    ):
+        path = pool / name
+        frame.to_csv(path, index=False)
+        sources.append({"dataset": dataset, "symbol": symbol, "path": name,
+                        "sha256": sha256(path.read_bytes()).hexdigest()})
+    candidates = []
+    for identity, threshold in (("C000", .5), ("C001", .5), ("C002", .4), ("C003", .6)):
+        params = deepcopy(payload)
+        params["parameters"] = {"threshold": threshold, "with_calendar": True, "entry_premium": .01}
+        if identity == "C000":
+            params["parameters"]["invert"] = True
+        strategy = StrategyLoader().load_candidate(StrategyCandidate("S900", identity, params))
+        candidates.append({"candidate_id": identity, "strategy_id": "S900", "strategy_payload": params,
+                           "strategy_hash": canonical_sha256(params),
+                           "execution_policy_hash": _runtime_report(strategy)["execution_policy_sha256"],
+                           "parameter_distance": abs(threshold - .5),
+                           "behavior_hash": identity, "is_incumbent": identity == "C000"})
+    protocol = EvaluationProtocol.from_dict({
+        "schema_version": 1, "standard_version": "opc-v3", "experiment_id": "REVIEW",
+        "research_objective": "isolated integration fixture", "development_cutoff": cutoff,
+        "incumbent_id": "C000", "incumbent_hash": candidates[0]["strategy_hash"],
+        "decision_windows": ["full"], "target_windows": ["full"],
+        "execution_policy_hash": candidates[0]["execution_policy_hash"], "tightened_margins": {},
+        "shortlist_limit": 5, "target_requirements": [
+            {"metric": "full_return", "direction": "maximize", "minimum_improvement": 0.0}],
+        "candidate_manifest": "candidate_manifest.json",
+    })
+    manifest = {
+        "strategy_id": "S900", "symbol": "588080.SH", "fee_rate": .001, "init_cash": 100_000,
+        "windows": {"full": {"start": sessions[1].date().isoformat(), "end": cutoff}},
+        "forward_start": (sessions[-1] + pd.offsets.BDay()).date().isoformat(),
+        "candidates": candidates, "review_data_sources": sources,
+        "trials": [{"trial_id": item["candidate_id"], "candidate_id": item["candidate_id"],
+                    "strategy_hash": item["strategy_hash"], "behavior_hash": item["behavior_hash"],
+                    "status": "COMPLETED"} for item in candidates],
+    }
+    experiment = context.experiments_root / "S900" / "REVIEW"
+    experiment.mkdir(parents=True)
+    (experiment / "evaluation_protocol.json").write_text(json.dumps(protocol.to_dict()), encoding="utf-8")
+    (experiment / "candidate_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    directory = tmp_path / "data" / "review" / "fixture"
+    published = publish_review_dataset(context, manifest, protocol, directory)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("review computation must not read the mutable research pool")
+    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", forbidden)
+    result = evaluate_experiment(
+        context, "REVIEW", allow_artifact_reuse=False, use_cached_result=False,
+        review_data_root=directory, review_data_hash=published["snapshot_hash"],
+    )
+    assert result.result["formal_evaluation_contract"]["review_data_hash"] == published["snapshot_hash"]
+    assert result.result["formal_evaluation_contract"]["execution_engine"] == "TXE-v1"
+    assert "machine_evaluation" in result.result, (
+        result.result, (experiment / "artifacts" / "screening_decisions.csv").read_text(),
+        (experiment / "artifacts" / "screening_metrics.csv").read_text(),
+    )
+    assert result.result["machine_evaluation"]["checks"]
+    assert (experiment / "artifacts" / "machine_evaluation.json").is_file()
+
+    # The same real pipeline must record a rejected claim and block human gate 3.
+    from test_strategy_governance import _hashed, _mandate_for_contract_test, _write_json
+    from czsc_trader.application.research_governance_service import create_research_batch
+    from czsc_trader.application.freeze_review_service import (
+        open_freeze_review, evaluate_freeze_review, freeze_review_candidate,
+    )
+    from czsc_trader.application.errors import ValidationError
+    from strategy_manager import StrategyRegistry
+    create_research_batch(context, _write_json(tmp_path / "batch.json", {
+        "strategy_id": "S900", "name": "隔离验收", "scope": ["588080.SH"],
+        "research_intent": {"objective": "synthetic acceptance only"},
+    }), actor="tester", reason="test gate 1")
+    candidate = candidates[1]
+    ready = _runtime_report(StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", candidate["strategy_payload"])))
+    snapshot = _hashed({
+        "schema_version": 1, "strategy_id": "S900", "candidate_id": "C001",
+        "source_experiment": "experiments/S900/REVIEW", "strategy_payload": candidate["strategy_payload"],
+        "data_contract": {"symbol": "588080.SH", "asset_type": "etf",
+                          "requirements": ready["input_contract"]["requirements"]},
+        "execution_policy": ready["execution_policy"], "research_claims": {"annual_return": 100_000.0},
+    }, "candidate_hash")
+    mandate = _mandate_for_contract_test(
+        strategy_id="S900", mandate_id="EM-S900-C001-001", development_cutoff=cutoff,
+        evaluation_windows=manifest["windows"], benchmark={"type": "strategy", "id": "C000"},
+        forward_start=manifest["forward_start"], evidence_seen_through=cutoff,
+    )
+    _write_json(experiment / "artifacts" / "external_validation.json", {
+        "candidate_id": "C001", "candidate_hash": snapshot["candidate_hash"], "replays": [],
+    })
+    _write_json(experiment / "artifacts" / "monitoring_plan.json", {
+        "status": "APPROVED", "rules": [{"metric": "drawdown", "operator": "<", "value": -.2}],
+    })
+    source_before = {path.name: sha256(path.read_bytes()).hexdigest() for path in (experiment / "artifacts").iterdir()}
+    open_freeze_review(
+        context, credential_id="SGC-S900-001", candidate_path=_write_json(tmp_path / "candidate.json", snapshot),
+        mandate_path=_write_json(tmp_path / "mandate.json", mandate.to_dict()), actor="tester", reason="test gate 2",
+    )
+    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
+    reviewed = evaluate_freeze_review(context, "S900", "SGC-S900-001")
+    report = reviewed.result["adjudication_report"]
+    assert report["machine_verdict"] in {"REJECTED", "INCOMPLETE"}
+    assert "CLAIM_MISMATCH" in report["blocking_findings"]
+    assert {path.name: sha256(path.read_bytes()).hexdigest() for path in (experiment / "artifacts").iterdir()} == source_before
+    with pytest.raises(ValidationError, match="eligible TDR adjudication"):
+        freeze_review_candidate(context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test")
+    assert StrategyRegistry(context.strategy_root).versions("S900") == ()

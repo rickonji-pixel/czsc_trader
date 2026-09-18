@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from concurrent.futures import ThreadPoolExecutor
 from math import isfinite
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -33,6 +34,8 @@ class CandidateEvaluationContext:
     workers: int = 1
     frequency_window_days: int = 60
     family_id: str = ""
+    review_data_root: Path | None = None
+    review_data_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -62,10 +65,24 @@ def prepare_evaluation_workspace(
     include_five_minute: bool = False,
 ) -> EvaluationWorkspace:
     options = {"include_five_minute": True} if include_five_minute else {}
-    replay = load_replay_data(
-        context.repository, "research", context.symbol, context.asset_type,
-        pd.Timestamp(protocol.development_cutoff).date(), **options,
-    )
+    if context.review_data_root is not None:
+        from .application.review_data import load_review_dataset
+        if context.review_data_hash is None:
+            raise ValueError("review execution requires the sealed dataset hash")
+        replay = load_review_dataset(context.review_data_root, context.review_data_hash)
+        if (replay.adjusted.symbol, replay.adjusted.asset_type, replay.cutoff) != (
+            context.symbol, context.asset_type, pd.Timestamp(protocol.development_cutoff).date(),
+        ):
+            raise ValueError("review dataset identity differs from evaluation request")
+        if include_five_minute and replay.execution_five_minute is None:
+            raise ValueError("review dataset has no required five-minute execution prices")
+    else:
+        if context.review_data_hash is not None:
+            raise ValueError("review dataset hash requires a snapshot directory")
+        replay = load_replay_data(
+            context.repository, "research", context.symbol, context.asset_type,
+            pd.Timestamp(protocol.development_cutoff).date(), **options,
+        )
     cutoff = pd.Timestamp(protocol.development_cutoff).normalize()
     dates = pd.DatetimeIndex(pd.to_datetime(replay.adjusted.daily["dt"])).normalize()
     execution_dates = pd.DatetimeIndex(pd.to_datetime(replay.execution_daily["dt"])).normalize()

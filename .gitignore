@@ -14,6 +14,7 @@ outputs/
 # Git retains research definitions, programs, conclusions, and contracts only.
 data/raw/
 data/backtest/
+data/review/
 experiments/**/artifacts/
 
 # Local runtime state and audit data.

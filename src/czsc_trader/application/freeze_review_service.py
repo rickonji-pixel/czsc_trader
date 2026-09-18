@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import math
+from dataclasses import replace
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -37,11 +38,13 @@ from czsc_trader.experiment_archive import (
     resolve_experiment_dir,
     resolve_repository_experiment_reference,
 )
+from czsc_trader.candidate_evaluation import METRIC_SEMANTICS_VERSION
 
 from .context import RepositoryContext
 from .errors import ValidationError
 from .evaluation_service import evaluate_experiment
 from .results import CommandResult
+from .review_data import publish_review_dataset, verify_review_dataset
 from .runtime_acceptance import (
     require_same_runtime_content,
     validate_candidate_readiness,
@@ -490,6 +493,7 @@ def open_freeze_review(
         protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
         runtime = _candidate_runtime(snapshot)
+        evaluation_inputs = _evaluation_inputs(experiment, protocol, manifest)
         registry = StrategyRegistry(context.strategy_root)
         credential = registry.get_governance_credential(snapshot.strategy_id, credential_id)
         audit_policy = {
@@ -503,6 +507,7 @@ def open_freeze_review(
             "evaluation_mandate": mandate.to_dict(),
             "audit_policy": audit_policy,
             "candidate_runtime": runtime,
+            "evaluation_inputs": evaluation_inputs,
             "reason": reason.strip(),
         }
         submission_artifacts = {
@@ -510,6 +515,7 @@ def open_freeze_review(
             "evaluation_mandate": mandate.mandate_hash,
             "audit_policy": canonical_sha256(audit_policy),
             "candidate_runtime": canonical_sha256(runtime),
+            "evaluation_inputs": canonical_sha256(evaluation_inputs),
         }
         last = credential.seals[-1]
         same_submission = (
@@ -519,6 +525,7 @@ def open_freeze_review(
             and last.content.get("evaluation_mandate") == mandate.to_dict()
             and last.content.get("audit_policy") == audit_policy
             and last.content.get("candidate_runtime") == runtime
+            and last.content.get("evaluation_inputs") == evaluation_inputs
             and last.content.get("reason") == reason.strip()
             and last.artifact_hashes == submission_artifacts
         )
@@ -666,9 +673,12 @@ def _assert_formal_evaluation_contract(
     evaluation: CommandResult,
     mandate: EvaluationMandate,
     snapshot: CandidateSnapshot,
+    review_data_hash: str,
 ) -> None:
     actual = evaluation.result.get("formal_evaluation_contract")
     expected = {
+        "metric_semantics_version": METRIC_SEMANTICS_VERSION,
+        "review_data_hash": review_data_hash,
         "development_cutoff": mandate.development_cutoff,
         "windows": mandate.evaluation_windows,
         "benchmark_id": str(mandate.benchmark["id"]),
@@ -681,6 +691,65 @@ def _assert_formal_evaluation_contract(
     }
     if actual != expected:
         raise ValueError("formal evaluation contract differs from evaluation mandate")
+
+
+def _evaluation_inputs(experiment, protocol, manifest):
+    return {
+        "protocol": protocol.to_dict(), "manifest": manifest,
+        "support_files": {
+            name: _hash_file(experiment / "artifacts" / name)
+            for name in ("external_validation.json", "monitoring_plan.json")
+            if (experiment / "artifacts" / name).is_file()
+        },
+    }
+
+
+def _assert_submitted_inputs(submission, experiment, protocol, manifest):
+    current = _evaluation_inputs(experiment, protocol, manifest)
+    if (submission.content.get("evaluation_inputs") != current
+            or submission.artifact_hashes.get("evaluation_inputs") != canonical_sha256(current)):
+        raise ValueError("evaluation inputs differ from the candidate submission seal")
+
+
+def _review_directory(context, credential, submission):
+    base = (context.root / "data" / "review").resolve()
+    result = (base / credential.credential_id / submission.seal_hash).resolve()
+    if result.parent.parent != base:
+        raise ValueError("unsafe review snapshot identity")
+    return result
+
+
+def _review_experiment(directory, snapshot, source, protocol, manifest):
+    """Copy definitions and human input evidence only; never reuse computed metrics."""
+    target = directory / "experiments" / snapshot.strategy_id / source.name
+    target.mkdir(parents=True, exist_ok=True)
+    documents = {
+        "evaluation_protocol.json": json.dumps(protocol.to_dict(), ensure_ascii=False, indent=2).encode(),
+        protocol.candidate_manifest: json.dumps(manifest, ensure_ascii=False, indent=2).encode(),
+    }
+    for name in ("external_validation.json", "monitoring_plan.json"):
+        path = source / "artifacts" / name
+        if path.is_file():
+            documents["artifacts/" + name] = path.read_bytes()
+    for name, raw in documents.items():
+        path = target / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            if path.read_bytes() != raw:
+                raise ValueError(f"review input copy changed: {name}")
+        else:
+            with path.open("xb") as stream:
+                stream.write(raw)
+    return target
+
+
+def _verified_review_evidence(context, credential, submission, adjudication, snapshot):
+    directory = _review_directory(context, credential, submission)
+    digest = adjudication.artifact_hashes.get("review_dataset")
+    if not isinstance(digest, str):
+        raise ValueError("adjudication has no sealed review dataset")
+    verify_review_dataset(directory, digest)
+    return directory / "experiments" / snapshot.strategy_id / Path(snapshot.source_experiment).name
 
 
 def _number(value: Any) -> float:
@@ -983,9 +1052,9 @@ def evaluate_freeze_review(
     try:
         credential = registry.get_governance_credential(strategy_id, credential_id)
         if credential.stage is GovernanceStage.TDR_ADJUDICATED:
-            _submission, snapshot, _mandate, _policy = _submission_from_credential(credential)
-            _adjudication, report = _adjudication_from_credential(credential)
-            experiment = _experiment_path(context, snapshot.source_experiment)
+            submission, snapshot, _mandate, _policy = _submission_from_credential(credential)
+            adjudication, report = _adjudication_from_credential(credential)
+            experiment = _verified_review_evidence(context, credential, submission, adjudication, snapshot)
             return CommandResult(
                 "PASS",
                 "strategy.review.evaluate",
@@ -1005,9 +1074,19 @@ def evaluate_freeze_review(
         _validate_mandate_contract(mandate)
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
         runtime = _submitted_runtime(submission, snapshot)
+        _assert_submitted_inputs(submission, experiment, protocol, manifest)
+        source_experiment = experiment
+        review_directory = _review_directory(context, credential, submission)
+        dataset = publish_review_dataset(
+            context, {**manifest, "strategy_id": snapshot.strategy_id}, protocol, review_directory,
+        )
+        experiment = _review_experiment(
+            review_directory, snapshot, source_experiment, protocol, manifest,
+        )
+        evaluation_context = replace(context, experiments_root=review_directory / "experiments")
         machine_policy = _machine_policy_from_mandate(mandate)
         evaluation = evaluate_experiment(
-            context,
+            evaluation_context,
             experiment.name,
             use_cached_result=False,
             allow_artifact_reuse=False,
@@ -1015,13 +1094,16 @@ def evaluate_freeze_review(
             stress_scenarios=tuple(mandate.cost_policy["stress_scenarios"]),
             frequency_window_days=int(mandate.frequency_policy["window_days"]),
             external_replays=_external_replays(experiment, snapshot),
+            review_data_root=review_directory,
+            review_data_hash=dataset["snapshot_hash"],
         )
         machine = evaluation.result.get("machine_evaluation")
         if not isinstance(machine, dict):
             raise ValueError("formal evaluation produced no machine report")
-        _assert_formal_evaluation_contract(evaluation, mandate, snapshot)
-        if evaluation.result.get("recommended_candidate_id") != snapshot.candidate_id:
-            raise ValueError("formal evaluation recommended another candidate")
+        _assert_formal_evaluation_contract(evaluation, mandate, snapshot, dataset["snapshot_hash"])
+        ranking = evaluation.result.get("ranking")
+        if not isinstance(ranking, dict) or ranking.get("champion_id") != snapshot.candidate_id:
+            raise ValueError("formal evaluation selected another candidate or found no unique champion")
         metric = _formal_metric(experiment, snapshot.candidate_id)
         claims = _claim_checks(snapshot, metric)
         objectives = _objective_checks(mandate, metric)
@@ -1138,6 +1220,8 @@ def evaluate_freeze_review(
             "REJECTED": GovernanceResult.REJECTED,
         }[report.machine_verdict]
         _submitted_runtime(submission, snapshot)
+        _assert_submitted_inputs(submission, experiment, protocol, manifest)
+        verify_review_dataset(review_directory, dataset["snapshot_hash"])
         updated = registry.append_governance_seal(
             strategy_id,
             credential_id,
@@ -1151,6 +1235,7 @@ def evaluate_freeze_review(
             },
             artifact_hashes={
                 "adjudication_report": report.report_hash,
+                "review_dataset": dataset["snapshot_hash"],
                 "source_experiment": canonical_sha256(
                     {
                         "path": str(experiment.relative_to(context.root)).replace("\\", "/"),
@@ -1253,11 +1338,12 @@ def freeze_review_candidate(
         ):
             raise ValueError("governance credential does not contain an eligible TDR adjudication")
         submission, snapshot, mandate, _audit_policy = _submission_from_credential(credential)
-        _adjudication, report = _adjudication_from_credential(credential)
-        experiment = _experiment_path(context, snapshot.source_experiment)
-        protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
-        _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
+        adjudication, report = _adjudication_from_credential(credential)
         candidate_runtime = _submitted_runtime(submission, snapshot)
+        experiment = _verified_review_evidence(context, credential, submission, adjudication, snapshot)
+        protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
+        _assert_submitted_inputs(submission, experiment, protocol, manifest)
+        _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
         _verify_adjudication_evidence(experiment, report, candidate_runtime)
         runtime = _prospective_runtime(registry, snapshot, mandate)
         runtime["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
@@ -1317,6 +1403,7 @@ def freeze_review_candidate(
                 "governance_credential_id": credential_id,
                 "candidate_snapshot_hash": canonical_sha256(snapshot.to_dict()),
                 "evaluation_mandate_hash": mandate.mandate_hash,
+                "review_dataset_hash": adjudication.artifact_hashes["review_dataset"],
             },
             "initial_capital": float(manifest.get("init_cash", 1_000_000.0)),
             "fee_rate": float(mandate.cost_policy["primary_fee_rate"]),

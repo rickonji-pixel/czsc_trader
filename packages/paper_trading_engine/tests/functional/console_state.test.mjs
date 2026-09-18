@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, accountMarkup, accountOperatingStatus, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, sortVirtualAccounts, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, accountMarkup, accountOperatingStatus, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelMarkup, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, sortVirtualAccounts, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -114,5 +114,21 @@ test('virtual account orders show order time and remain newest first', () => {
     ],
   });
   assert.match(html, /下单时间/);
+  assert.match(html, /<th>账户<\/th><th>Futu订单<\/th><th>下单时间<\/th>/);
   assert.ok(html.indexOf('2026-09-17 09:31:00') < html.indexOf('2026-09-17 09:30:00'));
+});
+
+test('channel summary keeps four core metrics and moves reconciliation into details', () => {
+  const html = channelMarkup({
+    account:{cash:756290.717,total_assets:1002769.617,market_value:246478.9},
+    logical_cash:756290.717,logical_total_assets:996212.117,
+    cash_difference:0,asset_difference:6557.5,
+    strategy_allocated_capital:500000,unallocated_capital:500000,
+    reconciliation_account:{cash:'-73.56'},reconciliation_status:'OK',
+    accounts:[],orders:[],fills:[],alerts:[],paused:false,
+  });
+  assert.equal((html.match(/class="panel metric"/g)||[]).length,4);
+  assert.match(html,/资金对账正常/);
+  assert.match(html,/估值口径不同/);
+  assert.match(html,/<summary>查看明细<\/summary>/);
 });

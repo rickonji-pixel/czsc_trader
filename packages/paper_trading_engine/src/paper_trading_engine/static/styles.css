@@ -30,6 +30,20 @@ main{max-width:1500px;margin:0 auto;padding:24px}
 .metric{padding:18px}
 .metric label{display:block;color:var(--muted);font-size:12px}
 .metric strong{display:block;margin-top:10px;font-size:23px}
+.reconciliation-summary{margin-top:14px;padding:14px 18px}
+.reconciliation-bar{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.reconciliation-state{display:flex;align-items:center;gap:10px;font-size:13px}
+.reconciliation-state strong{font-size:14px}
+.reconciliation-state span{color:var(--muted)}
+.reconciliation-state.ok strong{color:var(--green)}
+.reconciliation-state.warning strong{color:var(--amber)}
+.reconciliation-details{margin-left:auto;color:var(--muted);font-size:13px}
+.reconciliation-details summary{color:var(--blue);cursor:pointer;text-align:right}
+.reconciliation-details[open]{width:100%;margin-left:0;padding-top:14px;border-top:1px solid var(--line)}
+.reconciliation-detail-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.reconciliation-detail-grid span,.reconciliation-detail-grid strong{display:block}
+.reconciliation-detail-grid strong{margin-top:5px;color:var(--text);font-size:15px}
+.reconciliation-details p{margin:12px 0 0}
 .section{margin-top:14px;padding:20px}
 .section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .section h2{font-size:16px;margin:0}
@@ -68,6 +82,7 @@ main{padding:14px}
 .sidebar h2{display:none}
 .account-card{min-width:210px;margin:0}
 .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.reconciliation-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .hero{flex-direction:column}
 .decision{grid-template-columns:1fr}
 .kv{grid-template-columns:1fr}

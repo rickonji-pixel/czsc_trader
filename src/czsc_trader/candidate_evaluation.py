@@ -94,7 +94,7 @@ def prepare_evaluation_workspace(
         "research",
         context.symbol,
         context.asset_type,
-        protocol.development_cutoff,
+        pd.Timestamp(protocol.development_cutoff).date(),
     )
     data = replay_data.adjusted
     cutoff = pd.Timestamp(protocol.development_cutoff).normalize()

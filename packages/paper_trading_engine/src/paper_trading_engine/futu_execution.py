@@ -26,6 +26,10 @@ class ChannelReconciliationError(RuntimeError):
     pass
 
 
+class OrderSubmissionBatchError(RuntimeError):
+    """One or more deterministic order submissions failed in this cycle."""
+
+
 class FutuExecution:
     def __init__(
         self, store, broker, *, symbol: str | None = None, today=None, now=None, audit=None,
@@ -677,6 +681,7 @@ class FutuExecution:
         session = moment.astimezone(SHANGHAI).date().isoformat()
         self._recover_future_plan_expiries(moment)
         self._activate_dependency_intents(moment)
+        deterministic_failures: list[tuple[str, Exception]] = []
         for row in self.store.pending_account_intents():
             account = self.store.virtual_account(row["account_id"])
             local_clock = moment.astimezone(SHANGHAI).time().replace(tzinfo=None)
@@ -717,6 +722,7 @@ class FutuExecution:
                     decision_id=row["decision_id"], correlation_id=row["decision_id"],
                     details={"side": row["side"], "quantity": row["quantity"], "error": str(exc)},
                 )
+                deterministic_failures.append((row["intent_id"], exc))
                 continue
             except PaperTradingSafetyError as exc:
                 self.store.release_account_intent(
@@ -729,6 +735,7 @@ class FutuExecution:
                     decision_id=row["decision_id"], correlation_id=row["decision_id"],
                     details={"side": row["side"], "quantity": row["quantity"], "error": str(exc)},
                 )
+                deterministic_failures.append((row["intent_id"], exc))
                 continue
             except Exception as exc:
                 self.store.update_account_intent_status(
@@ -781,6 +788,14 @@ class FutuExecution:
                     "Futu已返回订单，但本地绑定失败，等待双向对账",
                 )
                 raise
+        if deterministic_failures:
+            summary = "; ".join(
+                f"{intent_id}: {type(exc).__name__}: {exc}"
+                for intent_id, exc in deterministic_failures
+            )
+            raise OrderSubmissionBatchError(
+                f"{len(deterministic_failures)} order submission(s) failed: {summary}"
+            )
         return self.status()
 
     def acknowledge_execution_gap(

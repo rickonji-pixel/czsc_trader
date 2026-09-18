@@ -170,9 +170,19 @@ def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(t
             self.calls += 1
             if self.calls < 3:
                 raise RuntimeError("vendor unavailable")
-            return {"date": end_date}
+            return {
+                "data_cutoff": end_date,
+                "instruments": [{
+                    "symbol": "588080.SH",
+                    "result": {"data_cutoff": end_date, "generation_id": "GEN-TEST"},
+                }],
+            }
 
     engine, publisher, store = Engine(), Publisher(), Store()
+    store.accounts = [{
+        "account_id": "s001-v1", "symbol": "588080.SH", "asset_type": "etf",
+        "status": "RUNNING", "strategy_id": "S001", "strategy_version": "v1",
+    }]
     scheduler = RuntimeScheduler(engine, publisher, store, audit=AuditRecorder(store))
     scheduler.tick(datetime(2026, 9, 2, 20, 29, 59))
     assert publisher.calls == 0
@@ -305,7 +315,13 @@ def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
         def __init__(self): self.calls = []
         def publish(self, cutoff):
             self.calls.append(cutoff)
-            return {"data_cutoff": cutoff, "generation_ids": ["GEN-TEST"]}
+            return {
+                "data_cutoff": cutoff,
+                "instruments": [{
+                    "symbol": "510500.SH",
+                    "result": {"data_cutoff": cutoff, "generation_id": "GEN-TEST"},
+                }],
+            }
 
     store = Store()
     store.values.update(
@@ -317,6 +333,7 @@ def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
         "account_id": "s003-v1",
         "strategy_id": "S003",
         "strategy_version": "v1",
+        "symbol": "510500.SH",
         "status": "RUNNING",
         "last_decision_payload": None,
     }]
@@ -327,12 +344,35 @@ def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
 
     assert publisher.calls == ["2026-09-11"]
     assert ("decision", "s003-v1") in engine.calls
+    assert json.loads(store.values["last_data_generation_ids"]) == {
+        "510500.SH": "GEN-TEST"
+    }
 
     store.accounts[0]["last_decision_payload"] = json.dumps(
         {"signal_date": "2026-09-11"}
     )
     scheduler.tick_daily(datetime(2026, 9, 11, 20, 46))
     assert publisher.calls == ["2026-09-11"]
+
+
+def test_ft_pte04_scheduler_rejects_semantically_incomplete_publication():
+    class Publisher:
+        def publish(self, cutoff):
+            return {"data_cutoff": cutoff, "generation_ids": ["GEN-ONLY"]}
+
+    store = Store()
+    store.accounts = [{
+        "account_id": "s001-v1", "symbol": "588080.SH", "asset_type": "etf",
+        "status": "RUNNING", "strategy_id": "S001", "strategy_version": "v1",
+    }]
+    scheduler = RuntimeScheduler(Engine(), Publisher(), store, publish_time="00:00")
+    scheduler.tick_daily(datetime(2026, 9, 2, 20, 30))
+
+    assert store.get_setting("last_data_publish_date") is None
+    assert store.get_setting("last_account_decision_date") is None
+    assert store.failures["publication"]["error"] == (
+        "data publication result has no instrument generations"
+    )
 
 
 def test_ft_pte04_slow_daily_publication_does_not_stop_order_reconciliation():

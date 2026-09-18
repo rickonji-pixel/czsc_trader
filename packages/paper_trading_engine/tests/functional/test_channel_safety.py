@@ -17,12 +17,42 @@ from paper_trading_engine.broker import (
     OrderIntent,
     PaperTradingSafetyError,
 )
-from paper_trading_engine.futu_execution import ChannelReconciliationError, FutuExecution
+from paper_trading_engine.futu_execution import (
+    ChannelReconciliationError,
+    FutuExecution,
+    OrderSubmissionBatchError,
+)
 from paper_trading_engine.futu_gateway import FutuGateway, FutuGatewayError
-from paper_trading_engine.coordinator import ReconnectableExecution
+from paper_trading_engine.coordinator import PteCoordinator, ReconnectableExecution
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.contracts import OrderSpec
 from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision
+
+
+def test_manual_refresh_propagates_channel_failure(tmp_path):
+    store = PaperStore(tmp_path / "manual-refresh.db")
+
+    class Accounts:
+        def __init__(self):
+            self.store = store
+            self.called = False
+
+        def refresh_all(self):
+            self.called = True
+
+    class Execution:
+        def refresh(self):
+            raise RuntimeError("Futu unavailable")
+
+    accounts = Accounts()
+    coordinator = PteCoordinator(accounts, Execution())
+    with pytest.raises(RuntimeError, match="Futu unavailable"):
+        coordinator.refresh()
+    assert accounts.called is False
+    events = store.query_audit_events(event_type="DEPENDENCY_DEGRADED")
+    assert len(events) == 1
+    assert events[0]["details"]["operation"] == "refresh"
+    store.close()
 
 
 def test_blocked_pending_intent_expires_and_releases_reserved_cash(tmp_path):
@@ -416,7 +446,8 @@ def test_ft_pte03_explicit_rejection_releases_cash_and_duplicate_submit_is_atomi
     execution = FutuExecution(
         store, broker, now=lambda: datetime.fromisoformat("2026-09-04T10:00:00+08:00")
     )
-    execution.submit_pending()
+    with pytest.raises(OrderSubmissionBatchError, match="BrokerOrderRejectedError"):
+        execution.submit_pending()
     assert store.account_intent(rejected["intent_id"])["status"] == "REJECTED"
     assert float(store.virtual_account("s001-v1")["frozen_cash"]) == 0
     assert store.account_invariant_violations() == []
@@ -590,7 +621,8 @@ def test_ft_pte03_rejected_decision_remains_blocked_until_operator_review(tmp_pa
     execution = FutuExecution(
         store, RejectingBroker(), now=lambda: datetime.fromisoformat("2026-09-02T10:00:00+08:00"),
     )
-    execution.submit_pending()
+    with pytest.raises(OrderSubmissionBatchError, match="BrokerOrderRejectedError"):
+        execution.submit_pending()
     with pytest.raises(AccountDecisionBlockedError, match="已阻塞"):
         accounts.refresh_account("s001-v1")
     assert store.virtual_account("s001-v1")["health"] == "BLOCKED"

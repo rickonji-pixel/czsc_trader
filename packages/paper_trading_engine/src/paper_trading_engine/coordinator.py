@@ -141,6 +141,7 @@ class PteCoordinator:
                 actor_type="EXTERNAL", actor_id="futu", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
                 details={"service": "futu", "operation": "refresh", "error": str(exc)},
             )
+            raise
         self.accounts.refresh_all()
         return self.status()
 

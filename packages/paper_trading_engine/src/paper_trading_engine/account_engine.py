@@ -280,24 +280,36 @@ class AccountEngine:
                     legs=plan_rows,
                     audit_events=plan_events,
                 )
-            for sequence, order in enumerate(decision.orders):
-                intent_event = self.audit.build(
-                    "ORDER_INTENT_CREATED", source="account_engine", channel=FUTU_SIMULATE_CN_CHANNEL_ID, **scope,
-                    details={
-                        "side": order.side, "quantity": order.quantity,
+            if decision.orders:
+                immediate_rows = []
+                immediate_events = []
+                for sequence, order in enumerate(decision.orders):
+                    immediate_rows.append({
+                        "sequence": sequence,
+                        "side": order.side,
+                        "quantity": order.quantity,
                         "order_type": order.order_type,
                         "limit_price": order.limit_price,
-                        "valid_session": decision.valid_session.isoformat(),
-                        "order_sequence": sequence,
-                    },
-                )
-                self.store.create_account_intent(
-                    account_id=account_id, decision_id=decision.decision_id,
-                    order_sequence=sequence, symbol=decision.symbol, side=order.side,
-                    quantity=order.quantity, limit_price=order.limit_price,
-                    valid_session=decision.valid_session.isoformat(), fee_rate=decision.fee_rate,
-                    order_type=order.order_type,
-                    audit_event=intent_event,
+                    })
+                    immediate_events.append(self.audit.build(
+                        "ORDER_INTENT_CREATED", source="account_engine",
+                        channel=FUTU_SIMULATE_CN_CHANNEL_ID, **scope,
+                        details={
+                            "side": order.side, "quantity": order.quantity,
+                            "order_type": order.order_type,
+                            "limit_price": order.limit_price,
+                            "valid_session": decision.valid_session.isoformat(),
+                            "order_sequence": sequence,
+                        },
+                    ))
+                self.store.create_account_immediate_intents(
+                    account_id=account_id,
+                    decision_id=decision.decision_id,
+                    symbol=decision.symbol,
+                    valid_session=decision.valid_session.isoformat(),
+                    fee_rate=decision.fee_rate,
+                    orders=immediate_rows,
+                    audit_events=immediate_events,
                 )
         elif decision.action in {"BUY", "SELL", "ROTATE"}:
             self.audit.record(

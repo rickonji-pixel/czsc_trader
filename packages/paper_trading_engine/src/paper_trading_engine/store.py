@@ -1645,6 +1645,178 @@ class PaperStore:
             ).fetchall()
         return [self._account_intent_row(row) for row in rows]
 
+    def create_account_immediate_intents(
+        self, *, account_id: str, decision_id: str, symbol: str,
+        valid_session: str, fee_rate, orders: list[dict[str, object]],
+        audit_events: list[AuditEvent] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Atomically persist every immediate order split from one decision."""
+        from decimal import Decimal
+
+        if not orders:
+            return []
+        sequences = [int(order["sequence"]) for order in orders]
+        if sequences != list(range(len(orders))):
+            raise ValueError("immediate order sequences must be contiguous")
+        if audit_events is not None and len(audit_events) != len(orders):
+            raise ValueError("immediate order audit event count differs from orders")
+        fee = Decimal(str(fee_rate))
+        now = _utc_now()
+        normalized: list[dict[str, object]] = []
+        intent_ids: dict[int, str] = {}
+        for order in orders:
+            sequence = int(order["sequence"])
+            side = str(order["side"]).upper()
+            order_type = str(order["order_type"]).upper()
+            quantity = int(order["quantity"])
+            price = Decimal(str(order["limit_price"])).quantize(Decimal("0.0001"))
+            if side not in {"BUY", "SELL"}:
+                raise ValueError("intent side must be BUY or SELL")
+            if (side, order_type) not in {
+                ("BUY", "LIMIT"), ("SELL", "LIMIT"), ("SELL", "MARKET"),
+            }:
+                raise ValueError("buy intents must be LIMIT; sell intents must be LIMIT or MARKET")
+            if quantity <= 0 or quantity % 100:
+                raise ValueError("intent quantity must use positive 100-share lots")
+            if price <= 0:
+                raise ValueError("intent price must be positive")
+            normalized.append({
+                "sequence": sequence, "side": side, "order_type": order_type,
+                "quantity": quantity, "limit_price": str(price),
+            })
+            identity = f"{account_id}\0{decision_id}\0{sequence}".encode("utf-8")
+            intent_ids[sequence] = "PTE-" + hashlib.sha256(identity).hexdigest()[:20].upper()
+
+        with self._lock, self._connection:
+            existing = self._connection.execute(
+                "SELECT * FROM intents WHERE account_id=? AND decision_id=? "
+                "ORDER BY order_sequence", (account_id, decision_id),
+            ).fetchall()
+            if existing:
+                if len(existing) != len(normalized):
+                    raise ValueError("stored immediate order intents are incomplete")
+                rows = [self._account_intent_row(row) for row in existing]
+                expected = [{
+                    "sequence": int(order["sequence"]),
+                    "symbol": symbol.upper(),
+                    "side": str(order["side"]),
+                    "quantity": int(order["quantity"]),
+                    "limit_price": str(order["limit_price"]),
+                    "valid_session": valid_session,
+                    "order_type": str(order["order_type"]),
+                } for order in normalized]
+                actual = [{
+                    "sequence": int(row["order_sequence"]),
+                    "symbol": row["symbol"], "side": row["side"],
+                    "quantity": int(row["quantity"]),
+                    "limit_price": row["limit_price"],
+                    "valid_session": row["valid_session"],
+                    "order_type": str(row["payload"].get("order_type", "LIMIT")),
+                } for row in rows]
+                if actual != expected:
+                    raise ValueError("existing immediate intents differ from idempotent request")
+                return rows
+
+            account = self._connection.execute(
+                "SELECT * FROM virtual_accounts WHERE account_id=?", (account_id,),
+            ).fetchone()
+            if account is None:
+                raise KeyError(account_id)
+            require_futu_simulate_cn(account["channel_id"])
+            if account["account_type"] != STRATEGY_ACCOUNT_TYPE:
+                raise ValueError("channel reconciliation account cannot create order intents")
+            if account["status"] != "RUNNING":
+                raise ValueError("virtual account status does not allow order intents")
+            if account["health"] == "BLOCKED":
+                raise ValueError("blocked virtual account cannot create order intents")
+            if bool(account["paused"]):
+                raise ValueError("paused virtual account cannot create order intents")
+
+            buy_reserve = sum(
+                (
+                    Decimal(str(order["limit_price"])) * int(order["quantity"])
+                    * (Decimal("1") + fee)
+                    for order in normalized if order["side"] == "BUY"
+                ),
+                Decimal("0"),
+            ).quantize(Decimal("0.0001"))
+            planned_sell = sum(
+                int(order["quantity"]) for order in normalized if order["side"] == "SELL"
+            )
+            cash = Decimal(account["cash"])
+            if buy_reserve > cash:
+                raise ValueError("immediate buy orders exceed account cash")
+            reserved_rows = self._connection.execute(
+                "SELECT i.quantity,COALESCE(o.cumulative_filled_quantity,0) AS filled "
+                "FROM intents i LEFT JOIN orders o ON o.intent_id=i.intent_id "
+                "WHERE i.account_id=? AND i.side='SELL' AND i.status NOT IN "
+                "('REJECTED','SUBMISSION_FAILED','SUBMIT_FAILED','EXPIRED',"
+                "'CANCELLED_ALL','FAILED','DISABLED','DELETED','FILL_CANCELLED','FILLED_ALL')",
+                (account_id,),
+            ).fetchall()
+            reserved_sell = sum(
+                max(0, int(row["quantity"]) - int(row["filled"])) for row in reserved_rows
+            )
+            if reserved_sell + planned_sell > int(account["quantity"]):
+                raise ValueError("immediate sell orders exceed available position")
+
+            self._connection.execute(
+                "UPDATE virtual_accounts SET cash=?,frozen_cash=?,updated_at=? WHERE account_id=?",
+                (
+                    str((cash - buy_reserve).quantize(Decimal("0.0001"))),
+                    str((Decimal(account["frozen_cash"]) + buy_reserve).quantize(Decimal("0.0001"))),
+                    now, account_id,
+                ),
+            )
+            running_cash = cash
+            for order in normalized:
+                sequence = int(order["sequence"])
+                payload = {
+                    "account_id": account_id, "decision_id": decision_id,
+                    "order_sequence": sequence, "channel_id": account["channel_id"],
+                    "symbol": symbol.upper(), "side": order["side"],
+                    "quantity": order["quantity"], "limit_price": order["limit_price"],
+                    "valid_session": valid_session, "fee_rate": str(fee),
+                    "order_type": order["order_type"],
+                }
+                self._connection.execute(
+                    "INSERT INTO intents(intent_id,account_id,decision_id,order_sequence,channel_id,"
+                    "symbol,side,quantity,limit_price,valid_session,payload,status,"
+                    "reservation_generation,created_at,updated_at) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,'PENDING_SUBMIT',?,?,?)",
+                    (
+                        intent_ids[sequence], account_id, decision_id, sequence,
+                        account["channel_id"], symbol.upper(), order["side"],
+                        order["quantity"], order["limit_price"], valid_session,
+                        json.dumps(payload, ensure_ascii=False),
+                        int(order["side"] == "BUY"), now, now,
+                    ),
+                )
+                if order["side"] == "BUY":
+                    reserve = (
+                        Decimal(str(order["limit_price"])) * int(order["quantity"])
+                        * (Decimal("1") + fee)
+                    ).quantize(Decimal("0.0001"))
+                    running_cash -= reserve
+                    self._connection.execute(
+                        "INSERT INTO account_ledger(ledger_entry_id,account_id,entry_type,order_id,"
+                        "fill_id,cash_delta,frozen_cash_delta,quantity_delta,fee,balance_after,"
+                        "quantity_after,occurred_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (
+                            str(uuid5(NAMESPACE_URL, f"pte-reserve:{intent_ids[sequence]}")),
+                            account_id, "INTENT_RESERVE", None, None, str(-reserve), str(reserve),
+                            0, "0.0000", str(running_cash.quantize(Decimal("0.0001"))),
+                            int(account["quantity"]), now,
+                        ),
+                    )
+            for event in audit_events or []:
+                self._insert_audit_event(event)
+            rows = self._connection.execute(
+                "SELECT * FROM intents WHERE account_id=? AND decision_id=? "
+                "ORDER BY order_sequence", (account_id, decision_id),
+            ).fetchall()
+        return [self._account_intent_row(row) for row in rows]
+
     def save_account_decision(self, account_id: str, payload: dict[str, object]) -> dict[str, Any]:
         decision_id = str(payload["decision_id"])
         signal_date = str(payload["signal_date"])

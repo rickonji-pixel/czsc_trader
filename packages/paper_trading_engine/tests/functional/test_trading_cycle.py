@@ -48,6 +48,64 @@ def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_p
     store.close()
 
 
+def test_immediate_split_order_intents_are_persisted_atomically(tmp_path, monkeypatch):
+    store = PaperStore(tmp_path / "split-order-atomic.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    audit = AuditRecorder(store)
+    events = [
+        audit.build(
+            "ORDER_INTENT_CREATED", source="test", account_id="s001-v1",
+            decision_id="DEC-SPLIT", correlation_id="DEC-SPLIT",
+            details={"order_sequence": sequence},
+        )
+        for sequence in range(2)
+    ]
+    orders = [
+        {
+            "sequence": sequence, "side": "BUY", "quantity": 1000,
+            "order_type": "LIMIT", "limit_price": 1.68,
+        }
+        for sequence in range(2)
+    ]
+    original_insert = store._insert_audit_event
+    inserted = 0
+
+    def fail_second_event(event):
+        nonlocal inserted
+        inserted += 1
+        if inserted == 2:
+            raise RuntimeError("simulated audit persistence failure")
+        original_insert(event)
+
+    monkeypatch.setattr(store, "_insert_audit_event", fail_second_event)
+    with pytest.raises(RuntimeError, match="audit persistence"):
+        store.create_account_immediate_intents(
+            account_id="s001-v1", decision_id="DEC-SPLIT", symbol="588080.SH",
+            valid_session="2026-09-02", fee_rate="0.0005",
+            orders=orders, audit_events=events,
+        )
+    account = store.virtual_account("s001-v1")
+    assert store.account_intents("s001-v1") == []
+    assert float(account["cash"]) == 100_000
+    assert float(account["frozen_cash"]) == 0
+    assert store.query_audit_events(event_type="ORDER_INTENT_CREATED") == []
+
+    monkeypatch.setattr(store, "_insert_audit_event", original_insert)
+    created = store.create_account_immediate_intents(
+        account_id="s001-v1", decision_id="DEC-SPLIT", symbol="588080.SH",
+        valid_session="2026-09-02", fee_rate="0.0005",
+        orders=orders, audit_events=events,
+    )
+    assert len(created) == 2
+    assert float(store.virtual_account("s001-v1")["frozen_cash"]) == 3361.68
+    store.close()
+
+
 def intraday_setup_decision(strategy: dict[str, str]) -> AdviceDecision:
     return AdviceDecision(
         contract_version="advice.v5", decision_id="DEC-CORE-SETUP",

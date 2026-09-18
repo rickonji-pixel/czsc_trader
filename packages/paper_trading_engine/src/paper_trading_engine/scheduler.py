@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 import json
 from threading import Event, Thread
 
@@ -121,6 +121,50 @@ class RuntimeScheduler:
     def _due(last: datetime | None, now: datetime, seconds: float) -> bool:
         return last is None or (now - last).total_seconds() >= seconds
 
+    def _validated_publication_result(
+        self, result: object, requested_cutoff: str,
+    ) -> tuple[str, dict[str, str]]:
+        """Accept publication only when every active instrument has a fresh generation."""
+        if not isinstance(result, dict):
+            raise ValueError("data publication result must be an object")
+        cutoff = result.get("data_cutoff")
+        try:
+            cutoff = date.fromisoformat(str(cutoff)).isoformat()
+        except (TypeError, ValueError) as exc:
+            raise ValueError("data publication result has no valid data_cutoff") from exc
+        if cutoff != requested_cutoff:
+            raise ValueError(
+                f"data publication cutoff differs from request: {cutoff}!={requested_cutoff}"
+            )
+        instruments = result.get("instruments")
+        if not isinstance(instruments, list) or not instruments:
+            raise ValueError("data publication result has no instrument generations")
+        generations: dict[str, str] = {}
+        for item in instruments:
+            if not isinstance(item, dict) or not isinstance(item.get("result"), dict):
+                raise ValueError("data publication instrument result is invalid")
+            symbol = str(item.get("symbol", "")).upper()
+            generation = item["result"].get("generation_id")
+            item_cutoff = item["result"].get("data_cutoff")
+            if not symbol or not isinstance(generation, str) or not generation:
+                raise ValueError("data publication instrument identity is incomplete")
+            if item_cutoff != cutoff:
+                raise ValueError(f"{symbol}: instrument cutoff differs from publication")
+            if symbol in generations:
+                raise ValueError(f"duplicate publication instrument: {symbol}")
+            generations[symbol] = generation
+        expected = {
+            str(account["symbol"]).upper()
+            for account in self.store.strategy_virtual_accounts()
+            if account.get("status") != "RETIRED"
+        }
+        if set(generations) != expected:
+            raise ValueError(
+                "data publication instruments differ from active accounts: "
+                f"published={sorted(generations)}, expected={sorted(expected)}"
+            )
+        return cutoff, generations
+
     def tick(self, now: datetime) -> None:
         self.tick_fast(now)
         self.tick_daily(now)
@@ -167,15 +211,7 @@ class RuntimeScheduler:
                                      "error": str(exc)},
                         )
                     raise
-                cutoff = str(result.get("data_cutoff") or today)
-                generations = {
-                    str(item["symbol"]): str(item["result"]["generation_id"])
-                    for item in result.get("instruments", [])
-                    if isinstance(item, dict)
-                    and isinstance(item.get("symbol"), str)
-                    and isinstance(item.get("result"), dict)
-                    and isinstance(item["result"].get("generation_id"), str)
-                }
+                cutoff, generations = self._validated_publication_result(result, today)
                 self.store.set_setting("last_data_publish_date", cutoff)
                 self.store.set_setting(
                     "last_data_generation_ids", json.dumps(generations, sort_keys=True),
@@ -213,7 +249,15 @@ class RuntimeScheduler:
                     pending.append(account)
             if pending:
                 def onboard_accounts():
-                    self.publisher.publish(published_date)
+                    result = self.publisher.publish(published_date)
+                    cutoff, generations = self._validated_publication_result(
+                        result, published_date,
+                    )
+                    self.store.set_setting("last_data_publish_date", cutoff)
+                    self.store.set_setting(
+                        "last_data_generation_ids",
+                        json.dumps(generations, sort_keys=True),
+                    )
                     for account in pending:
                         self.engine.refresh_decision(str(account["account_id"]))
                 self._guard("account_onboarding", now, onboard_accounts)

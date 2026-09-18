@@ -1,7 +1,6 @@
 """Deterministic strategy replay contracts."""
 
 from .models import StrategyIdentity, StrategySnapshot
-from .channel import BacktestChannel
 from .data_contract import BacktestDataContract, resolve_backtest_data_contract
 from .execution_replay import replay_account
 from .result import BacktestResult
@@ -15,7 +14,6 @@ from .causal_feature_gate_replay import build_causal_feature_gate_signals
 __all__ = [
     "StrategyIdentity",
     "StrategySnapshot",
-    "BacktestChannel",
     "BacktestDataContract",
     "resolve_backtest_data_contract",
     "DatasetName",

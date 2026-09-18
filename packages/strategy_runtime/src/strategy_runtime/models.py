@@ -246,7 +246,7 @@ class ChannelCapabilities:
 class RuntimeDefinition:
     schema_version: int
     strategy_family_id: str
-    version: str
+    version: str | None
     release_id: str
     release_hash: str
     implementation: ImplementationRef
@@ -257,16 +257,33 @@ class RuntimeDefinition:
     monitoring: MonitoringPolicy
     capabilities: RequiredCapabilities
     state_mode: str = "STATELESS"
+    identity_kind: str = "RELEASE"
+    candidate_id: str | None = None
 
     def __post_init__(self) -> None:
-        if self.schema_version != 1:
-            raise RuntimeContractError("runtime definition schema_version must be 1")
+        if self.schema_version not in {1, 2}:
+            raise RuntimeContractError("runtime definition schema_version must be 1 or 2")
         if not _FAMILY_ID.fullmatch(self.strategy_family_id):
             raise RuntimeContractError("strategy_family_id must look like S001")
-        if not _VERSION.fullmatch(self.version):
-            raise RuntimeContractError("version must look like v1")
-        if self.release_id != f"{self.strategy_family_id}-{self.version}":
-            raise RuntimeContractError("release_id must equal strategy_family_id-version")
+        if self.identity_kind == "RELEASE":
+            if not isinstance(self.version, str) or not _VERSION.fullmatch(self.version):
+                raise RuntimeContractError("version must look like v1")
+            if self.candidate_id is not None:
+                raise RuntimeContractError("release runtime cannot carry a candidate identity")
+            if self.release_id != f"{self.strategy_family_id}-{self.version}":
+                raise RuntimeContractError("release_id must equal strategy_family_id-version")
+        elif self.identity_kind == "CANDIDATE":
+            if self.schema_version != 2 or self.version is not None:
+                raise RuntimeContractError(
+                    "candidate runtime requires schema 2 and no frozen version"
+                )
+            _candidate_id(self.candidate_id)
+            if self.release_id != f"{self.strategy_family_id}-{self.candidate_id}":
+                raise RuntimeContractError(
+                    "candidate runtime reference differs from candidate identity"
+                )
+        else:
+            raise RuntimeContractError("runtime identity_kind must be RELEASE or CANDIDATE")
         if not _SHA256.fullmatch(self.release_hash):
             raise RuntimeContractError("release_hash must be lowercase SHA-256")
         required_datasets = {item.dataset for item in self.inputs.requirements}
@@ -277,17 +294,99 @@ class RuntimeDefinition:
 
     @property
     def runtime_sha256(self) -> str:
+        identity = {
+            "release_id": self.release_id,
+            "release_hash": self.release_hash,
+            "implementation": {
+                "module": self.implementation.module,
+                "qualname": self.implementation.qualname,
+                "contract_version": self.implementation.contract_version,
+                "source_sha256": self.implementation.source_sha256,
+            },
+            "parameters_sha256": self.parameters.sha256,
+        }
+        # Keep the five existing frozen identities byte-for-byte stable.
+        if self.schema_version == 2:
+            identity.update(identity_kind=self.identity_kind, candidate_id=self.candidate_id)
+            identity["contracts"] = {
+                "inputs": [
+                    {
+                        "name": item.name,
+                        "dataset": item.dataset,
+                        "subject": item.subject,
+                        "frequency": item.frequency,
+                        "lookback_sessions": item.lookback_sessions,
+                        "cutoff_rule": item.cutoff_rule.value,
+                        "maximum_staleness_days": item.maximum_staleness_days,
+                    }
+                    for item in self.inputs.requirements
+                ],
+                "decision": {
+                    "output_kind": self.decision.output_kind,
+                    "minimum_target": self.decision.minimum_target,
+                    "maximum_target": self.decision.maximum_target,
+                    "effective_time_rule": self.decision.effective_time_rule,
+                },
+                "execution": {
+                    "policy_type": self.execution.policy_type,
+                    "settings": self.execution.settings,
+                },
+                "monitoring": {
+                    "policy_type": self.monitoring.policy_type,
+                    "rules": self.monitoring.rules,
+                },
+                "capabilities": {
+                    "datasets": self.capabilities.datasets,
+                    "order_types": self.capabilities.order_types,
+                    "checkpoints": self.capabilities.checkpoints,
+                },
+                "state_mode": self.state_mode,
+            }
+        return canonical_sha256(identity)
+
+
+def _candidate_id(value: str | None) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.-]*", value):
+        raise RuntimeContractError("candidate_id must be a safe non-empty identifier")
+    if _VERSION.fullmatch(value):
+        raise RuntimeContractError("candidate_id cannot be a frozen version")
+    return value
+
+
+@dataclass(frozen=True, slots=True)
+class StrategyCandidate:
+    """Immutable research runtime input; lifecycle authority remains with SM.
+
+    Researchers construct a new value for each parameter set. No SM registration
+    or frozen version number is needed to run a trial. ``runtime_identity_sha256``
+    identifies executable content, not the wider SM submission/claims snapshot.
+    """
+
+    strategy_family_id: str
+    candidate_id: str
+    payload: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        if not _FAMILY_ID.fullmatch(self.strategy_family_id):
+            raise RuntimeContractError("strategy_family_id must look like S001")
+        _candidate_id(self.candidate_id)
+        object.__setattr__(self, "payload", _json_mapping(self.payload, "candidate payload"))
+        if not isinstance(self.payload.get("runtime"), Mapping):
+            raise RuntimeContractError("candidate payload must declare its runtime implementation")
+        if not isinstance(self.payload.get("parameters"), Mapping):
+            raise RuntimeContractError("candidate payload must declare its parameter values")
+
+    @property
+    def reference_id(self) -> str:
+        return f"{self.strategy_family_id}-{self.candidate_id}"
+
+    @property
+    def runtime_identity_sha256(self) -> str:
         return canonical_sha256(
             {
-                "release_id": self.release_id,
-                "release_hash": self.release_hash,
-                "implementation": {
-                    "module": self.implementation.module,
-                    "qualname": self.implementation.qualname,
-                    "contract_version": self.implementation.contract_version,
-                    "source_sha256": self.implementation.source_sha256,
-                },
-                "parameters_sha256": self.parameters.sha256,
+                "strategy_family_id": self.strategy_family_id,
+                "candidate_id": self.candidate_id,
+                "payload": self.payload,
             }
         )
 

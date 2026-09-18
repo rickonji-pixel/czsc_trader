@@ -14,8 +14,7 @@ from strategy_runtime import (
     StrategyRunner,
 )
 
-from czsc_trader.backtesting.channel import BacktestChannel
-from czsc_trader.backtesting.models import StrategyIdentity
+from trading_execution_engine import HistoricalExecutor
 from czsc_trader.backtesting.srt_bridge import _validate_historical_decisions
 
 
@@ -34,19 +33,15 @@ def test_srt_history_rejects_missing_required_score_instead_of_silent_hold() -> 
         _validate_historical_decisions(history, sessions)
 
 
-def test_tdr_backtest_channel_refuses_to_finalize_an_unsubmitted_decision() -> None:
+def test_txe_historical_executor_refuses_to_finalize_an_unsubmitted_decision() -> None:
     daily = pd.DataFrame(
         [{"dt": pd.Timestamp("2026-09-18"), "open": 1.0, "close": 1.0}]
     )
-    channel = BacktestChannel(
-        identity=StrategyIdentity("REGISTERED", "S001-v1", "test"),
-        replay_data=SimpleNamespace(
-            execution_daily=daily,
-            execution_intraday=pd.DataFrame(
-                columns=["dt", "open", "high", "low", "close"]
-            ),
-            adjusted=SimpleNamespace(daily=daily),
-        ),
+    channel = HistoricalExecutor(
+        strategy_reference="S001-v1",
+        execution_daily=daily,
+        signal_daily=daily,
+        execution_intraday=pd.DataFrame(columns=["dt", "open", "high", "low", "close"]),
         evaluation_start=pd.Timestamp("2026-09-18"),
         evaluation_end=pd.Timestamp("2026-09-18"),
         initial_cash=100_000,
@@ -71,7 +66,7 @@ def test_tdr_backtest_channel_refuses_to_finalize_an_unsubmitted_decision() -> N
         channel.finalize()
 
 
-def test_tdr_backtest_channel_executes_requests_against_its_confirmed_ledger() -> None:
+def test_txe_historical_executor_executes_requests_against_its_confirmed_ledger() -> None:
     daily = pd.DataFrame(
         [
             {"dt": pd.Timestamp("2026-09-16"), "open": 1.0, "close": 1.0},
@@ -121,9 +116,11 @@ def test_tdr_backtest_channel_executes_requests_against_its_confirmed_ledger() -
             },
         },
     )
-    channel = BacktestChannel(
-        identity=StrategyIdentity("REGISTERED", "S999-v1", "test"),
-        replay_data=replay_data,
+    channel = HistoricalExecutor(
+        strategy_reference="S999-v1",
+        execution_daily=replay_data.execution_daily,
+        signal_daily=replay_data.adjusted.daily,
+        execution_intraday=replay_data.execution_intraday,
         evaluation_start=pd.Timestamp("2026-09-17"),
         evaluation_end=pd.Timestamp("2026-09-18"),
         initial_cash=100_000,
@@ -194,7 +191,7 @@ def test_tdr_backtest_channel_executes_requests_against_its_confirmed_ledger() -
     assert result.account_daily.iloc[-1]["cash"] > 109_000
 
 
-def test_tdr_backtest_channel_executes_intraday_overlay_plan() -> None:
+def test_txe_historical_executor_executes_intraday_overlay_plan() -> None:
     daily = pd.DataFrame(
         [
             {"dt": pd.Timestamp("2026-09-16"), "open": 10.0, "close": 10.0},
@@ -236,9 +233,12 @@ def test_tdr_backtest_channel_executes_intraday_overlay_plan() -> None:
             "one_way_cost": 0.00012,
         },
     )
-    channel = BacktestChannel(
-        identity=StrategyIdentity("REGISTERED", "S003-v1", "test"),
-        replay_data=replay_data,
+    channel = HistoricalExecutor(
+        strategy_reference="S003-v1",
+        execution_five_minute=five,
+        execution_daily=replay_data.execution_daily,
+        signal_daily=replay_data.adjusted.daily,
+        execution_intraday=replay_data.execution_intraday,
         evaluation_start=pd.Timestamp("2026-09-17"),
         evaluation_end=pd.Timestamp("2026-09-17"),
         initial_cash=100_000,

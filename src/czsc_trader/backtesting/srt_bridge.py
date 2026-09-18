@@ -22,7 +22,7 @@ from strategy_runtime import (
     read_publication,
 )
 
-from .channel import BacktestChannel
+from trading_execution_engine import HistoricalExecutor
 from .datasets import ReplayData
 from .models import StrategySnapshot
 from .result import BacktestResult
@@ -311,12 +311,15 @@ def replay_srt_account(
     replay_data: ReplayData,
     initial_cash: float,
 ) -> BacktestResult:
-    """Route SRT decisions through StrategyRunner and BacktestChannel, then settle."""
+    """Route SRT decisions directly through TXE, then wrap facts for reporting."""
 
     definition = strategy.definition
-    channel = BacktestChannel(
-        identity=signals.snapshot.identity,
-        replay_data=replay_data,
+    channel = HistoricalExecutor(
+        strategy_reference=signals.snapshot.identity.reference,
+        execution_daily=replay_data.execution_daily,
+        signal_daily=replay_data.adjusted.daily,
+        execution_intraday=replay_data.execution_intraday,
+        execution_five_minute=replay_data.execution_five_minute,
         evaluation_start=signals.evaluation_start,
         evaluation_end=signals.evaluation_end,
         initial_cash=initial_cash,
@@ -382,4 +385,12 @@ def replay_srt_account(
             channel=channel,
             decision=decision,
         )
-    return channel.finalize()
+    ledger = channel.finalize()
+    return BacktestResult(
+        identity=signals.snapshot.identity,
+        decisions=ledger.decisions,
+        orders=ledger.orders,
+        fills=ledger.fills,
+        account_daily=ledger.account_daily,
+        trades=ledger.trades,
+    )

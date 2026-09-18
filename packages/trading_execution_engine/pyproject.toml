@@ -7,7 +7,7 @@ name = "czsc-trading-execution-engine"
 version = "0.1.0"
 description = "Deterministic order fill and cash ledger primitives"
 requires-python = ">=3.12"
-dependencies = ["pandas>=3.0.3,<4", "numpy>=2.4.6"]
+dependencies = ["pandas>=3.0.3,<4", "numpy>=2.4.6", "czsc-strategy-runtime>=0.1.0"]
 
 [project.optional-dependencies]
 test = ["pytest>=8.0", "ruff>=0.12"]

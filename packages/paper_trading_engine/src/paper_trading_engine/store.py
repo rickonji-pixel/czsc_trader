@@ -1352,6 +1352,12 @@ class PaperStore:
             require_futu_simulate_cn(account["channel_id"])
             if account["account_type"] != STRATEGY_ACCOUNT_TYPE:
                 raise ValueError("channel reconciliation account cannot create order intents")
+            if account["status"] != "RUNNING":
+                raise ValueError("virtual account status does not allow order intents")
+            if account["health"] == "BLOCKED":
+                raise ValueError("blocked virtual account cannot create order intents")
+            if bool(account["paused"]):
+                raise ValueError("paused virtual account cannot create order intents")
             if side == "SELL" and quantity > int(account["quantity"]):
                 raise ValueError("sell quantity exceeds account position")
             if side == "SELL":
@@ -1496,6 +1502,12 @@ class PaperStore:
             require_futu_simulate_cn(account["channel_id"])
             if account["account_type"] != STRATEGY_ACCOUNT_TYPE:
                 raise ValueError("channel reconciliation account cannot create order intents")
+            if account["status"] != "RUNNING":
+                raise ValueError("virtual account status does not allow execution plans")
+            if account["health"] == "BLOCKED":
+                raise ValueError("blocked virtual account cannot create execution plans")
+            if bool(account["paused"]):
+                raise ValueError("paused virtual account cannot create execution plans")
             buy_reserve = Decimal("0")
             planned_sell = 0
             normalized: list[dict[str, object]] = []

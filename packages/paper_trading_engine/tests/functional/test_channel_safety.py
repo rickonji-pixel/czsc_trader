@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from paper_trading_engine.audit import AuditRecorder
-from paper_trading_engine.account_engine import AccountEngine
+from paper_trading_engine.account_engine import AccountDecisionBlockedError, AccountEngine
 from paper_trading_engine.broker import (
     BrokerAccount,
     BrokerOrder,
@@ -22,7 +22,61 @@ from paper_trading_engine.futu_gateway import FutuGateway, FutuGatewayError
 from paper_trading_engine.coordinator import ReconnectableExecution
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.contracts import OrderSpec
-from pte_support import FakeAdvice, FakeBroker, decision
+from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision
+
+
+def test_blocked_pending_intent_expires_and_releases_reserved_cash(tmp_path):
+    store = PaperStore(tmp_path / "blocked-expiry.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    intent = store.create_account_intent(
+        account_id="s001-v1", decision_id="DEC-EXPIRED", order_sequence=0,
+        symbol="588080.SH", side="BUY", quantity=1000,
+        limit_price="1.680", valid_session="2026-09-02",
+    )
+    store.set_virtual_health("s001-v1", "BLOCKED", "等待对账")
+    execution = FutuExecution(
+        store, FakeBroker(),
+        now=lambda: datetime.fromisoformat("2026-09-03T10:00:00+08:00"),
+    )
+    execution.submit_pending()
+    expired = store.account_intent(intent["intent_id"])
+    account = store.virtual_account("s001-v1")
+    assert expired["status"] == "EXPIRED"
+    assert expired["attention_required"] is True
+    assert float(account["frozen_cash"]) == 0
+    assert len(store.query_audit_events(event_type="DECISION_EXPIRED")) == 1
+    store.close()
+
+
+def test_unattributed_futu_cash_blocks_reconciliation_and_submission(tmp_path):
+    store = PaperStore(tmp_path / "cash-gate.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    broker = FakeBroker()
+    broker.value = BrokerSnapshot(
+        BrokerAccount("SIMULATE", "CN", 999_900, 999_900, 0), (), (),
+    )
+    execution = FutuExecution(store, broker)
+    with pytest.raises(ChannelReconciliationError, match="UNATTRIBUTED"):
+        execution.refresh_orders()
+    assert store.get_setting("futu_cash_reconciliation_status") == "UNATTRIBUTED"
+    assert store.get_setting("channel_reconciliation_status") == "BLOCKED"
+    assert "FUTU_CASH_RECONCILIATION_UNATTRIBUTED" in execution.status()["alerts"]
+
+    store.set_setting("channel_reconciliation_status", "OK")
+    with pytest.raises(ChannelReconciliationError, match="UNATTRIBUTED"):
+        execution.submit_pending(reconcile=False)
+    assert broker.placed == []
+    store.close()
 
 
 def test_ft_pte03_estimated_fees_reconcile_to_futu_cash_exactly_once(tmp_path):
@@ -166,8 +220,12 @@ def test_ft_pte03_multiple_accounts_share_only_safe_futu_channel(tmp_path):
         )
         for order in submitted
     )
+    cash = 1_000_000 - sum(
+        order.average_fill_price * order.cumulative_filled_quantity * 1.0005
+        for order in filled
+    )
     broker.value = BrokerSnapshot(
-        broker.value.account,
+        BrokerAccount("SIMULATE", "CN", cash, 1_000_000, 0),
         (BrokerPosition("588080.SH", 1000), BrokerPosition("510500.SH", 1000)),
         filled,
     )
@@ -387,9 +445,7 @@ def test_ft_pte03_explicit_rejection_releases_cash_and_duplicate_submit_is_atomi
         safe_broker.value.orders[0], status="FILLED_ALL",
         cumulative_filled_quantity=1000, average_fill_price=1.67,
     )
-    safe_broker.value = BrokerSnapshot(
-        safe_broker.value.account, (BrokerPosition("588080.SH", 1000),), (filled,),
-    )
+    safe_broker.value = broker_snapshot(orders=(filled,), quantity=1000)
     first.refresh_orders()
     store.close()
 
@@ -438,9 +494,7 @@ def test_ft_pte03_incomplete_and_unknown_orders_never_silently_recover(tmp_path)
         partial_broker.value.orders[0], status="CANCELLED_PART",
         cumulative_filled_quantity=400, average_fill_price=1.67,
     )
-    partial_broker.value = BrokerSnapshot(
-        partial_broker.value.account, (BrokerPosition("588080.SH", 400),), (cancelled,),
-    )
+    partial_broker.value = broker_snapshot(orders=(cancelled,), quantity=400)
     partial_execution.refresh_orders()
     account = partial_store.virtual_account("s001-v1")
     intent = partial_store.account_intent(partial["intent_id"])
@@ -465,9 +519,7 @@ def test_ft_pte03_incomplete_and_unknown_orders_never_silently_recover(tmp_path)
         sell_order, status="FILLED_ALL", cumulative_filled_quantity=400,
         average_fill_price=1.60,
     )
-    partial_broker.value = BrokerSnapshot(
-        partial_broker.value.account, (), (cancelled, sold),
-    )
+    partial_broker.value = broker_snapshot(orders=(cancelled, sold), quantity=0)
     partial_execution.refresh_orders()
     closed = partial_store.virtual_account("s001-v1")
     assert closed["quantity"] == 0
@@ -509,9 +561,7 @@ def test_ft_pte03_incomplete_and_unknown_orders_never_silently_recover(tmp_path)
         unknown, status="FILLED_ALL", cumulative_filled_quantity=1000,
         average_fill_price=1.67,
     )
-    timeout_broker.value = BrokerSnapshot(
-        timeout_broker.value.account, (BrokerPosition("588080.SH", 1000),), (filled,),
-    )
+    timeout_broker.value = broker_snapshot(orders=(filled,), quantity=1000)
     timeout_execution.refresh_orders()
     assert timeout_store.virtual_account("s001-v1")["health"] == "OK"
     assert timeout_store.unresolved_account_intents() == []
@@ -541,7 +591,8 @@ def test_ft_pte03_rejected_decision_remains_blocked_until_operator_review(tmp_pa
         store, RejectingBroker(), now=lambda: datetime.fromisoformat("2026-09-02T10:00:00+08:00"),
     )
     execution.submit_pending()
-    accounts.refresh_account("s001-v1")
+    with pytest.raises(AccountDecisionBlockedError, match="已阻塞"):
+        accounts.refresh_account("s001-v1")
     assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
     assert len(store.account_intents("s001-v1")) == 1
     assert len(store.attention_account_intents("s001-v1")) == 1

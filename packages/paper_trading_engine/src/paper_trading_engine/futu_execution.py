@@ -188,6 +188,34 @@ class FutuExecution:
             if not self.store.attention_account_intents(account_id):
                 self.store.set_virtual_health(account_id, "OK")
 
+    def _expire_unsubmitted_intents(self, moment: datetime) -> None:
+        """Terminate stale local intents before broker or account health gates run."""
+        local = moment.astimezone(SHANGHAI)
+        session = local.date().isoformat()
+        clock = local.time().replace(tzinfo=None)
+        for intent in self.store.pending_account_intents():
+            if intent["valid_session"] < session:
+                message = "订单未在有效交易日内提交，已形成前瞻执行缺口"
+                self.store.release_account_intent(
+                    intent["intent_id"], "EXPIRED", attention_reason=message,
+                )
+                self.store.set_virtual_health(intent["account_id"], "BLOCKED", message)
+                self.audit.record(
+                    "DECISION_EXPIRED", source="futu_execution", outcome="SKIPPED",
+                    account_id=intent["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                    decision_id=intent["decision_id"], correlation_id=intent["decision_id"],
+                    details={
+                        "intent_id": intent["intent_id"],
+                        "valid_session": intent["valid_session"],
+                    },
+                )
+                continue
+            if intent["valid_session"] > session:
+                continue
+            deadline = self._planned_clock(intent, "submit_before")
+            if deadline is not None and clock > deadline:
+                self._expire_planned_intent(intent, "计划订单错过提交截止时间")
+
     def _activate_dependency_intents(self, moment: datetime) -> None:
         local = moment.astimezone(SHANGHAI)
         session = local.date().isoformat()
@@ -374,6 +402,16 @@ class FutuExecution:
         )
         self.store.set_setting("futu_cash_reconciliation_status", "OK")
 
+    def _require_cash_reconciliation(self) -> None:
+        status = self.store.get_setting("futu_cash_reconciliation_status")
+        if status in {"UNATTRIBUTED", "OUT_OF_RANGE", "AMBIGUOUS"}:
+            message = f"Futu现金对账未闭合: {status}"
+            self._block_reconciliation(
+                "cash_reconciliation_failed",
+                message,
+                details={"cash_reconciliation_status": status},
+            )
+
     @staticmethod
     def _validate_order(intent, order) -> None:
         intent_order_type = str(intent["payload"].get("order_type", "LIMIT")).upper()
@@ -418,6 +456,10 @@ class FutuExecution:
 
     def refresh_orders(self):
         require_futu_simulate_cn_broker(self.broker)
+        moment = self.now()
+        if moment.tzinfo is None:
+            raise ValueError("reconciliation clock must be timezone-aware")
+        self._expire_unsubmitted_intents(moment)
         previous_reconciliation = self.store.get_setting("channel_reconciliation_status")
         orders = self._order_snapshot()
         seen_intents: set[str] = set()
@@ -587,6 +629,7 @@ class FutuExecution:
                         f"{broker_quantity}!={logical_quantity}"
                     )
         self._reconcile_broker_fees()
+        self._require_cash_reconciliation()
         violations = self.store.account_invariant_violations()
         if violations:
             first = violations[0]
@@ -618,46 +661,33 @@ class FutuExecution:
         require_futu_simulate_cn_broker(self.broker)
         if self._draining:
             return self.status()
+        moment = self.now()
+        if moment.tzinfo is None:
+            raise ValueError("submission clock must be timezone-aware")
+        self._expire_unsubmitted_intents(moment)
         if reconcile:
             self.refresh_orders()
         elif self._snapshot is None:
             self.refresh_account()
         if self.store.is_paused():
             return self.status()
-        moment = self.now()
-        if moment.tzinfo is None:
-            raise ValueError("submission clock must be timezone-aware")
+        if self.store.get_setting("channel_reconciliation_status") == "BLOCKED":
+            raise ChannelReconciliationError("Futu渠道对账已阻塞，禁止提交订单")
+        self._require_cash_reconciliation()
         session = moment.astimezone(SHANGHAI).date().isoformat()
         self._recover_future_plan_expiries(moment)
         self._activate_dependency_intents(moment)
         for row in self.store.pending_account_intents():
             account = self.store.virtual_account(row["account_id"])
+            local_clock = moment.astimezone(SHANGHAI).time().replace(tzinfo=None)
+            submit_after = self._planned_clock(row, "submit_after")
+            if row["valid_session"] > session:
+                continue
             if (
                 bool(account["paused"])
                 or account["status"] != "RUNNING"
                 or account["health"] not in {"READY", "OK"}
             ):
-                continue
-            if row["valid_session"] < session:
-                message = "订单未在有效交易日内提交，已形成前瞻执行缺口"
-                self.store.release_account_intent(
-                    row["intent_id"], "EXPIRED", attention_reason=message,
-                )
-                self.store.set_virtual_health(row["account_id"], "BLOCKED", message)
-                self.audit.record(
-                    "DECISION_EXPIRED", source="futu_execution", outcome="SKIPPED",
-                    account_id=row["account_id"], channel=FUTU_SIMULATE_CN_CHANNEL_ID,
-                    decision_id=row["decision_id"], correlation_id=row["decision_id"],
-                    details={"intent_id": row["intent_id"], "valid_session": row["valid_session"]},
-                )
-                continue
-            local_clock = moment.astimezone(SHANGHAI).time().replace(tzinfo=None)
-            submit_after = self._planned_clock(row, "submit_after")
-            submit_before = self._planned_clock(row, "submit_before")
-            if row["valid_session"] > session:
-                continue
-            if submit_before is not None and local_clock > submit_before:
-                self._expire_planned_intent(row, "计划订单错过提交截止时间")
                 continue
             if (
                 (submit_after is not None and local_clock < submit_after)
@@ -830,6 +860,10 @@ class FutuExecution:
             symbol: sum(row["quantity"] for row in positions if row["symbol"] == symbol)
             for symbol in symbols
         }
+        cash_reconciliation = self.store.get_setting("futu_cash_reconciliation_status")
+        alerts = ["CHANNEL_RECONCILIATION_BLOCKED"] if reconciliation == "BLOCKED" else []
+        if cash_reconciliation in {"UNATTRIBUTED", "OUT_OF_RANGE", "AMBIGUOUS"}:
+            alerts.append(f"FUTU_CASH_RECONCILIATION_{cash_reconciliation}")
         return {
             "environment": None if account is None else account["environment"],
             "market": None if account is None else account["market"],
@@ -841,8 +875,9 @@ class FutuExecution:
             "orders": self.store.account_orders(),
             "paused": self.store.is_paused(),
             "reconciliation_status": reconciliation,
+            "cash_reconciliation_status": cash_reconciliation,
             "last_reconcile_at": self.store.get_setting("last_reconcile_at"),
-            "alerts": (["CHANNEL_RECONCILIATION_BLOCKED"] if reconciliation == "BLOCKED" else []),
+            "alerts": alerts,
             "scheduler_failures": self.store.operation_failures(),
         }
 

@@ -7,8 +7,45 @@ from paper_trading_engine.account_engine import AccountEngine, AccountRefreshBat
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.contracts import AdviceDecision, OrderSpec, PlanLegSpec
 from paper_trading_engine.futu_execution import FutuExecution
+from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.store import PaperStore
 from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision
+
+
+def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_path):
+    store = PaperStore(tmp_path / "decision-gate.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    store.set_setting("last_data_publish_date", "2026-09-01")
+    store.set_virtual_health("s001-v1", "BLOCKED", "等待人工处理")
+    advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
+    accounts = AccountEngine(store, advice)
+
+    class Publisher:
+        def publish(self, end_date):
+            raise AssertionError("publication is not due in this test")
+
+    scheduler = RuntimeScheduler(accounts, Publisher(), store)
+    scheduler.tick_daily(datetime(2026, 9, 2, 10, 0, 0))
+    assert store.get_setting("last_account_decision_date") is None
+    assert store.account_decisions("s001-v1") == []
+    assert store.account_intents("s001-v1") == []
+    assert advice.calls == []
+    assert {row["operation"] for row in store.operation_failures()} == {
+        "account_decisions"
+    }
+
+    store.set_virtual_health("s001-v1", "OK")
+    accounts.begin_shutdown()
+    with pytest.raises(AccountRefreshBatchError, match="PTE正在停止"):
+        accounts.refresh_all()
+    assert store.account_decisions("s001-v1") == []
+    assert store.account_intents("s001-v1") == []
+    store.close()
 
 
 def intraday_setup_decision(strategy: dict[str, str]) -> AdviceDecision:
@@ -298,9 +335,8 @@ def test_ft_pte10_intraday_plan_waits_for_fill_and_recovers_after_restart(tmp_pa
     assert store.account_intent(intents[1]["intent_id"])["status"] == "WAITING_DEPENDENCY"
 
     rotation_buy = broker.value.orders[-1]
-    broker.value = replace(
-        broker.value,
-        positions=(replace(broker.value.positions[0], quantity=2000),),
+    broker.value = broker_snapshot(
+        quantity=2000, symbol="510500.SH",
         orders=(
             broker.value.orders[0],
             replace(
@@ -317,9 +353,8 @@ def test_ft_pte10_intraday_plan_waits_for_fill_and_recovers_after_restart(tmp_pa
     assert store.account_intent(intents[1]["intent_id"])["status"] == "SUBMITTED"
 
     rotation_sell = broker.value.orders[-1]
-    broker.value = replace(
-        broker.value,
-        positions=(replace(broker.value.positions[0], quantity=1000),),
+    broker.value = broker_snapshot(
+        quantity=1000, symbol="510500.SH",
         orders=(
             broker.value.orders[0], broker.value.orders[1],
             replace(

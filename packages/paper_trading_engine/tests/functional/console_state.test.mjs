@@ -44,6 +44,9 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(sideLabel('SELL'), '卖出');
   assert.equal(qualificationLabel('PAPER_READY'), '获准模拟交易');
   assert.equal(statusLabel('CHANNEL_CASH_MISMATCH'), 'PTE账务现金与Futu现金不一致');
+  assert.equal(statusLabel('FUTU_CASH_RECONCILIATION_UNATTRIBUTED'), 'Futu现金差异来源不明');
+  assert.equal(statusLabel('FUTU_CASH_RECONCILIATION_OUT_OF_RANGE'), 'Futu费用差异超出允许范围');
+  assert.equal(statusLabel('FUTU_CASH_RECONCILIATION_AMBIGUOUS'), 'Futu现金差异无法安全归属');
   assert.equal(formatPrice('1.5899999999999999'), '1.590');
   assert.equal(formatQuantity(60500), '60,500 股');
   assert.equal(decisionExecutionLabel({decision_id:'D1',action:'HOLD'}, []), '本次决策无需下单');

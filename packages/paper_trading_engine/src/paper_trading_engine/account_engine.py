@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from hashlib import sha256
 import json
+from threading import RLock
 
 from .audit import AuditRecorder
 from .broker import TERMINAL_INTENT_STATUSES
@@ -22,6 +23,10 @@ class ActiveOrderPendingError(RuntimeError):
     """A newer decision must wait until an older order reaches a known terminal state."""
 
 
+class AccountDecisionBlockedError(RuntimeError):
+    """The account cannot safely turn a strategy decision into durable order intents."""
+
+
 class AccountEngine:
     _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 
@@ -34,9 +39,13 @@ class AccountEngine:
         self.audit = audit or AuditRecorder(store)
         self.now = now or (lambda: datetime.now(self._BEIJING))
         self._draining = False
+        self._decision_lock = RLock()
 
     def begin_shutdown(self) -> None:
-        self._draining = True
+        # Wait for an in-flight decision to finish persisting its intents.  Once
+        # draining is visible, no later decision is allowed to start.
+        with self._decision_lock:
+            self._draining = True
 
     def _assign_decision_id(self, account_id: str, previous_payload, decision):
         source_id = decision.source_decision_id or decision.decision_id
@@ -64,7 +73,21 @@ class AccountEngine:
         )
 
     def refresh_account(self, account_id: str, *, force: bool = False):
+        with self._decision_lock:
+            return self._refresh_account(account_id, force=force)
+
+    def _refresh_account(self, account_id: str, *, force: bool = False):
         account = self.store.virtual_account(account_id)
+        if self._draining:
+            raise AccountDecisionBlockedError("PTE正在停止，禁止生成新的账户决策")
+        if account["status"] != "RUNNING":
+            raise AccountDecisionBlockedError(
+                f"虚拟账户状态不允许生成决策: {account['status']}"
+            )
+        if account["health"] == "BLOCKED":
+            raise AccountDecisionBlockedError(
+                f"虚拟账户已阻塞，禁止生成新的决策: {account.get('last_error') or account_id}"
+            )
         previous_payload = account.get("last_decision_payload")
         active_intents = [
             row for row in self.store.account_intents(account_id)
@@ -120,7 +143,23 @@ class AccountEngine:
         if decision.actual_quantity != int(account["quantity"]):
             raise ValueError("advice quantity differs from account")
 
+        # Re-read the account after the potentially long-running strategy call.
+        # Store-level intent creation performs the same gate inside its transaction.
+        execution_account = self.store.virtual_account(account_id)
+        if execution_account["status"] != "RUNNING":
+            raise AccountDecisionBlockedError(
+                f"虚拟账户状态不允许执行决策: {execution_account['status']}"
+            )
+        if execution_account["health"] == "BLOCKED":
+            raise AccountDecisionBlockedError(
+                "虚拟账户在策略计算期间被阻塞，决策未提交"
+            )
+        if self._draining:
+            raise AccountDecisionBlockedError("PTE正在停止，决策未提交")
+
         payload = asdict(decision)
+        if bool(execution_account["paused"]):
+            payload["execution_disposition"] = "SKIPPED_PAUSED"
         try:
             generations = json.loads(
                 self.store.get_setting("last_data_generation_ids") or "{}"
@@ -194,12 +233,7 @@ class AccountEngine:
                     },
                 )
 
-        if (
-            not bool(account["paused"])
-            and account["status"] == "RUNNING"
-            and account["health"] != "BLOCKED"
-            and not self._draining
-        ):
+        if not bool(execution_account["paused"]):
             if decision.plan_legs:
                 plan_events = []
                 plan_rows = []
@@ -265,6 +299,15 @@ class AccountEngine:
                     order_type=order.order_type,
                     audit_event=intent_event,
                 )
+        elif decision.action in {"BUY", "SELL", "ROTATE"}:
+            self.audit.record(
+                "ORDER_SUBMISSION_BLOCKED", source="account_engine", outcome="SKIPPED",
+                account_id=account_id, strategy_id=account["strategy_id"],
+                strategy_version=account["strategy_version"],
+                release_hash=account["release_hash"], symbol=account["symbol"],
+                decision_id=decision.decision_id, correlation_id=decision.decision_id,
+                details={"reason": "account_paused", "action": decision.action},
+            )
         return self.status(account_id)
 
     def refresh_all(self):

@@ -47,8 +47,17 @@ def broker_snapshot(*, orders=(), quantity=0, symbol="588080.SH") -> BrokerSnaps
     from paper_trading_engine.broker import BrokerPosition
 
     positions = () if quantity == 0 else (BrokerPosition(symbol, quantity),)
+    cash = 1_000_000.0
+    fees = 0.0
+    for order in orders:
+        filled = int(order.cumulative_filled_quantity)
+        price = float(order.average_fill_price)
+        turnover = filled * price
+        cash += turnover if order.side == "SELL" else -turnover
+        fees += turnover * 0.0005
+    cash -= fees
     return BrokerSnapshot(
-        BrokerAccount("SIMULATE", "CN", 1_000_000, 1_000_000, 0),
+        BrokerAccount("SIMULATE", "CN", cash, 1_000_000 - fees, 0),
         positions,
         tuple(orders),
     )

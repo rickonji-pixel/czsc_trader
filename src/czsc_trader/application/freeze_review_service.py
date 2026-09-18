@@ -1055,6 +1055,9 @@ def evaluate_freeze_review(
             submission, snapshot, _mandate, _policy = _submission_from_credential(credential)
             adjudication, report = _adjudication_from_credential(credential)
             experiment = _verified_review_evidence(context, credential, submission, adjudication, snapshot)
+            if credential.result is GovernanceResult.ELIGIBLE:
+                runtime = _submitted_runtime(submission, snapshot)
+                _verify_adjudication_evidence(experiment, report, runtime)
             return CommandResult(
                 "PASS",
                 "strategy.review.evaluate",

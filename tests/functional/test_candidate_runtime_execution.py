@@ -477,7 +477,8 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL")
 
 
-def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_payload, tmp_path, monkeypatch):
+@pytest.mark.parametrize("valid_claim", [True, False], ids=["freeze", "reject-claim"])
+def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_payload, tmp_path, monkeypatch, valid_claim):
     """Synthetic economics; only raw-pool loading is stubbed, all assessment runs."""
     from hashlib import sha256
     import json
@@ -512,9 +513,14 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         outputs_root=tmp_path / "outputs",
     )
     cutoff = sessions[-1].date().isoformat()
+    # Distinct decision paths provide actual search dispersion and ten neighbors.
+    flow_values = np.array([
+        .51 + .02 * ((i // 2) % 10) if i % 2 == 0 else .49 - .02 * ((i // 2) % 10)
+        for i in range(len(sessions))
+    ])
     sources = []
     for name, dataset, symbol, frame in (
-        ("flow.csv", "etf.share", "588080.SH", pd.DataFrame({"Date": sessions, "Flow": [float(i % 2 == 0) for i in range(len(sessions))]})),
+        ("flow.csv", "etf.share", "588080.SH", pd.DataFrame({"Date": sessions, "Flow": flow_values})),
         ("calendar.csv", "calendar.trading_sessions", "SSE",
          pd.DataFrame({"Date": pd.date_range(sessions[0], sessions[-1] + pd.Timedelta(days=20))}).assign(
              IsOpen=lambda frame: (frame.Date.dt.dayofweek < 5).astype(int))),
@@ -524,7 +530,11 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         sources.append({"dataset": dataset, "symbol": symbol, "path": name,
                         "sha256": sha256(path.read_bytes()).hexdigest()})
     candidates = []
-    for identity, threshold in (("C000", .5), ("C001", .5), ("C002", .4), ("C003", .6)):
+    points = [("C000", .5), ("C001", .5)] + [
+        (f"C{i:03d}", threshold)
+        for i, threshold in enumerate((.40, .42, .44, .46, .48, .52, .54, .56, .58, .60), start=2)
+    ]
+    for identity, threshold in points:
         params = deepcopy(payload)
         params["parameters"] = {"threshold": threshold, "with_calendar": True, "entry_premium": .01}
         if identity == "C000":
@@ -534,7 +544,9 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
                            "strategy_hash": canonical_sha256(params),
                            "execution_policy_hash": _runtime_report(strategy)["execution_policy_sha256"],
                            "parameter_distance": abs(threshold - .5),
-                           "behavior_hash": identity, "is_incumbent": identity == "C000"})
+                           "behavior_hash": canonical_sha256(
+                               ((flow_values <= threshold) if identity == "C000" else (flow_values > threshold)).tolist()
+                           ), "is_incumbent": identity == "C000"})
     protocol = EvaluationProtocol.from_dict({
         "schema_version": 1, "standard_version": "opc-v3", "experiment_id": "REVIEW",
         "research_objective": "isolated integration fixture", "development_cutoff": cutoff,
@@ -576,7 +588,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     assert result.result["machine_evaluation"]["checks"]
     assert (experiment / "artifacts" / "machine_evaluation.json").is_file()
 
-    # The same real pipeline must record a rejected claim and block human gate 3.
+    # Exercise all three human gates with the real evaluator and real ledgers.
     from test_strategy_governance import _hashed, _mandate_for_contract_test, _write_json
     from czsc_trader.application.research_governance_service import create_research_batch
     from czsc_trader.application.freeze_review_service import (
@@ -589,13 +601,15 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         "research_intent": {"objective": "synthetic acceptance only"},
     }), actor="tester", reason="test gate 1")
     candidate = candidates[1]
+    metrics = pd.read_csv(experiment / "artifacts" / "formal_metrics.csv")
+    claimed_return = float(metrics.loc[metrics.candidate_id == "C001", "net_cagr"].iloc[0]) if valid_claim else 100_000.0
     ready = _runtime_report(StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", candidate["strategy_payload"])))
     snapshot = _hashed({
         "schema_version": 1, "strategy_id": "S900", "candidate_id": "C001",
         "source_experiment": "experiments/S900/REVIEW", "strategy_payload": candidate["strategy_payload"],
         "data_contract": {"symbol": "588080.SH", "asset_type": "etf",
                           "requirements": ready["input_contract"]["requirements"]},
-        "execution_policy": ready["execution_policy"], "research_claims": {"annual_return": 100_000.0},
+        "execution_policy": ready["execution_policy"], "research_claims": {"annual_return": {"value": claimed_return, "tolerance": 1e-10}},
     }, "candidate_hash")
     mandate = _mandate_for_contract_test(
         strategy_id="S900", mandate_id="EM-S900-C001-001", development_cutoff=cutoff,
@@ -616,9 +630,58 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
     reviewed = evaluate_freeze_review(context, "S900", "SGC-S900-001")
     report = reviewed.result["adjudication_report"]
-    assert report["machine_verdict"] in {"REJECTED", "INCOMPLETE"}
-    assert "CLAIM_MISMATCH" in report["blocking_findings"]
     assert {path.name: sha256(path.read_bytes()).hexdigest() for path in (experiment / "artifacts").iterdir()} == source_before
-    with pytest.raises(ValidationError, match="eligible TDR adjudication"):
-        freeze_review_candidate(context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test")
-    assert StrategyRegistry(context.strategy_root).versions("S900") == ()
+    registry = StrategyRegistry(context.strategy_root)
+    assert registry.versions("S900") == ()
+    if not valid_claim:
+        assert report["machine_verdict"] == "REJECTED"
+        assert report["blocking_findings"] == ["CLAIM_MISMATCH"]
+        with pytest.raises(ValidationError, match="eligible TDR adjudication"):
+            freeze_review_candidate(context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test")
+        assert registry.versions("S900") == ()
+        return
+
+    assert report["blocking_findings"] == []
+    assert all(audit["status"] == "PASS" for audit in report["audit_results"].values())
+    assert evaluate_freeze_review(context, "S900", "SGC-S900-001").result["idempotent_replay"] is True
+    # A cached eligible report cannot conceal later evidence damage.
+    review_metrics = context.root / reviewed.artifacts["source_experiment"] / "artifacts" / "formal_metrics.csv"
+    original_metrics = review_metrics.read_bytes()
+    try:
+        review_metrics.write_bytes(original_metrics + b"\n")
+        with pytest.raises(ValidationError, match="evidence changed after review"):
+            evaluate_freeze_review(context, "S900", "SGC-S900-001")
+        with pytest.raises(ValidationError, match="evidence changed after review"):
+            freeze_review_candidate(context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test")
+        assert registry.versions("S900") == ()
+        assert registry.get_governance_credential("S900", "SGC-S900-001").stage.value == "TDR_ADJUDICATED"
+    finally:
+        review_metrics.write_bytes(original_metrics)
+    frozen = freeze_review_candidate(
+        context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test",
+    )
+    assert frozen.result["version"]["release_id"] == "S900-v1"
+    assert frozen.result["pte_deployment"] == "NOT_REQUESTED"
+    repeated = freeze_review_candidate(
+        context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test",
+    )
+    assert repeated.result["idempotent_replay"] is True
+    assert len(registry.versions("S900")) == 1
+    credential = registry.get_governance_credential("S900", "SGC-S900-001")
+    assert [seal.stage.value for seal in credential.seals] == [
+        "RESEARCH_INITIATED", "CANDIDATE_SUBMITTED", "TDR_ADJUDICATED", "FREEZE_APPROVED", "VERSION_FROZEN",
+    ]
+    release = StrategyRelease.from_mapping(registry.get_version("S900", "v1").to_dict())
+    frozen_strategy = StrategyLoader().load(release)
+    frozen_runtime = _runtime_report(frozen_strategy)
+    for field in (
+        "input_contract", "execution_policy", "implementation", "parameters_sha256",
+        "decision_contract", "state_mode", "capabilities_sha256", "monitoring_sha256",
+    ):
+        assert frozen_runtime[field] == ready[field]
+    candidate_strategy = StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", candidate["strategy_payload"]))
+    history_inputs = {"flow": pd.DataFrame({"Date": sessions, "Flow": flow_values})}
+    assert_frame_equal(
+        candidate_strategy.calculate_history(history_inputs, sessions),
+        frozen_strategy.calculate_history(history_inputs, sessions), check_exact=True,
+    )

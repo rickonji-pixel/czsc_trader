@@ -1,7 +1,7 @@
 # 测试用例治理
 
 本文规定CZSC Trader仓库的测试用例如何创建、收敛、执行和周期性审查。目标是在保护
-TDR、FSC、STC、SM、SE、PTE关键业务能力的同时，控制TDD带来的用例数量、回归耗时和
+TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE关键业务能力的同时，控制TDD带来的用例数量、回归耗时和
 维护成本。
 
 这是一份面向个人量化团队（OPC）的操作规范。判断标准是业务风险和维护价值，不追求用例
@@ -63,6 +63,9 @@ TDR、FSC、STC、SM、SE、PTE关键业务能力的同时，控制TDD带来的�
 - SE：`packages/strategy_evaluator/tests/functional/`；
 - FSC：`packages/factor_signal_catalog/tests/functional/`；
 - STC：`packages/strategy_template_catalog/tests/functional/`；
+- DFLS：`packages/dataflows/tests/functional/`；
+- SRT：`packages/strategy_runtime/tests/functional/`；
+- TXE：`packages/trading_execution_engine/tests/functional/`；
 - PTE：`packages/paper_trading_engine/tests/functional/`。
 
 每个场景应尽量从模块公开入口发起，并在一次流程中验证输入、主要状态转换、输出和关键
@@ -134,11 +137,15 @@ TDR、FSC、STC、SM、SE、PTE关键业务能力的同时，控制TDD带来的�
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\factor_signal_catalog\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_template_catalog\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\dataflows\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_runtime\tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\trading_execution_engine\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\paper_trading_engine\tests -q
 node --test-isolation=none --test packages\paper_trading_engine\tests\functional\console_state.test.mjs
 .\.venv\Scripts\python.exe -m ruff check `
   src tests packages\factor_signal_catalog packages\strategy_template_catalog `
   packages\strategy_manager packages\strategy_evaluator `
+  packages\dataflows packages\strategy_runtime packages\trading_execution_engine `
   packages\paper_trading_engine\src packages\paper_trading_engine\tests
 ```
 

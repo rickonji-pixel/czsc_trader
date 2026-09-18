@@ -22,7 +22,7 @@ CZSC Trader 是面向个人量化团队的可审计策略研发与模拟交易�
 | Factor & Signal Catalog | FSC | `packages/factor_signal_catalog/` | 项目级信息族、因子和信号定义目录 |
 | Strategy Template Catalog | STC | `packages/strategy_template_catalog/` | 策略函数模板、输入角色和参数边界目录 |
 | Strategy Manager | SM | `packages/strategy_manager/` | 策略身份、版本、资格、冻结和证据治理 |
-| Strategy Evaluator | SE | `packages/strategy_evaluator/` | 候选比较、统计审计、稳健性检验和晋级建议 |
+| Strategy Evaluator | SE | `packages/strategy_evaluator/` | 候选比较、统计审计和稳健性数值计算 |
 | Strategy Runtime | SRT | `packages/strategy_runtime/` | 冻结策略的数据契约、决策计算、执行计划和运行身份 |
 | Trading Execution Engine | TXE | `packages/trading_execution_engine/` | 统一成交、费用、现金、持仓和净值计算口径 |
 | Paper Trading Engine | PTE | `packages/paper_trading_engine/` | 虚拟账户、模拟下单、成交对账、运行审计和控制台 |
@@ -30,7 +30,7 @@ CZSC Trader 是面向个人量化团队的可审计策略研发与模拟交易�
 
 PTE直接加载SRT冻结实现；SRT通过DFLS发布输入并生成普通调仓计划或带执行时点、成交依赖的计划。
 PTE负责账户状态、计划校验与执行，不参与策略计算、定价或改量；Futu渠道只负责订单、成交和持仓回报。
-SM与SE管理策略生命周期和评估证据，不直接参与运行时下单。
+SM管理策略生命周期，SE生成确定性数值证据；二者都不参与运行时下单。
 
 ### 核心工作流
 
@@ -50,7 +50,7 @@ SM与SE管理策略生命周期和评估证据，不直接参与运行时下单�
 | `packages/` | Dataflows、SM、SE、PTE等独立子包 | 各子系统接口、实现和包级测试 |
 | `catalog/` | FSC信息族、因子和信号定义 | 项目级定义来源，不保存标的值或Alpha证据 |
 | `strategy_templates/` | STC策略函数模板定义 | 项目级结构来源，不保存搜索结果或绩效证据 |
-| `strategies/` | 正式策略身份、冻结版本、生命周期和证据 | 正式策略事实来源，不保存研究草稿 |
+| `strategies/` | 正式策略身份、SGC凭据链、冻结版本、生命周期和证据 | 正式策略事实来源，不保存研究草稿 |
 | `research/` | 研究总交接、各SXX批次目标、候选和监测方案 | 研究领域唯一入口；目标与批次绑定 |
 | `experiments/` | 按策略和实验编号归档的输入、结果及审计证据 | 不可变研究档案，失败实验同样保留 |
 | `data/` | 受控研究数据、执行价格及数据清单 | 研究输入；具体口径由清单和交接文档定义 |

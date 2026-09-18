@@ -13,7 +13,7 @@
 | FSC | Factor & Signal Catalog | 项目级信息族、因子和信号定义目录 |
 | STC | Strategy Template Catalog | 策略函数模板、输入角色和参数边界目录 |
 | SM | Strategy Manager | 策略身份、版本、资格、证据和治理审计 |
-| SE | Strategy Evaluator | 候选筛选、排名、体检和统计稳健性审计 |
+| SE | Strategy Evaluator | 候选筛选、排名和统计稳健性数值计算 |
 | SRT | Strategy Runtime | 冻结策略的数据契约、决策计算、执行计划和运行身份 |
 | TXE | Trading Execution Engine | 统一成交、费用、现金、持仓和净值计算口径 |
 | PTE | Paper Trading Engine | 虚拟账户、模拟交易执行、运行审计和观测 |
@@ -83,8 +83,9 @@ SM冻结版本 → SRT → TDR BacktestChannel → TXE → 回测账本
   `StrategyGovernanceCredential`、冻结版本、资格和生命周期事件；候选快照、最终
   `EvaluationMandate`、裁判报告和人工批准均作为同一凭据链上的印章内容保存。它不计算绩效，
   不管理策略进程与账户运行状态。
-- **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的事实，执行筛劣、Pareto排名、
-  临时冠军体检及统计稳健性审计，输出判定和证据；它不读取仓库或改变SM、PTE状态。
+- **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的结构化事实，执行筛劣、Pareto
+  排名、PBO、DSR、Bootstrap、参数邻域和成本压力等确定性数值计算；它不读取仓库、不理解
+  金融语义，也不签发TDR裁决或改变SM、PTE状态。
 - **SRT**位于`packages/strategy_runtime/`。它把SM冻结版本投影为可执行策略，声明并通过DFLS
   发布数据，计算决策与执行计划，并定义宿主通用的`ExecutionChannel`协议；源码闭包、
   冻结版本和参数共同形成运行身份。SRT不实现回测或券商渠道。
@@ -125,10 +126,20 @@ SM冻结版本 → SRT → TDR BacktestChannel → TXE → 回测账本
 7. WDG只负责PTE进程启动、探活和故障拉起，不包含交易、数据发布或账户状态判断。
 8. 批处理只有全部目标完成才可更新成功日期或成功状态。部分标的发布成功、部分账户决策成功、
    渠道仅受理委托或外部结果未知，都不能汇总成全局成功；失败事实必须进入审计、告警和退避。
-9. 新版`StrategyVersion`同时维护两类身份：`release_hash`只覆盖SRT执行所需的版本号和
-   `strategy_payload`，供运行时绑定；`governance_hash`覆盖评审案件、候选、评价合同、裁判报告、
-   人工决议和运行验收引用。二者分别校验，避免运行时验收与发布哈希形成循环依赖。历史v1
-   版本继续使用原有完整记录哈希，既有release hash不变。
+9. 新版`StrategyVersion`同时维护运行身份和治理身份：`release_hash`覆盖SRT执行所需的版本号
+   与`strategy_payload`；`governance_hash`覆盖SGC凭据、候选、评价合同、裁判报告和人工批准
+   印章引用。部署时SM必须验证完整SGC哈希链、最终冻结印章、版本记录、正式证据和生命周期
+   事件。历史版本继续保留原release hash，并以唯一的`LEGACY_GOVERNANCE_ACCEPTED`事件证明
+   已完成治理迁移。
+
+### 三道治理闸门
+
+1. `research create`创建新StrategyFamily及首条SGC；同一策略族启动后续研究批次时，输入中
+   必须显式给出新的`credential_id`，原SGC保持不可变。
+2. `strategy review open/evaluate/show`锁定候选和最终EvaluationMandate。TDR禁用缓存复用，
+   按截止日完整数据、候选真实执行规则和`TXE-v1`语义独立复算，并阻断任何缺项或口径漂移。
+3. `strategy freeze`在人工批准后重新校验证据文件、SRT输入与执行契约及整条SGC，再原子创建
+   StrategyVersion。该命令不创建PTE账户；PTE部署需要单独授权。
 
 ## 新机器恢复
 

@@ -89,7 +89,8 @@ SXX 研究批次 → SXX-CXXX 研究候选 → SXX-vN 冻结版本 → 独立PTE
 结论写入`research/SXX/HANDOFF.md`。节点一只登记可修订的ResearchIntent和研究方向，不把
 早期目标升级为仓库级硬合同。单项实验仍应在读取结果前预注册该实验的问题、数据和裁决规则；
 候选被人工批准进入冻结流程时，才以EvaluationMandate锁定最终目标、开发截止、证据已见边界、
-主成本、对手、交易频率口径和强制体检项。后续调整必须开启新案件，不得重写已有证据。机制
+主成本、对手、交易频率口径和强制体检项。被退回的候选通过同一SGC追加新送审印章；已冻结
+或已失效批次必须开启新SGC，不得重写已有证据。机制
 故事只用于提出假设，不能替代统计证据。
 
 ### 2. 创建不可变实验
@@ -180,17 +181,17 @@ Search负责实例化`F`并寻找可行区域。它既影响收益和回撤，�
 
 信号收益只用于解释；候选PK和冻结必须使用完整账户执行口径。
 
-SE接收结构化事实，执行可计算、可复现的筛选与审计：
+SE接收结构化事实，执行可计算、可复现的筛选和数值审计：
 
 ```text
 完整候选台账 → 快速筛劣 → 多窗口非劣判断 → Pareto排名
              → 唯一临时冠军 → 完整体检 → 冻结评审资格
 ```
 
-体检覆盖证据身份与完整性、正式PK、回放一致性、PBO/DSR/配对区块Bootstrap、参数邻域、
-成本压力、外部复现、部署兼容和监测方案结构。SE只执行其输入范围内的数值计算，不读取仓库、
-理解金融语义、签发人工批准或改变SM/PTE状态。TDR验证候选、目标、数据、执行和报告身份，
-强制检查体检矩阵是否完整，并生成与评审案件绑定的AdjudicationReport。
+TDR组织的完整体检覆盖证据身份与完整性、正式PK、回放一致性、PBO/DSR/配对区块Bootstrap、
+参数邻域、成本压力、外部复现、部署兼容和监测方案结构。SE只计算其结构化输入范围内的数值，
+不读取仓库、理解金融语义、签发人工批准或改变SM/PTE状态。TDR验证候选、目标、数据、执行和
+报告身份，强制检查体检矩阵是否完整，并生成与SGC绑定的AdjudicationReport。
 `FAVORABLE/MIXED/WEAK/ADVERSE`是证据标签，用于披露不确定性，不等同于人工投资判断。
 
 成本审计区分主口径、现实压力和极端诊断，只有立项批准的主口径与现实压力参与资格判断。
@@ -210,17 +211,20 @@ EvaluationMandate；阅读裁判报告后批准正式冻结。冻结与PTE部署
 .\.venv\Scripts\czsc-trader.exe research create `
   --input research-intent.json --actor tomxiao --reason "批准研究立项"
 
+# 同一策略族启动下一研究批次时，在输入JSON中保留相同name/scope，
+# 并显式增加新的credential_id，例如SGC-S007-002。
+
 # 节点二：锁定候选快照和最终评价合同
 .\.venv\Scripts\czsc-trader.exe strategy review open `
-  --review FR-SXXX-C001-001 `
+  --credential SGC-SXXX-001 `
   --candidate candidate-snapshot.json `
-  --mandate evaluation-mandate.json --actor tomxiao
-.\.venv\Scripts\czsc-trader.exe strategy review evaluate --strategy SXXX --review FR-SXXX-C001-001
-.\.venv\Scripts\czsc-trader.exe strategy review show --strategy SXXX --review FR-SXXX-C001-001
+  --mandate evaluation-mandate.json --actor tomxiao --reason "批准候选进入冻结流程"
+.\.venv\Scripts\czsc-trader.exe strategy review evaluate --strategy SXXX --credential SGC-SXXX-001
+.\.venv\Scripts\czsc-trader.exe strategy review show --strategy SXXX --credential SGC-SXXX-001
 
 # 节点三：人工批准正式冻结；该命令不会创建PTE账户
 .\.venv\Scripts\czsc-trader.exe strategy freeze --strategy SXXX `
-  --review FR-SXXX-C001-001 --actor tomxiao `
+  --credential SGC-SXXX-001 --actor tomxiao `
   --reason "确认正式冻结" --change-summary "首个冻结版本"
 ```
 

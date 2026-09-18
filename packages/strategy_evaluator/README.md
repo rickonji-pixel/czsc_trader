@@ -1,20 +1,16 @@
-# Strategy Evaluator
+# Strategy Evaluator（SE）
 
-The strategy_evaluator package is the deterministic, broker-neutral evaluation domain used by
-CZSC Trader. It owns OPC evaluation contracts, provisional-champion audits, and decisions. It
-does not load market data, run backtests, mutate strategy lifecycle state, or connect to paper
-trading.
+SE是确定性、渠道无关的数值评估包。它接收结构化候选、收益序列、交易账本和评价策略，输出
+可复现的筛选、排名与稳健性数值证据。SE没有语义理解能力，也不读取仓库、加载行情、运行策略、
+管理StrategyFamily/SGC/StrategyVersion或连接PTE。
 
-Its public pure-function workflow is `validate_protocol` → `screen_candidates` →
-`rank_candidates` → `finalize_evaluation` → `render_summary`. OPC-v1 compares net CAGR,
-maximum drawdown, Calmar ratio, and Profit Factor over the worst registered decision window.
-Experiment-specific margins may only tighten the defaults. Repository I/O and candidate execution
-belong to CZSC Trader.
+公开纯函数工作流为`validate_protocol` → `screen_candidates` → `rank_candidates` →
+`finalize_evaluation` → `render_summary`。OPC-v1/v2按净年化、最大回撤、卡玛和盈亏比比较候选；
+实验可以收紧阈值，不能降低既定协议要求。
 
-OPC-v3 keeps the deterministic OPC-v2 screen and ranking, then runs one complete audit inside SE:
-execution/reproducibility/ledger checks, fee and slippage stress, CSCV/PBO, Deflated Sharpe,
-absolute and paired stationary bootstrap, and a real-candidate parameter-neighborhood check.
-The absolute bootstrap reports point estimates, 90%/95% intervals, and the probability of a
-positive CAGR, maximum drawdown, and Calmar ratio. Statistical
-findings are reported as `FAVORABLE`, `MIXED`, or `WEAK`; they do not create a numerical automatic
-veto. Trader supplies immutable factual evidence and executes the scenarios requested by SE.
+OPC-v3在筛选和排名后，对TDR提供的事实执行PBO、DSR、绝对及配对区块Bootstrap、参数邻域、
+成本压力和外部复现等确定性计算。`FAVORABLE`、`MIXED`、`WEAK`、`ADVERSE`是数值证据标签，
+不等于人工投资判断或正式冻结裁决。
+
+完整冻结体检由TDR依据EvaluationMandate组织：TDR负责准备和核验数据、TXE成交账本、证据
+身份、SRT运行时、监测方案及所有必需审计项，并把SE的数值结果纳入AdjudicationReport。

@@ -122,6 +122,9 @@ Optuna搜索、SE评估和SM治理。
   --input .\research-batch.json --actor tom --reason "批准研究立项"
 # 返回的governance_credential.credential_id用于后续两个节点
 
+# 同一StrategyFamily开启下一研究批次时，research-batch.json必须显式声明
+# 新的credential_id，例如SGC-S008-002；既有family和历史SGC不会被覆盖。
+
 # 节点二：人工批准候选进入冻结评审；此时最终评价目标才正式锁定
 .\.venv\Scripts\czsc-trader.exe strategy review open `
   --credential SGC-S008-001 `
@@ -144,8 +147,10 @@ Optuna搜索、SE评估和SM治理。
 ```
 
 同一份SGC以追加式哈希链依次记录立项、候选送审、TDR裁决、人工批准和版本冻结；正式流程
-不再创建独立`FreezeReviewCase`文件。冻结成功只创建SM策略版本并进入`PAPER_READY`，返回结果明确标记PTE部署尚未请求。创建PTE
-账户仍使用后文独立的`pte account create`命令。旧的`strategy create`、
+不再创建独立`FreezeReviewCase`文件。TDR按EvaluationMandate重新计算，并要求完整体检、候选
+真实执行规则、SRT运行契约和`TXE-v1`成交语义一致。冻结成功只创建SM策略版本并进入
+`PAPER_READY`，返回结果明确标记PTE部署尚未请求。创建PTE账户仍使用后文独立的
+`pte account create`命令；PTE还会再次验证SGC冻结链或历史治理迁移身份。旧的`strategy create`、
 `strategy version create`、任意证据直冻和`strategy accept-evaluation`入口已经退出。
 
 旧命名基线只作为不可变历史依赖查看：

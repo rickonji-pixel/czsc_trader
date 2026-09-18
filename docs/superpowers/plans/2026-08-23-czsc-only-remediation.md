@@ -16,7 +16,7 @@
 - A signal dated `T` may execute only at the next trading session's open.
 - Final target position must equal the CZSC factor state machine output; no performance, benchmark, date, or equity overlay is allowed.
 - Each period starts with 1,000,000 cash and zero holdings; a first-open order may align to the prior trading day's active factor target.
-- All development runs in `D:\CodeBase\czsc_trader` on local branch `research/czsc-only-remediation`; never create or use a worktree.
+- All development runs in the repository root on local branch `research/czsc-only-remediation`; never create or use a worktree.
 - A compliant FAIL is acceptable; constraints may not be weakened to force PASS.
 
 ---

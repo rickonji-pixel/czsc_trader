@@ -127,7 +127,7 @@ PTE运行库使用`settings`表保存`futu_strategy_binding` JSON：
 
 ```powershell
 .\.venv\Scripts\pte.exe channel bind-strategy `
-  --repo-root D:\CodeBase\czsc_trader `
+  --repo-root . `
   --channel futu --strategy S001 --strategy-version v2 `
   --actor tomxiao --reason "人工确认切换Futu模拟执行策略"
 ```

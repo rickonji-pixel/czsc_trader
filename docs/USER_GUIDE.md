@@ -264,18 +264,18 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 资金。查看、创建、暂停和恢复账户：
 
 ```powershell
-.\.venv\Scripts\pte.exe account list --repo-root D:\CodeBase\czsc_trader
-.\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
+.\.venv\Scripts\pte.exe account list --repo-root .
+.\.venv\Scripts\pte.exe account create --repo-root . `
   --account-id s001-v2 --name "S001-v2模拟账户" `
   --strategy S001 --strategy-version v2
-.\.venv\Scripts\pte.exe account create --repo-root D:\CodeBase\czsc_trader `
+.\.venv\Scripts\pte.exe account create --repo-root . `
   --account-id s002-v1 --name "S002-v1模拟账户" `
   --strategy S002 --strategy-version v1 `
   --symbol 510500.SH --asset etf --initial-cash 100000
 .\.venv\Scripts\pte.exe account pause `
-  --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
+  --repo-root . --account-id s001-v2
 .\.venv\Scripts\pte.exe account resume `
-  --repo-root D:\CodeBase\czsc_trader --account-id s001-v2
+  --repo-root . --account-id s001-v2
 ```
 
 本地活动订单在Futu当前及历史订单中缺失、无法归属的订单、订单关键字段不一致，或Futu
@@ -297,7 +297,7 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 登记模拟盘里程碑时，先由PTE导出证据，再由Trader写入策略注册表：
 
 ```powershell
-.\.venv\Scripts\pte.exe performance export --repo-root D:\CodeBase\czsc_trader `
+.\.venv\Scripts\pte.exe performance export --repo-root . `
   --account-id s001-v2 --recorded-by tomxiao `
   --start 2026-09-03 --end 2026-12-03 --output state\paper-forward.json
 .\.venv\Scripts\czsc-trader.exe strategy evidence add --input state\paper-forward.json
@@ -310,7 +310,7 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 正式运行由WDG系统服务托管PTE。首次安装时，在管理员PowerShell中执行：
 
 ```powershell
-.\.venv\Scripts\pte-watchdog.exe install-config --repo-root D:\CodeBase\czsc_trader
+.\.venv\Scripts\pte-watchdog.exe install-config --repo-root .
 .\.venv\Scripts\pte-watchdog.exe start --wait 30
 ```
 
@@ -322,7 +322,7 @@ HTTP状态及调度器心跳；连续3次失败后按5、30、60秒退避重启�
 
 ```powershell
 .\.venv\Scripts\pte.exe control restart `
-  --repo-root D:\CodeBase\czsc_trader --wait 30
+  --repo-root . --wait 30
 Invoke-RestMethod http://127.0.0.1:8080/api/system/status
 ```
 
@@ -365,7 +365,7 @@ PTE每次由`serve`启动前会在`state\paper_trading\backups\`创建一致性S
 
 ```powershell
 .\.venv\Scripts\pte.exe control repair-ledger `
-  --repo-root D:\CodeBase\czsc_trader `
+  --repo-root . `
   --account-id s003-v1 --intent-id PTE-XXXXXXXXXXXXXXXXXXXX
 ```
 

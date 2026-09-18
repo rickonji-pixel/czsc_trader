@@ -175,6 +175,6 @@ vectorbt 继续使用日频、下一交易日开盘成交，并由独立现金/�
 
 ## Git 开发方式
 
-所有开发在主仓库 `D:\CodeBase\czsc_trader` 的本地分支 `research/czsc-only-remediation` 完成。禁止调用 `git worktree add`，禁止在任何 worktree 中编辑、测试或回测。现有 `.worktrees` 目录不作为工作目录，也不擅自删除。
+所有开发在主仓库根目录的本地分支 `research/czsc-only-remediation` 完成。禁止调用 `git worktree add`，禁止在任何 worktree 中编辑、测试或回测。现有 `.worktrees` 目录不作为工作目录，也不擅自删除。
 
 功能分支通过完整测试、正式回测和产物审计后，才允许合并回 `master` 并通过 SSH 推送远端。

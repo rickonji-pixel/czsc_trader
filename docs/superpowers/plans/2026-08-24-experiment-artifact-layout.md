@@ -166,7 +166,7 @@ Delete the old tracked protocol/result locations. Update README and the handoff 
 
 - [x] **Step 5: Remove only the migrated research output directory**
 
-Resolve and verify the absolute target is exactly `D:\CodeBase\czsc_trader\outputs\588080_0824_R02`, confirm the byte hashes match the archive, then remove that directory. Preserve `outputs/588080_0824_R01` and all other ordinary backtests.
+Resolve and verify the absolute target is exactly `<repo-root>\outputs\588080_0824_R02`, confirm the byte hashes match the archive, then remove that directory. Preserve `outputs/588080_0824_R01` and all other ordinary backtests.
 
 - [x] **Step 6: Run migration-focused verification**
 

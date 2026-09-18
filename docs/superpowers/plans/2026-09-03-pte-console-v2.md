@@ -80,7 +80,7 @@ def bind_channel_strategy(store: PaperStore, release: dict[str, object], actor: 
 - [ ] **Step 4: 增加`pte channel bind-strategy`并让引擎使用绑定身份生成决策**
 
 ```powershell
-pte channel bind-strategy --repo-root D:\CodeBase\czsc_trader --channel futu `
+pte channel bind-strategy --repo-root . --channel futu `
   --strategy S001 --strategy-version v2 --actor tomxiao --reason "人工确认"
 ```
 

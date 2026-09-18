@@ -126,7 +126,7 @@ def _snapshot(context: CandidateEvaluationContext, item: dict[str, object]):
         strategy = StrategyLoader().load_candidate(candidate)
         identity = StrategyIdentity("CANDIDATE", candidate.reference_id, "evaluation")
         source_hash = candidate.runtime_identity_sha256
-    return StrategySnapshot(identity, source_hash, canonical_sha256(payload), payload, None), strategy
+    return StrategySnapshot(identity, source_hash, canonical_sha256(payload), payload), strategy
 
 
 def prepare_candidate_replays(context, protocol, payloads, candidate_ids):

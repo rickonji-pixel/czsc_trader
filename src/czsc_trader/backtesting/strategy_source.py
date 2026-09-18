@@ -1,41 +1,14 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 
 from strategy_manager import StrategyRegistry, canonical_sha256
+from strategy_runtime import StrategyCandidate, StrategyLoader
 
 from czsc_trader.application.context import RepositoryContext
-from czsc_trader.baselines import resolve_strategy_payload
 from czsc_trader.identity import canonical_json_sha256
 
 from .models import StrategyIdentity, StrategySnapshot
-
-
-def _rule_symbol(strategy_payload: dict[str, object]) -> str:
-    rule = strategy_payload.get("rule")
-    execution = rule.get("execution") if isinstance(rule, dict) else None
-    instrument = execution.get("instrument") if isinstance(execution, dict) else None
-    symbol = instrument.get("symbol") if isinstance(instrument, dict) else None
-    if not isinstance(symbol, str) or not symbol.strip():
-        symbol = (
-            rule.get("symbol")
-            if isinstance(rule, dict) and isinstance(rule.get("symbol"), str)
-            else strategy_payload.get("symbol")
-        )
-    if not isinstance(symbol, str) or not symbol.strip():
-        raise ValueError("strategy payload must define execution instrument symbol")
-    return symbol.upper()
-
-
-def _snapshot_hash(source_hash: str, resolved_rule: Any) -> str:
-    return canonical_json_sha256(
-        {
-            "source_hash": source_hash,
-            "rule": resolved_rule.rule_payload,
-            "resolved_parent_sha256": resolved_rule.source_sha256,
-        }
-    )
 
 
 def _registered_snapshot_hash(
@@ -45,33 +18,6 @@ def _registered_snapshot_hash(
 
     return canonical_json_sha256(
         {"source_hash": source_hash, "strategy_payload": strategy_payload}
-    )
-
-
-def _resolve(
-    context: RepositoryContext,
-    identity: StrategyIdentity,
-    strategy_payload: dict[str, object],
-    source_hash: str,
-    research_window: tuple[date, date] | None = None,
-) -> StrategySnapshot:
-    symbol = _rule_symbol(strategy_payload)
-    resolved = resolve_strategy_payload(
-        context.strategy_dependency_root,
-        strategy_payload,
-        release_id=identity.reference,
-        release_hash=source_hash,
-        symbol=symbol,
-        repository_root=context.root,
-    )
-    return StrategySnapshot(
-        identity=identity,
-        source_hash=source_hash,
-        content_hash=_snapshot_hash(source_hash, resolved),
-        strategy_payload=strategy_payload,
-        resolved_rule=resolved,
-        research_start=None if research_window is None else research_window[0],
-        research_end=None if research_window is None else research_window[1],
     )
 
 
@@ -104,7 +50,6 @@ def resolve_registered_strategy(
         source_hash=source_hash,
         content_hash=_registered_snapshot_hash(source_hash, strategy_payload),
         strategy_payload=strategy_payload,
-        resolved_rule=None,
         research_start=None if research_window is None else research_window[0],
         research_end=None if research_window is None else research_window[1],
     )
@@ -117,11 +62,17 @@ def resolve_candidate_snapshot(
     content_hash: str,
     source: str,
 ) -> StrategySnapshot:
-    if len(content_hash) != 64 or any(char not in "0123456789abcdef" for char in content_hash.lower()):
-        raise ValueError("candidate content hash must be a lowercase SHA-256")
-    return _resolve(
-        context,
-        StrategyIdentity("CANDIDATE", candidate_id, source),
-        dict(strategy_payload),
-        content_hash.lower(),
+    """Resolve a family-qualified SRT candidate; old rule-only payloads are retired."""
+    if content_hash != canonical_sha256(strategy_payload):
+        raise ValueError("candidate content hash differs from strategy payload")
+    family, separator, local_id = candidate_id.partition("-")
+    if not separator:
+        raise ValueError("candidate replay requires a family-qualified identity")
+    candidate = StrategyCandidate(family, local_id, strategy_payload)
+    StrategyLoader().load_candidate(candidate)
+    return StrategySnapshot(
+        identity=StrategyIdentity("CANDIDATE", candidate.reference_id, source),
+        source_hash=candidate.runtime_identity_sha256,
+        content_hash=content_hash,
+        strategy_payload=dict(strategy_payload),
     )

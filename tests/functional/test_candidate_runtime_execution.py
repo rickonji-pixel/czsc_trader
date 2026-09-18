@@ -36,11 +36,17 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
     from dataflows import DataRequest, Dataflows
     from strategy_runtime import PublicationStatus, PublishedStrategyData, write_publication
     from czsc_trader.backtesting.datasets import ReplayData
-    from czsc_trader.backtesting.models import StrategyIdentity, StrategySnapshot
     from czsc_trader.backtesting.srt_bridge import build_srt_signal_replay, replay_srt_account
+    from czsc_trader.backtesting.strategy_source import resolve_candidate_snapshot
+    from czsc_trader.backtesting.service import BacktestRequestV2, run_backtest_v2
+    from czsc_trader.application.context import RepositoryContext
+    from czsc_trader.data import MarketData
+    import json
 
     payload, _ = candidate_payload
-    candidate = StrategyCandidate("S900", "C001", payload)
+    # Use an existing family presenter; strategy calculation remains the test SRT.
+    payload["rule"] = {"entry_threshold": .5, "exit_threshold": .5}
+    candidate = StrategyCandidate("S001", "C001", payload)
     strategy = StrategyLoader().load_candidate(candidate)
     definition = strategy.definition
     sessions = pd.bdate_range("2026-09-14", periods=5)
@@ -54,21 +60,26 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
         "2026-09-18", {"flow": request}, {"flow": result},
     )
     write_publication(publication, tmp_path)
-    daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0})
+    daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0, "high": 1.0, "low": 1.0, "vol": 1000.0, "amount": 1000.0})
+    daily["symbol"] = "588080.SH"
     replay_data = ReplayData(
         "research", tmp_path,
-        SimpleNamespace(daily=daily, symbol="588080.SH", asset_type="etf"),
+        MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf"),
         daily, pd.DataFrame(columns=["dt", "high", "low"]), "d" * 64, sessions[-1].date(),
     )
-    snapshot = StrategySnapshot(
-        StrategyIdentity("CANDIDATE", candidate.reference_id, "fixture"),
-        candidate.runtime_identity_sha256, canonical_sha256(payload), payload, None,
-    )
-
     def forbidden(*args, **kwargs):
         raise AssertionError("candidate replay must never call the old rule parser")
 
     monkeypatch.setattr("czsc_trader.baselines.resolve_strategy_payload", forbidden)
+    context = RepositoryContext.discover(tmp_path)
+    snapshot = resolve_candidate_snapshot(context, candidate.reference_id, payload, canonical_sha256(payload), "fixture")
+    assert snapshot.source_hash == candidate.runtime_identity_sha256
+    with pytest.raises(ValueError, match="content hash differs"):
+        resolve_candidate_snapshot(context, candidate.reference_id, payload, "0" * 64, "fixture")
+    with pytest.raises(ValueError, match="family-qualified"):
+        resolve_candidate_snapshot(context, "C001", payload, canonical_sha256(payload), "fixture")
+    with pytest.raises(RuntimeContractError):
+        resolve_candidate_snapshot(context, candidate.reference_id, {"rule": {}}, canonical_sha256({"rule": {}}), "fixture")
     loaded, signals = build_srt_signal_replay(
         snapshot=snapshot, replay_data=replay_data, start=sessions[1], end=sessions[-1],
         repository_root=tmp_path,
@@ -80,6 +91,28 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
     assert_frame_equal(replay.account_daily, direct.account_daily, check_exact=True)
     assert len(replay.fills) == 3
     assert signals.support_data["runtime_sha256"] == definition.runtime_sha256
+    summary = run_backtest_v2(
+        snapshot=snapshot, replay_data=replay_data,
+        request=BacktestRequestV2("588080.SH", "etf", "research", sessions[1].date(), sessions[-1].date(), 100_000),
+        outputs_root=tmp_path / "outputs", run_date=sessions[-1].date(), repository_root=tmp_path,
+    )
+    assert summary.manifest["strategy"]["kind"] == "CANDIDATE"
+    assert summary.manifest["application"]["runtime_engine"] == "srt"
+    assert summary.manifest["audit"]["status"] == "PASS"
+    published_account = pd.read_csv(summary.output_dir / "account_daily.csv")
+    assert published_account["equity"].tolist() == pytest.approx(replay.account_daily["equity"].tolist())
+    assert "S001-C001" in (summary.output_dir / "chart.html").read_text(encoding="utf-8")
+    assert json.loads((summary.output_dir / "audit.json").read_text())["status"] == "PASS"
+    for invalid, end, message in (
+        (replace(snapshot, source_hash="0" * 64), sessions[-1], "release hashes differ"),
+        (replace(snapshot, content_hash="0" * 64), sessions[-1], "content hash differs"),
+        (snapshot, sessions[-1] + pd.offsets.BDay(), "exceeds the published cutoff"),
+    ):
+        with pytest.raises(RuntimeContractError, match=message):
+            build_srt_signal_replay(
+                snapshot=invalid, replay_data=replay_data, start=sessions[1], end=end,
+                repository_root=tmp_path,
+            )
     changed = deepcopy(payload)
     changed["parameters"]["threshold"] = 0.9
     with pytest.raises(RuntimeContractError, match="release hashes"):

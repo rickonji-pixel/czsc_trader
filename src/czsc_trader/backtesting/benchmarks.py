@@ -42,14 +42,7 @@ def _fee_rate(signals: SignalReplay) -> float:
         if policy_type == "INTRADAY_OVERLAY" and "one_way_cost" in settings:
             return float(settings["one_way_cost"])
         raise ValueError(f"unsupported SRT execution policy: {policy_type}")
-    resolved = signals.snapshot.resolved_rule
-    if resolved is None:
-        raise ValueError("candidate benchmark requires a resolved research rule")
-    if resolved.execution is not None:
-        return float(resolved.execution.capital.fee_rate)
-    if resolved.constituent_moneyflow_intraday is not None:
-        return float(resolved.constituent_moneyflow_intraday.one_way_cost)
-    raise ValueError("strategy snapshot has no execution specification")
+    raise ValueError("benchmark replay requires SRT execution evidence")
 
 
 def _account_daily(

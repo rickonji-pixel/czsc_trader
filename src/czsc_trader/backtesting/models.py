@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
-from czsc_trader.baselines import ResolvedBaseline
-
 
 @dataclass(frozen=True)
 class StrategyIdentity:
@@ -20,6 +18,5 @@ class StrategySnapshot:
     source_hash: str
     content_hash: str
     strategy_payload: dict[str, object]
-    resolved_rule: ResolvedBaseline | None
     research_start: date | None = None
     research_end: date | None = None

@@ -22,6 +22,7 @@ from strategy_runtime import (
     RuntimeContractError,
     effective_target_order_type,
     read_publication,
+    canonical_sha256,
 )
 
 from trading_execution_engine import HistoricalExecutor
@@ -166,18 +167,30 @@ def build_srt_signal_replay(
         family, separator, candidate_id = snapshot.identity.reference.partition("-")
         if not separator:
             raise RuntimeContractError("candidate replay requires a family-qualified identity")
-        strategy = StrategyLoader().load_candidate(
-            StrategyCandidate(family, candidate_id, snapshot.strategy_payload)
-        )
-    else:
-        _, strategy = load_srt_strategy(
+        candidate = StrategyCandidate(family, candidate_id, snapshot.strategy_payload)
+        strategy = StrategyLoader().load_candidate(candidate)
+        if snapshot.source_hash != candidate.runtime_identity_sha256:
+            raise RuntimeContractError("candidate release hashes differ from the snapshot")
+        if snapshot.content_hash != canonical_sha256(snapshot.strategy_payload):
+            raise RuntimeContractError("candidate snapshot content hash differs")
+    elif snapshot.identity.kind == "REGISTERED":
+        release, strategy = load_srt_strategy(
             repository_root, snapshot.identity.reference,
             deployment_symbol=replay_data.adjusted.symbol,
         )
+        if (
+            snapshot.source_hash != release.release_hash
+            or canonical_sha256(snapshot.strategy_payload) != canonical_sha256(release.payload)
+        ):
+            raise RuntimeContractError("registered snapshot differs from its frozen release")
+    else:
+        raise RuntimeContractError(f"unsupported strategy identity: {snapshot.identity.kind}")
     if strategy.definition.release_id != snapshot.identity.reference:
         raise RuntimeContractError("historical runtime differs from the replay identity")
     if strategy_reference_symbol(strategy) != replay_data.adjusted.symbol:
         raise RuntimeContractError("historical runtime differs from the replay symbol")
+    if replay_data.dataset == "research" and end.normalize() > pd.Timestamp(replay_data.cutoff):
+        raise RuntimeContractError("research backtest window exceeds the published cutoff")
     sessions = pd.DatetimeIndex(
         pd.to_datetime(replay_data.adjusted.daily["dt"]).dt.normalize(), name="dt"
     )

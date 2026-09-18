@@ -18,7 +18,6 @@ from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.data_service import _assert_append_only
 from czsc_trader.backtesting.datasets import load_replay_data
 from czsc_trader.backtesting.strategy_source import (
-    resolve_candidate_snapshot,
     resolve_registered_strategy,
 )
 from czsc_trader.baselines import (
@@ -138,21 +137,18 @@ def test_shared_order_intent_uses_unadjusted_close_and_full_cash(
 ) -> None:
     context = RepositoryContext.discover(functional_repo)
     snapshot = resolve_registered_strategy(context, "S001", "v1")
-    candidate = resolve_candidate_snapshot(
-        context,
-        "S001-ORDER-INTENT",
-        snapshot.strategy_payload,
-        "e" * 64,
-        "functional://order-intent",
+    candidate = resolve_strategy_payload(
+        context.strategy_dependency_root, snapshot.strategy_payload,
+        release_id="S001-v1", release_hash=snapshot.source_hash,
+        symbol="588080.SH", repository_root=functional_repo,
     )
-    assert candidate.resolved_rule is not None
     intent = decide_order_intent(
         target_position=1,
         actual_quantity=0,
         cycle_target_quantity=None,
         available_cash=1_000_000,
         execution_close=1.430,
-        execution_spec=candidate.resolved_rule.execution,
+        execution_spec=candidate.execution,
     )
 
     assert intent.limit_price == 1.430
@@ -165,28 +161,25 @@ def test_shared_order_intent_uses_unadjusted_close_and_full_cash(
         cycle_target_quantity=72_800,
         available_cash=100_000,
         execution_close=1.430,
-        execution_spec=candidate.resolved_rule.execution,
+        execution_spec=candidate.execution,
     )
     assert retry.target_quantity == 69_800
     assert retry.cycle_target_quantity == 72_800
     assert sum(order.quantity for order in retry.orders) == 69_800
 
     guarded_snapshot = resolve_registered_strategy(context, "S001", "v2")
-    guarded_candidate = resolve_candidate_snapshot(
-        context,
-        "S001-GUARDED-ORDER-INTENT",
-        guarded_snapshot.strategy_payload,
-        "f" * 64,
-        "functional://guarded-order-intent",
+    guarded_candidate = resolve_strategy_payload(
+        context.strategy_dependency_root, guarded_snapshot.strategy_payload,
+        release_id="S001-v2", release_hash=guarded_snapshot.source_hash,
+        symbol="588080.SH", repository_root=functional_repo,
     )
-    assert guarded_candidate.resolved_rule is not None
     exit_intent = decide_order_intent(
         target_position=0,
         actual_quantity=1000,
         cycle_target_quantity=1000,
         available_cash=0,
         execution_close=1.609,
-        execution_spec=guarded_candidate.resolved_rule.execution,
+        execution_spec=guarded_candidate.execution,
     )
     assert exit_intent.limit_price == 1.609
     assert exit_intent.orders[0].order_type == "MARKET"

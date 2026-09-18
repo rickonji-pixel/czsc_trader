@@ -44,38 +44,18 @@ def build_replay_evidence(
         .dt.date.astype(str)
     )
     srt_policy = support.get("execution_policy")
-    spec = None
-    if support.get("mode") == "srt_input_contract":
-        if not isinstance(srt_policy, dict):
-            raise ValueError("SRT replay has no execution policy evidence")
-        policy_type = srt_policy.get("policy_type")
-        settings = srt_policy.get("settings")
-        if not isinstance(settings, dict):
-            raise ValueError("SRT replay execution settings are invalid")
-        overlay_settings = settings if policy_type == "INTRADAY_OVERLAY" else None
-        frozen_settings = settings if policy_type == "FROZEN_RULE" else None
-        if overlay_settings is None and frozen_settings is None:
-            raise ValueError(f"unsupported SRT execution policy: {policy_type}")
-    else:
-        resolved = signals.snapshot.resolved_rule
-        if resolved is None:
-            raise ValueError("candidate replay requires a resolved research rule")
-        spec = resolved.execution
-        overlay = resolved.constituent_moneyflow_intraday
-        overlay_settings = (
-            {
-                "one_way_cost": overlay.one_way_cost,
-                "lot_size": overlay.lot_size,
-                "core_fraction": overlay.core_fraction,
-                "event_fraction": overlay.event_fraction,
-                "entry_checkpoint": overlay.entry_checkpoint,
-                "exit_checkpoint": overlay.exit_checkpoint,
-                "t_plus_one_inventory_rotation": overlay.t_plus_one_inventory_rotation,
-            }
-            if overlay is not None
-            else None
-        )
-        frozen_settings = None
+    if support.get("mode") != "srt_input_contract":
+        raise ValueError("replay audit requires SRT execution evidence")
+    if not isinstance(srt_policy, dict):
+        raise ValueError("SRT replay has no execution policy evidence")
+    policy_type = srt_policy.get("policy_type")
+    settings = srt_policy.get("settings")
+    if not isinstance(settings, dict):
+        raise ValueError("SRT replay execution settings are invalid")
+    overlay_settings = settings if policy_type == "INTRADAY_OVERLAY" else None
+    frozen_settings = settings if policy_type == "FROZEN_RULE" else None
+    if overlay_settings is None and frozen_settings is None:
+        raise ValueError(f"unsupported SRT execution policy: {policy_type}")
     if overlay_settings is not None:
         if data.execution_five_minute is None:
             raise ValueError("intraday overlay audit requires 5m execution data")
@@ -152,24 +132,6 @@ def build_replay_evidence(
                 "maximum_order_quantity": instrument["maximum_order_quantity"],
             },
         }
-    else:
-        if spec is None:
-            raise ValueError("strategy snapshot has no execution specification")
-        execution_spec = {
-            "entry_limit_parameter": spec.entry_limit_parameter,
-            "exit_limit_ratio": spec.exit_limit_ratio,
-            "entry_order_type": str(spec.entry_order_type),
-            "exit_order_type": "MARKET",
-            "fee_rate": spec.capital.fee_rate,
-            "capital_mode": spec.capital.mode,
-            "allocation_fraction": spec.capital.allocation_fraction,
-            "instrument": {
-                "lot_size": spec.instrument.lot_size,
-                "price_tick": spec.instrument.price_tick,
-                "price_limit_ratio": spec.instrument.price_limit_ratio,
-                "maximum_order_quantity": spec.instrument.maximum_order_quantity,
-            },
-        }
     start = signals.calculation_start
     end = signals.evaluation_end
     daily = data.execution_daily.loc[data.execution_daily["dt"].between(start, end)].rename(
@@ -220,15 +182,7 @@ def build_benchmark_evidence(
         else:
             raise ValueError("SRT benchmark evidence has unsupported execution policy")
     else:
-        resolved = signals.snapshot.resolved_rule
-        if resolved is None:
-            raise ValueError("candidate benchmark evidence requires a resolved rule")
-        if resolved.execution is not None:
-            fee_rate = float(resolved.execution.capital.fee_rate)
-        elif resolved.constituent_moneyflow_intraday is not None:
-            fee_rate = float(resolved.constituent_moneyflow_intraday.one_way_cost)
-        else:
-            raise ValueError("candidate benchmark evidence has no fee rate")
+        raise ValueError("benchmark audit requires SRT execution evidence")
     empty_trades: tuple[dict[str, Any], ...] = ()
     prices = _records(evaluation, ("date",))
     return {

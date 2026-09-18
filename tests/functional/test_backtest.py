@@ -32,7 +32,7 @@ from czsc_trader.backtesting.srt_bridge import (
 )
 from strategy_evaluator import AuditStatus, audit_replay
 
-from functional_support import invoke_main
+from functional_support import invoke_main, invoke_main_failure
 
 
 METRIC_KEYS = {
@@ -752,3 +752,51 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     assert "- 策略参考标的：588080.SH" in generalized_report
     assert "- 实际回测标的：159352.SZ" in generalized_report
     assert "- 应用方式：跨标的泛化测试" in generalized_report
+
+
+def test_backtest_rejects_false_success_beyond_published_session(
+    functional_repo: Path, capsys
+) -> None:
+    payload = invoke_main_failure(
+        [
+            "backtest", "run",
+            "--strategy", "S001", "--strategy-version", "v1",
+            "--dataset", "backtest", "--symbol", "588080.SH", "--asset", "etf",
+            "--start", "2026-01-01", "--end", "2026-09-06", "--init-cash", "100000",
+            "--outputs-root", str(functional_repo / "outputs"),
+            "--repo-root", str(functional_repo),
+        ],
+        capsys,
+    )
+
+    assert payload["error"] == {
+        "code": "backtest_data_not_ready",
+        "message": (
+            "backtest data is not ready: requested cutoff 2026-09-06 includes "
+            "unpublished trading session 2026-09-03; published cutoff is 2026-09-02"
+        ),
+        "context": {
+            "strategy": "S001-v1",
+            "symbol": "588080.SH",
+            "dataset": "backtest",
+            "requested_cutoff": "2026-09-06",
+            "published_cutoff": "2026-09-02",
+            "first_unpublished_session": "2026-09-03",
+        },
+    }
+    assert list((functional_repo / "outputs").iterdir()) == []
+
+
+def test_replay_data_maps_non_trading_cutoff_to_last_published_session(
+    functional_repo: Path,
+) -> None:
+    data = load_replay_data(
+        RepositoryContext.discover(functional_repo),
+        "backtest",
+        "588080.SH",
+        "etf",
+        pd.Timestamp("2026-08-30").date(),
+    )
+
+    assert data.cutoff == pd.Timestamp("2026-08-28").date()
+    assert pd.Timestamp(data.execution_daily["dt"].max()).date() == data.cutoff

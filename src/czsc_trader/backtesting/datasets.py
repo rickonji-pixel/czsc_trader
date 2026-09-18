@@ -9,11 +9,37 @@ from typing import Literal
 import pandas as pd
 
 from czsc_trader.application.context import RepositoryContext
-from czsc_trader.data import MarketData, load_execution_prices, load_market_data
+from czsc_trader.data import (
+    MarketData,
+    load_execution_manifest,
+    load_execution_prices,
+    load_market_data,
+)
 from czsc_trader.intraday_data import load_intraday_research_data
 
 
 DatasetName = Literal["research", "backtest"]
+
+
+class ReplayDataNotReadyError(ValueError):
+    """Requested replay window includes a trading session not yet published."""
+
+    def __init__(
+        self,
+        *,
+        requested_cutoff: date,
+        published_cutoff: date,
+        first_unpublished_session: date,
+    ) -> None:
+        self.requested_cutoff = requested_cutoff
+        self.published_cutoff = published_cutoff
+        self.first_unpublished_session = first_unpublished_session
+        super().__init__(
+            "backtest data is not ready: "
+            f"requested cutoff {requested_cutoff.isoformat()} includes unpublished "
+            f"trading session {first_unpublished_session.isoformat()}; "
+            f"published cutoff is {published_cutoff.isoformat()}"
+        )
 
 
 @dataclass(frozen=True)
@@ -87,6 +113,38 @@ def _execution_intraday(
     return result
 
 
+def _published_execution_boundary(
+    root: Path,
+    symbol: str,
+    asset_type: str,
+) -> tuple[date, date]:
+    manifest = load_execution_manifest(root, symbol, asset_type)
+    records = manifest.get("files")
+    if not isinstance(records, dict) or not records:
+        raise ValueError("execution-price manifest files must be a non-empty object")
+    try:
+        published_cutoff = max(
+            pd.Timestamp(str(record["last"])).normalize()
+            for record in records.values()
+            if isinstance(record, dict)
+        ).date()
+        declared_cutoff = pd.Timestamp(str(manifest["requested_end"])).normalize().date()
+        next_session = pd.Timestamp(
+            str(manifest["next_trading_session"])
+        ).normalize().date()
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("execution-price manifest has an invalid publication boundary") from exc
+    if declared_cutoff != published_cutoff:
+        raise ValueError(
+            "execution-price manifest requested_end differs from its latest published session"
+        )
+    if next_session <= published_cutoff:
+        raise ValueError(
+            "execution-price manifest next trading session must follow its published cutoff"
+        )
+    return published_cutoff, next_session
+
+
 def _execution_five_minute(
     root: Path,
     adjusted: MarketData,
@@ -131,6 +189,15 @@ def load_replay_data(
     if dataset not in {"research", "backtest"}:
         raise ValueError(f"unknown replay dataset: {dataset}")
     root = context.research_data_root if dataset == "research" else context.backtest_data_root
+    published_cutoff, next_session = _published_execution_boundary(
+        root, symbol, asset_type
+    )
+    if cutoff >= next_session:
+        raise ReplayDataNotReadyError(
+            requested_cutoff=cutoff,
+            published_cutoff=published_cutoff,
+            first_unpublished_session=next_session,
+        )
     adjusted = load_market_data(root, symbol, asset_type, cutoff=pd.Timestamp(cutoff))
     execution_daily = load_execution_prices(
         root,
@@ -139,6 +206,7 @@ def load_replay_data(
         cutoff=pd.Timestamp(cutoff),
     )
     execution_intraday = _execution_intraday(adjusted, execution_daily)
+    effective_cutoff = pd.Timestamp(execution_daily["dt"].max()).date()
     execution_five_minute = (
         _execution_five_minute(root, adjusted, execution_daily, cutoff)
         if include_five_minute
@@ -173,7 +241,7 @@ def load_replay_data(
             execution_five_minute,
             signal_one_minute,
         ),
-        cutoff=cutoff,
+        cutoff=effective_cutoff,
         execution_five_minute=execution_five_minute,
         signal_one_minute=signal_one_minute,
     )

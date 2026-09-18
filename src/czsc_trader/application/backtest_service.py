@@ -10,6 +10,7 @@ from czsc_trader.backtesting import (
     resolve_registered_strategy,
     run_backtest_v2,
 )
+from czsc_trader.backtesting.datasets import ReplayDataNotReadyError
 from czsc_trader.backtesting.srt_bridge import (
     execution_intraday_frequencies,
     load_srt_strategy,
@@ -80,6 +81,19 @@ def run_backtest(
             run_date=run_date or datetime.now().astimezone().date(),
             repository_root=context.root,
         )
+    except ReplayDataNotReadyError as exc:
+        raise ExecutionError(
+            "backtest_data_not_ready",
+            str(exc),
+            context={
+                "strategy": f"{request.strategy_id}-{request.strategy_version}",
+                "symbol": request.symbol,
+                "dataset": request.dataset,
+                "requested_cutoff": exc.requested_cutoff.isoformat(),
+                "published_cutoff": exc.published_cutoff.isoformat(),
+                "first_unpublished_session": exc.first_unpublished_session.isoformat(),
+            },
+        ) from exc
     except Exception as exc:
         raise ExecutionError(
             "backtest_failed",

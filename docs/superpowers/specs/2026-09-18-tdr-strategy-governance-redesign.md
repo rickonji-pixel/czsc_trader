@@ -187,6 +187,11 @@ TDR只裁判可计算事实和流程完整性。金融逻辑是否可信、证�
 版本创建和冻结是一个原子治理动作。成功后写入release hash并进入`PAPER_READY`；失败时不得
 留下半创建版本。版本号在冻结时分配，不为尚未冻结的候选预占`vN`。
 
+新版版本使用双重身份：`release_hash`只覆盖SRT可执行身份，确保候选运行时可以在冻结前完成
+验收且冻结后保持一致；`governance_hash`覆盖评审案件、候选快照、最终评价合同、裁判报告、
+人工冻结决议和运行验收引用。SM必须分别验证两个哈希。历史版本继续沿用原有release hash
+算法，不重写既有身份。
+
 ## 6. 三个人工确认节点
 
 ### 6.1 节点一：创建新研究批次
@@ -272,7 +277,6 @@ EvaluationMandate要求的体检项是否全部由SE及其他组件完成。
 
 ```text
 czsc-trader research create ...
-czsc-trader research run ...
 czsc-trader strategy review open ...
 czsc-trader strategy review evaluate ...
 czsc-trader strategy review show ...
@@ -297,7 +301,7 @@ strategy version create
 继续使用Git管理的JSON和JSON Lines：
 
 ```text
-configs/strategies/S008/
+strategies/S008/
   family.json
   lifecycle.jsonl
   reviews/

@@ -377,8 +377,27 @@ def test_ft_t03_s007_causal_feature_gate_replays_frozen_candidate() -> None:
         )
 
 
-def test_ft_t03_s007_candidate_replay_uses_independent_support_data() -> None:
-    repo = Path(__file__).resolve().parents[2]
+def test_ft_t03_s007_candidate_replay_uses_independent_support_data(
+    functional_repo: Path,
+) -> None:
+    source_repo = Path(__file__).resolve().parents[2]
+    repo = functional_repo
+    source_data = source_repo / "data" / "backtest"
+    target_data = repo / "data" / "backtest"
+    generation = json.loads(
+        (source_data / "588080_strategy_generation.json").read_text(encoding="utf-8")
+    )
+    copied_hashes = {}
+    for filename in generation["files"]:
+        source = source_data / filename
+        destination = target_data / filename
+        shutil.copy2(source, destination)
+        copied_hashes[filename] = file_sha256(destination)
+    generation["files"] = copied_hashes
+    (target_data / "588080_strategy_generation.json").write_text(
+        json.dumps(generation, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     context = RepositoryContext.discover(repo)
     registered = resolve_registered_strategy(context, "S007", "v1")
     snapshot = resolve_candidate_snapshot(

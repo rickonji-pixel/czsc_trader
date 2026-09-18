@@ -6,16 +6,13 @@ import csv
 import hashlib
 import json
 import shutil
-import subprocess
 from collections.abc import Callable
 from dataclasses import asdict
-from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from czsc_trader.temp_workspace import create_temporary_directory
-from strategy_manager import Strategy, StrategyManagerError, StrategyRegistry, StrategyVersion, canonical_sha256
 from strategy_evaluator import (
     CandidateDescriptor,
     EvaluationProtocol,
@@ -47,16 +44,11 @@ from czsc_trader.evaluation_artifacts import (
     ReuseLedgerRow,
     load_reusable_observations,
 )
-from czsc_trader.experiment_archive import (
-    experiment_repository_reference,
-    resolve_experiment_dir,
-)
+from czsc_trader.experiment_archive import resolve_experiment_dir
 from czsc_trader.identity import canonical_json_sha256
 
 from .context import RepositoryContext
-from .freeze_review import build_freeze_approval
 from .results import CommandResult
-from .runtime_acceptance import require_runtime_readiness, validate_runtime_readiness
 
 Runner = Callable[..., tuple[MetricObservation, ...]]
 SCREENING_AUDIT_FILES = (
@@ -341,7 +333,14 @@ def _screening_audit(
     return comparison_rows, decisions
 
 
-def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runner: Runner = evaluate_candidate_payloads) -> CommandResult:
+def evaluate_experiment(
+    context: RepositoryContext,
+    experiment_id: str,
+    *,
+    runner: Runner = evaluate_candidate_payloads,
+    use_cached_result: bool = True,
+    allow_artifact_reuse: bool = True,
+) -> CommandResult:
     experiment = _experiment_path(context, experiment_id)
     protocol_raw = _read_object(experiment / "evaluation_protocol.json")
     protocol = EvaluationProtocol.from_dict(protocol_raw)
@@ -352,6 +351,9 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
         raise ValueError("candidate manifest must be a direct experiment child")
     manifest = _read_object(manifest_path)
     workers, reuse, reuse_sources = _execution_settings(manifest)
+    if not allow_artifact_reuse:
+        reuse = False
+        reuse_sources = ()
     raw_candidates = manifest.get("candidates")
     raw_trials = manifest.get("trials")
     if not isinstance(raw_candidates, list) or not isinstance(raw_trials, list):
@@ -362,7 +364,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     input_hash = _canonical_hash(protocol_raw, manifest)
     artifact_dir = experiment / "artifacts"
     result_path = artifact_dir / "evaluation_result.json"
-    if result_path.is_file():
+    if result_path.is_file() and use_cached_result:
         existing = _read_object(result_path)
         if existing.get("input_hash") != input_hash:
             raise ValueError("completed evaluation has a different input hash")
@@ -499,6 +501,7 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
             else machine_report.risk_label.value,
             "evidence_hash": machine_report.evidence_hash,
             "report_hash": machine_report.report_hash,
+            "checks": [item.to_dict() for item in machine_report.checks],
         }
 
     comparisons = []
@@ -588,254 +591,3 @@ def evaluate_experiment(context: RepositoryContext, experiment_id: str, *, runne
     finally:
         shutil.rmtree(temporary, ignore_errors=True)
     return CommandResult("PASS", "strategy.evaluate", result_document, {"directory": str(artifact_dir)})
-
-
-def _atomic_json(path: Path, value: object) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
-
-
-def _winning_payload(experiment: Path, result: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    protocol_raw = _read_object(experiment / "evaluation_protocol.json")
-    protocol = EvaluationProtocol.from_dict(protocol_raw)
-    manifest = _read_object(experiment / protocol.candidate_manifest)
-    if result.get("input_hash") != _canonical_hash(protocol_raw, manifest):
-        raise ValueError("evaluation input hash mismatch")
-    integrity = dict(result)
-    stored_hash = integrity.pop("decision_hash", None)
-    if stored_hash != _canonical_hash(integrity):
-        raise ValueError("evaluation decision hash mismatch")
-    winner = result.get("recommended_candidate_id")
-    candidates = manifest.get("candidates", [])
-    match = next((item for item in candidates if isinstance(item, dict) and item.get("candidate_id") == winner), None)
-    if match is None:
-        raise ValueError("recommended candidate is missing from manifest")
-    return manifest, match
-
-
-def _find_source_version(
-    registry: StrategyRegistry,
-    strategy_id: str,
-    experiment_references: tuple[str, ...],
-    candidate_id: str,
-) -> StrategyVersion | None:
-    try:
-        registry.get_strategy(strategy_id)
-    except StrategyManagerError:
-        return None
-    directory = registry.root / strategy_id / "versions"
-    for path in sorted(directory.glob("v*.json")):
-        version = registry.get_version(strategy_id, path.stem)
-        if (
-            version.source_experiment in experiment_references
-            and str(version.source_candidate) == candidate_id
-        ):
-            return version
-    return None
-
-
-def _full_metric(experiment: Path, candidate_id: str) -> dict[str, str]:
-    with (experiment / "artifacts" / "formal_metrics.csv").open(encoding="utf-8", newline="") as stream:
-        rows = list(csv.DictReader(stream))
-    match = next((row for row in rows if row["candidate_id"] == candidate_id and row["window_id"] == "full"), None)
-    if match is None:
-        raise ValueError("winning candidate has no full-window formal metrics")
-    return match
-
-
-def _ensure_frozen(
-    context: RepositoryContext,
-    experiment_id: str,
-    result: dict[str, Any],
-    manifest: dict[str, Any],
-    winner: dict[str, Any],
-    actor: str,
-    reason: str,
-    review: dict[str, Any],
-    runtime_validator: Callable[[StrategyVersion], dict[str, object]],
-) -> tuple[StrategyVersion, dict[str, object]]:
-    experiment = _experiment_path(context, experiment_id)
-    experiment_reference = experiment_repository_reference(
-        context.experiments_root, experiment
-    )
-    historical_reference = f"experiments/{experiment_id}"
-    registry = StrategyRegistry(context.strategy_root)
-    strategy_id = str(winner.get("strategy_id", ""))
-    if not strategy_id:
-        raise ValueError("winning candidate requires strategy_id")
-    candidate_id = str(winner["candidate_id"])
-    candidate_hash = str(winner.get("strategy_hash", winner.get("candidate_hash", "")))
-    if len(candidate_hash) != 64:
-        raise ValueError("winning candidate requires candidate_hash for freeze approval")
-    machine_report = _read_object(experiment / "artifacts" / "machine_evaluation.json")
-    approval = build_freeze_approval(
-        machine_report=machine_report,
-        review=review,
-        strategy_id=strategy_id,
-        source_experiment=experiment_reference,
-        actor=actor,
-        reason=reason,
-    )
-    try:
-        registry.get_strategy(strategy_id)
-    except StrategyManagerError:
-        registry.create_strategy(
-            Strategy.from_dict({
-                "schema_version": 1, "strategy_id": strategy_id,
-                "name": str(winner.get("strategy_name", strategy_id)),
-                "objective": str(winner.get("strategy_objective", "执行已评估的交易策略")),
-                "responsibility": str(winner.get("strategy_responsibility", "生成目标仓位；执行由交易模块负责")),
-                "scope": [str(manifest["symbol"])], "created_at": datetime.now().astimezone().isoformat(), "created_by": actor,
-            }), actor=actor, reason=reason,
-        )
-    version = _find_source_version(
-        registry,
-        strategy_id,
-        (experiment_reference, historical_reference),
-        candidate_id,
-    )
-    expected_payload = winner.get("strategy_payload")
-    if version is not None and version.strategy_payload != expected_payload:
-        raise ValueError("existing source version payload does not match the winning candidate")
-    if version is None:
-        version_count = len(list((context.strategy_root / strategy_id / "versions").glob("v*.json")))
-        version_name = f"v{version_count + 1}"
-        parent = None if version_count == 0 else f"v{version_count}"
-        cutoff = date.fromisoformat(
-            str(_read_object(experiment / "evaluation_protocol.json")["development_cutoff"])
-        )
-        payload = winner.get("strategy_payload")
-        if not isinstance(payload, dict):
-            raise ValueError("winning candidate requires complete strategy_payload")
-        version, _ = registry.create_version(
-            StrategyVersion.from_dict({
-                "schema_version": 1, "strategy_id": strategy_id, "version": version_name,
-                "release_id": f"{strategy_id}-{version_name}", "parent_version": parent,
-                "change_summary": f"Accept evaluation champion {candidate_id}",
-                "source_experiment": experiment_reference, "source_candidate": candidate_id,
-                "selection_data_cutoff": cutoff.isoformat(),
-                "forward_start": str(manifest.get("forward_start", (cutoff + timedelta(days=1)).isoformat())),
-                "strategy_payload": payload, "release_hash": None,
-            }), actor=actor, reason=reason,
-        )
-    runtime_acceptance = require_runtime_readiness(version, runtime_validator)
-    qualification = registry.current_qualification(strategy_id, version.version)
-    if qualification.value == "PAPER_READY":
-        return registry.get_version(strategy_id, version.version), runtime_acceptance
-    metric = _full_metric(experiment, candidate_id)
-    calmar = metric.get("calmar")
-    if calmar in {None, "", "None"}:
-        raise ValueError("winning candidate requires a valid Calmar ratio")
-    source = result.copy()
-    evidence = {
-        "schema_version": 1, "evidence_id": f"EVD-{strategy_id}-{version.version}-{experiment_id}",
-        "strategy_id": strategy_id, "version": version.version, "release_hash": "0" * 64,
-        "phase": "RESEARCH_BACKTEST", "period_start": str(manifest["windows"]["full"]["start"]),
-        "period_end": str(manifest["windows"]["full"]["end"]), "data_identity": {"evaluation_input_hash": result["input_hash"]},
-        "initial_capital": float(manifest.get("init_cash", 1_000_000)), "fee_rate": float(manifest.get("fee_rate", 0.0005)),
-        "maximum_drawdown": float(metric["max_drawdown"]), "calmar_ratio": float(calmar),
-        "win_loss_ratio": None, "win_loss_ratio_status": "UNAVAILABLE", "total_return": float(metric["total_return"]),
-        "sharpe_ratio": None, "closed_trades": int(metric["closed_trades"]),
-        "source_path": f"{experiment_reference}/artifacts/evaluation_result.json", "source_hash": canonical_sha256(source),
-        "recorded_at": datetime.now().astimezone().isoformat(), "recorded_by": actor,
-    }
-    frozen, _ = registry.freeze_version(
-        strategy_id,
-        version.version,
-        actor=actor,
-        reason=reason,
-        evidence=evidence,
-        approval=approval,
-        machine_report=machine_report,
-    )
-    return frozen, runtime_acceptance
-
-
-def accept_evaluation(
-    context: RepositoryContext,
-    experiment_id: str,
-    actor: str,
-    reason: str,
-    review_path: Path,
-    *,
-    pte_runner: Callable[..., Any] = subprocess.run,
-    runtime_validator: Callable[
-        [StrategyVersion], dict[str, object]
-    ] = validate_runtime_readiness,
-) -> CommandResult:
-    experiment = _experiment_path(context, experiment_id)
-    result = _read_object(experiment / "artifacts" / "evaluation_result.json")
-    stored_decision_hash = result.pop("decision_hash", None)
-    if stored_decision_hash != _canonical_hash(result):
-        raise ValueError("completed evaluation decision hash mismatch")
-    result["decision_hash"] = stored_decision_hash
-    _validate_screening_audit(experiment / "artifacts", result)
-    machine = result.get("machine_evaluation")
-    if not isinstance(machine, dict):
-        raise ValueError("evaluation is missing the SE machine report")
-    if machine.get("machine_verdict") != "ELIGIBLE_FOR_FREEZE_REVIEW":
-        raise ValueError("evaluation is not eligible for human freeze review")
-    if not result.get("recommended_candidate_id"):
-        raise ValueError("evaluation has no candidate for freeze review")
-    if result.get("standard_version") == "opc-v3":
-        audit = result.get("audit")
-        if not isinstance(audit, dict) or audit.get("status") != "PASS":
-            raise ValueError("OPC-v3 acceptance requires a complete champion audit")
-    if not actor.strip() or not reason.strip():
-        raise ValueError("actor and reason are required")
-    review = _read_object(review_path)
-    manifest, winner = _winning_payload(experiment, result)
-    journal_path = experiment / "evaluation_acceptance.json"
-    journal = _read_object(journal_path) if journal_path.is_file() else None
-    if journal is not None and journal.get("evaluation_input_hash") != result.get("input_hash"):
-        raise ValueError("acceptance journal belongs to a different evaluation input")
-    if journal is not None and journal.get("activation_state") == "PAPER_ACTIVE":
-        return CommandResult("PASS", "strategy.accept-evaluation", journal)
-    if journal is None:
-        frozen, runtime_acceptance = _ensure_frozen(
-            context,
-            experiment_id,
-            result,
-            manifest,
-            winner,
-            actor,
-            reason,
-            review,
-            runtime_validator,
-        )
-        journal = {
-            "schema_version": 1, "experiment_id": experiment_id,
-            "evaluation_input_hash": result["input_hash"], "candidate_id": winner["candidate_id"],
-            "strategy_id": frozen.strategy_id, "strategy_version": frozen.version,
-            "release_id": frozen.release_id, "release_hash": frozen.release_hash,
-            "sm_state": "PAPER_READY", "activation_state": "PAPER_ACTIVATION_PENDING",
-            "runtime_acceptance": runtime_acceptance,
-            "actor": actor, "reason": reason, "accepted_at": datetime.now().astimezone().isoformat(),
-        }
-        _atomic_json(journal_path, journal)
-    executable = context.root / ".venv" / "Scripts" / "pte.exe"
-    command = [
-        str(executable), "account", "create", "--repo-root", str(context.root),
-        "--account-id", str(journal["release_id"]).lower(), "--name", str(winner.get("strategy_name", journal["release_id"])),
-        "--strategy", str(journal["strategy_id"]), "--strategy-version", str(journal["strategy_version"]),
-        "--symbol", str(manifest["symbol"]), "--initial-cash", "100000",
-    ]
-    try:
-        completed = pte_runner(command, check=False, capture_output=True, text=True, encoding="utf-8")
-        return_code = completed.returncode
-        pte_error = (completed.stderr or completed.stdout or "PTE account registration failed").strip()
-    except OSError as exc:
-        return_code = 1
-        pte_error = str(exc)
-    warnings: tuple[str, ...] = ()
-    if return_code == 0:
-        journal["activation_state"] = "PAPER_ACTIVE"
-        journal["activated_at"] = datetime.now().astimezone().isoformat()
-        journal.pop("pte_error", None)
-    else:
-        journal["activation_state"] = "PAPER_ACTIVATION_PENDING"
-        journal["pte_error"] = pte_error
-        warnings = ("SM 已冻结；PTE 注册待重试",)
-    _atomic_json(journal_path, journal)
-    return CommandResult("PASS", "strategy.accept-evaluation", journal, warnings=warnings)

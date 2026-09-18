@@ -191,7 +191,7 @@ def _load_inputs(data_dir: Path, symbol: str) -> _PublishedInputs:
 
 def _strategy_identity(repo_root: Path, release: StrategyRelease) -> dict[str, str]:
     root = repo_root / "strategies" / release.strategy_family_id
-    family = _load_manifest(root / "strategy.json")
+    family = _load_manifest(root / "family.json")
     lifecycle_path = root / "lifecycle.jsonl"
     qualification = None
     for line in lifecycle_path.read_text(encoding="utf-8").splitlines():

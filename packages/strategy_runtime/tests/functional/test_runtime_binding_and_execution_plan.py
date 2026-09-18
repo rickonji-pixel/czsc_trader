@@ -19,6 +19,36 @@ from strategy_runtime import (
 )
 
 
+def test_schema_v2_release_hash_covers_executable_identity_not_governance() -> None:
+    from strategy_runtime import StrategyRelease, canonical_sha256
+
+    executable = {
+        "schema_version": 2,
+        "strategy_id": "S008",
+        "version": "v1",
+        "release_id": "S008-v1",
+        "strategy_payload": {"symbol": "588080.SH", "runtime": "example"},
+    }
+    payload = {
+        **executable,
+        "parent_version": None,
+        "change_summary": "首个冻结版本",
+        "source_experiment": "experiments/S008/EX01",
+        "source_candidate": "C001",
+        "selection_data_cutoff": "2026-09-02",
+        "forward_start": "2026-09-03",
+        "governance": {"review_id": "FR-S008-C001-001"},
+        "governance_hash": "0" * 64,
+        "release_hash": canonical_sha256(executable),
+    }
+    release = StrategyRelease.from_mapping(payload)
+    assert release.release_hash == payload["release_hash"]
+
+    changed = dict(payload)
+    changed["change_summary"] = "只改变治理说明"
+    assert StrategyRelease.from_mapping(changed).release_hash == release.release_hash
+
+
 NOW = datetime.fromisoformat("2026-09-17T10:00:00+08:00")
 
 

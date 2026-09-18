@@ -7,6 +7,7 @@ from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 
 import numpy as np
 import pandas as pd
+from trading_execution_engine import OrderSpec, resolve_fill
 
 from .strategy_metrics import strategy_comparison_metrics
 
@@ -184,8 +185,6 @@ def simulate_limit_policy(
         raise ValueError("lot size must be positive")
     if int(slippage_bp) < 0:
         raise ValueError("slippage_bp must be non-negative")
-    slippage = float(slippage_bp) / 10_000.0
-
     cash = float(init_cash)
     shares = 0.0
     actual_position = 0.0
@@ -226,29 +225,26 @@ def simulate_limit_policy(
             trigger: str | None = None
             touch_volume: float | None = None
             day_bars = bars.loc[bars.index.normalize() == date.normalize()]
-            if open_price <= entry_limit:
-                fill_timestamp = date
-                fill_price = open_price
-                trigger = "open"
-                if not day_bars.empty:
+            fill = resolve_fill(
+                OrderSpec("BUY", "LIMIT", 1.0, entry_limit),
+                session_open=open_price,
+                session_time=date.to_pydatetime(),
+                intraday_touches=[
+                    (pd.Timestamp(timestamp).to_pydatetime(), float(value))
+                    for timestamp, value in day_bars["low"].items()
+                ],
+                slippage_bp=slippage_bp,
+                inclusive_touch=fill_on_equal_touch,
+            )
+            if fill.filled and fill.filled_at is not None and fill.price is not None:
+                fill_timestamp = pd.Timestamp(fill.filled_at)
+                fill_price = float(fill.price)
+                trigger = str(fill.trigger).lower()
+                if fill_timestamp in day_bars.index:
+                    touch_volume = float(day_bars.loc[fill_timestamp, "vol"])
+                elif not day_bars.empty:
                     touch_volume = float(day_bars.iloc[0]["vol"])
-            elif (
-                float(row["low"]) <= entry_limit
-                if fill_on_equal_touch
-                else float(row["low"]) < entry_limit
-            ):
-                lows = day_bars["low"].astype(float)
-                touches = day_bars.loc[
-                    lows.le(entry_limit) if fill_on_equal_touch else lows.lt(entry_limit)
-                ]
-                if touches.empty:
-                    raise AssertionError(f"daily low touches limit but 30m bars do not: {date.date()}")
-                fill_timestamp = pd.Timestamp(touches.index[0])
-                fill_price = entry_limit
-                trigger = "intraday_limit"
-                touch_volume = float(touches.iloc[0]["vol"])
             if fill_price is not None and fill_timestamp is not None and trigger is not None:
-                fill_price *= 1.0 + slippage
                 affordable = cash / (fill_price * (1.0 + float(fee_rate)))
                 shares = (
                     affordable
@@ -294,7 +290,16 @@ def simulate_limit_policy(
                 action = "entry_unfilled"
 
         if desired == 0.0 and actual_position == 1.0:
-            exit_price = float(row["open"]) * (1.0 - slippage)
+            exit_fill = resolve_fill(
+                OrderSpec("SELL", "MARKET", shares),
+                session_open=float(row["open"]),
+                session_time=date.to_pydatetime(),
+                intraday_touches=(),
+                slippage_bp=slippage_bp,
+            )
+            if not exit_fill.filled or exit_fill.price is None:
+                raise AssertionError("market exit unexpectedly did not fill")
+            exit_price = float(exit_fill.price)
             proceeds = shares * exit_price
             fees = proceeds * float(fee_rate)
             cash += proceeds - fees

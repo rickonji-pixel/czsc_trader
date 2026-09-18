@@ -12,21 +12,19 @@ from czsc_trader.cli.main import build_parser, main
 EXPECTED_ACTIONS = {
     "data": {"prepare", "validate", "update-backtest"},
     "baseline": {"list", "show", "validate"},
+    "research": {"create", "intent"},
     "strategy": {
         "list",
         "validate",
         "show",
         "history",
         "performance",
-        "create",
-        "version",
+        "review",
         "freeze",
         "promote",
         "downgrade",
         "retire",
         "evidence",
-        "evaluate",
-        "accept-evaluation",
     },
     "backtest": {"run"},
     "archive": {"validate"},
@@ -71,6 +69,57 @@ def test_ft_t08_installed_cli_exposes_supported_command_surface() -> None:
     assert completed.stderr == ""
     assert all(resource in completed.stdout for resource in EXPECTED_ACTIONS)
     assert _command_surface(build_parser()) == EXPECTED_ACTIONS
+
+
+def test_ft_t08_strategy_governance_documented_commands_parse() -> None:
+    parser = build_parser()
+    documented_commands = (
+        [
+            "research",
+            "create",
+            "--input",
+            "research-intent.json",
+            "--actor",
+            "tomxiao",
+            "--reason",
+            "批准研究立项",
+        ],
+        [
+            "strategy",
+            "review",
+            "open",
+            "--review",
+            "FR-S008-C001-001",
+            "--candidate",
+            "candidate-snapshot.json",
+            "--mandate",
+            "evaluation-mandate.json",
+            "--actor",
+            "tomxiao",
+        ],
+        [
+            "strategy",
+            "freeze",
+            "--strategy",
+            "S008",
+            "--review",
+            "FR-S008-C001-001",
+            "--change-summary",
+            "首个冻结版本",
+            "--actor",
+            "tomxiao",
+            "--reason",
+            "批准低成本模拟观察",
+        ],
+    )
+
+    parsed = [parser.parse_args(command) for command in documented_commands]
+
+    assert [item.command_name for item in parsed] == [
+        "research.create",
+        "strategy.review.open",
+        "strategy.freeze",
+    ]
 
 
 def test_ft_t08_catalog_cli_validates_lists_and_shows(capsys) -> None:

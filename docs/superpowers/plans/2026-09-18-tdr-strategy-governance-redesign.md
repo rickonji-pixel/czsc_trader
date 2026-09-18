@@ -41,7 +41,6 @@
 - 新增`research create`；
 - 原子创建StrategyFamily和`research/SXX/`；
 - 支持ResearchIntent的人工修订和事件记录；
-- 增加轻量`research run`运行上下文，只负责实验身份、日志和归档；
 - Search、Feature Mining等能力不再通过TDR包装成研究能力入口。
 
 最小验证：
@@ -56,7 +55,7 @@
 
 - `strategy review open/evaluate/show`；
 - 固化CandidateSnapshot、EvaluationMandate和AuditPolicy；
-- 重构现有`strategy evaluate`为ReviewCase驱动；
+- 以ReviewCase驱动正式评价，移除公开的旧`strategy evaluate`入口；
 - 独立复核核心目标；
 - 完整体检矩阵和遗漏阻断；
 - 生成与案件绑定的AdjudicationReport；
@@ -69,8 +68,8 @@
 - 修改候选、目标或审计策略后旧报告失效；
 - 普通EX实验无需执行完整体检。
 
-说明：统一成交执行能力应位于独立包，与DFLS同层。阶段四开始前先确认其包名、最小接口和
-从现有回测执行逻辑迁移的范围，避免把成交实现再次内聚到TDR。
+说明：统一成交执行能力由独立的Trading Execution Engine（TXE）包提供，与DFLS同层，避免
+把成交实现再次内聚到TDR。
 
 ## 阶段五：节点三与原子冻结
 

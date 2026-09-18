@@ -132,6 +132,12 @@ def _strategy_command(args: argparse.Namespace):
     return run_strategy_command(args, _context(args))
 
 
+def _research_command(args: argparse.Namespace):
+    from czsc_trader.cli.research_commands import run_research_command
+
+    return run_research_command(args, _context(args))
+
+
 def _chart_observation(args: argparse.Namespace) -> RawCommandOutput:
     from czsc_trader.observation_chart import render_observation_html
 
@@ -267,7 +273,9 @@ def build_parser() -> argparse.ArgumentParser:
         )
 
     from czsc_trader.cli.strategy_commands import add_strategy_parser
+    from czsc_trader.cli.research_commands import add_research_parser
 
+    add_research_parser(resources, _add_repository_root, _research_command)
     add_strategy_parser(resources, _add_repository_root, _strategy_command)
 
     chart = resources.add_parser("chart")

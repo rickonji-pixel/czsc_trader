@@ -30,7 +30,7 @@ def _strategy_identity(context: RepositoryContext, version: str) -> dict[str, ob
     try:
         registry = StrategyRegistry(context.strategy_root)
         release = registry.resolve_strategy(version)
-        strategy = registry.get_strategy(release.strategy_id)
+        strategy = registry.get_family(release.strategy_id)
         return {
             "strategy_id": release.strategy_id,
             "strategy_name": strategy.name,

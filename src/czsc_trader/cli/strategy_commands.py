@@ -7,9 +7,6 @@ from typing import Callable
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.strategy_service import (
     add_strategy_evidence,
-    create_strategy,
-    create_strategy_version,
-    freeze_strategy_version,
     list_strategies,
     show_strategy,
     strategy_history,
@@ -17,7 +14,12 @@ from czsc_trader.application.strategy_service import (
     transition_strategy_version,
     validate_strategies,
 )
-from czsc_trader.application.evaluation_service import accept_evaluation, evaluate_experiment
+from czsc_trader.application.freeze_review_service import (
+    evaluate_freeze_review,
+    freeze_review_candidate,
+    open_freeze_review,
+    show_freeze_review,
+)
 
 
 def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
@@ -32,23 +34,26 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
         return strategy_performance(context, args.strategy, args.version)
     if action == "validate":
         return validate_strategies(context)
-    if action == "create":
-        return create_strategy(
-            context, args.input, actor=args.actor, reason=args.reason
+    if action == "review.open":
+        return open_freeze_review(
+            context,
+            review_id=args.review,
+            candidate_path=args.candidate,
+            mandate_path=args.mandate,
+            actor=args.actor,
         )
-    if action == "version.create":
-        return create_strategy_version(
-            context, args.input, actor=args.actor, reason=args.reason
-        )
+    if action == "review.evaluate":
+        return evaluate_freeze_review(context, args.strategy, args.review)
+    if action == "review.show":
+        return show_freeze_review(context, args.strategy, args.review)
     if action == "freeze":
-        return freeze_strategy_version(
+        return freeze_review_candidate(
             context,
             args.strategy,
-            args.version,
-            args.evidence,
-            args.health_check,
+            args.review,
             actor=args.actor,
             reason=args.reason,
+            change_summary=args.change_summary,
         )
     if action in {"promote", "downgrade", "retire"}:
         return transition_strategy_version(
@@ -62,12 +67,6 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
         )
     if action == "evidence.add":
         return add_strategy_evidence(context, args.input)
-    if action == "evaluate":
-        return evaluate_experiment(context, args.experiment)
-    if action == "accept-evaluation":
-        return accept_evaluation(
-            context, args.experiment, args.actor, args.reason, args.review,
-        )
     raise ValueError(f"unknown strategy action: {action}")
 
 
@@ -113,30 +112,36 @@ def add_strategy_parser(
     add_common(performance)
     performance.set_defaults(command_handler=handler, command_name="strategy.performance")
 
-    create = actions.add_parser("create")
-    create.add_argument("--input", type=Path, required=True)
-    _audit(create)
-    add_common(create)
-    create.set_defaults(command_handler=handler, command_name="strategy.create")
-
-    version = actions.add_parser("version")
-    version_actions = version.add_subparsers(
-        dest="version_action", required=True, parser_class=type(strategy)
+    review = actions.add_parser("review")
+    review_actions = review.add_subparsers(
+        dest="review_action", required=True, parser_class=type(strategy)
     )
-    version_create = version_actions.add_parser("create")
-    version_create.add_argument("--input", type=Path, required=True)
-    _audit(version_create)
-    add_common(version_create)
-    version_create.set_defaults(
-        strategy_action="version.create",
+    review_open = review_actions.add_parser("open")
+    review_open.add_argument("--review", required=True)
+    review_open.add_argument("--candidate", type=Path, required=True)
+    review_open.add_argument("--mandate", type=Path, required=True)
+    review_open.add_argument("--actor", required=True)
+    add_common(review_open)
+    review_open.set_defaults(
+        strategy_action="review.open",
         command_handler=handler,
-        command_name="strategy.version.create",
+        command_name="strategy.review.open",
     )
+    for action in ("evaluate", "show"):
+        leaf = review_actions.add_parser(action)
+        leaf.add_argument("--strategy", required=True)
+        leaf.add_argument("--review", required=True)
+        add_common(leaf)
+        leaf.set_defaults(
+            strategy_action=f"review.{action}",
+            command_handler=handler,
+            command_name=f"strategy.review.{action}",
+        )
 
     freeze = actions.add_parser("freeze")
-    _identity(freeze)
-    freeze.add_argument("--evidence", type=Path, required=True)
-    freeze.add_argument("--health-check", type=Path, required=True)
+    freeze.add_argument("--strategy", required=True)
+    freeze.add_argument("--review", required=True)
+    freeze.add_argument("--change-summary", required=True)
     _audit(freeze)
     add_common(freeze)
     freeze.set_defaults(command_handler=handler, command_name="strategy.freeze")
@@ -162,15 +167,3 @@ def add_strategy_parser(
         command_handler=handler,
         command_name="strategy.evidence.add",
     )
-
-    evaluate = actions.add_parser("evaluate")
-    evaluate.add_argument("--experiment", required=True)
-    add_common(evaluate)
-    evaluate.set_defaults(command_handler=handler, command_name="strategy.evaluate")
-
-    accept = actions.add_parser("accept-evaluation")
-    accept.add_argument("--experiment", required=True)
-    accept.add_argument("--review", type=Path, required=True)
-    _audit(accept)
-    add_common(accept)
-    accept.set_defaults(command_handler=handler, command_name="strategy.accept-evaluation")

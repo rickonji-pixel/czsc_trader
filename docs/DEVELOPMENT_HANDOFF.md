@@ -8,19 +8,20 @@
 
 | 简称 | 全称 | 核心职责 |
 | --- | --- | --- |
-| TDR | CZSC Trader | 回测、研究编排和项目应用入口 |
+| TDR | CZSC Trader | 正式策略结论的可信裁判员和策略生命周期维护入口 |
 | DFLS | Dataflows | Tushare数据获取、复权、多频处理和数据发布 |
 | FSC | Factor & Signal Catalog | 项目级信息族、因子和信号定义目录 |
 | STC | Strategy Template Catalog | 策略函数模板、输入角色和参数边界目录 |
 | SM | Strategy Manager | 策略身份、版本、资格、证据和治理审计 |
 | SE | Strategy Evaluator | 候选筛选、排名、体检和统计稳健性审计 |
 | SRT | Strategy Runtime | 冻结策略的数据契约、决策计算、执行计划和运行身份 |
+| TXE | Trading Execution Engine | 统一成交、费用、现金、持仓和净值计算口径 |
 | PTE | Paper Trading Engine | 虚拟账户、模拟交易执行、运行审计和观测 |
 | WDG | PTE Watchdog | PTE进程开机自启、探活和故障拉起 |
 
 后续开发、文档和讨论统一使用以上名称。FSC、STC、SM、SE、SRT和PTE
-均为仓库内独立包，只通过明确契约协作。Search、Feature Mining和`news_events`属于TDR
-内部研究能力，不单独定义模块简称；用户操作入口集中在TDR和PTE。
+均为仓库内独立包，只通过明确契约协作。Search、Feature Mining和`news_events`是研究脚本
+可自由使用的能力，不属于TDR治理职责；正式策略结论必须通过TDR三道人工闸门进入生命周期。
 
 ## 当前交付状态
 
@@ -32,7 +33,9 @@
 - PTE虚拟账户：每个账户持有独立策略发布、标的和资产类型；现有五个账户各10万元。
   S001与S007账户交易588080.SH，S002与S003账户交易510500.SH；左侧入口按交易标的代码、
   策略编号和版本依次排序。
-- SM冻结必须携带SE冻结前体检批准书；批准书与策略、候选ID及候选哈希不一致时拒绝冻结。
+- 新候选冻结必须绑定不可变候选快照、最终EvaluationMandate、TDR裁判报告、人工冻结决议和
+  SRT运行时验收；任一身份或哈希不一致时拒绝冻结。历史五个版本以
+  `LEGACY_GOVERNANCE_ACCEPTED`事件保留当时治理事实。
 - SRT/PTE机器契约：普通决策为`advice.v4`，原子时点计划为`advice.v5`，纯绘图为
   `account_observation.v1`。
 - PTE控制台：<http://127.0.0.1:8080>。
@@ -52,25 +55,23 @@ git rev-list --left-right --count origin/master...master
 ```text
 Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测）
                                       ↓
-                 FSC（输入定义） → TDR ← STC（函数模板）
-              ┌──────────┼──────────┐
-              ↓          ↓          ↓
-             SM         SE    SRT ← DFLS
-                              ↓ ExecutionRequest
-                       ┌──────┴──────┐
-                TDR Backtest       PTE ← WDG
-                  Channel           ↓
-                    ↓       N个虚拟账户 / N个标的
-                回测账本            ↓
-                              Futu模拟渠道
-                                    ↓
-                             一个Futu模拟账户
+研究脚本 → 候选快照 + 最终评价目标 → TDR
+                                  ├→ DFLS（数据）
+                                  ├→ SE（数值审计）
+                                  ├→ TXE（成交与账本复算）
+                                  ├→ SRT（运行时验收）
+                                  └→ SM（版本与生命周期持久化）
+
+SM冻结版本 → SRT → TDR BacktestChannel → TXE → 回测账本
+                 └→ PTE ← WDG → Futu模拟渠道 → Futu模拟账户
 ```
 
 ### 模块边界
 
-- **TDR**位于`src/czsc_trader/`。它负责因果回测、实验编排，并作为FSC、STC、SM、SE的应用入口；
-  确定性回测的`BacktestChannel`、历史撮合和回测账本均由TDR维护。
+- **TDR**位于`src/czsc_trader/`。它在人工批准研究立项、候选送审和正式冻结三个节点介入，
+  负责核实研究主张、组织完整体检、签发裁判报告并维护策略生命周期。实验脚本可自由使用
+  新数据与算法库；只有提交冻结流程的结论才进入TDR强约束。TDR维护回测渠道适配和正式
+  工作流，成交、费用与账户数值统一调用TXE。
 - **FSC**位于`packages/factor_signal_catalog/`，定义数据位于`catalog/`。它记录项目级信息族、
   因子和信号的稳定语义、实现入口、参数及因果可用时间；不保存标的计算值、收益证据、实验
   结论或运行状态。TDR只读引用FSC，各研究线拥有自己的物化缓存与证据。
@@ -78,13 +79,16 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
   策略函数模板、输入职责、参数边界和实现复杂度，并生成确定性实例身份；不读取行情、不搜索
   参数、不回测、不评价候选。TDR只读引用STC，负责交叉核对FSC输入，并在具体研究实现中落实
   模板语义。
-- **SM**位于`packages/strategy_manager/`。它管理稳定策略ID、不可变版本、资格流转、
-  绩效证据和追加式治理审计；它不管理策略进程与账户运行状态。
+- **SM**位于`packages/strategy_manager/`。它持久化`StrategyFamily`、不可变候选快照、最终
+  `EvaluationMandate`、`FreezeReviewCase`、裁判报告、冻结版本、资格和追加式治理事件；
+  它不计算绩效，不管理策略进程与账户运行状态。
 - **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的事实，执行筛劣、Pareto排名、
   临时冠军体检及统计稳健性审计，输出判定和证据；它不读取仓库或改变SM、PTE状态。
 - **SRT**位于`packages/strategy_runtime/`。它把SM冻结版本投影为可执行策略，声明并通过DFLS
   发布数据，计算决策与执行计划，并定义宿主通用的`ExecutionChannel`协议；源码闭包、
   冻结版本和参数共同形成运行身份。SRT不实现回测或券商渠道。
+- **TXE**位于`packages/trading_execution_engine/`。它提供研究、回测和冻结复核共享的成交、
+  滑点、费用、现金、持仓与净值计算原语；它不生成信号、不获取数据、不管理版本或渠道状态。
 - **PTE**位于`packages/paper_trading_engine/`。它直接加载SRT，管理账户分账、决策、订单意图、
   Futu回报、调度、SQLite审计和控制台，不导入TDR、SM或SE。
 - **WDG**位于PTE包内。它只负责PTE子进程生命周期和HTTP探活，不包含交易业务逻辑。
@@ -96,8 +100,8 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
 正式实验档案按`experiments/<策略ID>/<实验ID>/`保存。实验ID全局唯一，TDR按ID定位
 嵌套档案；历史SM证据中的旧路径字符串保持不变，并由兼容解析器映射到当前目录。
 
-依赖方向保持为：`TDR → FSC/STC/SM/SE`、`SRT → DFLS`、`PTE → SRT`、
-`WDG → PTE进程`。
+依赖方向保持为：`TDR → FSC/STC/SM/SE/TXE/SRT/DFLS`、`SRT → DFLS`、`PTE → SRT`、
+`WDG → PTE进程`。TXE与DFLS同层，TDR和研究脚本可以调用；PTE的账户事实仍以渠道回报为准。
 
 ## 跨模块硬约束
 
@@ -113,13 +117,17 @@ Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测
    发布失败必须明确失败并阻止决策；只有全部声明输入满足各自截止规则、历史深度和身份校验
    才能返回`READY`。普通回测只读取已发布数据，不在回测过程中修改数据；请求窗口超出已
    发布交易日时必须失败，禁止静默截短窗口后返回成功。
-6. 正式策略通过SRT运行，研究候选继续使用TDR受控回放；SM管理身份和资格，SE执行数值化审计，PTE只
-   部署`PAPER_READY`版本。冻结前必须能解析并校验对应SRT实现、源码闭包和运行身份；冻结
-   策略的回测与模拟盘均直接走SRT单一路径，不保留历史冻结格式的运行时解码兜底。研究、
-   模拟盘和未来实盘证据分阶段保存，不得相互替代。
+6. 正式策略通过SRT运行；SM管理身份和资格，SE执行确定性数值审计，TXE统一研究、回测和
+   冻结复核的执行口径，PTE只部署`PAPER_READY`版本。冻结前必须能解析并校验对应SRT实现、
+   源码闭包和运行身份；冻结策略的回测与模拟盘均直接走SRT单一路径。研究、模拟盘和未来
+   实盘证据分阶段保存，不得相互替代。冻结与PTE账户创建是两个独立授权动作。
 7. WDG只负责PTE进程启动、探活和故障拉起，不包含交易、数据发布或账户状态判断。
 8. 批处理只有全部目标完成才可更新成功日期或成功状态。部分标的发布成功、部分账户决策成功、
    渠道仅受理委托或外部结果未知，都不能汇总成全局成功；失败事实必须进入审计、告警和退避。
+9. 新版`StrategyVersion`同时维护两类身份：`release_hash`只覆盖SRT执行所需的版本号和
+   `strategy_payload`，供运行时绑定；`governance_hash`覆盖评审案件、候选、评价合同、裁判报告、
+   人工决议和运行验收引用。二者分别校验，避免运行时验收与发布哈希形成循环依赖。历史v1
+   版本继续使用原有完整记录哈希，既有release hash不变。
 
 ## 新机器恢复
 

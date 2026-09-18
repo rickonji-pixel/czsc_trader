@@ -6,17 +6,13 @@ from typing import Any, Callable
 
 from strategy_manager import (
     PerformanceEvidence,
-    Strategy,
     StrategyManagerError,
     StrategyRegistry,
-    StrategyVersion,
 )
 
 from .context import RepositoryContext
-from .freeze_review import build_freeze_approval
 from .errors import ValidationError
 from .results import CommandResult
-from .runtime_acceptance import require_runtime_readiness, validate_runtime_readiness
 
 
 def _registry(context: RepositoryContext) -> StrategyRegistry:
@@ -43,7 +39,7 @@ def _read_object(context: RepositoryContext, path: Path) -> dict[str, Any]:
 
 
 def _identity(registry: StrategyRegistry, strategy_id: str, version: str) -> dict[str, Any]:
-    strategy = registry.get_strategy(strategy_id)
+    strategy = registry.get_family(strategy_id)
     release = registry.get_version(strategy_id, version)
     return {
         "strategy_id": strategy.strategy_id,
@@ -60,7 +56,7 @@ def list_strategies(context: RepositoryContext) -> CommandResult:
 
     def operation() -> list[dict[str, Any]]:
         rows = []
-        for strategy in registry.list_strategies():
+        for strategy in registry.list_families():
             versions = registry.versions(strategy.strategy_id)
             rows.append(
                 _identity(registry, strategy.strategy_id, versions[-1].version)
@@ -86,7 +82,7 @@ def show_strategy(
     registry = _registry(context)
 
     def operation() -> dict[str, Any]:
-        strategy = registry.resolve_strategy_identity(reference)
+        strategy = registry.resolve_family(reference)
         versions = registry.versions(strategy.strategy_id)
         if version is None and not versions:
             return {
@@ -96,16 +92,16 @@ def show_strategy(
                 "release_id": None,
                 "release_hash": None,
                 "qualification": None,
-                "objective": strategy.objective,
-                "responsibility": strategy.responsibility,
+                "research_intent": strategy.research_intent,
+                "research_state": strategy.research_state.value,
                 "scope": strategy.scope,
             }
         release = registry.resolve_strategy(reference, version)
-        strategy = registry.get_strategy(release.strategy_id)
+        strategy = registry.get_family(release.strategy_id)
         return {
             **_identity(registry, release.strategy_id, release.version),
-            "objective": strategy.objective,
-            "responsibility": strategy.responsibility,
+            "research_intent": strategy.research_intent,
+            "research_state": strategy.research_state.value,
             "scope": strategy.scope,
             "change_summary": release.change_summary,
             "source_experiment": release.source_experiment,
@@ -148,93 +144,6 @@ def strategy_performance(
 def validate_strategies(context: RepositoryContext) -> CommandResult:
     result = _domain_call("strategy.validate", lambda: _registry(context).validate_all())
     return CommandResult(status="PASS", command="strategy.validate", result=result)
-
-
-def create_strategy(
-    context: RepositoryContext, input_path: Path, *, actor: str, reason: str
-) -> CommandResult:
-    registry = _registry(context)
-
-    def operation() -> dict[str, Any]:
-        strategy = Strategy.from_dict(_read_object(context, input_path))
-        return registry.create_strategy(strategy, actor=actor, reason=reason).to_dict()
-
-    result = _domain_call("strategy.create", operation)
-    return CommandResult(status="PASS", command="strategy.create", result=result)
-
-
-def create_strategy_version(
-    context: RepositoryContext, input_path: Path, *, actor: str, reason: str
-) -> CommandResult:
-    registry = _registry(context)
-
-    def operation() -> dict[str, Any]:
-        version = StrategyVersion.from_dict(_read_object(context, input_path))
-        created, event = registry.create_version(version, actor=actor, reason=reason)
-        return {"version": created.to_dict(), "event": event.to_dict()}
-
-    result = _domain_call("strategy.version.create", operation)
-    return CommandResult(status="PASS", command="strategy.version.create", result=result)
-
-
-def freeze_strategy_version(
-    context: RepositoryContext,
-    strategy_id: str,
-    version: str,
-    evidence_path: Path,
-    health_check_path: Path,
-    *,
-    actor: str,
-    reason: str,
-) -> CommandResult:
-    registry = _registry(context)
-
-    def operation() -> dict[str, Any]:
-        document = _read_object(context, health_check_path)
-        machine_report = document.get("machine_report")
-        review = document.get("review")
-        if not isinstance(machine_report, dict) or not isinstance(review, dict):
-            raise ValueError("health check must contain machine_report and review objects")
-        source_experiment = registry.get_version(
-            strategy_id, version
-        ).source_experiment
-        source_root = (context.root / source_experiment).resolve()
-        experiments_root = context.experiments_root.resolve()
-        if source_root != experiments_root and experiments_root not in source_root.parents:
-            raise ValueError("strategy source experiment is outside the experiment repository")
-        canonical_report_path = source_root / "artifacts" / "machine_evaluation.json"
-        if not canonical_report_path.is_file():
-            raise ValueError("strategy source experiment has no SE machine report")
-        if machine_report != _read_object(context, canonical_report_path):
-            raise ValueError("health check machine report differs from source experiment")
-        approval = build_freeze_approval(
-            machine_report=machine_report,
-            review=review,
-            strategy_id=strategy_id,
-            source_experiment=source_experiment,
-            actor=actor,
-            reason=reason,
-        )
-        runtime_acceptance = require_runtime_readiness(
-            registry.get_version(strategy_id, version), validate_runtime_readiness
-        )
-        frozen, event = registry.freeze_version(
-            strategy_id,
-            version,
-            actor=actor,
-            reason=reason,
-            evidence=_read_object(context, evidence_path),
-            approval=approval,
-            machine_report=machine_report,
-        )
-        return {
-            "version": frozen.to_dict(),
-            "event": event.to_dict(),
-            "runtime_acceptance": runtime_acceptance,
-        }
-
-    result = _domain_call("strategy.freeze", operation)
-    return CommandResult(status="PASS", command="strategy.freeze", result=result)
 
 
 def transition_strategy_version(

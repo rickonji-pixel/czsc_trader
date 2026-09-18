@@ -3,6 +3,7 @@ from __future__ import annotations
 from hashlib import sha256
 
 import pandas as pd
+from trading_execution_engine import OrderSpec, resolve_fill
 
 from czsc_trader.execution_intent import decide_order_intent
 
@@ -78,20 +79,29 @@ def replay_account(
         exit_quantity = 0
         for slice_number, order in enumerate(intent.orders, start=1):
             order_id = _id("ORD", decision["decision_id"], execution_date, slice_number)
-            trigger: str | None = None
-            fill_price: float | None = None
-            fill_time: pd.Timestamp | None = None
+            touch_column = "low" if order.side == "BUY" else "high"
+            resolved_fill = resolve_fill(
+                OrderSpec(
+                    order.side,
+                    order.order_type,
+                    order.quantity,
+                    None if order.order_type == "MARKET" else order.limit_price,
+                ),
+                session_open=float(price_row["open"]),
+                session_time=execution_date.to_pydatetime(),
+                intraday_touches=[
+                    (pd.Timestamp(timestamp).to_pydatetime(), float(value))
+                    for timestamp, value in day_bars[touch_column].items()
+                ],
+            )
+            trigger = resolved_fill.trigger
+            fill_price = resolved_fill.price
+            fill_time = (
+                None
+                if resolved_fill.filled_at is None
+                else pd.Timestamp(resolved_fill.filled_at)
+            )
             if order.side == "BUY":
-                if float(price_row["open"]) <= order.limit_price:
-                    trigger = "OPEN"
-                    fill_price = float(price_row["open"])
-                    fill_time = execution_date
-                else:
-                    touches = day_bars.loc[day_bars["low"].astype(float).lt(order.limit_price)]
-                    if not touches.empty:
-                        trigger = "INTRADAY_LIMIT"
-                        fill_price = order.limit_price
-                        fill_time = pd.Timestamp(touches.index[0])
                 required = (
                     order.quantity * fill_price * (1.0 + fee_rate)
                     if fill_price is not None
@@ -101,23 +111,6 @@ def replay_account(
                     trigger = None
                     fill_price = None
                     fill_time = None
-            elif order.side == "SELL":
-                if order.order_type == "MARKET":
-                    trigger = "OPEN_MARKET"
-                    fill_price = float(price_row["open"])
-                    fill_time = execution_date
-                elif float(price_row["open"]) >= order.limit_price:
-                    trigger = "OPEN"
-                    fill_price = float(price_row["open"])
-                    fill_time = execution_date
-                else:
-                    touches = day_bars.loc[day_bars["high"].astype(float).gt(order.limit_price)]
-                    if not touches.empty:
-                        trigger = "INTRADAY_LIMIT"
-                        fill_price = order.limit_price
-                        fill_time = pd.Timestamp(touches.index[0])
-            else:
-                raise ValueError(f"unsupported order side: {order.side}")
             status = "FILLED" if fill_price is not None else "UNFILLED"
             order_rows.append(
                 {

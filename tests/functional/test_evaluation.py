@@ -5,13 +5,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from czsc_trader.application.context import RepositoryContext
-from czsc_trader.application.evaluation_service import (
-    accept_evaluation,
-    evaluate_experiment,
-)
+from czsc_trader.application.evaluation_service import evaluate_experiment
 from strategy_evaluator import (
     AuditIdentity,
     AuditStatus,
@@ -24,17 +19,6 @@ from strategy_evaluator import (
     RiskLabel,
 )
 from strategy_manager import canonical_sha256
-
-
-def _runtime_pass(version):
-    release_hash = version.release_hash or canonical_sha256(version.release_payload())
-    return {
-        "schema_version": 1,
-        "status": "PASS",
-        "release_id": version.release_id,
-        "release_hash": release_hash,
-        "runtime_sha256": "f" * 64,
-    }
 
 
 def _write_evaluation_bundle(root: Path) -> Path:
@@ -294,106 +278,3 @@ def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(
     else:
         raise AssertionError("tampered evaluation artifact was accepted")
     decisions_path.write_bytes(original_decisions)
-
-    calls = []
-
-    def fail_then_succeed(command, **_kwargs):
-        calls.append(command)
-        if len(calls) == 1:
-            return SimpleNamespace(
-                returncode=1, stdout="", stderr="temporarily unavailable"
-            )
-        return SimpleNamespace(
-            returncode=0, stdout=json.dumps({"status": "PASS"}), stderr=""
-        )
-
-    versions_dir = functional_repo / "strategies" / "S001" / "versions"
-    versions_before = set(versions_dir.glob("v*.json"))
-    review_path = experiment / "freeze_review.json"
-    review_path.write_text(json.dumps({
-        "schema_version": 1,
-        "strategy_id": "S001",
-        "candidate_id": "winner",
-        "candidate_hash": "c" * 64,
-        "decision": "APPROVE_FREEZE",
-        "reviewed_by": "tester",
-        "rationale": "functional acceptance",
-        "mechanism_review": "APPROVED",
-        "external_relevance_review": "APPROVED",
-        "deployment_review": "APPROVED",
-        "monitoring_plan_review": "APPROVED",
-        "reviewed_at": "2026-09-16T10:00:00+08:00",
-    }), encoding="utf-8")
-    rejected_review = json.loads(review_path.read_text(encoding="utf-8"))
-    rejected_review["deployment_review"] = "PENDING"
-    rejected_review_path = experiment / "rejected_freeze_review.json"
-    rejected_review_path.write_text(json.dumps(rejected_review), encoding="utf-8")
-    with pytest.raises(ValueError, match="deployment_review"):
-        accept_evaluation(
-            context,
-            "0904_TEST",
-            "tester",
-            "functional acceptance",
-            rejected_review_path,
-            pte_runner=fail_then_succeed,
-            runtime_validator=_runtime_pass,
-        )
-    assert set(versions_dir.glob("v*.json")) == versions_before
-
-    runtime_checks = []
-
-    def reject_runtime(version):
-        runtime_checks.append(version.release_id)
-        raise ValueError("strategy implementation is unavailable")
-
-    with pytest.raises(ValueError, match="implementation is unavailable"):
-        accept_evaluation(
-            context,
-            "0904_TEST",
-            "tester",
-            "functional acceptance",
-            review_path,
-            pte_runner=fail_then_succeed,
-            runtime_validator=reject_runtime,
-        )
-    research_versions = set(versions_dir.glob("v*.json")) - versions_before
-    assert len(research_versions) == 1
-    assert json.loads(next(iter(research_versions)).read_text(encoding="utf-8"))["release_hash"] is None
-    assert len(runtime_checks) == 1
-    assert runtime_checks[0].startswith("S001-v")
-    assert calls == []
-
-    first = accept_evaluation(
-        context,
-        "0904_TEST",
-        "tester",
-        "functional acceptance",
-        review_path,
-        pte_runner=fail_then_succeed,
-        runtime_validator=_runtime_pass,
-    )
-    second = accept_evaluation(
-        context,
-        "0904_TEST",
-        "tester",
-        "functional acceptance",
-        review_path,
-        pte_runner=fail_then_succeed,
-        runtime_validator=_runtime_pass,
-    )
-    third = accept_evaluation(
-        context,
-        "0904_TEST",
-        "tester",
-        "functional acceptance",
-        review_path,
-        pte_runner=fail_then_succeed,
-        runtime_validator=_runtime_pass,
-    )
-    versions_after = set(versions_dir.glob("v*.json"))
-    assert first.result["activation_state"] == "PAPER_ACTIVATION_PENDING"
-    assert first.result["runtime_acceptance"]["release_hash"] == first.result["release_hash"]
-    assert second.result["activation_state"] == "PAPER_ACTIVE"
-    assert third.result == second.result
-    assert len(calls) == 2
-    assert len(versions_after - versions_before) == 1

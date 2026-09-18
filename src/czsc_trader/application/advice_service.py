@@ -584,7 +584,7 @@ def run_advice(context: RepositoryContext, request: AdviceCommand) -> CommandRes
         reference = request.strategy or request.baseline or "S001"
         release = registry.resolve_strategy(reference, request.strategy_version)
         registry.assert_deployable(release.strategy_id, release.version, "PAPER")
-        strategy = registry.get_strategy(release.strategy_id)
+        strategy = registry.get_family(release.strategy_id)
         if release.release_hash is None:
             raise ValueError("deployable strategy version must have a release hash")
         baseline = resolve_strategy_payload(

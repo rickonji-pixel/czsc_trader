@@ -127,12 +127,15 @@ def functional_repo(tmp_path: Path) -> Path:
     for source in (REPO_ROOT / "data" / "raw").glob("588080*"):
         shutil.copy2(source, raw_dir / source.name)
     shutil.copytree(raw_dir, root / "data" / "backtest")
+    for source in (REPO_ROOT / "data" / "backtest").glob("s007_v1_causal_feature_*"):
+        shutil.copy2(source, root / "data" / "backtest" / source.name)
     _publish_s001_fixture(root)
     for relative in (
         Path("S001/0824_EX04/artifacts/frozen_challenger.json"),
         Path("S001/0901_EX20/artifacts/frozen_challenger.json"),
         Path("S001/0902_EX02/artifacts/frozen_execution_policy.json"),
         Path("S001/0903_EX06/artifacts/frozen_challenger.json"),
+        Path("S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz"),
     ):
         source = REPO_ROOT / "experiments" / relative
         if source.is_file():

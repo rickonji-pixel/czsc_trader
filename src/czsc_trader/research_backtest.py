@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import vectorbt as vbt
+from trading_execution_engine import execute_target_positions
 
 from .objectives import evaluate_return
 
@@ -48,36 +49,13 @@ def _independent_equity(
     fee_rate: float,
     init_cash: float,
 ) -> pd.Series:
-    cash = float(init_cash)
-    shares = 0.0
-    previous_target = 0.0
-    values = np.empty(len(prices), dtype=float)
-    targets = execution_target.reindex(prices.index).astype(float).to_numpy()
-    opens = prices["open"].astype(float).to_numpy()
-    closes = prices["close"].astype(float).to_numpy()
-    for index, (desired_value, open_value, close_value) in enumerate(
-        zip(targets, opens, closes, strict=True)
-    ):
-        desired = float(desired_value)
-        open_price = float(open_value)
-        if desired != previous_target:
-            portfolio_value = cash + shares * open_price
-            current_asset_value = shares * open_price
-            desired_asset_value = desired * portfolio_value
-            asset_value_delta = desired_asset_value - current_asset_value
-            if asset_value_delta > 0.0:
-                requested_shares = asset_value_delta / open_price
-                affordable_shares = cash / (open_price * (1.0 + fee_rate))
-                bought = min(requested_shares, affordable_shares)
-                cash -= bought * open_price * (1.0 + fee_rate)
-                shares += bought
-            else:
-                sold = min(-asset_value_delta / open_price, shares)
-                cash += sold * open_price * (1.0 - fee_rate)
-                shares -= sold
-            previous_target = desired
-        values[index] = cash + shares * float(close_value)
-    return pd.Series(values, index=prices.index, name="independent_equity")
+    result = execute_target_positions(
+        prices,
+        execution_target,
+        fee_rate=fee_rate,
+        initial_cash=init_cash,
+    )
+    return result.equity.rename("independent_equity")
 
 
 def _readable_orders(

@@ -71,7 +71,7 @@ class AccountDataPublisher:
 
     @staticmethod
     def _declared_symbol(repo_root: Path, strategy_id: str) -> str:
-        path = Path(repo_root) / "strategies" / strategy_id / "strategy.json"
+        path = Path(repo_root) / "strategies" / strategy_id / "family.json"
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             scope = payload["scope"]

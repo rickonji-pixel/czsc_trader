@@ -17,13 +17,14 @@ CZSC Trader 是面向个人量化团队的可审计策略研发与模拟交易�
 
 | 模块 | 简称 | 位置 | 职责 |
 | --- | --- | --- | --- |
-| CZSC Trader | TDR | `src/czsc_trader/` | 回测、研究编排和项目应用入口 |
+| CZSC Trader | TDR | `src/czsc_trader/` | 正式策略结论的可信裁判员和策略生命周期维护入口 |
 | Dataflows | DFLS | `packages/dataflows/` | Tushare数据获取、复权、多频数据处理和发布清单 |
 | Factor & Signal Catalog | FSC | `packages/factor_signal_catalog/` | 项目级信息族、因子和信号定义目录 |
 | Strategy Template Catalog | STC | `packages/strategy_template_catalog/` | 策略函数模板、输入角色和参数边界目录 |
 | Strategy Manager | SM | `packages/strategy_manager/` | 策略身份、版本、资格、冻结和证据治理 |
 | Strategy Evaluator | SE | `packages/strategy_evaluator/` | 候选比较、统计审计、稳健性检验和晋级建议 |
 | Strategy Runtime | SRT | `packages/strategy_runtime/` | 冻结策略的数据契约、决策计算、执行计划和运行身份 |
+| Trading Execution Engine | TXE | `packages/trading_execution_engine/` | 统一成交、费用、现金、持仓和净值计算口径 |
 | Paper Trading Engine | PTE | `packages/paper_trading_engine/` | 虚拟账户、模拟下单、成交对账、运行审计和控制台 |
 | PTE Watchdog | WDG | PTE包内 | PTE进程托管、健康检查和故障拉起 |
 
@@ -34,8 +35,8 @@ SM与SE管理策略生命周期和评估证据，不直接参与运行时下单�
 ### 核心工作流
 
 ```text
-受控数据 → 策略研究 → 不可变实验 → 候选评估 → 人工冻结
-        → SRT冻结运行时 → PTE模拟执行 → Futu对账 → 前瞻监测
+人工立项 → 自由研究 → 候选与最终目标送审 → TDR独立复核和完整体检
+        → 人工冻结 → SRT冻结运行时 → 独立授权PTE模拟执行 → 前瞻监测
 ```
 
 研究诊断、正式裁决和模拟盘表现分别保存，不能用单次成交或未冻结实验替代策略有效性证据。
@@ -87,6 +88,8 @@ SM与SE管理策略生命周期和评估证据，不直接参与运行时下单�
 - [STC技术说明](packages/strategy_template_catalog/README.md)：策略函数模板、实例化契约及边界。
 - [Strategy Evaluator技术说明](packages/strategy_evaluator/README.md)：候选评估与统计审计接口。
 - [Strategy Runtime技术说明](packages/strategy_runtime/README.md)：冻结策略的数据、决策与执行边界。
+- [Trading Execution Engine技术说明](packages/trading_execution_engine/README.md)：统一成交与账户
+  计算口径及其边界。
 - [Paper Trading Engine技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、
   接口、运行边界和包级开发信息。
 

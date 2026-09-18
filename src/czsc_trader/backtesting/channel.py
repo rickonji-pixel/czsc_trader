@@ -16,6 +16,7 @@ from strategy_runtime import (
     RuntimeContractError,
     build_execution_plan,
 )
+from trading_execution_engine import OrderSpec, resolve_fill
 
 from .datasets import ReplayData
 from .models import StrategyIdentity
@@ -301,18 +302,20 @@ class BacktestChannel:
             quantity = int(order["quantity"])
             order_type = str(order["order_type"])
             limit_price = float(order["limit_price"])
-            trigger: str | None = None
-            fill_price: float | None = None
-            fill_time: pd.Timestamp | None = None
+            touch_column = "low" if side == "BUY" else "high"
+            fill = resolve_fill(
+                OrderSpec(side, order_type, quantity, None if order_type == "MARKET" else limit_price),
+                session_open=float(price_row["open"]),
+                session_time=execution_date.to_pydatetime(),
+                intraday_touches=[
+                    (pd.Timestamp(timestamp).to_pydatetime(), float(value))
+                    for timestamp, value in day_bars[touch_column].items()
+                ],
+            )
+            trigger = fill.trigger
+            fill_price = fill.price
+            fill_time = None if fill.filled_at is None else pd.Timestamp(fill.filled_at)
             if side == "BUY":
-                if float(price_row["open"]) <= limit_price:
-                    trigger, fill_price, fill_time = "OPEN", float(price_row["open"]), execution_date
-                else:
-                    touches = day_bars.loc[day_bars["low"].astype(float).lt(limit_price)]
-                    if not touches.empty:
-                        trigger, fill_price, fill_time = (
-                            "INTRADAY_LIMIT", limit_price, pd.Timestamp(touches.index[0])
-                        )
                 required = (
                     quantity * fill_price * (1.0 + fee_rate)
                     if fill_price is not None
@@ -320,21 +323,6 @@ class BacktestChannel:
                 )
                 if required is not None and required > self._cash + 1e-8:
                     trigger = fill_price = fill_time = None
-            elif side == "SELL":
-                if order_type == "MARKET":
-                    trigger, fill_price, fill_time = (
-                        "OPEN_MARKET", float(price_row["open"]), execution_date
-                    )
-                elif float(price_row["open"]) >= limit_price:
-                    trigger, fill_price, fill_time = "OPEN", float(price_row["open"]), execution_date
-                else:
-                    touches = day_bars.loc[day_bars["high"].astype(float).gt(limit_price)]
-                    if not touches.empty:
-                        trigger, fill_price, fill_time = (
-                            "INTRADAY_LIMIT", limit_price, pd.Timestamp(touches.index[0])
-                        )
-            else:
-                raise RuntimeContractError(f"unsupported backtest order side: {side}")
             self._order_rows.append(
                 {
                     "order_id": order_id,

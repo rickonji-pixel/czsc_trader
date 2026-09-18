@@ -7,13 +7,13 @@
   "vendor": "tushare",
   "adjustment": "none",
   "requested_start": "2020-01-01",
-  "requested_end": "2026-09-15",
-  "next_trading_session": "2026-09-16",
+  "requested_end": "2026-09-17",
+  "next_trading_session": "2026-09-18",
   "calendar": {
     "vendor": "tushare",
     "exchange": "SSE"
   },
-  "generated_at_utc": "2026-09-16T13:59:01.747009+00:00",
+  "generated_at_utc": "2026-09-18T04:17:43.149845+00:00",
   "files": {
     "588080_execution_daily_2020.csv": {
       "frequency": "daily",
@@ -66,10 +66,10 @@
     "588080_execution_daily_2026.csv": {
       "frequency": "daily",
       "year": 2026,
-      "rows": 171,
+      "rows": 173,
       "first": "2026-01-05T00:00:00",
-      "last": "2026-09-15T00:00:00",
-      "sha256": "b4f383bf39d67f624f0af534aea8949fb952ff2c82c5db66c79847b4d82d31bb"
+      "last": "2026-09-17T00:00:00",
+      "sha256": "4353913888a2350d6c093e6c57ce84d4983fc20b52c58ab05c78282f8081ee4c"
     }
   },
   "fetch_metadata": {

@@ -20,6 +20,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_template_catalog[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_runtime[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 ```
@@ -94,10 +95,12 @@ Optuna搜索、SE评估和SM治理。
 发布时必须指定冻结策略版本。发布器据策略的数据契约准备通用的30分钟、日线、周线、
 未复权执行价格及身份清单；若策略依赖5分钟或1分钟数据，也会一起准备、校验和原子发布。
 策略统一使用Tushare后复权行情；交易委托、成交和估值使用未复权行情。
+发布成功要求策略声明的每项输入均达到对应截止日、历史深度和身份要求。任何输入缺失或
+截止日不足都会保留原数据集并明确失败，不能产生可供回测或模拟盘读取的半成品发布。
 
 ## 策略管理
 
-当前正式策略包括`S001`与`S002`。查看策略及证据：
+当前正式策略族包括`S001`、`S002`、`S003`与`S007`。查看策略及证据：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe strategy list
@@ -137,6 +140,9 @@ Optuna搜索、SE评估和SM治理。
 Backtest v2每次回放一个不可变策略快照、一个标的、一个明确日期区间。账户从指定现金和
 零持仓开始；T日完整收盘决策在T+1执行。买入开盘价不高于限价时按开盘成交，盘中最低
 价严格低于限价时按限价成交，相等触价保持未成交；卖出按下一交易日开盘成交。
+
+回测只使用已经发布的数据和SRT冻结运行时。请求的起止交易日必须完整落在已发布数据集内；
+窗口末端缺失、数据代际不一致或策略输入不完整时命令会失败，不会用较短窗口生成“成功”报告。
 
 `--symbol`可以指定与策略参考标的不同、但资产类型相同的实际回测标的，用于跨标的泛化
 测试。该绑定只对本次回测生效，不修改策略注册、SM部署范围、PTE账户或`advice`行为。
@@ -225,6 +231,10 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 - 暂停只阻止新订单，已有订单继续对账；撤单必须二次确认；
 - 只有Futu明确返回的累计成交增量能够改变账户现金和持仓。
 
+数据发布只有在全部活跃标的生成与目标截止日一致的数据代次后才算成功；逐账户决策只有在
+全部到期账户均完成后才推进全局成功日期。部分成功、决策逾期、调度异常和渠道结果未知会
+保留失败或降级状态，并在控制台告警与审计事件中展示，不会被下一次轮询覆盖成成功。
+
 虚拟账户页的“订单意图”展示决策到Futu订单之间的状态。`待提交/提交中/已提交`属于正常
 流转；“提交结果待确认”表示通信中断后无法确认券商是否受理，PTE会保留冻结资金、阻塞
 该账户并同时查询Futu当前和历史订单。明确拒单、过期、撤单和部分成交后撤单会释放未成交
@@ -273,6 +283,11 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 控制台的审计事件页可以按账户、策略、渠道和关联ID查询策略、交易、系统及其他事件。
 页面统一显示北京时间。
 
+虚拟账户页的订单表按下单时间倒序展示，“下单时间”位于第三列；同一时刻再按稳定记录ID
+排序。Futu渠道页优先显示“Futu总资产、可用现金、已分配额度、未分配额度”四项核心数据，
+资金对账行提供“查看明细”。Futu总资产按Futu当前估值，PTE账务总资产按最近日终估值，
+两者估值时点不同形成的估值差异与现金对账差异分开解释；定时刷新会保留明细展开状态。
+
 ### 前瞻观察与绩效
 
 虚拟账户页的“前瞻观察”展示行情、CZSC笔、策略得分、信号、成交、目标持仓和实际持仓。
@@ -308,7 +323,7 @@ HTTP状态及调度器心跳；连续3次失败后按5、30、60秒退避重启�
 ```powershell
 .\.venv\Scripts\pte.exe control restart `
   --repo-root D:\CodeBase\czsc_trader --wait 30
-Invoke-RestMethod http://127.0.0.1:8080/api/status
+Invoke-RestMethod http://127.0.0.1:8080/api/system/status
 ```
 
 PTE完成当前请求并正常退出，WDG随即拉起新实例。只有WDG自身升级、仓库路径或监听地址
@@ -332,7 +347,7 @@ PTE会对`runtime.db`持有操作系统级独占锁，第二个写进程会明�
 ```powershell
 Get-Service CZSC-PTE-Watchdog
 Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue
-Invoke-RestMethod http://127.0.0.1:8080/api/status
+Invoke-RestMethod http://127.0.0.1:8080/api/system/status
 Get-Content state\paper_trading\logs\watchdog.log -Tail 100
 Get-Content state\paper_trading\logs\pte.log -Tail 100
 ```

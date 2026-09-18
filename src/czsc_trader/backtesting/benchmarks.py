@@ -22,6 +22,34 @@ class BenchmarkReplay:
     ma_trades: pd.DataFrame
 
 
+def _fee_rate(signals: SignalReplay) -> float:
+    support = signals.support_data or {}
+    if support.get("mode") == "srt_input_contract":
+        policy = support.get("execution_policy")
+        if not isinstance(policy, dict):
+            raise ValueError("SRT replay has no execution policy evidence")
+        settings = policy.get("settings")
+        if not isinstance(settings, dict):
+            raise ValueError("SRT replay execution settings are invalid")
+        policy_type = policy.get("policy_type")
+        if policy_type == "FROZEN_RULE":
+            capital = settings.get("capital")
+            if not isinstance(capital, dict) or "fee_rate" not in capital:
+                raise ValueError("SRT frozen rule has no fee rate")
+            return float(capital["fee_rate"])
+        if policy_type == "INTRADAY_OVERLAY" and "one_way_cost" in settings:
+            return float(settings["one_way_cost"])
+        raise ValueError(f"unsupported SRT execution policy: {policy_type}")
+    resolved = signals.snapshot.resolved_rule
+    if resolved is None:
+        raise ValueError("candidate benchmark requires a resolved research rule")
+    if resolved.execution is not None:
+        return float(resolved.execution.capital.fee_rate)
+    if resolved.constituent_moneyflow_intraday is not None:
+        return float(resolved.constituent_moneyflow_intraday.one_way_cost)
+    raise ValueError("strategy snapshot has no execution specification")
+
+
 def _account_daily(
     prices: pd.DataFrame,
     target: pd.Series,
@@ -53,14 +81,7 @@ def replay_benchmarks(
     initial_cash: float,
 ) -> BenchmarkReplay:
     """Run independently funded BuyHold and MA5/MA20 next-open benchmarks."""
-    spec = signals.snapshot.resolved_rule.execution
-    overlay = signals.snapshot.resolved_rule.constituent_moneyflow_intraday
-    if spec is not None:
-        fee_rate = float(spec.capital.fee_rate)
-    elif overlay is not None:
-        fee_rate = float(overlay.one_way_cost)
-    else:
-        raise ValueError("strategy snapshot has no execution specification")
+    fee_rate = _fee_rate(signals)
     execution = replay_data.execution_daily.copy()
     execution["dt"] = pd.to_datetime(execution["dt"]).dt.normalize()
     evaluation = execution.loc[

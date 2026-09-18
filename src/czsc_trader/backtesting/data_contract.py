@@ -30,6 +30,8 @@ def resolve_backtest_data_contract(snapshot: StrategySnapshot) -> BacktestDataCo
     """Derive every extra market-data dependency from the frozen rule payload."""
 
     rule = snapshot.resolved_rule
+    if rule is None:
+        raise ValueError("legacy data contract requires a resolved candidate rule")
     if rule.constituent_moneyflow_intraday is not None:
         return BacktestDataContract(intraday_frequencies=("5m",))
     if rule.closing_dislocation_overnight is not None:

@@ -45,7 +45,10 @@ def replay_signals(
     evaluation = sessions[(sessions >= requested_start) & (sessions <= requested_end)]
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
-    applied = apply_resolved_strategy(replay_data.adjusted, snapshot.resolved_rule)
+    resolved_rule = snapshot.resolved_rule
+    if resolved_rule is None:
+        raise ValueError("research signal replay requires a resolved candidate rule")
+    applied = apply_resolved_strategy(replay_data.adjusted, resolved_rule)
     first_location = sessions.get_loc(evaluation[0])
     first_signal_location = max(0, int(first_location) - 1)
     visible = sessions[first_signal_location : sessions.get_loc(evaluation[-1]) + 1]

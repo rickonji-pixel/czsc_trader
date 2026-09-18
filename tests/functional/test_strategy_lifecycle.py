@@ -6,6 +6,7 @@ from pathlib import Path
 from strategy_manager import StrategyRegistry, canonical_sha256
 
 from czsc_trader.application.context import RepositoryContext
+from czsc_trader.backtesting import strategy_source as strategy_source_module
 from czsc_trader.backtesting.strategy_source import (
     resolve_candidate_snapshot,
     resolve_registered_strategy,
@@ -73,7 +74,26 @@ def test_backtest_strategy_sources_preserve_identity_and_rule(
     assert candidate.source_hash == candidate_hash
     assert registered.content_hash
     assert candidate.content_hash
-    assert registered.resolved_rule.rule_payload == candidate.resolved_rule.rule_payload
+    assert registered.resolved_rule is None
+    assert candidate.resolved_rule is not None
+    assert registered.strategy_payload == candidate.strategy_payload
+
+
+def test_registered_strategy_snapshot_does_not_require_tdr_rule_resolution(
+    functional_repo: Path, monkeypatch
+) -> None:
+    context = RepositoryContext.discover(functional_repo)
+
+    def fail_legacy_resolution(*args, **kwargs):
+        raise AssertionError("registered SRT must not use the TDR legacy rule resolver")
+
+    monkeypatch.setattr(
+        strategy_source_module, "resolve_strategy_payload", fail_legacy_resolution
+    )
+    registered = resolve_registered_strategy(context, "S001", "v1")
+
+    assert registered.identity.reference == "S001-v1"
+    assert registered.resolved_rule is None
 
 
 def test_ft_t05_strategy_cli_manages_a_complete_audited_lifecycle(

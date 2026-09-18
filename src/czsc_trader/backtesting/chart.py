@@ -307,6 +307,52 @@ def _strategy_family(reference: str) -> str:
     return reference.split("-", 1)[0].upper()
 
 
+def _srt_chart_contract(
+    signal_replay: SignalReplay, result: BacktestResult, family: str
+) -> tuple[float, float, float | None, bool]:
+    """Extract presentation-only values from a frozen SRT payload."""
+
+    payload = signal_replay.snapshot.strategy_payload
+    rule = payload.get("rule")
+    if not isinstance(rule, dict):
+        raise ValueError("SRT chart requires a rule payload")
+    if family == "S001":
+        return float(rule["entry_threshold"]), float(rule["exit_threshold"]), None, False
+    if family == "S002":
+        return 1.0, 0.0, None, True
+    if family == "S003":
+        return float(result.decisions["threshold"].median()), 0.0, None, True
+    if family == "S007":
+        score = rule.get("score")
+        if not isinstance(score, dict):
+            raise ValueError("S007 chart requires a score rule")
+        return (
+            float(score["entry_threshold"]),
+            float(score["exit_threshold"]),
+            float(score["confirmation_threshold"]),
+            False,
+        )
+    raise ValueError(f"strategy family {family} has no backtest chart presenter")
+
+
+def _srt_fee_rate(signal_replay: SignalReplay) -> float:
+    support = signal_replay.support_data or {}
+    policy = support.get("execution_policy")
+    if not isinstance(policy, dict):
+        raise ValueError("SRT chart has no execution policy evidence")
+    settings = policy.get("settings")
+    if not isinstance(settings, dict):
+        raise ValueError("SRT chart execution settings are invalid")
+    if policy.get("policy_type") == "FROZEN_RULE":
+        capital = settings.get("capital")
+        if not isinstance(capital, dict) or "fee_rate" not in capital:
+            raise ValueError("SRT frozen rule has no fee rate")
+        return float(capital["fee_rate"])
+    if policy.get("policy_type") == "INTRADAY_OVERLAY":
+        return float(settings["one_way_cost"])
+    raise ValueError(f"unsupported SRT execution policy: {policy.get('policy_type')}")
+
+
 def _score_panels(
     family: str,
     entry_threshold: float,
@@ -490,37 +536,46 @@ def render_backtest_chart_html(
     prices = _normalize_daily(replay_data.adjusted.daily).loc[
         signal_replay.evaluation_start : signal_replay.evaluation_end
     ]
-    resolved = signal_replay.snapshot.resolved_rule
-    rule = resolved.rule
     family = _strategy_family(result.identity.reference)
-    overlay = resolved.constituent_moneyflow_intraday is not None
-    causal_gate = resolved.causal_feature_gate
-    event_hold = resolved.strategy in {
-        "czsc_event_hold",
-        "closing_dislocation_overnight",
-    } or overlay
-    if overlay:
-        entry_threshold = float(result.decisions["threshold"].median())
-        exit_threshold = 0.0
-    elif causal_gate is not None:
-        entry_threshold = causal_gate.entry_threshold
-        exit_threshold = causal_gate.exit_threshold
-    elif resolved.closing_dislocation_overnight is not None:
-        entry_threshold = float(resolved.closing_dislocation_overnight.votes_required)
-        exit_threshold = 0.0
-    elif event_hold:
-        entry_threshold, exit_threshold = 1.0, 0.0
+    support = signal_replay.support_data or {}
+    if support.get("mode") == "srt_input_contract":
+        entry_threshold, exit_threshold, confirmation_threshold, event_hold = (
+            _srt_chart_contract(signal_replay, result, family)
+        )
     else:
-        if rule is None:
-            raise ValueError("factor strategy has no score rule")
-        entry_threshold, exit_threshold = rule.enter, rule.exit
+        resolved = signal_replay.snapshot.resolved_rule
+        if resolved is None:
+            raise ValueError("candidate chart requires a resolved research rule")
+        rule = resolved.rule
+        overlay = resolved.constituent_moneyflow_intraday is not None
+        causal_gate = resolved.causal_feature_gate
+        event_hold = resolved.strategy in {
+            "czsc_event_hold",
+            "closing_dislocation_overnight",
+        } or overlay
+        confirmation_threshold = (
+            None if causal_gate is None else causal_gate.confirmation_threshold
+        )
+        if overlay:
+            entry_threshold = float(result.decisions["threshold"].median())
+            exit_threshold = 0.0
+        elif causal_gate is not None:
+            entry_threshold = causal_gate.entry_threshold
+            exit_threshold = causal_gate.exit_threshold
+        elif resolved.closing_dislocation_overnight is not None:
+            entry_threshold = float(resolved.closing_dislocation_overnight.votes_required)
+            exit_threshold = 0.0
+        elif event_hold:
+            entry_threshold, exit_threshold = 1.0, 0.0
+        else:
+            if rule is None:
+                raise ValueError("factor strategy has no score rule")
+            entry_threshold, exit_threshold = rule.enter, rule.exit
     panels = _score_panels(
         family,
         entry_threshold,
         exit_threshold,
-        confirmation_threshold=(
-            None if causal_gate is None else causal_gate.confirmation_threshold
-        ),
+        confirmation_threshold=confirmation_threshold,
     )
     row_count = 1 + len(panels)
     price_height = 0.7 if row_count == 2 else 0.62
@@ -564,9 +619,7 @@ def render_backtest_chart_html(
                 chart_rows=_chart_rows(signal_replay, result, prices),
                 family=family,
                 event_hold=event_hold,
-                confirmation_threshold=(
-                    None if causal_gate is None else causal_gate.confirmation_threshold
-                ),
+                confirmation_threshold=confirmation_threshold,
             ),
             hovertemplate="%{text}<extra></extra>",
         ),
@@ -672,7 +725,7 @@ def render_backtest_chart_html(
         line={"color": "#8195ad", "dash": "dot", "width": 1},
         layer="above",
     )
-    backtest_symbol = str(signal_replay.snapshot.resolved_rule.symbol)
+    backtest_symbol = replay_data.adjusted.symbol
     figure.update_layout(
         height=640 if row_count == 2 else 760,
         template="plotly_dark",
@@ -719,7 +772,9 @@ def render_backtest_chart_html(
             col=1,
         )
 
-    if resolved.execution is not None:
+    if support.get("mode") == "srt_input_contract":
+        fee_rate = _srt_fee_rate(signal_replay)
+    elif resolved.execution is not None:
         fee_rate = float(resolved.execution.capital.fee_rate)
     elif resolved.constituent_moneyflow_intraday is not None:
         fee_rate = float(resolved.constituent_moneyflow_intraday.one_way_cost)

@@ -20,6 +20,6 @@ class StrategySnapshot:
     source_hash: str
     content_hash: str
     strategy_payload: dict[str, object]
-    resolved_rule: ResolvedBaseline
+    resolved_rule: ResolvedBaseline | None
     research_start: date | None = None
     research_end: date | None = None

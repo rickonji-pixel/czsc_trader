@@ -30,6 +30,14 @@ from .signal_replay import SignalReplay
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 
+def _plain_json(value):
+    if isinstance(value, Mapping):
+        return {str(key): _plain_json(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_plain_json(item) for item in value]
+    return value
+
+
 def _decision_id(reference: str, signal_date: pd.Timestamp, target: int) -> str:
     raw = f"{reference}|{signal_date.date()}|{target}".encode()
     return "DEC-" + sha256(raw).hexdigest()[:20].upper()
@@ -219,6 +227,11 @@ def build_srt_signal_replay(
         support_data={
             "mode": "srt_input_contract",
             "release_id": release.release_id,
+            "runtime_sha256": strategy.definition.runtime_sha256,
+            "execution_policy": {
+                "policy_type": execution.policy_type,
+                "settings": _plain_json(execution.settings),
+            },
             **target_order_types,
             "requested_cutoff": publication.requested_cutoff,
             "publication_sha256": sha256(

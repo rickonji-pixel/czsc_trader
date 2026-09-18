@@ -11,6 +11,7 @@ import pytest
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
+from czsc_trader.backtesting import strategy_source as strategy_source_module
 from czsc_trader.backtesting.closing_dislocation_replay import (
     build_closing_dislocation_signals,
 )
@@ -25,6 +26,10 @@ from czsc_trader.backtesting.signal_replay import replay_signals
 from czsc_trader.backtesting.audit_adapter import build_replay_evidence
 from czsc_trader.backtesting.metrics import calculate_metrics
 from czsc_trader.backtesting.service import BacktestRequestV2, run_backtest_v2
+from czsc_trader.backtesting.srt_bridge import (
+    build_srt_signal_replay,
+    replay_srt_account,
+)
 from strategy_evaluator import AuditStatus, audit_replay
 
 from functional_support import invoke_main
@@ -59,13 +64,19 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     data = load_replay_data(
         context, "backtest", "588080.SH", "etf", pd.Timestamp("2026-09-02").date()
     )
-    signals = replay_signals(
-        snapshot,
-        data,
-        pd.Timestamp("2026-01-01").date(),
-        pd.Timestamp("2026-09-02").date(),
+    strategy, signals = build_srt_signal_replay(
+        snapshot=snapshot,
+        replay_data=data,
+        start=pd.Timestamp("2026-01-01"),
+        end=pd.Timestamp("2026-09-02"),
+        repository_root=functional_repo,
     )
-    result = replay_account(signals, data, 100_000)
+    result = replay_srt_account(
+        strategy=strategy,
+        signals=signals,
+        replay_data=data,
+        initial_cash=100_000,
+    )
 
     assert result.identity.reference == "S001-v1"
     assert result.account_daily.iloc[0]["cash_before"] == 100_000
@@ -360,10 +371,17 @@ def test_ft_t03_s007_causal_feature_gate_replays_frozen_candidate() -> None:
         )
 
 
-def test_ft_t03_s007_registered_backtest_uses_independent_support_data() -> None:
+def test_ft_t03_s007_candidate_replay_uses_independent_support_data() -> None:
     repo = Path(__file__).resolve().parents[2]
     context = RepositoryContext.discover(repo)
-    snapshot = resolve_registered_strategy(context, "S007", "v1")
+    registered = resolve_registered_strategy(context, "S007", "v1")
+    snapshot = resolve_candidate_snapshot(
+        context,
+        registered.identity.reference,
+        registered.strategy_payload,
+        "a" * 64,
+        "functional://s007-support",
+    )
     data = load_replay_data(
         context, "backtest", "588080.SH", "etf", pd.Timestamp("2026-09-15").date()
     )
@@ -613,8 +631,14 @@ def test_ft_t03_s004_margin_filtered_candidate_replays_research_contract() -> No
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
-    functional_repo: Path, capsys
+    functional_repo: Path, capsys, monkeypatch
 ) -> None:
+    def fail_legacy_resolution(*args, **kwargs):
+        raise AssertionError("registered backtest must execute exclusively through SRT")
+
+    monkeypatch.setattr(
+        strategy_source_module, "resolve_strategy_payload", fail_legacy_resolution
+    )
     payload = invoke_main(
         [
             "backtest",
@@ -678,6 +702,10 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     assert (buy_limits * 1000 % 1 < 1e-9).all()
     report = (output_dir / "report.md").read_text(encoding="utf-8")
     assert "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 | 闭合交易 |" in report
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["signal_support"]["mode"] == "srt_input_contract"
+    assert len(manifest["signal_support"]["runtime_sha256"]) == 64
+    assert manifest["signal_support"]["execution_policy"]["policy_type"] == "FROZEN_RULE"
 
     source_root = functional_repo / "data" / "backtest"
     for source in source_root.glob("588080*"):

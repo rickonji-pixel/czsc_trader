@@ -58,10 +58,13 @@ def _bind_backtest_symbol(
     snapshot: StrategySnapshot,
     request: BacktestRequestV2,
 ) -> tuple[StrategySnapshot, dict[str, str]]:
-    spec = snapshot.resolved_rule.execution
-    overlay = snapshot.resolved_rule.constituent_moneyflow_intraday
-    closing_dislocation = snapshot.resolved_rule.closing_dislocation_overnight
-    causal_feature_gate = snapshot.resolved_rule.causal_feature_gate
+    resolved_rule = snapshot.resolved_rule
+    if resolved_rule is None:
+        raise ValueError("candidate backtest requires a resolved research rule")
+    spec = resolved_rule.execution
+    overlay = resolved_rule.constituent_moneyflow_intraday
+    closing_dislocation = resolved_rule.closing_dislocation_overnight
+    causal_feature_gate = resolved_rule.causal_feature_gate
     if causal_feature_gate is not None:
         requested_symbol = request.symbol.upper()
         reference_symbol = causal_feature_gate.symbol.upper()
@@ -109,7 +112,7 @@ def _bind_backtest_symbol(
     instrument = replace(spec.instrument, symbol=requested_symbol)
     execution = replace(spec, instrument=instrument)
     resolved_rule = replace(
-        snapshot.resolved_rule,
+        resolved_rule,
         symbol=requested_symbol,
         execution=execution,
     )
@@ -182,7 +185,10 @@ def run_backtest_v2(
         application["runtime_engine"] = "srt"
     else:
         applied_snapshot, application = _bind_backtest_symbol(snapshot, request)
-        if applied_snapshot.resolved_rule.causal_feature_gate is not None:
+        resolved_rule = applied_snapshot.resolved_rule
+        if resolved_rule is None:
+            raise ValueError("candidate backtest requires a resolved research rule")
+        if resolved_rule.causal_feature_gate is not None:
             if repository_root is None:
                 raise ValueError("causal-feature candidate requires a repository root")
             signals = build_causal_feature_gate_signals(
@@ -193,7 +199,7 @@ def run_backtest_v2(
                 repository_root,
             )
             result = replay_account(signals, replay_data, request.initial_cash)
-        elif applied_snapshot.resolved_rule.constituent_moneyflow_intraday is not None:
+        elif resolved_rule.constituent_moneyflow_intraday is not None:
             if repository_root is None:
                 raise ValueError("intraday-overlay candidate requires a repository root")
             signals = build_moneyflow_breadth_signals(
@@ -204,7 +210,7 @@ def run_backtest_v2(
                 pd.Timestamp(request.end),
             )
             result = replay_intraday_overlay(signals, replay_data, request.initial_cash)
-        elif applied_snapshot.resolved_rule.closing_dislocation_overnight is not None:
+        elif resolved_rule.closing_dislocation_overnight is not None:
             signals = build_closing_dislocation_signals(
                 applied_snapshot,
                 replay_data,

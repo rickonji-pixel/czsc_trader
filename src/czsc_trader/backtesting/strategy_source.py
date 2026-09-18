@@ -38,6 +38,16 @@ def _snapshot_hash(source_hash: str, resolved_rule: Any) -> str:
     )
 
 
+def _registered_snapshot_hash(
+    source_hash: str, strategy_payload: dict[str, object]
+) -> str:
+    """Identify a frozen release without asking TDR to understand its rule."""
+
+    return canonical_json_sha256(
+        {"source_hash": source_hash, "strategy_payload": strategy_payload}
+    )
+
+
 def _resolve(
     context: RepositoryContext,
     identity: StrategyIdentity,
@@ -86,12 +96,17 @@ def resolve_registered_strategy(
         if research_evidence
         else None
     )
-    return _resolve(
-        context,
-        StrategyIdentity("REGISTERED", release.release_id, str(context.strategy_root)),
-        dict(release.strategy_payload),
-        source_hash,
-        research_window,
+    strategy_payload = dict(release.strategy_payload)
+    return StrategySnapshot(
+        identity=StrategyIdentity(
+            "REGISTERED", release.release_id, str(context.strategy_root)
+        ),
+        source_hash=source_hash,
+        content_hash=_registered_snapshot_hash(source_hash, strategy_payload),
+        strategy_payload=strategy_payload,
+        resolved_rule=None,
+        research_start=None if research_window is None else research_window[0],
+        research_end=None if research_window is None else research_window[1],
     )
 
 

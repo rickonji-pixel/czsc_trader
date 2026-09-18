@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, sortVirtualAccounts, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
+import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, accountOperatingStatus, actionLabel, actionsForRoute, auditCategoryLabel, auditEventLabel, auditOutcomeLabel, auditQuery, auditScopeLabel, auditSeverityLabel, auditSummary, channelOrderAccountLabel, chartShouldReload, chooseAccountId, comparisonQuery, decisionExecutionLabel, displayFillId, formatBeijingTime, formatPrice, formatQuantity, navigationOptions, orderPriceLabel, parseRoute, qualificationLabel, sideLabel, snapshotFingerprint, sortVirtualAccounts, statusLabel, systemAlertCount, systemEventLabel} from '../../src/paper_trading_engine/static/app.js';
 
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
@@ -47,6 +47,8 @@ test('FT-PTEJS01 console state preserves scope, stable polling and Chinese prese
   assert.equal(statusLabel('FUTU_CASH_RECONCILIATION_UNATTRIBUTED'), 'Futu现金差异来源不明');
   assert.equal(statusLabel('FUTU_CASH_RECONCILIATION_OUT_OF_RANGE'), 'Futu费用差异超出允许范围');
   assert.equal(statusLabel('FUTU_CASH_RECONCILIATION_AMBIGUOUS'), 'Futu现金差异无法安全归属');
+  assert.equal(accountOperatingStatus({paused:false,status:'RUNNING',health:'BLOCKED'}), '阻塞');
+  assert.equal(accountOperatingStatus({paused:true,status:'RUNNING',health:'OK'}), '已暂停');
   assert.equal(formatPrice('1.5899999999999999'), '1.590');
   assert.equal(formatQuantity(60500), '60,500 股');
   assert.equal(decisionExecutionLabel({decision_id:'D1',action:'HOLD'}, []), '本次决策无需下单');

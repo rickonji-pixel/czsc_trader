@@ -115,3 +115,27 @@ def test_ft_pte06_business_health_exposes_stalled_scheduler(tmp_path):
     assert status["watchdog_healthy"] is False
     assert "SCHEDULER_STALLED" in status["alerts"]
     store.close()
+
+
+def test_business_health_treats_missing_heartbeat_and_channel_alert_as_degraded(tmp_path):
+    store = PaperStore(tmp_path / "missing-heartbeat.db")
+
+    class Channel:
+        @staticmethod
+        def status():
+            return {
+                "alerts": ["CHANNEL_CASH_MISMATCH"], "scheduler_failures": [],
+                "reconciliation_status": "OK", "account": None,
+            }
+
+    class Operations:
+        def __init__(self):
+            self.store = store
+            self.channel = Channel()
+            self.virtual = object()
+
+    status = PteWebApi(Operations()).system_status()
+    assert status["watchdog_healthy"] is False
+    assert status["futu_connection"] == "DEGRADED"
+    assert "SCHEDULER_STALLED" in status["alerts"]
+    store.close()

@@ -59,8 +59,15 @@ class RuntimeScheduler:
                     "last_at": datetime.fromisoformat(str(item["last_at"])),
                     "next_retry": datetime.fromisoformat(str(item["next_retry"])),
                 }
-            except (KeyError, TypeError, ValueError):
-                continue
+            except (KeyError, TypeError, ValueError) as exc:
+                operation = (
+                    item.get("operation", "<unknown>")
+                    if isinstance(item, dict)
+                    else "<unknown>"
+                )
+                raise ValueError(
+                    f"invalid persisted scheduler failure: {operation}"
+                ) from exc
         return restored
 
     def _guard(self, name: str, now: datetime, operation) -> bool:

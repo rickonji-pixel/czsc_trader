@@ -297,6 +297,7 @@ def test_channel_capital_uses_static_principal_allocations(tmp_path):
     assert "CHANNEL_CASH_MISMATCH" in snapshot["alerts"]
     assert {row["symbol"] for row in snapshot["accounts"]} == {"588080.SH"}
     assert {row["asset_type"] for row in snapshot["accounts"]} == {"etf"}
+    assert {row["health"] for row in snapshot["accounts"]} == {"READY"}
     store.close()
 
 

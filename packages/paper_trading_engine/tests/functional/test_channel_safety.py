@@ -55,6 +55,42 @@ def test_manual_refresh_propagates_channel_failure(tmp_path):
     store.close()
 
 
+def test_startup_only_allows_explicit_unavailable_channel_degradation(tmp_path):
+    store = PaperStore(tmp_path / "startup-degradation.db")
+
+    class Accounts:
+        def __init__(self):
+            self.store = store
+
+    class UnavailableChannel:
+        def refresh(self):
+            raise ConnectionError("OpenD unavailable")
+
+        @staticmethod
+        def status():
+            return {
+                "environment": "SIMULATE", "symbol": "588080.SH",
+                "reconciliation_status": "UNAVAILABLE",
+                "alerts": ["CHANNEL_UNAVAILABLE"],
+            }
+
+    degraded = PteCoordinator(Accounts(), UnavailableChannel()).startup()
+    assert degraded["channel"]["reconciliation_status"] == "UNAVAILABLE"
+
+    class UnsafeChannel(UnavailableChannel):
+        @staticmethod
+        def status():
+            return {
+                "environment": "SIMULATE", "symbol": "588080.SH",
+                "reconciliation_status": "BLOCKED",
+                "alerts": ["CHANNEL_RECONCILIATION_BLOCKED"],
+            }
+
+    with pytest.raises(ConnectionError, match="OpenD unavailable"):
+        PteCoordinator(Accounts(), UnsafeChannel()).startup()
+    store.close()
+
+
 def test_blocked_pending_intent_expires_and_releases_reserved_cash(tmp_path):
     store = PaperStore(tmp_path / "blocked-expiry.db")
     store.create_virtual_account(

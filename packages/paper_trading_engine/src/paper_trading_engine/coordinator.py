@@ -150,6 +150,12 @@ class PteCoordinator:
         try:
             self.execution.refresh()
         except Exception as exc:
+            # A missing OpenD connection is an explicitly supported degraded-start
+            # state: ReconnectableExecution exposes it as UNAVAILABLE and retries later.
+            # Once a channel delegate exists, reconciliation and ledger failures are
+            # internal safety failures and must abort startup instead of looking healthy.
+            if self.execution.status().get("reconciliation_status") != "UNAVAILABLE":
+                raise
             self.audit.record(
                 "DEPENDENCY_DEGRADED", source="coordinator", outcome="FAILURE",
                 actor_type="EXTERNAL", actor_id="futu", channel=FUTU_SIMULATE_CN_CHANNEL_ID,

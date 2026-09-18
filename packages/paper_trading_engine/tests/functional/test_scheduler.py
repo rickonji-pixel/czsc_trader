@@ -163,6 +163,20 @@ class Store:
         ]
 
 
+def test_scheduler_rejects_malformed_persisted_failure_state():
+    store = Store()
+    store.failures["refresh_orders"] = {
+        "fingerprint": "RuntimeError:test",
+        "failure_count": "not-an-integer",
+        "first_at": "2026-09-18T08:00:00+00:00",
+        "last_at": "2026-09-18T08:00:00+00:00",
+        "next_retry": "2026-09-18T08:01:00+00:00",
+    }
+
+    with pytest.raises(ValueError, match="invalid persisted scheduler failure: refresh_orders"):
+        RuntimeScheduler(Engine(), object(), store)
+
+
 def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(tmp_path):
     class Publisher:
         def __init__(self): self.calls = 0

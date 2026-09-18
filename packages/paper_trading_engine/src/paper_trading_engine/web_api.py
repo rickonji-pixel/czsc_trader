@@ -38,7 +38,7 @@ def _descending_transaction_rows(
 
 def _is_stale(value: str | None, *, seconds: float) -> bool:
     if not value:
-        return False
+        return True
     try:
         observed = datetime.fromisoformat(value)
     except ValueError:
@@ -91,6 +91,7 @@ class PteWebApi:
         ):
             alerts.append("DATA_PUBLICATION_OVERDUE")
         alerts = list(dict.fromkeys(alerts))
+        channel_alerts = channel.get("alerts", [])
         return {
             "scope": {"system": "pte"},
             "as_of": _now(),
@@ -103,9 +104,9 @@ class PteWebApi:
             "scheduler_failures": failures,
             "futu_connection": (
                 "UNAVAILABLE"
-                if "CHANNEL_UNAVAILABLE" in channel.get("alerts", [])
+                if "CHANNEL_UNAVAILABLE" in channel_alerts
                 else "DEGRADED"
-                if channel.get("reconciliation_status") != "OK"
+                if channel.get("reconciliation_status") != "OK" or channel_alerts
                 else "CONNECTED"
             ),
             "alerts": alerts,
@@ -267,6 +268,7 @@ class PteWebApi:
                 "frozen_cash": row["frozen_cash"], "total_assets": row["total_assets"],
                 "quantity": row["quantity"],
                 "paused": bool(row["paused"]), "status": row["status"],
+                "health": row["health"], "last_error": row["last_error"],
             }
             for row in self.store.virtual_accounts()
             if row.get("channel_id") == FUTU_SIMULATE_CN_CHANNEL_ID

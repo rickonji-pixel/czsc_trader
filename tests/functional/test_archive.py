@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 from pathlib import Path
 
 from czsc_trader.experiment_archive import (
@@ -8,6 +9,7 @@ from czsc_trader.experiment_archive import (
     create_experiment_dir,
     resolve_experiment_dir,
 )
+from czsc_trader.identity import normalized_text_sha256
 
 from functional_support import invoke_main, invoke_main_failure
 
@@ -108,3 +110,99 @@ def test_ft_t07_archive_all_discovers_strategy_owned_directories(
         "validated_count": 2,
         "experiments": created,
     }
+
+
+def test_ft_t07_resealed_archive_preserves_and_validates_original_manifest(
+    functional_repo: Path, capsys
+) -> None:
+    archive = functional_repo / "experiments" / "0904_RESEALED"
+    archive.mkdir()
+    for name in ("01_goal.md", "02_design.md", "03_execution.md", "04_conclusion.md"):
+        (archive / name).write_text("document\n", encoding="utf-8")
+    runner = archive / "run_experiment.py"
+    runner.write_text("print('before')\n", encoding="utf-8")
+    original = build_experiment_manifest(
+        archive, {"experiment_id": "0904_RESEALED", "status": "COMPLETE"}
+    )
+    original_path = archive / "experiment_manifest.v1.json"
+    (archive / "experiment_manifest.json").rename(original_path)
+    runner.write_text("print('after')\n", encoding="utf-8")
+    runner_bytes = runner.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    original_bytes = original_path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    current_record = {
+        "bytes": len(runner_bytes),
+        "sha256": normalized_text_sha256(runner),
+    }
+    repair_path = archive / "integrity_repair.json"
+    repair_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "repair_id": "ARCHIVE-REPAIR-TEST",
+                "experiment_id": "0904_RESEALED",
+                "decision": "PRESERVE_ORIGINAL_MANIFEST_AND_RESEAL_CURRENT_ARCHIVE",
+                "original_manifest": {
+                    "path": original_path.name,
+                    "bytes": len(original_bytes),
+                    "sha256": normalized_text_sha256(original_path),
+                },
+                "corrected_files": [
+                    {
+                        "path": runner.name,
+                        "original_record": original["files"][runner.name],
+                        "current_record": current_record,
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    build_experiment_manifest(
+        archive,
+        {
+            "schema_version": 2,
+            "experiment_id": "0904_RESEALED",
+            "status": "COMPLETE",
+            "integrity_repair": {
+                "record": repair_path.name,
+                "record_sha256": normalized_text_sha256(repair_path),
+                "supersedes": original_path.name,
+                "supersedes_sha256": normalized_text_sha256(original_path),
+            },
+        },
+    )
+
+    result = invoke_main(
+        ["archive", "validate", "--archive", str(archive), "--repo-root", str(functional_repo)],
+        capsys,
+    )
+    assert result["result"] == {
+        "validated_count": 1,
+        "experiments": ["0904_RESEALED"],
+    }
+
+    repair = json.loads(repair_path.read_text(encoding="utf-8"))
+    repair["corrected_files"][0]["current_record"]["bytes"] += 1
+    repair_path.write_text(json.dumps(repair, indent=2) + "\n", encoding="utf-8")
+    build_experiment_manifest(
+        archive,
+        {
+            "schema_version": 2,
+            "experiment_id": "0904_RESEALED",
+            "status": "COMPLETE",
+            "integrity_repair": {
+                "record": repair_path.name,
+                "record_sha256": normalized_text_sha256(repair_path),
+                "supersedes": original_path.name,
+                "supersedes_sha256": normalized_text_sha256(original_path),
+            },
+        },
+    )
+    failure = invoke_main_failure(
+        ["archive", "validate", "--archive", str(archive), "--repo-root", str(functional_repo)],
+        capsys,
+    )
+    assert failure["error"]["code"] == "experiment_archive_invalid"
+    assert "current record differs" in failure["error"]["message"]

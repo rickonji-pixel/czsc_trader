@@ -1,9 +1,0 @@
-﻿descriptor,quantile_bin
-close_location20,Q3
-close_to_ma20,Q3
-downside_semivol5_to20,Q5
-ma10_ma20_spread,Q5
-max_drawdown5_to_atr20,Q4
-signed_volume_imbalance10,Q3
-tr_to_atr20,Q5
-weekly_close_to_ma10,Q5

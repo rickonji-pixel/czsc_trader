@@ -1,2 +1,0 @@
-﻿parent_experiment,family,factor,factor_kind,endpoint,original_direction,original_conditional_effect,hac_coefficient,p_value,q_value,nobs
-0901_EX08,state_dynamic,dynamic__state__raw__daily__cxt_bi_zdf_V230601__di_1__v2::第1层__exit,event,max_drawdown_20,1,0.02206018372032,0.022585707675940776,7.767431346389393e-06,0.02689084732120008,1226

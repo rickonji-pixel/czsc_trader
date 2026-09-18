@@ -1,4 +1,0 @@
-﻿mechanism,score_quantile,calibrated_start,independent_events,rolling_60_median,rolling_60_p10,rolling_60_min,rolling_60_max,density_pass
-COORDINATED_DEMAND_Q50,0.5,2022-02-10,224,12.0,10.0,9.0,15.0,True
-COORDINATED_DEMAND_Q60,0.6,2022-02-10,201,11.0,9.0,7.0,15.0,True
-COORDINATED_DEMAND_Q70,0.7,2022-02-10,168,9.0,6.0,4.0,14.0,True

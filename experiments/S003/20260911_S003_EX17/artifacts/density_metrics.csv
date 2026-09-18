@@ -1,4 +1,0 @@
-﻿mechanism_id,events,long_events,short_overlay_events,rolling_window_sessions,rolling_median_events,rolling_p10_events,rolling_min_events,rolling_max_events,inside_target_band,density_pass,evidence
-PRIOR_INTRADAY_CONTINUATION,365,205,160,60,16.0,10.0,5.0,30.0,True,True,DENSITY_CAPABLE
-LATE_SESSION_FLOW_CONTINUATION,379,186,193,60,16.0,9.0,4.0,32.0,True,True,DENSITY_CAPABLE
-OPENING_GAP_REVERSION,375,242,133,60,17.0,9.0,3.0,28.0,True,True,DENSITY_CAPABLE

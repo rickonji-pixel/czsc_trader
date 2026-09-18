@@ -1,9 +1,0 @@
-{
-  "status": "COMPLETE",
-  "classification": "state_effect_not_explained_by_age",
-  "active_day_count": 322,
-  "maximum_state_age": 8,
-  "causal_replay_status": "PASS",
-  "visible_sample_end": "2025-12-31",
-  "access_2026": false
-}

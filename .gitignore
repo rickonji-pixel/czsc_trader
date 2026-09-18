@@ -10,10 +10,11 @@ packages/*/dist/
 # Local fixed-rule backtest outputs; formal research is tracked in experiments/.
 outputs/
 
-# Reproducible SRT publication caches; immutable sources remain tracked.
-data/backtest/srt_*_publication.json
-data/backtest/srt_*_*.csv.gz
-data/backtest/*_strategy_generation.json
+# Local market datasets and generated experiment artifacts.
+# Git retains research definitions, programs, conclusions, and contracts only.
+data/raw/
+data/backtest/
+experiments/**/artifacts/
 
 # Local runtime state and audit data.
 state/
@@ -21,7 +22,7 @@ state/
 # Local credentials for optional Tushare dataflows.
 /.env
 
-# Runtime-only Optuna studies; formal trial exports live in experiment artifacts.
+# Runtime-only Optuna studies.
 experiments/*/*/runtime/*.db
 experiments/*/*/runtime/*.db-wal
 experiments/*/*/runtime/*.db-shm

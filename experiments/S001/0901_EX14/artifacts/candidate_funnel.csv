@@ -1,9 +1,0 @@
-stage,count,meaning
-canonical_factors,4747,unique factors across four base families
-eligible_factor_endpoint_hypotheses,3462,hypotheses entering global HAC and BH audit
-formal_admitted_factors,412,factors passing original common gates
-global_multiplicity_survivors,1,factor-endpoint pairs with q at most 0.10 and consistent direction
-champion_position_confirmations,2,same parent event confirmed separately at target 0 and target 1
-nonconstant_eligible_interactions,0,eligible second-order AND interactions
-strategy_candidates,6,preregistered positive event weights
-hard_gate_strategy_winners,1,candidates with return floor and strict drawdown improvement

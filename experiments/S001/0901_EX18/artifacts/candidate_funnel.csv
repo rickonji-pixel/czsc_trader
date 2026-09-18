@@ -1,7 +1,0 @@
-stage,count,status,reason
-preregistered_score_tiers,5,COMPLETE,fixed S0 through S4
-supported_years,0,FAIL,S1 and S2 held observations below 30 in every year
-same_direction_years,0,FAIL,no supported year entered formal direction gate
-preregistered_position_mappings,4,NOT_RUN,diagnostic gate failed
-strategy_backtests,0,NOT_RUN,no mapping eligible
-frozen_challengers,0,FAIL,no strategy search permitted

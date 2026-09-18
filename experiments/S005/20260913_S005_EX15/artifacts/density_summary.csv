@@ -1,7 +1,0 @@
-mechanism,direction,quantile,raw_events,independent_events,rolling_60_median,rolling_60_p10,rolling_60_minimum,rolling_60_maximum,density_pass
-CALL_DOMINANCE_Q50,CALL_DOMINANCE,0.5,253,89,9.0,0.0,0.0,15.0,False
-PUT_FEAR_Q50,PUT_FEAR,0.5,32,17,1.0,0.0,0.0,7.0,False
-CALL_DOMINANCE_Q60,CALL_DOMINANCE,0.6,212,77,8.0,0.0,0.0,13.0,False
-PUT_FEAR_Q60,PUT_FEAR,0.6,32,17,1.0,0.0,0.0,7.0,False
-CALL_DOMINANCE_Q70,CALL_DOMINANCE,0.7,166,65,6.0,0.0,0.0,13.0,False
-PUT_FEAR_Q70,PUT_FEAR,0.7,32,17,1.0,0.0,0.0,7.0,False

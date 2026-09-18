@@ -1,5 +1,0 @@
-﻿signal_id,state_id,frequency,name,state,regenerated_events,archived_events,dates_match
-SIG-DAILY-7F321044E87FE70C,STATE-25B722E7D5716B00,daily,bar_triple_V230506,三连跌,26,26,True
-SIG-30M-7DC1FE61B6083F16,STATE-61095EABC56E27D9,30m,tas_cross_status_V230624,0轴上金叉第3次,25,25,True
-SIG-DAILY-93BA325393A0F9B9,STATE-A52AA78D99B5F894,daily,tas_macd_bs1_V230411,顶背驰,16,16,True
-SIG-30M-6EDAA2BC7B058FD0,STATE-0D5CA2C52F0EA4EC,30m,cxt_overlap_V240612,压力,44,44,True

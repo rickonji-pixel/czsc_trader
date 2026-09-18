@@ -1,9 +1,0 @@
-{
-  "status": "PASS",
-  "candidate_count": 2,
-  "common_admitted_count": 2,
-  "confirmed_factor_count": 2,
-  "causal_replay_status": "PASS",
-  "visible_sample_end": "2025-12-31",
-  "access_2026": false
-}

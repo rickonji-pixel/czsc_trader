@@ -1,8 +1,0 @@
-{
-  "status": "PASS",
-  "rows": 1367,
-  "first_record": "2021-01-11",
-  "coverage_from_first_record": 1.0,
-  "required_null_rows": 0,
-  "duplicate_symbol_dates": 0
-}

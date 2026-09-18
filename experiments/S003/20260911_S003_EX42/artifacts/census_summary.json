@@ -1,8 +1,0 @@
-{
-  "schema_version": 1,
-  "experiment_id": "20260911_S003_EX42",
-  "density_pass": false,
-  "event_count": 256,
-  "conditional_return_analysis": false,
-  "next_step": "STOP_MECHANISM"
-}

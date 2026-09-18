@@ -1,4 +1,0 @@
-path_id,threshold_quantile,event_count,rolling_60_median,rolling_60_p10,rolling_60_min,low_volatility_events,low_volatility_share,density_eligible
-BL-Q50,0.5,266,12.0,9.0,0.0,117,0.4398496240601504,True
-BL-Q60,0.6,213,10.0,6.0,0.0,95,0.4460093896713615,False
-BL-Q70,0.7,173,8.0,5.0,0.0,79,0.45664739884393063,False

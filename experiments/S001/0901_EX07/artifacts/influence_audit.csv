@@ -1,5 +1,0 @@
-﻿factor,endpoint,pass
-state__raw__30m__cxt_third_bs_V230319__di_1__v1::三卖,max_drawdown_20,True
-state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|10笔|任意,return_20,True
-state__raw__30m__cxt_third_buy_V230228__di_1__joint::三买|8笔|任意,max_drawdown_20,True
-state__raw__daily__cxt_third_buy_V230228__di_1__v1::三买,return_20,True

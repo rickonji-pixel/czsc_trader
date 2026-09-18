@@ -1,6 +1,0 @@
-hypothesis_id,economic_question,competitive_explanations,minimum_data,current_disposition
-H01-RISK-APPETITE,外部与国内风险偏好变化是否先于科创50风险溢价重定价,同步相关而非领先 | 信息已在588080开盘价格中兑现,国内利率与全市场风险偏好 | 海外科技风险偏好 | 588080可执行价格,PENDING_DATA_AND_CAUSALITY_AUDIT
-H02-EARNINGS-EXPECTATION,成分盈利预期的广泛变化是否形成可持续的指数重估,分析师修订滞后于价格 | 少数高权重公司驱动表观宽度,历史成分与权重 | 历史时点盈利预测与公告 | 588080可执行价格,PENDING_DATA_AND_CAUSALITY_AUDIT
-H03-BREADTH-DISPERSION,指数行情的成分扩散度和集中度是否决定后续趋势质量,宽度只是指数收益的机械重述 | 调样造成虚假结构变化,历史成分与权重 | 成分OHLCV与资金流 | 588080可执行价格,PENDING_DATA_AND_CAUSALITY_AUDIT
-H04-ETF-DERIVATIVE-MICROSTRUCTURE,申赎、折溢价、期权定价与成交结构是否揭示未完成的交易需求,数据发布滞后导致不可交易 | 异常来自套利修复而非方向Alpha,ETF份额与净值 | 期权历史报价 | 分钟OHLCV | 真实数据到达时间,PENDING_DATA_AND_CAUSALITY_AUDIT
-H05-PRICE-LIQUIDITY-STATE,价格路径与流动性状态的交互是否包含稳定的趋势或修复机制,技术形态是噪声拟合 | 成本和换手吞噬毛收益,日线与分钟OHLCV | 因果滚动特征 | 真实执行价格与成本,PENDING_DATA_AND_CAUSALITY_AUDIT

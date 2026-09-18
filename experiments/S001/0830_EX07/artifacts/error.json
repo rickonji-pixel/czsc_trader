@@ -1,7 +1,0 @@
-{
-  "status": "ERROR",
-  "error_type": "AssertionError",
-  "message": "order must reference exactly one factor event: InitialEntry:2024-2025FULL:20231229",
-  "validation_accessed": true,
-  "historical_check_accessed": false
-}

@@ -1,9 +1,0 @@
-{
-  "status": "FAIL",
-  "eligible_parent_count": 2,
-  "enumerated_pair_count": 1,
-  "nonconstant_interaction_count": 0,
-  "exclusion_reason": "mutually_exclusive_zero",
-  "visible_sample_end": "2025-12-31",
-  "access_2026": false
-}

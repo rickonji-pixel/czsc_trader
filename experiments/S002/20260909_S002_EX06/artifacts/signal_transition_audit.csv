@@ -1,4 +1,0 @@
-﻿signal_id,state_id,frequency,name,state,regenerated_events,ex05_events,count_matches_ex05,ex05_dates_match_ex02
-SIG-DAILY-7F321044E87FE70C,STATE-25B722E7D5716B00,daily,bar_triple_V230506,三连跌,26,26,True,True
-SIG-DAILY-93BA325393A0F9B9,STATE-A52AA78D99B5F894,daily,tas_macd_bs1_V230411,顶背驰,16,16,True,True
-SIG-30M-6EDAA2BC7B058FD0,STATE-0D5CA2C52F0EA4EC,30m,cxt_overlap_V240612,压力,44,44,True,True

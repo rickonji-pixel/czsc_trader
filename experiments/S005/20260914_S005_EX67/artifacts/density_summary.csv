@@ -1,4 +1,0 @@
-mechanism,quantile,raw_events,independent_events,rolling_60_median,rolling_60_p10,rolling_60_minimum,rolling_60_maximum,density_pass
-BROAD_EARNINGS_REVISION_PULLBACK_Q80,0.8,129,49,2.0,0.0,0.0,10.0,False
-BROAD_EARNINGS_REVISION_PULLBACK_Q70,0.7,181,72,3.0,0.0,0.0,11.0,False
-BROAD_EARNINGS_REVISION_PULLBACK_Q60,0.6,258,97,4.0,1.0,0.0,12.0,False

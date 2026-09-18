@@ -1,5 +1,0 @@
-variant,uses_confirmation,uses_risk,independent_cycles,complete_cycles,rolling_60_median,rolling_60_p10,rolling_60_minimum,state_exposure,median_holding_sessions,density_pass
-CORE,False,False,369,369,17.0,14.0,11.0,0.5044313146233382,2.0,True
-CORE_CONFIRM,True,False,298,298,13.0,11.0,8.0,0.3870014771048744,2.0,True
-CORE_RISK,False,True,190,190,8.0,2.0,0.0,0.20605612998522896,2.0,False
-FULL,True,True,138,138,6.0,1.0,0.0,0.1447562776957164,2.0,False

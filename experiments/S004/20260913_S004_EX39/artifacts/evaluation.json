@@ -1,7 +1,0 @@
-{
-  "schema_version": 1,
-  "experiment_id": "20260913_S004_EX39",
-  "status": "PASS",
-  "route_decision": "MARGIN_ABSORBED_BUYING_RISK_FILTER_REPLICATED",
-  "candidate_created": false
-}

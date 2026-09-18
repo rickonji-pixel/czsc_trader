@@ -1,9 +1,0 @@
-{
-  "schema_version": 1,
-  "experiment_id": "20260911_S003_EX35",
-  "passed": false,
-  "access_available": false,
-  "provider_error_type": "Exception",
-  "provider_error": "抱歉，您没有接口(etf_share_size)访问权限，权限的具体详情访问：https://tushare.pro/document/1?doc_id=108。",
-  "conditional_return_analysis": false
-}

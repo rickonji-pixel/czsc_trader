@@ -1,8 +1,0 @@
-{
-  "status": "PASS",
-  "prefix_cutoff": "2023-12-31",
-  "prefix_target_equal": true,
-  "all_orders_signal_before_execution": true,
-  "frozen_er_threshold_reused": true,
-  "execution": "next_session_open"
-}

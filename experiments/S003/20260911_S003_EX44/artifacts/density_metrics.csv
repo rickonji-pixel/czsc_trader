@@ -1,2 +1,0 @@
-mechanism,event_count,rolling_60_median,rolling_60_p10,rolling_60_min,rolling_60_max,density_eligible
-CONSTITUENT_MONEYFLOW_BREADTH_CONTINUATION,276,12.0,10.0,4.0,21.0,True

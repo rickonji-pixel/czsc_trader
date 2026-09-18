@@ -1,9 +1,0 @@
-{
-  "classification": "insufficient_new_representation_evidence",
-  "event_count": 20,
-  "descriptor_count": 28,
-  "discovered_signature_count": 8,
-  "confirmed_signature_count": 6,
-  "low_contamination_signature_count": 2,
-  "exact_p_value": 0.16483516483516483
-}

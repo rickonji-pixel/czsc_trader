@@ -1,5 +1,0 @@
-constraint_set,constraint_count,exact_common_support,solver_message
-PRIOR_RETURN_MOMENTS,3,False,The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None)
-PRIOR_RETURN_MOMENTS_AND_DECILES,12,False,The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None)
-ALL_PRE_OPEN_STATE,17,False,The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is Infeasible)
-ALL_FEATURES,22,False,The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is Infeasible)

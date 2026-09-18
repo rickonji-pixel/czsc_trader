@@ -1,4 +1,0 @@
-﻿mechanism,score_quantile,calibrated_start,independent_events,rolling_60_median,rolling_60_p10,rolling_60_min,rolling_60_max,density_pass
-SUPPLY_ABSORPTION_Q50,0.5,2021-08-09,257,13.0,11.0,9.0,15.0,True
-SUPPLY_ABSORPTION_Q60,0.6,2021-08-09,238,12.0,10.0,8.0,15.0,True
-SUPPLY_ABSORPTION_Q70,0.7,2021-08-09,208,10.0,8.0,6.0,15.0,True

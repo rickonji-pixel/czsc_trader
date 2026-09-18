@@ -1,9 +1,0 @@
-[
-  {
-    "left": "conditional__dynamic__state__raw__daily__cxt_bi_zdf_V230601__di_1__v2::第1层__exit__target_0",
-    "right": "conditional__dynamic__state__raw__daily__cxt_bi_zdf_V230601__di_1__v2::第1层__exit__target_1",
-    "operator": "AND",
-    "status": "excluded",
-    "reason": "mutually_exclusive_zero"
-  }
-]

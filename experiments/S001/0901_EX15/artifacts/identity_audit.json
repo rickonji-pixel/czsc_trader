@@ -1,9 +1,0 @@
-{
-  "status": "PASS",
-  "champion_version": "baseline_20260826",
-  "champion_sha256": "fc22ca5a973f77faf528cdb3efba4900163e18fe0c08cf79234d79ef22f5c822",
-  "challenger_manifest_sha256": "7f381ff0e6cefffd77149cab93d759b46a1b6ef06d046b1169ffd3506a011589",
-  "route_decision_manifest_sha256": "46661794d5fff9ea88719ec5a2c2c65b9e1f1d5713fefe789efc7540bb5c9484",
-  "parameter_search": false,
-  "active_baseline_mutation": false
-}

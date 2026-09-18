@@ -1,9 +1,0 @@
-{
-  "status": "FAIL",
-  "prefix_cutoff": "2023-12-31",
-  "score_equal": false,
-  "tier_equal": true,
-  "event_equal": true,
-  "target_equal": true,
-  "access_2026": false
-}

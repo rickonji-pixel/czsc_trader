@@ -1,3 +1,0 @@
-﻿factor,factor_kind,champion_target_position,endpoint,direction,conditional_effect,hac_coefficient,p_value,q_value,nobs
-conditional__dynamic__state__raw__daily__cxt_bi_zdf_V230601__di_1__v2::第1层__exit__target_0,event,0,max_drawdown_20,1,0.02365186510449385,0.030599141290429285,4.0772416915450644e-05,0.00016308966766180258,1226
-conditional__dynamic__state__raw__daily__cxt_bi_zdf_V230601__di_1__v2::第1层__exit__target_1,event,1,max_drawdown_20,1,0.018657451823668604,0.014692569045880406,0.02107767329960298,0.04215534659920596,1226

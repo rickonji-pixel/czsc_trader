@@ -23,8 +23,8 @@ CZSC Trader 是面向个人量化团队的可审计策略研发与模拟交易�
 | Strategy Template Catalog | STC | `packages/strategy_template_catalog/` | 策略函数模板、输入角色和参数边界目录 |
 | Strategy Manager | SM | `packages/strategy_manager/` | 策略身份、版本、资格、冻结和证据治理 |
 | Strategy Evaluator | SE | `packages/strategy_evaluator/` | 候选比较、统计审计和稳健性数值计算 |
-| Strategy Runtime | SRT | `packages/strategy_runtime/` | 冻结策略的数据契约、决策计算、执行计划和运行身份 |
-| Trading Execution Engine | TXE | `packages/trading_execution_engine/` | 统一成交、费用、现金、持仓和净值计算口径 |
+| Strategy Runtime | SRT | `packages/strategy_runtime/` | 候选与冻结策略共用的数据契约、决策计算、执行计划和运行身份 |
+| Trading Execution Engine | TXE | `packages/trading_execution_engine/` | 承接SRT历史执行请求，统一订单、成交、费用和账户账本 |
 | Paper Trading Engine | PTE | `packages/paper_trading_engine/` | 虚拟账户、模拟下单、成交对账、运行审计和控制台 |
 | PTE Watchdog | WDG | PTE包内 | PTE进程托管、健康检查和故障拉起 |
 
@@ -35,12 +35,17 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 ### 核心工作流
 
 ```text
-人工立项 → 自由研究 → 候选与最终目标送审 → TDR独立复核和完整体检
-        → 人工冻结 → SRT冻结运行时 → 独立授权PTE模拟执行 → 前瞻监测
+人工立项 → 自由研究与候选SRT实现 → 候选与最终目标送审
+        → TDR封存复算数据并组织完整体检 → 人工冻结
+        → 同一SRT实现获得冻结版本身份 → 独立授权PTE模拟执行 → 前瞻监测
 ```
 
 研究诊断、正式裁决和模拟盘表现分别保存，不能用单次成交或未冻结实验替代策略有效性证据。
 历史失败、执行异常和修复记录继续保留，避免事后改写研究或交易结果。
+
+三次人工确认沿同一份策略治理凭据（SGC）逐级盖章。研究可以自由选择算法库，最终评价目标
+在送审时锁定；TDR根据候选SRT、封存数据和TXE账本独立复核，冻结后不另写一套策略实现。
+历史实验保留供人工审阅，当前架构不承诺旧实验脚本重放兼容。
 
 ## 项目目录
 
@@ -53,7 +58,7 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 | `strategies/` | 正式策略身份、SGC凭据链、冻结版本、生命周期和证据 | 正式策略事实来源，不保存研究草稿 |
 | `research/` | 研究总交接、各SXX批次目标、候选和监测方案 | 研究领域唯一入口；目标与批次绑定 |
 | `experiments/` | 按策略和实验编号归档的输入、结果及审计证据 | 不可变研究档案，失败实验同样保留 |
-| `data/` | 受控研究数据、执行价格及数据清单 | 研究输入；具体口径由清单和交接文档定义 |
+| `data/` | 研究池、普通回测池、冻结评审快照及发布清单 | `raw/`、`backtest/`、`review/`隔离管理；本地数据不随Git分发 |
 | `docs/` | 用户、开发、测试治理、事故和历史设计文档 | 非研究领域说明与历史资料入口 |
 | `tests/` | TDR端到端功能测试和共享测试支持 | 根项目的行为契约验证 |
 | `state/` | PTE数据库、发布数据、图表、日志等本机运行状态 | Git忽略；不能当作可移植研究证据 |
@@ -80,6 +85,7 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 | 查阅或归档正式实验 | [实验档案说明](experiments/README.md) | 实验命名、目录结构、产物契约和不可变规则 |
 | 查看已确认运行事故 | [事故复盘索引](docs/incidents/README.md) | 事故时间线、影响、修复证据和防复发措施 |
 | 维护测试体系 | [测试用例治理](docs/TEST_GOVERNANCE.md) | 测试分层、边界覆盖和周期性治理 |
+| 查看本次版本边界 | [v0.4.0发布说明](docs/releases/v0.4.0.md) | 三节点治理、候选SRT、统一TXE及验收范围 |
 
 ### 包级技术文档
 
@@ -87,7 +93,7 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 - [FSC技术说明](packages/factor_signal_catalog/README.md)：因子与信号定义目录及查询方式。
 - [STC技术说明](packages/strategy_template_catalog/README.md)：策略函数模板、实例化契约及边界。
 - [Strategy Evaluator技术说明](packages/strategy_evaluator/README.md)：候选评估与统计审计接口。
-- [Strategy Runtime技术说明](packages/strategy_runtime/README.md)：冻结策略的数据、决策与执行边界。
+- [Strategy Runtime技术说明](packages/strategy_runtime/README.md)：候选与冻结策略的数据、决策与执行边界。
 - [Trading Execution Engine技术说明](packages/trading_execution_engine/README.md)：统一成交与账户
   计算口径及其边界。
 - [Paper Trading Engine技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、

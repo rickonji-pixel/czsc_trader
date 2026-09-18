@@ -63,7 +63,7 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE关键业务能力的同时，
 - SE：`packages/strategy_evaluator/tests/functional/`；
 - FSC：`packages/factor_signal_catalog/tests/functional/`；
 - STC：`packages/strategy_template_catalog/tests/functional/`；
-- DFLS：`packages/dataflows/tests/functional/`；
+- DFLS：由根目录`tests/functional/`中的数据发布与SRT集成场景覆盖；
 - SRT：`packages/strategy_runtime/tests/functional/`；
 - TXE：`packages/trading_execution_engine/tests/functional/`；
 - PTE：`packages/paper_trading_engine/tests/functional/`。
@@ -73,7 +73,7 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE关键业务能力的同时，
 
 ### 2.3 跨模块端到端用例
 
-端到端用例只保留少量关键调用链，例如TDR生成决策、PTE接收决策并写入虚拟账户审计。
+端到端用例只保留少量关键调用链，例如TDR三节点治理、SRT与TXE回放，以及PTE消费SRT决策并写入虚拟账户审计。
 它用于发现契约断裂，不重复模块内部已经覆盖的所有边界条件。
 
 涉及真实行情、Futu或Windows服务的在线检查属于交付验证，不进入默认自动回归套件。
@@ -126,7 +126,8 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE关键业务能力的同时，
 | TDD开发中 | 当前失败用例和直接相关场景 |
 | 功能完成或缺陷修复后 | 受影响模块的全部功能用例 |
 | 提交前 | 受影响模块功能用例及Ruff |
-| 合并或推送前 | TDR、FSC、STC、SM、SE、PTE全部功能用例、PTE前端用例及Ruff |
+| 版本验收或重大架构变更 | 全部模块功能用例、PTE前端用例及Ruff；按变更范围增加完整链路验收 |
+| 已验收后的纯文档提交、合并或推送 | 检查文档、链接和差异；实现未变化时复用已验收测试结果 |
 | 服务或外部渠道变更交付 | 完整离线回归后，再执行明确授权的在线验证 |
 
 完整离线回归：
@@ -137,7 +138,6 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE关键业务能力的同时，
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\factor_signal_catalog\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_template_catalog\tests -q
-.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\dataflows\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_runtime\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\trading_execution_engine\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\paper_trading_engine\tests -q
@@ -162,7 +162,7 @@ node --test-isolation=none --test packages\paper_trading_engine\tests\functional
 
 每次治理按以下步骤执行：
 
-1. **盘点**：记录六个模块的用例文件数、测试项数、耗时和失败情况；
+1. **盘点**：记录各模块的用例文件数、测试项数、耗时和失败情况；
 2. **归类**：区分长期场景、临时TDD、重复场景、实现细节测试和在线检查；
 3. **收敛**：合并同一业务行为的准备与断言，清除残留`TEMP-TDD`；
 4. **删除**：移除重复、废弃、脆弱且无独立风险价值的用例；
@@ -176,6 +176,7 @@ rg -n "TEMP-TDD" tests packages -g "*.py" -g "*.mjs"
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests packages\strategy_manager\tests `
   packages\strategy_evaluator\tests packages\factor_signal_catalog\tests `
   packages\strategy_template_catalog\tests `
+  packages\strategy_runtime\tests packages\trading_execution_engine\tests `
   packages\paper_trading_engine\tests `
   --collect-only -q
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests -q }
@@ -202,7 +203,7 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 - 删除该用例后，哪个主场景继续保护其业务风险？
 - 失败信息能否直接指向模块、契约或状态转换？
 
-审查顺序固定为TDR、FSC、STC、SM、SE、PTE。一次可以只治理一个模块，完成验证和记录后
+审查范围包括TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE。一次可以只治理一个模块，完成验证和记录后
 再进入下一模块，避免大规模删除导致覆盖范围难以复核。
 
 ## 8. 治理记录模板
@@ -211,7 +212,7 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 
 ```text
 日期：YYYY-MM-DD
-范围：TDR / FSC / STC / SM / SE / PTE
+范围：TDR / DFLS / FSC / STC / SM / SE / SRT / TXE / PTE
 触发原因：月度检查 / 耗时增长 / 重构前 / 其他
 
 治理前：测试文件__个，测试项__个，完整耗时__秒
@@ -236,5 +237,20 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 1. 所有删除行为都有明确的长期场景承接，或确认已无业务价值；
 2. 没有无说明残留的`TEMP-TDD`；
 3. 受影响模块完整功能测试通过；
-4. 计划合并或推送时，完整离线回归通过；
+4. 大范围测试治理或版本验收时，完整离线回归通过；
 5. 治理前后数量、耗时和关键取舍已有简短记录。
+
+## 10. 治理与执行链路验收
+
+重大版本验收采用三层证据，日常小改不重复运行全部演练：
+
+- 离线回归：验证模块契约、边界输入、失败与幂等语义。
+- [三节点治理演练](../scripts/README_GOVERNANCE_ACCEPTANCE.md)：运行正式CLI与候选SRT，
+  验证正常冻结、重复冻结、虚报收益、必需证据缺失及评估后证据变化；使用隔离的合成数据。
+- 真实行情回放：按本地数据准备情况运行`scripts/acceptance_srt_txe.py`，验证既有五个冻结
+  版本；执行器迁移时，另比较同输入与同决策下的新旧订单、成交、费用、持仓和账户账本。
+
+验收以结果文件、业务状态和账本断言为准，不能只看进程退出码。合成夹具通过只证明软件流程，
+不形成真实策略研究证据。真实数据和实验产物不随Git分发，缺失时明确报告未验收范围。
+历史实验仍做档案完整性校验；旧研究脚本的全量重放不属于当前兼容承诺。任何PTE部署或运行
+状态变更需要独立授权。

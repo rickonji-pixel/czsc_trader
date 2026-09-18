@@ -14,12 +14,12 @@
 | STC | Strategy Template Catalog | 策略函数模板、输入角色和参数边界目录 |
 | SM | Strategy Manager | 策略身份、版本、资格、证据和治理审计 |
 | SE | Strategy Evaluator | 候选筛选、排名和统计稳健性数值计算 |
-| SRT | Strategy Runtime | 冻结策略的数据契约、决策计算、执行计划和运行身份 |
+| SRT | Strategy Runtime | 候选与冻结策略共用的数据契约、决策计算、执行计划和运行身份 |
 | TXE | Trading Execution Engine | 统一成交、费用、现金、持仓和净值计算口径 |
 | PTE | Paper Trading Engine | 虚拟账户、模拟交易执行、运行审计和观测 |
 | WDG | PTE Watchdog | PTE进程开机自启、探活和故障拉起 |
 
-后续开发、文档和讨论统一使用以上名称。FSC、STC、SM、SE、SRT和PTE
+后续开发、文档和讨论统一使用以上名称。DFLS、FSC、STC、SM、SE、SRT、TXE和PTE
 均为仓库内独立包，只通过明确契约协作。Search、Feature Mining和`news_events`是研究脚本
 可自由使用的能力，不属于TDR治理职责；正式策略结论必须通过TDR三道人工闸门进入生命周期。
 
@@ -53,25 +53,25 @@ git rev-list --left-right --count origin/master...master
 ## 总体架构
 
 ```text
-Tushare → dataflows → data/raw（研究池） / data/backtest（普通回测）
-                                      ↓
-研究脚本 → 候选快照 + 最终评价目标 → TDR
-                                  ├→ DFLS（数据）
-                                  ├→ SE（数值审计）
-                                  ├→ TXE（成交与账本复算）
-                                  ├→ SRT（运行时验收）
-                                  └→ SM（版本与生命周期持久化）
+Tushare → DFLS → data/raw（研究池） / data/backtest（普通回测）
+研究脚本 → 候选SRT + 候选快照 + 最终评价目标 → TDR
+    TDR → SRT + DFLS → data/review（不可变审核快照）
+        → SRT + TXE → 独立复算账本 → SE数值审计 → SGC裁判印章
+        → 人工批准 → SM冻结版本（同一SRT实现及参数）
 
-SM冻结版本 → SRT → TDR BacktestChannel → TXE → 回测账本
-                 └→ PTE ← WDG → Futu模拟渠道 → Futu模拟账户
+候选/冻结版本 → SRT Runner → TXE HistoricalExecutor → 历史执行账本
+SM冻结版本   → SRT Runner → PTE Futu渠道 → Futu模拟账户
+                            ↑
+                       WDG进程托管
 ```
 
 ### 模块边界
 
 - **TDR**位于`src/czsc_trader/`。它在人工批准研究立项、候选送审和正式冻结三个节点介入，
   负责核实研究主张、组织完整体检、签发裁判报告并维护策略生命周期。实验脚本可自由使用
-  新数据与算法库；只有提交冻结流程的结论才进入TDR强约束。TDR维护回测渠道适配和正式
-  工作流，成交、费用与账户数值统一调用TXE。
+  新数据与算法库；只有提交冻结流程的结论才进入TDR强约束。TDR维护正式
+  工作流编排、报告和图表；历史渠道、成交、费用与账户账本统一由TXE的`HistoricalExecutor`维护，
+  不再保留`BacktestChannel`包装层。
 - **FSC**位于`packages/factor_signal_catalog/`，定义数据位于`catalog/`。它记录项目级信息族、
   因子和信号的稳定语义、实现入口、参数及因果可用时间；不保存标的计算值、收益证据、实验
   结论或运行状态。TDR只读引用FSC，各研究线拥有自己的物化缓存与证据。
@@ -86,11 +86,13 @@ SM冻结版本 → SRT → TDR BacktestChannel → TXE → 回测账本
 - **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的结构化事实，执行筛劣、Pareto
   排名、PBO、DSR、Bootstrap、参数邻域和成本压力等确定性数值计算；它不读取仓库、不理解
   金融语义，也不签发TDR裁决或改变SM、PTE状态。
-- **SRT**位于`packages/strategy_runtime/`。它把SM冻结版本投影为可执行策略，声明并通过DFLS
+- **SRT**位于`packages/strategy_runtime/`。它把`StrategyCandidate`或SM冻结版本投影为可执行策略，声明并通过DFLS
   发布数据，计算决策与执行计划，并定义宿主通用的`ExecutionChannel`协议；源码闭包、
-  冻结版本和参数共同形成运行身份。SRT不实现回测或券商渠道。
+  候选或冻结身份和参数共同形成运行身份。候选没有虚构的`v1`身份，冻结前后使用同一实现。
+  SRT不实现回测或券商渠道。
 - **TXE**位于`packages/trading_execution_engine/`。它提供研究、回测和冻结复核共享的成交、
-  滑点、费用、现金、持仓与净值计算原语；它不生成信号、不获取数据、不管理版本或渠道状态。
+  滑点、费用、现金、持仓与净值计算；`HistoricalExecutor`实现SRT渠道协议并管理隔离的历史
+  账本及幂等请求。它不生成信号、不获取数据、不管理策略生命周期或真实券商状态。
 - **PTE**位于`packages/paper_trading_engine/`。它直接加载SRT，管理账户分账、决策、订单意图、
   Futu回报、调度、SQLite审计和控制台，不导入TDR、SM或SE。
 - **WDG**位于PTE包内。它只负责PTE子进程生命周期和HTTP探活，不包含交易业务逻辑。
@@ -102,7 +104,7 @@ SM冻结版本 → SRT → TDR BacktestChannel → TXE → 回测账本
 正式实验档案按`experiments/<策略ID>/<实验ID>/`保存。实验ID全局唯一，TDR按ID定位
 嵌套档案；历史SM证据中的旧路径字符串保持不变，并由兼容解析器映射到当前目录。
 
-依赖方向保持为：`TDR → FSC/STC/SM/SE/TXE/SRT/DFLS`、`SRT → DFLS`、`PTE → SRT`、
+依赖方向保持为：`TDR → FSC/STC/SM/SE/TXE/SRT/DFLS`、`TXE → SRT`、`SRT → DFLS`、`PTE → SRT`、
 `WDG → PTE进程`。TXE与DFLS同层，TDR和研究脚本可以调用；PTE的账户事实仍以渠道回报为准。
 
 ## 跨模块硬约束
@@ -141,6 +143,18 @@ SM冻结版本 → SRT → TDR BacktestChannel → TXE → 回测账本
 3. `strategy freeze`在人工批准后重新校验证据文件、SRT输入与执行契约及整条SGC，再原子创建
    StrategyVersion。该命令不创建PTE账户；PTE部署需要单独授权。
 
+送审前必须完成候选SRT，声明模块、类、源码闭包及其哈希、参数和完整输入契约；研究者宜在
+搜索前完成实现，以复用同一SRT与TXE。旧`rule`字典不能绕过候选运行身份校验。
+
+复算由TDR的`application/review_data.py`组织：根据实验`review_data_sources`读取研究池内
+显式哈希绑定的标准化输入，经SRT与DFLS发布至`data/review/<凭据ID>/<送审哈希>/`。发布失败
+不产生可用快照；审核过程离线运行，无隐式联网补数。评估制品写入快照目录下独立实验副本，
+不覆盖原实验。重复读取已通过报告和正式冻结都重新验证封存证据，不能让缓存掩盖证据漂移。
+
+候选与冻结回测共同通过`backtesting/srt_bridge.py`接入SRT与TXE。旧策略解析器已退出当前
+候选评估和回测路径；只读`baseline`历史查看入口仍保留。历史实验按档案规则供人工审阅，
+不承诺旧脚本可在新架构重放；已有五个冻结版本的身份与执行行为继续维护。
+
 ## 新机器恢复
 
 ```powershell
@@ -160,6 +174,8 @@ git pull --ff-only origin master
 
 - `.venv/`：解释器和依赖；
 - `.env`：本机凭据；
+- `data/raw/`、`data/backtest/`及`data/review/`：分别恢复受控研究输入、回测发布代次与封存审核证据；
+- `experiments/**/artifacts/`：本机研究制品；公开克隆只承诺人工查阅，不保证历史重放或部署可用；
 - `.tmp/`：测试缓存、测试运行目录和业务发布前的暂存工作区；
 - `outputs/`：普通回测输出；
 - `state/paper_trading/runtime.db`：账户、订单、成交、暂停状态和审计事件；
@@ -173,12 +189,16 @@ git pull --ff-only origin master
 
 ## OPC测试用例治理
 
-测试目标是用尽量少的稳定业务场景保护TDR、Dataflows、FSC、STC、SM、SE、PTE和WDG的
+测试目标是用尽量少的稳定业务场景保护TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE和WDG的
 完整能力。TDD最小失败用例可以临时存在；行为稳定后应并入长期功能场景并删除重复用例。
 长期用例验证公开入口、关键状态转换、持久化结果和安全约束，不围绕私有实现持续增长。
 
 用例准入、收敛与删除条件、分级回归命令、月度及触发式审查流程统一见
 [测试用例治理](TEST_GOVERNANCE.md)。该文档是后续周期性治理的唯一操作规范。
+
+治理流程重构验收使用[scripts/README_GOVERNANCE_ACCEPTANCE.md](../scripts/README_GOVERNANCE_ACCEPTANCE.md)
+中的隔离CLI演练；真实行情回放另用`scripts/acceptance_srt_txe.py`。合成数据验收软件行为，
+真实行情对比检查执行迁移，两者均不替代策略研究结论或生产部署授权。
 
 仓库内临时文件统一进入根目录`.tmp/`并按用途分区。业务代码通过
 `czsc_trader.temp_workspace`创建临时目录；测试与Ruff分别使用`.tmp/pytest`和

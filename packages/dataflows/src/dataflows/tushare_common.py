@@ -17,8 +17,10 @@ def get_tushare_module(env_file: str | Path | None = None):
 
 
 def get_tushare_pro(env_file: str | Path | None = None):
-    module = get_tushare_module(env_file)
-    return module.pro_api(get_tushare_token(env_file))
+    # ``ts.set_token`` persists ``tk.csv`` in the user profile. Pro clients
+    # already accept the token explicitly, so avoid that unrelated filesystem
+    # side effect and keep DFLS execution inside the repository boundary.
+    return ts.pro_api(get_tushare_token(env_file))
 
 
 def fetch_instrument_name(

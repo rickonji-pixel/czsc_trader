@@ -13,6 +13,7 @@ from dataflows import (
     SourceNotReadyError,
 )
 from dataflows.errors import EmptyDataError
+from dataflows import tushare_common
 
 
 def _frame() -> pd.DataFrame:
@@ -52,6 +53,29 @@ def test_ready_result_has_stable_identity_and_detached_data() -> None:
     assert first.identity.content_sha256 == second.identity.content_sha256
     first.dataframe.loc[0, "Close"] = 99
     assert source.loc[0, "Close"] == 1.1
+
+
+def test_tushare_pro_client_does_not_persist_global_token(monkeypatch) -> None:
+    observed: dict[str, str] = {}
+
+    monkeypatch.setenv("TUSHARE_TOKEN", "test-token")
+    monkeypatch.setattr(
+        tushare_common.ts,
+        "set_token",
+        lambda token: (_ for _ in ()).throw(
+            AssertionError("Pro client must not persist tk.csv")
+        ),
+    )
+    monkeypatch.setattr(
+        tushare_common.ts,
+        "pro_api",
+        lambda token: observed.setdefault("token", token),
+    )
+
+    client = tushare_common.get_tushare_pro()
+
+    assert client == "test-token"
+    assert observed == {"token": "test-token"}
 
 
 def test_unknown_dataset_is_explicit_failure() -> None:

@@ -290,6 +290,10 @@ def test_ft_t01_data_prepare_validate_and_tamper_detection(
                 date(2026, 9, 2),
                 {"vendor": "functional-test", "exchange": "SSE"},
             ),
+            session_calendar_fetcher=lambda _start, _end: (
+                pd.DataFrame({"Date": [pd.Timestamp(day)], "IsOpen": [1]}),
+                {"vendor": "functional-test", "exchange": "SSE"},
+            ),
             name_fetcher=lambda _symbol, _asset: "科创50ETF",
         )
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
+import json
 
 import pandas as pd
 import pytest
@@ -69,4 +70,14 @@ def test_publication_store_rejects_modified_frame(tmp_path):
     frame_path.write_bytes(frame_path.read_bytes() + b"modified")
 
     with pytest.raises(RuntimeContractError, match="was modified"):
+        read_publication(tmp_path, "S007-v1")
+
+
+def test_publication_store_recomputes_stored_content_identity(tmp_path):
+    manifest_path = write_publication(publication(), tmp_path)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["inputs"]["market_daily"]["stored_content_sha256"] = "0" * 64
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RuntimeContractError, match="content identity differs"):
         read_publication(tmp_path, "S007-v1")

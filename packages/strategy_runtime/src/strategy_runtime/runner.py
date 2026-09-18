@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import pandas as pd
-from dataflows import Dataflows
+from dataflows import Dataflows, Dataset
 
 from .errors import RuntimeCompatibilityError, RuntimeContractError
 from .models import (
@@ -211,6 +211,25 @@ class StrategyRunner:
             )
         requested_cutoff = pd.Timestamp(publication.requested_cutoff)
         requirements = {item.name: item for item in definition.inputs.requirements}
+        calendar_names = [
+            name
+            for name, requirement in requirements.items()
+            if requirement.dataset == Dataset.TRADING_CALENDAR.value
+        ]
+        previous_session: pd.Timestamp | None = None
+        if len(calendar_names) == 1:
+            calendar_result = publication.input_results[calendar_names[0]]
+            if calendar_result.ready:
+                calendar = calendar_result.dataframe
+                if not {"Date", "IsOpen"} <= set(calendar.columns):
+                    raise RuntimeContractError(
+                        "published trading calendar is structurally incomplete"
+                    )
+                dates = pd.to_datetime(calendar["Date"], errors="coerce").dt.normalize()
+                open_mask = pd.to_numeric(calendar["IsOpen"], errors="coerce").eq(1)
+                candidates = dates.loc[open_mask & dates.lt(requested_cutoff.normalize())]
+                if not candidates.empty:
+                    previous_session = pd.Timestamp(candidates.max())
         for name, requirement in requirements.items():
             data_request = publication.input_requests[name]
             data_result = publication.input_results[name]
@@ -231,10 +250,12 @@ class StrategyRunner:
             elif requirement.cutoff_rule is CutoffRule.PREVIOUS_SESSION:
                 if (
                     data_request.required_cutoff is None
-                    or pd.Timestamp(data_request.required_cutoff) >= requested_cutoff
+                    or previous_session is None
+                    or pd.Timestamp(data_request.required_cutoff).normalize()
+                    != previous_session
                 ):
                     raise RuntimeContractError(
-                        f"publication cutoff is not before signal session for input {name}"
+                        f"publication cutoff is not the exact previous session for input {name}"
                     )
             if data_result.ready:
                 identity = data_result.identity

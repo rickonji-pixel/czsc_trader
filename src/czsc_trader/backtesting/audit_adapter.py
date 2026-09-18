@@ -4,11 +4,12 @@ from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
-from strategy_evaluator import ReplayEvidence
+from strategy_evaluator import BenchmarkEvidence, ReplayEvidence
 
 from .datasets import ReplayData
 from .result import BacktestResult
 from .signal_replay import SignalReplay
+from .benchmarks import BenchmarkReplay
 
 
 def _records(frame: pd.DataFrame, date_columns: tuple[str, ...]) -> tuple[dict[str, Any], ...]:
@@ -30,6 +31,18 @@ def build_replay_evidence(
     metrics: dict[str, object],
 ) -> ReplayEvidence:
     support = signals.support_data or {}
+    evaluation_sessions = tuple(
+        pd.to_datetime(
+            data.execution_daily.loc[
+                data.execution_daily["dt"].between(
+                    signals.evaluation_start, signals.evaluation_end
+                ),
+                "dt",
+            ]
+        )
+        .dt.normalize()
+        .dt.date.astype(str)
+    )
     srt_policy = support.get("execution_policy")
     spec = None
     if support.get("mode") == "srt_input_contract":
@@ -79,6 +92,7 @@ def build_replay_evidence(
             strategy_hash=signals.snapshot.content_hash,
             data_hash=data.fingerprint,
             initial_cash=float(initial_cash),
+            evaluation_sessions=evaluation_sessions,
             execution_spec={
                 "mode": "CORE_EVENT_INTRADAY_ROTATION",
                 "fee_rate": overlay_settings["one_way_cost"],
@@ -123,6 +137,7 @@ def build_replay_evidence(
         ):
             raise ValueError("SRT replay has no effective order-type evidence")
         execution_spec = {
+            "decision_coverage": "COMPLETE",
             "entry_limit_parameter": entry["limit_parameter"],
             "exit_limit_ratio": exit_rule["limit_ratio"],
             "entry_order_type": entry_order_type,
@@ -167,6 +182,7 @@ def build_replay_evidence(
         strategy_hash=signals.snapshot.content_hash,
         data_hash=data.fingerprint,
         initial_cash=float(initial_cash),
+        evaluation_sessions=evaluation_sessions,
         execution_spec=execution_spec,
         decisions=_records(result.decisions, ("signal_date", "valid_session")),
         orders=_records(result.orders, ("signal_date", "execution_date")),
@@ -177,3 +193,67 @@ def build_replay_evidence(
         execution_daily=_records(daily, ("date",)),
         execution_intraday=_records(intraday, ("time",)),
     )
+
+
+def build_benchmark_evidence(
+    benchmarks: BenchmarkReplay,
+    signals: SignalReplay,
+    data: ReplayData,
+    initial_cash: float,
+) -> dict[str, BenchmarkEvidence]:
+    evaluation = data.execution_daily.loc[
+        data.execution_daily["dt"].between(
+            signals.evaluation_start, signals.evaluation_end
+        )
+    ].rename(columns={"dt": "date"})
+    sessions = tuple(pd.to_datetime(evaluation["date"]).dt.date.astype(str))
+    support = signals.support_data or {}
+    policy = support.get("execution_policy")
+    if support.get("mode") == "srt_input_contract":
+        if not isinstance(policy, Mapping) or not isinstance(policy.get("settings"), Mapping):
+            raise ValueError("SRT benchmark evidence has no execution settings")
+        settings = policy["settings"]
+        if policy.get("policy_type") == "FROZEN_RULE":
+            fee_rate = float(settings["capital"]["fee_rate"])
+        elif policy.get("policy_type") == "INTRADAY_OVERLAY":
+            fee_rate = float(settings["one_way_cost"])
+        else:
+            raise ValueError("SRT benchmark evidence has unsupported execution policy")
+    else:
+        resolved = signals.snapshot.resolved_rule
+        if resolved is None:
+            raise ValueError("candidate benchmark evidence requires a resolved rule")
+        if resolved.execution is not None:
+            fee_rate = float(resolved.execution.capital.fee_rate)
+        elif resolved.constituent_moneyflow_intraday is not None:
+            fee_rate = float(resolved.constituent_moneyflow_intraday.one_way_cost)
+        else:
+            raise ValueError("candidate benchmark evidence has no fee rate")
+    empty_trades: tuple[dict[str, Any], ...] = ()
+    prices = _records(evaluation, ("date",))
+    return {
+        "buyhold": BenchmarkEvidence(
+            "BUYHOLD",
+            float(initial_cash),
+            fee_rate,
+            sessions,
+            prices,
+            (),
+            _records(benchmarks.buyhold_account_daily, ("date", "signal_date")),
+            _records(benchmarks.buyhold_orders, ("signal_date", "execution_date")),
+            empty_trades,
+            benchmarks.metrics["buyhold"]["metrics"],
+        ),
+        "ma5_ma20": BenchmarkEvidence(
+            "MA5_MA20",
+            float(initial_cash),
+            fee_rate,
+            sessions,
+            prices,
+            _records(benchmarks.ma_audit_signals, ("date",)),
+            _records(benchmarks.ma_account_daily, ("date", "signal_date")),
+            _records(benchmarks.ma_orders, ("signal_date", "execution_date")),
+            _records(benchmarks.ma_trades, ("entry_date", "exit_date")),
+            benchmarks.metrics["ma5_ma20"]["metrics"],
+        ),
+    }

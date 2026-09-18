@@ -189,6 +189,27 @@ def _validate_reconciliation(
             raise ValueError(f"daily/weekly: {column} relative difference exceeds tolerance")
 
 
+def _validate_manifest_record(
+    filename: str,
+    record: dict[str, object],
+    frame: pd.DataFrame,
+) -> None:
+    try:
+        declared_rows = int(record["rows"])
+        declared_first = pd.Timestamp(str(record["first"]))
+        declared_last = pd.Timestamp(str(record["last"]))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"{filename}: invalid rows/first/last manifest metadata") from exc
+    actual = pd.to_datetime(frame["dt"], errors="coerce")
+    if (
+        len(frame) != declared_rows
+        or actual.isna().any()
+        or actual.min() != declared_first
+        or actual.max() != declared_last
+    ):
+        raise ValueError(f"{filename}: rows/first/last differ from manifest")
+
+
 def load_market_data(
     raw_dir: Path,
     symbol: str = SYMBOL,
@@ -245,6 +266,7 @@ def load_market_data(
             raise ValueError(f"{filename}: SHA-256 differs from manifest")
         hashes[path.name] = digest
         frame = _read_one(path, freq, normalized_symbol)
+        _validate_manifest_record(str(filename), record, frame)
         if cutoff_ts is not None:
             frame = frame.loc[frame["dt"].dt.normalize() <= cutoff_ts].copy()
         if not frame.empty:
@@ -318,6 +340,7 @@ def load_execution_prices(
         if str(record.get("sha256", "")).lower() != digest:
             raise ValueError(f"{filename}: SHA-256 differs from manifest")
         frame = _read_one(path, "daily", normalized_symbol)
+        _validate_manifest_record(str(filename), record, frame)
         if cutoff_ts is not None:
             frame = frame.loc[frame["dt"] <= cutoff_ts].copy()
         if not frame.empty:

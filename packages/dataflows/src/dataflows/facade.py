@@ -22,7 +22,7 @@ from .errors import (
 Provider = Callable[[DataRequest], tuple[pd.DataFrame, Mapping[str, Any]]]
 
 
-def _canonical_frame_sha256(dataframe: pd.DataFrame) -> str:
+def canonical_frame_sha256(dataframe: pd.DataFrame) -> str:
     """Hash dataframe content, column order, dtypes and index deterministically."""
 
     digest = hashlib.sha256()
@@ -122,7 +122,7 @@ class Dataflows:
                 symbol=request.symbol,
                 data_start=data_start,
                 data_cutoff=data_cutoff,
-                content_sha256=_canonical_frame_sha256(frame),
+                content_sha256=canonical_frame_sha256(frame),
                 metadata=metadata,
             )
             return DataResult(DataStatus.READY, frame, identity)

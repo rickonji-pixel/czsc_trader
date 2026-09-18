@@ -87,6 +87,11 @@ from .replay_audit import (
     audit_replay,
     hash_replay_evidence,
 )
+from .benchmark_audit import (
+    BenchmarkAuditResult,
+    BenchmarkEvidence,
+    audit_benchmark_replay,
+)
 from .candidate_readiness import (
     CandidateReadinessDecision,
     CandidateReadinessRequest,
@@ -149,6 +154,7 @@ __all__ = [
     "audit_provisional_champion", "hash_audit_data", "hash_candidate_pool",
     "hash_execution_evidence", "hash_return_matrix",
     "ReplayAuditResult", "ReplayEvidence", "audit_replay", "hash_replay_evidence",
+    "BenchmarkAuditResult", "BenchmarkEvidence", "audit_benchmark_replay",
     "CandidateReadinessDecision", "CandidateReadinessRequest",
     "CandidateReadinessResult", "assess_research_candidate",
     "BenchmarkChallengeDecision", "BenchmarkChallengeRequest",

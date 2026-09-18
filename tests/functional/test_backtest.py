@@ -21,6 +21,7 @@ from czsc_trader.backtesting.causal_feature_gate_replay import (
 )
 from czsc_trader.backtesting.strategy_source import resolve_candidate_snapshot
 from czsc_trader.identity import canonical_json_sha256
+from czsc_trader.generation_integrity import file_sha256
 from czsc_trader.backtesting.execution_replay import replay_account
 from czsc_trader.backtesting.signal_replay import replay_signals
 from czsc_trader.backtesting.audit_adapter import build_replay_evidence
@@ -116,6 +117,11 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     tampered = audit_replay(replace(evidence, account_daily=tuple(corrupted)))
     assert tampered.status is AuditStatus.FAIL
     assert "ACCOUNT_LEDGER_MISMATCH" in tampered.reason_codes
+    omitted = audit_replay(
+        replace(evidence, account_daily=evidence.account_daily[:2] + evidence.account_daily[3:])
+    )
+    assert omitted.status is AuditStatus.FAIL
+    assert "INCOMPLETE_ACCOUNT_SESSION_COVERAGE" in omitted.reason_codes
     bad_metrics = audit_replay(replace(evidence, metrics={**evidence.metrics, "return": 9}))
     assert "METRIC_MISMATCH" in bad_metrics.reason_codes
 
@@ -508,6 +514,7 @@ def test_ft_t03_s003_intraday_overlay_replays_frozen_candidate_contract() -> Non
     ).all()
     assert audit["status"] == "PASS"
     assert set(audit["checks"]) == {
+        "EVALUATION_SESSION_COVERAGE",
         "INTRADAY_ORDER_CONTRACT",
         "INTRADAY_CHECKPOINT_PRICES",
         "T_PLUS_ONE_CORE_ROTATION_LEDGER",
@@ -726,6 +733,19 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
         .replace("588080", "159352"),
         encoding="utf-8",
     )
+    generalized_generation = source_root / "159352_strategy_generation.json"
+    generation = json.loads(generalized_generation.read_text(encoding="utf-8"))
+    generation["symbol"] = "159352.SZ"
+    generation["files"] = {
+        path.name: file_sha256(path)
+        for path in source_root.iterdir()
+        if path.is_file()
+        and path.name != generalized_generation.name
+        and (path.name.startswith("159352") or path.name.startswith("srt_s001_v1"))
+    }
+    generalized_generation.write_text(
+        json.dumps(generation, indent=2) + "\n", encoding="utf-8"
+    )
     generalized = invoke_main(
         [
             "backtest", "run",
@@ -785,6 +805,25 @@ def test_backtest_rejects_false_success_beyond_published_session(
         },
     }
     assert list((functional_repo / "outputs").iterdir()) == []
+
+
+def test_backtest_historical_window_remains_valid_after_dataset_advances(
+    functional_repo: Path, capsys
+) -> None:
+    payload = invoke_main(
+        [
+            "backtest", "run",
+            "--strategy", "S001", "--strategy-version", "v1",
+            "--dataset", "backtest", "--symbol", "588080.SH", "--asset", "etf",
+            "--start", "2026-06-25", "--end", "2026-08-31", "--init-cash", "100000",
+            "--outputs-root", str(functional_repo / "outputs"),
+            "--repo-root", str(functional_repo),
+        ],
+        capsys,
+    )
+
+    assert payload["status"] == "PASS"
+    assert payload["result"]["audit_status"] == "PASS"
 
 
 def test_replay_data_maps_non_trading_cutoff_to_last_published_session(

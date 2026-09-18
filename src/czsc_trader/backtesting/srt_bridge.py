@@ -9,6 +9,7 @@ from pathlib import Path
 from collections.abc import Mapping
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
 from strategy_runtime import (
     DeploymentSpec,
@@ -16,6 +17,7 @@ from strategy_runtime import (
     StrategyLoader,
     StrategyRelease,
     StrategyRunner,
+    RuntimeContractError,
     effective_target_order_type,
     read_publication,
 )
@@ -25,6 +27,44 @@ from .datasets import ReplayData
 from .models import StrategySnapshot
 from .result import BacktestResult
 from .signal_replay import SignalReplay
+from czsc_trader.generation_integrity import validate_strategy_generation
+
+
+def _validate_historical_decisions(
+    history: pd.DataFrame,
+    required_sessions: pd.DatetimeIndex,
+) -> None:
+    """Reject incomplete historical outputs before absence becomes HOLD or NO_EVENT."""
+
+    if not isinstance(history.index, pd.DatetimeIndex):
+        raise RuntimeContractError("SRT historical decisions must use a DatetimeIndex")
+    normalized = pd.DatetimeIndex(pd.to_datetime(history.index).normalize(), name="dt")
+    if normalized.has_duplicates or not normalized.is_monotonic_increasing:
+        raise RuntimeContractError("SRT historical decision sessions are invalid")
+    normalized_history = history.copy()
+    normalized_history.index = normalized
+    missing = required_sessions.difference(normalized_history.index)
+    if not missing.empty:
+        raise RuntimeContractError(
+            "SRT historical decisions do not cover required sessions: "
+            f"missing={[item.date().isoformat() for item in missing]}"
+        )
+    visible = normalized_history.reindex(required_sessions)
+    if "target_position" not in visible:
+        raise RuntimeContractError("SRT historical decisions have no target_position")
+    target = pd.to_numeric(visible["target_position"], errors="coerce")
+    if target.isna().any() or not target.between(0.0, 1.0).all():
+        raise RuntimeContractError(
+            "SRT historical target_position contains unavailable or invalid values"
+        )
+    for column in visible.columns:
+        if column == "target_position" or not pd.api.types.is_numeric_dtype(visible[column]):
+            continue
+        values = pd.to_numeric(visible[column], errors="coerce")
+        if values.isna().any() or not np.isfinite(values.to_numpy(dtype=float)).all():
+            raise RuntimeContractError(
+                f"SRT historical decision field is unavailable: {column}"
+            )
 
 
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -131,6 +171,14 @@ def build_srt_signal_replay(
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
     publication = read_publication(replay_data.root, release.release_id)
+    if replay_data.dataset == "backtest":
+        validate_strategy_generation(
+            replay_data.root,
+            symbol=replay_data.adjusted.symbol,
+            asset_type=replay_data.adjusted.asset_type,
+            dataset=replay_data.dataset,
+            release_id=release.release_id,
+        )
     StrategyRunner.validate_publication(strategy, publication)
     if pd.Timestamp(publication.requested_cutoff) < evaluation[-1]:
         raise ValueError(
@@ -143,6 +191,7 @@ def build_srt_signal_replay(
     history = strategy.calculate_history(inputs, sessions)
     first_location = int(sessions.get_loc(evaluation[0]))
     visible = sessions[max(0, first_location - 1) : int(sessions.get_loc(evaluation[-1])) + 1]
+    _validate_historical_decisions(history, visible)
     next_sessions = pd.Series(sessions[1:], index=sessions[:-1])
     rows: list[dict[str, object]] = []
     output_kind = strategy.definition.decision.output_kind
@@ -184,6 +233,12 @@ def build_srt_signal_replay(
                 record["confirmation_score"] = float(row["confirmation_score"])
             record["regime"] = row.get("regime")
             rows.append(record)
+        rows = [
+            row
+            for row in rows
+            if not pd.isna(row["valid_session"])
+            and pd.Timestamp(row["valid_session"]) in evaluation
+        ]
         chart_data = pd.DataFrame(
             {
                 "date": visible,

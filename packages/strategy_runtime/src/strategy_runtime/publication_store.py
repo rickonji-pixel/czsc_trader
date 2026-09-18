@@ -10,7 +10,13 @@ import re
 from typing import Any
 
 import pandas as pd
-from dataflows import DataIdentity, DataRequest, DataResult, DataStatus
+from dataflows import (
+    DataIdentity,
+    DataRequest,
+    DataResult,
+    DataStatus,
+    canonical_frame_sha256,
+)
 
 from .errors import RuntimeContractError
 from .models import PublicationStatus, PublishedStrategyData
@@ -73,10 +79,12 @@ def write_publication(publication: PublishedStrategyData, directory: Path) -> Pa
             index=False,
             compression={"method": "gzip", "compresslevel": 6, "mtime": 0},
         )
+        stored_frame = pd.read_csv(path)
         identity = result.identity
         inputs[name] = {
             "file": filename,
             "file_sha256": _file_sha256(path),
+            "stored_content_sha256": canonical_frame_sha256(stored_frame),
             "request": {
                 "dataset": str(request.dataset),
                 "symbol": request.symbol,
@@ -97,7 +105,7 @@ def write_publication(publication: PublishedStrategyData, directory: Path) -> Pa
             },
         }
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "release_id": publication.release_id,
         "release_hash": publication.release_hash,
         "status": publication.status.value,
@@ -123,7 +131,7 @@ def read_publication(directory: Path, release_id: str) -> PublishedStrategyData:
         raise RuntimeContractError(f"cannot read SRT publication: {exc}") from exc
     if (
         not isinstance(manifest, dict)
-        or manifest.get("schema_version") != 1
+        or manifest.get("schema_version") not in {1, 2}
         or manifest.get("release_id") != release_id
         or manifest.get("status") != PublicationStatus.READY.value
     ):
@@ -155,6 +163,16 @@ def read_publication(directory: Path, release_id: str) -> PublishedStrategyData:
         request = DataRequest(**request_value)
         identity = DataIdentity(**identity_value)
         frame = pd.read_csv(path)
+        stored_content_sha256 = raw.get("stored_content_sha256")
+        if manifest.get("schema_version") == 2:
+            if not isinstance(stored_content_sha256, str):
+                raise RuntimeContractError(
+                    f"stored SRT publication has no content identity: {filename}"
+                )
+            if canonical_frame_sha256(frame) != stored_content_sha256:
+                raise RuntimeContractError(
+                    f"stored SRT publication content identity differs: {filename}"
+                )
         results[name] = DataResult(DataStatus.READY, frame, identity)
         requests[name] = request
     return PublishedStrategyData(

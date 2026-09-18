@@ -4,18 +4,154 @@ import json
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.data_service import (
     UpdateBacktestDataCommand,
     _assert_append_only,
+    _commit_generation,
     _initial_backtest_start,
+    _verify_committed_generation,
     update_backtest_data,
 )
+from czsc_trader.generation_integrity import file_sha256, validate_strategy_generation
+from czsc_trader.market_data_prep import validate_market_frames
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_market_publication_rejects_coherently_missing_open_session() -> None:
+    sessions = pd.to_datetime(["2026-01-05", "2026-01-07"])
+    intraday_rows: list[dict[str, object]] = []
+    for offset, session in enumerate(sessions):
+        for clock in ("10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00"):
+            price = 1.0 + offset * 0.1
+            intraday_rows.append(
+                {
+                    "Date": pd.Timestamp(f"{session.date()} {clock}"),
+                    "Open": price,
+                    "High": price,
+                    "Low": price,
+                    "Close": price,
+                    "Volume": 10.0,
+                    "Amount": 10.0 * price,
+                }
+            )
+    intraday = pd.DataFrame(intraday_rows)
+    daily = pd.DataFrame(
+        {
+            "Date": sessions,
+            "Open": [1.0, 1.1],
+            "High": [1.0, 1.1],
+            "Low": [1.0, 1.1],
+            "Close": [1.0, 1.1],
+            "Volume": [80.0, 80.0],
+            "Amount": [80.0, 88.0],
+        }
+    )
+    weekly = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2026-01-07")],
+            "Open": [1.0],
+            "High": [1.1],
+            "Low": [1.0],
+            "Close": [1.1],
+            "Volume": [160.0],
+            "Amount": [168.0],
+        }
+    )
+    calendar = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2026-01-05", "2026-01-06", "2026-01-07"]),
+            "IsOpen": [1, 1, 1],
+        }
+    )
+
+    with pytest.raises(ValueError, match=r"missing=\['2026-01-06'\]"):
+        validate_market_frames(intraday, daily, weekly, daily, calendar)
+
+
+def test_generation_marker_rejects_modified_bound_file(tmp_path: Path) -> None:
+    data = tmp_path / "588080_daily_2026.csv"
+    data.write_text("date,close\n2026-01-05,1\n", encoding="utf-8")
+    marker = {
+        "schema_version": 1,
+        "generation_id": "GEN-TEST",
+        "dataset": "backtest",
+        "symbol": "588080.SH",
+        "asset_type": "etf",
+        "data_cutoff": "2026-01-05",
+        "strategy_releases": ["S007-v1"],
+        "files": {data.name: file_sha256(data)},
+    }
+    (tmp_path / "588080_strategy_generation.json").write_text(
+        json.dumps(marker), encoding="utf-8"
+    )
+    validate_strategy_generation(
+        tmp_path,
+        symbol="588080.SH",
+        asset_type="etf",
+        dataset="backtest",
+    )
+
+    data.write_text("date,close\n2026-01-05,2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="hash differs"):
+        validate_strategy_generation(
+            tmp_path,
+            symbol="588080.SH",
+            asset_type="etf",
+            dataset="backtest",
+        )
+
+
+def test_generation_commit_rolls_back_when_post_publish_verification_fails(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target"
+    staging = tmp_path / "staging"
+    target.mkdir()
+    staging.mkdir()
+    current = target / "588080_manifest.json"
+    proposed = staging / current.name
+    current.write_text("old", encoding="utf-8")
+    proposed.write_text("new", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="post-publish verification failed"):
+        _commit_generation(
+            staging,
+            target,
+            [proposed],
+            append_only=False,
+            code="588080",
+            verify=lambda: (_ for _ in ()).throw(
+                ValueError("post-publish verification failed")
+            ),
+        )
+
+    assert current.read_text(encoding="utf-8") == "old"
+
+
+def test_committed_generation_is_reloaded_through_market_and_srt_contracts(
+    functional_repo: Path,
+) -> None:
+    from strategy_manager import StrategyRegistry
+    from strategy_runtime import StrategyLoader, StrategyRelease
+
+    version = StrategyRegistry(functional_repo / "strategies").get_version("S001", "v1")
+    strategy = StrategyLoader().load(StrategyRelease.from_mapping(version.to_dict()))
+
+    _verify_committed_generation(
+        functional_repo / "data" / "backtest",
+        symbol="588080.SH",
+        asset_type="etf",
+        dataset="backtest",
+        release_id="S001-v1",
+        strategy=strategy,
+        data_cutoff="2026-09-02",
+    )
 
 
 def test_cross_sectional_history_is_append_only_by_date_and_symbol(tmp_path: Path) -> None:
@@ -84,7 +220,7 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
     def fake_market_data(symbol, asset_type, start, through, staging, **_kwargs):
         assert (symbol, asset_type) == ("510500.SH", "etf")
         (staging / "510500_manifest.json").write_text("{}", encoding="utf-8")
-        return {"manifest": "market-manifest"}
+        return {"manifest": "market-manifest", "data_cutoff": through.isoformat()}
 
     def fake_intraday_data(symbol, start, through, staging, **_kwargs):
         calls.append((symbol, start, through))
@@ -108,6 +244,10 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
     monkeypatch.setattr(
         "czsc_trader.application.data_service._publish_runtime_history",
         fake_runtime_history,
+    )
+    monkeypatch.setattr(
+        "czsc_trader.application.data_service._verify_committed_generation",
+        lambda *_args, **_kwargs: None,
     )
 
     result = update_backtest_data(
@@ -135,7 +275,7 @@ def test_ft_t03_backtest_publication_uses_srt_inputs_without_legacy_support(
 
     def fake_market_data(_symbol, _asset, _start, _through, staging, **_kwargs):
         (staging / "588080_manifest.json").write_text("{}", encoding="utf-8")
-        return {"manifest": "market-manifest"}
+        return {"manifest": "market-manifest", "data_cutoff": _through.isoformat()}
 
     def fake_runtime_history(_context, *, strategy, staging, through, **_kwargs):
         (staging / "srt_s007_v1_adjusted_daily.csv.gz").write_text(
@@ -156,6 +296,10 @@ def test_ft_t03_backtest_publication_uses_srt_inputs_without_legacy_support(
     monkeypatch.setattr(
         "czsc_trader.application.data_service._publish_runtime_history",
         fake_runtime_history,
+    )
+    monkeypatch.setattr(
+        "czsc_trader.application.data_service._verify_committed_generation",
+        lambda *_args, **_kwargs: None,
     )
 
     result = update_backtest_data(

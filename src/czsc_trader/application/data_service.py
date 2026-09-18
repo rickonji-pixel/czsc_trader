@@ -6,8 +6,10 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import shutil
+from collections.abc import Callable
 
-from czsc_trader.data import load_market_data
+from czsc_trader.data import load_execution_prices, load_market_data
+from czsc_trader.generation_integrity import file_sha256, validate_strategy_generation
 from czsc_trader.temp_workspace import create_temporary_directory
 
 from .context import RepositoryContext
@@ -234,7 +236,12 @@ def _publish_runtime_history(
 
 
 def _generation_id(
-    *, symbol: str, asset_type: str, data_cutoff: str, releases: tuple[str, ...], files: list[Path],
+    *,
+    symbol: str,
+    asset_type: str,
+    data_cutoff: str,
+    releases: tuple[str, ...],
+    file_hashes: dict[str, str],
 ) -> str:
     digest = sha256()
     digest.update(symbol.encode("utf-8"))
@@ -242,9 +249,9 @@ def _generation_id(
     digest.update(data_cutoff.encode("utf-8"))
     for value in releases:
         digest.update(value.encode("utf-8"))
-    for path in sorted(files, key=lambda item: item.name):
-        digest.update(path.name.encode("utf-8"))
-        digest.update(path.read_bytes())
+    for filename, value in sorted(file_hashes.items()):
+        digest.update(filename.encode("utf-8"))
+        digest.update(value.encode("ascii"))
     return f"GEN-{digest.hexdigest()[:16].upper()}"
 
 
@@ -255,6 +262,7 @@ def _commit_generation(
     *,
     append_only: bool,
     code: str,
+    verify: Callable[[], None] | None = None,
 ) -> None:
     """Replace one fully-built generation, restoring the previous one on failure."""
     if append_only:
@@ -294,6 +302,8 @@ def _commit_generation(
                 moved.append((destination, saved))
             source.replace(destination)
             published.append(destination)
+        if verify is not None:
+            verify()
     except Exception:
         for destination in reversed(published):
             destination.unlink(missing_ok=True)
@@ -301,6 +311,42 @@ def _commit_generation(
             if saved.exists():
                 saved.replace(destination)
         raise
+
+
+def _verify_committed_generation(
+    target: Path,
+    *,
+    symbol: str,
+    asset_type: str,
+    dataset: str,
+    release_id: str,
+    strategy,
+    data_cutoff: str,
+) -> None:
+    import pandas as pd
+    from strategy_runtime import StrategyRunner, read_publication
+
+    validate_strategy_generation(
+        target,
+        symbol=symbol,
+        asset_type=asset_type,
+        dataset=dataset,
+        release_id=release_id,
+    )
+    market = load_market_data(target, symbol, asset_type)
+    execution = load_execution_prices(target, symbol, asset_type)
+    market_sessions = pd.DatetimeIndex(pd.to_datetime(market.daily["dt"]).dt.normalize())
+    execution_sessions = pd.DatetimeIndex(
+        pd.to_datetime(execution["dt"]).dt.normalize()
+    )
+    if not market_sessions.equals(execution_sessions):
+        raise ValueError("committed adjusted and execution daily sessions differ")
+    committed = read_publication(target, release_id)
+    StrategyRunner.validate_publication(strategy, committed)
+    if committed.requested_cutoff != data_cutoff:
+        raise ValueError(
+            "committed SRT publication cutoff differs from market data cutoff"
+        )
 
 
 def _publish_strategy_generation(
@@ -346,15 +392,67 @@ def _publish_strategy_generation(
             staging=staging,
         )
 
-        data_cutoff = str(summary.get("data_cutoff") or through.isoformat())
+        raw_data_cutoff = summary.get("data_cutoff")
+        if not isinstance(raw_data_cutoff, str) or not raw_data_cutoff.strip():
+            raise ValueError("market data publication did not declare a data cutoff")
+        data_cutoff = raw_data_cutoff
         if runtime_publication["requested_cutoff"] != data_cutoff:
             raise ValueError("SRT publication cutoff differs from market data cutoff")
         files = [path for path in staging.iterdir() if path.is_file()]
-        releases = (strategy.definition.release_id,)
+        current_release = strategy.definition.release_id
+        previous_marker = target / f"{code}_strategy_generation.json"
+        if previous_marker.is_file():
+            validate_strategy_generation(
+                target,
+                symbol=symbol,
+                asset_type=asset_type,
+                dataset=dataset,
+            )
+        previous = (
+            json.loads(previous_marker.read_text(encoding="utf-8"))
+            if previous_marker.is_file()
+            else {}
+        )
+        prior_releases = {
+            str(item)
+            for item in previous.get("strategy_releases", [])
+            if str(item) != current_release
+        }
+        releases = tuple(sorted({current_release, *prior_releases}))
+        staged_names = {path.name for path in files}
+        file_hashes: dict[str, str] = {
+            path.name: file_sha256(path) for path in files
+        }
+        previous_files = previous.get("files", {})
+        if isinstance(previous_files, dict):
+            for filename, expected in previous_files.items():
+                if filename in staged_names or filename == previous_marker.name:
+                    continue
+                source = target / str(filename)
+                if not source.is_file():
+                    raise ValueError(
+                        f"previous generation file is missing: {filename}"
+                    )
+                actual = file_sha256(source)
+                if actual != str(expected).lower():
+                    raise ValueError(
+                        f"previous generation file hash differs: {filename}"
+                    )
+                file_hashes[str(filename)] = actual
         generation_id = _generation_id(
             symbol=symbol.upper(), asset_type=asset_type, data_cutoff=data_cutoff,
-            releases=releases, files=files,
+            releases=releases, file_hashes=file_hashes,
         )
+        prior_contracts = [
+            item
+            for item in previous.get("data_contracts", [])
+            if isinstance(item, dict) and item.get("release_id") != current_release
+        ]
+        prior_publications = [
+            item
+            for item in previous.get("runtime_publications", [])
+            if isinstance(item, dict) and item.get("release_id") != current_release
+        ]
         generation = {
             "schema_version": 1,
             "generation_id": generation_id,
@@ -363,20 +461,31 @@ def _publish_strategy_generation(
             "asset_type": asset_type,
             "data_cutoff": data_cutoff,
             "strategy_releases": list(releases),
-            "data_contracts": [contract],
-            "runtime_publications": [runtime_publication],
-            "files": {
-                path.name: sha256(path.read_bytes()).hexdigest()
-                for path in sorted(files, key=lambda item: item.name)
-            },
+            "data_contracts": [*prior_contracts, contract],
+            "runtime_publications": [*prior_publications, runtime_publication],
+            "files": dict(sorted(file_hashes.items())),
         }
         generation_path = staging / f"{code}_strategy_generation.json"
         generation_path.write_text(
             json.dumps(generation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         files.append(generation_path)
+
         _commit_generation(
-            staging, target, files, append_only=append_only, code=code,
+            staging,
+            target,
+            files,
+            append_only=append_only,
+            code=code,
+            verify=lambda: _verify_committed_generation(
+                target,
+                symbol=symbol,
+                asset_type=asset_type,
+                dataset=dataset,
+                release_id=current_release,
+                strategy=strategy,
+                data_cutoff=data_cutoff,
+            ),
         )
     except Exception as exc:
         raise ValidationError(

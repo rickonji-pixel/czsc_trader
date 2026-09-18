@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
+import json
 
 import pandas as pd
 import pytest
@@ -14,6 +15,7 @@ from strategy_runtime import (
     StrategyRelease,
     write_publication,
 )
+from czsc_trader.generation_integrity import file_sha256
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -85,6 +87,30 @@ def _publish_s001_fixture(root: Path) -> None:
         results,
     )
     write_publication(publication, data_root)
+    files = {
+        path.name: file_sha256(path)
+        for path in data_root.iterdir()
+        if path.is_file() and path.name != "588080_strategy_generation.json"
+    }
+    (data_root / "588080_strategy_generation.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generation_id": "GEN-FUNCTIONAL-S001",
+                "dataset": "backtest",
+                "symbol": "588080.SH",
+                "asset_type": "etf",
+                "data_cutoff": cutoff.isoformat(),
+                "strategy_releases": ["S001-v1"],
+                "data_contracts": [],
+                "runtime_publications": [],
+                "files": files,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 @pytest.fixture

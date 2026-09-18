@@ -16,6 +16,7 @@ from czsc_trader.data import (
     load_market_data,
 )
 from czsc_trader.intraday_data import load_intraday_research_data
+from czsc_trader.generation_integrity import validate_strategy_generation
 
 
 DatasetName = Literal["research", "backtest"]
@@ -189,6 +190,13 @@ def load_replay_data(
     if dataset not in {"research", "backtest"}:
         raise ValueError(f"unknown replay dataset: {dataset}")
     root = context.research_data_root if dataset == "research" else context.backtest_data_root
+    if dataset == "backtest":
+        validate_strategy_generation(
+            root,
+            symbol=symbol,
+            asset_type=asset_type,
+            dataset=dataset,
+        )
     published_cutoff, next_session = _published_execution_boundary(
         root, symbol, asset_type
     )

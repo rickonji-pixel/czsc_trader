@@ -8,7 +8,7 @@ from .errors import (
     IncompleteDataError,
     SourceNotReadyError,
 )
-from .facade import Dataflows
+from .facade import Dataflows, canonical_frame_sha256
 
 __all__ = [
     "DataContractError",
@@ -23,4 +23,5 @@ __all__ = [
     "EmptyDataError",
     "IncompleteDataError",
     "SourceNotReadyError",
+    "canonical_frame_sha256",
 ]

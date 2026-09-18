@@ -37,6 +37,9 @@ ExecutionPriceFetcher: TypeAlias = Callable[
 ]
 InstrumentNameFetcher: TypeAlias = Callable[[str, str], str]
 CalendarFetcher: TypeAlias = Callable[[date], tuple[date, dict[str, str]]]
+SessionCalendarFetcher: TypeAlias = Callable[
+    [date, date], tuple[pd.DataFrame, dict[str, object]]
+]
 
 
 def _normalize_symbol(symbol: str) -> tuple[str, str]:
@@ -86,6 +89,8 @@ def validate_market_frames(
     intraday: pd.DataFrame,
     daily: pd.DataFrame,
     weekly: pd.DataFrame,
+    execution_daily: pd.DataFrame | None = None,
+    trading_calendar: pd.DataFrame | None = None,
 ) -> dict[str, object]:
     """Validate complete A-share sessions and reconcile all three frequencies."""
     intraday = _normalize_frame(intraday, "30m")
@@ -132,6 +137,44 @@ def validate_market_frames(
         intraday_daily["Amount"], daily_indexed["Amount"], AMOUNT_RELATIVE_TOLERANCE
     ):
         raise ValueError("30m/daily reconciliation: Amount differs")
+
+    if execution_daily is not None:
+        execution = _normalize_frame(execution_daily, "execution daily")
+        execution_dates = pd.DatetimeIndex(execution["Date"].dt.normalize())
+        if not execution_dates.equals(pd.DatetimeIndex(daily_indexed.index)):
+            raise ValueError("adjusted/execution daily reconciliation: trade dates differ")
+
+    calendar_sessions: pd.DatetimeIndex | None = None
+    if trading_calendar is not None:
+        required = {"Date", "IsOpen"}
+        missing = sorted(required.difference(trading_calendar.columns))
+        if missing:
+            raise ValueError(f"trading calendar: missing columns {missing}")
+        calendar = trading_calendar.loc[:, ["Date", "IsOpen"]].copy()
+        calendar["Date"] = pd.to_datetime(calendar["Date"], errors="coerce").dt.normalize()
+        calendar["IsOpen"] = pd.to_numeric(calendar["IsOpen"], errors="coerce")
+        if calendar.isna().any().any():
+            raise ValueError("trading calendar: invalid dates or open flags")
+        if calendar["Date"].duplicated().any():
+            raise ValueError("trading calendar: duplicate dates")
+        if not calendar["Date"].is_monotonic_increasing:
+            raise ValueError("trading calendar: dates are not increasing")
+        observed = pd.DatetimeIndex(daily_indexed.index)
+        calendar_sessions = pd.DatetimeIndex(
+            calendar.loc[
+                calendar["IsOpen"].astype(int).eq(1)
+                & calendar["Date"].between(observed[0], observed[-1]),
+                "Date",
+            ]
+        )
+        if not observed.equals(calendar_sessions):
+            missing_sessions = calendar_sessions.difference(observed)
+            unexpected_sessions = observed.difference(calendar_sessions)
+            raise ValueError(
+                "daily/trading calendar reconciliation: trade dates differ; "
+                f"missing={[item.date().isoformat() for item in missing_sessions]}, "
+                f"unexpected={[item.date().isoformat() for item in unexpected_sessions]}"
+            )
 
     daily_weekly = (
         daily.assign(_week=daily["Date"].dt.to_period("W-SUN"))
@@ -180,6 +223,9 @@ def validate_market_frames(
             "price_tolerance": PRICE_TOLERANCE,
             "volume_relative_tolerance": VOLUME_RELATIVE_TOLERANCE,
             "amount_relative_tolerance": AMOUNT_RELATIVE_TOLERANCE,
+            "calendar_matched_sessions": (
+                int(len(calendar_sessions)) if calendar_sessions is not None else None
+            ),
         },
     }
 
@@ -235,6 +281,22 @@ def _default_calendar_fetcher(
     return fetch_next_trading_session(after, env_file=env_file)
 
 
+def _default_session_calendar_fetcher(
+    start: date,
+    end: date,
+    *,
+    env_file: str | Path | None = None,
+) -> tuple[pd.DataFrame, dict[str, object]]:
+    from dataflows.tushare_strategy_data import fetch_trading_calendar
+
+    return fetch_trading_calendar(
+        "SSE",
+        start.isoformat(),
+        end.isoformat(),
+        env_file=env_file,
+    )
+
+
 def _csv_frame(frame: pd.DataFrame, period: str) -> pd.DataFrame:
     source = _normalize_frame(frame, period).rename(
         columns={
@@ -265,6 +327,7 @@ def prepare_market_data(
     execution_fetcher: ExecutionPriceFetcher | None = None,
     name_fetcher: InstrumentNameFetcher | None = None,
     calendar_fetcher: CalendarFetcher | None = None,
+    session_calendar_fetcher: SessionCalendarFetcher | None = None,
     env_file: str | Path | None = None,
 ) -> dict[str, object]:
     """Fetch and publish one fully validated flat market-data generation."""
@@ -349,7 +412,22 @@ def prepare_market_data(
             "factor_source": factor_source,
             "factor_sha256": factor_sha256,
         }
-    validation = validate_market_frames(frames["30m"], frames["daily"], frames["weekly"])
+    normalized_daily = _normalize_frame(frames["daily"], "daily")
+    observed_start = pd.Timestamp(normalized_daily["Date"].min()).date()
+    observed_end = pd.Timestamp(normalized_daily["Date"].max()).date()
+    effective_session_calendar_fetcher = session_calendar_fetcher or partial(
+        _default_session_calendar_fetcher, env_file=env_file
+    )
+    session_calendar, session_calendar_metadata = effective_session_calendar_fetcher(
+        observed_start, observed_end
+    )
+    validation = validate_market_frames(
+        frames["30m"],
+        frames["daily"],
+        frames["weekly"],
+        execution_frame,
+        session_calendar,
+    )
 
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -428,6 +506,7 @@ def prepare_market_data(
             "requested_end": end.isoformat(),
             "next_trading_session": next_session.isoformat(),
             "calendar": calendar_metadata,
+            "session_calendar": session_calendar_metadata,
             "generated_at_utc": generated_at,
             "files": execution_records,
             "fetch_metadata": execution_metadata,

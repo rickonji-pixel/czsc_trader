@@ -26,6 +26,7 @@ class ReplayEvidence(Record):
     strategy_hash: str
     data_hash: str
     initial_cash: float
+    evaluation_sessions: tuple[str, ...]
     execution_spec: Mapping[str, Any]
     decisions: tuple[Mapping[str, Any], ...]
     orders: tuple[Mapping[str, Any], ...]
@@ -76,6 +77,62 @@ def _ceil(price: float, tick: float) -> float:
     )
 
 
+def _session_index(values: tuple[str, ...] | list[str], field_name: str) -> pd.DatetimeIndex:
+    parsed = pd.to_datetime(list(values), errors="coerce")
+    if parsed.isna().any():
+        raise ValueError(f"{field_name} contains invalid sessions")
+    return pd.DatetimeIndex(parsed).normalize()
+
+
+def _audit_session_coverage(
+    evidence: ReplayEvidence,
+    reasons: list[str],
+    checks: list[str],
+    *,
+    sparse_decisions: bool,
+) -> None:
+    try:
+        expected = _session_index(evidence.evaluation_sessions, "evaluation_sessions")
+    except ValueError:
+        reasons.append("INVALID_EVALUATION_SESSIONS")
+        checks.append("EVALUATION_SESSION_COVERAGE")
+        return
+    if expected.empty or expected.has_duplicates or not expected.is_monotonic_increasing:
+        reasons.append("INVALID_EVALUATION_SESSIONS")
+    try:
+        accounts = _session_index(
+            [str(row.get("date", ""))[:10] for row in evidence.account_daily],
+            "account_daily",
+        )
+    except ValueError:
+        accounts = pd.DatetimeIndex([])
+        reasons.append("INVALID_ACCOUNT_INDEX")
+    if not accounts.equals(expected):
+        reasons.append("INCOMPLETE_ACCOUNT_SESSION_COVERAGE")
+    try:
+        execution = _session_index(
+            [str(row.get("date", ""))[:10] for row in evidence.execution_daily],
+            "execution_daily",
+        )
+    except ValueError:
+        execution = pd.DatetimeIndex([])
+        reasons.append("MISSING_EXECUTION_PRICE")
+    if not expected.difference(execution).empty:
+        reasons.append("INCOMPLETE_EXECUTION_SESSION_COVERAGE")
+    if not sparse_decisions and evidence.execution_spec.get("decision_coverage") == "COMPLETE":
+        try:
+            decisions = _session_index(
+                [str(row.get("valid_session", ""))[:10] for row in evidence.decisions],
+                "decisions",
+            )
+        except ValueError:
+            decisions = pd.DatetimeIndex([])
+            reasons.append("INVALID_DECISION_SESSION")
+        if not decisions.equals(expected):
+            reasons.append("INCOMPLETE_DECISION_SESSION_COVERAGE")
+    checks.append("EVALUATION_SESSION_COVERAGE")
+
+
 def _audit_intraday_overlay(
     evidence: ReplayEvidence,
     digest: str,
@@ -84,6 +141,7 @@ def _audit_intraday_overlay(
     """Independently audit a sellable-core intraday rotation replay."""
     reasons: list[str] = []
     checks: list[str] = []
+    _audit_session_coverage(evidence, reasons, checks, sparse_decisions=True)
     spec = evidence.execution_spec
     fee_rate = float(spec["fee_rate"])
     lot_size = int(spec["lot_size"])
@@ -332,6 +390,7 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
         return _audit_intraday_overlay(evidence, digest, tolerance)
     reasons: list[str] = []
     checks: list[str] = []
+    _audit_session_coverage(evidence, reasons, checks, sparse_decisions=False)
     spec = evidence.execution_spec
     instrument = spec["instrument"]
     fee_rate = float(spec["fee_rate"])

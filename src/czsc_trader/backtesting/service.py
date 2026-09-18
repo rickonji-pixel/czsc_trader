@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 
 import pandas as pd
-from strategy_evaluator import AuditStatus, audit_replay
+from strategy_evaluator import AuditStatus, audit_benchmark_replay, audit_replay
 
 from czsc_trader.reporting.publication import publish_run_directory
 from czsc_trader.ma_charting import write_ma_chart
@@ -15,7 +15,7 @@ from czsc_trader.temp_workspace import create_temporary_directory
 
 from .benchmarks import replay_benchmarks
 from .datasets import DatasetName, ReplayData
-from .audit_adapter import build_replay_evidence
+from .audit_adapter import build_benchmark_evidence, build_replay_evidence
 from .chart import render_backtest_chart_html
 from .causal_feature_gate_replay import build_causal_feature_gate_signals
 from .closing_dislocation_replay import build_closing_dislocation_signals
@@ -234,6 +234,22 @@ def run_backtest_v2(
         raise ValueError(f"SE replay audit failed: {', '.join(audited.reason_codes)}")
     audit = audited.to_dict()
     benchmarks = replay_benchmarks(signals, replay_data, request.initial_cash)
+    benchmark_audits = {
+        name: audit_benchmark_replay(evidence)
+        for name, evidence in build_benchmark_evidence(
+            benchmarks, signals, replay_data, request.initial_cash
+        ).items()
+    }
+    failures = {
+        name: result.reason_codes
+        for name, result in benchmark_audits.items()
+        if result.status is not AuditStatus.PASS
+    }
+    if failures:
+        raise ValueError(f"SE benchmark audit failed: {failures}")
+    audit["benchmarks"] = {
+        name: result.to_dict() for name, result in benchmark_audits.items()
+    }
     metrics = {
         "strategy": {
             "reference": snapshot.identity.reference,

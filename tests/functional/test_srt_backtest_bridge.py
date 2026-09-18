@@ -16,6 +16,22 @@ from strategy_runtime import (
 
 from czsc_trader.backtesting.channel import BacktestChannel
 from czsc_trader.backtesting.models import StrategyIdentity
+from czsc_trader.backtesting.srt_bridge import _validate_historical_decisions
+
+
+def test_srt_history_rejects_missing_required_score_instead_of_silent_hold() -> None:
+    sessions = pd.DatetimeIndex(pd.to_datetime(["2026-09-16", "2026-09-17"]), name="dt")
+    history = pd.DataFrame(
+        {
+            "base_score": [0.2, float("nan")],
+            "confirmation_score": [0.1, 0.1],
+            "target_position": [0.0, 0.0],
+        },
+        index=sessions,
+    )
+
+    with pytest.raises(RuntimeContractError, match="base_score"):
+        _validate_historical_decisions(history, sessions)
 
 
 def test_tdr_backtest_channel_refuses_to_finalize_an_unsubmitted_decision() -> None:

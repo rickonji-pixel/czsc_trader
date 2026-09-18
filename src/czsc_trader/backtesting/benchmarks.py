@@ -16,10 +16,12 @@ from .signal_replay import SignalReplay
 class BenchmarkReplay:
     metrics: dict[str, object]
     buyhold_account_daily: pd.DataFrame
+    buyhold_orders: pd.DataFrame
     ma_signals: pd.DataFrame
     ma_orders: pd.DataFrame
     ma_account_daily: pd.DataFrame
     ma_trades: pd.DataFrame
+    ma_audit_signals: pd.DataFrame
 
 
 def _fee_rate(signals: SignalReplay) -> float:
@@ -140,14 +142,21 @@ def replay_benchmarks(
     )
     visible_signals = adjusted_signals.loc[prior_date : signals.evaluation_end].reset_index()
     visible_signals = visible_signals.rename(columns={"dt": "date"})
+    evaluation_start_location = int(adjusted_signals.index.get_loc(evaluation_index[0]))
+    audit_start_location = max(0, evaluation_start_location - 20)
+    ma_audit_signals = adjusted_signals.iloc[
+        audit_start_location : int(adjusted_signals.index.get_loc(evaluation_index[-1])) + 1
+    ].reset_index().rename(columns={"dt": "date"})
     return BenchmarkReplay(
         metrics={
             "buyhold": {"metrics": buyhold_metrics},
             "ma5_ma20": {"metrics": ma_metrics},
         },
         buyhold_account_daily=buyhold_account,
+        buyhold_orders=buyhold.orders,
         ma_signals=visible_signals,
         ma_orders=ma.orders,
         ma_account_daily=ma_account,
         ma_trades=ma_trades,
+        ma_audit_signals=ma_audit_signals,
     )

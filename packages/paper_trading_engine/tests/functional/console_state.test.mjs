@@ -119,16 +119,19 @@ test('virtual account orders show order time and remain newest first', () => {
 });
 
 test('channel summary keeps four core metrics and moves reconciliation into details', () => {
-  const html = channelMarkup({
+  const snapshot = {
     account:{cash:756290.717,total_assets:1002769.617,market_value:246478.9},
     logical_cash:756290.717,logical_total_assets:996212.117,
     cash_difference:0,asset_difference:6557.5,
     strategy_allocated_capital:500000,unallocated_capital:500000,
     reconciliation_account:{cash:'-73.56'},reconciliation_status:'OK',
     accounts:[],orders:[],fills:[],alerts:[],paused:false,
-  });
+  };
+  const html = channelMarkup(snapshot);
   assert.equal((html.match(/class="panel metric"/g)||[]).length,4);
   assert.match(html,/资金对账正常/);
   assert.match(html,/估值口径不同/);
-  assert.match(html,/<summary>查看明细<\/summary>/);
+  assert.match(html,/<summary class="reconciliation-bar">/);
+  assert.match(html,/<span class="reconciliation-trigger">查看明细<\/span>/);
+  assert.match(channelMarkup(snapshot,true),/class="reconciliation-details" open/);
 });

@@ -37,10 +37,12 @@ main{max-width:1500px;margin:0 auto;padding:24px}
 .reconciliation-state span{color:var(--muted)}
 .reconciliation-state.ok strong{color:var(--green)}
 .reconciliation-state.warning strong{color:var(--amber)}
-.reconciliation-details{margin-left:auto;color:var(--muted);font-size:13px}
-.reconciliation-details summary{color:var(--blue);cursor:pointer;text-align:right}
-.reconciliation-details[open]{width:100%;margin-left:0;padding-top:14px;border-top:1px solid var(--line)}
-.reconciliation-detail-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.reconciliation-details{color:var(--muted);font-size:13px}
+.reconciliation-details summary{list-style:none;cursor:pointer}
+.reconciliation-details summary::-webkit-details-marker{display:none}
+.reconciliation-trigger{margin-left:auto;color:var(--blue);white-space:nowrap}
+.reconciliation-details[open] .reconciliation-trigger{color:var(--muted)}
+.reconciliation-detail-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .reconciliation-detail-grid span,.reconciliation-detail-grid strong{display:block}
 .reconciliation-detail-grid strong{margin-top:5px;color:var(--text);font-size:15px}
 .reconciliation-details p{margin:12px 0 0}

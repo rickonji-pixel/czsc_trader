@@ -1007,6 +1007,7 @@ def evaluate_freeze_review(
                 audit_results[audit] = {
                     "status": status,
                     "checks": objectives,
+                    "artifact": "formal_metrics.csv",
                     "evidence_hash": _hash_file(experiment / "artifacts" / "formal_metrics.csv"),
                 }
             elif audit == "frequency_recalculation":
@@ -1014,6 +1015,7 @@ def evaluate_freeze_review(
                 frequency["evidence_hash"] = _hash_file(
                     experiment / "artifacts" / "formal_metrics.csv"
                 )
+                frequency["artifact"] = "formal_metrics.csv"
                 audit_results[audit] = frequency
             elif audit == "runtime_acceptance":
                 audit_results[audit] = _runtime_audit(snapshot, runtime)
@@ -1038,6 +1040,10 @@ def evaluate_freeze_review(
                         "execution_engine": engine,
                         "required_execution_engine": requirement["execution_engine"],
                         "canonical_metric_hash": metric_hash,
+                        "artifact": "evaluation_result.json",
+                        "artifact_hash": _hash_file(
+                            experiment / "artifacts" / "evaluation_result.json"
+                        ),
                         "evidence_hash": canonical_sha256(
                             {
                                 "input_hash": evaluation.result.get("input_hash"),
@@ -1147,6 +1153,35 @@ def evaluate_freeze_review(
     )
 
 
+def _verify_adjudication_evidence(
+    experiment: Path,
+    report: AdjudicationReport,
+    runtime: dict[str, Any],
+) -> None:
+    """Reject a freeze when evidence changed after the TDR adjudication seal."""
+
+    for audit, result in report.audit_results.items():
+        if result.get("status") != "PASS":
+            raise ValueError(f"adjudication audit is not PASS: {audit}")
+        if audit == "runtime_acceptance":
+            if result.get("evidence_hash") != canonical_sha256(runtime):
+                raise ValueError("runtime acceptance changed after adjudication")
+            continue
+        artifact = result.get("artifact")
+        if not isinstance(artifact, str):
+            raise ValueError(f"adjudication audit has no immutable artifact: {audit}")
+        path = experiment / "artifacts" / artifact
+        if not path.is_file():
+            raise ValueError(f"adjudication evidence disappeared: {artifact}")
+        expected = (
+            result.get("artifact_hash")
+            if audit == "technical_replay"
+            else result.get("evidence_hash")
+        )
+        if expected != _hash_file(path):
+            raise ValueError(f"adjudication evidence changed after review: {artifact}")
+
+
 def freeze_review_candidate(
     context: RepositoryContext,
     strategy_id: str,
@@ -1193,6 +1228,17 @@ def freeze_review_candidate(
             raise ValueError("governance credential does not contain an eligible TDR adjudication")
         _submission, snapshot, mandate, _audit_policy = _submission_from_credential(credential)
         _adjudication, report = _adjudication_from_credential(credential)
+        experiment = _experiment_path(context, snapshot.source_experiment)
+        protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
+        _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
+        runtime = _prospective_runtime(registry, snapshot, mandate)
+        runtime["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
+        runtime_audit = _runtime_audit(snapshot, runtime)
+        if runtime_audit.get("status") != "PASS":
+            raise ValueError(
+                f"runtime acceptance differs from candidate: {runtime_audit.get('reason')}"
+            )
+        _verify_adjudication_evidence(experiment, report, runtime)
         if credential.stage is GovernanceStage.TDR_ADJUDICATED:
             human_decision = {
                 "credential_id": credential_id,
@@ -1204,8 +1250,6 @@ def freeze_review_candidate(
                 "reason": reason,
                 "decided_at": _now(),
             }
-            runtime = _prospective_runtime(registry, snapshot, mandate)
-            runtime["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
             credential = registry.append_governance_seal(
                 strategy_id,
                 credential_id,
@@ -1223,8 +1267,14 @@ def freeze_review_candidate(
                     "runtime_acceptance": canonical_sha256(runtime),
                 },
             )
-        experiment = _experiment_path(context, snapshot.source_experiment)
-        _protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
+        else:
+            approval = credential.seals[-1]
+            if (
+                approval.content.get("runtime_acceptance") != runtime
+                or approval.artifact_hashes.get("runtime_acceptance")
+                != canonical_sha256(runtime)
+            ):
+                raise ValueError("approved runtime acceptance changed before freeze")
         metric = _formal_metric(experiment, snapshot.candidate_id)
         evidence = {
             "schema_version": 1,

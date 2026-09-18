@@ -41,13 +41,20 @@ def _read_object(context: RepositoryContext, path: Path) -> dict[str, Any]:
 def _identity(registry: StrategyRegistry, strategy_id: str, version: str) -> dict[str, Any]:
     strategy = registry.get_family(strategy_id)
     release = registry.get_version(strategy_id, version)
+    qualification = registry.current_qualification(strategy_id, version)
+    governance_status = (
+        registry.validate_version_governance(strategy_id, version)
+        if qualification.value in {"PAPER_READY", "LIVE_READY"}
+        else "NOT_DEPLOYABLE"
+    )
     return {
         "strategy_id": strategy.strategy_id,
         "name": strategy.name,
         "version": release.version,
         "release_id": release.release_id,
         "release_hash": release.release_hash,
-        "qualification": registry.current_qualification(strategy_id, version).value,
+        "qualification": qualification.value,
+        "governance_status": governance_status,
     }
 
 

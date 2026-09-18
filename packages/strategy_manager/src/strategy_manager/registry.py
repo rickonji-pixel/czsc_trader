@@ -433,6 +433,125 @@ class StrategyRegistry:
             raise
         return model
 
+    def start_research_batch(
+        self,
+        strategy_id: str,
+        *,
+        research_intent: dict[str, Any],
+        research_state: ResearchState | str,
+        actor: str,
+        reason: str,
+        credential_id: str,
+        credential_content: dict[str, Any],
+        credential_artifact_hashes: dict[str, str] | None = None,
+    ) -> tuple[StrategyFamily, StrategyGovernanceCredential]:
+        """Atomically start another governed research batch for an existing family."""
+
+        actor = require_string(actor, "actor")
+        reason = require_string(reason, "reason")
+        credential_id = require_string(credential_id, "credential_id")
+        if not isinstance(research_intent, dict) or not research_intent:
+            raise ValidationError("research_intent must be a nonempty JSON object")
+        try:
+            next_state = (
+                research_state
+                if isinstance(research_state, ResearchState)
+                else ResearchState(research_state)
+            )
+        except ValueError as exc:
+            raise ValidationError("research_state has unsupported value") from exc
+        if next_state is ResearchState.TERMINATED:
+            raise ValidationError("a new research batch cannot start as TERMINATED")
+        if not isinstance(credential_content, dict) or not credential_content:
+            raise ValidationError("credential_content must be a nonempty object")
+
+        current = self.get_family(strategy_id)
+        credential_path = self._credential_path(strategy_id, credential_id)
+        if credential_path.exists():
+            existing = self.get_governance_credential(strategy_id, credential_id)
+            first = existing.seals[0]
+            if (
+                first.actor == actor
+                and first.content == credential_content
+                and first.artifact_hashes == (credential_artifact_hashes or {})
+            ):
+                return current, existing
+            raise RegistryError(f"governance credential already exists: {credential_id}")
+        for family in self.list_families():
+            if self._credential_path(family.strategy_id, credential_id).exists():
+                raise RegistryError(
+                    f"governance credential id already belongs to {family.strategy_id}: "
+                    f"{credential_id}"
+                )
+
+        updated = replace(
+            current,
+            research_intent=dict(research_intent),
+            research_state=next_state,
+            updated_at=_now(),
+        )
+        seal = self._build_governance_seal(
+            credential_id=credential_id,
+            strategy_id=strategy_id,
+            sequence=1,
+            stage=GovernanceStage.RESEARCH_INITIATED,
+            result=GovernanceResult.OPEN,
+            actor=actor,
+            previous_seal_hash=None,
+            content=credential_content,
+            artifact_hashes=credential_artifact_hashes or {},
+        )
+        event = self._event(
+            "RESEARCH_BATCH_CREATED",
+            strategy_id,
+            None,
+            None,
+            Qualification.RESEARCH,
+            actor,
+            reason,
+            [credential_id, f"FAMILY:{canonical_sha256(updated.to_dict())}"],
+            None,
+        )
+        family_path = self._strategy_dir(strategy_id) / "family.json"
+        lifecycle_path = self._strategy_dir(strategy_id) / "lifecycle.jsonl"
+        family_before = family_path.read_bytes()
+        lifecycle_before = lifecycle_path.read_bytes() if lifecycle_path.exists() else None
+        lifecycle_text = lifecycle_before.decode("utf-8") if lifecycle_before else ""
+        snapshots = [
+            (family_path, family_before),
+            (lifecycle_path, lifecycle_before),
+            (credential_path, None),
+        ]
+        try:
+            self._atomic_write(family_path, _canonical_json(updated.to_dict()), family_before)
+            self._atomic_write(
+                lifecycle_path,
+                lifecycle_text
+                + json.dumps(
+                    event.to_dict(),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                lifecycle_before,
+            )
+            self._atomic_write(
+                credential_path,
+                json.dumps(
+                    seal.to_dict(),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                None,
+            )
+        except Exception:
+            self._restore_files(snapshots)
+            raise
+        return updated, StrategyGovernanceCredential.from_seals((seal,))
+
     def update_family(
         self,
         strategy_id: str,
@@ -1564,7 +1683,104 @@ class StrategyRegistry:
             raise InvalidTransitionError(
                 f"{strategy_id}-{version} is not deployable to {environment}: {qualification.value}"
             )
-        return self.get_version(strategy_id, version)
+        release = self.get_version(strategy_id, version)
+        self.validate_version_governance(strategy_id, version)
+        return release
+
+    def validate_version_governance(self, strategy_id: str, version: str) -> str:
+        """Prove that one frozen release has a valid current or legacy governance identity."""
+
+        release = self.get_version(strategy_id, version)
+        if not release.release_hash:
+            raise EvidenceRequiredError("strategy version is not frozen")
+        if release.schema_version != 3:
+            accepted = [
+                item
+                for item in self.lifecycle_events(strategy_id)
+                if item.version == version
+                and item.event_type == "LEGACY_GOVERNANCE_ACCEPTED"
+                and item.release_hash == release.release_hash
+                and "TDR_GOVERNANCE_V2" in item.evidence_ids
+            ]
+            if len(accepted) != 1:
+                raise EvidenceRequiredError(
+                    f"legacy strategy version has no unique governance acceptance: "
+                    f"{release.release_id}"
+                )
+            return "LEGACY_GOVERNANCE_ACCEPTED"
+
+        governance = release.governance
+        if not isinstance(governance, dict):
+            raise EvidenceRequiredError("strategy version has no governance identity")
+        credential_id = governance.get("credential_id")
+        if not isinstance(credential_id, str):
+            raise EvidenceRequiredError("strategy version has no governance credential id")
+        credential = self.get_governance_credential(strategy_id, credential_id)
+        if credential.stage is not GovernanceStage.VERSION_FROZEN:
+            raise EvidenceRequiredError("strategy governance credential is not frozen")
+        final = credential.seals[-1]
+        submission = next(
+            seal
+            for seal in reversed(credential.seals)
+            if seal.stage is GovernanceStage.CANDIDATE_SUBMITTED
+        )
+        adjudication = next(
+            seal
+            for seal in reversed(credential.seals)
+            if seal.stage is GovernanceStage.TDR_ADJUDICATED
+        )
+        approval = next(
+            seal
+            for seal in reversed(credential.seals)
+            if seal.stage is GovernanceStage.FREEZE_APPROVED
+        )
+        snapshot = CandidateSnapshot.from_dict(
+            dict(submission.content["candidate_snapshot"])
+        )
+        mandate = EvaluationMandate.from_dict(
+            dict(submission.content["evaluation_mandate"])
+        )
+        report = AdjudicationReport.from_dict(
+            dict(adjudication.content["adjudication_report"])
+        )
+        expected_governance = {
+            "credential_id": credential_id,
+            "candidate_submission_seal_hash": submission.seal_hash,
+            "adjudication_seal_hash": adjudication.seal_hash,
+            "approval_seal_hash": approval.seal_hash,
+            "candidate_snapshot_hash": canonical_sha256(snapshot.to_dict()),
+            "evaluation_mandate_hash": mandate.mandate_hash,
+            "adjudication_report_hash": report.report_hash,
+        }
+        evidence_id = final.content.get("evidence_id")
+        matching_evidence = [
+            item for item in self.evidence(strategy_id, version)
+            if item.evidence_id == evidence_id
+        ]
+        events = [
+            item for item in self.lifecycle_events(strategy_id)
+            if item.version == version
+            and item.event_type == "VERSION_FROZEN"
+            and credential_id in item.evidence_ids
+            and item.release_hash == release.release_hash
+        ]
+        if (
+            final.content.get("release_id") != release.release_id
+            or final.content.get("release_hash") != release.release_hash
+            or final.content.get("version_record_hash")
+            != canonical_sha256(release.to_dict())
+            or release.governance != expected_governance
+            or len(matching_evidence) != 1
+            or len(events) != 1
+            or final.artifact_hashes.get("strategy_version")
+            != canonical_sha256(release.to_dict())
+            or final.artifact_hashes.get("research_evidence")
+            != canonical_sha256(matching_evidence[0].to_dict())
+        ):
+            raise EvidenceRequiredError(
+                f"frozen credential and strategy version differ: {credential_id}"
+            )
+        return "SGC_VALIDATED"
 
     def validate_all(self) -> dict[str, int]:
         strategies = self.list_families()

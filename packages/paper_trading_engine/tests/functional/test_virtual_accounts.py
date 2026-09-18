@@ -27,6 +27,33 @@ def create_account(store, account_id, version, marker):
     )
 
 
+def test_ft_pte01_strategy_account_requires_governance_identity(monkeypatch, tmp_path):
+    payload = {
+        "status": "PASS",
+        "result": {
+            "strategy_id": "S008",
+            "version": "v1",
+            "release_hash": "a" * 64,
+            "qualification": "PAPER_READY",
+            "selection_data_cutoff": "2026-09-02",
+        },
+    }
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=0, stdout=json.dumps(payload), stderr=""
+        ),
+    )
+    with pytest.raises(RuntimeError, match="governance identity"):
+        pte_cli._strategy_show(tmp_path / "czsc-trader", tmp_path, "S008", "v1")
+
+    payload["result"]["governance_status"] = "SGC_VALIDATED"
+    assert pte_cli._strategy_show(
+        tmp_path / "czsc-trader", tmp_path, "S008", "v1"
+    )["governance_status"] == "SGC_VALIDATED"
+
+
 def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path):
     store = PaperStore(tmp_path / "account-centric.db")
     create_account(store, "s001-v1", "v1", "a")

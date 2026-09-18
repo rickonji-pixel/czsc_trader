@@ -20,12 +20,15 @@ from trading_execution_engine import EXECUTION_CONTRACT_VERSION
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.freeze_review_service import (
     _assert_formal_evaluation_contract,
+    _hash_file,
     _load_protocol_and_candidate,
     _runtime_audit,
     _validate_mandate_contract,
     evaluate_freeze_review,
 )
+from czsc_trader.application.freeze_review_service import _prospective_runtime
 from czsc_trader.application.results import CommandResult
+from czsc_trader.application.research_governance_service import create_research_batch
 from functional_support import invoke_main
 
 
@@ -240,6 +243,47 @@ def test_tdr_rejects_execution_contract_false_success(tmp_path: Path) -> None:
     assert _runtime_audit(snapshot, runtime)["status"] == "FAIL"
 
 
+def test_research_family_can_start_a_second_governed_batch(functional_repo: Path) -> None:
+    context = RepositoryContext.discover(functional_repo)
+    first = _write_json(
+        functional_repo / "first-batch.json",
+        {
+            "strategy_id": "S910",
+            "name": "多批次研究策略",
+            "scope": ["588080.SH"],
+            "research_intent": {"objective": "建立首个候选"},
+        },
+    )
+    create_research_batch(context, first, actor="tester", reason="批准首轮研究")
+    second = _write_json(
+        functional_repo / "second-batch.json",
+        {
+            "strategy_id": "S910",
+            "name": "多批次研究策略",
+            "scope": ["588080.SH"],
+            "research_intent": {"objective": "研究下一冻结版本"},
+            "credential_id": "SGC-S910-002",
+        },
+    )
+    result = create_research_batch(
+        context, second, actor="tester", reason="批准第二轮研究"
+    )
+
+    registry = StrategyRegistry(functional_repo / "strategies")
+    assert registry.get_family("S910").research_intent == {
+        "objective": "研究下一冻结版本"
+    }
+    assert registry.get_governance_credential(
+        "S910", "SGC-S910-001"
+    ).stage is GovernanceStage.RESEARCH_INITIATED
+    assert registry.get_governance_credential(
+        "S910", "SGC-S910-002"
+    ).stage is GovernanceStage.RESEARCH_INITIATED
+    assert result.result["research_batch_document"] == (
+        "research/S910/batches/SGC-S910-002.md"
+    )
+
+
 def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     functional_repo: Path, capsys, monkeypatch
 ) -> None:
@@ -401,6 +445,21 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         encoding="utf-8",
     )
     _write_json(artifacts / "evaluation_result.json", {"verified": True})
+    (artifacts / "parameter_neighborhood.csv").write_text(
+        "candidate_id,calmar\nC001,1.11\n", encoding="utf-8"
+    )
+    (artifacts / "execution_stress.csv").write_text(
+        "scenario_id,calmar\ntotal_cost_15bp,0.90\n", encoding="utf-8"
+    )
+    _write_json(artifacts / "statistical_audit.json", {"risk_label": "MIXED"})
+    _write_json(
+        artifacts / "external_validation.json",
+        {"candidate_id": "C001", "replays": []},
+    )
+    _write_json(
+        artifacts / "monitoring_plan.json",
+        {"status": "APPROVED", "rules": [{"metric": "drawdown"}]},
+    )
 
     opened = invoke_main(
         [
@@ -445,6 +504,35 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     submission = credential.seals[-1]
     stored_snapshot = CandidateSnapshot.from_dict(submission.content["candidate_snapshot"])
     stored_mandate = EvaluationMandate.from_dict(submission.content["evaluation_mandate"])
+    runtime = _prospective_runtime(registry, stored_snapshot, stored_mandate)
+    runtime["strategy_payload_hash"] = canonical_sha256(stored_snapshot.strategy_payload)
+    file_audits = {
+        "objective_recalculation": "formal_metrics.csv",
+        "frequency_recalculation": "formal_metrics.csv",
+        "parameter_robustness": "parameter_neighborhood.csv",
+        "statistical_robustness": "statistical_audit.json",
+        "cost_stress": "execution_stress.csv",
+        "external_validation": "external_validation.json",
+        "monitoring_plan": "monitoring_plan.json",
+    }
+    audit_results = {
+        name: {
+            "status": "PASS",
+            "artifact": artifact,
+            "evidence_hash": _hash_file(artifacts / artifact),
+        }
+        for name, artifact in file_audits.items()
+    }
+    audit_results["runtime_acceptance"] = {
+        "status": "PASS",
+        "evidence_hash": canonical_sha256(runtime),
+    }
+    audit_results["technical_replay"] = {
+        "status": "PASS",
+        "artifact": "evaluation_result.json",
+        "artifact_hash": _hash_file(artifacts / "evaluation_result.json"),
+        "evidence_hash": "d" * 64,
+    }
     report_payload = {
         "schema_version": 1,
         "report_id": "ADR-SGC-S900-001-2",
@@ -455,10 +543,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         "evaluation_mandate_hash": stored_mandate.mandate_hash,
         "audit_policy_hash": canonical_sha256(submission.content["audit_policy"]),
         "claim_checks": [],
-        "audit_results": {
-            name: {"status": "PASS", "evidence_hash": "d" * 64}
-            for name in stored_mandate.required_audits
-        },
+        "audit_results": audit_results,
         "machine_verdict": "ELIGIBLE_FOR_FREEZE_REVIEW",
         "risk_label": "MIXED",
         "blocking_findings": [],
@@ -732,6 +817,7 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         "scenario_id,calmar\ntotal_cost_15bp,0.90\n", encoding="utf-8"
     )
     _write_json(artifacts / "statistical_audit.json", {"risk_label": "MIXED"})
+    _write_json(artifacts / "evaluation_result.json", {"verified": True})
     _write_json(
         artifacts / "external_validation.json",
         {

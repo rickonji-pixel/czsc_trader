@@ -38,7 +38,14 @@ def _read_object(context: RepositoryContext, path: Path) -> dict[str, Any]:
 
 
 def _family_from_request(raw: dict[str, Any], *, actor: str) -> StrategyFamily:
-    allowed = {"strategy_id", "name", "scope", "research_intent", "research_state"}
+    allowed = {
+        "strategy_id",
+        "name",
+        "scope",
+        "research_intent",
+        "research_state",
+        "credential_id",
+    }
     unknown = sorted(set(raw) - allowed)
     if unknown:
         raise ValueError(f"research batch request has unknown fields: {unknown}")
@@ -80,6 +87,21 @@ def _handoff_text(family: StrategyFamily) -> str:
     )
 
 
+def _batch_text(family: StrategyFamily, credential_id: str, reason: str) -> str:
+    return (
+        f"# {credential_id} 研究批次\n\n"
+        f"- 策略族：`{family.strategy_id} / {family.name}`；\n"
+        f"- 治理凭据：`{credential_id}`；\n"
+        f"- 立项原因：{reason}；\n"
+        f"- 研究状态：`{family.research_state.value}`。\n\n"
+        "## 研究意图\n\n"
+        "```json\n"
+        f"{json.dumps(family.research_intent, ensure_ascii=False, indent=2)}\n"
+        "```\n\n"
+        "本文件只记录本批次立项事实。准确评价目标在候选送审时由EvaluationMandate锁定。\n"
+    )
+
+
 def create_research_batch(
     context: RepositoryContext,
     input_path: Path,
@@ -90,36 +112,91 @@ def create_research_batch(
     """Human gate 1: atomically establish family identity and research space."""
 
     try:
-        family = _family_from_request(_read_object(context, input_path), actor=actor)
+        raw = _read_object(context, input_path)
+        family = _family_from_request(raw, actor=actor)
         destination = context.root / "research" / family.strategy_id
-        if destination.exists():
-            raise ValueError(f"research batch already exists: {family.strategy_id}")
-        destination.mkdir(parents=True)
         registry = StrategyRegistry(context.strategy_root)
-        try:
+        family_exists = (context.strategy_root / family.strategy_id / "family.json").is_file()
+        if not family_exists:
+            credential_id = str(raw.get("credential_id") or f"SGC-{family.strategy_id}-001")
+            if credential_id != f"SGC-{family.strategy_id}-001":
+                raise ValueError("the first research batch credential must end with -001")
+            if destination.exists():
+                raise ValueError(f"research directory already exists: {family.strategy_id}")
+            destination.mkdir(parents=True)
             handoff = destination / "HANDOFF.md"
             temporary_handoff = destination / ".HANDOFF.md.tmp"
             handoff_text = _handoff_text(family)
             temporary_handoff.write_text(handoff_text, encoding="utf-8", newline="\n")
             temporary_handoff.replace(handoff)
-            credential_id = f"SGC-{family.strategy_id}-001"
-            registry.create_family(
-                family,
-                actor=actor,
-                reason=reason,
-                credential_id=credential_id,
-                credential_content={
-                    "research_batch": family.to_dict(),
-                    "reason": reason,
-                },
-                credential_artifact_hashes={
-                    "research_handoff": hashlib.sha256(handoff_text.encode("utf-8")).hexdigest()
-                },
+            try:
+                registry.create_family(
+                    family,
+                    actor=actor,
+                    reason=reason,
+                    credential_id=credential_id,
+                    credential_content={
+                        "research_batch": family.to_dict(),
+                        "reason": reason,
+                    },
+                    credential_artifact_hashes={
+                        "research_handoff": hashlib.sha256(
+                            handoff_text.encode("utf-8")
+                        ).hexdigest()
+                    },
+                )
+                credential = registry.get_governance_credential(
+                    family.strategy_id, credential_id
+                )
+            except Exception:
+                shutil.rmtree(destination, ignore_errors=True)
+                raise
+            document = handoff
+        else:
+            current = registry.get_family(family.strategy_id)
+            if current.name != family.name or current.scope != family.scope:
+                raise ValueError("existing strategy family name or scope differs from request")
+            raw_credential = raw.get("credential_id")
+            if not isinstance(raw_credential, str) or not raw_credential.strip():
+                raise ValueError("another research batch requires an explicit credential_id")
+            credential_id = raw_credential.strip()
+            document = destination / "batches" / f"{credential_id}.md"
+            batch_family = StrategyFamily.from_dict(
+                {
+                    **current.to_dict(),
+                    "research_intent": family.research_intent,
+                    "research_state": family.research_state.value,
+                    "updated_at": family.updated_at,
+                }
             )
-            credential = registry.get_governance_credential(family.strategy_id, credential_id)
-        except Exception:
-            shutil.rmtree(destination, ignore_errors=True)
-            raise
+            batch_text = _batch_text(batch_family, credential_id, reason)
+            document.parent.mkdir(parents=True, exist_ok=True)
+            if document.exists():
+                raise ValueError(f"research batch document already exists: {credential_id}")
+            temporary = document.with_name(f".{document.name}.tmp")
+            temporary.write_text(batch_text, encoding="utf-8", newline="\n")
+            temporary.replace(document)
+            try:
+                family, credential = registry.start_research_batch(
+                    family.strategy_id,
+                    research_intent=family.research_intent,
+                    research_state=family.research_state,
+                    actor=actor,
+                    reason=reason,
+                    credential_id=credential_id,
+                    credential_content={
+                        "research_batch": batch_family.to_dict(),
+                        "reason": reason,
+                    },
+                    credential_artifact_hashes={
+                        "research_batch": hashlib.sha256(
+                            batch_text.encode("utf-8")
+                        ).hexdigest()
+                    },
+                )
+            except Exception:
+                document.unlink(missing_ok=True)
+                raise
     except (StrategyManagerError, OSError, ValueError, json.JSONDecodeError) as exc:
         raise ValidationError(
             "research_batch_creation_failed",
@@ -137,7 +214,8 @@ def create_research_batch(
                 "result": credential.result.value,
                 "credential_hash": credential.credential_hash,
             },
-            "research_directory": str(destination.relative_to(context.root)),
+            "research_directory": destination.relative_to(context.root).as_posix(),
+            "research_batch_document": document.relative_to(context.root).as_posix(),
         },
     )
 

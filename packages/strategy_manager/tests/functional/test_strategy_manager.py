@@ -260,6 +260,13 @@ def test_ft_sm01_three_gate_governance_is_persistent_and_auditable(tmp_path: Pat
     assert frozen.release_hash is not None
     assert event.event_type == "VERSION_FROZEN"
     assert reopened.current_qualification("S008", "v1") is Qualification.PAPER_READY
+    reopened.record_legacy_governance_acceptance(
+        "S008",
+        "v1",
+        actor="migration",
+        reason="接受旧评审链生成的历史版本",
+        cutover_commit="test-cutover",
+    )
     assert reopened.assert_deployable("S008", "v1", "PAPER") == frozen
     assert [item.evidence_id for item in reopened.evidence("S008", "v1")] == [
         "EVD-S008-C001-RESEARCH"

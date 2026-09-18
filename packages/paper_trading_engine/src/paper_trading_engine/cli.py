@@ -308,6 +308,11 @@ def _strategy_show(
     qualification = payload["result"].get("qualification")
     if qualification not in {"PAPER_READY", "LIVE_READY"}:
         raise RuntimeError(f"strategy qualification cannot enter paper trading: {qualification}")
+    if payload["result"].get("governance_status") not in {
+        "SGC_VALIDATED",
+        "LEGACY_GOVERNANCE_ACCEPTED",
+    }:
+        raise RuntimeError("strategy governance identity is not deployable")
     if not payload["result"].get("selection_data_cutoff"):
         raise RuntimeError("strategy release has no selection_data_cutoff")
     return payload["result"]

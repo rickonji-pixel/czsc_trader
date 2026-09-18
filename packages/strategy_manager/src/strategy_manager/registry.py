@@ -24,12 +24,16 @@ from .models import (
     EvaluationMandate,
     FreezeApproval,
     FreezeReviewCase,
+    GovernanceResult,
+    GovernanceStage,
     LifecycleEvent,
     PerformanceEvidence,
     Qualification,
     ResearchState,
     ReviewStatus,
     StrategyFamily,
+    StrategyGovernanceCredential,
+    StrategyGovernanceSeal,
     StrategyVersion,
     canonical_sha256,
 )
@@ -128,6 +132,152 @@ class StrategyRegistry:
 
     def _review_dir(self, strategy_id: str, review_id: str) -> Path:
         return self._strategy_dir(strategy_id) / "reviews" / review_id
+
+    def _credential_path(self, strategy_id: str, credential_id: str) -> Path:
+        return self._strategy_dir(strategy_id) / "credentials" / f"{credential_id}.jsonl"
+
+    @staticmethod
+    def _build_governance_seal(
+        *,
+        credential_id: str,
+        strategy_id: str,
+        sequence: int,
+        stage: GovernanceStage,
+        result: GovernanceResult,
+        actor: str,
+        previous_seal_hash: str | None,
+        content: dict[str, Any],
+        artifact_hashes: dict[str, str],
+    ) -> StrategyGovernanceSeal:
+        payload = {
+            "schema_version": 1,
+            "credential_id": credential_id,
+            "strategy_id": strategy_id,
+            "sequence": sequence,
+            "stage": stage.value,
+            "result": result.value,
+            "actor": actor,
+            "occurred_at": _now(),
+            "previous_seal_hash": previous_seal_hash,
+            "content": content,
+            "content_hash": canonical_sha256(content),
+            "artifact_hashes": artifact_hashes,
+        }
+        return StrategyGovernanceSeal.from_dict(
+            {**payload, "seal_hash": canonical_sha256(payload)}
+        )
+
+    def get_governance_credential(
+        self, strategy_id: str, credential_id: str
+    ) -> StrategyGovernanceCredential:
+        path = self._credential_path(strategy_id, credential_id)
+        if not path.is_file():
+            raise RegistryError(f"unknown governance credential: {credential_id}")
+        try:
+            seals = tuple(
+                StrategyGovernanceSeal.from_dict(json.loads(line))
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            return StrategyGovernanceCredential.from_seals(seals)
+        except (OSError, json.JSONDecodeError, ValidationError) as exc:
+            raise RegistryError(
+                f"invalid governance credential: {credential_id}"
+            ) from exc
+
+    def open_governance_credential(
+        self,
+        credential_id: str,
+        strategy_id: str,
+        *,
+        actor: str,
+        content: dict[str, Any],
+        artifact_hashes: dict[str, str] | None = None,
+    ) -> StrategyGovernanceCredential:
+        """Create the first seal for one globally unique governance credential."""
+
+        self.get_family(strategy_id)
+        path = self._credential_path(strategy_id, credential_id)
+        if path.exists():
+            existing = self.get_governance_credential(strategy_id, credential_id)
+            first = existing.seals[0]
+            if (
+                first.actor == actor
+                and first.content == content
+                and first.artifact_hashes == (artifact_hashes or {})
+            ):
+                return existing
+            raise RegistryError(f"governance credential already exists: {credential_id}")
+        for family in self.list_families():
+            other = self._credential_path(family.strategy_id, credential_id)
+            if other.exists():
+                raise RegistryError(
+                    f"governance credential id already belongs to {family.strategy_id}: "
+                    f"{credential_id}"
+                )
+        seal = self._build_governance_seal(
+            credential_id=credential_id,
+            strategy_id=strategy_id,
+            sequence=1,
+            stage=GovernanceStage.RESEARCH_INITIATED,
+            result=GovernanceResult.OPEN,
+            actor=actor,
+            previous_seal_hash=None,
+            content=content,
+            artifact_hashes=artifact_hashes or {},
+        )
+        self._append_jsonl(path, seal.to_dict())
+        return StrategyGovernanceCredential.from_seals((seal,))
+
+    def append_governance_seal(
+        self,
+        strategy_id: str,
+        credential_id: str,
+        *,
+        stage: GovernanceStage,
+        result: GovernanceResult,
+        actor: str,
+        expected_previous_hash: str,
+        content: dict[str, Any],
+        artifact_hashes: dict[str, str] | None = None,
+    ) -> StrategyGovernanceCredential:
+        """Append one seal after validating the complete existing hash chain."""
+
+        try:
+            stage = GovernanceStage(stage)
+            result = GovernanceResult(result)
+        except (TypeError, ValueError) as exc:
+            raise RegistryError("unsupported governance seal stage or result") from exc
+        credential = self.get_governance_credential(strategy_id, credential_id)
+        artifacts = artifact_hashes or {}
+        last = credential.seals[-1]
+        if (
+            last.stage is stage
+            and last.result is result
+            and last.actor == actor
+            and last.content == content
+            and last.artifact_hashes == artifacts
+            and last.previous_seal_hash == expected_previous_hash
+        ):
+            return credential
+        if credential.credential_hash != expected_previous_hash:
+            raise RegistryError(
+                f"stale governance credential hash: expected {credential.credential_hash}"
+            )
+        seal = self._build_governance_seal(
+            credential_id=credential_id,
+            strategy_id=strategy_id,
+            sequence=len(credential.seals) + 1,
+            stage=stage,
+            result=result,
+            actor=actor,
+            previous_seal_hash=credential.credential_hash,
+            content=content,
+            artifact_hashes=artifacts,
+        )
+        updated = StrategyGovernanceCredential.from_seals((*credential.seals, seal))
+        self._append_jsonl(self._credential_path(strategy_id, credential_id), seal.to_dict())
+        return updated
 
     def list_families(self) -> list[StrategyFamily]:
         return [
@@ -1114,6 +1264,8 @@ class StrategyRegistry:
         version_count = 0
         evidence_count = 0
         event_count = 0
+        credential_count = 0
+        credential_ids: set[str] = set()
         names: set[str] = set()
         for strategy in strategies:
             normalized = _normalized_name(strategy.name)
@@ -1126,6 +1278,15 @@ class StrategyRegistry:
             evidence = self.evidence(strategy.strategy_id)
             event_count += len(events)
             evidence_count += len(evidence)
+            credential_dir = self._strategy_dir(strategy.strategy_id) / "credentials"
+            for path in credential_dir.glob("*.jsonl") if credential_dir.exists() else ():
+                credential = self.get_governance_credential(strategy.strategy_id, path.stem)
+                if credential.credential_id in credential_ids:
+                    raise RegistryError(
+                        f"duplicate governance credential id: {credential.credential_id}"
+                    )
+                credential_ids.add(credential.credential_id)
+                credential_count += 1
             for item in versions:
                 self.current_qualification(item.strategy_id, item.version)
             for item in evidence:
@@ -1137,4 +1298,5 @@ class StrategyRegistry:
             "versions": version_count,
             "events": event_count,
             "evidence": evidence_count,
+            "credentials": credential_count,
         }

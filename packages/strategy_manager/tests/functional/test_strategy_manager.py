@@ -10,6 +10,8 @@ from strategy_manager import (
     CandidateSnapshot,
     EvaluationMandate,
     EvidenceRequiredError,
+    GovernanceResult,
+    GovernanceStage,
     ImmutableVersionError,
     InvalidTransitionError,
     PerformanceEvidence,
@@ -487,6 +489,172 @@ def test_ft_sm05_legacy_governance_event_is_idempotent(tmp_path: Path) -> None:
     assert [item.event_type for item in registry.lifecycle_events("S008")].count(
         "LEGACY_GOVERNANCE_ACCEPTED"
     ) == 1
+
+
+def test_ft_sm06_governance_credential_is_one_append_only_hash_chain(
+    tmp_path: Path,
+) -> None:
+    registry = StrategyRegistry(tmp_path)
+    registry.create_family(_family(), actor="owner", reason="创建研究批次")
+    credential = registry.open_governance_credential(
+        "SGC-S008-001",
+        "S008",
+        actor="owner",
+        content={"research_intent": "验证单凭据治理链"},
+    )
+    assert credential.stage is GovernanceStage.RESEARCH_INITIATED
+    assert credential.result is GovernanceResult.OPEN
+
+    submitted = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.CANDIDATE_SUBMITTED,
+        result=GovernanceResult.OPEN,
+        actor="owner",
+        expected_previous_hash=credential.credential_hash,
+        content={
+            "candidate": _candidate().to_dict(),
+            "mandate": _mandate().to_dict(),
+        },
+        artifact_hashes={"candidate_manifest.json": "1" * 64},
+    )
+    adjudicated = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.TDR_ADJUDICATED,
+        result=GovernanceResult.ELIGIBLE,
+        actor="tdr",
+        expected_previous_hash=submitted.credential_hash,
+        content={"verdict": "ELIGIBLE_FOR_FREEZE_REVIEW"},
+        artifact_hashes={"adjudication_report.json": "2" * 64},
+    )
+    approved = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.FREEZE_APPROVED,
+        result=GovernanceResult.APPROVED,
+        actor="owner",
+        expected_previous_hash=adjudicated.credential_hash,
+        content={"decision": "APPROVE_FREEZE", "reason": "人工确认"},
+    )
+    frozen = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.VERSION_FROZEN,
+        result=GovernanceResult.FROZEN,
+        actor="tdr",
+        expected_previous_hash=approved.credential_hash,
+        content={"release_id": "S008-v1", "release_hash": "3" * 64},
+    )
+
+    assert frozen.credential_hash == frozen.seals[-1].seal_hash
+    assert [seal.sequence for seal in frozen.seals] == [1, 2, 3, 4, 5]
+    assert frozen.stage is GovernanceStage.VERSION_FROZEN
+
+
+def test_ft_sm06b_governance_credential_rejects_skips_stale_writes_and_tampering(
+    tmp_path: Path,
+) -> None:
+    registry = StrategyRegistry(tmp_path)
+    registry.create_family(_family(), actor="owner", reason="创建研究批次")
+    opened = registry.open_governance_credential(
+        "SGC-S008-001",
+        "S008",
+        actor="owner",
+        content={"research_intent": "验证单凭据治理链"},
+    )
+    with pytest.raises(ValidationError, match="invalid governance transition"):
+        registry.append_governance_seal(
+            "S008",
+            "SGC-S008-001",
+            stage=GovernanceStage.TDR_ADJUDICATED,
+            result=GovernanceResult.ELIGIBLE,
+            actor="tdr",
+            expected_previous_hash=opened.credential_hash,
+            content={"verdict": "ELIGIBLE_FOR_FREEZE_REVIEW"},
+        )
+
+    submitted = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.CANDIDATE_SUBMITTED,
+        result=GovernanceResult.OPEN,
+        actor="owner",
+        expected_previous_hash=opened.credential_hash,
+        content={"candidate_hash": "4" * 64, "mandate_hash": "5" * 64},
+    )
+    with pytest.raises(RegistryError, match="stale governance credential hash"):
+        registry.append_governance_seal(
+            "S008",
+            "SGC-S008-001",
+            stage=GovernanceStage.TDR_ADJUDICATED,
+            result=GovernanceResult.ELIGIBLE,
+            actor="tdr",
+            expected_previous_hash="0" * 64,
+            content={"verdict": "ELIGIBLE_FOR_FREEZE_REVIEW"},
+        )
+
+    path = tmp_path / "S008" / "credentials" / "SGC-S008-001.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    tampered = json.loads(lines[1])
+    tampered["content"]["candidate_hash"] = "6" * 64
+    lines[1] = json.dumps(tampered, ensure_ascii=False, sort_keys=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(RegistryError, match="invalid governance credential"):
+        registry.get_governance_credential("S008", "SGC-S008-001")
+
+    assert submitted.stage is GovernanceStage.CANDIDATE_SUBMITTED
+
+
+def test_ft_sm06c_noneligible_adjudication_requires_a_new_submission_seal(
+    tmp_path: Path,
+) -> None:
+    registry = StrategyRegistry(tmp_path)
+    registry.create_family(_family(), actor="owner", reason="创建研究批次")
+    opened = registry.open_governance_credential(
+        "SGC-S008-001",
+        "S008",
+        actor="owner",
+        content={"research_intent": "验证退回后重新送审"},
+    )
+    submitted = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.CANDIDATE_SUBMITTED,
+        result=GovernanceResult.OPEN,
+        actor="owner",
+        expected_previous_hash=opened.credential_hash,
+        content={"submission_id": "SUB-S008-001", "candidate_hash": "4" * 64},
+    )
+    rejected = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.TDR_ADJUDICATED,
+        result=GovernanceResult.REJECTED,
+        actor="tdr",
+        expected_previous_hash=submitted.credential_hash,
+        content={"verdict": "REJECTED", "blocking_findings": ["OBJECTIVE_FAILED"]},
+    )
+    with pytest.raises(ValidationError, match="only an ELIGIBLE"):
+        registry.append_governance_seal(
+            "S008",
+            "SGC-S008-001",
+            stage=GovernanceStage.FREEZE_APPROVED,
+            result=GovernanceResult.APPROVED,
+            actor="owner",
+            expected_previous_hash=rejected.credential_hash,
+            content={"decision": "APPROVE_FREEZE"},
+        )
+    resubmitted = registry.append_governance_seal(
+        "S008",
+        "SGC-S008-001",
+        stage=GovernanceStage.CANDIDATE_SUBMITTED,
+        result=GovernanceResult.OPEN,
+        actor="owner",
+        expected_previous_hash=rejected.credential_hash,
+        content={"submission_id": "SUB-S008-002", "candidate_hash": "5" * 64},
+    )
+    assert resubmitted.seals[-1].content["submission_id"] == "SUB-S008-002"
 
 
 def test_ft_sm06_lifecycle_still_requires_forward_evidence(tmp_path: Path) -> None:

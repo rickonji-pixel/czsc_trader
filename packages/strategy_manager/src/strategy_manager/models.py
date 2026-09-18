@@ -50,6 +50,27 @@ class ReviewStatus(str, Enum):
     FROZEN = "FROZEN"
 
 
+class GovernanceStage(str, Enum):
+    """Append-only stages carried by one strategy governance credential."""
+
+    RESEARCH_INITIATED = "RESEARCH_INITIATED"
+    CANDIDATE_SUBMITTED = "CANDIDATE_SUBMITTED"
+    TDR_ADJUDICATED = "TDR_ADJUDICATED"
+    FREEZE_APPROVED = "FREEZE_APPROVED"
+    VERSION_FROZEN = "VERSION_FROZEN"
+    INVALIDATED = "INVALIDATED"
+
+
+class GovernanceResult(str, Enum):
+    OPEN = "OPEN"
+    ELIGIBLE = "ELIGIBLE"
+    INCOMPLETE = "INCOMPLETE"
+    REJECTED = "REJECTED"
+    APPROVED = "APPROVED"
+    FROZEN = "FROZEN"
+    INVALIDATED = "INVALIDATED"
+
+
 @dataclass(frozen=True)
 class FreezeApproval:
     schema_version: int
@@ -151,6 +172,192 @@ def canonical_sha256(payload: Any) -> str:
         payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+_GOVERNANCE_STAGE_RESULTS: dict[GovernanceStage, frozenset[GovernanceResult]] = {
+    GovernanceStage.RESEARCH_INITIATED: frozenset({GovernanceResult.OPEN}),
+    GovernanceStage.CANDIDATE_SUBMITTED: frozenset({GovernanceResult.OPEN}),
+    GovernanceStage.TDR_ADJUDICATED: frozenset(
+        {
+            GovernanceResult.ELIGIBLE,
+            GovernanceResult.INCOMPLETE,
+            GovernanceResult.REJECTED,
+        }
+    ),
+    GovernanceStage.FREEZE_APPROVED: frozenset({GovernanceResult.APPROVED}),
+    GovernanceStage.VERSION_FROZEN: frozenset({GovernanceResult.FROZEN}),
+    GovernanceStage.INVALIDATED: frozenset({GovernanceResult.INVALIDATED}),
+}
+
+
+def _validate_governance_transition(
+    previous: StrategyGovernanceSeal | None,
+    current: StrategyGovernanceSeal,
+) -> None:
+    if current.result not in _GOVERNANCE_STAGE_RESULTS[current.stage]:
+        raise ValidationError(
+            f"governance stage {current.stage.value} does not allow result "
+            f"{current.result.value}"
+        )
+    if previous is None:
+        if current.stage is not GovernanceStage.RESEARCH_INITIATED:
+            raise ValidationError("governance credential must start with RESEARCH_INITIATED")
+        return
+    if current.stage is GovernanceStage.INVALIDATED:
+        if previous.stage in {GovernanceStage.VERSION_FROZEN, GovernanceStage.INVALIDATED}:
+            raise ValidationError("terminal governance credential cannot be invalidated")
+        return
+    if current.stage is GovernanceStage.CANDIDATE_SUBMITTED and (
+        previous.stage is GovernanceStage.INVALIDATED
+        or (
+            previous.stage is GovernanceStage.TDR_ADJUDICATED
+            and previous.result in {GovernanceResult.INCOMPLETE, GovernanceResult.REJECTED}
+        )
+    ):
+        return
+    allowed: dict[GovernanceStage, GovernanceStage] = {
+        GovernanceStage.RESEARCH_INITIATED: GovernanceStage.CANDIDATE_SUBMITTED,
+        GovernanceStage.CANDIDATE_SUBMITTED: GovernanceStage.TDR_ADJUDICATED,
+        GovernanceStage.TDR_ADJUDICATED: GovernanceStage.FREEZE_APPROVED,
+        GovernanceStage.FREEZE_APPROVED: GovernanceStage.VERSION_FROZEN,
+    }
+    expected = allowed.get(previous.stage)
+    if expected is not current.stage:
+        raise ValidationError(
+            f"invalid governance transition: {previous.stage.value} -> {current.stage.value}"
+        )
+    if (
+        previous.stage is GovernanceStage.TDR_ADJUDICATED
+        and previous.result is not GovernanceResult.ELIGIBLE
+    ):
+        raise ValidationError("only an ELIGIBLE adjudication can receive freeze approval")
+
+
+@dataclass(frozen=True)
+class StrategyGovernanceSeal:
+    """One immutable seal in a strategy governance credential hash chain."""
+
+    schema_version: int
+    credential_id: str
+    strategy_id: str
+    sequence: int
+    stage: GovernanceStage
+    result: GovernanceResult
+    actor: str
+    occurred_at: str
+    previous_seal_hash: str | None
+    content: dict[str, Any]
+    content_hash: str
+    artifact_hashes: dict[str, str]
+    seal_hash: str
+
+    FIELDS: ClassVar[tuple[str, ...]] = (
+        "schema_version",
+        "credential_id",
+        "strategy_id",
+        "sequence",
+        "stage",
+        "result",
+        "actor",
+        "occurred_at",
+        "previous_seal_hash",
+        "content",
+        "content_hash",
+        "artifact_hashes",
+        "seal_hash",
+    )
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> StrategyGovernanceSeal:
+        require_exact_fields(value, cls.FIELDS)
+        if value["schema_version"] != 1 or isinstance(value["schema_version"], bool):
+            raise ValidationError("governance seal schema_version must be 1")
+        sequence = value["sequence"]
+        if not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 1:
+            raise ValidationError("governance seal sequence must be a positive integer")
+        content = value["content"]
+        if not isinstance(content, dict) or not content:
+            raise ValidationError("governance seal content must be a nonempty object")
+        content_hash = require_sha256(value["content_hash"], "content_hash")
+        if content_hash != canonical_sha256(content):
+            raise ValidationError("governance seal content_hash does not match content")
+        raw_artifacts = value["artifact_hashes"]
+        if not isinstance(raw_artifacts, dict):
+            raise ValidationError("governance seal artifact_hashes must be an object")
+        artifacts = {
+            require_string(name, "artifact name"): require_sha256(digest, f"artifact {name}")
+            for name, digest in raw_artifacts.items()
+        }
+        previous = value["previous_seal_hash"]
+        if previous is not None:
+            previous = require_sha256(previous, "previous_seal_hash")
+        instance = cls(
+            schema_version=1,
+            credential_id=require_identifier(value["credential_id"], "credential_id"),
+            strategy_id=require_strategy_id(value["strategy_id"]),
+            sequence=sequence,
+            stage=_enum(GovernanceStage, value["stage"], "stage"),
+            result=_enum(GovernanceResult, value["result"], "result"),
+            actor=require_string(value["actor"], "actor"),
+            occurred_at=require_timestamp(value["occurred_at"], "occurred_at"),
+            previous_seal_hash=previous,
+            content=dict(content),
+            content_hash=content_hash,
+            artifact_hashes=artifacts,
+            seal_hash=require_sha256(value["seal_hash"], "seal_hash"),
+        )
+        if instance.seal_hash != canonical_sha256(instance.seal_payload()):
+            raise ValidationError("governance seal_hash does not match seal payload")
+        return instance
+
+    def seal_payload(self) -> dict[str, Any]:
+        value = self.to_dict()
+        value.pop("seal_hash")
+        return value
+
+    def to_dict(self) -> dict[str, Any]:
+        return _enum_dict(self)
+
+
+@dataclass(frozen=True)
+class StrategyGovernanceCredential:
+    """A verified, append-only sequence of governance seals."""
+
+    credential_id: str
+    strategy_id: str
+    seals: tuple[StrategyGovernanceSeal, ...]
+
+    @classmethod
+    def from_seals(
+        cls, seals: tuple[StrategyGovernanceSeal, ...]
+    ) -> StrategyGovernanceCredential:
+        if not seals:
+            raise ValidationError("governance credential must contain at least one seal")
+        first = seals[0]
+        previous: StrategyGovernanceSeal | None = None
+        for expected_sequence, seal in enumerate(seals, start=1):
+            if seal.credential_id != first.credential_id or seal.strategy_id != first.strategy_id:
+                raise ValidationError("governance credential seal identity differs")
+            if seal.sequence != expected_sequence:
+                raise ValidationError("governance credential seal sequence is not contiguous")
+            expected_previous = None if previous is None else previous.seal_hash
+            if seal.previous_seal_hash != expected_previous:
+                raise ValidationError("governance credential hash chain is broken")
+            _validate_governance_transition(previous, seal)
+            previous = seal
+        return cls(first.credential_id, first.strategy_id, seals)
+
+    @property
+    def credential_hash(self) -> str:
+        return self.seals[-1].seal_hash
+
+    @property
+    def stage(self) -> GovernanceStage:
+        return self.seals[-1].stage
+
+    @property
+    def result(self) -> GovernanceResult:
+        return self.seals[-1].result
 
 
 def _enum_dict(instance: object) -> dict[str, Any]:

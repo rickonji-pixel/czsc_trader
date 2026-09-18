@@ -24,7 +24,7 @@ TDR不负责创造Alpha。研究脚本可以自由选择数据分析库、特征
 1. 以三个人工确认节点控制正式策略生命周期；
 2. 研究探索保持灵活，正式结论保持真实、完整、可复算和不可漂移；
 3. 在立项时建立稳定的StrategyFamily身份；
-4. 在候选送审时同时冻结候选快照和最终EvaluationMandate；
+4. 以一份只追加的SGC贯穿立项、送审、裁判、批准和冻结；
 5. 在人工批准后才创建不可变StrategyVersion；
 6. 将冻结与PTE部署彻底解耦；
 7. 保留现有冻结版本、release hash、SRT绑定和PTE历史身份；
@@ -109,87 +109,55 @@ TDR对正式复核和完整体检负责，但具体计算由专业组件完成�
 为了控制迁移成本，既有JSON中的`strategy_id`和既有版本引用可以继续保留；Python领域名和新
 接口使用`StrategyFamily`。是否迁移持久化字段名留待后续独立决策。
 
-### 5.2 CandidateSnapshot
+### 5.2 StrategyGovernanceCredential（SGC）
 
-`CandidateSnapshot`表示送审时不可变的候选内容：
+每个经人工确认的研究批次创建一份`StrategyGovernanceCredential`。候选、评价合同、裁判结果、
+人工批准和最终版本不再分别维护相互引用的治理对象，而是作为同一份凭据上的连续印章传递。
 
-- `strategy_family_id`与`candidate_id`；
-- 完整策略公式、参数和策略payload；
-- 数据依赖和决策时点；
-- 执行规则、成本口径和仓位边界；
-- 来源实验和候选全集身份；
-- 规范化`candidate_hash`。
-
-候选可以在探索阶段自由变化；只有送审快照进入正式治理。
-
-### 5.3 EvaluationMandate
-
-准确的研究目标在人工确认候选进入冻结流程时才能完全确定。`EvaluationMandate`因此在第二个
-人工节点创建并立即锁定，至少包含：
-
-- 开发数据截止和正式评价窗口；
-- 对手及比较口径；
-- 收益、最大回撤和其他硬约束；
-- 主成本、现实压力和诊断压力；
-- 交易频率的硬约束或观察属性；
-- 参数平台、统计稳健性和收益集中度要求；
-- 外部验证、技术回放、部署兼容和监测方案要求；
-- 目标形成时间及其读取过的开发证据边界。
-
-目标在看过开发结果后形成并不自动否决候选，但裁判报告必须准确披露，不能将其描述为研究前
-预注册目标。
-
-### 5.4 FreezeReviewCase
-
-`FreezeReviewCase`连接候选送审和正式冻结：
+SGC采用只追加的哈希链。每枚`StrategyGovernanceSeal`至少包含：
 
 | 字段 | 含义 |
 | --- | --- |
-| `review_id` | 全局唯一评审ID |
-| `strategy_family_id` | 所属策略族 |
-| `candidate_id/candidate_hash` | 受审候选身份 |
-| `candidate_snapshot_hash` | 候选快照哈希 |
-| `evaluation_mandate_hash` | 最终目标哈希 |
-| `audit_policy_hash` | 必需体检集合及版本 |
-| `status` | `OPEN`、`EVALUATING`、`ELIGIBLE`、`INCOMPLETE`、`REJECTED`、`INVALIDATED`或`FROZEN` |
-| `adjudication_report_hash` | 裁判报告哈希，可为空 |
-| `opened_at/opened_by` | 进入冻结流程的人工确认 |
+| `credential_id/strategy_id` | 凭据和策略族身份 |
+| `sequence` | 从1开始连续递增的印章序号 |
+| `stage/result` | 当前治理阶段及机器结果 |
+| `actor/occurred_at` | 盖章主体和时间 |
+| `previous_seal_hash` | 前一枚印章哈希；首枚为空 |
+| `content/content_hash` | 本阶段固化的规范化内容及哈希 |
+| `artifact_hashes` | 外部证据文件的名称和内容哈希 |
+| `seal_hash` | 当前印章除自身外全部字段的规范化哈希 |
 
-一个候选可以重新送审，但每次送审必须创建新的ReviewCase。旧案件保持不可变。
+一份凭据可以依次出现以下印章：
 
-### 5.5 AdjudicationReport
+1. `RESEARCH_INITIATED`：固化人工立项事实和方向性研究意图；
+2. `CANDIDATE_SUBMITTED`：固化候选、最终评价合同、完整评价输入包、数据与执行契约；
+3. `TDR_ADJUDICATED`：固化独立重算、完整体检、证据矩阵和机器裁决；
+4. `FREEZE_APPROVED`：固化人工批准人、理由和保留意见；
+5. `VERSION_FROZEN`：固化不可变策略版本、SRT验收和release hash。
 
-`AdjudicationReport`由TDR组织生成，记录：
+`INCOMPLETE`或`REJECTED`的裁判印章之后可以在同一研究批次中追加新的候选送审印章；已经
+`FROZEN`的凭据终止。新的研究批次必须创建新的SGC。任何阶段也可以追加`INVALIDATED`印章，
+保留原有证据而停止当前送审链路。
 
-- 研究主张与独立重算值的逐项对照；
-- 数据、候选、执行规则和账本身份；
-- 完整体检矩阵及每项状态；
-- 统计、参数、成本、集中度、外部复现和技术审计结果；
-- 缺失项、阻断项和保留意见；
-- `ELIGIBLE_FOR_FREEZE_REVIEW`、`INCOMPLETE`或`REJECTED`机器结论；
-- 与ReviewCase绑定的报告哈希。
+准确的研究目标在`CANDIDATE_SUBMITTED`时完全确定。该印章中的评价合同至少包含开发截止、
+正式窗口、对手、硬目标、成本压力、频率属性、参数与统计要求、技术回放、部署兼容和监测要求。
+目标形成时间及其读取过的开发证据边界必须如实记录。
 
 TDR只裁判可计算事实和流程完整性。金融逻辑是否可信、证据是否值得承担资金风险，继续由人工
 判断。
 
-### 5.6 StrategyVersion
+### 5.3 StrategyVersion
 
-`StrategyVersion`只在第三个人工节点创建。正式版本必须绑定：
+`StrategyVersion`只在`VERSION_FROZEN`印章原子写入时创建。正式版本只需要绑定：
 
 - StrategyFamily；
-- FreezeReviewCase；
-- CandidateSnapshot；
-- EvaluationMandate；
-- AdjudicationReport；
-- 人工冻结决议；
-- SRT实现身份和运行时验收结果。
+- 对应SGC的`credential_id`；
+- `VERSION_FROZEN`印章哈希；
+- 完整冻结记录哈希；
+- SRT可执行身份和release hash。
 
-版本创建和冻结是一个原子治理动作。成功后写入release hash并进入`PAPER_READY`；失败时不得
-留下半创建版本。版本号在冻结时分配，不为尚未冻结的候选预占`vN`。
-
-新版版本使用双重身份：`release_hash`只覆盖SRT可执行身份，确保候选运行时可以在冻结前完成
-验收且冻结后保持一致；`governance_hash`覆盖评审案件、候选快照、最终评价合同、裁判报告、
-人工冻结决议和运行验收引用。SM必须分别验证两个哈希。历史版本继续沿用原有release hash
+版本号在冻结时分配，不为尚未冻结的候选预占`vN`。SM必须验证完整SGC哈希链、冻结印章、
+版本记录哈希和release hash；任何一处缺失或漂移均不得部署。历史版本继续沿用原有release hash
 算法，不重写既有身份。
 
 ## 6. 三个人工确认节点
@@ -202,7 +170,7 @@ TDR只裁判可计算事实和流程完整性。金融逻辑是否可信、证�
 2. 创建StrategyFamily；
 3. 创建`research/SXX/`和基础交接材料；
 4. 记录方向性ResearchIntent；
-5. 追加立项治理事件。
+5. 创建SGC并追加`RESEARCH_INITIATED`印章。
 
 节点一不创建StrategyVersion，不创建PTE账户，不把ResearchIntent转为机器硬门。
 
@@ -210,13 +178,12 @@ TDR只裁判可计算事实和流程完整性。金融逻辑是否可信、证�
 
 人工确认后，TDR：
 
-1. 固化CandidateSnapshot；
-2. 固化最终EvaluationMandate；
-3. 固化适用的AuditPolicy；
-4. 创建FreezeReviewCase；
-5. 独立复核核心主张；
-6. 组织完整体检并生成AdjudicationReport；
-7. 将案件置为`ELIGIBLE`、`INCOMPLETE`或`REJECTED`。
+1. 验证SGC此前全部印章；
+2. 以`CANDIDATE_SUBMITTED`印章一次性固化候选、最终评价合同、评价输入包和审计策略；
+3. 独立复核核心主张；
+4. 组织完整体检；
+5. 以`TDR_ADJUDICATED`印章固化裁判报告和全部证据哈希；
+6. 将机器结果置为`ELIGIBLE`、`INCOMPLETE`或`REJECTED`。
 
 完整体检只在此节点执行，不施加给普通EX实验。
 
@@ -225,12 +192,12 @@ TDR只裁判可计算事实和流程完整性。金融逻辑是否可信、证�
 人工阅读裁判报告并批准后，TDR：
 
 1. 验证人工批准人与理由；
-2. 验证ReviewCase为`ELIGIBLE`；
-3. 重新计算候选、目标、审计策略和报告哈希；
+2. 验证SGC最新裁判印章为`ELIGIBLE`；
+3. 验证整条印章哈希链和全部证据身份；
 4. 验证SRT运行时可实现性；
-5. 原子创建并冻结StrategyVersion；
-6. 由SM持久化版本、资格和生命周期事件；
-7. 将ReviewCase置为`FROZEN`。
+5. 追加`FREEZE_APPROVED`印章；
+6. 原子创建StrategyVersion并追加`VERSION_FROZEN`印章；
+7. 由SM持久化版本、资格和生命周期事件。
 
 该节点不调用PTE。进入模拟盘必须通过单独的PTE账户创建流程和独立授权。
 
@@ -241,11 +208,11 @@ TDR只裁判可计算事实和流程完整性。金融逻辑是否可信、证�
 TDR是唯一正式治理入口，负责：
 
 - 创建和维护StrategyFamily；
-- 创建FreezeReviewCase；
+- 驱动SGC逐层盖章；
 - 读取研究主张并独立复核；
 - 决定完整体检清单并调用专业组件；
 - 验证体检无遗漏、无口径漂移且可复算；
-- 生成AdjudicationReport；
+- 生成并固化裁判印章；
 - 在人工批准后执行原子冻结；
 - 查询、比较、退役和替代冻结版本。
 
@@ -253,8 +220,8 @@ TDR是唯一正式治理入口，负责：
 
 SM是无CLI的领域包和持久化边界，负责：
 
-- StrategyFamily、StrategyVersion和LifecycleEvent模型；
-- ReviewCase和正式证据的结构校验及存储；
+- StrategyFamily、StrategyVersion、SGC印章和LifecycleEvent模型；
+- SGC哈希链及正式证据的结构校验和存储；
 - ID唯一性、版本连续性、原子写入和哈希；
 - 生命周期状态转换和不可变约束。
 
@@ -268,8 +235,8 @@ SE是确定性数值评估包，负责：
 - 返回PBO、DSR、Bootstrap、邻域等机器结果；
 - 校验自身输入Schema和数值一致性。
 
-SE不加载市场数据，不管理StrategyFamily或StrategyVersion，不签发人工冻结决议。TDR负责判断
-EvaluationMandate要求的体检项是否全部由SE及其他组件完成。
+SE不加载市场数据，不管理StrategyFamily、SGC或StrategyVersion，不签发人工冻结决议。TDR
+负责判断SGC评价合同要求的体检项是否全部由SE及其他组件完成。
 
 ## 8. 命令边界
 
@@ -294,7 +261,8 @@ strategy version create
 一次性完成评估、冻结和PTE激活的accept-evaluation
 ```
 
-底层Python方法可以保留给迁移和测试，但不得形成绕过正式治理的公开入口。
+旧创建和冻结能力只能存在于一次性迁移适配器，并受固定历史版本清单约束；正式SM API不得提供
+绕过SGC印章链的入口。
 
 ## 9. 持久化建议
 
@@ -304,13 +272,8 @@ strategy version create
 strategies/S008/
   family.json
   lifecycle.jsonl
-  reviews/
-    FR-S008-C001-001/
-      candidate_snapshot.json
-      evaluation_mandate.json
-      review_case.json
-      adjudication_report.json
-      human_decision.json
+  credentials/
+    SGC-S008-001.jsonl
   versions/
     v1.json
   evidence.jsonl
@@ -322,8 +285,8 @@ strategies/S008/
 ## 10. 假成功防线
 
 1. 研究主张与独立重算不一致时返回`CLAIM_MISMATCH`；
-2. 任一强制体检缺失时ReviewCase只能为`INCOMPLETE`；
-3. 候选、目标、审计策略或报告哈希变化时拒绝冻结；
+2. 任一强制体检缺失时裁判印章只能为`INCOMPLETE`；
+3. 任一历史印章、候选、目标、审计策略或证据哈希变化时整条SGC失效；
 4. SRT运行时验收失败时不创建StrategyVersion；
 5. SM写入必须原子化，失败不留下版本号或生命周期事件；
 6. PTE部署单独返回结果，失败不得改变策略冻结状态；
@@ -335,7 +298,7 @@ strategies/S008/
 - 已冻结版本、release hash、候选来源和SRT绑定保持不变；
 - 不重写历史实验和SE报告；
 - 从现有研究交接材料提取家族级ResearchIntent，只作为当前摘要；
-- 现有`PAPER_READY`版本补充关联迁移记录，不伪造历史FreezeReviewCase；
+- 现有`PAPER_READY`版本补充关联迁移记录，不伪造历史SGC印章链；
 - 历史版本标记为`LEGACY_GOVERNANCE_ACCEPTED`，表示按当时流程冻结，而非重新宣称通过新流程；
 - 新流程启用后，所有新候选必须经过三个节点。
 
@@ -345,7 +308,7 @@ strategies/S008/
 
 1. 人工立项能够创建StrategyFamily和研究空间；
 2. 普通实验不承担完整体检成本；
-3. 候选送审后形成不可变CandidateSnapshot、EvaluationMandate和FreezeReviewCase；
+3. SGC从立项到冻结保持单链传递，任一印章不可修改或跳过；
 4. TDR能独立重算核心主张并发现错报；
 5. 缺少任一强制体检时无法获得冻结资格；
 6. 修改受审候选或目标后无法使用旧报告冻结；

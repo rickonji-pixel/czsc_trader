@@ -1,4 +1,4 @@
-"""TDR bridge from frozen SRT strategies to deterministic backtest channels."""
+"""TDR bridge from candidate/frozen SRT strategies to TXE historical execution."""
 
 from __future__ import annotations
 
@@ -13,10 +13,12 @@ import numpy as np
 import pandas as pd
 from strategy_runtime import (
     DeploymentSpec,
+    PublishedStrategyData,
     StrategyDecision,
     StrategyLoader,
     StrategyRelease,
     StrategyRunner,
+    StrategyCandidate,
     RuntimeContractError,
     effective_target_order_type,
     read_publication,
@@ -156,30 +158,45 @@ def build_srt_signal_replay(
     start: pd.Timestamp,
     end: pd.Timestamp,
     repository_root: Path,
+    publication: PublishedStrategyData | None = None,
 ) -> tuple[object, SignalReplay]:
     """Calculate one complete historical decision series inside its SRT class."""
 
-    release, strategy = load_srt_strategy(
-        repository_root,
-        snapshot.identity.reference,
-        deployment_symbol=replay_data.adjusted.symbol,
-    )
+    if snapshot.identity.kind == "CANDIDATE":
+        family, separator, candidate_id = snapshot.identity.reference.partition("-")
+        if not separator:
+            raise RuntimeContractError("candidate replay requires a family-qualified identity")
+        strategy = StrategyLoader().load_candidate(
+            StrategyCandidate(family, candidate_id, snapshot.strategy_payload)
+        )
+    else:
+        _, strategy = load_srt_strategy(
+            repository_root, snapshot.identity.reference,
+            deployment_symbol=replay_data.adjusted.symbol,
+        )
+    if strategy.definition.release_id != snapshot.identity.reference:
+        raise RuntimeContractError("historical runtime differs from the replay identity")
+    if strategy_reference_symbol(strategy) != replay_data.adjusted.symbol:
+        raise RuntimeContractError("historical runtime differs from the replay symbol")
     sessions = pd.DatetimeIndex(
         pd.to_datetime(replay_data.adjusted.daily["dt"]).dt.normalize(), name="dt"
     )
     evaluation = sessions[(sessions >= start.normalize()) & (sessions <= end.normalize())]
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
-    publication = read_publication(replay_data.root, release.release_id)
+    if publication is None:
+        publication = read_publication(replay_data.root, strategy.definition.release_id)
     if replay_data.dataset == "backtest":
         validate_strategy_generation(
             replay_data.root,
             symbol=replay_data.adjusted.symbol,
             asset_type=replay_data.adjusted.asset_type,
             dataset=replay_data.dataset,
-            release_id=release.release_id,
+            release_id=strategy.definition.release_id,
         )
     StrategyRunner.validate_publication(strategy, publication)
+    if not publication.ready:
+        raise RuntimeContractError("historical calculation requires a READY publication")
     if pd.Timestamp(publication.requested_cutoff) < evaluation[-1]:
         raise ValueError(
             "SRT historical publication ends before the requested backtest interval"
@@ -281,7 +298,7 @@ def build_srt_signal_replay(
         evaluation_end=evaluation[-1],
         support_data={
             "mode": "srt_input_contract",
-            "release_id": release.release_id,
+            "release_id": strategy.definition.release_id,
             "runtime_sha256": strategy.definition.runtime_sha256,
             "execution_policy": {
                 "policy_type": execution.policy_type,

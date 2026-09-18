@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -26,10 +28,12 @@ from czsc_trader.application.freeze_review_service import (
     _validate_mandate_contract,
     evaluate_freeze_review,
 )
-from czsc_trader.application.freeze_review_service import _prospective_runtime
+from czsc_trader.application.freeze_review_service import _candidate_runtime, _submitted_runtime
+from czsc_trader.application.runtime_acceptance import validate_candidate_readiness
+from test_candidate_runtime_execution import candidate_payload
 from czsc_trader.application.results import CommandResult
 from czsc_trader.application.research_governance_service import create_research_batch
-from functional_support import invoke_main
+from functional_support import invoke_main, invoke_main_failure
 
 
 def _write_json(path: Path, value: dict) -> Path:
@@ -229,8 +233,8 @@ def test_tdr_rejects_execution_contract_false_success(tmp_path: Path) -> None:
             ]
         },
     )
-    with pytest.raises(ValueError, match="payload execution rules differ"):
-        _load_protocol_and_candidate(tmp_path, snapshot)
+    # TDR no longer parses rule.execution; the loaded SRT is authoritative.
+    _load_protocol_and_candidate(tmp_path, snapshot)
 
     runtime = {
         "status": "PASS",
@@ -285,42 +289,15 @@ def test_research_family_can_start_a_second_governed_batch(functional_repo: Path
 
 
 def test_ft_t05_three_human_gates_create_only_one_frozen_version(
-    functional_repo: Path, capsys, monkeypatch
+    functional_repo: Path, capsys, monkeypatch, candidate_payload
 ) -> None:
-    requirements = [
-        {
-            "name": "market",
-            "dataset": "etf.ohlcv",
-            "subject": "588080.SH",
-            "frequency": "daily",
-            "lookback_sessions": 60,
-            "cutoff_rule": "SIGNAL_SESSION",
-            "maximum_staleness_days": 0,
-        }
-    ]
-    execution_policy = {
-        "policy_type": "FROZEN_RULE",
-        "settings": {"buy": "LIMIT", "sell": "MARKET", "fee_rate": 0.001},
-    }
-
-    def runtime_pass(version):
-        release_hash = version.release_hash or canonical_sha256(version.release_payload())
-        return {
-            "schema_version": 1,
-            "status": "PASS",
-            "release_id": version.release_id,
-            "release_hash": release_hash,
-            "runtime_sha256": "f" * 64,
-            "input_contract": {"requirements": requirements},
-            "input_contract_sha256": canonical_sha256(requirements),
-            "execution_policy": execution_policy,
-            "execution_policy_sha256": canonical_sha256(execution_policy),
-        }
-
-    monkeypatch.setattr(
-        "czsc_trader.application.freeze_review_service.validate_runtime_readiness",
-        runtime_pass,
-    )
+    payload, package = candidate_payload
+    from strategy_runtime import StrategyCandidate, StrategyLoader
+    from czsc_trader.application.runtime_acceptance import _runtime_report
+    loaded = StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", payload))
+    readiness = _runtime_report(loaded)
+    requirements = readiness["input_contract"]["requirements"]
+    execution_policy = readiness["execution_policy"]
     root = ["--repo-root", str(functional_repo)]
     family = _write_json(
         functional_repo / "research-batch.json",
@@ -351,11 +328,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         "strategy_id": "S900",
         "candidate_id": "C001",
         "source_experiment": "experiments/S900/0904_TEST",
-        "strategy_payload": {
-            "symbol": "588080.SH",
-            "target": "position",
-            "rule": {"execution": execution_policy["settings"]},
-        },
+        "strategy_payload": payload,
         "data_contract": {
             "symbol": "588080.SH",
             "asset_type": "etf",
@@ -461,6 +434,26 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         {"status": "APPROVED", "rules": [{"metric": "drawdown"}]},
     )
 
+    missing_runtime = deepcopy(snapshot_payload)
+    del missing_runtime["strategy_payload"]["runtime"]
+    missing_path = _write_json(
+        functional_repo / "missing-runtime.json", _hashed(missing_runtime, "candidate_hash"),
+    )
+    manifest_path = experiment / "candidate_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    missing_manifest = deepcopy(manifest)
+    missing_manifest["candidates"][0]["strategy_payload"] = missing_runtime["strategy_payload"]
+    _write_json(manifest_path, missing_manifest)
+    rejected = invoke_main_failure(
+        ["strategy", "review", "open", "--credential", "SGC-S900-001",
+         "--candidate", str(missing_path), "--mandate", str(mandate),
+         "--actor", "tester", "--reason", "missing implementation", *root], capsys,
+    )
+    assert rejected["error"]["code"] == "freeze_review_open_failed"
+    registry = StrategyRegistry(functional_repo / "strategies")
+    assert registry.get_governance_credential("S900", "SGC-S900-001").stage is GovernanceStage.RESEARCH_INITIATED
+    _write_json(manifest_path, manifest)
+
     opened = invoke_main(
         [
             "strategy",
@@ -504,8 +497,19 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     submission = credential.seals[-1]
     stored_snapshot = CandidateSnapshot.from_dict(submission.content["candidate_snapshot"])
     stored_mandate = EvaluationMandate.from_dict(submission.content["evaluation_mandate"])
-    runtime = _prospective_runtime(registry, stored_snapshot, stored_mandate)
-    runtime["strategy_payload_hash"] = canonical_sha256(stored_snapshot.strategy_payload)
+    runtime = _candidate_runtime(stored_snapshot)
+    assert runtime["identity_kind"] == "CANDIDATE"
+    assert runtime["release_id"] == "S900-C001"
+    assert registry.versions("S900") == ()
+    assert submission.content["candidate_runtime"] == runtime
+    assert _submitted_runtime(submission, stored_snapshot) == runtime
+    source = package / "strategies" / "candidate_fixture.py"
+    original_source = source.read_bytes()
+    source.write_bytes(original_source + b"\n# changed after submission\n")
+    from strategy_runtime import RuntimeCompatibilityError
+    with pytest.raises(RuntimeCompatibilityError, match="source hash"):
+        _submitted_runtime(submission, stored_snapshot)
+    source.write_bytes(original_source)
     file_audits = {
         "objective_recalculation": "formal_metrics.csv",
         "frequency_recalculation": "formal_metrics.csv",
@@ -564,6 +568,28 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         },
         artifact_hashes={"adjudication_report": report.report_hash},
     )
+    # A release factory must preserve reviewed contracts, not only its parameters.
+    from strategy_runtime import MonitoringPolicy
+    from czsc_trader.application.errors import ValidationError
+    from czsc_trader.application.freeze_review_service import freeze_review_candidate
+    original_factory = type(loaded).from_release
+
+    def changed_release(cls, release):
+        strategy = original_factory(release)
+        strategy.definition = replace(
+            strategy.definition, monitoring=MonitoringPolicy("CHANGED", {}),
+        )
+        return strategy
+
+    with monkeypatch.context() as patch:
+        patch.setattr(type(loaded), "from_release", classmethod(changed_release))
+        with pytest.raises(ValidationError, match="monitoring_sha256"):
+            freeze_review_candidate(
+                RepositoryContext.discover(functional_repo), "S900", "SGC-S900-001",
+                actor="tester", reason="approve", change_summary="first",
+            )
+    assert registry.versions("S900") == ()
+    assert registry.get_governance_credential("S900", "SGC-S900-001").stage is GovernanceStage.TDR_ADJUDICATED
     frozen = invoke_main(
         [
             "strategy",
@@ -643,7 +669,7 @@ def test_ft_t05_old_direct_creation_commands_are_absent() -> None:
 
 
 def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
-    functional_repo: Path, monkeypatch
+    functional_repo: Path, monkeypatch, candidate_payload
 ) -> None:
     context = RepositoryContext.discover(functional_repo)
     registry = StrategyRegistry(context.strategy_root)
@@ -666,31 +692,20 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         credential_id="SGC-S901-001",
         credential_content={"research_intent": "验证TDR独立复核"},
     )
-    requirements = [
-        {
-            "name": "market",
-            "dataset": "etf.ohlcv",
-            "subject": "588080.SH",
-            "frequency": "daily",
-            "lookback_sessions": 60,
-            "cutoff_rule": "SIGNAL_SESSION",
-            "maximum_staleness_days": 0,
-        }
-    ]
-    policy = {
-        "policy_type": "FROZEN_RULE",
-        "settings": {"buy": "LIMIT", "sell": "MARKET", "fee_rate": 0.001},
-    }
+    payload, _ = candidate_payload
+    from strategy_runtime import StrategyCandidate, StrategyLoader
+    from czsc_trader.application.runtime_acceptance import _runtime_report
+    readiness = _runtime_report(
+        StrategyLoader().load_candidate(StrategyCandidate("S901", "C001", payload))
+    )
+    requirements = readiness["input_contract"]["requirements"]
+    policy = readiness["execution_policy"]
     snapshot_raw = {
         "schema_version": 1,
         "strategy_id": "S901",
         "candidate_id": "C001",
         "source_experiment": "experiments/S901/0918_TEST",
-        "strategy_payload": {
-            "symbol": "588080.SH",
-            "target": "position",
-            "rule": {"execution": policy["settings"]},
-        },
+        "strategy_payload": payload,
         "data_contract": {
             "symbol": "588080.SH",
             "asset_type": "etf",
@@ -700,6 +715,7 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
         "research_claims": {"annual_return": 0.20, "maximum_drawdown": -0.18},
     }
     snapshot = CandidateSnapshot.from_dict(_hashed(snapshot_raw, "candidate_hash"))
+    candidate_runtime = validate_candidate_readiness(snapshot)
     audits = [
         "objective_recalculation",
         "frequency_recalculation",
@@ -751,11 +767,13 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
             "candidate_snapshot": snapshot.to_dict(),
             "evaluation_mandate": mandate.to_dict(),
             "audit_policy": audit_policy,
+            "candidate_runtime": candidate_runtime,
         },
         artifact_hashes={
             "candidate_snapshot": canonical_sha256(snapshot.to_dict()),
             "evaluation_mandate": mandate.mandate_hash,
             "audit_policy": canonical_sha256(audit_policy),
+            "candidate_runtime": canonical_sha256(candidate_runtime),
         },
     )
 
@@ -892,20 +910,6 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
     monkeypatch.setattr(
         "czsc_trader.application.freeze_review_service.evaluate_experiment",
         recompute,
-    )
-    monkeypatch.setattr(
-        "czsc_trader.application.freeze_review_service.validate_runtime_readiness",
-        lambda version: {
-            "schema_version": 1,
-            "status": "PASS",
-            "release_id": version.release_id,
-            "release_hash": canonical_sha256(version.release_payload()),
-            "runtime_sha256": "2" * 64,
-            "input_contract": {"requirements": requirements},
-            "input_contract_sha256": canonical_sha256(requirements),
-            "execution_policy": policy,
-            "execution_policy_sha256": canonical_sha256(policy),
-        },
     )
 
     result = evaluate_freeze_review(context, "S901", "SGC-S901-001")

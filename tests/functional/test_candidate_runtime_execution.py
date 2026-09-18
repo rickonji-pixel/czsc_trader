@@ -7,6 +7,7 @@ import importlib
 from pathlib import Path
 import shutil
 import sys
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -27,6 +28,71 @@ from strategy_runtime import (
 from strategy_runtime import implementation_identity
 import strategy_runtime.strategies
 from trading_execution_engine import HistoricalExecutor
+
+
+def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
+    candidate_payload, tmp_path, monkeypatch,
+):
+    from dataflows import DataRequest, Dataflows
+    from strategy_runtime import PublicationStatus, PublishedStrategyData, write_publication
+    from czsc_trader.backtesting.datasets import ReplayData
+    from czsc_trader.backtesting.models import StrategyIdentity, StrategySnapshot
+    from czsc_trader.backtesting.srt_bridge import build_srt_signal_replay, replay_srt_account
+
+    payload, _ = candidate_payload
+    candidate = StrategyCandidate("S900", "C001", payload)
+    strategy = StrategyLoader().load_candidate(candidate)
+    definition = strategy.definition
+    sessions = pd.bdate_range("2026-09-14", periods=5)
+    inputs = pd.DataFrame({"Date": sessions, "Flow": [0.1, 0.8, 0.2, 0.9, 0.0]})
+    request = DataRequest(
+        "etf.share", "588080.SH", "2026-09-14", "2026-09-18", "2026-09-18", "daily",
+    )
+    result = Dataflows({"etf.share": lambda _: (inputs, {"vendor": "test"})}).fetch(request)
+    publication = PublishedStrategyData(
+        definition.release_id, definition.release_hash, PublicationStatus.READY,
+        "2026-09-18", {"flow": request}, {"flow": result},
+    )
+    write_publication(publication, tmp_path)
+    daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0})
+    replay_data = ReplayData(
+        "research", tmp_path,
+        SimpleNamespace(daily=daily, symbol="588080.SH", asset_type="etf"),
+        daily, pd.DataFrame(columns=["dt", "high", "low"]), "d" * 64, sessions[-1].date(),
+    )
+    snapshot = StrategySnapshot(
+        StrategyIdentity("CANDIDATE", candidate.reference_id, "fixture"),
+        candidate.runtime_identity_sha256, canonical_sha256(payload), payload, None,
+    )
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("candidate replay must never call the old rule parser")
+
+    monkeypatch.setattr("czsc_trader.baselines.resolve_strategy_payload", forbidden)
+    loaded, signals = build_srt_signal_replay(
+        snapshot=snapshot, replay_data=replay_data, start=sessions[1], end=sessions[-1],
+        repository_root=tmp_path,
+    )
+    replay = replay_srt_account(
+        strategy=loaded, signals=signals, replay_data=replay_data, initial_cash=100_000,
+    )
+    _, direct = _execute(strategy)
+    assert_frame_equal(replay.account_daily, direct.account_daily, check_exact=True)
+    assert len(replay.fills) == 3
+    assert signals.support_data["runtime_sha256"] == definition.runtime_sha256
+    changed = deepcopy(payload)
+    changed["parameters"]["threshold"] = 0.9
+    with pytest.raises(RuntimeContractError, match="release hashes"):
+        build_srt_signal_replay(
+            snapshot=replace(snapshot, strategy_payload=changed), replay_data=replay_data,
+            start=sessions[1], end=sessions[-1], repository_root=tmp_path,
+            publication=publication,
+        )
+    with pytest.raises(RuntimeContractError, match="release hashes"):
+        build_srt_signal_replay(
+            snapshot=snapshot, replay_data=replay_data, start=sessions[1], end=sessions[-1],
+            repository_root=tmp_path, publication=replace(publication, release_hash="0" * 64),
+        )
 
 
 @pytest.fixture

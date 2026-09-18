@@ -31,6 +31,7 @@ from strategy_evaluator import (
     required_stress_scenarios,
 )
 from trading_execution_engine import EXECUTION_CONTRACT_VERSION
+from strategy_runtime import StrategyRuntimeError
 
 from czsc_trader.experiment_archive import (
     resolve_experiment_dir,
@@ -41,7 +42,11 @@ from .context import RepositoryContext
 from .errors import ValidationError
 from .evaluation_service import evaluate_experiment
 from .results import CommandResult
-from .runtime_acceptance import validate_runtime_readiness
+from .runtime_acceptance import (
+    require_same_runtime_content,
+    validate_candidate_readiness,
+    validate_runtime_readiness,
+)
 
 
 COMPLETE_AUDITS = frozenset(
@@ -484,6 +489,7 @@ def open_freeze_review(
             raise ValueError("candidate source experiment identity is ambiguous")
         protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
+        runtime = _candidate_runtime(snapshot)
         registry = StrategyRegistry(context.strategy_root)
         credential = registry.get_governance_credential(snapshot.strategy_id, credential_id)
         audit_policy = {
@@ -496,12 +502,14 @@ def open_freeze_review(
             "candidate_snapshot": snapshot.to_dict(),
             "evaluation_mandate": mandate.to_dict(),
             "audit_policy": audit_policy,
+            "candidate_runtime": runtime,
             "reason": reason.strip(),
         }
         submission_artifacts = {
             "candidate_snapshot": canonical_sha256(snapshot.to_dict()),
             "evaluation_mandate": mandate.mandate_hash,
             "audit_policy": canonical_sha256(audit_policy),
+            "candidate_runtime": canonical_sha256(runtime),
         }
         last = credential.seals[-1]
         same_submission = (
@@ -510,6 +518,7 @@ def open_freeze_review(
             and last.content.get("candidate_snapshot") == snapshot.to_dict()
             and last.content.get("evaluation_mandate") == mandate.to_dict()
             and last.content.get("audit_policy") == audit_policy
+            and last.content.get("candidate_runtime") == runtime
             and last.content.get("reason") == reason.strip()
             and last.artifact_hashes == submission_artifacts
         )
@@ -524,7 +533,7 @@ def open_freeze_review(
                 content=submission_content,
                 artifact_hashes=submission_artifacts,
             )
-    except (StrategyManagerError, OSError, ValueError, json.JSONDecodeError) as exc:
+    except (StrategyManagerError, StrategyRuntimeError, OSError, ValueError, json.JSONDecodeError) as exc:
         raise ValidationError(
             "freeze_review_open_failed",
             str(exc),
@@ -597,10 +606,6 @@ def _load_protocol_and_candidate(
         raise ValueError("review candidate is absent from source experiment")
     if candidate.get("strategy_payload") != snapshot.strategy_payload:
         raise ValueError("candidate snapshot payload differs from source experiment")
-    rule = snapshot.strategy_payload.get("rule")
-    payload_execution = rule.get("execution") if isinstance(rule, dict) else None
-    if payload_execution != snapshot.execution_policy["settings"]:
-        raise ValueError("candidate payload execution rules differ from declared execution policy")
     manifest_policy_hash = candidate.get("execution_policy_hash")
     if manifest_policy_hash != canonical_sha256(snapshot.execution_policy):
         raise ValueError("candidate execution policy differs from source experiment")
@@ -774,6 +779,26 @@ def _frequency_check(
         "rolling_closed_trades_p10": p10,
         "minimum_closed_trades": minimum,
     }
+
+
+def _candidate_runtime(snapshot: CandidateSnapshot) -> dict[str, Any]:
+    report = validate_candidate_readiness(snapshot)
+    audit = _runtime_audit(snapshot, report)
+    if audit.get("status") != "PASS":
+        raise ValueError(f"candidate runtime contract mismatch: {audit.get('reason')}")
+    return report
+
+
+def _submitted_runtime(
+    submission: StrategyGovernanceSeal, snapshot: CandidateSnapshot,
+) -> dict[str, Any]:
+    current = _candidate_runtime(snapshot)
+    if (
+        submission.content.get("candidate_runtime") != current
+        or submission.artifact_hashes.get("candidate_runtime") != canonical_sha256(current)
+    ):
+        raise ValueError("candidate runtime differs from its submission seal")
+    return current
 
 
 def _prospective_runtime(
@@ -979,6 +1004,7 @@ def evaluate_freeze_review(
         _validate_candidate_contract(snapshot)
         _validate_mandate_contract(mandate)
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
+        runtime = _submitted_runtime(submission, snapshot)
         machine_policy = _machine_policy_from_mandate(mandate)
         evaluation = evaluate_experiment(
             context,
@@ -999,7 +1025,6 @@ def evaluate_freeze_review(
         metric = _formal_metric(experiment, snapshot.candidate_id)
         claims = _claim_checks(snapshot, metric)
         objectives = _objective_checks(mandate, metric)
-        runtime = _prospective_runtime(registry, snapshot, mandate)
         audit_results: dict[str, dict[str, Any]] = {}
         for audit in mandate.required_audits:
             if audit == "objective_recalculation":
@@ -1112,6 +1137,7 @@ def evaluate_freeze_review(
             "INCOMPLETE": GovernanceResult.INCOMPLETE,
             "REJECTED": GovernanceResult.REJECTED,
         }[report.machine_verdict]
+        _submitted_runtime(submission, snapshot)
         updated = registry.append_governance_seal(
             strategy_id,
             credential_id,
@@ -1133,7 +1159,7 @@ def evaluate_freeze_review(
                 ),
             },
         )
-    except (StrategyManagerError, OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+    except (StrategyManagerError, StrategyRuntimeError, OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
         raise ValidationError(
             "freeze_review_evaluation_failed",
             str(exc),
@@ -1226,11 +1252,13 @@ def freeze_review_candidate(
             and credential.result is not GovernanceResult.ELIGIBLE
         ):
             raise ValueError("governance credential does not contain an eligible TDR adjudication")
-        _submission, snapshot, mandate, _audit_policy = _submission_from_credential(credential)
+        submission, snapshot, mandate, _audit_policy = _submission_from_credential(credential)
         _adjudication, report = _adjudication_from_credential(credential)
         experiment = _experiment_path(context, snapshot.source_experiment)
         protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
+        candidate_runtime = _submitted_runtime(submission, snapshot)
+        _verify_adjudication_evidence(experiment, report, candidate_runtime)
         runtime = _prospective_runtime(registry, snapshot, mandate)
         runtime["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
         runtime_audit = _runtime_audit(snapshot, runtime)
@@ -1238,7 +1266,7 @@ def freeze_review_candidate(
             raise ValueError(
                 f"runtime acceptance differs from candidate: {runtime_audit.get('reason')}"
             )
-        _verify_adjudication_evidence(experiment, report, runtime)
+        require_same_runtime_content(candidate_runtime, runtime)
         if credential.stage is GovernanceStage.TDR_ADJUDICATED:
             human_decision = {
                 "credential_id": credential_id,
@@ -1316,7 +1344,7 @@ def freeze_review_candidate(
             evidence=evidence,
             change_summary=change_summary,
         )
-    except (StrategyManagerError, OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+    except (StrategyManagerError, StrategyRuntimeError, OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
         raise ValidationError(
             "strategy_freeze_failed",
             str(exc),

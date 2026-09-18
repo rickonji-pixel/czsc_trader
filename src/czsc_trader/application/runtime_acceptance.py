@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 
-from strategy_manager import StrategyVersion, canonical_sha256
-from strategy_runtime import StrategyLoader, StrategyRelease
+from strategy_manager import CandidateSnapshot, StrategyVersion, canonical_sha256
+from strategy_runtime import StrategyCandidate, StrategyLoader, StrategyRelease
 
 
 def _plain(value):
@@ -25,18 +25,16 @@ def prospective_release(version: StrategyVersion) -> StrategyRelease:
     return StrategyRelease.from_mapping(frozen.to_dict())
 
 
-def validate_runtime_readiness(version: StrategyVersion) -> dict[str, object]:
-    """Prove that the prospective frozen payload has a loadable SRT closure."""
-
-    release = prospective_release(version)
-    strategy = StrategyLoader().load(release)
+def _runtime_report(strategy) -> dict[str, object]:
     definition = strategy.definition
     return {
         "schema_version": 1,
         "status": "PASS",
-        "release_id": release.release_id,
-        "release_hash": release.release_hash,
+        "release_id": definition.release_id,
+        "release_hash": definition.release_hash,
+        "identity_kind": definition.identity_kind,
         "runtime_sha256": definition.runtime_sha256,
+        "parameters_sha256": definition.parameters.sha256,
         "implementation": {
             "module": definition.implementation.module,
             "qualname": definition.implementation.qualname,
@@ -62,7 +60,40 @@ def validate_runtime_readiness(version: StrategyVersion) -> dict[str, object]:
             "settings": _plain(definition.execution.settings),
         },
         "state_mode": definition.state_mode,
+        "capabilities_sha256": canonical_sha256(asdict(definition.capabilities)),
+        "monitoring_sha256": canonical_sha256({
+            "policy_type": definition.monitoring.policy_type,
+            "rules": _plain(definition.monitoring.rules),
+        }),
     }
+
+
+def validate_runtime_readiness(version: StrategyVersion) -> dict[str, object]:
+    """Load the exact prospective release without changing SM state."""
+    return _runtime_report(StrategyLoader().load(prospective_release(version)))
+
+
+def validate_candidate_readiness(snapshot: CandidateSnapshot) -> dict[str, object]:
+    """Gate 2 binds a candidate implementation, never a prospective vN wrapper."""
+    candidate = StrategyCandidate(
+        snapshot.strategy_id, snapshot.candidate_id, snapshot.strategy_payload,
+    )
+    report = _runtime_report(StrategyLoader().load_candidate(candidate))
+    report["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
+    return report
+
+
+def require_same_runtime_content(candidate: dict, release: dict) -> None:
+    """Only lifecycle identity may change when a reviewed candidate is frozen."""
+    if candidate.get("identity_kind") != "CANDIDATE" or release.get("identity_kind") != "RELEASE":
+        raise ValueError("freeze requires candidate-to-release runtime identities")
+    for key in (
+        "implementation", "parameters_sha256", "strategy_payload_hash",
+        "input_contract_sha256", "decision_contract_sha256", "execution_policy_sha256",
+        "state_mode", "capabilities_sha256", "monitoring_sha256",
+    ):
+        if key not in candidate or candidate[key] != release.get(key):
+            raise ValueError(f"frozen runtime differs from reviewed candidate: {key}")
 
 
 def require_runtime_readiness(

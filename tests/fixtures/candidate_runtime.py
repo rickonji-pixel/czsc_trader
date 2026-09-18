@@ -89,7 +89,11 @@ class CandidateFixture:
 
     def calculate_history(self, inputs, sessions):
         threshold = float(self.definition.parameters.values["threshold"])
-        values = inputs["flow"].set_index("Date").reindex(sessions)["Flow"].astype(float)
+        flow = inputs["flow"].copy()
+        flow["Date"] = pd.to_datetime(flow["Date"])
+        values = flow.set_index("Date").reindex(sessions)["Flow"].astype(float)
+        if values.isna().any():
+            raise ValueError("fixture flow does not cover the calculation sessions")
         return pd.DataFrame({"target_position": (values > threshold).astype(float)}, index=sessions)
 
     def calculate(self, request):

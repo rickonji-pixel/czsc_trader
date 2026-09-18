@@ -38,6 +38,7 @@ from trading_execution_engine import EXECUTION_CONTRACT_VERSION
 from czsc_trader.application.evaluation_evidence import build_champion_audit_request
 from czsc_trader.candidate_evaluation import (
     CandidateEvaluationContext,
+    METRIC_SEMANTICS_VERSION,
     _scenario_settings,
     evaluate_candidate_payloads,
 )
@@ -150,7 +151,7 @@ def _requested_identities(
     if not isinstance(windows, dict):
         raise ValueError("candidate manifest requires windows")
     base_fee = float(manifest.get("fee_rate", 0.0005))
-    semantics = str(manifest.get("metric_semantics_version", "candidate-metrics-v1"))
+    semantics = METRIC_SEMANTICS_VERSION
     data_identity = canonical_json_sha256(source_files)
     identities: list[EvaluationIdentity] = []
     for candidate_id in candidate_ids:
@@ -368,6 +369,7 @@ def evaluate_experiment(
     candidates = tuple(_descriptor(item) for item in payloads)
     trials = tuple(_trial(item) for item in raw_trials if isinstance(item, dict))
     evaluation_directive = {
+        "metric_semantics_version": METRIC_SEMANTICS_VERSION,
         "machine_policy": None if machine_policy is None else machine_policy.to_dict(),
         "stress_scenarios": None if stress_scenarios is None else list(stress_scenarios),
         "frequency_window_days": frequency_window_days,
@@ -395,7 +397,7 @@ def evaluate_experiment(
     run_context = CandidateEvaluationContext(
         context, str(manifest["symbol"]), str(manifest.get("asset_type", "etf")), periods,
         float(manifest.get("fee_rate", 0.0005)), float(manifest.get("init_cash", 1_000_000.0)),
-        workers, frequency_window_days,
+        workers, frequency_window_days, str(manifest.get("strategy_id", experiment.parent.name)),
     )
     reuse_ledger: list[ReuseLedgerRow] = []
     reuse_diagnostics: list[str] = []
@@ -503,6 +505,7 @@ def evaluate_experiment(
         "input_hash": input_hash,
         "canonical_metric_hash": _canonical_hash(metric_rows),
         "formal_evaluation_contract": {
+            "metric_semantics_version": METRIC_SEMANTICS_VERSION,
             "development_cutoff": protocol.development_cutoff,
             "windows": manifest["windows"],
             "benchmark_id": protocol.incumbent_id,

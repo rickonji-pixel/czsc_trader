@@ -115,7 +115,16 @@ def _source_rows(experiment: Path) -> tuple[dict[str, tuple[MetricObservation, s
     data_identity = canonical_json_sha256(source_files)
     cutoff = str(protocol["development_cutoff"])
     base_fee = float(manifest.get("fee_rate", 0.0005))
-    semantics = str(manifest.get("metric_semantics_version", METRIC_SEMANTICS_VERSION))
+    # Absence of a stamp cannot turn old simple-backtest metrics into TXE evidence.
+    semantics = str(manifest.get("metric_semantics_version", "UNDECLARED"))
+    result_path = experiment / "artifacts" / "evaluation_result.json"
+    if result_path.is_file() and "artifacts/evaluation_result.json" in files:
+        completed = _read_object(result_path)
+        semantics = str(completed.get("formal_evaluation_contract", {}).get(
+            "metric_semantics_version", semantics,
+        ))
+    if semantics != METRIC_SEMANTICS_VERSION:
+        raise ValueError("source metrics do not declare the current SRT/TXE semantics")
     output: list[dict[str, tuple[MetricObservation, str, str]]] = []
     for relative in ("artifacts/screening_metrics.csv", "artifacts/formal_metrics.csv"):
         path = experiment / relative

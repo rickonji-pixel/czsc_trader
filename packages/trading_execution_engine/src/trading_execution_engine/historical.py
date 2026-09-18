@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from dataclasses import replace
 from hashlib import sha256
 from math import isfinite
 from typing import Any, Mapping
@@ -73,6 +74,7 @@ class HistoricalExecutor:
         checkpoints: tuple[str, ...] = (),
         channel_id: str = "backtest",
         execution_five_minute: pd.DataFrame | None = None,
+        fee_rate_override: float | None = None,
     ) -> None:
         if not channel_id.strip():
             raise RuntimeContractError("backtest channel_id must be non-empty")
@@ -88,6 +90,17 @@ class HistoricalExecutor:
             raise RuntimeContractError("strategy_reference must be non-empty")
         self._strategy_reference = strategy_reference
         self._policy = execution_policy
+        # A declared evaluation cost scenario changes costs, never the SRT identity.
+        self._effective_policy = execution_policy
+        if fee_rate_override is not None:
+            if not isfinite(fee_rate_override) or not 0 <= fee_rate_override < 1:
+                raise RuntimeContractError("fee_rate_override must be finite and in [0, 1)")
+            settings = dict(execution_policy.settings)
+            if execution_policy.policy_type == "FROZEN_RULE":
+                settings["capital"] = {**settings["capital"], "fee_rate": float(fee_rate_override)}
+            else:
+                settings["one_way_cost"] = float(fee_rate_override)
+            self._effective_policy = ExecutionPolicy(execution_policy.policy_type, settings)
         self._initial_cash = float(initial_cash)
         self._daily = _prices(execution_daily, "execution daily", ("open", "close"))
         self._signal_daily = _prices(signal_daily, "signal daily", ("close",))
@@ -137,6 +150,11 @@ class HistoricalExecutor:
     @property
     def capabilities(self) -> ChannelCapabilities:
         return self._capabilities
+
+    @property
+    def effective_policy(self) -> ExecutionPolicy:
+        """Expose the exact policy used for sizing, fees and ledger audit."""
+        return self._effective_policy
 
     @property
     def receipts(self) -> tuple[ExecutionReceipt, ...]:
@@ -189,7 +207,7 @@ class HistoricalExecutor:
         signal_reference_price = float(self._signal_daily.loc[signal_date, "close"])
         execution_reference_price = float(self._daily.loc[signal_date, "close"])
         plan = build_execution_plan(
-            request,
+            replace(request, policy=self._effective_policy),
             signal_reference_price=signal_reference_price,
             execution_reference_price=execution_reference_price,
         )
@@ -300,7 +318,7 @@ class HistoricalExecutor:
         return self._result
 
     def _bootstrap_overlay_core(self) -> None:
-        settings = dict(self._policy.settings)
+        settings = dict(self._effective_policy.settings)
         prior = self._daily.loc[self._daily.index < self._evaluation.index[0]]
         if prior.empty:
             raise RuntimeContractError("intraday overlay backtest requires one pre-window session")

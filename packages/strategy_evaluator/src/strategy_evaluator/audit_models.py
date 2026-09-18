@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
+
+if TYPE_CHECKING:
+    from .replay_audit import ReplayEvidence
 
 from .models import (
     CandidateDescriptor,
@@ -229,7 +232,7 @@ class ChampionAuditRequest(Record):
     search_returns: ReturnMatrixEvidence
     comparison_returns: ReturnMatrixEvidence
     parameters: tuple[ParameterPoint, ...]
-    execution: ExecutionEvidence
+    execution: ExecutionEvidence | ReplayEvidence
     formal_observations: tuple[MetricObservation, ...]
     repeated_observations: tuple[MetricObservation, ...]
     candidates: tuple[CandidateDescriptor, ...]
@@ -241,6 +244,7 @@ class ChampionAuditRequest(Record):
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> ChampionAuditRequest:
+        from .replay_audit import ReplayEvidence
         required = {
             "identity", "champion_id", "incumbent_id", "pareto_peer_ids",
             "search_returns", "comparison_returns", "parameters", "execution",
@@ -272,7 +276,9 @@ class ChampionAuditRequest(Record):
             ReturnMatrixEvidence.from_dict(data["search_returns"]),
             ReturnMatrixEvidence.from_dict(data["comparison_returns"]),
             tuple(ParameterPoint.from_dict(value) for value in data["parameters"]),
-            ExecutionEvidence.from_dict(data["execution"]),
+            (ReplayEvidence.from_dict(data["execution"])
+             if "execution_spec" in data["execution"]
+             else ExecutionEvidence.from_dict(data["execution"])),
             tuple(MetricObservation.from_dict(value) for value in data["formal_observations"]),
             tuple(MetricObservation.from_dict(value) for value in data["repeated_observations"]),
             tuple(CandidateDescriptor.from_dict(value) for value in data["candidates"]),

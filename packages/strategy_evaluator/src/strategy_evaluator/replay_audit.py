@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from .audit_models import AuditStatus
-from .models import Record
+from .models import Record, _exact
 
 
 def _jsonable(value: Any) -> Any:
@@ -36,6 +36,16 @@ class ReplayEvidence(Record):
     metrics: Mapping[str, Any]
     execution_daily: tuple[Mapping[str, Any], ...]
     execution_intraday: tuple[Mapping[str, Any], ...]
+    content_hash: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> ReplayEvidence:
+        _exact(data, set(cls.__dataclass_fields__))
+        sequence_fields = {
+            "evaluation_sessions", "decisions", "orders", "fills", "account_daily",
+            "trades", "execution_daily", "execution_intraday",
+        }
+        return cls(**{key: tuple(value) if key in sequence_fields else value for key, value in data.items()})
 
     def to_dict(self) -> dict[str, Any]:
         return _jsonable({name: getattr(self, name) for name in self.__dataclass_fields__})
@@ -50,8 +60,10 @@ class ReplayAuditResult(Record):
 
 
 def hash_replay_evidence(evidence: ReplayEvidence) -> str:
+    payload = evidence.to_dict()
+    payload.pop("content_hash")
     encoded = json.dumps(
-        evidence.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
     return sha256(encoded).hexdigest()
 

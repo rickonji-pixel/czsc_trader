@@ -191,7 +191,8 @@ def test_txe_historical_executor_executes_requests_against_its_confirmed_ledger(
     assert result.account_daily.iloc[-1]["cash"] > 109_000
 
 
-def test_txe_historical_executor_executes_intraday_overlay_plan() -> None:
+@pytest.mark.parametrize("fee_override", [None, 0.002])
+def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) -> None:
     daily = pd.DataFrame(
         [
             {"dt": pd.Timestamp("2026-09-16"), "open": 10.0, "close": 10.0},
@@ -245,6 +246,7 @@ def test_txe_historical_executor_executes_intraday_overlay_plan() -> None:
         execution_policy=policy,
         order_types=("LIMIT", "MARKET"),
         checkpoints=("OPEN", "11:30_CLOSE"),
+        fee_rate_override=fee_override,
     )
     zone = ZoneInfo("Asia/Shanghai")
     generated_at = datetime.fromisoformat("2026-09-16T20:30:00").replace(tzinfo=zone)
@@ -301,3 +303,11 @@ def test_txe_historical_executor_executes_intraday_overlay_plan() -> None:
     assert result.fills["price"].tolist() == [10.0, 10.2]
     assert result.account_daily["quantity"].tolist() == [4_900]
     assert result.trades["status"].tolist() == ["CLOSED"]
+    rate = 0.00012 if fee_override is None else fee_override
+    assert channel.effective_policy.settings["one_way_cost"] == rate
+    assert policy.settings["one_way_cost"] == 0.00012
+    assert result.account_daily.iloc[0]["cash_before"] == pytest.approx(100_000 - 49_000 * (1 + rate))
+    # Event sizing reserves cash against its limit price; it need not equal the core lot.
+    assert result.fills["quantity"].tolist() == [4_600, 4_600]
+    assert result.fills["fees"].tolist() == pytest.approx([46_000 * rate, 46_920 * rate])
+    assert result.account_daily.iloc[-1]["cash"] == pytest.approx(100_000 - 49_000 * (1 + rate) - 46_000 * (1 + rate) + 46_920 * (1 - rate))

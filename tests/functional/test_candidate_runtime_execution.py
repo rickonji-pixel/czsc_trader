@@ -245,6 +245,9 @@ def test_candidate_load_fails_closed_on_source_and_parameter_identity_errors(
     )
     for changes, reason in (
         ({"initial_cash": float("nan")}, "positive and finite"),
+        ({"fee_rate_override": float("nan")}, "fee_rate_override"),
+        ({"fee_rate_override": -0.01}, "fee_rate_override"),
+        ({"fee_rate_override": 1.0}, "fee_rate_override"),
         ({"execution_daily": pd.concat([daily, daily])}, "unique"),
         ({"execution_daily": daily.assign(close=float("nan"))}, "positive and finite"),
         ({"evaluation_end": pd.Timestamp("2026-09-18")}, "do not cover"),
@@ -277,3 +280,96 @@ def test_candidate_load_fails_closed_on_source_and_parameter_identity_errors(
     )
     with pytest.raises(RuntimeCompatibilityError, match="fresh process"):
         loader.load_candidate(StrategyCandidate("S900", "C001", changed))
+
+
+def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload, tmp_path, monkeypatch):
+    from dataflows import DataRequest, Dataflows
+    from strategy_runtime import PublicationStatus, PublishedStrategyData, write_publication
+    from strategy_evaluator import (
+        AuditStatus, ChampionAuditRequest, ReplayEvidence, audit_provisional_champion,
+        hash_execution_evidence, hash_return_matrix, hash_audit_data,
+    )
+    from czsc_trader.backtesting.datasets import ReplayData
+    from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
+    from czsc_trader.application.evaluation_evidence import build_champion_audit_request
+
+    payload, _ = candidate_payload
+    sessions = pd.bdate_range("2026-09-14", periods=6)
+    daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0})
+    # First buy cannot fill; next day the unchanged target must retry and fill.
+    daily.loc[2, "open"] = 1.1
+    inputs = pd.DataFrame({"Date": sessions, "Flow": [.1, .8, .8, .1, .0, .0]})
+    request = DataRequest("etf.share", "588080.SH", "2026-09-14", "2026-09-21", "2026-09-21", "daily")
+    fetched = Dataflows({"etf.share": lambda _: (inputs, {"vendor": "test"})}).fetch(request)
+    payloads = []
+    for candidate_id, threshold in (("C000", 1.0), ("C001", .5)):
+        parameters = deepcopy(payload)
+        parameters["parameters"]["threshold"] = threshold
+        strategy = StrategyLoader().load_candidate(StrategyCandidate("S900", candidate_id, parameters))
+        definition = strategy.definition
+        write_publication(PublishedStrategyData(
+            definition.release_id, definition.release_hash, PublicationStatus.READY,
+            "2026-09-21", {"flow": request}, {"flow": fetched},
+        ), tmp_path)
+        payloads.append({"candidate_id": candidate_id, "strategy_id": "S900",
+                         "strategy_payload": parameters, "is_incumbent": candidate_id == "C000"})
+    replay_data = ReplayData(
+        "research", tmp_path, SimpleNamespace(daily=daily, symbol="588080.SH", asset_type="etf"),
+        daily, pd.DataFrame(columns=["dt", "high", "low"]), "d" * 64, sessions[-1].date(),
+    )
+    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay_data)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("evaluation must not invoke the old strategy parser or simple backtest")
+    monkeypatch.setattr("czsc_trader.baselines.resolve_strategy_payload", forbidden)
+    monkeypatch.setattr("czsc_trader.research_backtest.run_period_backtests", forbidden)
+    context = CandidateEvaluationContext(
+        SimpleNamespace(root=tmp_path), "588080.SH", "etf",
+        (("full", (sessions[1], sessions[-1])),), .001, 100_000, frequency_window_days=3,
+        family_id="S900",
+    )
+    protocol = SimpleNamespace(development_cutoff="2026-09-21", incumbent_id="C000",
+                               experiment_id="TEST", execution_policy_hash="e" * 64, standard_version="opc-v3")
+    payloads = tuple(payloads)
+    screening = evaluate_candidate_payloads(context, protocol, payloads, ("C001", "C000"), "SCREENING")
+    formal = evaluate_candidate_payloads(context, protocol, payloads, ("C001", "C000"), "FORMAL")
+    assert tuple(replace(row, measurement_tier="FORMAL") for row in screening) == formal
+    assert formal[0].closed_trades == 1
+    assert evaluate_candidate_payloads(replace(context, workers=2), protocol, payloads, ("C001", "C000"), "FORMAL") == formal
+    stressed = evaluate_candidate_payloads(context, protocol, payloads, ("C001",), "STRESS", ("total_cost_20bp",))
+    assert stressed[0].total_return < formal[0].total_return
+    assert stressed[0].cost_drag > formal[0].cost_drag
+    audit_request = build_champion_audit_request(
+        run_context=context, protocol=protocol, manifest={}, payloads=payloads, candidates=(), trials=(),
+        ranking=SimpleNamespace(champion_id="C001", profiles=()), screening_profiles=(),
+        formal=formal, repeated=(formal[0],), stress=stressed, search_candidate_ids=("C001",),
+    )
+    assert isinstance(audit_request.execution, ReplayEvidence)
+    evidence = audit_request.execution
+    assert [row["status"] for row in evidence.orders] == ["UNFILLED", "FILLED", "FILLED"]
+    assert len(evidence.fills) == 2
+    assert len(evidence.trades) == 1
+    assert audit_request.search_returns.returns == tuple((row[0],) for row in audit_request.comparison_returns.returns)
+    assert (1 + pd.Series([row[0] for row in audit_request.search_returns.returns])).prod() - 1 == pytest.approx(formal[0].total_return)
+    restored = ChampionAuditRequest.from_dict(audit_request.to_dict())
+    assert restored.to_dict() == audit_request.to_dict()
+    audit = audit_provisional_champion(restored)
+    execution = next(item for item in audit.findings if item.audit_id == "execution")
+    assert execution.status is AuditStatus.PASS, execution.reason_codes
+
+    # Individually hash-valid matrices must still agree with the audited ledger.
+    mismatched = replace(audit_request.comparison_returns,
+                         returns=tuple((row[0] + .01, *row[1:]) for row in audit_request.comparison_returns.returns))
+    mismatched = replace(mismatched, content_hash=hash_return_matrix(mismatched))
+    bad_request = replace(audit_request, comparison_returns=mismatched,
+                          identity=replace(audit_request.identity, data_hash=hash_audit_data(audit_request.search_returns, mismatched)))
+    assert "CHAMPION_LEDGER_RETURN_MISMATCH" in audit_provisional_champion(bad_request).reason_codes
+
+    # A ledger defect must fail the real replay audit even with a freshly computed hash.
+    broken = replace(evidence, fills=({**evidence.fills[0], "fees": 999.0}, *evidence.fills[1:]))
+    broken = replace(broken, content_hash=hash_execution_evidence(broken))
+    failed = audit_provisional_champion(replace(audit_request, execution=broken))
+    assert next(item for item in failed.findings if item.audit_id == "execution").status is AuditStatus.FAIL
+    with pytest.raises(ValueError, match="price-slippage"):
+        evaluate_candidate_payloads(context, protocol, payloads, ("C001",), "STRESS", ("slippage_15bp",))
+    with pytest.raises(ValueError, match="invalid cost"):
+        evaluate_candidate_payloads(context, protocol, payloads, ("C001",), "STRESS", ("fee_xnan",))

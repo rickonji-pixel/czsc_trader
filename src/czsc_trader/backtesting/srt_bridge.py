@@ -197,6 +197,8 @@ def build_srt_signal_replay(
     StrategyRunner.validate_publication(strategy, publication)
     if not publication.ready:
         raise RuntimeContractError("historical calculation requires a READY publication")
+    if replay_data.dataset == "research" and pd.Timestamp(publication.requested_cutoff).date() != replay_data.cutoff:
+        raise RuntimeContractError("research publication cutoff differs from the controlled research dataset")
     if pd.Timestamp(publication.requested_cutoff) < evaluation[-1]:
         raise ValueError(
             "SRT historical publication ends before the requested backtest interval"
@@ -238,6 +240,8 @@ def build_srt_signal_replay(
     else:
         for signal_date in visible:
             row = history.loc[signal_date]
+            if float(row["target_position"]) not in (0.0, 1.0):
+                raise RuntimeContractError("TXE target replay requires binary positions; fractional targets are unsupported")
             target = int(row["target_position"])
             record: dict[str, object] = {
                 "decision_id": _decision_id(snapshot.identity.reference, signal_date, target),
@@ -327,6 +331,7 @@ def replay_srt_account(
     signals: SignalReplay,
     replay_data: ReplayData,
     initial_cash: float,
+    fee_rate_override: float | None = None,
 ) -> BacktestResult:
     """Route SRT decisions directly through TXE, then wrap facts for reporting."""
 
@@ -343,6 +348,7 @@ def replay_srt_account(
         execution_policy=definition.execution,
         order_types=definition.capabilities.order_types,
         checkpoints=definition.capabilities.checkpoints,
+        fee_rate_override=fee_rate_override,
     )
     publication_hash = (signals.support_data or {}).get("publication_sha256", "")
     identity_hash = sha256(

@@ -24,6 +24,7 @@ from .engineering_audit import (
     audit_trial_ledger,
 )
 from .neighborhood import audit_parameter_neighborhood
+from .replay_audit import ReplayEvidence, audit_replay, hash_replay_evidence
 from .search_bias import annualized_sharpe, calculate_dsr_bundle, cscv_pbo, effective_trial_count
 
 
@@ -40,7 +41,9 @@ def hash_return_matrix(evidence: ReturnMatrixEvidence) -> str:
     })
 
 
-def hash_execution_evidence(evidence: ExecutionEvidence) -> str:
+def hash_execution_evidence(evidence: ExecutionEvidence | ReplayEvidence) -> str:
+    if isinstance(evidence, ReplayEvidence):
+        return hash_replay_evidence(evidence)
     return _canonical_hash({
         "dates": list(evidence.dates),
         "target_positions": list(evidence.target_positions),
@@ -104,7 +107,29 @@ def _validate_identity(request: ChampionAuditRequest) -> tuple[str, ...]:
         reasons.append("CHAMPION_MISSING_FROM_SEARCH_POOL")
     if request.search_returns.dates != request.comparison_returns.dates:
         reasons.append("RETURN_DATE_MISMATCH")
+    if isinstance(request.execution, ReplayEvidence):
+        reasons.extend(_validate_ledger_returns(request))
     return tuple(reasons)
+
+
+def _validate_ledger_returns(request: ChampionAuditRequest) -> tuple[str, ...]:
+    """Tie statistical evidence to the very ledger audited by SE."""
+    evidence = request.execution
+    try:
+        dates = tuple(str(row["date"])[:10] for row in evidence.account_daily)
+        equity = np.asarray([float(row["equity"]) for row in evidence.account_daily])
+        previous = np.concatenate(([float(evidence.initial_cash)], equity[:-1]))
+        if not len(equity) or not np.isfinite(equity).all() or not (previous > 0).all():
+            return ("INVALID_CHAMPION_EQUITY",)
+        returns = equity / previous - 1
+        for matrix in (request.search_returns, request.comparison_returns):
+            index = matrix.candidate_ids.index(request.champion_id)
+            values = np.asarray(matrix.returns, dtype=float)[:, index]
+            if dates != matrix.dates or values.shape != returns.shape or not np.allclose(values, returns, rtol=0, atol=1e-12):
+                return ("CHAMPION_LEDGER_RETURN_MISMATCH",)
+    except (ValueError, TypeError, KeyError, IndexError):
+        return ("INVALID_CHAMPION_LEDGER_RETURN_EVIDENCE",)
+    return ()
 
 
 def _direction(value: float) -> str:
@@ -131,7 +156,14 @@ def audit_provisional_champion(request: ChampionAuditRequest) -> ChampionAuditRe
     if identity_reasons:
         return _incomplete(request, *identity_reasons)
 
-    execution = audit_execution(request.execution)
+    if isinstance(request.execution, ReplayEvidence):
+        replay = audit_replay(request.execution)
+        execution = AuditFinding(
+            "execution", replay.status, replay.reason_codes,
+            (("evidence_kind", "TXE_LEDGER"), ("checks", replay.checks)),
+        )
+    else:
+        execution = audit_execution(request.execution)
     reproducibility = audit_reproducibility(
         tuple(
             item for item in request.formal_observations

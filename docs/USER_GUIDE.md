@@ -375,7 +375,7 @@ HTTP状态及调度器心跳；连续3次失败后按5、30、60秒退避重启�
 
 ```powershell
 .\.venv\Scripts\pte.exe control restart `
-  --repo-root . --wait 30
+  --repo-root . --wait 60
 Invoke-RestMethod http://127.0.0.1:8080/api/system/status
 ```
 

@@ -136,7 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
     _common(restart)
     restart.add_argument("--host", default="127.0.0.1")
     restart.add_argument("--port", default=8080, type=int)
-    restart.add_argument("--wait", default=30.0, type=float)
+    restart.add_argument("--wait", default=60.0, type=float)
     repair = control_actions.add_parser("repair-ledger")
     _common(repair)
     repair.add_argument("--host", default="127.0.0.1")

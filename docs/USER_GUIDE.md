@@ -304,10 +304,11 @@ PTE没有data prepare能力，只维护生产存储空间并消费SRT原子提�
 ### 虚拟账户
 
 首次启动会幂等创建`s001-v1 / S001-v1模拟账户`，绑定`S001-v1`并分配10万元初始
-资金。生产命令必须使用当前发布及`shared/`运行状态；先在同一PowerShell会话加载上下文：
+资金。生产命令必须使用当前发布及`shared/`运行状态。以下`$PteRoot`取
+`scripts/pte-publish.ps1`中内置的`$ProductionRoot`值；先在同一PowerShell会话设置该变量，
+再加载当前活动发布：
 
 ```powershell
-$PteRoot = 'D:\CZSC-PTE'
 $Active = Get-Content (Join-Path $PteRoot 'shared\config\active-release.json') -Raw |
   ConvertFrom-Json
 $ReleaseRoot = Join-Path $PteRoot "releases\$($Active.release_id)"
@@ -358,8 +359,8 @@ $RuntimeArgs = @(
 ```powershell
 & $Pte performance export @RuntimeArgs `
   --account-id s001-v2 --recorded-by tomxiao `
-  --start 2026-09-03 --end 2026-12-03 --output state\paper-forward.json
-.\.venv\Scripts\czsc-trader.exe strategy evidence add --input state\paper-forward.json
+  --start 2026-09-03 --end 2026-12-03 --output .tmp\paper-forward.json
+.\.venv\Scripts\czsc-trader.exe strategy evidence add --input .tmp\paper-forward.json
 ```
 
 日常净值保存在SQLite；只有人工复核、晋升或降级所需的里程碑证据进入Git。
@@ -370,7 +371,6 @@ $RuntimeArgs = @(
 从已发布的轻量服务宿主安装WDG：
 
 ```powershell
-$PteRoot = 'D:\CZSC-PTE'
 $Watchdog = Get-ChildItem (Join-Path $PteRoot 'host\releases') `
   -Filter pte-watchdog.exe -Recurse |
   Sort-Object LastWriteTimeUtc -Descending |
@@ -387,10 +387,15 @@ HTTP状态及调度器心跳；连续3次失败后按5、30、60秒退避重启�
 脚本内置的生产根目录、切换活动版本并等待健康检查。发布属于生产写入，执行前必须取得授权：
 
 ```powershell
-.\scripts\pte-build.ps1 -Tag v0.5.3
-.\scripts\pte-publish.ps1 -Tag v0.5.3
+$Tag = 'v0.5.4'
+.\scripts\pte-build.ps1 -Tag $Tag
+.\scripts\pte-publish.ps1 -Tag $Tag
 Invoke-RestMethod http://127.0.0.1:8080/api/system/status
 ```
+
+`pte-build.ps1`只接受附注tag，并把版本代码、策略快照、wheel、锁文件和依赖缓存收拢到
+`.build/pte/`。`pte-publish.ps1`只发布已经完成且身份匹配的构建，生产根目录固定在脚本内部；
+重复发布同一tag时会校验现有版本，内容不一致则失败。控制台顶部显示当前活动发布版本。
 
 普通PTE代码和策略发布会复用WDG服务宿主，无需重新安装WDG。只有WDG自身依赖或服务配置
 变化时，才在管理员PowerShell中重新执行`install-config`。日常服务控制为：
@@ -440,5 +445,6 @@ PTE每次由`serve`启动前会在生产`shared/state/backups/`创建一致性SQ
 确认执行缺口，原拒单和审计事件继续保留，不能补单或改写为正常样本。
 
 生产数据库、发布数据、图表缓存、日志和配置统一位于生产根目录的`shared/`且不进入Git。
-开发模式默认使用`state/paper_trading/`。跨机延续同一条模拟盘观察序列时，需要迁移完整
-`shared/`，并重新核对Futu活动订单、成交和持仓。
+显式运行开发态`pte serve --repo-root .`时才会创建`state/paper_trading/`；停止开发态PTE后，
+该目录可作为可丢弃的本机状态删除。跨机延续同一条模拟盘观察序列时，需要迁移完整`shared/`，
+并重新核对Futu活动订单、成交和持仓。

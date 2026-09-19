@@ -20,8 +20,9 @@
 | WDG | PTE Watchdog | PTE进程开机自启、探活和故障拉起 |
 
 后续开发、文档和讨论统一使用以上名称。DFLS、FSC、STC、SM、SE、SRT、TXE和PTE
-均为仓库内独立包，只通过明确契约协作。Search、Feature Mining和`news_events`是研究脚本
-可自由使用的能力，不属于TDR治理职责；正式策略结论必须通过TDR三道人工闸门进入生命周期。
+均为仓库内独立包，只通过明确契约协作。研究脚本可以直接使用Optuna、特征提取库及其他研究
+依赖；仓库不再维护通用Search和Feature Mining运行模块。`news_events`仍是TDR内的受控抽取
+能力。正式策略结论必须通过TDR三道人工闸门进入生命周期。
 
 ## 当前交付状态
 
@@ -41,6 +42,8 @@
 - PTE控制台：<http://127.0.0.1:8080>。
 - WDG Windows服务：`CZSC-PTE-Watchdog`。
 - 当前唯一交易渠道：Futu中国市场模拟交易。
+- PTE采用附注tag构建、仓库内`.build/pte/`缓存和独立生产环境发布；当前已验证发布为
+  `v0.5.4`。生产版本目录不可变，账户、发布数据、配置和日志集中在共享运行目录。
 
 每次接手先执行：
 
@@ -179,7 +182,8 @@ git pull --ff-only origin master
 - `.tmp/`：测试缓存、测试运行目录和业务发布前的暂存工作区；
 - `.build/pte/`：可重建的PTE版本构建及依赖缓存；
 - `outputs/`：普通回测输出；
-- `state/paper_trading/`：PTE开发模式的数据库、备份、数据、图表缓存和日志；
+- `state/paper_trading/`：仅在显式运行开发态PTE时生成的数据库、备份、数据、图表缓存和日志；
+  未运行开发态PTE时可以删除，生产PTE不会读取该目录；
 - PTE生产根目录的`shared/`：生产账户、订单、成交、暂停状态、审计、发布数据、配置与日志；
 - Windows服务、Futu OpenD及其登录状态。
 
@@ -196,9 +200,10 @@ git pull --ff-only origin master
 用例准入、收敛与删除条件、分级回归命令、月度及触发式审查流程统一见
 [测试用例治理](TEST_GOVERNANCE.md)。该文档是后续周期性治理的唯一操作规范。
 
-治理流程重构验收使用[scripts/README_GOVERNANCE_ACCEPTANCE.md](../scripts/README_GOVERNANCE_ACCEPTANCE.md)
-中的隔离CLI演练；真实行情回放另用`scripts/acceptance_srt_txe.py`。合成数据验收软件行为，
-真实行情对比检查执行迁移，两者均不替代策略研究结论或生产部署授权。
+治理和执行链路由根目录及各独立包的长期功能场景验收：TDR覆盖三道闸门、证据漂移与失败
+语义，SRT/TXE覆盖候选和冻结版本的同路径执行，PTE覆盖发布代次、账户、订单、账本与服务
+配置。历史实验只保证档案校验和人工查看，不承诺旧脚本回放。完整命令及版本验收边界见
+[测试用例治理](TEST_GOVERNANCE.md)；任何生产部署仍需独立授权。
 
 仓库内临时文件统一进入根目录`.tmp/`并按用途分区。业务代码通过
 `czsc_trader.temp_workspace`创建临时目录；测试与Ruff分别使用`.tmp/pytest`和

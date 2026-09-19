@@ -1,8 +1,8 @@
 # 测试用例治理
 
 本文规定CZSC Trader仓库的测试用例如何创建、收敛、执行和周期性审查。目标是在保护
-TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE关键业务能力的同时，控制TDD带来的用例数量、回归耗时和
-维护成本。
+TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE和WDG关键业务能力的同时，控制TDD带来的
+用例数量、回归耗时和维护成本。
 
 这是一份面向个人量化团队（OPC）的操作规范。判断标准是业务风险和维护价值，不追求用例
 数量、代码覆盖率或测试金字塔形式上的完整。
@@ -18,7 +18,7 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE关键业务能力的同时，
 4. **验证外部行为。** 优先断言CLI/API输出、状态变化、审计事件、文件或数据库结果；私有
    方法、常量、内部调用顺序和纯展示文案通常不单独建长期用例。
 5. **保持确定性和离线性。** 使用固定小数据、临时目录和本地模拟适配器，不连接Tushare、
-   Futu OpenD、实时网络或Windows服务，不修改正式`state/`。
+   Futu OpenD、实时网络或Windows服务，不修改PTE生产共享状态。
 6. **研究档案与功能回归分开。** 日常回归不重算历史候选全集；不可变实验通过档案校验
    验证清单、结构和哈希。
 7. **用例规模是观测项。** 关注新增原因、重复程度、运行时间和诊断价值，不设置僵硬的数量
@@ -184,6 +184,8 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_evaluator\tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\factor_signal_catalog\tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_template_catalog\tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_runtime\tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\trading_execution_engine\tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\paper_trading_engine\tests -q }
 ```
 
@@ -203,8 +205,8 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 - 删除该用例后，哪个主场景继续保护其业务风险？
 - 失败信息能否直接指向模块、契约或状态转换？
 
-审查范围包括TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE。一次可以只治理一个模块，完成验证和记录后
-再进入下一模块，避免大规模删除导致覆盖范围难以复核。
+审查范围包括TDR、DFLS、FSC、STC、SM、SE、SRT、TXE和PTE（含WDG）。一次可以只治理一个
+模块，完成验证和记录后再进入下一模块，避免大规模删除导致覆盖范围难以复核。
 
 ## 8. 治理记录模板
 
@@ -242,15 +244,16 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 
 ## 10. 治理与执行链路验收
 
-重大版本验收采用三层证据，日常小改不重复运行全部演练：
+重大版本验收采用三层证据，日常小改按风险运行受影响范围：
 
-- 离线回归：验证模块契约、边界输入、失败与幂等语义。
-- [三节点治理演练](../scripts/README_GOVERNANCE_ACCEPTANCE.md)：运行正式CLI与候选SRT，
-  验证正常冻结、重复冻结、虚报收益、必需证据缺失及评估后证据变化；使用隔离的合成数据。
-- 真实行情回放：按本地数据准备情况运行`scripts/acceptance_srt_txe.py`，验证既有五个冻结
-  版本；执行器迁移时，另比较同输入与同决策下的新旧订单、成交、费用、持仓和账户账本。
+- **离线功能回归**：根目录`tests/functional/`覆盖TDR三道闸门、证据漂移、回测与失败语义；
+  各包`tests/functional/`覆盖模块契约、候选与冻结SRT、TXE账本、PTE发布代次和服务配置。
+- **档案完整性**：运行`czsc-trader archive validate --all`，验证历史实验的受管文件、结构和
+  哈希。该检查只保证档案可审计及人工查看，不承诺旧实验脚本可在当前架构回放。
+- **发布验收**：PTE构建验证附注tag、提交、策略快照和制品身份；发布前置检查验证目标版本及
+  数据库兼容性。取得生产写入授权后，再检查服务、健康接口、活动版本和关键账户读取。
 
 验收以结果文件、业务状态和账本断言为准，不能只看进程退出码。合成夹具通过只证明软件流程，
-不形成真实策略研究证据。真实数据和实验产物不随Git分发，缺失时明确报告未验收范围。
-历史实验仍做档案完整性校验；旧研究脚本的全量重放不属于当前兼容承诺。任何PTE部署或运行
-状态变更需要独立授权。
+不形成真实策略研究证据。真实数据和本机实验制品不随Git分发，缺失时明确报告未验收范围。
+执行器发生语义变更时，应为当前支持的SRT/TXE链路增加有明确承接位置的迁移测试；仓库不再
+保留独立人工验收脚本。任何PTE部署或运行状态变更需要独立授权。

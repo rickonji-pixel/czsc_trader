@@ -1,8 +1,8 @@
-# 技术交接
+# 开发运维交接
 
 > 本文是跨机器、跨会话继续开发的入口，只记录系统全貌、关键边界、恢复方法和开发规则。
-> 研究目标、当前结论和工作流见`research/README.md`，安装与日常操作见`docs/USER_GUIDE.md`，
-> 历史设计与实施过程见`docs/superpowers/`。
+> 研究目标、当前结论、研究命令和工作流见`research/README.md`；本文维护系统架构、开发环境、
+> 测试规则和PTE运维。历史设计与实施过程见`docs/superpowers/`。
 
 ## 模块与简称
 
@@ -167,9 +167,29 @@ git checkout master
 git pull --ff-only origin master
 ```
 
-依赖安装、凭据、PTE/WDG启停和健康检查统一按[用户使用说明](USER_GUIDE.md)执行。
-开发环境恢复后运行本文的完整功能测试。WDG只绑定独立PTE生产根目录，不引用开发仓库；
-迁移开发仓库无需重装WDG。
+### 开发环境安装
+
+项目使用Python 3.12。新建虚拟环境后按包依赖方向安装本地源码：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e .\packages\dataflows
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\factor_signal_catalog[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_template_catalog[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_manager[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_runtime[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\trading_execution_engine[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
+.\.venv\Scripts\czsc-trader.exe --help
+.\.venv\Scripts\pte.exe --help
+```
+
+Tushare与新闻MaaS凭据写入由Git忽略的`.env`；使用Futu模拟交易前启动Futu OpenD。开发环境
+恢复后按[测试用例治理](TEST_GOVERNANCE.md)运行相应回归。WDG只绑定独立PTE生产根目录，
+不引用开发仓库；迁移开发仓库无需重装WDG。
 
 ## 本地状态与跨机边界
 
@@ -190,6 +210,117 @@ git pull --ff-only origin master
 跨机继续开发可以创建新的本地状态。跨机延续同一条模拟盘观察序列，需要迁移完整SQLite，
 发布数据及配置组成的完整生产`shared/`，并与Futu活动订单、成交和持仓逐笔核对；核对完成
 前保持新单阻塞。
+
+## PTE发布与日常运维
+
+PTE生产写入、服务控制和账户变更均须先取得明确授权。生产根目录以
+`scripts/pte-publish.ps1`内置的`$ProductionRoot`为唯一配置来源；以下命令中的`$PteRoot`
+取该值。PTE业务语义和对象关系见[PTE包级说明](../packages/paper_trading_engine/README.md)。
+
+### 构建与发布
+
+构建只读取指定附注tag，产物和pip/uv缓存统一进入Git忽略的`.build/pte/`。发布校验构建
+身份、安装不可变版本、切换活动版本并等待健康检查；普通版本发布不需要重新安装WDG：
+
+```powershell
+$Tag = Read-Host '请输入附注tag'
+.\scripts\pte-build.ps1 -Tag $Tag
+.\scripts\pte-publish.ps1 -Tag $Tag
+Invoke-RestMethod http://127.0.0.1:8080/api/system/status
+```
+
+发布脚本拒绝轻量tag、提交不匹配、策略快照漂移、制品损坏和不完整的既有版本。生产目录只
+保留`host/`、`releases/`和`shared/`；构建过程与缓存不写入生产目录。
+
+### 活动版本与账户操作
+
+生产命令必须显式绑定当前活动发布和共享状态。在同一PowerShell会话准备参数：
+
+```powershell
+$Active = Get-Content (Join-Path $PteRoot 'shared\config\active-release.json') -Raw |
+  ConvertFrom-Json
+$ReleaseRoot = Join-Path $PteRoot "releases\$($Active.release_id)"
+$Pte = Join-Path $ReleaseRoot '.venv\Scripts\pte.exe'
+$RuntimeArgs = @(
+  '--repo-root'; $ReleaseRoot
+  '--database'; (Join-Path $PteRoot 'shared\state\runtime.db')
+  '--data-dir'; (Join-Path $PteRoot 'shared\data')
+  '--config-root'; (Join-Path $PteRoot 'shared\config')
+  '--advice-executable'; (Join-Path $ReleaseRoot '.venv\Scripts\czsc-trader.exe')
+  '--release-manifest'; (Join-Path $ReleaseRoot 'release-manifest.json')
+)
+```
+
+常用账户命令：
+
+```powershell
+& $Pte account list @RuntimeArgs
+& $Pte account create @RuntimeArgs `
+  --account-id s002-v1 --name "S002-v1模拟账户" `
+  --strategy S002 --strategy-version v1 `
+  --symbol 510500.SH --asset etf --initial-cash 100000
+& $Pte account pause @RuntimeArgs --account-id s002-v1
+& $Pte account resume @RuntimeArgs --account-id s002-v1
+```
+
+冻结策略不会自动进入PTE；创建账户是独立授权动作。暂停只阻止新单，已有订单继续对账。
+PTE没有data prepare入口；SRT发布完整generation，PTE只校验、消费并维护生产存储空间。
+需要把模拟盘里程碑写回策略生命周期时，先导出自包含证据，再由TDR登记：
+
+```powershell
+& $Pte performance export @RuntimeArgs `
+  --account-id s002-v1 --recorded-by tomxiao `
+  --start 2026-09-03 --end 2026-12-03 --output .tmp\paper-forward.json
+.\.venv\Scripts\czsc-trader.exe strategy evidence add --input .tmp\paper-forward.json
+```
+
+日常净值保留在PTE数据库；只有经过人工复核、用于晋升或降级的里程碑证据进入Git。
+
+### WDG、健康检查与故障处理
+
+首次发布完成后，管理员PowerShell从已发布的轻量宿主安装WDG。普通PTE版本和策略发布继续
+复用该宿主；只有WDG依赖或服务配置变化时重新执行`install-config`：
+
+```powershell
+$Watchdog = Get-ChildItem (Join-Path $PteRoot 'host\releases') `
+  -Filter pte-watchdog.exe -Recurse |
+  Sort-Object LastWriteTimeUtc -Descending |
+  Select-Object -First 1
+& $Watchdog.FullName install-config --runtime-root $PteRoot
+& $Watchdog.FullName start --wait 30
+
+Get-Service CZSC-PTE-Watchdog
+Start-Service CZSC-PTE-Watchdog
+Stop-Service CZSC-PTE-Watchdog
+Restart-Service CZSC-PTE-Watchdog
+& $Watchdog.FullName remove
+```
+
+开发调试可以运行`.\.venv\Scripts\pte.exe serve --repo-root .`，它只使用可丢弃的
+`state/paper_trading/`。生产环境由WDG托管时禁止再启动第二个`serve`或并发执行`pte once`；
+数据库独占锁会拒绝第二个写进程。
+
+日常只读检查：
+
+```powershell
+Get-Service CZSC-PTE-Watchdog
+Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue
+Invoke-RestMethod http://127.0.0.1:8080/api/system/status
+Get-Content (Join-Path $PteRoot 'shared\logs\watchdog.log') -Tail 100
+Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
+```
+
+生产状态、发布数据、图表、配置和日志统一位于`shared/`。端口冲突、数据库写锁、数据代次
+不完整、渠道订单归属不明或持仓不一致都会明确失败或阻止新单。恢复前先核对Futu当前及历史
+订单、成交和持仓；禁止直接修改SQLite。只有审计证据满足受保护修复条件时才使用：
+
+```powershell
+& $Pte control repair-ledger @RuntimeArgs `
+  --account-id s003-v1 --intent-id PTE-XXXXXXXXXXXXXXXXXXXX
+```
+
+成功返回`REPAIRED`，重复执行返回`ALREADY_REPAIRED`，证据不完整时明确失败。PTE每次启动
+前创建SQLite备份并滚动保留3份；备份不替代Futu事实核对。
 
 ## OPC测试用例治理
 
@@ -217,14 +348,13 @@ git pull --ff-only origin master
 - 分支内可以自主提交；合并`master`和推送远端前取得用户确认。
 - 修改研究口径时同步`research/README.md`、对应`research/SXX/HANDOFF.md`和实验档案。
 - 修改运行边界、契约或安装方式时同步本文及对应包`README.md`。
-- 根目录`README.md`只维护项目介绍和文档索引；`docs/USER_GUIDE.md`维护安装与当前
-  操作路径；本文只维护长期有效的架构、边界、恢复方法和开发约束。调试流水及已完成
-  任务不进入这些文档。
+- 根目录`README.md`只维护项目介绍和文档索引；`research/README.md`维护研究工作流和
+  研究命令；本文维护架构、开发环境、运行边界和PTE运维。调试流水及已完成任务不进入
+  这些文档。
 
 ## 详细资料入口
 
 - 项目介绍与文档索引：`README.md`
-- 安装、日常使用和运行排障：`docs/USER_GUIDE.md`
 - PTE对象关系与包级契约：`packages/paper_trading_engine/README.md`
 - SM与SE契约：`docs/superpowers/specs/2026-09-03-strategy-manager-design.md`、
   `packages/strategy_evaluator/README.md`

@@ -1,8 +1,8 @@
 # Paper Trading Engine
 
 PTE是仓库内独立的模拟交易包，与SRT通过进程内接口和版本化契约协作。本文只描述包级边界、
-对象模型、技术契约和开发验证。安装、账户操作、控制台使用以及PTE/WDG启停见
-[用户使用说明](../../docs/USER_GUIDE.md)。
+对象模型、技术契约和开发验证。环境安装、账户操作、版本发布以及PTE/WDG启停见
+[开发运维交接](../../docs/DEVELOPMENT_HANDOFF.md)。
 
 ## 职责与边界
 

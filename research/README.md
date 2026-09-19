@@ -5,8 +5,8 @@
 > `research/<策略ID>/HANDOFF.md`；不可变事实读取`experiments/`；正式身份与冻结版本读取
 > `strategies/`。
 
-安装、回测和PTE操作见[用户使用说明](../docs/USER_GUIDE.md)，架构、开发恢复和测试规则见
-[技术交接](../docs/DEVELOPMENT_HANDOFF.md)。
+开发环境、系统架构、测试规则和PTE运维见[开发运维交接](../docs/DEVELOPMENT_HANDOFF.md)。本文同时
+维护研究所需的目录查询、数据、回测、治理和档案校验入口。
 
 ## 研究批次与目标治理
 
@@ -61,6 +61,63 @@ SXX 策略族 → SGC研究批次 → SXX-CXXX 研究候选 → SXX-vN 冻结版
 
 本表只提供入口。研究问题、指标、保留意见和下一步以各批次`HANDOFF.md`为准，实验指标和
 过程细节以对应实验档案为准。
+
+## 研究命令入口
+
+以下命令均在仓库根目录执行；环境安装见[开发运维交接](../docs/DEVELOPMENT_HANDOFF.md)。
+FSC和STC只提供可复用定义与结构，不代表存在Alpha：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe catalog validate
+.\.venv\Scripts\czsc-trader.exe catalog list --kind factor --status READY
+.\.venv\Scripts\czsc-trader.exe catalog show --id F-PROJECT-ER60
+.\.venv\Scripts\czsc-trader.exe template validate
+.\.venv\Scripts\czsc-trader.exe template list --status READY
+.\.venv\Scripts\czsc-trader.exe template show --id STC-T04-EVENT-HOLD
+.\.venv\Scripts\czsc-trader.exe template instantiate --spec .\prototype.json
+```
+
+研究池与普通回测池独立维护。`data prepare`写入`data/raw/`；`data update-backtest`根据冻结
+SRT的数据契约更新`data/backtest/`，回测命令不会隐式联网补数：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe data prepare `
+  --symbol 588080.SH --asset etf --start 2020-01-01 --end 2026-09-02
+.\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
+
+.\.venv\Scripts\czsc-trader.exe data update-backtest `
+  --symbol 588080.SH --asset etf `
+  --strategy S001 --strategy-version v2 --through 2026-09-04
+.\.venv\Scripts\czsc-trader.exe backtest run `
+  --strategy S001 --strategy-version v2 --dataset backtest `
+  --symbol 588080.SH --asset etf `
+  --start 2026-01-05 --end 2026-09-04 --init-cash 100000
+```
+
+发布成功要求全部策略输入达到各自截止日、历史深度和身份要求；失败时保留原数据集。回测
+使用冻结SRT与TXE，从零持仓和指定现金开始，输出写入`outputs/`。正式证据另行归档到对应
+不可变实验。策略与档案检查入口为：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe strategy list
+.\.venv\Scripts\czsc-trader.exe strategy show --strategy S001 --version v2
+.\.venv\Scripts\czsc-trader.exe strategy validate --all
+.\.venv\Scripts\czsc-trader.exe archive validate --all
+```
+
+新闻事件研究通过`news extract`读取已缓存原文。MaaS凭据只写入Git忽略的`.env`，使用
+`CZSC_NEWS_MAAS_API_KEY`与`CZSC_NEWS_MAAS_MODEL`；模型只生成研究事件，不直接产生交易
+信号或修改策略。输入、scope和输出均由具体实验固定：
+
+```powershell
+.\.venv\Scripts\czsc-trader.exe news extract `
+  --input .tmp\research_cache\S005\news\input.csv.gz `
+  --scope research\S005\news_scope.v1.json `
+  --output-dir .tmp\news_events\S005 --limit 10 --workers 4
+```
+
+每篇文章独立保存请求、原始响应、结构化结果、原文哈希和请求ID；任何文章失败都会使整批
+明确返回`FAIL`，已验证成功项允许断点复用。完整选项通过`czsc-trader news extract --help`查看。
 
 ## 标准研究工作流
 

@@ -36,15 +36,18 @@ SXX 策略族 → SGC研究批次 → SXX-CXXX 研究候选 → SXX-vN 冻结版
 
 ## 当前研究项目
 
-| 批次 | 名称 | 标的 | 当前阶段 | 交接入口 |
+| 策略族 | SM名称 | 标的 | 当前阶段 | 交接入口 |
 | --- | --- | --- | --- | --- |
-| S001 | 综合基线策略 | 588080.SH | `PAPER_READY`，v1/v2在PTE观察 | [S001](S001/HANDOFF.md) |
-| S002 | 三连跌五日修复 | 510500.SH | `PAPER_READY`，v1在PTE观察 | [S002](S002/HANDOFF.md) |
-| S003 | 成分资金流宽度早盘延续 | 510500.SH | `PAPER_READY`，v1在PTE观察 | [S003](S003/HANDOFF.md) |
+| S001 | 科创50多因子趋势策略 | 588080.SH | `PAPER_READY`，v1/v2在PTE观察 | [S001](S001/HANDOFF.md) |
+| S002 | 中证500三连跌修复策略 | 510500.SH | `PAPER_READY`，v1在PTE观察 | [S002](S002/HANDOFF.md) |
+| S003 | 中证500成分资金流早盘延续策略 | 510500.SH | `PAPER_READY`，v1在PTE观察 | [S003](S003/HANDOFF.md) |
 | S004 | 尾盘流动性错位修复 | 588080.SH | `RESEARCH_PAUSED`，候选保留作标杆 | [S004](S004/HANDOFF.md) |
-| S005 | 588080中频增强研究 | 588080.SH | `TERMINATED_NO_CANDIDATE` | [S005](S005/HANDOFF.md) |
+| S005 | 588080中频增强策略 | 588080.SH | `TERMINATED_NO_CANDIDATE` | [S005](S005/HANDOFF.md) |
 | S006 | 588080全量信息策略研究 | 588080.SH | `TERMINATED_NO_CANDIDATE` | [S006](S006/HANDOFF.md) |
-| S007 | 多源机会风险门控 | 588080.SH | `PAPER_READY`，v1在PTE观察 | [S007](S007/HANDOFF.md) |
+| S007 | 科创50多源机会风险门控策略 | 588080.SH | `PAPER_READY`，v1在PTE观察 | [S007](S007/HANDOFF.md) |
+
+策略族名称以SM的`strategies/SXX/family.json`为准。研究批次由SGC凭据区分；候选工作名称和
+冻结版本名称可以与策略族名称不同，分别在对应`HANDOFF.md`、候选快照和版本记录中维护。
 
 冻结版本的前瞻监测方案与PTE账户一一绑定：
 

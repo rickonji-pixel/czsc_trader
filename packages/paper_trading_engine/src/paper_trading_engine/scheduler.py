@@ -19,7 +19,7 @@ class RuntimeScheduler:
         *,
         order_interval: float = 5,
         account_interval: float = 60,
-        decision_interval: float = 5,
+        publication_observe_interval: float = 5,
         observation_time: str = "20:30",
         audit: AuditRecorder | None = None,
         initial_observation_at: datetime | None = None,
@@ -29,9 +29,7 @@ class RuntimeScheduler:
         self.store = store
         self.order_interval = float(order_interval)
         self.account_interval = float(account_interval)
-        # Kept as a compatibility argument for existing service definitions. Decisions are
-        # generated once per successfully published data generation, never on a timer.
-        self.decision_interval = float(decision_interval)
+        self.publication_observe_interval = float(publication_observe_interval)
         self.observation_time = time.fromisoformat(observation_time)
         self.audit = audit or (
             AuditRecorder(store) if hasattr(store, "append_audit_event") else None
@@ -192,7 +190,9 @@ class RuntimeScheduler:
         local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
         if (
             local_now.time().replace(tzinfo=None) >= self.observation_time
-            and self._due(self._last_publication_check, now, self.decision_interval)
+            and self._due(
+                self._last_publication_check, now, self.publication_observe_interval
+            )
         ):
             def observe_publication():
                 try:

@@ -91,7 +91,6 @@ class PteParser(argparse.ArgumentParser):
 
 def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--repo-root", required=True, type=Path)
-    parser.add_argument("--position-size", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--symbol", default="588080.SH")
     parser.add_argument("--asset", choices=("etf", "stock"), default="etf")
     parser.add_argument("--database", type=Path)
@@ -114,10 +113,9 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", default=8080, type=int)
     serve.add_argument("--order-interval", default=5.0, type=float)
     serve.add_argument("--account-interval", default=60.0, type=float)
-    serve.add_argument("--decision-interval", default=5.0, type=float)
+    serve.add_argument("--publication-observe-interval", default=5.0, type=float)
     serve.add_argument(
-        "--publication-observe-time", "--data-refresh-time",
-        dest="publication_observe_time", default="20:30",
+        "--publication-observe-time", default="20:30",
     )
     account = actions.add_parser("account")
     account_actions = account.add_subparsers(dest="account_action", required=True)
@@ -130,9 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
     _common(create)
     create.add_argument("--account-id", required=True)
     create.add_argument("--name", required=True)
-    identity = create.add_mutually_exclusive_group(required=True)
-    identity.add_argument("--strategy")
-    identity.add_argument("--baseline")
+    create.add_argument("--strategy", required=True)
     create.add_argument("--strategy-version")
     create.add_argument("--initial-cash", default="100000")
     reconciliation = account_actions.add_parser("create-reconciliation")
@@ -430,7 +426,7 @@ def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
     return _strategy_show(
         args.advice_executable or _default_executable(args.repo_root),
         args.repo_root,
-        getattr(args, "strategy", None) or getattr(args, "baseline", None),
+        args.strategy,
         args.strategy_version,
     )
 
@@ -818,7 +814,7 @@ def main(
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,
-            decision_interval=args.decision_interval,
+            publication_observe_interval=args.publication_observe_interval,
             observation_time=args.publication_observe_time,
             audit=audit,
             initial_observation_at=initial_observation_at,

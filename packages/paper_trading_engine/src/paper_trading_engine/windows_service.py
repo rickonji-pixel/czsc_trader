@@ -29,16 +29,13 @@ from .watchdog import Watchdog
 
 
 SERVICE_NAME = "CZSC-PTE-Watchdog"
-LEGACY_SERVICE_NAME = "CZSC-PaperTrading"
 REGISTRY_PATH = rf"SYSTEM\CurrentControlSet\Services\{SERVICE_NAME}\Parameters"
 
 
-def service_commands(python_executable: Path, service_module: Path) -> list[list[str]]:
+def service_failure_command() -> list[str]:
     return [
-        [str(python_executable), str(service_module), "install", "--startup", "auto"],
-        ["sc.exe", "failure", SERVICE_NAME, "reset=", "86400", "actions=",
-         "restart/5000/restart/30000/restart/60000"],
-        ["sc.exe", "delete", LEGACY_SERVICE_NAME],
+        "sc.exe", "failure", SERVICE_NAME, "reset=", "86400", "actions=",
+        "restart/5000/restart/30000/restart/60000",
     ]
 
 
@@ -207,10 +204,7 @@ def main(
             PteWatchdogService, argv=[sys.argv[0], "--startup", "auto", action]
         )
         _write_config_path(path)
-        commands = service_commands(Path(sys.executable), Path(__file__))
-        subprocess.run(["sc.exe", "stop", LEGACY_SERVICE_NAME], check=False, capture_output=True)
-        subprocess.run(commands[2], check=False, capture_output=True)
-        subprocess.run(commands[1], check=True)
+        subprocess.run(service_failure_command(), check=True)
         return 0
     win32serviceutil.HandleCommandLine(PteWatchdogService, argv=[sys.argv[0], *arguments])
     return 0

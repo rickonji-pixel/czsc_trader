@@ -165,8 +165,8 @@ git pull --ff-only origin master
 ```
 
 依赖安装、凭据、PTE/WDG启停和健康检查统一按[用户使用说明](USER_GUIDE.md)执行。
-开发环境恢复后运行本文的完整功能测试。仓库移动会改变WDG保存的绝对路径，需要按用户
-手册重新安装服务配置。
+开发环境恢复后运行本文的完整功能测试。WDG只绑定独立PTE生产根目录，不引用开发仓库；
+迁移开发仓库无需重装WDG。
 
 ## 本地状态与跨机边界
 
@@ -177,15 +177,15 @@ git pull --ff-only origin master
 - `data/raw/`、`data/backtest/`及`data/review/`：分别恢复受控研究输入、回测发布代次与封存审核证据；
 - `experiments/**/artifacts/`：本机研究制品；公开克隆只承诺人工查阅，不保证历史重放或部署可用；
 - `.tmp/`：测试缓存、测试运行目录和业务发布前的暂存工作区；
+- `.build/pte/`：可重建的PTE版本构建及依赖缓存；
 - `outputs/`：普通回测输出；
-- `state/paper_trading/runtime.db`：账户、订单、成交、暂停状态和审计事件；
-- `state/paper_trading/backups/`：PTE启动前生成的SQLite滚动备份；
-- `state/paper_trading/data/`与`logs/`：运行数据副本和日志；
-- `state/paper_trading/charts/`：按账户和内容指纹生成的可重建观察图缓存；
+- `state/paper_trading/`：PTE开发模式的数据库、备份、数据、图表缓存和日志；
+- PTE生产根目录的`shared/`：生产账户、订单、成交、暂停状态、审计、发布数据、配置与日志；
 - Windows服务、Futu OpenD及其登录状态。
 
 跨机继续开发可以创建新的本地状态。跨机延续同一条模拟盘观察序列，需要迁移完整SQLite，
-并与Futu活动订单、成交和持仓逐笔核对；核对完成前保持新单阻塞。
+发布数据及配置组成的完整生产`shared/`，并与Futu活动订单、成交和持仓逐笔核对；核对完成
+前保持新单阻塞。
 
 ## OPC测试用例治理
 

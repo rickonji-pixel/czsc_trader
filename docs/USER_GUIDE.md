@@ -275,17 +275,17 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 默认运行规则：
 
 - 订单和成交约每5秒对账，账户与持仓每60秒刷新；
-- 每个交易日20:30后发布完整收盘数据，失败后退避重试；
-- 需要成分股等附加信息的策略会同时发布自己的运行时支持数据；只有市场数据与支持数据
-  到达同一截止日后才生成决策；
+- 每个交易日20:30后观察SRT提交的数据generation，缺失或校验失败时退避重试；
+- 行情和策略支持数据由对应SRT发布器按策略所需历史窗口生成；只有generation内全部文件
+  到达同一截止日且哈希通过后才生成决策；
 - 发布成功后，每个运行账户只生成一次对应数据版本的决策；
-- 当日发布和全局决策完成后新建的账户，会自动补发该策略的附加数据并单独生成首次决策；
+- 当日全局决策完成后新建的账户，在已有generation包含该策略版本时单独生成首次决策；
 - 新单只在有效交易日`09:30–11:30`、`13:00–14:57`提交；
 - 暂停只阻止新订单，已有订单继续对账；撤单必须二次确认；
 - 只有Futu明确返回的累计成交增量能够改变账户现金和持仓。
 
-数据发布只有在全部活跃标的生成与目标截止日一致的数据代次后才算成功；逐账户决策只有在
-全部到期账户均完成后才推进全局成功日期。部分成功、决策逾期、调度异常和渠道结果未知会
+数据发布观察只有在全部活跃标的存在与目标截止日一致的数据代次后才算成功；逐账户决策只有
+在全部到期账户均完成后才推进全局成功日期。部分成功、决策逾期、调度异常和渠道结果未知会
 保留失败或降级状态，并在控制台告警与审计事件中展示，不会被下一次轮询覆盖成成功。
 
 虚拟账户页的“订单意图”展示决策到Futu订单之间的状态。`待提交/提交中/已提交`属于正常
@@ -303,8 +303,8 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 用旧库存伪造一次完整轮换。计划窗口同时绑定有效交易日和北京时间；未来交易日的计划不会
 因为当前时刻已经晚于同名时刻而提前过期。进程重启不会丢失上述依赖关系。
 
-策略输入由PTE按活跃账户统一发布，不再维护“行情发布＋策略附加数据”的两套命令。单个输入
-失败时查看控制台“审计事件”和系统告警；禁止用旧的`prepare-strategy-support`命令拼补数据。
+PTE没有data prepare能力，只维护生产存储空间并消费SRT原子提交的数据代次。单个输入失败时
+查看控制台“审计事件”和系统告警，再由对应SRT发布器修复并重新发布完整generation。
 
 处理“前瞻执行缺口”时，先在Futu确认订单、成交和持仓，再在对应虚拟账户页点击
 “复核后确认”，填写可审计的处理结论。PTE会先重新执行一次订单、持仓和账本对账；对账
@@ -314,21 +314,37 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 ### 虚拟账户
 
 首次启动会幂等创建`s001-v1 / S001-v1模拟账户`，绑定`S001-v1`并分配10万元初始
-资金。查看、创建、暂停和恢复账户：
+资金。生产命令必须使用当前发布及`shared/`运行状态；先在同一PowerShell会话加载上下文：
 
 ```powershell
-.\.venv\Scripts\pte.exe account list --repo-root .
-.\.venv\Scripts\pte.exe account create --repo-root . `
+$PteRoot = 'D:\CZSC-PTE'
+$Active = Get-Content (Join-Path $PteRoot 'shared\config\active-release.json') -Raw |
+  ConvertFrom-Json
+$ReleaseRoot = Join-Path $PteRoot "releases\$($Active.release_id)"
+$Pte = Join-Path $ReleaseRoot '.venv\Scripts\pte.exe'
+$RuntimeArgs = @(
+  '--repo-root'; $ReleaseRoot
+  '--database'; (Join-Path $PteRoot 'shared\state\runtime.db')
+  '--data-dir'; (Join-Path $PteRoot 'shared\data')
+  '--config-root'; (Join-Path $PteRoot 'shared\config')
+  '--advice-executable'; (Join-Path $ReleaseRoot '.venv\Scripts\czsc-trader.exe')
+  '--release-manifest'; (Join-Path $ReleaseRoot 'release-manifest.json')
+)
+```
+
+随后查看、创建、暂停和恢复账户：
+
+```powershell
+& $Pte account list @RuntimeArgs
+& $Pte account create @RuntimeArgs `
   --account-id s001-v2 --name "S001-v2模拟账户" `
   --strategy S001 --strategy-version v2
-.\.venv\Scripts\pte.exe account create --repo-root . `
+& $Pte account create @RuntimeArgs `
   --account-id s002-v1 --name "S002-v1模拟账户" `
   --strategy S002 --strategy-version v1 `
   --symbol 510500.SH --asset etf --initial-cash 100000
-.\.venv\Scripts\pte.exe account pause `
-  --repo-root . --account-id s001-v2
-.\.venv\Scripts\pte.exe account resume `
-  --repo-root . --account-id s001-v2
+& $Pte account pause @RuntimeArgs --account-id s001-v2
+& $Pte account resume @RuntimeArgs --account-id s001-v2
 ```
 
 本地活动订单在Futu当前及历史订单中缺失、无法归属的订单、订单关键字段不一致，或Futu
@@ -350,7 +366,7 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 登记模拟盘里程碑时，先由PTE导出证据，再由Trader写入策略注册表：
 
 ```powershell
-.\.venv\Scripts\pte.exe performance export --repo-root . `
+& $Pte performance export @RuntimeArgs `
   --account-id s001-v2 --recorded-by tomxiao `
   --start 2026-09-03 --end 2026-12-03 --output state\paper-forward.json
 .\.venv\Scripts\czsc-trader.exe strategy evidence add --input state\paper-forward.json
@@ -360,34 +376,41 @@ Futu渠道可以承载多个虚拟账户。渠道只负责执行、回报和对�
 
 ## PTE与WDG启停
 
-正式运行由WDG系统服务托管PTE。首次安装时，在管理员PowerShell中执行：
+正式运行由WDG系统服务托管PTE。完成首个构建和发布后，再在管理员PowerShell中
+从已发布的轻量服务宿主安装WDG：
 
 ```powershell
-.\.venv\Scripts\pte-watchdog.exe install-config --repo-root .
-.\.venv\Scripts\pte-watchdog.exe start --wait 30
+$PteRoot = 'D:\CZSC-PTE'
+$Watchdog = Get-ChildItem (Join-Path $PteRoot 'host\releases') `
+  -Filter pte-watchdog.exe -Recurse |
+  Sort-Object LastWriteTimeUtc -Descending |
+  Select-Object -First 1
+& $Watchdog.FullName install-config --runtime-root $PteRoot
+& $Watchdog.FullName start --wait 30
 ```
 
 系统服务名为`CZSC-PTE-Watchdog`，启动类型为自动。WDG每10秒检查PTE进程、8080
 HTTP状态及调度器心跳；连续3次失败后按5、30、60秒退避重启。心跳只用于识别进程内部
-调度停滞，交易结果、OpenD可用性和数据发布成败仍由PTE告警与退避机制处理。
+调度停滞，交易结果、OpenD可用性和数据发布观察结果仍由PTE告警与退避机制处理。
 
-日常发布PTE代码或修改PTE业务配置后，只重启PTE，无需管理员权限：
+构建只读取指定附注tag并把产物写入仓库忽略的`.build/pte/`；发布脚本校验该构建、安装到
+脚本内置的生产根目录、切换活动版本并等待健康检查。发布属于生产写入，执行前必须取得授权：
 
 ```powershell
-.\.venv\Scripts\pte.exe control restart `
-  --repo-root . --wait 60
+.\scripts\pte-build.ps1 -Tag v0.5.3
+.\scripts\pte-publish.ps1 -Tag v0.5.3
 Invoke-RestMethod http://127.0.0.1:8080/api/system/status
 ```
 
-PTE完成当前请求并正常退出，WDG随即拉起新实例。只有WDG自身升级、仓库路径或监听地址
-变化时，才在管理员PowerShell中维护系统服务：
+普通PTE代码和策略发布会复用WDG服务宿主，无需重新安装WDG。只有WDG自身依赖或服务配置
+变化时，才在管理员PowerShell中重新执行`install-config`。日常服务控制为：
 
 ```powershell
 Get-Service CZSC-PTE-Watchdog
 Start-Service CZSC-PTE-Watchdog       # 同时启动PTE
 Stop-Service CZSC-PTE-Watchdog        # 同时停止PTE
 Restart-Service CZSC-PTE-Watchdog     # 同时重启WDG和PTE
-.\.venv\Scripts\pte-watchdog.exe remove
+& $Watchdog.FullName remove
 ```
 
 开发调试时可直接运行`.\.venv\Scripts\pte.exe serve --repo-root .`，并通过`Ctrl+C`
@@ -401,15 +424,15 @@ PTE会对`runtime.db`持有操作系统级独占锁，第二个写进程会明�
 Get-Service CZSC-PTE-Watchdog
 Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue
 Invoke-RestMethod http://127.0.0.1:8080/api/system/status
-Get-Content state\paper_trading\logs\watchdog.log -Tail 100
-Get-Content state\paper_trading\logs\pte.log -Tail 100
+Get-Content (Join-Path $PteRoot 'shared\logs\watchdog.log') -Tail 100
+Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
 ```
 
 端口冲突、数据库已被其他PTE写进程占用都会明确报错。恢复运行失败时先确认Futu OpenD
 可用，再检查渠道的账户、订单、成交和持仓对账。调度器心跳停滞会显示全局告警并触发
-WDG重启；数据发布告警结合交易日20:30后的审计事件和日志判断。
+WDG重启；数据发布观察告警结合交易日20:30后的审计事件和日志判断。
 
-PTE每次由`serve`启动前会在`state\paper_trading\backups\`创建一致性SQLite备份，默认
+PTE每次由`serve`启动前会在生产`shared/state/backups/`创建一致性SQLite备份，默认
 滚动保留3份；PTE日志达到10 MiB后滚动，默认保留5份。备份用于故障恢复，恢复前仍须
 与Futu订单、成交和持仓逐笔核对，不能仅凭数据库备份继续下单。
 
@@ -417,8 +440,7 @@ PTE每次由`serve`启动前会在`state\paper_trading\backups\`创建一致性S
 运行中PTE的受保护修复入口，禁止直接修改SQLite：
 
 ```powershell
-.\.venv\Scripts\pte.exe control repair-ledger `
-  --repo-root . `
+& $Pte control repair-ledger @RuntimeArgs `
   --account-id s003-v1 --intent-id PTE-XXXXXXXXXXXXXXXXXXXX
 ```
 
@@ -427,5 +449,6 @@ PTE每次由`serve`启动前会在`state\paper_trading\backups\`创建一致性S
 返回`ALREADY_REPAIRED`；任何证据不完整的情况均明确失败。修复后再刷新渠道对账并人工
 确认执行缺口，原拒单和审计事件继续保留，不能补单或改写为正常样本。
 
-本机数据库、发布数据、图表缓存和日志位于`state/paper_trading/`且不进入Git。跨机延续
-同一条模拟盘观察序列时，需要迁移完整运行目录，并重新核对Futu活动订单、成交和持仓。
+生产数据库、发布数据、图表缓存、日志和配置统一位于生产根目录的`shared/`且不进入Git。
+开发模式默认使用`state/paper_trading/`。跨机延续同一条模拟盘观察序列时，需要迁移完整
+`shared/`，并重新核对Futu活动订单、成交和持仓。

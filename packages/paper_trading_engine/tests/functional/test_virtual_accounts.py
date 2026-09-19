@@ -27,6 +27,37 @@ def create_account(store, account_id, version, marker):
     )
 
 
+def test_pte_cli_rejects_retired_account_and_scheduler_aliases(tmp_path):
+    parser = pte_cli.build_parser()
+    current = parser.parse_args([
+        "serve", "--repo-root", str(tmp_path),
+        "--publication-observe-interval", "7",
+    ])
+    assert current.publication_observe_interval == 7
+
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "account", "create", "--repo-root", str(tmp_path),
+            "--account-id", "legacy", "--name", "Legacy",
+            "--baseline", "baseline_20260903",
+        ])
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "serve", "--repo-root", str(tmp_path),
+            "--data-refresh-time", "20:30",
+        ])
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "serve", "--repo-root", str(tmp_path),
+            "--position-size", "50000",
+        ])
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "serve", "--repo-root", str(tmp_path),
+            "--decision-interval", "7",
+        ])
+
+
 def test_ft_pte01_strategy_account_requires_governance_identity(monkeypatch, tmp_path):
     payload = {
         "status": "PASS",
@@ -437,7 +468,6 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
         account_id="s007-v1",
         name="S007-v1模拟账户",
         strategy="S007",
-        baseline=None,
         strategy_version="v1",
         symbol="588080.SH",
         asset="etf",

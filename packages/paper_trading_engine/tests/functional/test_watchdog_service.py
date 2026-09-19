@@ -1,6 +1,5 @@
 from collections import deque
 import json
-from pathlib import Path
 import sqlite3
 import subprocess
 
@@ -25,7 +24,7 @@ from paper_trading_engine.windows_service import (
     _validate_service_host,
     build_bootstrap_source,
     find_pythonservice_executable,
-    service_commands,
+    service_failure_command,
 )
 from paper_trading_engine.web_api import PteWebApi
 
@@ -98,23 +97,41 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
     second_owner = RuntimeDatabaseLock(tmp_path / "runtime.db").acquire()
     second_owner.release()
 
-    config = ServiceConfig(repo_root=tmp_path.resolve())
+    runtime_root = (tmp_path / "runtime").resolve()
+    (runtime_root / "shared" / "config").mkdir(parents=True)
+    (runtime_root / "shared" / "config" / ".env").write_text(
+        "TUSHARE_TOKEN=test", encoding="utf-8",
+    )
+    release = create_release(runtime_root, "v0.4.1", "a")
+    activate_release(runtime_root, "v0.4.1")
+    config = ServiceConfig(runtime_root=runtime_root)
     path = tmp_path / "service.json"
     config.save(path)
     assert ServiceConfig.load(path).serve_arguments() == [
-        "serve", "--repo-root", str(tmp_path.resolve()),
+        "serve", "--repo-root", str(release),
+        "--database", str(runtime_root / "shared" / "state" / "runtime.db"),
+        "--data-dir", str(runtime_root / "shared" / "data"),
+        "--config-root", str(runtime_root / "shared" / "config"),
+        "--advice-executable", str(release / ".venv" / "Scripts" / "czsc-trader.exe"),
+        "--release-manifest", str(release / "release-manifest.json"),
         "--host", "127.0.0.1", "--port", "8080",
     ]
     assert set(json.loads(path.read_text()).keys()) == {
-        "schema_version", "repo_root", "host", "port",
+        "schema_version", "runtime_root", "host", "port",
     }
     assert config.health_url == "http://127.0.0.1:8080/api/health"
     with pytest.raises(ValueError, match="localhost"):
-        ServiceConfig(repo_root=tmp_path.resolve(), host="0.0.0.0")
+        ServiceConfig(runtime_root=runtime_root, host="0.0.0.0")
+    legacy = tmp_path / "legacy-service.json"
+    legacy.write_text(
+        json.dumps({"schema_version": 1, "repo_root": str(tmp_path.resolve())}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="repository-backed service config"):
+        ServiceConfig.load(legacy)
 
-    commands = service_commands(Path("C:/Python/pythonservice.exe"), Path("D:/repo/windows_service.py"))
-    assert commands[0][-2:] == ["--startup", "auto"]
-    assert commands[1][0:3] == ["sc.exe", "failure", "CZSC-PTE-Watchdog"]
+    command = service_failure_command()
+    assert command[0:3] == ["sc.exe", "failure", "CZSC-PTE-Watchdog"]
 
     processes, health, delays = [Process(), Process()], deque([False, False, False]), []
     watchdog = Watchdog(command=["pte", "serve"], working_directory=tmp_path,

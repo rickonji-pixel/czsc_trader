@@ -85,22 +85,35 @@ def _python_in(venv: Path) -> Path:
 
 def _create_environment(
     *,
+    uv_executable: Path,
     source_python: Path,
     venv: Path,
     artifacts: Path,
+    cache_dir: Path,
     repo_root: Path,
     runner: Runner,
     packages: Sequence[str] = (),
     no_dependencies: Sequence[str] = (),
 ) -> None:
-    _run([str(source_python), "-m", "venv", str(venv)], cwd=repo_root, runner=runner)
+    _run(
+        [
+            str(uv_executable), "venv", str(venv),
+            "--python", str(source_python),
+            "--no-python-downloads", "--no-project",
+            "--cache-dir", str(cache_dir),
+        ],
+        cwd=repo_root,
+        runner=runner,
+    )
     python = _python_in(venv)
     for dependencies, selected in ((True, packages), (False, no_dependencies)):
         if not selected:
             continue
         command = [
-            str(python), "-m", "pip", "install", "--no-index",
-            "--find-links", str(artifacts),
+            str(uv_executable), "pip", "install",
+            "--python", str(python),
+            "--no-python-downloads", "--no-index",
+            "--find-links", str(artifacts), "--cache-dir", str(cache_dir),
         ]
         if not dependencies:
             command.append("--no-deps")
@@ -122,6 +135,7 @@ def _build_pte_wheelhouse(
     source_python: Path,
     artifacts: Path,
     constraints: Path,
+    cache_dir: Path,
     repo_root: Path,
     runner: Runner,
 ) -> None:
@@ -135,6 +149,7 @@ def _build_pte_wheelhouse(
         _run(
             [
                 str(source_python), "-m", "pip", "wheel",
+                "--cache-dir", str(cache_dir),
                 "--wheel-dir", str(wheels), "--constraint", str(constraints),
                 *roots,
             ],
@@ -236,6 +251,7 @@ def _initialize_service_host(
     runtime_root: Path,
     release_id: str,
     artifacts: Path,
+    uv_executable: Path,
     source_python: Path,
     repo_root: Path,
     runner: Runner,
@@ -247,9 +263,11 @@ def _initialize_service_host(
     host.mkdir()
     try:
         _create_environment(
+            uv_executable=uv_executable,
             source_python=source_python,
             venv=host / ".venv",
             artifacts=artifacts,
+            cache_dir=runtime_root / "cache" / "uv",
             repo_root=repo_root,
             runner=runner,
             packages=(("pywin32>=308",) if os.name == "nt" else ()),
@@ -286,12 +304,23 @@ def assemble_release(
     runtime_root: Path,
     release_id: str,
     source_python: Path = Path(sys.executable),
+    uv_executable: Path | None = None,
     runner: Runner = subprocess.run,
 ) -> dict[str, object]:
     repo_root = repo_root.resolve()
     runtime_root = runtime_root.resolve()
     if not RELEASE_ID_PATTERN.fullmatch(release_id):
         raise RuntimeError(f"invalid PTE release id: {release_id}")
+    if uv_executable is None:
+        discovered_uv = shutil.which("uv")
+        if discovered_uv is None:
+            raise RuntimeError("PTE release assembly requires uv on PATH")
+        uv_executable = Path(discovered_uv)
+    uv_version = _run(
+        [str(uv_executable), "--version"], cwd=repo_root, runner=runner,
+    ).stdout.strip()
+    if not uv_version.startswith("uv "):
+        raise RuntimeError(f"PTE release assembly found an invalid uv executable: {uv_version}")
     git_commit = _git_release_identity(repo_root, release_id, runner)
     releases = runtime_root / "releases"
     destination = releases / release_id
@@ -317,10 +346,12 @@ def assemble_release(
         ).stdout
         constraints = staging / "build-constraints.txt"
         constraints.write_text(frozen, encoding="utf-8")
+        pip_cache = runtime_root / "cache" / "pip"
         for project in PTE_LOCAL_PROJECTS:
             _run(
                 [
                     str(source_python), "-m", "pip", "wheel", "--no-deps",
+                    "--cache-dir", str(pip_cache),
                     "--wheel-dir", str(artifacts), str(repo_root / project),
                 ],
                 cwd=repo_root,
@@ -330,6 +361,7 @@ def assemble_release(
             source_python=source_python,
             artifacts=artifacts,
             constraints=constraints,
+            cache_dir=pip_cache,
             repo_root=repo_root,
             runner=runner,
         )
@@ -345,9 +377,11 @@ def assemble_release(
         staging.replace(destination)
         try:
             _create_environment(
+                uv_executable=uv_executable,
                 source_python=source_python,
                 venv=destination / ".venv",
                 artifacts=destination / "artifacts",
+                cache_dir=runtime_root / "cache" / "uv",
                 repo_root=repo_root,
                 runner=runner,
                 packages=(
@@ -358,7 +392,12 @@ def assemble_release(
             environment_lock = destination / "environment.lock"
             environment_lock.write_text(
                 _run(
-                    [str(_python_in(destination / ".venv")), "-m", "pip", "freeze", "--all"],
+                    [
+                        str(uv_executable), "pip", "freeze",
+                        "--python", str(_python_in(destination / ".venv")),
+                        "--no-python-downloads",
+                        "--cache-dir", str(runtime_root / "cache" / "uv"),
+                    ],
                     cwd=repo_root,
                     runner=runner,
                 ).stdout,
@@ -383,6 +422,7 @@ def assemble_release(
                 runtime_root,
                 release_id,
                 release.release_root / "artifacts",
+                uv_executable,
                 source_python,
                 repo_root,
                 runner,
@@ -393,6 +433,7 @@ def assemble_release(
         return {
             "release": release.identity(),
             "artifact_count": len(manifest["artifacts"]),
+            "builder": uv_version,
             "active": False,
         }
     finally:
@@ -558,6 +599,7 @@ def build_parser() -> argparse.ArgumentParser:
     assemble.add_argument("--runtime-root", required=True, type=Path)
     assemble.add_argument("--release", required=True)
     assemble.add_argument("--python", type=Path, default=Path(sys.executable))
+    assemble.add_argument("--uv", type=Path)
     for action in ("activate", "deploy", "rollback", "status"):
         leaf = actions.add_parser(action)
         leaf.add_argument("--runtime-root", required=True, type=Path)
@@ -579,6 +621,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 runtime_root=args.runtime_root,
                 release_id=args.release,
                 source_python=args.python,
+                uv_executable=args.uv,
             )
         elif args.action == "activate":
             release = load_release(args.runtime_root, args.release)

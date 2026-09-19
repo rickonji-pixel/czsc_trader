@@ -34,13 +34,15 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
     def run(command, **_kwargs):
         nonlocal wheel_index
         commands.append(list(command))
+        if command[1:] == ["--version"]:
+            return subprocess.CompletedProcess(command, 0, stdout="uv 0.11.3\n", stderr="")
         if command[:3] == ["git", "status", "--porcelain"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[:3] in (["git", "rev-parse", "HEAD"], ["git", "rev-list", "-n"]):
             return subprocess.CompletedProcess(command, 0, stdout="a" * 40 + "\n", stderr="")
         if command[1:5] == ["-m", "pip", "freeze", "--exclude-editable"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:5] == ["-m", "pip", "freeze", "--all"]:
+        if command[1:3] == ["pip", "freeze"]:
             return subprocess.CompletedProcess(
                 command, 0, stdout="paper-trading-engine==0.1.0\n", stderr="",
             )
@@ -59,15 +61,15 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
             )
             wheel_index += 1
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:4] == ["-m", "venv", command[-1]]:
-            venv = Path(command[-1])
+        if command[1] == "venv":
+            venv = Path(command[2])
             scripts = venv / "Scripts"
             scripts.mkdir(parents=True)
             (scripts / "python.exe").write_bytes(b"python")
             (venv / "Lib" / "site-packages").mkdir(parents=True)
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:4] == ["-m", "pip", "install"]:
-            scripts = Path(command[0]).parent
+        if command[1:3] == ["pip", "install"]:
+            scripts = Path(command[command.index("--python") + 1]).parent
             (scripts / "pte.exe").write_bytes(b"pte")
             (scripts / "czsc-trader.exe").write_bytes(b"trader")
             (scripts / "pte-watchdog.exe").write_bytes(b"watchdog")
@@ -81,6 +83,7 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
         runtime_root=runtime,
         release_id="v0.4.1",
         source_python=Path("C:/Python/python.exe"),
+        uv_executable=Path("C:/uv/uv.exe"),
         runner=run,
     )
 
@@ -90,6 +93,7 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
     )
     assert result["release"]["release_id"] == "v0.4.1"
     assert result["artifact_count"] == len(PTE_LOCAL_PROJECTS)
+    assert result["builder"] == "uv 0.11.3"
     assert release.pte_executable.is_file()
     assert context.strategy_root == release.release_root / "strategies"
     assert not (release.release_root / "experiments").exists()
@@ -100,22 +104,26 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
         runtime / "host" / "releases" / "v0.4.1" / ".venv" / "Scripts"
         / "pte-watchdog.exe"
     ).is_file()
-    venv_targets = [Path(command[-1]) for command in commands if command[1:3] == ["-m", "venv"]]
+    venv_targets = [Path(command[2]) for command in commands if command[1] == "venv"]
     assert venv_targets == [
         runtime / "releases" / "v0.4.1" / ".venv",
         runtime / "host" / "releases" / "v0.4.1" / ".venv",
     ]
-    installs = [command for command in commands if command[1:4] == ["-m", "pip", "install"]]
+    installs = [command for command in commands if command[1:3] == ["pip", "install"]]
+    uv_cache = runtime / "cache" / "uv"
+    assert all(command[command.index("--cache-dir") + 1] == str(uv_cache)
+               for command in installs)
     assert any("--no-deps" in command and "czsc-trader-research==0.1.0" in command
                for command in installs)
     dependency_commands = [
         command for command in commands
-        if command[1:4] == ["-m", "pip", "install"] or "--constraint" in command
+        if command[1:3] == ["pip", "install"] or "--constraint" in command
     ]
     assert all("vectorbt" not in " ".join(command).lower() for command in dependency_commands)
     wheelhouse = next(
         command for command in commands if "--constraint" in command
     )
+    assert wheelhouse[wheelhouse.index("--cache-dir") + 1] == str(runtime / "cache" / "pip")
     assert "czsc_trader_research" not in " ".join(wheelhouse).lower()
     assert not any(path.name.startswith(".v0.4.1-") for path in (runtime / "releases").iterdir())
 
@@ -127,13 +135,15 @@ def test_release_assembly_rejects_incomplete_existing_service_host(tmp_path):
     (runtime / "host" / "releases" / "v0.4.1").mkdir(parents=True)
 
     def run(command, **_kwargs):
+        if command[1:] == ["--version"]:
+            return subprocess.CompletedProcess(command, 0, stdout="uv 0.11.3\n", stderr="")
         if command[:3] == ["git", "status", "--porcelain"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[:3] in (["git", "rev-parse", "HEAD"], ["git", "rev-list", "-n"]):
             return subprocess.CompletedProcess(command, 0, stdout="a" * 40 + "\n", stderr="")
         if command[1:5] == ["-m", "pip", "freeze", "--exclude-editable"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:5] == ["-m", "pip", "freeze", "--all"]:
+        if command[1:3] == ["pip", "freeze"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:4] == ["-m", "pip", "wheel"] and "--constraint" in command:
             Path(command[command.index("--wheel-dir") + 1]).mkdir(parents=True, exist_ok=True)
@@ -148,14 +158,14 @@ def test_release_assembly_rejects_incomplete_existing_service_host(tmp_path):
             index = len(list(destination.glob("*.whl")))
             (destination / f"{prefixes[index]}-0.1.0-py3-none-any.whl").write_bytes(b"wheel")
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:3] == ["-m", "venv"]:
-            scripts = Path(command[-1]) / "Scripts"
+        if command[1] == "venv":
+            scripts = Path(command[2]) / "Scripts"
             scripts.mkdir(parents=True)
             (scripts / "python.exe").write_bytes(b"python")
-            (Path(command[-1]) / "Lib" / "site-packages").mkdir(parents=True)
+            (Path(command[2]) / "Lib" / "site-packages").mkdir(parents=True)
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:4] == ["-m", "pip", "install"]:
-            scripts = Path(command[0]).parent
+        if command[1:3] == ["pip", "install"]:
+            scripts = Path(command[command.index("--python") + 1]).parent
             for name in ("pte.exe", "czsc-trader.exe", "pte-watchdog.exe"):
                 (scripts / name).write_bytes(b"launcher")
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
@@ -169,6 +179,7 @@ def test_release_assembly_rejects_incomplete_existing_service_host(tmp_path):
             runtime_root=runtime,
             release_id="v0.4.1",
             source_python=Path("C:/Python/python.exe"),
+            uv_executable=Path("C:/uv/uv.exe"),
             runner=run,
         )
     assert not (runtime / "releases" / "v0.4.1").exists()

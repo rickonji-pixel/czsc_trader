@@ -46,6 +46,7 @@ export const systemEventLabel = value => ({
   SCHEDULER_CYCLE_FAILED:'调度周期失败',
 }[value]||auditEventLabel(value));
 export const systemAlertCount = value => (value?.alerts?.length||0)+(value?.scheduler_failures?.length||0);
+export const releaseVersionLabel = value => value?.release?.release_id||'版本未知';
 export const chooseAccountId = (requested, accounts, defaultAccountId) => accounts.some(item=>item.account_id===requested)?requested:defaultAccountId;
 export const navigationOptions = renderedScope => ({showLoading:renderedScope==null,forceRender:false});
 export const channelOrderAccountLabel = order => order?.account_id||order?.virtual_account_id||'历史未记录';
@@ -114,7 +115,7 @@ function renderSystemEvents(s){
   document.querySelector('#systemEventsContent').innerHTML=`<section><h3>活动告警</h3>${active}</section><section><h3>最近事件</h3>${history}</section>`;
 }
 function openSystemEvents(){if(state.system)renderSystemEvents(state.system);const dialog=document.querySelector('#systemEventsDialog');if(dialog.showModal)dialog.showModal();else dialog.setAttribute('open','');}
-async function refreshSystem(){try{const s=await getJson('/api/system/status');const fingerprint=snapshotFingerprint(s);const changed=fingerprint!==state.systemFingerprint;state.system=s;state.systemFingerprint=fingerprint;const count=systemAlertCount(s);const status=document.querySelector('#systemStatus');status.textContent=`PTE ${statusLabel(s.runtime)} · Futu模拟盘CN ${statusLabel(s.futu_connection)} · 全局告警 ${count} · 查看系统事件`;status.classList.toggle('warning',count>0);if(changed&&document.querySelector('#systemEventsDialog')?.open)renderSystemEvents(s);}catch(error){document.querySelector('#systemStatus').textContent=`系统状态不可用 · ${error.message}`;}}
+async function refreshSystem(){const version=document.querySelector('#releaseVersion');try{const s=await getJson('/api/system/status');const fingerprint=snapshotFingerprint(s);const changed=fingerprint!==state.systemFingerprint;state.system=s;state.systemFingerprint=fingerprint;const count=systemAlertCount(s);const release=releaseVersionLabel(s);version.textContent=release;version.classList.toggle('warning',release==='版本未知');const status=document.querySelector('#systemStatus');status.textContent=`PTE ${statusLabel(s.runtime)} · Futu模拟盘CN ${statusLabel(s.futu_connection)} · 全局告警 ${count} · 查看系统事件`;status.classList.toggle('warning',count>0);if(changed&&document.querySelector('#systemEventsDialog')?.open)renderSystemEvents(s);}catch(error){version.textContent='版本未知';version.classList.add('warning');document.querySelector('#systemStatus').textContent=`系统状态不可用 · ${error.message}`;}}
 function metric(label,value){return `<div class="panel metric"><label>${label}</label><strong>${value}</strong></div>`;}
 function rowsTable(columns,rows){if(!rows?.length)return '<div class="empty">暂无记录</div>';return `<div class="table-wrap"><table><thead><tr>${columns.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${columns.map(c=>{const title=c[2]?.(row);return `<td${title?` title="${esc(title)}"`:''}>${esc(c[1](row))}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;}
 function alerts(items){return (items||[]).map(item=>`<div class="alert">${esc(item.message||item)}</div>`).join('');}

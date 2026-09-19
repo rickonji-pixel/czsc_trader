@@ -168,6 +168,7 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         with urlopen(base + "/", timeout=3) as response:
             html = response.read().decode()
         assert "模拟交易控制台" in html and "审计事件" in html
+        assert 'id="releaseVersion"' in html
         with urlopen(base + "/static/app.js", timeout=3) as response:
             app_js = response.read().decode()
         with urlopen(base + "/static/styles.css", timeout=3) as response:
@@ -190,6 +191,8 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert "各账户按自身前瞻观察窗口统计" in app_js
         assert "共同观察区间" not in app_js
         assert "ACCOUNT_REFRESH_SECTIONS" in app_js
+        assert "releaseVersionLabel(s)" in app_js
+        assert ".release-version{min-width:78px" in styles_css
         assert ".chart-frame-host{height:540px;min-height:540px" in styles_css
         assert ".chart-frame-host iframe{display:block;width:100%;height:100%" in styles_css
         assert html.index("Futu模拟盘CN") < html.index("审计事件") < html.index("账户比较")

@@ -184,9 +184,7 @@ def _context(root: Path) -> RepositoryContext:
         raw_dir=root / "data" / "raw",
         research_data_root=root / "data" / "raw",
         backtest_data_root=root / "data" / "backtest",
-        baseline_root=root / "strategies" / "dependencies" / "legacy_rule_baselines",
         strategy_root=root / "strategies",
-        strategy_dependency_root=root / "strategies" / "dependencies" / "legacy_rule_baselines",
         experiments_root=root / "experiments",
         outputs_root=root / "outputs",
     )

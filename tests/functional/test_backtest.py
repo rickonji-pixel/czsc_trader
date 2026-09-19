@@ -265,14 +265,8 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
-    functional_repo: Path, capsys, monkeypatch
+    functional_repo: Path, capsys
 ) -> None:
-    def fail_legacy_resolution(*args, **kwargs):
-        raise AssertionError("registered backtest must execute exclusively through SRT")
-
-    monkeypatch.setattr(
-        "czsc_trader.baselines.resolve_strategy_payload", fail_legacy_resolution
-    )
     payload = invoke_main(
         [
             "backtest",

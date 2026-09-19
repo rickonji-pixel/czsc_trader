@@ -11,7 +11,6 @@ from czsc_trader.cli.main import build_parser, main
 
 EXPECTED_ACTIONS = {
     "data": {"prepare", "validate", "update-backtest"},
-    "baseline": {"list", "show", "validate"},
     "research": {"create", "intent"},
     "strategy": {
         "list",

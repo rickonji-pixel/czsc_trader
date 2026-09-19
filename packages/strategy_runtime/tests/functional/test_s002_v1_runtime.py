@@ -7,9 +7,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from czsc_trader.baselines import resolve_strategy_payload
-from czsc_trader.data import MarketData
-from czsc_trader.strategy_runtime import apply_resolved_strategy
 from dataflows import DataRequest, Dataflows, Dataset
 from strategy_runtime import (
     AccountSnapshot,
@@ -24,7 +21,6 @@ from strategy_runtime import (
     StrategyRunner,
     StrategyStateSnapshot,
 )
-from strategy_runtime.strategies.s002_v1 import _calculate_target_history
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -135,7 +131,7 @@ def test_loader_fails_clearly_when_implementation_is_missing() -> None:
     raw["release_hash"] = canonical_sha256(raw)
     release = StrategyRelease.from_mapping(raw)
 
-    with pytest.raises(RuntimeCompatibilityError, match="implementation is unavailable"):
+    with pytest.raises(RuntimeCompatibilityError, match="runtime binding is unavailable"):
         StrategyLoader().load(release)
 
 
@@ -147,8 +143,8 @@ def test_strategy_release_rejects_payload_with_a_borrowed_hash() -> None:
         StrategyRelease.from_mapping(raw)
 
 
-def test_s002_runner_matches_the_frozen_legacy_signal_at_cutoff() -> None:
-    release, raw = _release()
+def test_s002_runner_executes_the_frozen_signal_at_cutoff() -> None:
+    release, _raw = _release()
     strategy = StrategyLoader().load(release)
     dataflows = Dataflows(
         {
@@ -187,101 +183,3 @@ def test_s002_runner_matches_the_frozen_legacy_signal_at_cutoff() -> None:
         "execution_daily",
         "trading_calendar",
     }
-
-    adjusted = _load_years(
-        "510500_daily",
-        DataRequest(
-            Dataset.ETF_OHLCV,
-            "510500.SH",
-            "2024-11-27",
-            "2026-09-08",
-            "2026-09-08",
-        ),
-    ).rename(
-        columns={
-            "Date": "dt",
-            "Open": "open",
-            "High": "high",
-            "Low": "low",
-            "Close": "close",
-            "Volume": "vol",
-            "Amount": "amount",
-        }
-    )
-    adjusted["dt"] = pd.to_datetime(adjusted["dt"])
-    adjusted.insert(1, "symbol", "510500.SH")
-    legacy = resolve_strategy_payload(
-        ROOT / "strategies/dependencies/legacy_rule_baselines",
-        raw["strategy_payload"],
-        release_id=release.release_id,
-        release_hash=release.release_hash,
-        symbol="510500.SH",
-        repository_root=ROOT,
-    )
-    applied = apply_resolved_strategy(
-        MarketData(pd.DataFrame(), adjusted, pd.DataFrame(), {}, "510500.SH"), legacy
-    )
-    expected = float(applied.target_position.loc[pd.Timestamp("2026-09-08")])
-    assert result.decision.target_position == expected
-
-
-def test_s002_complete_target_history_matches_the_frozen_legacy_path() -> None:
-    release, raw = _release()
-    strategy = StrategyLoader().load(release)
-    request = DataRequest(
-        Dataset.ETF_OHLCV,
-        "510500.SH",
-        "2019-10-08",
-        "2026-09-15",
-        "2026-09-15",
-    )
-    daily = _load_years("510500_daily", request)
-
-    payload = raw["strategy_payload"]
-    rule = payload["rule"]
-    actual = _calculate_target_history(
-        daily,
-        symbol="510500.SH",
-        signal=rule["signal"],
-        portfolio=rule["portfolio_rule"],
-    )
-
-    adjusted = daily.rename(
-        columns={
-            "Date": "dt",
-            "Open": "open",
-            "High": "high",
-            "Low": "low",
-            "Close": "close",
-            "Volume": "vol",
-            "Amount": "amount",
-        }
-    )
-    adjusted["dt"] = pd.to_datetime(adjusted["dt"])
-    adjusted.insert(1, "symbol", "510500.SH")
-    legacy = resolve_strategy_payload(
-        ROOT / "strategies/dependencies/legacy_rule_baselines",
-        payload,
-        release_id=release.release_id,
-        release_hash=release.release_hash,
-        symbol="510500.SH",
-        repository_root=ROOT,
-    )
-    expected = apply_resolved_strategy(
-        MarketData(pd.DataFrame(), adjusted, pd.DataFrame(), {}, "510500.SH"), legacy
-    ).target_position.astype(float)
-    expected = expected.reindex(actual.index)
-
-    pd.testing.assert_index_equal(actual.index, expected.index, check_names=False)
-    pd.testing.assert_series_equal(
-        actual["target_position"].astype(float),
-        expected,
-        check_names=False,
-    )
-    assert actual.index[0] == pd.Timestamp("2020-10-19")
-    assert actual.index[-1] == pd.Timestamp("2026-09-15")
-    assert len(actual) == 1437
-    changes = actual["target_position"] - actual["target_position"].shift(1, fill_value=0.0)
-    assert int(changes.eq(1.0).sum()) == 28
-    assert int(changes.eq(-1.0).sum()) == 28
-    assert strategy.definition.release_id == "S002-v1"

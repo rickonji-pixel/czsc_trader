@@ -39,24 +39,6 @@ def _context(args: argparse.Namespace) -> RepositoryContext:
     return context
 
 
-def _baseline_list(args: argparse.Namespace):
-    from czsc_trader.application.baseline_service import list_baselines
-
-    return list_baselines(_context(args))
-
-
-def _baseline_show(args: argparse.Namespace):
-    from czsc_trader.application.baseline_service import show_baseline
-
-    return show_baseline(_context(args), args.version, symbol=args.symbol)
-
-
-def _baseline_validate(args: argparse.Namespace):
-    from czsc_trader.application.baseline_service import validate_baseline
-
-    return validate_baseline(_context(args), args.version, symbol=args.symbol)
-
-
 def _data_validate(args: argparse.Namespace):
     from czsc_trader.application.data_service import validate_data
 
@@ -252,25 +234,6 @@ def build_parser() -> argparse.ArgumentParser:
         command_handler=_data_update_backtest,
         command_name="data.update-backtest",
     )
-
-    baseline = resources.add_parser("baseline")
-    baseline_actions = baseline.add_subparsers(
-        dest="action", required=True, parser_class=CommandParser
-    )
-    baseline_list = baseline_actions.add_parser("list")
-    _add_repository_root(baseline_list)
-    baseline_list.set_defaults(
-        command_handler=_baseline_list, command_name="baseline.list"
-    )
-    for action, handler in (("show", _baseline_show), ("validate", _baseline_validate)):
-        leaf = baseline_actions.add_parser(action)
-        leaf.add_argument("--version", required=True)
-        leaf.add_argument("--symbol")
-        _add_repository_root(leaf)
-        leaf.set_defaults(
-            command_handler=handler,
-            command_name=f"baseline.{action}",
-        )
 
     from czsc_trader.cli.strategy_commands import add_strategy_parser
     from czsc_trader.cli.research_commands import add_research_parser

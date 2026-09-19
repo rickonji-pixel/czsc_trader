@@ -33,9 +33,7 @@ class RepositoryContext:
     raw_dir: Path
     research_data_root: Path
     backtest_data_root: Path
-    baseline_root: Path
     strategy_root: Path
-    strategy_dependency_root: Path
     experiments_root: Path
     outputs_root: Path
 
@@ -60,11 +58,7 @@ class RepositoryContext:
             raw_dir=root / "data" / "raw",
             research_data_root=root / "data" / "raw",
             backtest_data_root=root / "data" / "backtest",
-            baseline_root=root / "strategies" / "dependencies" / "legacy_rule_baselines",
             strategy_root=root / "strategies",
-            strategy_dependency_root=(
-                root / "strategies" / "dependencies" / "legacy_rule_baselines"
-            ),
             experiments_root=root / "experiments",
             outputs_root=root / "outputs",
         )

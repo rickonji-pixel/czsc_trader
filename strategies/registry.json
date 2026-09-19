@@ -2,9 +2,7 @@
   "schema_version": 1,
   "strategies": [
     {
-      "aliases": [
-        "baseline_20260903"
-      ],
+      "aliases": [],
       "path": "S001",
       "strategy_id": "S001"
     },

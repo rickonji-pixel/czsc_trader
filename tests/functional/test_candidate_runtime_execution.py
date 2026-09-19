@@ -62,10 +62,6 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
         MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf"),
         daily, pd.DataFrame(columns=["dt", "high", "low"]), "d" * 64, sessions[-1].date(),
     )
-    def forbidden(*args, **kwargs):
-        raise AssertionError("candidate replay must never call the old rule parser")
-
-    monkeypatch.setattr("czsc_trader.baselines.resolve_strategy_payload", forbidden)
     context = RepositoryContext.discover(tmp_path)
     snapshot = resolve_candidate_snapshot(context, candidate.reference_id, payload, canonical_sha256(payload), "fixture")
     assert snapshot.source_hash == candidate.runtime_identity_sha256
@@ -322,8 +318,8 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
     )
     monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay_data)
     def forbidden(*args, **kwargs):
-        raise AssertionError("evaluation must not invoke the old strategy parser or simple backtest")
-    monkeypatch.setattr("czsc_trader.baselines.resolve_strategy_payload", forbidden)
+        raise AssertionError("evaluation must not invoke the old simple backtest")
+
     monkeypatch.setattr("czsc_trader.research_backtest.run_period_backtests", forbidden)
     context = CandidateEvaluationContext(
         SimpleNamespace(root=tmp_path), "588080.SH", "etf",
@@ -511,8 +507,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
     context = RepositoryContext(
         root=tmp_path, raw_dir=pool, research_data_root=pool, backtest_data_root=tmp_path / "data/backtest",
-        baseline_root=tmp_path / "baselines", strategy_root=tmp_path / "strategies",
-        strategy_dependency_root=tmp_path / "dependencies", experiments_root=tmp_path / "experiments",
+        strategy_root=tmp_path / "strategies", experiments_root=tmp_path / "experiments",
         outputs_root=tmp_path / "outputs",
     )
     cutoff = sessions[-1].date().isoformat()

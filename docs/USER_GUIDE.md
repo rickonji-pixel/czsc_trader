@@ -161,18 +161,8 @@ Optuna搜索、SE评估和SM治理。
 `pte account create`命令；PTE还会再次验证SGC冻结链或历史治理迁移身份。旧的`strategy create`、
 `strategy version create`、任意证据直冻和`strategy accept-evaluation`入口已经退出。
 
-旧命名基线只作为不可变历史依赖查看：
-
-```powershell
-.\.venv\Scripts\czsc-trader.exe baseline list
-.\.venv\Scripts\czsc-trader.exe baseline show `
-  --version baseline_20260903 --symbol 588080.SH
-.\.venv\Scripts\czsc-trader.exe baseline validate `
-  --version baseline_20260903 --symbol 588080.SH
-```
-
-`baseline_20260903`是`S001-v1`的只读历史别名。新策略版本统一登记在`strategies/`。
-候选评估、冠军确认和冻结操作见[策略研究交接](../research/README.md)。
+旧baseline文件只作为冻结策略的不可变历史证据保留，不再提供CLI入口。新策略版本统一登记在
+`strategies/`。候选评估、冠军确认和冻结操作见[策略研究交接](../research/README.md)。
 
 ## 回测
 

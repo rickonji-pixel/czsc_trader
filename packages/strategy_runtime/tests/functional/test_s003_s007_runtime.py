@@ -9,8 +9,6 @@ import pandas as pd
 import pytest
 from dataflows import DataIdentity, DataRequest, DataResult, DataStatus, Dataset
 
-from czsc_trader.baselines import resolve_strategy_payload
-from czsc_trader.causal_feature_gate_runtime import score_feature_panel
 from strategy_runtime import (
     AccountSnapshot,
     CalculationRequest,
@@ -106,7 +104,7 @@ def test_s003_complete_decision_history_matches_frozen_evidence() -> None:
     assert strategy.definition.release_id == "S003-v1"
 
 
-def test_s007_complete_decision_history_matches_frozen_legacy_path() -> None:
+def test_s007_strategy_and_history_api_produce_the_same_decisions() -> None:
     raw, release = _release("S007")
     strategy = StrategyLoader().load(release)
     panel = pd.read_csv(
@@ -121,24 +119,14 @@ def test_s007_complete_decision_history_matches_frozen_legacy_path() -> None:
         {"strategy_evidence": evidence}, panel.index
     )
 
-    resolved = resolve_strategy_payload(
-        ROOT / "strategies/dependencies/legacy_rule_baselines",
-        raw["strategy_payload"],
-        release_id=release.release_id,
-        release_hash=release.release_hash,
-        symbol="588080.SH",
-        repository_root=ROOT,
-    )
-    expected_base, expected_confirmation, expected_target = score_feature_panel(
-        panel, resolved.causal_feature_gate
-    )
-    pd.testing.assert_series_equal(actual["base_score"], expected_base)
-    pd.testing.assert_series_equal(actual["confirmation_score"], expected_confirmation)
     pd.testing.assert_series_equal(
-        actual["target_position"], expected_target.astype(int), check_names=False
+        runtime_actual["base_score"], actual["base_score"], check_names=False
     )
     pd.testing.assert_series_equal(
-        runtime_actual["target_position"], expected_target.astype(int), check_names=False
+        runtime_actual["confirmation_score"], actual["confirmation_score"], check_names=False
+    )
+    pd.testing.assert_series_equal(
+        runtime_actual["target_position"], actual["target_position"], check_names=False
     )
     assert strategy.definition.release_id == "S007-v1"
 

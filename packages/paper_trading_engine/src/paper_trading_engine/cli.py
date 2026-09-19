@@ -31,6 +31,7 @@ from .scheduler import RuntimeScheduler
 from .web import create_server
 from .coordinator import PteCoordinator, ReconnectableExecution
 from .runtime_lock import RuntimeDatabaseLock
+from .trading_window import shanghai_now
 
 
 class PortUnavailableError(RuntimeError):
@@ -157,8 +158,14 @@ def _default_executable(repo_root: Path) -> Path:
 
 
 def build_engine(args: argparse.Namespace):
+    startup_timings: dict[str, float] = {}
+    stage_started = time.perf_counter()
     if getattr(args, "action", None) == "serve":
         backup_runtime_database(args.database)
+    startup_timings["database_backup_ms"] = round(
+        (time.perf_counter() - stage_started) * 1000, 1,
+    )
+    stage_started = time.perf_counter()
     store = PaperStore(args.database)
     audit = AuditRecorder(store)
     advice = SrtAdviceClient(
@@ -167,10 +174,15 @@ def build_engine(args: argparse.Namespace):
         asset=args.asset,
         audit=audit,
     )
+    startup_timings["store_and_advice_ms"] = round(
+        (time.perf_counter() - stage_started) * 1000, 1,
+    )
+
     def connect_execution():
         gateway = FutuGateway(host=args.opend_host, port=args.opend_port, audit=audit)
         return FutuExecution(store, gateway, audit=audit)
 
+    stage_started = time.perf_counter()
     try:
         initial_execution = connect_execution()
     except Exception as exc:
@@ -186,6 +198,10 @@ def build_engine(args: argparse.Namespace):
         execution = ReconnectableExecution(
             store, args.symbol, connect_execution, initial=initial_execution,
         )
+    startup_timings["execution_initialize_ms"] = round(
+        (time.perf_counter() - stage_started) * 1000, 1,
+    )
+    stage_started = time.perf_counter()
     try:
         store.virtual_account("baseline-143")
     except KeyError:
@@ -242,22 +258,52 @@ def build_engine(args: argparse.Namespace):
         store.rename_virtual_account("s001-v2", "s001-v2", "S001-v2模拟账户")
     except KeyError:
         pass
+    startup_timings["account_initialize_ms"] = round(
+        (time.perf_counter() - stage_started) * 1000, 1,
+    )
+    accounts = store.strategy_virtual_accounts()
+    stage_started = time.perf_counter()
+    try:
+        deployments = _strategy_deployments(
+            args.advice_executable or _default_executable(args.repo_root),
+            args.repo_root,
+            [
+                (str(account["strategy_id"]), str(account["strategy_version"]))
+                for account in accounts
+            ],
+        )
+    except Exception as exc:
+        deployments = {}
+        audit.record(
+            "DEPENDENCY_DEGRADED",
+            source="cli",
+            outcome="FAILURE",
+            actor_type="ENGINE",
+            actor_id="strategy_manager",
+            details={"operation": "strategy_deployments", "error": str(exc)},
+        )
+    startup_timings["strategy_deployments_ms"] = round(
+        (time.perf_counter() - stage_started) * 1000, 1,
+    )
+    stage_started = time.perf_counter()
     _backfill_selection_cutoffs(
-        store,
-        audit,
-        args.advice_executable or _default_executable(args.repo_root),
-        args.repo_root,
+        store, audit, deployments,
     )
     _synchronize_strategy_names(
-        store,
-        audit,
-        args.advice_executable or _default_executable(args.repo_root),
-        args.repo_root,
+        store, audit, deployments,
     )
-    for account in store.strategy_virtual_accounts():
+    startup_timings["account_metadata_sync_ms"] = round(
+        (time.perf_counter() - stage_started) * 1000, 1,
+    )
+    stage_started = time.perf_counter()
+    for account in accounts:
         seed_runtime_data(
             args.repo_root / "data" / "raw", args.data_dir, account["symbol"]
         )
+    startup_timings["runtime_data_seed_ms"] = round(
+        (time.perf_counter() - stage_started) * 1000, 1,
+    )
+    stage_started = time.perf_counter()
     account_chart = AccountChartService(
         store,
         data_dir=args.data_dir,
@@ -265,11 +311,15 @@ def build_engine(args: argparse.Namespace):
         trader_executable=args.advice_executable or _default_executable(args.repo_root),
         audit=audit,
     )
+    startup_timings["chart_service_ms"] = round(
+        (time.perf_counter() - stage_started) * 1000, 1,
+    )
     return PteCoordinator(
         AccountEngine(store, advice, audit=audit),
         execution,
         audit=audit,
         account_chart=account_chart,
+        startup_timings=startup_timings,
     )
 
 
@@ -296,7 +346,7 @@ def _strategy_show(
         command.extend(["--version", version])
     completed = subprocess.run(
         command,
-        check=False, capture_output=True, text=True, encoding="utf-8",
+        check=False, capture_output=True, text=True, encoding="utf-8", timeout=30,
     )
     try:
         payload = json.loads(completed.stdout)
@@ -316,6 +366,67 @@ def _strategy_show(
     if not payload["result"].get("selection_data_cutoff"):
         raise RuntimeError("strategy release has no selection_data_cutoff")
     return payload["result"]
+
+
+def _strategy_deployments(
+    executable: Path,
+    repo_root: Path,
+    releases: list[tuple[str, str]],
+) -> dict[tuple[str, str], dict[str, object]]:
+    unique_releases = list(dict.fromkeys(releases))
+    if not unique_releases:
+        return {}
+    command = [
+        str(executable), "strategy", "deployments", "--repo-root", str(repo_root),
+    ]
+    for strategy_id, version in unique_releases:
+        command.extend(["--release", f"{strategy_id}-{version}"])
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("strategy deployment query timed out") from exc
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            completed.stderr.strip() or "strategy deployment query returned invalid JSON"
+        ) from exc
+    if completed.returncode or payload.get("status") != "PASS":
+        error = payload.get("error", {})
+        raise RuntimeError(error.get("message") or "strategy deployment query failed")
+    rows = payload.get("result", {}).get("deployments")
+    if not isinstance(rows, list):
+        raise RuntimeError("strategy deployment query returned invalid deployments")
+    deployments: dict[tuple[str, str], dict[str, object]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            raise RuntimeError("strategy deployment query returned an invalid identity")
+        key = (str(row.get("strategy_id")), str(row.get("version")))
+        if key not in unique_releases or key in deployments:
+            raise RuntimeError("strategy deployment query returned an unexpected identity")
+        qualification = row.get("qualification")
+        if qualification not in {"PAPER_READY", "LIVE_READY"}:
+            raise RuntimeError(
+                f"strategy qualification cannot enter paper trading: {qualification}"
+            )
+        if row.get("governance_status") not in {
+            "SGC_VALIDATED",
+            "LEGACY_GOVERNANCE_ACCEPTED",
+        }:
+            raise RuntimeError("strategy governance identity is not deployable")
+        if not row.get("selection_data_cutoff"):
+            raise RuntimeError("strategy release has no selection_data_cutoff")
+        deployments[key] = row
+    if set(deployments) != set(unique_releases):
+        raise RuntimeError("strategy deployment query omitted a requested identity")
+    return deployments
 
 
 def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
@@ -410,18 +521,18 @@ def _preflight_strategy_account(
 
 
 def _backfill_selection_cutoffs(
-    store: PaperStore, audit: AuditRecorder, executable: Path, repo_root: Path,
+    store: PaperStore,
+    audit: AuditRecorder,
+    deployments: dict[tuple[str, str], dict[str, object]],
 ) -> None:
     for account in store.strategy_virtual_accounts():
         if account.get("selection_data_cutoff"):
             continue
         try:
-            identity = _strategy_show(
-                executable,
-                repo_root,
-                str(account["strategy_id"]),
-                str(account["strategy_version"]),
-            )
+            key = (str(account["strategy_id"]), str(account["strategy_version"]))
+            identity = deployments.get(key)
+            if identity is None:
+                raise RuntimeError("strategy deployment identity is unavailable")
             if identity["release_hash"] != account["release_hash"]:
                 raise RuntimeError("stored release hash does not match strategy registry")
             if not store.backfill_account_selection_cutoff(
@@ -452,16 +563,16 @@ def _backfill_selection_cutoffs(
 
 
 def _synchronize_strategy_names(
-    store: PaperStore, audit: AuditRecorder, executable: Path, repo_root: Path,
+    store: PaperStore,
+    audit: AuditRecorder,
+    deployments: dict[tuple[str, str], dict[str, object]],
 ) -> None:
     for account in store.strategy_virtual_accounts():
         try:
-            identity = _strategy_show(
-                executable,
-                repo_root,
-                str(account["strategy_id"]),
-                str(account["strategy_version"]),
-            )
+            key = (str(account["strategy_id"]), str(account["strategy_version"]))
+            identity = deployments.get(key)
+            if identity is None:
+                raise RuntimeError("strategy deployment identity is unavailable")
             if identity["release_hash"] != account["release_hash"]:
                 raise RuntimeError("stored release hash does not match strategy registry")
             store.synchronize_account_strategy_name(
@@ -525,7 +636,11 @@ def _restart_running_pte(args: argparse.Namespace) -> dict[str, object]:
     if not token:
         raise RuntimeError("PTE control token is unavailable; perform one bootstrap service restart")
     base = f"http://{args.host}:{args.port}"
-    _, current = _read_json(base + "/api/system/status")
+    try:
+        _, current = _read_json(base + "/api/health")
+    except URLError:
+        # Allows the first graceful restart from a release that predates /api/health.
+        _, current = _read_json(base + "/api/system/status")
     old_instance = current.get("instance_id")
     if not old_instance:
         raise RuntimeError("running PTE does not support graceful restart; perform one bootstrap restart")
@@ -540,7 +655,7 @@ def _restart_running_pte(args: argparse.Namespace) -> dict[str, object]:
     while time.monotonic() < deadline:
         time.sleep(0.25)
         try:
-            _, latest = _read_json(base + "/api/system/status", timeout=1.0)
+            _, latest = _read_json(base + "/api/health", timeout=1.0)
         except (OSError, URLError, ValueError, json.JSONDecodeError):
             continue
         new_instance = latest.get("instance_id")
@@ -705,7 +820,9 @@ def main(
             probe_port(args.host, args.port)
         if args.action in {"serve", "once"}:
             runtime_lock = RuntimeDatabaseLock(args.database).acquire()
+        engine_build_started = time.perf_counter()
         engine = engine_factory(args)
+        engine_build_ms = round((time.perf_counter() - engine_build_started) * 1000, 1)
         if args.action == "once":
             result = engine.refresh()
             _write({"status": "PASS", "command": "pte.once", "result": result})
@@ -721,12 +838,18 @@ def main(
             stopped.set()
             server_holder["server"].shutdown()
 
+        service_startup_started = time.perf_counter()
+        stage_started = time.perf_counter()
         engine.startup()
+        engine_startup_ms = round((time.perf_counter() - stage_started) * 1000, 1)
+        stage_started = time.perf_counter()
         server = create_server(
             engine, host=args.host, port=args.port, control_token=control_token,
             restart_callback=graceful_restart, instance_id=instance_id,
         )
+        web_server_ms = round((time.perf_counter() - stage_started) * 1000, 1)
         server_holder["server"] = server
+        initial_observation_at = shanghai_now()
         scheduler = RuntimeScheduler(
             engine,
             build_publisher(args, engine.store, audit),
@@ -736,12 +859,23 @@ def main(
             decision_interval=args.decision_interval,
             publish_time=args.data_refresh_time,
             audit=audit,
+            initial_observation_at=initial_observation_at,
         )
         worker = Thread(target=scheduler.run, args=(stopped,), name="pte-scheduler", daemon=True)
         worker.start()
         _record_service_lifecycle(
             audit, "SERVICE_STARTED", instance_id,
             host=args.host, port=server.server_port,
+            startup_duration_ms=round(
+                engine_build_ms + (time.perf_counter() - service_startup_started) * 1000,
+                1,
+            ),
+            startup_stages_ms={
+                **getattr(engine, "startup_timings", {}),
+                "engine_build_total_ms": engine_build_ms,
+                "engine_startup_ms": engine_startup_ms,
+                "web_server_ms": web_server_ms,
+            },
         )
         sys.stderr.write(f"PTE listening on http://{args.host}:{server.server_port}\n")
         try:

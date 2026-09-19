@@ -124,6 +124,19 @@ def create_server(
             try:
                 if path == "/api/status":
                     self._json(200, operations.status())
+                elif path == "/api/health":
+                    health = (
+                        api.health()
+                        if hasattr(api, "health")
+                        else {
+                            key: value
+                            for key, value in api.system_status().items()
+                            if key in {
+                                "runtime", "watchdog_healthy", "scheduler_heartbeat_at",
+                            }
+                        }
+                    )
+                    self._json(200, {**health, "instance_id": runtime_instance_id})
                 elif path == "/api/system/status":
                     self._json(200, {**api.system_status(), "instance_id": runtime_instance_id})
                 elif path == "/api/virtual-accounts":

@@ -9,16 +9,11 @@ from czsc_trader.application.strategy_service import (
     add_strategy_evidence,
     list_strategies,
     show_strategy,
+    show_strategy_deployments,
     strategy_history,
     strategy_performance,
     transition_strategy_version,
     validate_strategies,
-)
-from czsc_trader.application.freeze_review_service import (
-    evaluate_freeze_review,
-    freeze_review_candidate,
-    open_freeze_review,
-    show_freeze_review,
 )
 
 
@@ -28,6 +23,8 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
         return list_strategies(context)
     if action == "show":
         return show_strategy(context, args.strategy, args.version)
+    if action == "deployments":
+        return show_strategy_deployments(context, args.release)
     if action == "history":
         return strategy_history(context, args.strategy)
     if action == "performance":
@@ -35,6 +32,8 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
     if action == "validate":
         return validate_strategies(context)
     if action == "review.open":
+        from czsc_trader.application.freeze_review_service import open_freeze_review
+
         return open_freeze_review(
             context,
             credential_id=args.credential,
@@ -44,10 +43,16 @@ def run_strategy_command(args: argparse.Namespace, context: RepositoryContext):
             reason=args.reason,
         )
     if action == "review.evaluate":
+        from czsc_trader.application.freeze_review_service import evaluate_freeze_review
+
         return evaluate_freeze_review(context, args.strategy, args.credential)
     if action == "review.show":
+        from czsc_trader.application.freeze_review_service import show_freeze_review
+
         return show_freeze_review(context, args.strategy, args.credential)
     if action == "freeze":
+        from czsc_trader.application.freeze_review_service import freeze_review_candidate
+
         return freeze_review_candidate(
             context,
             args.strategy,
@@ -102,6 +107,13 @@ def add_strategy_parser(
     _identity(show, version_optional=True)
     add_common(show)
     show.set_defaults(command_handler=handler, command_name="strategy.show")
+
+    deployments = actions.add_parser("deployments")
+    deployments.add_argument("--release", action="append", required=True)
+    add_common(deployments)
+    deployments.set_defaults(
+        command_handler=handler, command_name="strategy.deployments",
+    )
 
     history = actions.add_parser("history")
     history.add_argument("--strategy", required=True)

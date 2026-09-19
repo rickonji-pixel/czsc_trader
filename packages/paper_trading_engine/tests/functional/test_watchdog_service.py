@@ -63,7 +63,7 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
     assert set(json.loads(path.read_text()).keys()) == {
         "repo_root", "host", "port",
     }
-    assert config.health_url == "http://127.0.0.1:8080/api/system/status"
+    assert config.health_url == "http://127.0.0.1:8080/api/health"
     with pytest.raises(ValueError, match="localhost"):
         ServiceConfig(repo_root=tmp_path.resolve(), host="0.0.0.0")
 
@@ -114,6 +114,11 @@ def test_ft_pte06_business_health_exposes_stalled_scheduler(tmp_path):
     assert status["runtime"] == "RUNNING"
     assert status["watchdog_healthy"] is False
     assert "SCHEDULER_STALLED" in status["alerts"]
+    assert PteWebApi(Operations()).health() == {
+        "runtime": "RUNNING",
+        "watchdog_healthy": False,
+        "scheduler_heartbeat_at": "2026-09-01T00:00:00+00:00",
+    }
     store.close()
 
 

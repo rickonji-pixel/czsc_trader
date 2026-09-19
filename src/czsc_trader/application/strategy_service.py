@@ -122,6 +122,41 @@ def show_strategy(
     return CommandResult(status="PASS", command="strategy.show", result=result)
 
 
+def show_strategy_deployments(
+    context: RepositoryContext, releases: list[str],
+) -> CommandResult:
+    """Return frozen deployment identities for several exact releases in one query."""
+    registry = _registry(context)
+
+    def operation() -> list[dict[str, Any]]:
+        rows = []
+        seen: set[str] = set()
+        for reference in releases:
+            try:
+                strategy_id, version = reference.rsplit("-", 1)
+            except ValueError as exc:
+                raise ValueError(f"invalid strategy release reference: {reference}") from exc
+            if not strategy_id or not version.startswith("v") or not version[1:].isdigit():
+                raise ValueError(f"invalid strategy release reference: {reference}")
+            if reference in seen:
+                raise ValueError(f"duplicate strategy release reference: {reference}")
+            seen.add(reference)
+            release = registry.get_version(strategy_id, version)
+            identity = _identity(registry, strategy_id, version)
+            rows.append({
+                **identity,
+                "selection_data_cutoff": release.selection_data_cutoff,
+            })
+        return rows
+
+    result = _domain_call("strategy.deployments", operation)
+    return CommandResult(
+        status="PASS",
+        command="strategy.deployments",
+        result={"deployments": result},
+    )
+
+
 def strategy_history(context: RepositoryContext, strategy_id: str) -> CommandResult:
     registry = _registry(context)
     events = _domain_call(

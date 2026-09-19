@@ -53,6 +53,11 @@ class FakeEngine:
         self.ledger_repairs.append((account_id, intent_id))
         return {"status": "REPAIRED", "account_id": account_id, "intent_id": intent_id}
     def system_status(self): return {"scope": {"system": "pte"}, "runtime": "RUNNING"}
+    def health(self):
+        return {
+            "runtime": "RUNNING", "watchdog_healthy": True,
+            "scheduler_heartbeat_at": "2026-09-19T00:00:00+00:00",
+        }
     def virtual_accounts(self): return {"default_account_id": "alpha", "accounts": [{"account_id": "alpha"}]}
     def virtual_account_snapshot(self, account_id):
         if account_id != "alpha":
@@ -191,6 +196,11 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         with urlopen(base + "/audit-events", timeout=3) as response:
             assert response.status == 200
         assert request_json(base + "/api/system/status")[1]["instance_id"] == "old"
+        health = request_json(base + "/api/health")[1]
+        assert health["instance_id"] == "old"
+        assert set(health) == {
+            "runtime", "watchdog_healthy", "scheduler_heartbeat_at", "instance_id",
+        }
         assert request_json(base + "/api/virtual-accounts")[1]["default_account_id"] == "alpha"
         assert request_json(base + "/api/virtual-accounts/alpha/snapshot")[1]["scope"]["account_id"] == "alpha"
         chart = request_json(base + "/api/virtual-accounts/alpha/chart")[1]

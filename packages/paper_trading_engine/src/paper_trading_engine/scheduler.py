@@ -22,6 +22,7 @@ class RuntimeScheduler:
         decision_interval: float = 5,
         publish_time: str = "20:30",
         audit: AuditRecorder | None = None,
+        initial_observation_at: datetime | None = None,
     ) -> None:
         self.engine = engine
         self.publisher = publisher
@@ -35,9 +36,9 @@ class RuntimeScheduler:
         self.audit = audit or (
             AuditRecorder(store) if hasattr(store, "append_audit_event") else None
         )
-        self._last_order: datetime | None = None
-        self._last_account: datetime | None = None
-        self._last_heartbeat: datetime | None = None
+        self._last_order = initial_observation_at
+        self._last_account = initial_observation_at
+        self._last_heartbeat = initial_observation_at
         self._daily_thread: Thread | None = None
         self.shutdown_clean = True
         self._failures = self._restore_failures()

@@ -17,6 +17,7 @@ EXPECTED_ACTIONS = {
         "list",
         "validate",
         "show",
+        "deployments",
         "history",
         "performance",
         "review",
@@ -134,6 +135,22 @@ def test_ft_t08_catalog_cli_validates_lists_and_shows(capsys) -> None:
         payload = json.loads(capsys.readouterr().out)
         assert payload["status"] == "PASS"
     assert payload["result"]["definition"]["factor_id"] == "F-PROJECT-ER60"
+
+
+def test_ft_t08_strategy_deployments_returns_exact_frozen_releases(capsys) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    assert main([
+        "strategy", "deployments",
+        "--release", "S001-v1",
+        "--release", "S007-v1",
+        "--repo-root", str(repo),
+    ]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "PASS"
+    assert [row["release_id"] for row in payload["result"]["deployments"]] == [
+        "S001-v1", "S007-v1",
+    ]
+    assert all(row["selection_data_cutoff"] for row in payload["result"]["deployments"])
 
 
 def test_ft_t08_template_cli_validates_lists_shows_and_instantiates(capsys, tmp_path: Path) -> None:

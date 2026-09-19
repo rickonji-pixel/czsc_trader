@@ -54,6 +54,45 @@ def test_ft_pte01_strategy_account_requires_governance_identity(monkeypatch, tmp
     )["governance_status"] == "SGC_VALIDATED"
 
 
+def test_strategy_deployments_queries_all_accounts_in_one_process(monkeypatch, tmp_path):
+    calls = []
+    payload = {
+        "status": "PASS",
+        "result": {
+            "deployments": [
+                {
+                    "strategy_id": strategy_id,
+                    "version": version,
+                    "release_id": f"{strategy_id}-{version}",
+                    "release_hash": marker * 64,
+                    "qualification": "PAPER_READY",
+                    "governance_status": "SGC_VALIDATED",
+                    "selection_data_cutoff": "2026-09-02",
+                }
+                for strategy_id, version, marker in (
+                    ("S001", "v1", "a"), ("S007", "v1", "b"),
+                )
+            ]
+        },
+    }
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    result = pte_cli._strategy_deployments(
+        tmp_path / "czsc-trader",
+        tmp_path,
+        [("S001", "v1"), ("S007", "v1"), ("S001", "v1")],
+    )
+
+    assert set(result) == {("S001", "v1"), ("S007", "v1")}
+    assert len(calls) == 1
+    assert calls[0][0].count("--release") == 2
+    assert calls[0][1]["timeout"] == 30
+
+
 def test_ft_pte01_account_model_migration_and_independent_futu_ledgers(tmp_path):
     store = PaperStore(tmp_path / "account-centric.db")
     create_account(store, "s001-v1", "v1", "a")

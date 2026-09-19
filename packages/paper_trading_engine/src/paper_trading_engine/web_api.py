@@ -61,6 +61,14 @@ class PteWebApi:
             return None
         return chart.current_error(account_id)
 
+    def health(self) -> dict[str, object]:
+        heartbeat = self.store.get_setting("scheduler_heartbeat_at")
+        return {
+            "runtime": "RUNNING",
+            "watchdog_healthy": not _is_stale(heartbeat, seconds=45),
+            "scheduler_heartbeat_at": heartbeat,
+        }
+
     def system_status(self) -> dict[str, object]:
         channel = self.channel_snapshot(FUTU_SIMULATE_CN_CHANNEL_ID)
         failures = channel.get("scheduler_failures", self.store.operation_failures())

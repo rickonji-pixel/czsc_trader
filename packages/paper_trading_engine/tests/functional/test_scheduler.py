@@ -177,6 +177,21 @@ def test_scheduler_rejects_malformed_persisted_failure_state():
         RuntimeScheduler(Engine(), object(), store)
 
 
+def test_scheduler_does_not_repeat_startup_reconciliation_immediately():
+    observed_at = datetime(2026, 9, 2, 10, 0, 0)
+    engine, store = Engine(), Store()
+    scheduler = RuntimeScheduler(
+        engine, object(), store, initial_observation_at=observed_at,
+    )
+
+    scheduler.tick_fast(observed_at)
+    assert engine.calls == []
+    scheduler.tick_fast(observed_at + timedelta(seconds=5))
+    assert engine.calls == ["orders"]
+    scheduler.tick_fast(observed_at + timedelta(seconds=60))
+    assert engine.calls == ["orders", "account", "orders"]
+
+
 def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(tmp_path):
     class Publisher:
         def publication_target(self, day): return day.isoformat()

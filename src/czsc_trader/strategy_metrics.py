@@ -125,7 +125,7 @@ def strategy_comparison_metrics(
     if not np.isfinite(float(init_cash)) or float(init_cash) <= 0.0:
         raise ValueError("initial cash must be positive and finite")
     total_return = float(values.iloc[-1] / float(init_cash) - 1.0)
-    drawdown = values.div(values.cummax()).sub(1.0)
+    drawdown = values.div(values.cummax().clip(lower=init_cash)).sub(1.0)
     max_drawdown = float(drawdown.min())
     annualized_return = float(
         (values.iloc[-1] / float(init_cash)) ** (252.0 / len(values)) - 1.0

@@ -2,6 +2,7 @@
 __pycache__/
 /.tmp/
 .worktrees/
+.registry.lock
 *.py[cod]
 *.egg-info/
 packages/*/build/

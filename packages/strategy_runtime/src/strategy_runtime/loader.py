@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
+from importlib.resources import files
 from collections.abc import Mapping
 from pathlib import PurePosixPath
 import sys
@@ -11,6 +12,15 @@ from .errors import RuntimeCompatibilityError
 from .implementation_identity import implementation_sha256, load_runtime_binding
 from .models import ImplementationRef, StrategyCandidate, StrategyRelease, canonical_sha256
 from .protocols import ExecutableStrategy
+
+
+# Capture frozen source closures before any strategy is imported. Re-reading a
+# binding later must never relabel already-imported code with a new disk hash.
+_PROCESS_IMPLEMENTATIONS = {
+    path.stem: implementation_sha256(tuple(load_runtime_binding(path.stem)["source_files"]))
+    for path in files("strategy_runtime").joinpath("bindings").iterdir()
+    if path.name.endswith(".json")
+}
 
 
 def _release_symbol(release: StrategyRelease) -> str | None:
@@ -42,6 +52,16 @@ class StrategyLoader:
             f"{release.strategy_family_id.lower()}_{release.version.lower()}"
         )
         class_name = f"{release.strategy_family_id}{release.version.upper()}"
+        binding = load_runtime_binding(release.release_id)
+        actual = implementation_sha256(tuple(binding["source_files"]))
+        if actual != binding["implementation_sha256"]:
+            raise RuntimeCompatibilityError(
+                f"frozen implementation differs from runtime binding: {release.release_id}"
+            )
+        if _PROCESS_IMPLEMENTATIONS.get(release.release_id) != actual:
+            raise RuntimeCompatibilityError(
+                "frozen implementation changed since process startup; use a fresh process"
+            )
         try:
             module = import_module(module_name)
             factory = getattr(module, class_name)
@@ -49,6 +69,8 @@ class StrategyLoader:
             raise RuntimeCompatibilityError(
                 f"strategy implementation is unavailable: {module_name}.{class_name}"
             ) from exc
+        if implementation_sha256(tuple(binding["source_files"])) != actual:
+            raise RuntimeCompatibilityError("implementation source changed while loading")
         return module_name, class_name, factory
 
     @staticmethod
@@ -200,6 +222,10 @@ class StrategyLoader:
         if actual_sha256 != binding["implementation_sha256"]:
             raise RuntimeCompatibilityError(
                 f"frozen implementation differs from runtime binding: {release.release_id}"
+            )
+        if _PROCESS_IMPLEMENTATIONS.get(release.release_id) != actual_sha256:
+            raise RuntimeCompatibilityError(
+                "frozen implementation changed since process startup; use a fresh process"
             )
         if definition.implementation.source_sha256 != actual_sha256:
             raise RuntimeCompatibilityError(

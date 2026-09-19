@@ -176,7 +176,7 @@ def _observation(context, candidate_id, window, tier, scenario, result, replay_d
     equity = result.equity
     total = float(equity.iloc[-1] / context.init_cash - 1)
     cagr = float((1 + total) ** (252 / len(equity)) - 1)
-    drawdown = float(equity.div(equity.cummax()).sub(1).min())
+    drawdown = float(equity.div(equity.cummax().clip(lower=context.init_cash)).sub(1).min())
     calmar = cagr / abs(drawdown) if abs(drawdown) > 1e-12 else None
     closed = result.trades.loc[result.trades["status"].eq("CLOSED")]
     returns = closed["net_return"].astype(float)

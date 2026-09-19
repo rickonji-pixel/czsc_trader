@@ -193,20 +193,32 @@ class RuntimeScheduler:
     def tick_daily(self, now: datetime) -> None:
         local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
         today = local_now.date().isoformat()
+        target = None
+        if local_now.time().replace(tzinfo=None) >= self.publish_time:
+            if self.store.get_setting("publication_calendar_date") != today:
+                def check_calendar():
+                    session = self.publisher.publication_target(local_now.date())
+                    if not isinstance(session, str) or date.fromisoformat(session) > local_now.date():
+                        raise ValueError("publication calendar returned an invalid target session")
+                    self.store.set_setting("publication_target_date", session)
+                    self.store.set_setting("publication_calendar_date", today)
+                self._guard("publication_calendar", now, check_calendar)
+            if self.store.get_setting("publication_calendar_date") == today:
+                target = self.store.get_setting("publication_target_date")
         if (
-            local_now.time().replace(tzinfo=None) >= self.publish_time
-            and self.store.get_setting("last_data_publish_attempt_date") != today
+            target is not None
+            and self.store.get_setting("last_data_publish_attempt_date") != target
         ):
             def publish():
-                correlation_id = f"publication:{today}"
+                correlation_id = f"publication:{target}"
                 if self.audit is not None:
                     self.audit.record(
                         "MARKET_DATA_PUBLICATION_REQUESTED", source="scheduler",
                         actor_type="SCHEDULER", correlation_id=correlation_id,
-                        details={"target_date": today},
+                        details={"target_date": target},
                     )
                 try:
-                    result = self.publisher.publish(today)
+                    result = self.publisher.publish(target)
                 except Exception as exc:
                     self.store.set_setting("data_publication_error", str(exc))
                     if self.audit is not None:
@@ -214,23 +226,23 @@ class RuntimeScheduler:
                             "MARKET_DATA_PUBLICATION_FAILED", source="scheduler",
                             outcome="FAILURE", actor_type="SCHEDULER",
                             correlation_id=correlation_id,
-                            details={"target_date": today, "error_type": type(exc).__name__,
+                            details={"target_date": target, "error_type": type(exc).__name__,
                                      "error": str(exc)},
                         )
                     raise
-                cutoff, generations = self._validated_publication_result(result, today)
+                cutoff, generations = self._validated_publication_result(result, target)
                 self.store.set_setting("last_data_publish_date", cutoff)
                 self.store.set_setting(
                     "last_data_generation_ids", json.dumps(generations, sort_keys=True),
                 )
-                self.store.set_setting("last_data_publish_attempt_date", today)
+                self.store.set_setting("last_data_publish_attempt_date", target)
                 self.store.set_setting("last_data_publication", now.isoformat())
                 self.store.set_setting("data_publication_error", "")
                 if self.audit is not None:
                     self.audit.record(
                         "MARKET_DATA_PUBLISHED", source="scheduler", actor_type="SCHEDULER",
                         correlation_id=correlation_id,
-                        details={"target_date": today, "data_cutoff": cutoff, "result": result},
+                        details={"target_date": target, "data_cutoff": cutoff, "result": result},
                     )
             self._guard("publication", now, publish)
         published_date = self.store.get_setting("last_data_publish_date")

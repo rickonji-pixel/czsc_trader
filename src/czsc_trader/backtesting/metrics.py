@@ -9,7 +9,7 @@ def calculate_metrics(result: BacktestResult, initial_cash: float) -> dict[str, 
     """Calculate the compact OPC metric set from the unadjusted account ledger."""
     equity = result.account_daily["equity"].astype(float)
     total_return = float(equity.iloc[-1] / initial_cash - 1.0)
-    max_drawdown = float(equity.div(equity.cummax()).sub(1.0).min())
+    max_drawdown = float(equity.div(equity.cummax().clip(lower=initial_cash)).sub(1.0).min())
     annualized_return = float((equity.iloc[-1] / initial_cash) ** (252 / len(equity)) - 1)
     calmar = annualized_return / abs(max_drawdown) if abs(max_drawdown) > 1e-12 else None
     prior = equity.shift(1)

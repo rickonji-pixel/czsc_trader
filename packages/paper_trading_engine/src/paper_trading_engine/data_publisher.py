@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, time as datetime_time, timedelta, timezone
+from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
 import shutil
@@ -59,6 +59,23 @@ class AccountDataPublisher:
         self.start_date = start_date
         self.audit = audit
         self.dataflows = dataflows or Dataflows()
+
+    def publication_target(self, as_of: date) -> str:
+        """Latest mainland session, using the vendor calendar including closed days."""
+        start = as_of - timedelta(days=31)
+        result = self._ready(self.dataflows.fetch(DataRequest(
+            Dataset.TRADING_CALENDAR, "SSE", start.isoformat(), as_of.isoformat(),
+            as_of.isoformat(), options={"env_file": str(Path(self.repo_root) / ".env")},
+        )), "publication trading calendar")
+        frame = result.dataframe
+        dates = pd.DatetimeIndex(pd.to_datetime(frame["Date"], errors="raise"))
+        expected = pd.date_range(start, as_of, freq="D")
+        if not dates.equals(expected) or not frame["IsOpen"].isin([0, 1]).all():
+            raise DataPublicationError("publication trading calendar is incomplete or invalid")
+        sessions = dates[frame["IsOpen"].eq(1).to_numpy()]
+        if sessions.empty:
+            raise DataPublicationError("publication trading calendar has no open session")
+        return sessions[-1].date().isoformat()
 
     @staticmethod
     def _release(repo_root: Path, strategy_id: str, version: str) -> StrategyRelease:

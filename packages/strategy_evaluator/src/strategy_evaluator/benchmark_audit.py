@@ -55,7 +55,7 @@ def _finite_or_none(value: float) -> float | None:
 
 def _metrics(equity: pd.Series, initial_cash: float, trades: pd.DataFrame) -> dict[str, Any]:
     total_return = float(equity.iloc[-1] / initial_cash - 1.0)
-    drawdown = equity.div(equity.cummax()).sub(1.0)
+    drawdown = equity.div(equity.cummax().clip(lower=initial_cash)).sub(1.0)
     maximum = float(drawdown.min())
     annualized = float((equity.iloc[-1] / initial_cash) ** (252.0 / len(equity)) - 1.0)
     calmar = annualized / abs(maximum) if abs(maximum) > 1e-12 else None

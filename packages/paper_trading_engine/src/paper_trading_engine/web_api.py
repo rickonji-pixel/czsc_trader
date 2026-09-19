@@ -85,11 +85,12 @@ class PteWebApi:
         if published and published != decided:
             alerts.append("DECISION_GENERATION_OVERDUE")
         local_now = datetime.now(SHANGHAI)
-        if (
-            local_now.time() >= time(21, 0)
-            and self.store.get_setting("last_data_publish_attempt_date") != local_now.date().isoformat()
-        ):
-            alerts.append("DATA_PUBLICATION_OVERDUE")
+        if local_now.time() >= time(21, 0):
+            target = self.store.get_setting("publication_target_date")
+            if self.store.get_setting("publication_calendar_date") != local_now.date().isoformat() or not target:
+                alerts.append("PUBLICATION_CALENDAR_UNAVAILABLE")
+            elif self.store.get_setting("last_data_publish_date") != target:
+                alerts.append("DATA_PUBLICATION_OVERDUE")
         alerts = list(dict.fromkeys(alerts))
         channel_alerts = channel.get("alerts", [])
         return {

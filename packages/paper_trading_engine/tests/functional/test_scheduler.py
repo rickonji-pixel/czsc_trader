@@ -179,6 +179,7 @@ def test_scheduler_rejects_malformed_persisted_failure_state():
 
 def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(tmp_path):
     class Publisher:
+        def publication_target(self, day): return day.isoformat()
         def __init__(self): self.calls = 0
         def publish(self, end_date):
             self.calls += 1
@@ -326,6 +327,7 @@ def test_ft_pte04_failed_account_batch_is_not_marked_complete():
 
 def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
     class Publisher:
+        def publication_target(self, day): return day.isoformat()
         def __init__(self): self.calls = []
         def publish(self, cutoff):
             self.calls.append(cutoff)
@@ -371,6 +373,7 @@ def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
 
 def test_ft_pte04_scheduler_rejects_semantically_incomplete_publication():
     class Publisher:
+        def publication_target(self, day): return day.isoformat()
         def publish(self, cutoff):
             return {"data_cutoff": cutoff, "generation_ids": ["GEN-ONLY"]}
 
@@ -393,6 +396,7 @@ def test_ft_pte04_slow_daily_publication_does_not_stop_order_reconciliation():
     entered, release, stopped = Event(), Event(), Event()
 
     class SlowPublisher:
+        def publication_target(self, day): return day.isoformat()
         def publish(self, end_date):
             entered.set()
             assert release.wait(2)

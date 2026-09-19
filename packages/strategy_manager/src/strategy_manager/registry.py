@@ -38,6 +38,7 @@ from .models import (
     canonical_sha256,
 )
 from .validation import require_string, require_timestamp
+from .write_lock import RegistryWriteLock, registry_write
 
 
 def _now() -> str:
@@ -56,6 +57,7 @@ def _canonical_json(value: Any, *, newline: bool = True) -> str:
 class StrategyRegistry:
     def __init__(self, root: Path | str):
         self.root = Path(root)
+        self._write_lock = RegistryWriteLock(self.root)
 
     @property
     def registry_path(self) -> Path:
@@ -81,20 +83,25 @@ class StrategyRegistry:
             raise RegistryError(f"JSON root must be an object: {path}")
         return value
 
-    @staticmethod
-    def _atomic_write(path: Path, text: str, expected: bytes | None = None) -> None:
+    @registry_write
+    def _atomic_write(self, path: Path, text: str, expected: bytes | None = None) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         current = path.read_bytes() if path.exists() else None
         if current != expected:
             raise RegistryError(f"concurrent change detected: {path}")
         temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-        temporary.write_text(text, encoding="utf-8", newline="\n")
-        temporary.replace(path)
+        try:
+            temporary.write_text(text, encoding="utf-8", newline="\n")
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
+    @registry_write
     def _write_json(self, path: Path, value: dict[str, Any]) -> None:
         expected = path.read_bytes() if path.exists() else None
         self._atomic_write(path, _canonical_json(value), expected)
 
+    @registry_write
     def _append_jsonl(self, path: Path, value: dict[str, Any]) -> None:
         expected = path.read_bytes() if path.exists() else None
         existing = expected.decode("utf-8") if expected else ""
@@ -103,8 +110,8 @@ class StrategyRegistry:
         line = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         self._atomic_write(path, f"{existing}{line}\n", expected)
 
-    @staticmethod
-    def _restore_files(snapshots: list[tuple[Path, bytes | None]]) -> None:
+    @registry_write
+    def _restore_files(self, snapshots: list[tuple[Path, bytes | None]]) -> None:
         """Best-effort compensation for a failed multi-file governance commit."""
 
         failures: list[str] = []
@@ -179,6 +186,7 @@ class StrategyRegistry:
         except (OSError, json.JSONDecodeError, ValidationError) as exc:
             raise RegistryError(f"invalid governance credential: {credential_id}") from exc
 
+    @registry_write
     def open_governance_credential(
         self,
         credential_id: str,
@@ -223,6 +231,7 @@ class StrategyRegistry:
         self._append_jsonl(path, seal.to_dict())
         return StrategyGovernanceCredential.from_seals((seal,))
 
+    @registry_write
     def append_governance_seal(
         self,
         strategy_id: str,
@@ -334,6 +343,7 @@ class StrategyRegistry:
             raise RegistryError(f"strategy has no versions: {strategy.strategy_id}")
         return versions[-1]
 
+    @registry_write
     def create_family(
         self,
         strategy: StrategyFamily | dict[str, Any],
@@ -433,6 +443,7 @@ class StrategyRegistry:
             raise
         return model
 
+    @registry_write
     def start_research_batch(
         self,
         strategy_id: str,
@@ -552,6 +563,7 @@ class StrategyRegistry:
             raise
         return updated, StrategyGovernanceCredential.from_seals((seal,))
 
+    @registry_write
     def update_family(
         self,
         strategy_id: str,
@@ -620,6 +632,7 @@ class StrategyRegistry:
             raise
         return updated
 
+    @registry_write
     def _legacy_open_freeze_review(
         self,
         review_id: str,
@@ -721,6 +734,7 @@ class StrategyRegistry:
             raise RegistryError("freeze review audit policy hash mismatch")
         return case, snapshot, mandate
 
+    @registry_write
     def _legacy_record_adjudication(
         self,
         report: AdjudicationReport | dict[str, Any],
@@ -774,6 +788,7 @@ class StrategyRegistry:
             raise
         return updated
 
+    @registry_write
     def _legacy_invalidate_freeze_review(
         self, strategy_id: str, review_id: str, *, reason: str
     ) -> FreezeReviewCase:
@@ -793,6 +808,7 @@ class StrategyRegistry:
         )
         return updated
 
+    @registry_write
     def _legacy_create_version(
         self,
         version: StrategyVersion | dict[str, Any],
@@ -837,6 +853,7 @@ class StrategyRegistry:
         )
         return model, event
 
+    @registry_write
     def _legacy_create_frozen_version(
         self,
         strategy_id: str,
@@ -1048,6 +1065,7 @@ class StrategyRegistry:
             raise
         return frozen, event
 
+    @registry_write
     def create_frozen_version_from_credential(
         self,
         strategy_id: str,
@@ -1321,6 +1339,7 @@ class StrategyRegistry:
             raise
         return frozen, event, updated_credential
 
+    @registry_write
     def record_legacy_governance_acceptance(
         self,
         strategy_id: str,
@@ -1389,6 +1408,7 @@ class StrategyRegistry:
             raise RegistryError(f"invalid evidence history: {strategy_id}") from exc
         return values if version is None else [item for item in values if item.version == version]
 
+    @registry_write
     def record_evidence(
         self, evidence: PerformanceEvidence | dict[str, Any], *, source_file: Path | None = None
     ) -> PerformanceEvidence:
@@ -1428,6 +1448,7 @@ class StrategyRegistry:
         )
         return model
 
+    @registry_write
     def _legacy_freeze_version(
         self,
         strategy_id: str,
@@ -1555,6 +1576,7 @@ class StrategyRegistry:
         )
         return frozen, event
 
+    @registry_write
     def promote_version(
         self,
         strategy_id: str,
@@ -1575,6 +1597,7 @@ class StrategyRegistry:
             required_phase=EvidencePhase.PAPER_FORWARD,
         )
 
+    @registry_write
     def downgrade_version(
         self,
         strategy_id: str,
@@ -1596,6 +1619,7 @@ class StrategyRegistry:
             evidence_ids,
         )
 
+    @registry_write
     def retire_version(
         self, strategy_id: str, version: str, *, actor: str, reason: str
     ) -> LifecycleEvent:
@@ -1609,6 +1633,7 @@ class StrategyRegistry:
             [],
         )
 
+    @registry_write
     def _transition(
         self,
         strategy_id: str,

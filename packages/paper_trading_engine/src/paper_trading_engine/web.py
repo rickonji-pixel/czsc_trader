@@ -75,6 +75,11 @@ def create_server(
                     etag=plotly_etag,
                 )
                 return
+            # Static assets are flat, package-owned files. Reject path syntax on
+            # both Windows and POSIX before joining any user-controlled value.
+            if not name or name in {".", ".."} or any(c in name for c in "/\\:%\0"):
+                self._json(404, {"error": "not found"})
+                return
             resource = static_root.joinpath(name)
             if not resource.is_file():
                 self._json(404, {"error": "not found"})

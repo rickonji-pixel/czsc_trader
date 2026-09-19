@@ -338,7 +338,9 @@ def _audit_intraday_overlay(
     if account_rows:
         equity = pd.Series([float(row["equity"]) for row in account_rows], dtype=float)
         total_return = float(equity.iloc[-1] / evidence.initial_cash - 1)
-        max_drawdown = float(equity.div(equity.cummax()).sub(1).min())
+        max_drawdown = float(
+            equity.div(equity.cummax().clip(lower=evidence.initial_cash)).sub(1).min()
+        )
         annualized = float((equity.iloc[-1] / evidence.initial_cash) ** (252 / len(equity)) - 1)
         calmar = annualized / abs(max_drawdown) if abs(max_drawdown) > 1e-12 else None
         previous = equity.shift(1)
@@ -618,7 +620,9 @@ def audit_replay(evidence: ReplayEvidence, tolerance: float = 1e-7) -> ReplayAud
         [float(row["equity"]) for row in evidence.account_daily], dtype=float
     )
     total_return = equity_series.iloc[-1] / evidence.initial_cash - 1
-    max_drawdown = float(equity_series.div(equity_series.cummax()).sub(1).min())
+    max_drawdown = float(
+        equity_series.div(equity_series.cummax().clip(lower=evidence.initial_cash)).sub(1).min()
+    )
     annualized = float(
         (equity_series.iloc[-1] / evidence.initial_cash) ** (252 / len(equity_series)) - 1
     )

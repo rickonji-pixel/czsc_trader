@@ -2402,13 +2402,13 @@ class PaperStore:
                 cash + frozen + Decimal(quantity) * incremental_price
             ).quantize(Decimal("0.0001"))
             cycle_target = account["cycle_target"]
-            if (
-                intent_payload.get("role") == "CORE_SETUP"
-                and cumulative_quantity == int(intent["quantity"])
-            ):
-                if old_quantity != 0:
+            if intent_payload.get("role") == "CORE_SETUP":
+                # Earlier increments of this same setup order are already in
+                # the account. The position before the order must be flat.
+                if old_quantity != previous:
                     raise ValueError("core setup fill requires an initially flat account")
-                cycle_target = quantity
+                if cumulative_quantity == int(intent["quantity"]):
+                    cycle_target = quantity
             self._connection.execute(
                 "UPDATE virtual_accounts SET cash=?,frozen_cash=?,quantity=?,average_cost=?,"
                 "realized_pnl=?,total_assets=?,cycle_target=?,updated_at=? WHERE account_id=?",

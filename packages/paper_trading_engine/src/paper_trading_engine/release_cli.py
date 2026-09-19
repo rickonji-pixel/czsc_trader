@@ -130,6 +130,25 @@ def _wheel_path(artifacts: Path, distribution: str) -> Path:
     return matches[0]
 
 
+def _stage_local_project(repo_root: Path, staging: Path, project: str) -> Path:
+    """Copy one local project without developer build residue."""
+    build_sources = staging / ".build-sources"
+    build_sources.mkdir(exist_ok=True)
+    name = "root" if project == "." else project.replace("/", "-")
+    target = build_sources / name
+    ignored = shutil.ignore_patterns(
+        "__pycache__", "*.pyc", "*.pyo", "build", "dist", "*.egg-info",
+        ".pytest_cache", ".ruff_cache",
+    )
+    if project == ".":
+        target.mkdir()
+        shutil.copy2(repo_root / "pyproject.toml", target / "pyproject.toml")
+        shutil.copytree(repo_root / "src", target / "src", ignore=ignored)
+    else:
+        shutil.copytree(repo_root / project, target, ignore=ignored)
+    return target
+
+
 def _build_pte_wheelhouse(
     *,
     source_python: Path,
@@ -348,15 +367,17 @@ def assemble_release(
         constraints.write_text(frozen, encoding="utf-8")
         pip_cache = runtime_root / "cache" / "pip"
         for project in PTE_LOCAL_PROJECTS:
+            build_source = _stage_local_project(repo_root, staging, project)
             _run(
                 [
                     str(source_python), "-m", "pip", "wheel", "--no-deps",
                     "--cache-dir", str(pip_cache),
-                    "--wheel-dir", str(artifacts), str(repo_root / project),
+                    "--wheel-dir", str(artifacts), str(build_source),
                 ],
                 cwd=repo_root,
                 runner=runner,
             )
+        shutil.rmtree(staging / ".build-sources")
         _build_pte_wheelhouse(
             source_python=source_python,
             artifacts=artifacts,
@@ -442,7 +463,7 @@ def assemble_release(
 
 
 def _write(payload: object) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+    sys.stdout.write(json.dumps(payload, ensure_ascii=True, default=str) + "\n")
 
 
 def _restart_command(

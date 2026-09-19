@@ -9,6 +9,23 @@ from paper_trading_engine.runtime_release import load_release
 from czsc_trader.application.context import RepositoryContext
 
 
+def _create_release_sources(repo: Path) -> None:
+    (repo / "pyproject.toml").write_text("[project]\nname='root'\n", encoding="utf-8")
+    (repo / "src").mkdir()
+    (repo / "build").mkdir()
+    (repo / "build" / "stale.txt").write_text("stale", encoding="utf-8")
+    for project in PTE_LOCAL_PROJECTS:
+        if project == ".":
+            continue
+        root = repo / project
+        (root / "src").mkdir(parents=True)
+        (root / "pyproject.toml").write_text(
+            f"[project]\nname='{root.name}'\n", encoding="utf-8",
+        )
+        (root / "build").mkdir()
+        (root / "build" / "stale.txt").write_text("stale", encoding="utf-8")
+
+
 def test_release_command_preserves_status_with_non_utf8_windows_output(tmp_path):
     completed = _run(
         [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xb5')"],
@@ -22,6 +39,8 @@ def test_release_command_preserves_status_with_non_utf8_windows_output(tmp_path)
 def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
     repo = (tmp_path / "repo").resolve()
     runtime = (tmp_path / "runtime").resolve()
+    repo.mkdir()
+    _create_release_sources(repo)
     strategies = repo / "strategies"
     strategies.mkdir(parents=True)
     (strategies / "registry.json").write_text(
@@ -61,6 +80,7 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
             Path(command[command.index("--wheel-dir") + 1]).mkdir(parents=True, exist_ok=True)
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:4] == ["-m", "pip", "wheel"]:
+            assert not (Path(command[-1]) / "build").exists()
             destination = Path(command[command.index("--wheel-dir") + 1])
             destination.mkdir(parents=True, exist_ok=True)
             prefixes = (
@@ -142,6 +162,8 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
 def test_release_assembly_rejects_incomplete_existing_service_host(tmp_path):
     repo = (tmp_path / "repo").resolve()
     runtime = (tmp_path / "runtime").resolve()
+    repo.mkdir()
+    _create_release_sources(repo)
     (repo / "strategies").mkdir(parents=True)
     (runtime / "host" / "releases" / "v0.4.1").mkdir(parents=True)
 
@@ -160,6 +182,7 @@ def test_release_assembly_rejects_incomplete_existing_service_host(tmp_path):
             Path(command[command.index("--wheel-dir") + 1]).mkdir(parents=True, exist_ok=True)
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:4] == ["-m", "pip", "wheel"]:
+            assert not (Path(command[-1]) / "build").exists()
             destination = Path(command[command.index("--wheel-dir") + 1])
             destination.mkdir(parents=True, exist_ok=True)
             prefixes = (

@@ -1,11 +1,22 @@
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
-from paper_trading_engine.release_cli import PTE_LOCAL_PROJECTS, assemble_release
+from paper_trading_engine.release_cli import PTE_LOCAL_PROJECTS, _run, assemble_release
 from paper_trading_engine.runtime_release import load_release
 from czsc_trader.application.context import RepositoryContext
+
+
+def test_release_command_preserves_status_with_non_utf8_windows_output(tmp_path):
+    completed = _run(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xb5')"],
+        cwd=tmp_path,
+    )
+
+    assert completed.returncode == 0
+    assert completed.stdout == "\ufffd"
 
 
 def test_release_assembly_creates_venvs_at_final_paths(tmp_path):

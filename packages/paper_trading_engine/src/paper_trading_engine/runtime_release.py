@@ -210,6 +210,10 @@ def activate_release(runtime_root: Path, release_id: str) -> dict[str, object]:
         current = _read_object(path)
         previous = current.get("release_id")
         if previous == release.release_id:
+            if current.get("manifest_sha256") != release.manifest_sha256:
+                raise RuntimeError(
+                    "active PTE release ID matches but manifest identity differs"
+                )
             return current
     payload = {
         "schema_version": 1,

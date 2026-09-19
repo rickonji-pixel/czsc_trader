@@ -226,6 +226,23 @@ def test_pte_release_activation_rollback_and_dynamic_watchdog(tmp_path):
         load_release(runtime_root, "v0.4.1")
 
 
+def test_release_activation_rejects_rebuilt_active_release_identity(tmp_path):
+    runtime_root = (tmp_path / "runtime").resolve()
+    (runtime_root / "shared" / "config").mkdir(parents=True)
+    (runtime_root / "shared" / "config" / ".env").write_text(
+        "TUSHARE_TOKEN=test", encoding="utf-8",
+    )
+    release = create_release(runtime_root, "v0.4.1", "a")
+    activate_release(runtime_root, "v0.4.1")
+    manifest_path = release / "release-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["rebuilt"] = True
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="manifest identity differs"):
+        activate_release(runtime_root, "v0.4.1")
+
+
 def test_pte_release_rejects_editable_install(tmp_path):
     runtime_root = (tmp_path / "runtime").resolve()
     release = create_release(runtime_root, "v0.4.1", "a")

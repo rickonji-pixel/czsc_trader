@@ -63,7 +63,7 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE和WDG关键业务能力的同
 - SE：`packages/strategy_evaluator/tests/functional/`；
 - FSC：`packages/factor_signal_catalog/tests/functional/`；
 - STC：`packages/strategy_template_catalog/tests/functional/`；
-- DFLS：由根目录`tests/functional/`中的数据发布与SRT集成场景覆盖；
+- DFLS：`packages/dataflows/tests/functional/`；TDR与SRT保留各自调用DFLS的集成场景；
 - SRT：`packages/strategy_runtime/tests/functional/`；
 - TXE：`packages/trading_execution_engine/tests/functional/`；
 - PTE：`packages/paper_trading_engine/tests/functional/`。
@@ -134,6 +134,7 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE和WDG关键业务能力的同
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests -q
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\dataflows\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_manager\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_evaluator\tests -q
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\factor_signal_catalog\tests -q
@@ -174,12 +175,13 @@ node --test-isolation=none --test packages\paper_trading_engine\tests\functional
 ```powershell
 rg -n "TEMP-TDD" tests packages -g "*.py" -g "*.mjs"
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests packages\strategy_manager\tests `
-  packages\strategy_evaluator\tests packages\factor_signal_catalog\tests `
+  packages\dataflows\tests packages\strategy_evaluator\tests packages\factor_signal_catalog\tests `
   packages\strategy_template_catalog\tests `
   packages\strategy_runtime\tests packages\trading_execution_engine\tests `
   packages\paper_trading_engine\tests `
   --collect-only -q
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests -q }
+Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\dataflows\tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_manager\tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_evaluator\tests -q }
 Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\factor_signal_catalog\tests -q }

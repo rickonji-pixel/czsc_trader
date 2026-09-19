@@ -681,7 +681,7 @@ def test_ft_t05_old_direct_creation_commands_are_absent() -> None:
     assert "accept-evaluation" not in actions
 
 
-def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
+def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
     functional_repo: Path, monkeypatch, candidate_payload
 ) -> None:
     context = RepositoryContext.discover(functional_repo)
@@ -725,7 +725,7 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
             "requirements": requirements,
         },
         "execution_policy": policy,
-        "research_claims": {"annual_return": 0.20, "maximum_drawdown": -0.18},
+        "research_claims": {"annual_return": 100_000.0, "maximum_drawdown": -0.18},
     }
     snapshot = CandidateSnapshot.from_dict(_hashed(snapshot_raw, "candidate_hash"))
     candidate_runtime = validate_candidate_readiness(snapshot)
@@ -960,10 +960,23 @@ def test_ft_t06_tdr_recomputes_every_required_audit_without_cached_evidence(
     assert kwargs["external_replays"] == ()
     assert replay.result["idempotent_replay"] is True
     assert result.result["governance_credential"]["stage"] == "TDR_ADJUDICATED"
-    assert result.result["governance_credential"]["result"] == "ELIGIBLE"
+    assert result.result["governance_credential"]["result"] == "REJECTED"
     report = result.result["adjudication_report"]
-    assert report["machine_verdict"] == "ELIGIBLE_FOR_FREEZE_REVIEW"
+    assert report["machine_verdict"] == "REJECTED"
+    assert report["blocking_findings"] == ["CLAIM_MISMATCH"]
+    assert report["claim_checks"][0]["status"] == "CLAIM_MISMATCH"
     assert set(report["audit_results"]) == set(audits)
     assert report["audit_results"]["technical_replay"]["mode"] == (
         "FULL_RECOMPUTE_WITHOUT_ARTIFACT_REUSE"
     )
+    from czsc_trader.application.freeze_review_service import freeze_review_candidate
+    with pytest.raises(ValidationError, match="eligible TDR adjudication"):
+        freeze_review_candidate(
+            context,
+            "S901",
+            "SGC-S901-001",
+            actor="tester",
+            reason="test gate 3",
+            change_summary="test",
+        )
+    assert registry.versions("S901") == ()

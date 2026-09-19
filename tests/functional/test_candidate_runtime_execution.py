@@ -476,8 +476,7 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL")
 
 
-@pytest.mark.parametrize("valid_claim", [True, False], ids=["freeze", "reject-claim"])
-def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_payload, tmp_path, monkeypatch, valid_claim):
+def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_payload, tmp_path, monkeypatch):
     """Synthetic economics; only raw-pool loading is stubbed, all assessment runs."""
     from hashlib import sha256
     import json
@@ -600,7 +599,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     }), actor="tester", reason="test gate 1")
     candidate = candidates[1]
     metrics = pd.read_csv(experiment / "artifacts" / "formal_metrics.csv")
-    claimed_return = float(metrics.loc[metrics.candidate_id == "C001", "net_cagr"].iloc[0]) if valid_claim else 100_000.0
+    claimed_return = float(metrics.loc[metrics.candidate_id == "C001", "net_cagr"].iloc[0])
     ready = _runtime_report(StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", candidate["strategy_payload"])))
     snapshot = _hashed({
         "schema_version": 1, "strategy_id": "S900", "candidate_id": "C001",
@@ -631,14 +630,6 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     assert {path.name: sha256(path.read_bytes()).hexdigest() for path in (experiment / "artifacts").iterdir()} == source_before
     registry = StrategyRegistry(context.strategy_root)
     assert registry.versions("S900") == ()
-    if not valid_claim:
-        assert report["machine_verdict"] == "REJECTED"
-        assert report["blocking_findings"] == ["CLAIM_MISMATCH"]
-        with pytest.raises(ValidationError, match="eligible TDR adjudication"):
-            freeze_review_candidate(context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test")
-        assert registry.versions("S900") == ()
-        return
-
     assert report["blocking_findings"] == []
     assert all(audit["status"] == "PASS" for audit in report["audit_results"].values())
     assert evaluate_freeze_review(context, "S900", "SGC-S900-001").result["idempotent_replay"] is True

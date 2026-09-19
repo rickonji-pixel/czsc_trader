@@ -47,6 +47,8 @@ def _runtime_report(strategy) -> dict[str, object]:
         "input_contract": {
             "requirements": [asdict(item) for item in definition.inputs.requirements],
         },
+        "history_policy_sha256": canonical_sha256(asdict(definition.history)),
+        "history_policy": asdict(definition.history),
         "decision_contract_sha256": canonical_sha256(asdict(definition.decision)),
         "decision_contract": asdict(definition.decision),
         "execution_policy_sha256": canonical_sha256(
@@ -90,6 +92,7 @@ def require_same_runtime_content(candidate: dict, release: dict) -> None:
     for key in (
         "implementation", "parameters_sha256", "strategy_payload_hash",
         "input_contract_sha256", "decision_contract_sha256", "execution_policy_sha256",
+        "history_policy_sha256",
         "state_mode", "capabilities_sha256", "monitoring_sha256",
     ):
         if key not in candidate or candidate[key] != release.get(key):

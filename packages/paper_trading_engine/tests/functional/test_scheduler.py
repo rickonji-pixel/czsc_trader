@@ -1,435 +1,255 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from hashlib import sha256
 import json
 from pathlib import Path
 from threading import Event, Thread
 import time
 
 import pytest
-import pandas as pd
-from dataflows import Dataflows, Dataset
 
 from paper_trading_engine.audit import AuditRecorder
-from paper_trading_engine.data_publisher import (
-    AccountDataPublisher,
-    DataPublicationError,
-)
+from paper_trading_engine.publication_inbox import PublicationInbox, PublicationInboxError
 from paper_trading_engine.scheduler import RuntimeScheduler
-from paper_trading_engine.srt_advice_client import SrtAdviceClient
-from paper_trading_engine.errors import AdviceClientError
-from paper_trading_engine.trading_window import is_submission_window
 
 
-def test_account_data_publisher_persists_ready_srt_generation(tmp_path):
-    dates = pd.bdate_range(end="2026-09-02", periods=300)
-    bars = pd.DataFrame(
-        {
-            "Date": dates,
-            "Open": [6.0] * len(dates),
-            "High": [6.1] * len(dates),
-            "Low": [5.9] * len(dates),
-            "Close": [6.0] * len(dates),
-            "Volume": [1000.0] * len(dates),
-            "Amount": [6000.0] * len(dates),
-        }
-    )
-
-    def market(_request):
-        selected = bars.loc[
-            pd.to_datetime(bars["Date"]).between(_request.start, _request.end)
-        ].copy()
-        return selected, {
-            "vendor": "test",
-            "adjustment": "hfq",
-            "primary_key": ["Date"],
-        }
-
-    def execution(_request):
-        selected = bars.loc[
-            pd.to_datetime(bars["Date"]).between(_request.start, _request.end)
-        ].copy()
-        return selected, {
-            "vendor": "test",
-            "adjustment": "none",
-            "primary_key": ["Date"],
-        }
-
-    def calendar(request):
-        frame = pd.DataFrame(
-            {
-                "Date": [request.start, "2026-09-03", request.end],
-                "IsOpen": [1, 1, 1],
-            }
-        ).drop_duplicates("Date").sort_values("Date")
-        return frame, {"vendor": "test", "primary_key": ["Date"]}
-
-    flows = Dataflows(
-        {
-            Dataset.ETF_OHLCV.value: market,
-            Dataset.ETF_UNADJUSTED_DAILY.value: execution,
-            Dataset.TRADING_CALENDAR.value: calendar,
-        }
-    )
-    root = Path(__file__).resolve().parents[4]
-    publisher = AccountDataPublisher(
-        store=Store(),
-        repo_root=root,
-        data_dir=tmp_path / "data",
-        start_date="2021-01-01",
-        dataflows=flows,
-    )
-
-    result = publisher.publish_release(
-        "510500.SH", "etf", [("S002", "v1")], "2026-09-02"
-    )
-
-    assert result["publisher"] == "SRT_DFLS"
-    assert result["data_cutoff"] == "2026-09-02"
-    assert result["strategy_releases"] == ["S002-v1"]
-    assert "srt_s002_v1_publication.json" in result["files"]
-    assert (tmp_path / "data/srt_s002_v1_publication.json").is_file()
-    assert (tmp_path / "data/510500_manifest.json").is_file()
-    assert (tmp_path / "data/510500_execution_manifest.json").is_file()
-    decision = SrtAdviceClient(
-        repo_root=root,
-        data_dir=tmp_path / "data",
-        now=lambda: datetime(2026, 9, 2, 20, 31, tzinfo=timezone(timedelta(hours=8))),
-    ).get_decision(
-        0,
-        100000.0,
-        strategy_id="S002",
-        strategy_version="v1",
-        account_id="preflight",
-        symbol="510500.SH",
-        asset="etf",
-    )
-    assert decision.strategy["release_id"] == "S002-v1"
-    assert decision.data_cutoff.isoformat() == "2026-09-02"
-
-    published_file = tmp_path / "data/510500_execution_manifest.json"
-    published_file.write_text("{}\n", encoding="utf-8")
-    audit_store = Store()
-    with pytest.raises(AdviceClientError, match="incomplete or mixed"):
-        SrtAdviceClient(
-            repo_root=root,
-            data_dir=tmp_path / "data",
-            audit=AuditRecorder(audit_store),
-        ).get_decision(
-            0,
-            100000.0,
-            strategy_id="S002",
-            strategy_version="v1",
-            account_id="preflight",
-            symbol="510500.SH",
-            asset="etf",
-        )
-    failed = [
-        item
-        for item in audit_store.audit_events
-        if item["event_type"] == "DECISION_GENERATION_FAILED"
-    ]
-    assert len(failed) == 1
-    assert failed[0]["account_id"] == "preflight"
-    assert failed[0]["source"] == "srt_advice_client"
+def test_pte_source_has_no_data_publication_capability():
+    source = Path(__file__).resolve().parents[2] / "src/paper_trading_engine"
+    assert not (source / "data_publisher.py").exists()
+    forbidden = ("StrategyDataPublisher", "publish_data(", "seed_runtime_data")
+    for path in source.glob("*.py"):
+        content = path.read_text(encoding="utf-8")
+        assert not any(token in content for token in forbidden), path.name
 
 
 class Engine:
-    def __init__(self): self.calls = []
-    def refresh_orders(self): self.calls.append("orders")
-    def refresh_account(self): self.calls.append("account")
-    def refresh_decisions(self): self.calls.append("decisions")
-    def refresh_decision(self, account_id): self.calls.append(("decision", account_id))
+    def __init__(self):
+        self.calls = []
+
+    def refresh_orders(self):
+        self.calls.append("orders")
+
+    def refresh_account(self):
+        self.calls.append("account")
+
+    def refresh_decisions(self):
+        self.calls.append("decisions")
+
+    def refresh_decision(self, account_id):
+        self.calls.append(("decision", account_id))
 
 
 class Store:
     def __init__(self):
         self.values, self.events, self.failures, self.audit_events = {}, [], {}, []
         self.accounts = []
-    def get_setting(self, key): return self.values.get(key)
-    def set_setting(self, key, value): self.values[key] = value
-    def add_event(self, kind, payload): self.events.append((kind, payload))
-    def set_operation_failure(self, operation, payload): self.failures[operation] = payload
-    def clear_operation_failure(self, operation): self.failures.pop(operation, None)
+
+    def get_setting(self, key):
+        return self.values.get(key)
+
+    def set_setting(self, key, value):
+        self.values[key] = value
+
+    def add_event(self, kind, payload):
+        self.events.append((kind, payload))
+
+    def set_operation_failure(self, operation, payload):
+        self.failures[operation] = payload
+
+    def clear_operation_failure(self, operation):
+        self.failures.pop(operation, None)
+
     def operation_failures(self):
         return [{"operation": key, **value} for key, value in self.failures.items()]
+
     def append_audit_event(self, event):
         value = event.to_dict()
         self.audit_events.append(value)
         return value
-    def virtual_accounts(self): return list(self.accounts)
+
     def strategy_virtual_accounts(self):
-        return [
-            account for account in self.accounts
-            if account.get("account_type", "STRATEGY") == "STRATEGY"
-        ]
+        return [a for a in self.accounts if a.get("account_type", "STRATEGY") == "STRATEGY"]
 
 
-def test_scheduler_rejects_malformed_persisted_failure_state():
-    store = Store()
-    store.failures["refresh_orders"] = {
-        "fingerprint": "RuntimeError:test",
-        "failure_count": "not-an-integer",
-        "first_at": "2026-09-18T08:00:00+00:00",
-        "last_at": "2026-09-18T08:00:00+00:00",
-        "next_retry": "2026-09-18T08:01:00+00:00",
-    }
-
-    with pytest.raises(ValueError, match="invalid persisted scheduler failure: refresh_orders"):
-        RuntimeScheduler(Engine(), object(), store)
-
-
-def test_scheduler_does_not_repeat_startup_reconciliation_immediately():
-    observed_at = datetime(2026, 9, 2, 10, 0, 0)
-    engine, store = Engine(), Store()
-    scheduler = RuntimeScheduler(
-        engine, object(), store, initial_observation_at=observed_at,
-    )
-
-    scheduler.tick_fast(observed_at)
-    assert engine.calls == []
-    scheduler.tick_fast(observed_at + timedelta(seconds=5))
-    assert engine.calls == ["orders"]
-    scheduler.tick_fast(observed_at + timedelta(seconds=60))
-    assert engine.calls == ["orders", "account", "orders"]
-
-
-def test_ft_pte04_scheduler_observes_cadence_publish_time_backoff_and_recovery(tmp_path):
-    class Publisher:
-        def publication_target(self, day): return day.isoformat()
-        def __init__(self): self.calls = 0
-        def publish(self, end_date):
-            self.calls += 1
-            if self.calls < 3:
-                raise RuntimeError("vendor unavailable")
-            return {
-                "data_cutoff": end_date,
-                "instruments": [{
-                    "symbol": "588080.SH",
-                    "result": {"data_cutoff": end_date, "generation_id": "GEN-TEST"},
-                }],
-            }
-
-    engine, publisher, store = Engine(), Publisher(), Store()
-    store.accounts = [{
-        "account_id": "s001-v1", "symbol": "588080.SH", "asset_type": "etf",
-        "status": "RUNNING", "strategy_id": "S001", "strategy_version": "v1",
-    }]
-    scheduler = RuntimeScheduler(engine, publisher, store, audit=AuditRecorder(store))
-    scheduler.tick(datetime(2026, 9, 2, 20, 29, 59))
-    assert publisher.calls == 0
-    for value in (
-        datetime(2026, 9, 2, 20, 30, 0),
-        datetime(2026, 9, 2, 20, 30, 4), datetime(2026, 9, 2, 20, 30, 5),
-        datetime(2026, 9, 2, 20, 30, 19), datetime(2026, 9, 2, 20, 30, 20),
-    ):
-        scheduler.tick(value)
-    assert publisher.calls == 3
-    assert store.values["last_data_publish_date"] == "2026-09-02"
-    event_types = [event["event_type"] for event in store.audit_events]
-    assert event_types.count("SCHEDULER_OPERATION_FAILED") == 1
-    assert "SCHEDULER_OPERATION_RECOVERED" in event_types
-    assert {event["event_type"] for event in store.audit_events} >= {
-        "MARKET_DATA_PUBLICATION_REQUESTED",
-        "MARKET_DATA_PUBLICATION_FAILED",
-        "MARKET_DATA_PUBLISHED",
-    }
-    assert {
-        event["correlation_id"] for event in store.audit_events
-        if event["event_type"].startswith("MARKET_DATA_")
-    } == {"publication:2026-09-02"}
-    assert engine.calls.count("orders") >= 3
-    assert engine.calls.count("account") == 1
-    assert engine.calls.count("decisions") == 1
-
-    catchup_store = Store()
-    catchup_store.values["last_data_publish_date"] = "2026-09-02"
-    catchup_engine = Engine()
-    catchup = RuntimeScheduler(catchup_engine, publisher, catchup_store)
-    catchup.tick(datetime(2026, 9, 3, 10, 0, 0))
-    catchup.tick(datetime(2026, 9, 3, 10, 0, 5))
-    assert catchup_engine.calls.count("decisions") == 1
-    assert catchup_store.values["last_account_decision_date"] == "2026-09-02"
-
-    restored = Store()
-    restored.failures["account"] = {
-        "fingerprint": "RuntimeError:down", "failure_count": 2,
-        "first_at": "2026-09-02T10:00:00", "last_at": "2026-09-02T10:00:05",
-        "next_retry": "2026-09-02T10:00:20",
-    }
-    recovered = Engine()
-    scheduler = RuntimeScheduler(recovered, publisher, restored, account_interval=1)
-    scheduler.tick(datetime(2026, 9, 2, 10, 0, 19))
-    assert "account" not in recovered.calls
-    scheduler.tick(datetime(2026, 9, 2, 10, 0, 20))
-    assert "account" in recovered.calls
-    assert "account" not in restored.failures
-    shanghai = timezone(timedelta(hours=8))
-    assert is_submission_window(datetime(2026, 9, 2, 9, 30, tzinfo=shanghai))
-    assert is_submission_window(datetime(2026, 9, 2, 14, 56, 59, tzinfo=shanghai))
-    assert not is_submission_window(datetime(2026, 9, 2, 9, 29, 59, tzinfo=shanghai))
-    assert not is_submission_window(datetime(2026, 9, 2, 14, 57, tzinfo=shanghai))
-
-    cli_store = Store()
-    cli_store.accounts = [
-        {
-            "symbol": "588080.SH", "asset_type": "etf", "status": "RUNNING",
-            "strategy_id": "S001", "strategy_version": "v1",
-        },
-        {
-            "symbol": "510500.SH", "asset_type": "etf", "status": "RUNNING",
-            "strategy_id": "S003", "strategy_version": "v1",
-        },
-        {
-            "symbol": "FUTU.SIMULATE.CN", "asset_type": "system", "status": "RUNNING",
-            "strategy_id": None, "strategy_version": None,
-            "account_type": "CHANNEL_RECONCILIATION",
-        },
-    ]
-    multi = AccountDataPublisher(
-        store=cli_store,
-        repo_root=".",
-        data_dir=".",
-        start_date="2021-01-01",
-        audit=AuditRecorder(cli_store),
-    )
-    calls: list[tuple[str, str, tuple[tuple[str, str], ...], str]] = []
-    def publish_release(symbol, asset, releases, end_date):
-        calls.append((symbol, asset, tuple(releases), end_date))
-        return {"data_cutoff": end_date, "generation_id": "GEN-TEST"}
-    multi.publish_release = publish_release
-    multi_result = multi.publish("2026-09-02")
-    published_symbols = [item[0] for item in calls]
-    assert published_symbols == ["510500.SH", "588080.SH"]
-    assert [item["symbol"] for item in multi_result["instruments"]] == published_symbols
-    assert {item[2][0] for item in calls} == {("S001", "v1"), ("S003", "v1")}
-    assert multi_result["generation_ids"] == ["GEN-TEST", "GEN-TEST"]
-
-    failed_runtime = AccountDataPublisher(
-        store=cli_store,
-        repo_root=".",
-        data_dir=tmp_path / "failed-data",
-        start_date="2021-01-01",
-    )
-    failed_runtime._release = lambda *_args: (_ for _ in ()).throw(
-        DataPublicationError("runtime support unavailable")
-    )
-    with pytest.raises(DataPublicationError, match="runtime support unavailable"):
-        failed_runtime.publish_release(
-            "588080.SH", "etf", [("S007", "v1")], "2026-09-15"
-        )
-    assert not (tmp_path / "failed-data").exists()
-
-def test_ft_pte04_failed_account_batch_is_not_marked_complete():
-    class RetryingEngine(Engine):
-        def __init__(self):
-            super().__init__()
-            self.decision_attempts = 0
-
-        def refresh_decisions(self):
-            self.decision_attempts += 1
-            if self.decision_attempts == 1:
-                raise RuntimeError("one account failed")
-            self.calls.append("decisions")
-
-    store = Store()
-    store.values["last_data_publish_date"] = "2026-09-02"
-    engine = RetryingEngine()
-    scheduler = RuntimeScheduler(engine, object(), store)
-    scheduler.tick(datetime(2026, 9, 3, 10, 0, 0))
-    assert store.get_setting("last_account_decision_date") is None
-    scheduler.tick(datetime(2026, 9, 3, 10, 0, 5))
-    assert store.get_setting("last_account_decision_date") == "2026-09-02"
-
-
-def test_ft_pte04_account_created_after_daily_publication_is_onboarded():
-    class Publisher:
-        def publication_target(self, day): return day.isoformat()
-        def __init__(self): self.calls = []
-        def publish(self, cutoff):
-            self.calls.append(cutoff)
-            return {
-                "data_cutoff": cutoff,
-                "instruments": [{
-                    "symbol": "510500.SH",
-                    "result": {"data_cutoff": cutoff, "generation_id": "GEN-TEST"},
-                }],
-            }
-
-    store = Store()
-    store.values.update(
-        last_data_publish_date="2026-09-11",
-        last_account_decision_date="2026-09-11",
-        last_data_publish_attempt_date="2026-09-11",
-    )
-    store.accounts = [{
-        "account_id": "s003-v1",
-        "strategy_id": "S003",
-        "strategy_version": "v1",
-        "symbol": "510500.SH",
+def _account(**overrides):
+    value = {
+        "account_id": "s007-v1",
+        "symbol": "588080.SH",
+        "asset_type": "etf",
         "status": "RUNNING",
-        "last_decision_payload": None,
-    }]
-    engine, publisher = Engine(), Publisher()
-    scheduler = RuntimeScheduler(engine, publisher, store)
+        "strategy_id": "S007",
+        "strategy_version": "v1",
+        "last_decision_payload": json.dumps({"signal_date": "2026-09-18"}),
+    }
+    value.update(overrides)
+    return value
 
-    scheduler.tick_daily(datetime(2026, 9, 11, 20, 45))
 
-    assert publisher.calls == ["2026-09-11"]
-    assert ("decision", "s003-v1") in engine.calls
-    assert json.loads(store.values["last_data_generation_ids"]) == {
-        "510500.SH": "GEN-TEST"
+def _generation(data_dir, *, releases=("S007-v1",)):
+    payload = data_dir / "payload.csv"
+    payload.write_text("date,close\n2026-09-18,1\n", encoding="utf-8")
+    generation = {
+        "schema_version": 2,
+        "generation_id": "GEN-TEST",
+        "data_cutoff": "2026-09-18",
+        "strategy_releases": list(releases),
+        "symbol": "588080.SH",
+        "asset_type": "etf",
+        "files": {"payload.csv": sha256(payload.read_bytes()).hexdigest()},
+    }
+    (data_dir / "588080_strategy_generation.json").write_text(
+        json.dumps(generation), encoding="utf-8"
+    )
+
+
+def _observed():
+    return {
+        "data_cutoff": "2026-09-18",
+        "instruments": [
+            {
+                "symbol": "588080.SH",
+                "result": {
+                    "data_cutoff": "2026-09-18",
+                    "generation_id": "GEN-TEST",
+                },
+            }
+        ],
     }
 
-    store.accounts[0]["last_decision_payload"] = json.dumps(
-        {"signal_date": "2026-09-11"}
-    )
-    scheduler.tick_daily(datetime(2026, 9, 11, 20, 46))
-    assert publisher.calls == ["2026-09-11"]
 
-
-def test_ft_pte04_scheduler_rejects_semantically_incomplete_publication():
-    class Publisher:
-        def publication_target(self, day): return day.isoformat()
-        def publish(self, cutoff):
-            return {"data_cutoff": cutoff, "generation_ids": ["GEN-ONLY"]}
-
+def test_publication_inbox_authenticates_required_release(tmp_path):
     store = Store()
-    store.accounts = [{
-        "account_id": "s001-v1", "symbol": "588080.SH", "asset_type": "etf",
-        "status": "RUNNING", "strategy_id": "S001", "strategy_version": "v1",
-    }]
-    scheduler = RuntimeScheduler(Engine(), Publisher(), store, publish_time="00:00")
-    scheduler.tick_daily(datetime(2026, 9, 2, 20, 30))
+    store.accounts = [_account()]
+    _generation(tmp_path)
+    result = PublicationInbox(data_dir=tmp_path, store=store).observe()
+    assert result["generation_ids"] == ["GEN-TEST"]
+    store.accounts[0]["strategy_version"] = "v2"
+    with pytest.raises(PublicationInboxError, match="missing releases"):
+        PublicationInbox(data_dir=tmp_path, store=store).observe()
 
-    assert store.get_setting("last_data_publish_date") is None
-    assert store.get_setting("last_account_decision_date") is None
-    assert store.failures["publication"]["error"] == (
-        "data publication result has no instrument generations"
+
+def test_publication_inbox_rejects_mixed_generation(tmp_path):
+    store = Store()
+    store.accounts = [_account()]
+    _generation(tmp_path)
+    (tmp_path / "payload.csv").write_text("changed\n", encoding="utf-8")
+    with pytest.raises(PublicationInboxError, match="incomplete or mixed"):
+        PublicationInbox(data_dir=tmp_path, store=store).observe()
+
+
+def test_publication_inbox_rejects_paths_outside_data_directory(tmp_path):
+    store = Store()
+    store.accounts = [_account()]
+    _generation(tmp_path)
+    marker = tmp_path / "588080_strategy_generation.json"
+    generation = json.loads(marker.read_text(encoding="utf-8"))
+    generation["files"] = {"../payload.csv": "0" * 64}
+    marker.write_text(json.dumps(generation), encoding="utf-8")
+    with pytest.raises(PublicationInboxError, match="unsafe"):
+        PublicationInbox(data_dir=tmp_path, store=store).observe()
+
+
+def test_scheduler_observes_generation_and_refreshes_once():
+    class Inbox:
+        def __init__(self):
+            self.calls = 0
+
+        def observe(self):
+            self.calls += 1
+            return _observed()
+
+    store, engine, inbox = Store(), Engine(), Inbox()
+    store.accounts = [_account()]
+    scheduler = RuntimeScheduler(
+        engine, inbox, store, observation_time="20:30", audit=AuditRecorder(store)
     )
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 29, 59))
+    assert inbox.calls == 0
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 0))
+    assert store.values["last_data_publish_date"] == "2026-09-18"
+    assert engine.calls == ["decisions"]
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
+    assert engine.calls == ["decisions"]
+    assert "MARKET_DATA_OBSERVED" in {e["event_type"] for e in store.audit_events}
 
 
-def test_ft_pte04_slow_daily_publication_does_not_stop_order_reconciliation():
+def test_scheduler_observation_failure_is_visible_and_retried():
+    class Inbox:
+        def __init__(self):
+            self.calls = 0
+
+        def observe(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("publication incomplete")
+            return _observed()
+
+    store, engine, inbox = Store(), Engine(), Inbox()
+    store.accounts = [_account()]
+    scheduler = RuntimeScheduler(engine, inbox, store, observation_time="00:00")
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 0))
+    assert store.values["data_publication_error"] == "publication incomplete"
+    assert "publication_observation" in store.failures
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
+    assert store.values["last_data_publish_date"] == "2026-09-18"
+    assert engine.calls == ["decisions"]
+
+
+def test_scheduler_onboards_from_existing_publication_without_writing():
+    class Inbox:
+        def observe(self):
+            return _observed()
+
+    store, engine = Store(), Engine()
+    store.values.update(
+        last_data_publish_date="2026-09-18",
+        last_account_decision_date="2026-09-18",
+        last_data_generation_ids=json.dumps({"588080.SH": "GEN-TEST"}),
+    )
+    store.accounts = [_account(last_decision_payload=None)]
+    RuntimeScheduler(engine, Inbox(), store, observation_time="00:00").tick_daily(
+        datetime(2026, 9, 18, 20, 31)
+    )
+    assert engine.calls == [("decision", "s007-v1")]
+
+
+def test_slow_observation_does_not_stop_order_reconciliation():
     entered, release, stopped = Event(), Event(), Event()
 
-    class SlowPublisher:
-        def publication_target(self, day): return day.isoformat()
-        def publish(self, end_date):
+    class Inbox:
+        def observe(self):
             entered.set()
             assert release.wait(2)
-            return {"data_cutoff": end_date}
+            raise RuntimeError("test stop")
 
     engine, store = Engine(), Store()
+    store.accounts = [_account()]
     scheduler = RuntimeScheduler(
-        engine, SlowPublisher(), store,
-        order_interval=0.01, account_interval=0.02, publish_time="00:00",
+        engine,
+        Inbox(),
+        store,
+        order_interval=0.01,
+        account_interval=0.02,
+        observation_time="00:00",
     )
     worker = Thread(target=scheduler.run, args=(stopped,))
     worker.start()
     assert entered.wait(1)
     time.sleep(0.65)
-    order_calls_while_publication_blocked = engine.calls.count("orders")
+    order_calls = engine.calls.count("orders")
     release.set()
     stopped.set()
     worker.join(2)
-    assert not worker.is_alive()
-    assert order_calls_while_publication_blocked >= 2
-    assert store.get_setting("scheduler_heartbeat_at") is not None
+    assert not worker.is_alive() and order_calls >= 2
+
+
+def test_scheduler_rejects_malformed_persisted_failure_state():
+    store = Store()
+    store.failures["orders"] = {
+        "fingerprint": "RuntimeError:test",
+        "failure_count": "bad",
+        "first_at": "2026-09-18T08:00:00",
+        "last_at": "2026-09-18T08:00:00",
+        "next_retry": "2026-09-18T08:01:00",
+    }
+    with pytest.raises(ValueError, match="invalid persisted scheduler failure"):
+        RuntimeScheduler(Engine(), object(), store)

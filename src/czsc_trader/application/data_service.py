@@ -162,6 +162,7 @@ def _runtime_data_contract(strategy) -> dict[str, object]:
         "source": "SRT",
         "release_id": definition.release_id,
         "runtime_sha256": definition.runtime_sha256,
+        "history": asdict(definition.history),
         "inputs": [asdict(item) for item in definition.inputs.requirements],
         "execution_intraday_frequencies": list(execution_intraday_frequencies(strategy)),
     }

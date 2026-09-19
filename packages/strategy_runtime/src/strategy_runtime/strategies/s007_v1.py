@@ -20,6 +20,7 @@ from ..models import (
     DecisionContract,
     DeploymentSpec,
     ExecutionPolicy,
+    HistoryPolicy,
     ImplementationRef,
     InputContract,
     InputRequirement,
@@ -316,6 +317,7 @@ class S007V1:
                     effective_target_order_type(execution, "SELL"),
                 })),
             ),
+            history=HistoryPolicy("CANONICAL_REPLAY", "2021-01-04", "2020-12-01"),
         )
 
     @classmethod

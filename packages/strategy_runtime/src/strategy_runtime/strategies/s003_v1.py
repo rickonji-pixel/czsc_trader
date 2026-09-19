@@ -37,6 +37,8 @@ from ..models import (
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
 _WEIGHTS = "constituent_weights"
 _MONEYFLOW = "constituent_moneyflow"
+_MARKET = "adjusted_daily"
+_EXECUTION = "execution_daily"
 _CALENDAR = "trading_calendar"
 _INDEX_SYMBOL = "000905.SH"
 
@@ -216,6 +218,22 @@ class S003V1:
                         CutoffRule.SIGNAL_SESSION,
                     ),
                     InputRequirement(
+                        _MARKET,
+                        Dataset.ETF_OHLCV.value,
+                        self._symbol,
+                        "daily",
+                        1,
+                        CutoffRule.SIGNAL_SESSION,
+                    ),
+                    InputRequirement(
+                        _EXECUTION,
+                        Dataset.ETF_UNADJUSTED_DAILY.value,
+                        self._symbol,
+                        "daily",
+                        1,
+                        CutoffRule.SIGNAL_SESSION,
+                    ),
+                    InputRequirement(
                         _CALENDAR,
                         Dataset.TRADING_CALENDAR.value,
                         "SSE",
@@ -232,6 +250,8 @@ class S003V1:
                 (
                     Dataset.INDEX_CONSTITUENT_WEIGHT.value,
                     Dataset.STOCK_MONEYFLOW.value,
+                    Dataset.ETF_OHLCV.value,
+                    Dataset.ETF_UNADJUSTED_DAILY.value,
                     Dataset.TRADING_CALENDAR.value,
                 ),
                 ("LIMIT", "MARKET"),
@@ -305,12 +325,32 @@ class S003V1:
                 "daily",
                 {**options, "trading_dates": dates},
             )
-            results[_WEIGHTS] = dataflows.fetch(requests[_WEIGHTS])
-            results[_MONEYFLOW] = dataflows.fetch(requests[_MONEYFLOW])
+            requests[_MARKET] = DataRequest(
+                Dataset.ETF_OHLCV,
+                self._symbol,
+                start.isoformat(),
+                cutoff.isoformat(),
+                cutoff.isoformat(),
+                "daily",
+                options,
+            )
+            requests[_EXECUTION] = DataRequest(
+                Dataset.ETF_UNADJUSTED_DAILY,
+                self._symbol,
+                cutoff.isoformat(),
+                cutoff.isoformat(),
+                cutoff.isoformat(),
+                "daily",
+                options,
+            )
+            for name in (_WEIGHTS, _MONEYFLOW, _MARKET, _EXECUTION):
+                results[name] = dataflows.fetch(requests[name])
         else:
             for name, dataset, symbol, frequency in (
                 (_WEIGHTS, Dataset.INDEX_CONSTITUENT_WEIGHT, _INDEX_SYMBOL, "snapshot"),
                 (_MONEYFLOW, Dataset.STOCK_MONEYFLOW, None, "daily"),
+                (_MARKET, Dataset.ETF_OHLCV, self._symbol, "daily"),
+                (_EXECUTION, Dataset.ETF_UNADJUSTED_DAILY, self._symbol, "daily"),
             ):
                 requests[name] = DataRequest(
                     dataset, symbol, start.isoformat(), cutoff.isoformat(), None, frequency, options

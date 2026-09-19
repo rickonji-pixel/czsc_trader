@@ -104,6 +104,7 @@ def publish_history(
     if start > through:
         raise RuntimeContractError("historical publication start follows cutoff")
     definition = strategy.definition
+    publication_start = definition.history.publication_start(start)
     if definition.release_id != deployment.release_id:
         raise RuntimeContractError("historical deployment release ID differs from strategy")
     if definition.release_hash != deployment.release_hash:
@@ -130,7 +131,7 @@ def publish_history(
     calendar_request = DataRequest(
         calendar_requirement.dataset,
         calendar_requirement.subject,
-        start.isoformat(),
+        publication_start.isoformat(),
         calendar_end.isoformat(),
         calendar_end.isoformat(),
         calendar_requirement.frequency,
@@ -141,12 +142,12 @@ def publish_history(
     results: dict[str, DataResult] = {calendar_requirement.name: calendar_result}
 
     if calendar_result.ready:
-        sessions = _open_sessions(calendar_result.dataframe, start, through)
+        sessions = _open_sessions(calendar_result.dataframe, publication_start, through)
         previous = sessions[sessions < pd.Timestamp(through)]
         for name, requirement in requirements.items():
             if name == calendar_requirement.name:
                 continue
-            request_start = start
+            request_start = publication_start
             if requirement.dataset == Dataset.INDEX_CONSTITUENT_WEIGHT.value:
                 request_start -= timedelta(days=requirement.maximum_staleness_days)
             request_end = through
@@ -185,7 +186,7 @@ def publish_history(
             request = DataRequest(
                 requirement.dataset,
                 requirement.subject,
-                start.isoformat(),
+                publication_start.isoformat(),
                 through.isoformat(),
                 None,
                 requirement.frequency,

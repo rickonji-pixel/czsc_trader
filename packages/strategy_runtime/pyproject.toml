@@ -12,6 +12,9 @@ dependencies = [
     "czsc-dataflows==0.1.0",
 ]
 
+[project.scripts]
+srt-publish = "strategy_runtime.publisher_cli:main"
+
 [project.optional-dependencies]
 test = ["pytest>=8.0", "ruff>=0.12"]
 

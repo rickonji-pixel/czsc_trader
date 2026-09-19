@@ -133,6 +133,22 @@ def test_s007_history_uses_only_declared_market_inputs() -> None:
         )
 
 
+def test_s007_history_policy_extends_a_short_research_window() -> None:
+    strategy = _strategy("S007-v1")
+    publication = publish_history(
+        strategy,
+        RecordingDataflows(),
+        _deployment(strategy, "588080.SH"),
+        start=date(2026, 6, 15),
+        through=date(2026, 9, 17),
+    )
+
+    assert strategy.definition.history.mode == "CANONICAL_REPLAY"
+    assert strategy.definition.history.canonical_start == "2021-01-04"
+    assert strategy.definition.history.required_input_start == "2020-12-01"
+    assert publication.input_requests["adjusted_daily"].start == "2020-12-01"
+
+
 def test_s003_history_expands_cross_sectional_requests_from_contract() -> None:
     strategy = _strategy("S003-v1")
     dataflows = RecordingDataflows()

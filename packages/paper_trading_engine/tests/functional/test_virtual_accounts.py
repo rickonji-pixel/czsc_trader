@@ -444,32 +444,25 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
         initial_cash="100000",
     )
     monkeypatch.setattr(pte_cli, "_validate_strategy", lambda _args: identity)
-    publication_calls = []
-
-    def fail_publication(_self, symbol, asset, releases, cutoff):
-        publication_calls.append((symbol, asset, releases, cutoff))
-        raise RuntimeError("runtime publication unavailable")
-
-    monkeypatch.setattr(
-        pte_cli.AccountDataPublisher, "publish_release", fail_publication,
-    )
-    with pytest.raises(RuntimeError, match="runtime publication unavailable"):
+    with pytest.raises(RuntimeError, match="valid SRT publication is required"):
         pte_cli._run_account_command(args)
-    assert publication_calls == [
-        ("588080.SH", "etf", [("S007", "v1")], "2026-09-15")
-    ]
     empty = PaperStore(args.database)
     assert empty.virtual_accounts() == []
     empty.close()
 
-    monkeypatch.setattr(
-        pte_cli.AccountDataPublisher,
-        "publish_release",
-        lambda _self, _symbol, _asset, releases, cutoff: {
+    payload = data_dir / "published.csv"
+    payload.write_text("date,close\n2026-09-15,1\n", encoding="utf-8")
+    (data_dir / "588080_strategy_generation.json").write_text(
+        json.dumps({
+            "schema_version": 2,
             "generation_id": "GEN-TEST",
-            "strategy_releases": [f"{key}-{value}" for key, value in releases],
-            "data_cutoff": cutoff,
-        },
+            "strategy_releases": ["S007-v1"],
+            "data_cutoff": "2026-09-15",
+            "symbol": "588080.SH",
+            "asset_type": "etf",
+            "files": {"published.csv": hashlib.sha256(payload.read_bytes()).hexdigest()},
+        }),
+        encoding="utf-8",
     )
     accepted = replace(
         decision(),

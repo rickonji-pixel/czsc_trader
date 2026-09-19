@@ -1,6 +1,6 @@
 """Boundary regressions for the September code review; all state is temporary."""
 
-from datetime import date, datetime
+from datetime import date
 import http.client
 from pathlib import Path
 import shutil
@@ -15,11 +15,9 @@ import pytest
 from czsc_trader.backtesting.metrics import calculate_metrics
 from czsc_trader.strategy_metrics import strategy_comparison_metrics
 from czsc_trader.candidate_evaluation import _observation
-from paper_trading_engine.data_publisher import AccountDataPublisher, DataPublicationError
-from paper_trading_engine.scheduler import RuntimeScheduler
+from strategy_runtime.publisher import StrategyDataPublisher, StrategyPublicationError
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.web import create_server
-from paper_trading_engine.web_api import PteWebApi
 from strategy_evaluator.benchmark_audit import _metrics
 from strategy_manager import StrategyRegistry
 from strategy_manager.errors import RegistryError
@@ -211,8 +209,8 @@ def calendar_publisher(tmp_path, *, missing=False, fail=False):
         if missing:
             frame = frame.iloc[1:]
         return frame, {}
-    return AccountDataPublisher(
-        store=None, repo_root=tmp_path, data_dir=tmp_path, start_date="2026-01-01",
+    return StrategyDataPublisher(
+        repo_root=tmp_path, data_dir=tmp_path,
         dataflows=Dataflows({Dataset.TRADING_CALENDAR.value: provider}),
     )
 
@@ -228,57 +226,5 @@ def test_publication_target_uses_calendar_including_weekday_holidays(tmp_path, d
 
 @pytest.mark.parametrize("mode", ["missing", "fail"])
 def test_publication_target_fails_closed_on_unavailable_calendar(tmp_path, mode):
-    with pytest.raises(DataPublicationError):
+    with pytest.raises(StrategyPublicationError):
         calendar_publisher(tmp_path, **{mode: True}).publication_target(date(2026, 9, 19))
-
-
-def test_weekend_scheduler_skips_completed_session_and_catches_up_missing_one(tmp_path):
-    store = PaperStore(tmp_path / "scheduler.db")
-    try:
-        for key in ("last_data_publish_date", "last_data_publish_attempt_date", "last_account_decision_date"):
-            store.set_setting(key, "2026-09-18")
-        publisher = calendar_publisher(tmp_path)
-        calls = []
-        def publish(day):
-            calls.append(day)
-            raise RuntimeError("simulated vendor outage")
-        publisher.publish = publish
-        scheduler = RuntimeScheduler(object(), publisher, store)
-        for second in (0, 5, 20):
-            scheduler.tick_daily(datetime(2026, 9, 19, 20, 30, second))
-        assert calls == []
-        assert store.operation_failures() == []
-        store.set_setting("last_data_publish_attempt_date", "2026-09-17")
-        scheduler.tick_daily(datetime(2026, 9, 19, 20, 31))
-        assert calls == ["2026-09-18"]
-        assert store.operation_failures()[0]["operation"] == "publication"
-    finally:
-        store.close()
-
-
-def test_publication_alert_uses_resolved_session_and_reports_missing_calendar(tmp_path, monkeypatch):
-    class SaturdayClock(datetime):
-        @classmethod
-        def now(cls, tz=None):
-            from zoneinfo import ZoneInfo
-            moment = cls(2026, 9, 19, 21, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
-            return moment.astimezone(tz) if tz is not None else moment.replace(tzinfo=None)
-    monkeypatch.setattr("paper_trading_engine.web_api.datetime", SaturdayClock)
-    store = PaperStore(tmp_path / "alerts.db")
-    try:
-        store.set_setting("publication_calendar_date", "2026-09-19")
-        store.set_setting("publication_target_date", "2026-09-18")
-        store.set_setting("last_data_publish_date", "2026-09-18")
-        api = PteWebApi(SimpleNamespace(store=store, virtual=None, channel=None))
-        monkeypatch.setattr(api, "channel_snapshot", lambda _channel: {})
-        alerts = api.system_status()["alerts"]
-        assert "DATA_PUBLICATION_OVERDUE" not in alerts
-        assert "PUBLICATION_CALENDAR_UNAVAILABLE" not in alerts
-        store.set_setting("last_data_publish_date", "2026-09-17")
-        assert "DATA_PUBLICATION_OVERDUE" in api.system_status()["alerts"]
-        store.set_setting("publication_calendar_date", "2026-09-18")
-        alerts = api.system_status()["alerts"]
-        assert "PUBLICATION_CALENDAR_UNAVAILABLE" in alerts
-        assert "DATA_PUBLICATION_OVERDUE" not in alerts
-    finally:
-        store.close()

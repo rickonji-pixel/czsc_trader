@@ -28,6 +28,7 @@ from strategy_runtime import (
 from .errors import AdviceClientError
 from .audit import AuditRecorder
 from .contracts import AdviceContractError, AdviceDecision
+from .publication_inbox import PublicationInboxError, verify_generation
 
 
 _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
@@ -69,27 +70,6 @@ def _load_manifest(path: Path) -> dict[str, object]:
     return value
 
 
-def _verify_generation(data_dir: Path, symbol: str) -> dict[str, object]:
-    code = symbol.split(".", 1)[0]
-    manifest = _load_manifest(data_dir / f"{code}_strategy_generation.json")
-    if manifest.get("schema_version") != 2:
-        raise AdviceClientError("published strategy generation schema is unsupported")
-    if str(manifest.get("symbol", "")).upper() != symbol.upper():
-        raise AdviceClientError("published strategy generation symbol differs from account")
-    files = manifest.get("files")
-    if not isinstance(files, dict) or not files:
-        raise AdviceClientError("published strategy generation has no authenticated files")
-    for name, expected in files.items():
-        if not isinstance(name, str) or not isinstance(expected, str):
-            raise AdviceClientError("published strategy generation file entry is invalid")
-        path = data_dir / name
-        if not path.is_file() or _sha256(path) != expected:
-            raise AdviceClientError(
-                f"published strategy generation is incomplete or mixed: {name}"
-            )
-    return manifest
-
-
 def _load_manifest_frames(data_dir: Path, manifest: Mapping[str, object]) -> dict[str, pd.DataFrame]:
     files = manifest.get("files")
     if not isinstance(files, dict) or not files:
@@ -128,7 +108,10 @@ class _PublishedInputs:
 
 
 def _load_inputs(data_dir: Path, symbol: str) -> _PublishedInputs:
-    _verify_generation(data_dir, symbol)
+    try:
+        verify_generation(data_dir, symbol)
+    except PublicationInboxError as exc:
+        raise AdviceClientError(str(exc)) from exc
     code = symbol.split(".", 1)[0]
     adjusted_manifest_path = data_dir / f"{code}_manifest.json"
     execution_manifest_path = data_dir / f"{code}_execution_manifest.json"
@@ -446,7 +429,10 @@ class SrtAdviceClient:
         if not selected_symbol:
             raise AdviceClientError("data identity symbol is required")
         code = selected_symbol.split(".", 1)[0]
-        generation = _verify_generation(self.data_dir, selected_symbol)
+        try:
+            generation = verify_generation(self.data_dir, selected_symbol)
+        except PublicationInboxError as exc:
+            raise AdviceClientError(str(exc)) from exc
         digest = sha256()
         digest.update(str(generation["generation_id"]).encode("utf-8"))
         for name in (

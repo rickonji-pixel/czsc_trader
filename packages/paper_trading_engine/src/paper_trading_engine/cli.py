@@ -20,7 +20,7 @@ from uuid import uuid4
 
 from .audit import AuditRecorder
 from .srt_advice_client import SrtAdviceClient
-from .data_publisher import AccountDataPublisher, seed_runtime_data
+from .publication_inbox import PublicationInbox, PublicationInboxError, verify_generation
 from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
@@ -115,8 +115,10 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--order-interval", default=5.0, type=float)
     serve.add_argument("--account-interval", default=60.0, type=float)
     serve.add_argument("--decision-interval", default=5.0, type=float)
-    serve.add_argument("--data-refresh-time", default="20:30")
-    serve.add_argument("--data-start", default="2020-01-01")
+    serve.add_argument(
+        "--publication-observe-time", "--data-refresh-time",
+        dest="publication_observe_time", default="20:30",
+    )
     account = actions.add_parser("account")
     account_actions = account.add_subparsers(dest="account_action", required=True)
     for name in ("list", "pause", "resume"):
@@ -310,14 +312,6 @@ def build_engine(args: argparse.Namespace):
         (time.perf_counter() - stage_started) * 1000, 1,
     )
     stage_started = time.perf_counter()
-    for account in accounts:
-        seed_runtime_data(
-            args.repo_root / "data" / "raw", args.data_dir, account["symbol"]
-        )
-    startup_timings["runtime_data_seed_ms"] = round(
-        (time.perf_counter() - stage_started) * 1000, 1,
-    )
-    stage_started = time.perf_counter()
     account_chart = AccountChartService(
         store,
         data_dir=args.data_dir,
@@ -335,19 +329,6 @@ def build_engine(args: argparse.Namespace):
         account_chart=account_chart,
         startup_timings=startup_timings,
         runtime_identity=args.runtime_identity,
-    )
-
-
-def build_publisher(
-    args: argparse.Namespace, store: PaperStore, audit: AuditRecorder | None = None,
-) -> AccountDataPublisher:
-    return AccountDataPublisher(
-        store=store,
-        repo_root=args.repo_root,
-        config_root=args.config_root,
-        data_dir=args.data_dir,
-        start_date=args.data_start,
-        audit=audit,
     )
 
 
@@ -454,52 +435,23 @@ def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
     )
 
 
-def _runtime_data_cutoff(data_dir: Path, symbol: str, asset_type: str) -> str:
-    code = symbol.upper().split(".", 1)[0]
-    path = Path(data_dir) / f"{code}_manifest.json"
-    try:
-        manifest = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise RuntimeError(f"{symbol}: runtime market-data manifest is missing") from exc
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{symbol}: runtime market-data manifest is invalid") from exc
-    if (
-        manifest.get("symbol") != symbol.upper()
-        or manifest.get("asset_type") != asset_type
-    ):
-        raise RuntimeError(f"{symbol}: runtime market-data identity differs from account")
-    files = manifest.get("files")
-    daily_sessions = [] if not isinstance(files, dict) else [
-        str(record.get("last", ""))[:10]
-        for record in files.values()
-        if isinstance(record, dict) and record.get("frequency") == "daily"
-    ]
-    cutoff = max((value for value in daily_sessions if value), default="")
-    if not cutoff:
-        raise RuntimeError(f"{symbol}: runtime market-data cutoff is missing")
-    return cutoff
-
-
 def _preflight_strategy_account(
     args: argparse.Namespace,
-    store: PaperStore,
     identity: dict[str, object],
 ) -> None:
-    """Prove data publication and the executable advice contract before account creation."""
-    cutoff = _runtime_data_cutoff(args.data_dir, args.symbol, args.asset)
-    publication = AccountDataPublisher(
-        store=store,
-        repo_root=args.repo_root,
-        data_dir=args.data_dir,
-        start_date="2020-01-01",
-    ).publish_release(
-        args.symbol,
-        args.asset,
-        [(str(identity["strategy_id"]), str(identity["version"]))],
-        cutoff,
-    )
-    if str(publication.get("data_cutoff")) != cutoff:
-        raise RuntimeError("runtime data generation cutoff differs from account")
+    """Prove an existing SRT publication and advice contract before account creation."""
+    try:
+        generation = verify_generation(args.data_dir, args.symbol)
+    except PublicationInboxError as exc:
+        raise RuntimeError(
+            f"{args.symbol}: a valid SRT publication is required before account creation: {exc}"
+        ) from exc
+    if generation.get("asset_type") != args.asset:
+        raise RuntimeError("SRT publication asset type differs from account")
+    release_id = f"{identity['strategy_id']}-{identity['version']}"
+    if release_id not in generation["strategy_releases"]:
+        raise RuntimeError(f"SRT publication does not contain {release_id}")
+    cutoff = str(generation["data_cutoff"])
     initial_cash = Decimal(args.initial_cash).quantize(Decimal("0.0001"))
     decision = SrtAdviceClient(
         repo_root=args.repo_root,
@@ -761,14 +713,8 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
                 identity["selection_data_cutoff"],
             ):
                 raise ValueError("account id already exists with a different immutable identity")
-            seed_runtime_data(
-                args.repo_root / "data" / "raw", args.data_dir, args.symbol
-            )
             return existing
-        seed_runtime_data(
-            args.repo_root / "data" / "raw", args.data_dir, args.symbol
-        )
-        _preflight_strategy_account(args, store, identity)
+        _preflight_strategy_account(args, identity)
         created = store.create_virtual_account(
             args.account_id, args.name, baseline_version, baseline_hash, args.initial_cash,
             strategy_id=identity["strategy_id"],
@@ -868,12 +814,12 @@ def main(
         initial_observation_at = shanghai_now()
         scheduler = RuntimeScheduler(
             engine,
-            build_publisher(args, engine.store, audit),
+            PublicationInbox(data_dir=args.data_dir, store=engine.store),
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,
             decision_interval=args.decision_interval,
-            publish_time=args.data_refresh_time,
+            observation_time=args.publication_observe_time,
             audit=audit,
             initial_observation_at=initial_observation_at,
         )

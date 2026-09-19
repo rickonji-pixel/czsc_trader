@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 import hashlib
 import json
@@ -171,6 +171,48 @@ class InputContract:
 
 
 @dataclass(frozen=True, slots=True)
+class HistoryPolicy:
+    """Declare how much published history participates in strategy replay."""
+
+    mode: str = "FULL_PUBLICATION_REPLAY"
+    canonical_start: str | None = None
+    required_input_start: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.mode not in {"FULL_PUBLICATION_REPLAY", "CANONICAL_REPLAY"}:
+            raise RuntimeContractError("history mode is unsupported")
+        if self.mode == "CANONICAL_REPLAY":
+            if not self.canonical_start:
+                raise RuntimeContractError("canonical replay requires canonical_start")
+            try:
+                date.fromisoformat(self.canonical_start)
+            except ValueError as exc:
+                raise RuntimeContractError("history canonical_start must be an ISO date") from exc
+        elif self.canonical_start is not None:
+            raise RuntimeContractError(
+                "canonical_start is only valid for CANONICAL_REPLAY"
+            )
+        if self.required_input_start is not None:
+            try:
+                input_start = date.fromisoformat(self.required_input_start)
+            except ValueError as exc:
+                raise RuntimeContractError(
+                    "history required_input_start must be an ISO date"
+                ) from exc
+            if self.canonical_start and input_start > date.fromisoformat(self.canonical_start):
+                raise RuntimeContractError(
+                    "history required_input_start follows canonical_start"
+                )
+
+    def publication_start(self, requested_start: date) -> date:
+        if self.required_input_start is not None:
+            return min(requested_start, date.fromisoformat(self.required_input_start))
+        if self.canonical_start is None:
+            return requested_start
+        return min(requested_start, date.fromisoformat(self.canonical_start))
+
+
+@dataclass(frozen=True, slots=True)
 class DecisionContract:
     output_kind: str
     minimum_target: float
@@ -259,6 +301,7 @@ class RuntimeDefinition:
     state_mode: str = "STATELESS"
     identity_kind: str = "RELEASE"
     candidate_id: str | None = None
+    history: HistoryPolicy = field(default_factory=HistoryPolicy)
 
     def __post_init__(self) -> None:
         if self.schema_version not in {1, 2}:
@@ -341,6 +384,11 @@ class RuntimeDefinition:
                     "checkpoints": self.capabilities.checkpoints,
                 },
                 "state_mode": self.state_mode,
+                "history": {
+                    "mode": self.history.mode,
+                    "canonical_start": self.history.canonical_start,
+                    "required_input_start": self.history.required_input_start,
+                },
             }
         return canonical_sha256(identity)
 

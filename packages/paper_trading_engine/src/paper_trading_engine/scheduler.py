@@ -1,4 +1,4 @@
-"""Independent cadences for observation, decisions, and daily data publication."""
+"""Independent cadences for broker reconciliation and SRT publication observation."""
 
 from __future__ import annotations
 
@@ -14,31 +14,32 @@ class RuntimeScheduler:
     def __init__(
         self,
         engine,
-        publisher,
+        publications,
         store,
         *,
         order_interval: float = 5,
         account_interval: float = 60,
         decision_interval: float = 5,
-        publish_time: str = "20:30",
+        observation_time: str = "20:30",
         audit: AuditRecorder | None = None,
         initial_observation_at: datetime | None = None,
     ) -> None:
         self.engine = engine
-        self.publisher = publisher
+        self.publications = publications
         self.store = store
         self.order_interval = float(order_interval)
         self.account_interval = float(account_interval)
         # Kept as a compatibility argument for existing service definitions. Decisions are
         # generated once per successfully published data generation, never on a timer.
         self.decision_interval = float(decision_interval)
-        self.publish_time = time.fromisoformat(publish_time)
+        self.observation_time = time.fromisoformat(observation_time)
         self.audit = audit or (
             AuditRecorder(store) if hasattr(store, "append_audit_event") else None
         )
         self._last_order = initial_observation_at
         self._last_account = initial_observation_at
         self._last_heartbeat = initial_observation_at
+        self._last_publication_check: datetime | None = None
         self._daily_thread: Thread | None = None
         self.shutdown_clean = True
         self._failures = self._restore_failures()
@@ -130,9 +131,9 @@ class RuntimeScheduler:
         return last is None or (now - last).total_seconds() >= seconds
 
     def _validated_publication_result(
-        self, result: object, requested_cutoff: str,
+        self, result: object,
     ) -> tuple[str, dict[str, str]]:
-        """Accept publication only when every active instrument has a fresh generation."""
+        """Accept an observation only when every active instrument is authenticated."""
         if not isinstance(result, dict):
             raise ValueError("data publication result must be an object")
         cutoff = result.get("data_cutoff")
@@ -140,10 +141,6 @@ class RuntimeScheduler:
             cutoff = date.fromisoformat(str(cutoff)).isoformat()
         except (TypeError, ValueError) as exc:
             raise ValueError("data publication result has no valid data_cutoff") from exc
-        if cutoff != requested_cutoff:
-            raise ValueError(
-                f"data publication cutoff differs from request: {cutoff}!={requested_cutoff}"
-            )
         instruments = result.get("instruments")
         if not isinstance(instruments, list) or not instruments:
             raise ValueError("data publication result has no instrument generations")
@@ -193,59 +190,40 @@ class RuntimeScheduler:
 
     def tick_daily(self, now: datetime) -> None:
         local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
-        today = local_now.date().isoformat()
-        target = None
-        if local_now.time().replace(tzinfo=None) >= self.publish_time:
-            if self.store.get_setting("publication_calendar_date") != today:
-                def check_calendar():
-                    session = self.publisher.publication_target(local_now.date())
-                    if not isinstance(session, str) or date.fromisoformat(session) > local_now.date():
-                        raise ValueError("publication calendar returned an invalid target session")
-                    self.store.set_setting("publication_target_date", session)
-                    self.store.set_setting("publication_calendar_date", today)
-                self._guard("publication_calendar", now, check_calendar)
-            if self.store.get_setting("publication_calendar_date") == today:
-                target = self.store.get_setting("publication_target_date")
         if (
-            target is not None
-            and self.store.get_setting("last_data_publish_attempt_date") != target
+            local_now.time().replace(tzinfo=None) >= self.observation_time
+            and self._due(self._last_publication_check, now, self.decision_interval)
         ):
-            def publish():
-                correlation_id = f"publication:{target}"
-                if self.audit is not None:
-                    self.audit.record(
-                        "MARKET_DATA_PUBLICATION_REQUESTED", source="scheduler",
-                        actor_type="SCHEDULER", correlation_id=correlation_id,
-                        details={"target_date": target},
-                    )
+            def observe_publication():
                 try:
-                    result = self.publisher.publish(target)
+                    result = self.publications.observe()
+                    cutoff, generations = self._validated_publication_result(result)
                 except Exception as exc:
                     self.store.set_setting("data_publication_error", str(exc))
                     if self.audit is not None:
                         self.audit.record(
-                            "MARKET_DATA_PUBLICATION_FAILED", source="scheduler",
+                            "MARKET_DATA_OBSERVATION_FAILED", source="scheduler",
                             outcome="FAILURE", actor_type="SCHEDULER",
-                            correlation_id=correlation_id,
-                            details={"target_date": target, "error_type": type(exc).__name__,
-                                     "error": str(exc)},
+                            details={"error_type": type(exc).__name__, "error": str(exc)},
                         )
                     raise
-                cutoff, generations = self._validated_publication_result(result, target)
+                generation_json = json.dumps(generations, sort_keys=True)
+                if generation_json == self.store.get_setting("last_data_generation_ids"):
+                    self.store.set_setting("data_publication_error", "")
+                    return
+                correlation_id = f"publication:{cutoff}"
                 self.store.set_setting("last_data_publish_date", cutoff)
-                self.store.set_setting(
-                    "last_data_generation_ids", json.dumps(generations, sort_keys=True),
-                )
-                self.store.set_setting("last_data_publish_attempt_date", target)
+                self.store.set_setting("last_data_generation_ids", generation_json)
                 self.store.set_setting("last_data_publication", now.isoformat())
                 self.store.set_setting("data_publication_error", "")
                 if self.audit is not None:
                     self.audit.record(
-                        "MARKET_DATA_PUBLISHED", source="scheduler", actor_type="SCHEDULER",
+                        "MARKET_DATA_OBSERVED", source="scheduler", actor_type="SCHEDULER",
                         correlation_id=correlation_id,
-                        details={"target_date": target, "data_cutoff": cutoff, "result": result},
+                        details={"data_cutoff": cutoff, "result": result},
                     )
-            self._guard("publication", now, publish)
+            self._guard("publication_observation", now, observe_publication)
+            self._last_publication_check = now
         published_date = self.store.get_setting("last_data_publish_date")
         if (
             published_date is not None
@@ -269,15 +247,6 @@ class RuntimeScheduler:
                     pending.append(account)
             if pending:
                 def onboard_accounts():
-                    result = self.publisher.publish(published_date)
-                    cutoff, generations = self._validated_publication_result(
-                        result, published_date,
-                    )
-                    self.store.set_setting("last_data_publish_date", cutoff)
-                    self.store.set_setting(
-                        "last_data_generation_ids",
-                        json.dumps(generations, sort_keys=True),
-                    )
                     for account in pending:
                         self.engine.refresh_decision(str(account["account_id"]))
                 self._guard("account_onboarding", now, onboard_accounts)

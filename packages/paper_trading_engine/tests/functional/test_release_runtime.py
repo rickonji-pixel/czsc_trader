@@ -196,9 +196,10 @@ def test_build_is_local_and_publish_installs_final_runtime(tmp_path):
     ]
     installs = [command for command in runner.commands if command[1:3] == ["pip", "install"]]
     assert all(
-        command[command.index("--cache-dir") + 1] == str(runtime / "cache" / "uv")
+        command[command.index("--cache-dir") + 1] == str(build_root / "cache" / "uv")
         for command in installs
     )
+    assert not (runtime / "cache").exists()
     assert any(
         "--no-deps" in command and "czsc-trader-research==0.1.0" in command
         for command in installs

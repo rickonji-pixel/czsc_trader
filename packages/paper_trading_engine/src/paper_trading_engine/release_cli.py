@@ -382,6 +382,7 @@ def _initialize_service_host(
     runtime_root: Path,
     release_id: str,
     artifacts: Path,
+    cache_dir: Path,
     uv_executable: Path,
     source_python: Path,
     repo_root: Path,
@@ -398,7 +399,7 @@ def _initialize_service_host(
             source_python=source_python,
             venv=host / ".venv",
             artifacts=artifacts,
-            cache_dir=runtime_root / "cache" / "uv",
+            cache_dir=cache_dir,
             repo_root=repo_root,
             runner=runner,
             packages=(("pywin32>=308",) if os.name == "nt" else ()),
@@ -527,6 +528,7 @@ def publish_release(
     build_root = build_root.resolve()
     runtime_root = runtime_root.resolve()
     built = load_built_release(build_root, release_id)
+    uv_cache = build_root / "cache" / "uv"
     if uv_executable is None:
         discovered_uv = shutil.which("uv")
         if discovered_uv is None:
@@ -564,7 +566,7 @@ def publish_release(
                 source_python=source_python,
                 venv=destination / ".venv",
                 artifacts=destination / "artifacts",
-                cache_dir=runtime_root / "cache" / "uv",
+                cache_dir=uv_cache,
                 repo_root=built.release_root,
                 runner=runner,
                 packages=(
@@ -579,7 +581,7 @@ def publish_release(
                         str(uv_executable), "pip", "freeze",
                         "--python", str(_python_in(destination / ".venv")),
                         "--no-python-downloads",
-                        "--cache-dir", str(runtime_root / "cache" / "uv"),
+                        "--cache-dir", str(uv_cache),
                     ],
                     cwd=built.release_root,
                     runner=runner,
@@ -607,6 +609,7 @@ def publish_release(
                 runtime_root,
                 release_id,
                 release.release_root / "artifacts",
+                uv_cache,
                 uv_executable,
                 source_python,
                 built.release_root,

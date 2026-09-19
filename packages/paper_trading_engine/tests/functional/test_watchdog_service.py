@@ -1,16 +1,31 @@
 from collections import deque
 import json
 from pathlib import Path
+import sqlite3
+import subprocess
 
 import pytest
 
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.cli import PortUnavailableError, _record_service_lifecycle, probe_port
 from paper_trading_engine.service_config import ServiceConfig
+from paper_trading_engine.runtime_release import (
+    activate_release,
+    file_sha256,
+    load_release,
+    resolve_active_release,
+    rollback_release,
+    tree_sha256,
+)
 from paper_trading_engine.store import PaperStore, backup_runtime_database
 from paper_trading_engine.runtime_lock import RuntimeAlreadyOwnedError, RuntimeDatabaseLock
+from paper_trading_engine.release_cli import deploy_previous_release, deploy_release
 from paper_trading_engine.watchdog import Watchdog, rotate_log
-from paper_trading_engine.windows_service import service_commands
+from paper_trading_engine.windows_service import (
+    _validate_service_host,
+    build_bootstrap_source,
+    service_commands,
+)
 from paper_trading_engine.web_api import PteWebApi
 
 
@@ -20,6 +35,35 @@ class Process:
     def terminate(self): self.terminated, self.code = True, 0
     def wait(self, timeout=None): return self.code or 0
     def kill(self): self.code = -9
+
+
+def create_release(runtime_root, release_id, marker):
+    release = runtime_root / "releases" / release_id
+    strategies = release / "strategies"
+    strategies.mkdir(parents=True)
+    (strategies / "registry.json").write_text(
+        json.dumps({"schema_version": 1, "marker": marker}), encoding="utf-8",
+    )
+    runtime_file = release / "runtime.txt"
+    runtime_file.write_text(marker, encoding="utf-8")
+    scripts = release / ".venv" / "Scripts"
+    scripts.mkdir(parents=True)
+    for name in ("pte.exe", "czsc-trader.exe"):
+        (scripts / name).write_bytes(b"launcher")
+    (release / ".venv" / "Lib" / "site-packages").mkdir(parents=True)
+    manifest = {
+        "schema_version": 1,
+        "release_id": release_id,
+        "git_commit": marker * 40,
+        "python_version": "3.12.10",
+        "database_schema": {"current": 1, "compatible": [1]},
+        "strategy_snapshot_sha256": tree_sha256(strategies),
+        "runtime_files": {"runtime.txt": file_sha256(runtime_file)},
+    }
+    (release / "release-manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8",
+    )
+    return release
 
 
 def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
@@ -61,7 +105,7 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
         "--host", "127.0.0.1", "--port", "8080",
     ]
     assert set(json.loads(path.read_text()).keys()) == {
-        "repo_root", "host", "port",
+        "schema_version", "repo_root", "host", "port",
     }
     assert config.health_url == "http://127.0.0.1:8080/api/health"
     with pytest.raises(ValueError, match="localhost"):
@@ -82,6 +126,10 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
     watchdog.check_once()
     assert old.terminated and watchdog.child is not old and delays == [5.0]
 
+    bootstrap = build_bootstrap_source(tmp_path / "host" / ".venv")
+    assert repr(str(tmp_path / "host" / ".venv" / "Lib" / "site-packages")) in bootstrap
+    assert "packages\\paper_trading_engine\\src" not in bootstrap
+
     import socket
     occupied = socket.socket()
     occupied.bind(("127.0.0.1", 0))
@@ -90,6 +138,161 @@ def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):
             probe_port("127.0.0.1", occupied.getsockname()[1])
     finally:
         occupied.close()
+
+
+def test_runtime_database_rejects_invalid_schema_identity(tmp_path):
+    database = tmp_path / "invalid-schema.db"
+    store = PaperStore(database)
+    store.close()
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "UPDATE settings SET value=? WHERE key='runtime_database_schema_version'",
+        ("corrupt",),
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(RuntimeError, match="schema is invalid: 'corrupt'"):
+        PaperStore(database)
+
+
+def test_watchdog_host_rejects_pte_and_rsch_runtime_dependencies(tmp_path, monkeypatch):
+    runtime_root = (tmp_path / "runtime").resolve()
+    host = runtime_root / "host" / "releases" / "v0.4.1" / ".venv"
+    site_packages = host / "Lib" / "site-packages"
+    (site_packages / "vectorbt").mkdir(parents=True)
+    monkeypatch.setattr("paper_trading_engine.windows_service.sys.prefix", str(host))
+
+    with pytest.raises(RuntimeError, match="runtime dependencies.*vectorbt"):
+        _validate_service_host(runtime_root)
+
+
+def test_pte_release_activation_rollback_and_dynamic_watchdog(tmp_path):
+    runtime_root = (tmp_path / "runtime").resolve()
+    (runtime_root / "shared" / "config").mkdir(parents=True)
+    (runtime_root / "shared" / "config" / ".env").write_text(
+        "TUSHARE_TOKEN=test", encoding="utf-8",
+    )
+    first = create_release(runtime_root, "v0.4.1", "a")
+    second = create_release(runtime_root, "v0.4.2", "b")
+    activate_release(runtime_root, "v0.4.1")
+    config = ServiceConfig(runtime_root=runtime_root)
+    assert config.pte_command()[0] == str(first / ".venv" / "Scripts" / "pte.exe")
+    assert config.serve_arguments() == [
+        "serve",
+        "--repo-root", str(first),
+        "--database", str(runtime_root / "shared" / "state" / "runtime.db"),
+        "--data-dir", str(runtime_root / "shared" / "data"),
+        "--config-root", str(runtime_root / "shared" / "config"),
+        "--advice-executable", str(first / ".venv" / "Scripts" / "czsc-trader.exe"),
+        "--release-manifest", str(first / "release-manifest.json"),
+        "--host", "127.0.0.1", "--port", "8080",
+    ]
+
+    launches = []
+    processes = [Process(0), Process()]
+    watchdog = Watchdog(
+        command=config.pte_command,
+        working_directory=config.working_directory,
+        health_url=config.health_url,
+        process_factory=lambda command, cwd, _log: (
+            launches.append((command, cwd)) or processes.pop(0)
+        ),
+    )
+    watchdog.start_child()
+    activate_release(runtime_root, "v0.4.2")
+    watchdog.check_once()
+    assert launches[0][0][0] == str(first / ".venv" / "Scripts" / "pte.exe")
+    assert launches[1][0][0] == str(second / ".venv" / "Scripts" / "pte.exe")
+    assert launches[1][1] == runtime_root
+
+    rollback_release(runtime_root)
+    assert config.active_release().release_id == "v0.4.1"
+    (first / "strategies" / "registry.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="strategy snapshot"):
+        load_release(runtime_root, "v0.4.1")
+
+
+def test_pte_release_rejects_editable_install(tmp_path):
+    runtime_root = (tmp_path / "runtime").resolve()
+    release = create_release(runtime_root, "v0.4.1", "a")
+    site_packages = release / ".venv" / "Lib" / "site-packages"
+    (site_packages / "__editable__.paper_trading_engine.pth").write_text(
+        "D:/CodeBase/czsc_trader/packages/paper_trading_engine/src", encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="editable"):
+        load_release(runtime_root, "v0.4.1")
+
+
+def test_pte_deployment_verifies_release_and_rolls_back(tmp_path):
+    runtime_root = (tmp_path / "runtime").resolve()
+    (runtime_root / "shared" / "config").mkdir(parents=True)
+    (runtime_root / "shared" / "config" / ".env").write_text(
+        "TUSHARE_TOKEN=test", encoding="utf-8",
+    )
+    for release_id, marker in (
+        ("v0.4.1", "a"), ("v0.4.2", "b"), ("v0.4.3", "c"), ("v0.5.0", "d"),
+    ):
+        create_release(runtime_root, release_id, marker)
+    activate_release(runtime_root, "v0.4.1")
+    commands = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout="{}", stderr="")
+
+    result = deploy_release(
+        runtime_root,
+        "v0.4.2",
+        runner=run,
+        running_release=lambda _host, _port: "v0.4.2",
+    )
+    assert result == {
+        "status": "READY",
+        "release_id": "v0.4.2",
+        "previous_release_id": "v0.4.1",
+    }
+    assert commands[-1][0].endswith("v0.4.1\\.venv\\Scripts\\pte.exe")
+
+    rolled_back = deploy_previous_release(
+        runtime_root,
+        runner=run,
+        running_release=lambda _host, _port: "v0.4.1",
+    )
+    assert rolled_back == {
+        "status": "READY",
+        "release_id": "v0.4.1",
+        "previous_release_id": "v0.4.2",
+    }
+    assert resolve_active_release(runtime_root).release_id == "v0.4.1"
+    deploy_release(
+        runtime_root,
+        "v0.4.2",
+        runner=run,
+        running_release=lambda _host, _port: "v0.4.2",
+    )
+
+    with pytest.raises(RuntimeError, match="was rolled back"):
+        deploy_release(
+            runtime_root,
+            "v0.4.3",
+            runner=run,
+            running_release=lambda _host, _port: "v0.4.2",
+        )
+    assert resolve_active_release(runtime_root).release_id == "v0.4.2"
+
+    incompatible_manifest = runtime_root / "releases" / "v0.5.0" / "release-manifest.json"
+    incompatible = json.loads(incompatible_manifest.read_text(encoding="utf-8"))
+    incompatible["database_schema"] = {"current": 2, "compatible": [2]}
+    incompatible_manifest.write_text(json.dumps(incompatible), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="does not support database schema 1"):
+        deploy_release(
+            runtime_root,
+            "v0.5.0",
+            runner=run,
+            running_release=lambda _host, _port: "v0.5.0",
+        )
+    assert resolve_active_release(runtime_root).release_id == "v0.4.2"
 
 
 def test_ft_pte06_business_health_exposes_stalled_scheduler(tmp_path):
@@ -118,6 +321,7 @@ def test_ft_pte06_business_health_exposes_stalled_scheduler(tmp_path):
         "runtime": "RUNNING",
         "watchdog_healthy": False,
         "scheduler_heartbeat_at": "2026-09-01T00:00:00+00:00",
+        "release": {},
     }
     store.close()
 

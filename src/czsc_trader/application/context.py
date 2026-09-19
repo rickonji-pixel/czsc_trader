@@ -1,13 +1,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 
 from .errors import UsageError
 
 
 def _is_repository_root(path: Path) -> bool:
-    return (path / "pyproject.toml").is_file() and (path / "src" / "czsc_trader").is_dir()
+    if (path / "pyproject.toml").is_file() and (path / "src" / "czsc_trader").is_dir():
+        return True
+    marker = path / "runtime-root.json"
+    try:
+        payload = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return (
+        payload == {
+            "schema_version": 1,
+            "kind": "czsc-trader-runtime",
+            "strategy_root": "strategies",
+        }
+        and (path / "strategies").is_dir()
+    )
 
 
 @dataclass(frozen=True)

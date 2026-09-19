@@ -58,8 +58,8 @@ class Watchdog:
     def __init__(
         self,
         *,
-        command: Sequence[str],
-        working_directory: Path,
+        command: Sequence[str] | Callable[[], Sequence[str]],
+        working_directory: Path | Callable[[], Path],
         health_url: str,
         log_path: Path | None = None,
         process_factory: Callable[[Sequence[str], Path, Path], ChildProcess] = spawn_pte,
@@ -70,10 +70,13 @@ class Watchdog:
         restart_delays: Sequence[float] = (5.0, 30.0, 60.0),
         logger: logging.Logger | None = None,
     ) -> None:
-        self.command = list(command)
+        self.command = command
         self.working_directory = working_directory
         self.health_url = health_url
-        self.log_path = log_path or working_directory / "pte.log"
+        default_directory = (
+            working_directory() if callable(working_directory) else working_directory
+        )
+        self.log_path = log_path or default_directory / "pte.log"
         self.process_factory = process_factory
         self.health_check = health_check
         self.sleep = sleep
@@ -87,7 +90,13 @@ class Watchdog:
 
     def start_child(self) -> ChildProcess:
         rotate_log(self.log_path)
-        self.child = self.process_factory(self.command, self.working_directory, self.log_path)
+        command = self.command() if callable(self.command) else self.command
+        working_directory = (
+            self.working_directory()
+            if callable(self.working_directory)
+            else self.working_directory
+        )
+        self.child = self.process_factory(list(command), working_directory, self.log_path)
         self.logger.info("PTE child started")
         return self.child
 

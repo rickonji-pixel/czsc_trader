@@ -36,10 +36,34 @@ from .channel import (
 
 
 DEFAULT_FUTU_CAPITAL_POOL = "1000000.0000"
+RUNTIME_DATABASE_SCHEMA_VERSION = 1
+RUNTIME_DATABASE_COMPATIBLE_VERSIONS = (1,)
 
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _validate_database_schema(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
+    stored_schema = connection.execute(
+        "SELECT value FROM settings WHERE key='runtime_database_schema_version'"
+    ).fetchone()
+    if stored_schema is None:
+        return
+    try:
+        schema_version = int(stored_schema[0])
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"PTE runtime database schema is invalid: {stored_schema[0]!r}"
+        ) from exc
+    if schema_version not in RUNTIME_DATABASE_COMPATIBLE_VERSIONS:
+        raise RuntimeError(
+            "PTE runtime database schema is incompatible: "
+            f"{schema_version} not in {RUNTIME_DATABASE_COMPATIBLE_VERSIONS}"
+        )
 
 
 def backup_runtime_database(path: Path, *, retention: int = 3) -> Path | None:
@@ -75,6 +99,11 @@ class PaperStore:
         self._lock = RLock()
         self._connection = sqlite3.connect(self.path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
+        try:
+            _validate_database_schema(self._connection)
+        except Exception:
+            self._connection.close()
+            raise
         self._connection.executescript(
             """
             PRAGMA journal_mode=WAL;
@@ -376,6 +405,11 @@ class PaperStore:
                     "superseded_attempts": attention_backfill["superseded"],
                 },
             ))
+        self._connection.execute(
+            "INSERT INTO settings(key,value) VALUES('runtime_database_schema_version', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (str(RUNTIME_DATABASE_SCHEMA_VERSION),),
+        )
         self._connection.commit()
 
     def _backfill_intent_reserve_ledger(self) -> int:

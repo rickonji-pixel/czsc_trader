@@ -67,6 +67,7 @@ class PteWebApi:
             "runtime": "RUNNING",
             "watchdog_healthy": not _is_stale(heartbeat, seconds=45),
             "scheduler_heartbeat_at": heartbeat,
+            "release": dict(getattr(self.operations, "runtime_identity", {})),
         }
 
     def system_status(self) -> dict[str, object]:
@@ -107,6 +108,7 @@ class PteWebApi:
             "runtime": "RUNNING",
             "watchdog_healthy": not scheduler_stalled,
             "scheduler_heartbeat_at": heartbeat,
+            "release": dict(getattr(self.operations, "runtime_identity", {})),
             "data_cutoff": published,
             "data_generation_ids": self.store.get_setting("last_data_generation_ids"),
             "last_publication": self.store.get_setting("last_data_publication"),

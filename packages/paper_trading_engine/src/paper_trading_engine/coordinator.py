@@ -125,12 +125,14 @@ class PteCoordinator:
         audit: AuditRecorder | None = None,
         account_chart=None,
         startup_timings: dict[str, float] | None = None,
+        runtime_identity: dict[str, object] | None = None,
     ) -> None:
         self.accounts, self.execution = accounts, execution
         self.store = accounts.store
         self.audit = audit or AuditRecorder(self.store)
         self.account_chart = account_chart
         self.startup_timings = dict(startup_timings or {})
+        self.runtime_identity = dict(runtime_identity or {"mode": "DEV"})
 
     @property
     def virtual(self): return self.accounts

@@ -18,6 +18,7 @@ dependencies = [
 [project.scripts]
 pte = "paper_trading_engine.cli:main"
 pte-watchdog = "paper_trading_engine.windows_service:main"
+pte-release = "paper_trading_engine.release_cli:main"
 
 [project.optional-dependencies]
 test = ["pytest>=8.0", "ruff>=0.12"]

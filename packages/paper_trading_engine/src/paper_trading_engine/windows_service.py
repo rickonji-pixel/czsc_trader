@@ -20,6 +20,11 @@ import win32service
 import win32serviceutil
 
 from .service_config import ServiceConfig
+from .runtime_release import (
+    editable_installations,
+    file_sha256,
+    service_host_runtime_dependencies,
+)
 from .watchdog import Watchdog
 
 
@@ -40,20 +45,17 @@ def service_commands(python_executable: Path, service_module: Path) -> list[list
 def prepare_service_host(servicemanager_path: Path, host_directory: Path) -> None:
     host_directory.mkdir(parents=True, exist_ok=True)
     destination = host_directory / servicemanager_path.name
-    if destination.exists() and destination.stat().st_size == servicemanager_path.stat().st_size:
+    if destination.is_file() and file_sha256(destination) == file_sha256(servicemanager_path):
         return
     shutil.copy2(servicemanager_path, destination)
 
 
-def build_bootstrap_source(venv_root: Path, repo_root: Path) -> str:
+def build_bootstrap_source(venv_root: Path) -> str:
     paths = [
         venv_root / "Lib" / "site-packages",
         venv_root / "Lib" / "site-packages" / "win32",
         venv_root / "Lib" / "site-packages" / "win32" / "lib",
         venv_root / "Lib" / "site-packages" / "pywin32_system32",
-        repo_root / "packages" / "paper_trading_engine" / "src",
-        repo_root / "packages" / "dataflows" / "src",
-        repo_root / "src",
     ]
     additions = "\n".join(f"sys.path.insert(0, {str(path)!r})" for path in paths)
     return (
@@ -75,6 +77,17 @@ def _write_config_path(path: Path) -> None:
 def _read_config_path() -> Path:
     with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, REGISTRY_PATH) as key:
         return Path(winreg.QueryValueEx(key, "ConfigPath")[0])
+
+
+def _service_exists() -> bool:
+    try:
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            rf"SYSTEM\CurrentControlSet\Services\{SERVICE_NAME}",
+        ):
+            return True
+    except FileNotFoundError:
+        return False
 
 
 class PteWatchdogService(win32serviceutil.ServiceFramework):
@@ -106,8 +119,8 @@ class PteWatchdogService(win32serviceutil.ServiceFramework):
         logger = logging.getLogger("paper_trading_engine.service")
         try:
             self.watchdog = Watchdog(
-                command=config.pte_command(),
-                working_directory=config.repo_root,
+                command=config.pte_command,
+                working_directory=config.working_directory,
                 health_url=config.health_url,
                 log_path=config.log_path,
                 sleep=self.stop_event.wait,
@@ -125,6 +138,31 @@ def _is_admin() -> bool:
     return bool(ctypes.windll.shell32.IsUserAnAdmin())
 
 
+def _validate_service_host(runtime_root: Path) -> Path:
+    host_releases = (runtime_root / "host" / "releases").resolve()
+    actual = Path(sys.prefix).resolve()
+    try:
+        relative = actual.relative_to(host_releases)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"PTE watchdog must be installed from a dedicated service host: {host_releases}"
+        ) from exc
+    if len(relative.parts) != 2 or relative.parts[1] != ".venv":
+        raise RuntimeError("PTE watchdog service host has an invalid release layout")
+    site_packages = actual / "Lib" / "site-packages"
+    editable = editable_installations(site_packages)
+    if editable:
+        raise RuntimeError(
+            f"PTE watchdog service host contains editable installations: {editable}"
+        )
+    heavyweight = service_host_runtime_dependencies(site_packages)
+    if heavyweight:
+        raise RuntimeError(
+            f"PTE watchdog service host contains runtime dependencies: {heavyweight}"
+        )
+    return actual
+
+
 def main(
     argv: list[str] | None = None, *, admin_check: Callable[[], bool] = _is_admin
 ) -> int:
@@ -134,9 +172,12 @@ def main(
             sys.stderr.write("安装 CZSC-PTE-Watchdog 需要管理员权限。\n")
             return 5
         parser = argparse.ArgumentParser(prog="pte-watchdog install-config")
-        parser.add_argument("--repo-root", required=True, type=Path)
+        parser.add_argument("--runtime-root", required=True, type=Path)
         options = parser.parse_args(arguments[1:])
-        repo_root = options.repo_root.resolve()
+        runtime_root = options.runtime_root.resolve()
+        _validate_service_host(runtime_root)
+        config = ServiceConfig(runtime_root=runtime_root)
+        config.active_release()
         prepare_service_host(Path(servicemanager.__file__), Path(sys.exec_prefix))
         prepare_service_host(Path(servicemanager.__file__), Path(sys.base_prefix))
         virtual_host = Path(sys.exec_prefix) / "pythonservice.exe"
@@ -145,13 +186,12 @@ def main(
             shutil.copy2(virtual_host, base_host)
         bootstrap = Path(sys.base_prefix) / "pte_service_bootstrap.py"
         bootstrap.write_text(
-            build_bootstrap_source(Path(sys.exec_prefix), repo_root), encoding="utf-8"
+            build_bootstrap_source(Path(sys.exec_prefix)), encoding="utf-8"
         )
-        config = ServiceConfig(repo_root=repo_root)
-        path = config.repo_root / "state" / "paper_trading" / "service.json"
-        config.save(path)
+        path = config.save()
+        action = "update" if _service_exists() else "install"
         win32serviceutil.HandleCommandLine(
-            PteWatchdogService, argv=[sys.argv[0], "--startup", "auto", "install"]
+            PteWatchdogService, argv=[sys.argv[0], "--startup", "auto", action]
         )
         _write_config_path(path)
         commands = service_commands(Path(sys.executable), Path(__file__))

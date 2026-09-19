@@ -48,6 +48,7 @@ class AccountDataPublisher:
         *,
         store,
         repo_root: Path,
+        config_root: Path | None = None,
         data_dir: Path,
         start_date: str,
         audit: AuditRecorder | None = None,
@@ -55,6 +56,7 @@ class AccountDataPublisher:
     ) -> None:
         self.store = store
         self.repo_root = repo_root
+        self.config_root = Path(config_root) if config_root is not None else Path(repo_root)
         self.data_dir = data_dir
         self.start_date = start_date
         self.audit = audit
@@ -65,7 +67,7 @@ class AccountDataPublisher:
         start = as_of - timedelta(days=31)
         result = self._ready(self.dataflows.fetch(DataRequest(
             Dataset.TRADING_CALENDAR, "SSE", start.isoformat(), as_of.isoformat(),
-            as_of.isoformat(), options={"env_file": str(Path(self.repo_root) / ".env")},
+            as_of.isoformat(), options={"env_file": str(self.config_root / ".env")},
         )), "publication trading calendar")
         frame = result.dataframe
         dates = pd.DatetimeIndex(pd.to_datetime(frame["Date"], errors="raise"))
@@ -162,7 +164,7 @@ class AccountDataPublisher:
             if asset == "etf"
             else Dataset.STOCK_UNADJUSTED_DAILY
         )
-        options = {"env_file": str(Path(self.repo_root) / ".env")}
+        options = {"env_file": str(self.config_root / ".env")}
         adjusted = self._ready(
             self.dataflows.fetch(
                 DataRequest(
@@ -332,7 +334,7 @@ class AccountDataPublisher:
                         "publication",
                         "futu_simulate_cn",
                         {
-                            "env_file": str(Path(self.repo_root) / ".env"),
+                            "env_file": str(self.config_root / ".env"),
                             "repository_root": str(Path(self.repo_root)),
                         },
                     )

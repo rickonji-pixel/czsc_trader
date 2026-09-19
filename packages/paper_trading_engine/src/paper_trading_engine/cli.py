@@ -32,6 +32,7 @@ from .web import create_server
 from .coordinator import PteCoordinator, ReconnectableExecution
 from .runtime_lock import RuntimeDatabaseLock
 from .trading_window import shanghai_now
+from .runtime_release import load_manifest_identity
 
 
 class PortUnavailableError(RuntimeError):
@@ -70,6 +71,17 @@ class PteParser(argparse.ArgumentParser):
     def parse_args(self, args=None, namespace=None):
         result = super().parse_args(args, namespace)
         result.repo_root = result.repo_root.resolve()
+        result.config_root = (
+            result.config_root.resolve() if result.config_root else result.repo_root
+        )
+        result.release_manifest = (
+            result.release_manifest.resolve() if result.release_manifest else None
+        )
+        result.runtime_identity = (
+            load_manifest_identity(result.release_manifest)
+            if result.release_manifest
+            else {"mode": "DEV", "repo_root": str(result.repo_root)}
+        )
         if result.database is None:
             result.database = result.repo_root / "state" / "paper_trading" / "runtime.db"
         if result.data_dir is None:
@@ -84,6 +96,8 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--asset", choices=("etf", "stock"), default="etf")
     parser.add_argument("--database", type=Path)
     parser.add_argument("--data-dir", type=Path)
+    parser.add_argument("--config-root", type=Path)
+    parser.add_argument("--release-manifest", type=Path)
     parser.add_argument("--advice-executable", type=Path)
     parser.add_argument("--opend-host", default="127.0.0.1")
     parser.add_argument("--opend-port", default=11111, type=int)
@@ -320,6 +334,7 @@ def build_engine(args: argparse.Namespace):
         audit=audit,
         account_chart=account_chart,
         startup_timings=startup_timings,
+        runtime_identity=args.runtime_identity,
     )
 
 
@@ -329,6 +344,7 @@ def build_publisher(
     return AccountDataPublisher(
         store=store,
         repo_root=args.repo_root,
+        config_root=args.config_root,
         data_dir=args.data_dir,
         start_date=args.data_start,
         audit=audit,
@@ -876,6 +892,7 @@ def main(
                 "engine_startup_ms": engine_startup_ms,
                 "web_server_ms": web_server_ms,
             },
+            runtime_release=args.runtime_identity,
         )
         sys.stderr.write(f"PTE listening on http://{args.host}:{server.server_port}\n")
         try:

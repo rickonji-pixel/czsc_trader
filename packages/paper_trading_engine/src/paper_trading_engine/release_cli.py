@@ -59,7 +59,9 @@ def _run(
         encoding="utf-8",
     )
     if completed.returncode:
-        detail = completed.stderr.strip() or completed.stdout.strip()
+        detail = "\n".join(
+            part for part in (completed.stdout.strip(), completed.stderr.strip()) if part
+        )
         raise RuntimeError(f"release command failed: {' '.join(command)}: {detail}")
     return completed
 
@@ -150,7 +152,7 @@ def _wheel_path(artifacts: Path, distribution: str) -> Path:
     return matches[0]
 
 
-def _download_pte_dependencies(
+def _build_pte_wheelhouse(
     *,
     source_python: Path,
     artifacts: Path,
@@ -158,8 +160,8 @@ def _download_pte_dependencies(
     repo_root: Path,
     runner: Runner,
 ) -> None:
-    downloads = artifacts.parent / ".dependency-downloads"
-    downloads.mkdir()
+    wheels = artifacts.parent / ".dependency-wheels"
+    wheels.mkdir()
     try:
         roots = [
             str(_wheel_path(artifacts, distribution))
@@ -167,15 +169,14 @@ def _download_pte_dependencies(
         ]
         _run(
             [
-                str(source_python), "-m", "pip", "download",
-                "--dest", str(downloads), "--constraint", str(constraints),
-                "--only-binary=:all:",
+                str(source_python), "-m", "pip", "wheel",
+                "--wheel-dir", str(wheels), "--constraint", str(constraints),
                 *roots,
             ],
             cwd=repo_root,
             runner=runner,
         )
-        for source in sorted(downloads.iterdir()):
+        for source in sorted(wheels.iterdir()):
             target = artifacts / source.name
             if target.exists():
                 if file_sha256(source) != file_sha256(target):
@@ -183,7 +184,7 @@ def _download_pte_dependencies(
                 continue
             source.replace(target)
     finally:
-        shutil.rmtree(downloads)
+        shutil.rmtree(wheels)
 
 
 def _verify_installed_environment(
@@ -360,7 +361,7 @@ def assemble_release(
                 cwd=repo_root,
                 runner=runner,
             )
-        _download_pte_dependencies(
+        _build_pte_wheelhouse(
             source_python=source_python,
             artifacts=artifacts,
             constraints=constraints,

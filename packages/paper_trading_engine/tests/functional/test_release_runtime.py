@@ -32,6 +32,9 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
             return subprocess.CompletedProcess(
                 command, 0, stdout="paper-trading-engine==0.1.0\n", stderr="",
             )
+        if command[1:4] == ["-m", "pip", "wheel"] and "--constraint" in command:
+            Path(command[command.index("--wheel-dir") + 1]).mkdir(parents=True, exist_ok=True)
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:4] == ["-m", "pip", "wheel"]:
             destination = Path(command[command.index("--wheel-dir") + 1])
             destination.mkdir(parents=True, exist_ok=True)
@@ -43,9 +46,6 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
                 b"wheel"
             )
             wheel_index += 1
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:4] == ["-m", "pip", "download"]:
-            Path(command[command.index("--dest") + 1]).mkdir(parents=True, exist_ok=True)
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:4] == ["-m", "venv", command[-1]]:
             venv = Path(command[-1])
@@ -97,13 +97,13 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
                for command in installs)
     dependency_commands = [
         command for command in commands
-        if command[1:4] in (["-m", "pip", "install"], ["-m", "pip", "download"])
+        if command[1:4] == ["-m", "pip", "install"] or "--constraint" in command
     ]
     assert all("vectorbt" not in " ".join(command).lower() for command in dependency_commands)
-    download = next(
-        command for command in commands if command[1:4] == ["-m", "pip", "download"]
+    wheelhouse = next(
+        command for command in commands if "--constraint" in command
     )
-    assert "czsc_trader_research" not in " ".join(download).lower()
+    assert "czsc_trader_research" not in " ".join(wheelhouse).lower()
     assert not any(path.name.startswith(".v0.4.1-") for path in (runtime / "releases").iterdir())
 
 
@@ -122,6 +122,9 @@ def test_release_assembly_rejects_incomplete_existing_service_host(tmp_path):
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:5] == ["-m", "pip", "freeze", "--all"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[1:4] == ["-m", "pip", "wheel"] and "--constraint" in command:
+            Path(command[command.index("--wheel-dir") + 1]).mkdir(parents=True, exist_ok=True)
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:4] == ["-m", "pip", "wheel"]:
             destination = Path(command[command.index("--wheel-dir") + 1])
             destination.mkdir(parents=True, exist_ok=True)
@@ -131,9 +134,6 @@ def test_release_assembly_rejects_incomplete_existing_service_host(tmp_path):
             )
             index = len(list(destination.glob("*.whl")))
             (destination / f"{prefixes[index]}-0.1.0-py3-none-any.whl").write_bytes(b"wheel")
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:4] == ["-m", "pip", "download"]:
-            Path(command[command.index("--dest") + 1]).mkdir(parents=True, exist_ok=True)
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:3] == ["-m", "venv"]:
             scripts = Path(command[-1]) / "Scripts"

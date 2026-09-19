@@ -341,4 +341,15 @@ def test_s007_publication_resolves_previous_session_by_position() -> None:
         if str(request.dataset) == Dataset.ETF_SHARE_SIZE.value
     )
     assert shares.required_cutoff == "2026-09-15"
+    assert shares.start == "2021-01-04"
+    spx = next(
+        request
+        for request in requests
+        if str(request.dataset) == Dataset.GLOBAL_INDEX_DAILY.value
+    )
+    assert spx.start == "2020-12-01"
+    assert all(
+        str(request.dataset) != Dataset.STRATEGY_FEATURE_EVIDENCE.value
+        for request in requests
+    )
     assert publication.requested_cutoff == "2026-09-16"

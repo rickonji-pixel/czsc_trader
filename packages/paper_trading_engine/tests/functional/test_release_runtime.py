@@ -16,6 +16,18 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
     (strategies / "registry.json").write_text(
         '{"schema_version":1,"strategies":[]}', encoding="utf-8",
     )
+    version = strategies / "S007" / "versions" / "v1.json"
+    version.parent.mkdir(parents=True)
+    version.write_text(
+        '{"strategy_payload":{"rule":{"data_source":'
+        '{"path":"experiments/S007/source.csv.gz","sha256":"'
+        + "a" * 64
+        + '"}}}}',
+        encoding="utf-8",
+    )
+    evidence = repo / "experiments" / "S007" / "source.csv.gz"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_bytes(b"research-only")
     commands = []
     wheel_index = 0
 
@@ -80,6 +92,7 @@ def test_release_assembly_creates_venvs_at_final_paths(tmp_path):
     assert result["artifact_count"] == len(PTE_LOCAL_PROJECTS)
     assert release.pte_executable.is_file()
     assert context.strategy_root == release.release_root / "strategies"
+    assert not (release.release_root / "experiments").exists()
     assert (release.release_root / "environment.lock").read_text(encoding="utf-8") == (
         "paper-trading-engine==0.1.0\n"
     )

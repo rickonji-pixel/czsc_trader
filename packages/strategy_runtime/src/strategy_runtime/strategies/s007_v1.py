@@ -46,6 +46,7 @@ _EXECUTION = "execution_daily"
 _CALENDAR = "trading_calendar"
 _EVIDENCE = "strategy_evidence"
 _FROZEN_HISTORY_START = pd.Timestamp("2021-01-04")
+_GLOBAL_HISTORY_START = pd.Timestamp("2020-12-01")
 
 
 def _object(value: Any, field_name: str) -> Mapping[str, Any]:
@@ -232,7 +233,6 @@ class S007V1:
         rule = _object(payload.get("rule"), "S007-v1 rule")
         self._normalization = _object(rule.get("normalization"), "S007-v1 normalization")
         self._score = _object(rule.get("score"), "S007-v1 score")
-        self._data_source = _object(rule.get("data_source"), "S007-v1 data source")
         execution = _object(rule.get("execution"), "S007-v1 execution")
         self._symbol = str(rule.get("symbol", "")).upper()
         if self._symbol != "588080.SH":
@@ -291,14 +291,6 @@ class S007V1:
                 0,
                 CutoffRule.LATEST_AVAILABLE,
             ),
-            InputRequirement(
-                _EVIDENCE,
-                Dataset.STRATEGY_FEATURE_EVIDENCE.value,
-                release.release_id,
-                "daily",
-                252,
-                CutoffRule.LATEST_AVAILABLE,
-            ),
         )
         self._definition = RuntimeDefinition(
             1,
@@ -348,19 +340,11 @@ class S007V1:
         self, dataflows: Dataflows, deployment: DeploymentSpec, through: datetime
     ) -> PublishedStrategyData:
         cutoff = through.astimezone(_SHANGHAI).date()
-        start = cutoff - timedelta(days=550)
+        start = _FROZEN_HISTORY_START.date()
         calendar_end = cutoff + timedelta(days=20)
         options: dict[str, object] = {}
         if deployment.settings.get("env_file") is not None:
             options["env_file"] = str(deployment.settings["env_file"])
-        if deployment.settings.get("repository_root") is not None:
-            options.update(
-                {
-                    "repository_root": str(deployment.settings["repository_root"]),
-                    "source_path": str(self._data_source["path"]),
-                    "source_sha256": str(self._data_source["sha256"]),
-                }
-            )
         calendar_request = DataRequest(
             Dataset.TRADING_CALENDAR,
             "SSE",
@@ -395,24 +379,21 @@ class S007V1:
                     cutoff.isoformat(),
                     "daily",
                 ),
-                _EVIDENCE: (
-                    Dataset.STRATEGY_FEATURE_EVIDENCE,
-                    self._release.release_id,
-                    None,
-                    "daily",
-                ),
             }
             for name, (dataset, symbol, required, frequency) in specs.items():
                 request_end = previous_date if name == _SHARES else cutoff.isoformat()
+                request_start = (
+                    _GLOBAL_HISTORY_START.date().isoformat()
+                    if name == _SPX
+                    else start.isoformat()
+                )
                 requests[name] = DataRequest(
                     dataset,
                     symbol,
                     (
-                        _FROZEN_HISTORY_START.date().isoformat()
-                        if name == _EVIDENCE
-                        else cutoff.isoformat()
+                        cutoff.isoformat()
                         if name == _EXECUTION
-                        else start.isoformat()
+                        else request_start
                     ),
                     request_end,
                     required,

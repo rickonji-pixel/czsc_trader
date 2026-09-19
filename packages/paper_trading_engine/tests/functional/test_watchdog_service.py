@@ -24,6 +24,7 @@ from paper_trading_engine.watchdog import Watchdog, rotate_log
 from paper_trading_engine.windows_service import (
     _validate_service_host,
     build_bootstrap_source,
+    find_pythonservice_executable,
     service_commands,
 )
 from paper_trading_engine.web_api import PteWebApi
@@ -165,6 +166,18 @@ def test_watchdog_host_rejects_pte_and_rsch_runtime_dependencies(tmp_path, monke
 
     with pytest.raises(RuntimeError, match="runtime dependencies.*vectorbt"):
         _validate_service_host(runtime_root)
+
+
+def test_pythonservice_executable_uses_pywin32_venv_layout(tmp_path):
+    host = tmp_path / ".venv"
+    executable = host / "Lib" / "site-packages" / "win32" / "pythonservice.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"service-host")
+
+    assert find_pythonservice_executable(host) == executable
+
+    with pytest.raises(RuntimeError, match="pythonservice.exe was not found"):
+        find_pythonservice_executable(tmp_path / "missing")
 
 
 def test_pte_release_activation_rollback_and_dynamic_watchdog(tmp_path):

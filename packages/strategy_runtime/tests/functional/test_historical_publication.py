@@ -102,7 +102,7 @@ def test_price_strategies_publish_every_declared_history_input(
     }
 
 
-def test_s007_history_includes_frozen_evidence_and_declared_market_inputs() -> None:
+def test_s007_history_uses_only_declared_market_inputs() -> None:
     strategy = _strategy("S007-v1")
     dataflows = RecordingDataflows()
 
@@ -118,6 +118,7 @@ def test_s007_history_includes_frozen_evidence_and_declared_market_inputs() -> N
     assert set(publication.input_results) == {
         item.name for item in strategy.definition.inputs.requirements
     }
+    assert "strategy_evidence" not in publication.input_results
     share_request = publication.input_requests["etf_share_size"]
     assert share_request.end == "2026-09-14"
     assert share_request.required_cutoff == "2026-09-14"

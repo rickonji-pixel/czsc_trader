@@ -50,6 +50,19 @@ def prepare_service_host(servicemanager_path: Path, host_directory: Path) -> Non
     shutil.copy2(servicemanager_path, destination)
 
 
+def find_pythonservice_executable(venv_root: Path) -> Path:
+    """Locate pywin32's service host across supported Windows layouts."""
+    candidates = (
+        venv_root / "pythonservice.exe",
+        venv_root / "Scripts" / "pythonservice.exe",
+        venv_root / "Lib" / "site-packages" / "win32" / "pythonservice.exe",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise RuntimeError(f"pythonservice.exe was not found under service host: {venv_root}")
+
+
 def build_bootstrap_source(venv_root: Path) -> str:
     paths = [
         venv_root / "Lib" / "site-packages",
@@ -180,7 +193,7 @@ def main(
         config.active_release()
         prepare_service_host(Path(servicemanager.__file__), Path(sys.exec_prefix))
         prepare_service_host(Path(servicemanager.__file__), Path(sys.base_prefix))
-        virtual_host = Path(sys.exec_prefix) / "pythonservice.exe"
+        virtual_host = find_pythonservice_executable(Path(sys.exec_prefix))
         base_host = Path(sys.base_prefix) / "pythonservice.exe"
         if not base_host.exists() or base_host.stat().st_size != virtual_host.stat().st_size:
             shutil.copy2(virtual_host, base_host)

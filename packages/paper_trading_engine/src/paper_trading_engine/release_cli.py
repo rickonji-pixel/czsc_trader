@@ -79,41 +79,6 @@ def _git_release_identity(repo_root: Path, release_id: str, runner: Runner) -> s
     return commit
 
 
-def _copy_runtime_evidence(repo_root: Path, release_root: Path) -> dict[str, str]:
-    copied: dict[str, str] = {}
-
-    def visit(value: object) -> None:
-        if isinstance(value, dict):
-            path_value = value.get("path")
-            expected_hash = value.get("sha256")
-            if isinstance(path_value, str) and isinstance(expected_hash, str):
-                source = (repo_root / path_value).resolve()
-                try:
-                    source.relative_to(repo_root)
-                except ValueError as exc:
-                    raise RuntimeError("strategy runtime evidence escapes repository") from exc
-                if not source.is_file():
-                    raise RuntimeError(f"strategy runtime evidence is missing: {path_value}")
-                actual = file_sha256(source)
-                if actual != expected_hash:
-                    raise RuntimeError(
-                        f"strategy runtime evidence differs from frozen hash: {path_value}"
-                    )
-                target = release_root / Path(path_value)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, target)
-                copied[target.relative_to(release_root).as_posix()] = actual
-            for item in value.values():
-                visit(item)
-        elif isinstance(value, list):
-            for item in value:
-                visit(item)
-
-    for path in sorted((repo_root / "strategies").glob("*/versions/*.json")):
-        visit(json.loads(path.read_text(encoding="utf-8")))
-    return copied
-
-
 def _python_in(venv: Path) -> Path:
     return venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
@@ -376,7 +341,6 @@ def assemble_release(
         runtime_files = {
             constraints.name: file_sha256(constraints),
             **_write_runtime_root(staging),
-            **_copy_runtime_evidence(repo_root, staging),
         }
         staging.replace(destination)
         try:

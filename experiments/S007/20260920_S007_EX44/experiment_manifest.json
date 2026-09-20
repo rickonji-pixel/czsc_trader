@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX44",
+  "status": "COMPLETE",
+  "experiment_type": "FROZEN_V1_ATTRIBUTION_STAGE_CLOSURE",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "BATCH_CLOSED_NO_NEW_CANDIDATE",
+  "research_family_state_target": "PAUSED",
+  "strategy_parameters_changed": false,
+  "candidate_created": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 320,
+      "sha256": "2f98950e7bc526564e0434c414d6702277eab407470e9d1256989c0054ac271b"
+    },
+    "02_design.md": {
+      "bytes": 600,
+      "sha256": "3ed76138f132ce81761121707fed3f33804d9d67d749662e68d17ec241f7217f"
+    },
+    "02_protocol.json": {
+      "bytes": 2154,
+      "sha256": "67fba9723b8d71c16d248c4ece281e39b90a90b4daffa878fe6d773d6ea07bd1"
+    },
+    "03_execution.md": {
+      "bytes": 396,
+      "sha256": "90fbf29401ea2d5932cfbb5e3b1639449565b33a08376a901d6681ab388a99cf"
+    },
+    "04_conclusion.md": {
+      "bytes": 734,
+      "sha256": "c0493255d1ad894e481890475399547bd3900df147f86f36ec094d254ffa7035"
+    },
+    "artifacts/stage_closure.json": {
+      "bytes": 2821,
+      "sha256": "68a21b8cfa23a429fe9417e7dbf491aa0f90d1698fdba0cefc88f955ec19e80d"
+    },
+    "run_experiment.py": {
+      "bytes": 10598,
+      "sha256": "6fb498ced1439af9c3a008aed51e417973ac16770e46943271438fc5625e2733"
+    }
+  }
+}

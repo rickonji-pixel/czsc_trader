@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX44",
+  "experiment_type": "FROZEN_V1_ATTRIBUTION_STAGE_CLOSURE",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "human_review": {
+    "reviewed_by": "tomxiao",
+    "review_date": "2026-09-20",
+    "ex42_decision": "FIXED_FIRST_CLOSE_PRICE_RISK_EXIT_INEFFECTIVE",
+    "ex43_decision": "APPROVE_CHECKPOINT_INFORMATION_INSUFFICIENT_AND_CLOSE_ROUTE"
+  },
+  "sources": {
+    "20260920_S007_EX39": {
+      "manifest_sha256": "171f493c66ae1889c0a820256fa86205ce62f9ef5d5c2df57250306900df2e38",
+      "evidence": "artifacts/attribution_evidence.json",
+      "evidence_sha256": "a3ad0af1c190019c889faff0387a4c0cde3e9ded1db737a9f83bdd7e24fa29b9"
+    },
+    "20260920_S007_EX40": {
+      "manifest_sha256": "a2005d20521aa0bc63024906cf3d49f7c96569b2a8616e88f3e8dd3df038a2d0",
+      "evidence": "artifacts/path_attribution_evidence.json",
+      "evidence_sha256": "e0c5ce412d00933cf197f5ea3840cb3e267bf932fb35cebe5568623f88cf2ea8"
+    },
+    "20260920_S007_EX41": {
+      "manifest_sha256": "61be5f3a965786a0c59f55366a414994698e1f0e10978b18de89f8f37dee60ef",
+      "evidence": "artifacts/action_overlap_evidence.json",
+      "evidence_sha256": "51ebc475eda0b5e2505308e5d38dc4ea80a51b7a168eaa0657cbf53f39d652bc"
+    },
+    "20260920_S007_EX42": {
+      "manifest_sha256": "6a39ce8d80ce68e35db0dcc04caeacb7538289a73c90270f595797beb0f99a05",
+      "evidence": "artifacts/counterfactual_evidence.json",
+      "evidence_sha256": "a1a91ad18e508e578f416f680a4bea6bee7b7a9d99ff904111db47731a399b47"
+    },
+    "20260920_S007_EX43": {
+      "manifest_sha256": "27eb1fe2af1d498bde98fc0d5708eb7174be61f041c9afa817eb47dc67d1a42f",
+      "evidence": "artifacts/mechanism_evidence.json",
+      "evidence_sha256": "11a03c09e9a7e6d5ba5cb0f7f216b4a6a864fd13e56a2643c5af1b3793827ac2"
+    }
+  },
+  "reads_forward_data": false,
+  "runs_new_statistics": false,
+  "simulates_new_policy": false,
+  "searches_parameters": false,
+  "creates_candidate": false,
+  "changes_strategy_parameters": false,
+  "mutates_pte": false
+}

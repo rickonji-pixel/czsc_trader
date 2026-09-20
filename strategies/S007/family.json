@@ -12,11 +12,11 @@
     "objective": "固定S007-v1公式、参数和执行规则，归因正式账户闭合交易在市场状态、持有期和收益集中度上的表现，定位下一候选应优先研究仓位、退出或适用范围",
     "responsibility": "为S007下一候选提供诊断证据，不修改S007-v1，不创建候选，不改变PTE状态"
   },
-  "research_state": "RESEARCHING",
+  "research_state": "PAUSED",
   "schema_version": 2,
   "scope": [
     "588080.SH"
   ],
   "strategy_id": "S007",
-  "updated_at": "2026-09-20T10:52:57+08:00"
+  "updated_at": "2026-09-20T12:46:44+08:00"
 }

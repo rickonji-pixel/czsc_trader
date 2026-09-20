@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX41",
+  "experiment_type": "FROZEN_V1_CAUSAL_ACTION_OVERLAP_AUDIT",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "checkpoint": "FIRST_HOLDING_SESSION_CLOSE",
+  "permutation_trials": 5000,
+  "random_seed": 20260920,
+  "sources": {
+    "path_archive": "experiments/S007/20260920_S007_EX40",
+    "path_manifest_sha256": "a2005d20521aa0bc63024906cf3d49f7c96569b2a8616e88f3e8dd3df038a2d0",
+    "trade_path_attribution_sha256": "8318d6247986eb250290dbfe4398e08a12ddac7e50fee10d200d43f3d5de5fe7",
+    "strategy_version": "strategies/S007/versions/v1.json",
+    "strategy_version_sha256": "ef5f28803422979ab416510e52f02eda7dbe009d4f1309c6c831bbce8a0d50e8"
+  },
+  "reads_forward_data": false,
+  "simulates_new_policy": false,
+  "searches_parameters": false,
+  "creates_candidate": false,
+  "changes_strategy_parameters": false,
+  "mutates_pte": false
+}

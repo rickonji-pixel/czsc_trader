@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX41",
+  "status": "COMPLETE",
+  "experiment_type": "FROZEN_V1_CAUSAL_ACTION_OVERLAP_AUDIT",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "ACTION_OVERLAP_AUDIT_COMPLETE",
+  "strategy_parameters_changed": false,
+  "candidate_created": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 510,
+      "sha256": "dd2204454b3419161fa866be9bf107d07d16330c99231d9a746cecfba0c80dd5"
+    },
+    "02_design.md": {
+      "bytes": 1600,
+      "sha256": "8034030c6a335e8452d93e5ce89e182ee6cb1f8c2fe9bdd1206ad07541f72cea"
+    },
+    "02_protocol.json": {
+      "bytes": 1012,
+      "sha256": "8860c2961e4cf10ef03cc106c38f78700b819b78c786c75d26adb6204996c4ec"
+    },
+    "03_execution.md": {
+      "bytes": 620,
+      "sha256": "bf5b3afe52f35d1db83f89007933e9fb49174f7cc9d32ddb73f25785bb9bb33d"
+    },
+    "04_conclusion.md": {
+      "bytes": 1935,
+      "sha256": "66a8dfe1033a2a1f70061acdd898df9daa0932c5ea65d597e696d2632ce355c5"
+    },
+    "artifacts/action_overlap_evidence.json": {
+      "bytes": 3823,
+      "sha256": "10d3b4b8b219d4bd5b6826d60e93d7478919f9fc0c8cb783a1a1a79ec4ffa57a"
+    },
+    "artifacts/overlap_group_summary.csv": {
+      "bytes": 690,
+      "sha256": "ba96b944a708aed1f8819c7a6744e9bec8c140672677cee736a287093fb047e4"
+    },
+    "artifacts/trade_action_overlap.csv": {
+      "bytes": 74412,
+      "sha256": "93977b4367b452935e168775efd6a4f6d516275a1a3289000e602795b5e1f0dc"
+    },
+    "run_experiment.py": {
+      "bytes": 10121,
+      "sha256": "173f63bd9d8a4d7601249ab4edb620525adcf6b6da9d2de8049e95c1e1d19b3c"
+    }
+  }
+}

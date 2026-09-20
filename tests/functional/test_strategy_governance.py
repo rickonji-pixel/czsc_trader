@@ -298,6 +298,9 @@ def test_research_family_can_start_a_second_governed_batch(functional_repo: Path
 def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     functional_repo: Path, capsys, monkeypatch, candidate_payload
 ) -> None:
+    initial_credential_count = StrategyRegistry(
+        functional_repo / "strategies"
+    ).validate_all()["credentials"]
     payload, package = candidate_payload
     from strategy_runtime import StrategyCandidate, StrategyLoader
     from czsc_trader.application.runtime_acceptance import _runtime_report
@@ -657,7 +660,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     ]
     assert completed.seals[-1].content["release_id"] == "S900-v1"
     assert not (functional_repo / "strategies" / "S900" / "reviews").exists()
-    assert registry.validate_all()["credentials"] == 1
+    assert registry.validate_all()["credentials"] == initial_credential_count + 1
     assert [event.event_type for event in registry.lifecycle_events("S900")] == [
         "RESEARCH_BATCH_CREATED",
         "VERSION_FROZEN",

@@ -10,6 +10,7 @@ from paper_trading_engine.account_engine import (
     ActiveOrderPendingError,
 )
 from paper_trading_engine.audit import AuditRecorder
+from paper_trading_engine.broker import TERMINAL_INTENT_STATUSES
 from paper_trading_engine.coordinator import PteCoordinator
 from paper_trading_engine.contracts import AdviceDecision, OrderSpec, PlanLegSpec
 from paper_trading_engine.futu_execution import FutuExecution
@@ -226,9 +227,10 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     accounts.refresh_account("s001-v1")
     assert len(store.account_decisions("s001-v1")) == 1
     assert len(store.pending_account_intents()) == 1
-    with pytest.raises(ActiveOrderPendingError, match="禁止人工驱动"):
-        accounts.drive_account_decision("s001-v1")
-    assert len(advice.calls) == 1
+    store.set_setting("last_data_publish_date", "2026-09-01")
+    driven = accounts.drive_account_decision("s001-v1")
+    assert driven.outcome == "DECISION_REUSED"
+    assert len(advice.calls) == 2
     saved_decision = store.account_decisions("s001-v1")[0]
     assert re.fullmatch(r"DEC-20260908-1435-[0-9A-F]{12}", saved_decision["decision_id"])
     assert saved_decision["payload"]["source_decision_id"] == "DEC-ONE"
@@ -270,9 +272,9 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
     assert len(store.account_intents("s001-v1")) == 1
     blocked_events = store.query_audit_events(event_type="ORDER_SUBMISSION_BLOCKED")
-    assert {row["details"]["reason"] for row in blocked_events} == {
-        "manual_decision_with_active_order", "previous_order_active",
-    }
+    assert [row["details"]["reason"] for row in blocked_events] == [
+        "previous_order_active",
+    ]
     execution.refresh_orders()
     assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
 
@@ -584,10 +586,12 @@ def test_operator_can_drive_one_account_decision_with_explicit_result_and_audit(
         strategy_version="v1", release_hash="b" * 64,
         qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
     )
-    accounts = AccountEngine(store, FakeAdvice(decision()))
+    advice = FakeAdvice(decision())
+    accounts = AccountEngine(store, advice)
     coordinator = PteCoordinator(accounts, object())
 
     first = coordinator.drive_virtual_account_decision("s001-v1")
+    store.set_setting("last_data_publish_date", "2026-09-01")
     repeated = coordinator.drive_virtual_account_decision("s001-v1")
 
     assert first == {
@@ -598,11 +602,25 @@ def test_operator_can_drive_one_account_decision_with_explicit_result_and_audit(
         "reused_decision": False,
     }
     assert repeated["decision_id"] == first["decision_id"]
+    assert repeated["status"] == "DECISION_REUSED"
     assert repeated["reused_decision"] is True
+    assert len(advice.calls) == 2
+    advice.value = replace(
+        decision(), decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+    )
+    superseded = coordinator.drive_virtual_account_decision("s001-v1")
+    assert superseded["status"] == "DECISION_SUPERSEDED"
+    assert superseded["superseded_decision_id"] == first["decision_id"]
+    assert superseded["reused_decision"] is False
+    decisions = store.account_decisions("s001-v1")
+    assert {row["decision_id"]: row["status"] for row in decisions} == {
+        first["decision_id"]: "SUPERSEDED",
+        superseded["decision_id"]: "ACTIVE",
+    }
     events = store.query_audit_events(
         event_type="ACCOUNT_DECISION_DRIVEN", account_id="s001-v1",
     )
-    assert len(events) == 2
+    assert len(events) == 3
     assert all(row["actor_type"] == "OPERATOR" for row in events)
     store.set_virtual_health("s001-v1", "BLOCKED", "等待人工处理")
     with pytest.raises(AccountDecisionBlockedError, match="已阻塞"):
@@ -613,4 +631,109 @@ def test_operator_can_drive_one_account_decision_with_explicit_result_and_audit(
     assert len(failed) == 1
     assert failed[0]["outcome"] == "FAILURE"
     assert failed[0]["details"]["error_type"] == "AccountDecisionBlockedError"
+    store.close()
+
+
+def test_operator_supersedes_unsubmitted_intents_and_releases_reservations(tmp_path):
+    store = PaperStore(tmp_path / "supersede-intents.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
+    coordinator = PteCoordinator(AccountEngine(store, advice), object())
+    first = coordinator.drive_virtual_account_decision("s001-v1")
+    old_intent = store.account_intents("s001-v1")[0]
+    assert store.virtual_account("s001-v1")["frozen_cash"] != "0.0000"
+
+    advice.value = replace(
+        decision(OrderSpec("BUY", 2000, "LIMIT", 1.67, "DAY")),
+        decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+    )
+    result = coordinator.drive_virtual_account_decision("s001-v1")
+
+    assert result["status"] == "DECISION_AND_INTENTS_SUPERSEDED"
+    assert result["superseded_decision_id"] == first["decision_id"]
+    assert result["superseded_intent_ids"] == [old_intent["intent_id"]]
+    assert store.account_intent(old_intent["intent_id"])["status"] == "SUPERSEDED"
+    current_intents = [
+        row for row in store.account_intents("s001-v1")
+        if row["status"] not in TERMINAL_INTENT_STATUSES
+    ]
+    assert len(current_intents) == 1
+    assert current_intents[0]["decision_id"] == result["decision_id"]
+    assert current_intents[0]["quantity"] == 2000
+    account = store.virtual_account("s001-v1")
+    assert float(account["cash"]) + float(account["frozen_cash"]) == pytest.approx(100_000)
+    assert float(account["frozen_cash"]) == pytest.approx(3341.67)
+    assert len(store.query_audit_events(event_type="DECISION_SUPERSEDED")) == 1
+    assert len(store.query_audit_events(event_type="ORDER_INTENT_SUPERSEDED")) == 1
+    store.close()
+
+
+def test_operator_cannot_supersede_claimed_intent(tmp_path):
+    store = PaperStore(tmp_path / "claimed-intent.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
+    accounts = AccountEngine(store, advice)
+    accounts.drive_account_decision("s001-v1")
+    intent = store.account_intents("s001-v1")[0]
+    assert store.claim_account_intent(intent["intent_id"])
+    advice.value = replace(
+        decision(), decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+    )
+
+    with pytest.raises(ActiveOrderPendingError, match="禁止替换"):
+        accounts.drive_account_decision("s001-v1")
+
+    assert store.account_intent(intent["intent_id"])["status"] == "SUBMITTING"
+    assert len(store.account_decisions("s001-v1")) == 1
+    store.close()
+
+
+def test_operator_supersession_rolls_back_as_one_transaction(tmp_path, monkeypatch):
+    store = PaperStore(tmp_path / "supersession-rollback.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
+    accounts = AccountEngine(store, advice)
+    first = accounts.drive_account_decision("s001-v1")
+    old_intent = store.account_intents("s001-v1")[0]
+    before = store.virtual_account("s001-v1")
+    original = store.create_account_immediate_intents
+
+    def fail_new_intents(**kwargs):
+        if kwargs["decision_id"] != first.account_status["last_decision"]["decision_id"]:
+            raise RuntimeError("simulated new intent persistence failure")
+        return original(**kwargs)
+
+    monkeypatch.setattr(store, "create_account_immediate_intents", fail_new_intents)
+    advice.value = replace(
+        decision(OrderSpec("BUY", 2000, "LIMIT", 1.67, "DAY")),
+        decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+    )
+
+    with pytest.raises(RuntimeError, match="simulated new intent"):
+        accounts.drive_account_decision("s001-v1")
+
+    after = store.virtual_account("s001-v1")
+    assert after["last_decision_id"] == before["last_decision_id"]
+    assert after["cash"] == before["cash"]
+    assert after["frozen_cash"] == before["frozen_cash"]
+    assert store.account_intent(old_intent["intent_id"])["status"] == "PENDING_SUBMIT"
+    decisions = store.account_decisions("s001-v1")
+    assert len(decisions) == 1 and decisions[0]["status"] == "ACTIVE"
+    assert store.query_audit_events(event_type="DECISION_SUPERSEDED") == []
+    assert store.query_audit_events(event_type="ORDER_INTENT_SUPERSEDED") == []
     store.close()

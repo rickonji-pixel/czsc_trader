@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from hashlib import sha256
@@ -25,6 +25,14 @@ class ActiveOrderPendingError(RuntimeError):
 
 class AccountDecisionBlockedError(RuntimeError):
     """The account cannot safely turn a strategy decision into durable order intents."""
+
+
+@dataclass(frozen=True)
+class AccountDecisionDriveResult:
+    account_status: dict[str, object]
+    outcome: str
+    superseded_decision_id: str | None = None
+    superseded_intent_ids: tuple[str, ...] = ()
 
 
 class AccountEngine:
@@ -77,11 +85,11 @@ class AccountEngine:
             return self._refresh_account(account_id)
 
     def drive_account_decision(self, account_id: str):
-        """Explicitly evaluate one account when no prior order remains active."""
+        """Evaluate one account and supersede only local, unsubmitted prior work."""
         with self._decision_lock:
-            return self._refresh_account(account_id, require_clear_intents=True)
+            return self._refresh_account(account_id, operator_drive=True)
 
-    def _refresh_account(self, account_id: str, *, require_clear_intents: bool = False):
+    def _refresh_account(self, account_id: str, *, operator_drive: bool = False):
         account = self.store.virtual_account(account_id)
         if self._draining:
             raise AccountDecisionBlockedError("PTE正在停止，禁止生成新的账户决策")
@@ -101,35 +109,50 @@ class AccountEngine:
         if active_intents:
             previous = json.loads(previous_payload) if previous_payload else {}
             published_date = self.store.get_setting("last_data_publish_date")
-            if require_clear_intents or (
-                published_date and published_date != previous.get("signal_date")
-            ):
-                message = (
-                    "存在未完成订单，禁止人工驱动账户决策"
-                    if require_clear_intents
-                    else "存在未完成订单，新数据决策暂缓生成并等待对账"
+            replaceable = (
+                operator_drive
+                and bool(previous.get("decision_id"))
+                and all(
+                    row["decision_id"] == previous["decision_id"]
+                    and row["status"] in {"PENDING_SUBMIT", "WAITING_DEPENDENCY"}
+                    and row.get("channel_order_id") is None
+                    for row in active_intents
                 )
+            )
+            if operator_drive and not replaceable:
+                message = "存在已提交或状态不确定的订单，禁止替换账户决策"
                 self.audit.record(
                     "ORDER_SUBMISSION_BLOCKED", source="account_engine", outcome="SKIPPED",
                     account_id=account_id, strategy_id=account["strategy_id"],
                     strategy_version=account["strategy_version"],
                     release_hash=account["release_hash"], symbol=account["symbol"],
                     correlation_id=(
-                        (previous.get("decision_id") or active_intents[0]["intent_id"])
-                        if require_clear_intents
-                        else f"publication:{published_date}"
+                        previous.get("decision_id") or active_intents[0]["intent_id"]
                     ),
                     details={
-                        "reason": (
-                            "manual_decision_with_active_order"
-                            if require_clear_intents else "previous_order_active"
-                        ),
+                        "reason": "manual_decision_with_nonreplaceable_order",
                         "published_date": published_date,
                         "active_intent_ids": [row["intent_id"] for row in active_intents],
                     },
                 )
                 raise ActiveOrderPendingError(message)
-            return self.status(account_id)
+            if not operator_drive and published_date and published_date != previous.get("signal_date"):
+                message = "存在未完成订单，新数据决策暂缓生成并等待对账"
+                self.audit.record(
+                    "ORDER_SUBMISSION_BLOCKED", source="account_engine", outcome="SKIPPED",
+                    account_id=account_id, strategy_id=account["strategy_id"],
+                    strategy_version=account["strategy_version"],
+                    release_hash=account["release_hash"], symbol=account["symbol"],
+                    correlation_id=f"publication:{published_date}",
+                    details={
+                        "reason": "previous_order_active",
+                        "published_date": published_date,
+                        "active_intent_ids": [row["intent_id"] for row in active_intents],
+                    },
+                )
+                raise ActiveOrderPendingError(message)
+            if not operator_drive:
+                return self.status(account_id)
         previous_action = (
             json.loads(previous_payload).get("action") if previous_payload else None
         )
@@ -188,6 +211,103 @@ class AccountEngine:
         publication_id = publications.get(str(account["symbol"]).upper())
         if isinstance(publication_id, str) and publication_id:
             payload["data_publication_id"] = publication_id
+        previous = json.loads(previous_payload) if previous_payload else None
+        previous_decision_id = previous.get("decision_id") if previous else None
+        supersede_previous = bool(
+            operator_drive
+            and previous_decision_id
+            and decision.decision_id != previous_decision_id
+            and (
+                decision.signal_date.isoformat() == previous.get("signal_date")
+                or active_intents
+            )
+        )
+        superseded_intent_ids: tuple[str, ...] = ()
+        if supersede_previous:
+            with self.store.atomic_decision_update():
+                current_active = [
+                    row for row in self.store.account_intents(account_id)
+                    if row["status"] not in TERMINAL_INTENT_STATUSES
+                ]
+                if any(
+                    row["decision_id"] != previous_decision_id
+                    or row["status"] not in {"PENDING_SUBMIT", "WAITING_DEPENDENCY"}
+                    or row.get("channel_order_id") is not None
+                    for row in current_active
+                ):
+                    raise ActiveOrderPendingError(
+                        "订单已提交或状态已变化，禁止替换账户决策"
+                    )
+                superseded_intent_ids = tuple(
+                    str(row["intent_id"]) for row in current_active
+                )
+                for row in current_active:
+                    intent_id = str(row["intent_id"])
+                    self.store.release_account_intent(
+                        intent_id, "SUPERSEDED", _in_transaction=True,
+                        audit_event=self.audit.build(
+                            "ORDER_INTENT_SUPERSEDED", source="account_engine",
+                            account_id=account_id, strategy_id=account["strategy_id"],
+                            strategy_version=account["strategy_version"],
+                            release_hash=account["release_hash"], symbol=account["symbol"],
+                            channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                            decision_id=str(previous_decision_id),
+                            correlation_id=decision.decision_id,
+                            details={
+                                "intent_id": intent_id,
+                                "superseded_by": decision.decision_id,
+                                "previous_status": row["status"],
+                            },
+                        ),
+                    )
+                self.store.supersede_account_decision(
+                    account_id, str(previous_decision_id), decision.decision_id,
+                    _in_transaction=True,
+                    audit_event=self.audit.build(
+                        "DECISION_SUPERSEDED", source="account_engine",
+                        account_id=account_id, strategy_id=account["strategy_id"],
+                        strategy_version=account["strategy_version"],
+                        release_hash=account["release_hash"], symbol=account["symbol"],
+                        decision_id=str(previous_decision_id),
+                        correlation_id=decision.decision_id,
+                        details={
+                            "superseded_by": decision.decision_id,
+                            "signal_date": decision.signal_date.isoformat(),
+                            "superseded_intent_ids": list(superseded_intent_ids),
+                        },
+                    ),
+                )
+                status = self._persist_generated_decision(
+                    account_id, payload, execution_account, decision, account,
+                    previous_action,
+                )
+        else:
+            status = self._persist_generated_decision(
+                account_id, payload, execution_account, decision, account, previous_action,
+            )
+        if not operator_drive:
+            return status
+        if supersede_previous:
+            outcome = (
+                "DECISION_AND_INTENTS_SUPERSEDED"
+                if superseded_intent_ids else "DECISION_SUPERSEDED"
+            )
+        elif decision.decision_id == previous_decision_id:
+            outcome = "DECISION_REUSED"
+        else:
+            outcome = "DECISION_COMPLETED"
+        return AccountDecisionDriveResult(
+            account_status=status,
+            outcome=outcome,
+            superseded_decision_id=(
+                str(previous_decision_id) if supersede_previous else None
+            ),
+            superseded_intent_ids=superseded_intent_ids,
+        )
+
+    def _persist_generated_decision(
+        self, account_id, payload, execution_account, decision, account, previous_action,
+    ):
         self.store.save_account_decision(account_id, payload)
         valued_account = self.store.virtual_account(account_id)
         close = Decimal(str(decision.execution_reference_price))

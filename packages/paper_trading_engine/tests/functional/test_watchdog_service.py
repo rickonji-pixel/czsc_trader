@@ -16,7 +16,12 @@ from paper_trading_engine.runtime_release import (
     rollback_release,
     tree_sha256,
 )
-from paper_trading_engine.store import PaperStore, backup_runtime_database
+from paper_trading_engine.store import (
+    RUNTIME_DATABASE_COMPATIBLE_VERSIONS,
+    RUNTIME_DATABASE_SCHEMA_VERSION,
+    PaperStore,
+    backup_runtime_database,
+)
 from paper_trading_engine.runtime_lock import RuntimeAlreadyOwnedError, RuntimeDatabaseLock
 from paper_trading_engine.release_cli import deploy_previous_release, deploy_release
 from paper_trading_engine.watchdog import Watchdog, rotate_log
@@ -56,7 +61,10 @@ def create_release(runtime_root, release_id, marker):
         "release_id": release_id,
         "git_commit": marker * 40,
         "python_version": "3.12.10",
-        "database_schema": {"current": 1, "compatible": [1]},
+        "database_schema": {
+            "current": RUNTIME_DATABASE_SCHEMA_VERSION,
+            "compatible": list(RUNTIME_DATABASE_COMPATIBLE_VERSIONS),
+        },
         "strategy_snapshot_sha256": tree_sha256(strategies),
         "runtime_files": {"runtime.txt": file_sha256(runtime_file)},
     }
@@ -172,6 +180,43 @@ def test_runtime_database_rejects_invalid_schema_identity(tmp_path):
 
     with pytest.raises(RuntimeError, match="schema is invalid: 'corrupt'"):
         PaperStore(database)
+
+
+def test_runtime_database_migrates_v1_decisions_to_supersession_schema(tmp_path):
+    database = tmp_path / "schema-v1.db"
+    connection = sqlite3.connect(database)
+    connection.executescript(
+        """
+        CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        INSERT INTO settings(key,value) VALUES('runtime_database_schema_version','1');
+        CREATE TABLE decisions (
+            account_id TEXT NOT NULL,
+            decision_id TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            signal_date TEXT NOT NULL,
+            valid_session TEXT NOT NULL,
+            generated_at TEXT NOT NULL,
+            PRIMARY KEY(account_id,decision_id)
+        );
+        CREATE UNIQUE INDEX uq_decisions_account_signal_date
+        ON decisions(account_id,signal_date);
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    store = PaperStore(database)
+    assert store.get_setting("runtime_database_schema_version") == "2"
+    columns = {
+        row["name"] for row in store._connection.execute("PRAGMA table_info(decisions)")
+    }
+    indexes = {
+        row["name"] for row in store._connection.execute("PRAGMA index_list(decisions)")
+    }
+    assert {"status", "superseded_by", "superseded_at"}.issubset(columns)
+    assert "uq_decisions_account_signal_date" not in indexes
+    assert "uq_decisions_active_signal_date" in indexes
+    store.close()
 
 
 def test_watchdog_host_rejects_pte_and_rsch_runtime_dependencies(tmp_path, monkeypatch):
@@ -330,9 +375,9 @@ def test_pte_deployment_verifies_release_and_rolls_back(tmp_path):
 
     incompatible_manifest = runtime_root / "releases" / "v0.5.0" / "release-manifest.json"
     incompatible = json.loads(incompatible_manifest.read_text(encoding="utf-8"))
-    incompatible["database_schema"] = {"current": 2, "compatible": [2]}
+    incompatible["database_schema"] = {"current": 3, "compatible": [3]}
     incompatible_manifest.write_text(json.dumps(incompatible), encoding="utf-8")
-    with pytest.raises(RuntimeError, match="does not support database schema 1"):
+    with pytest.raises(RuntimeError, match="does not support database schema 2"):
         deploy_release(
             runtime_root,
             "v0.5.0",

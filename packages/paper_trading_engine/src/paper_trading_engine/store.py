@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager, nullcontext
 from datetime import date, datetime, timezone
 import hashlib
 import json
@@ -36,8 +37,8 @@ from .channel import (
 
 
 DEFAULT_FUTU_CAPITAL_POOL = "1000000.0000"
-RUNTIME_DATABASE_SCHEMA_VERSION = 1
-RUNTIME_DATABASE_COMPATIBLE_VERSIONS = (1,)
+RUNTIME_DATABASE_SCHEMA_VERSION = 2
+RUNTIME_DATABASE_COMPATIBLE_VERSIONS = (1, 2)
 
 
 def _utc_now() -> str:
@@ -97,6 +98,7 @@ class PaperStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
+        self._atomic_decision_depth = 0
         self._connection = sqlite3.connect(self.path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         try:
@@ -181,10 +183,11 @@ class PaperStore:
                 signal_date TEXT NOT NULL,
                 valid_session TEXT NOT NULL,
                 generated_at TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'ACTIVE',
+                superseded_by TEXT,
+                superseded_at TEXT,
                 PRIMARY KEY(account_id, decision_id)
             );
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_decisions_account_signal_date
-            ON decisions(account_id, signal_date);
             CREATE TABLE IF NOT EXISTS fills (
                 fill_id TEXT PRIMARY KEY,
                 account_id TEXT NOT NULL,
@@ -288,6 +291,14 @@ class PaperStore:
         self._ensure_column("virtual_accounts", "qualification_snapshot", "TEXT")
         self._ensure_column("virtual_accounts", "channel_id", "TEXT NOT NULL DEFAULT 'futu_simulate_cn'")
         self._ensure_column("virtual_accounts", "account_type", "TEXT NOT NULL DEFAULT 'STRATEGY'")
+        self._ensure_column("decisions", "status", "TEXT NOT NULL DEFAULT 'ACTIVE'")
+        self._ensure_column("decisions", "superseded_by", "TEXT")
+        self._ensure_column("decisions", "superseded_at", "TEXT")
+        self._connection.execute("DROP INDEX IF EXISTS uq_decisions_account_signal_date")
+        self._connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_decisions_active_signal_date "
+            "ON decisions(account_id,signal_date) WHERE status='ACTIVE'"
+        )
         self._ensure_column("virtual_accounts", "status", "TEXT NOT NULL DEFAULT 'RUNNING'")
         self._ensure_column("fills", "realized_pnl", "TEXT NOT NULL DEFAULT '0.0000'")
         self._ensure_column("orders", "created_at", "TEXT")
@@ -411,6 +422,31 @@ class PaperStore:
             (str(RUNTIME_DATABASE_SCHEMA_VERSION),),
         )
         self._connection.commit()
+
+    @contextmanager
+    def atomic_decision_update(self):
+        """Serialize and atomically commit one decision and its local order intents."""
+        with self._lock:
+            if self._connection.in_transaction:
+                raise RuntimeError("nested store transaction is not supported")
+            self._connection.execute("BEGIN IMMEDIATE")
+            self._atomic_decision_depth += 1
+            try:
+                yield
+            except Exception:
+                self._connection.rollback()
+                raise
+            else:
+                self._connection.commit()
+            finally:
+                self._atomic_decision_depth -= 1
+
+    def _write_context(self, in_transaction: bool):
+        return (
+            nullcontext()
+            if in_transaction or self._atomic_decision_depth
+            else self._connection
+        )
 
     def _backfill_intent_reserve_ledger(self) -> int:
         """Make pre-v2 BUY reservations visible in the reconstructable ledger."""
@@ -1190,7 +1226,7 @@ class PaperStore:
         )
 
     def append_audit_event(self, event: AuditEvent) -> dict[str, object]:
-        with self._lock, self._connection:
+        with self._lock, self._write_context(False):
             self._insert_audit_event(event)
         return event.to_dict()
 
@@ -1401,7 +1437,7 @@ class PaperStore:
                     "WHERE i.account_id=? AND i.side='SELL' AND i.status NOT IN "
                     "('REJECTED','SUBMISSION_FAILED','SUBMIT_FAILED','EXPIRED',"
                     "'CANCELLED_ALL','FAILED','DISABLED',"
-                    "'DELETED','FILL_CANCELLED','FILLED_ALL')",
+                    "'DELETED','FILL_CANCELLED','FILLED_ALL','SUPERSEDED')",
                     (account_id,),
                 ).fetchall()
                 reserved_quantity = sum(
@@ -1462,7 +1498,7 @@ class PaperStore:
     def create_account_plan_intents(
         self, *, account_id: str, decision_id: str, symbol: str,
         valid_session: str, fee_rate, legs: list[dict[str, object]],
-        audit_events: list[AuditEvent] | None = None,
+        audit_events: list[AuditEvent] | None = None, _in_transaction: bool = False,
     ) -> list[dict[str, Any]]:
         """Atomically persist every leg of one durable dependent execution plan."""
         from decimal import Decimal
@@ -1482,7 +1518,7 @@ class PaperStore:
             ).hexdigest()[:20].upper()
             for sequence in sequences
         }
-        with self._lock, self._connection:
+        with self._lock, self._write_context(_in_transaction):
             existing = self._connection.execute(
                 "SELECT * FROM intents WHERE account_id=? AND decision_id=? "
                 "ORDER BY order_sequence",
@@ -1594,7 +1630,8 @@ class PaperStore:
                 "FROM intents i LEFT JOIN orders o ON o.intent_id=i.intent_id "
                 "WHERE i.account_id=? AND i.side='SELL' AND i.status NOT IN "
                 "('REJECTED','SUBMISSION_FAILED','SUBMIT_FAILED','EXPIRED',"
-                "'CANCELLED_ALL','FAILED','DISABLED','DELETED','FILL_CANCELLED','FILLED_ALL')",
+                "'CANCELLED_ALL','FAILED','DISABLED','DELETED','FILL_CANCELLED','FILLED_ALL',"
+                "'SUPERSEDED')",
                 (account_id,),
             ).fetchall()
             reserved_sell = sum(
@@ -1682,7 +1719,7 @@ class PaperStore:
     def create_account_immediate_intents(
         self, *, account_id: str, decision_id: str, symbol: str,
         valid_session: str, fee_rate, orders: list[dict[str, object]],
-        audit_events: list[AuditEvent] | None = None,
+        audit_events: list[AuditEvent] | None = None, _in_transaction: bool = False,
     ) -> list[dict[str, Any]]:
         """Atomically persist every immediate order split from one decision."""
         from decimal import Decimal
@@ -1721,7 +1758,7 @@ class PaperStore:
             identity = f"{account_id}\0{decision_id}\0{sequence}".encode("utf-8")
             intent_ids[sequence] = "PTE-" + hashlib.sha256(identity).hexdigest()[:20].upper()
 
-        with self._lock, self._connection:
+        with self._lock, self._write_context(_in_transaction):
             existing = self._connection.execute(
                 "SELECT * FROM intents WHERE account_id=? AND decision_id=? "
                 "ORDER BY order_sequence", (account_id, decision_id),
@@ -1785,7 +1822,8 @@ class PaperStore:
                 "FROM intents i LEFT JOIN orders o ON o.intent_id=i.intent_id "
                 "WHERE i.account_id=? AND i.side='SELL' AND i.status NOT IN "
                 "('REJECTED','SUBMISSION_FAILED','SUBMIT_FAILED','EXPIRED',"
-                "'CANCELLED_ALL','FAILED','DISABLED','DELETED','FILL_CANCELLED','FILLED_ALL')",
+                "'CANCELLED_ALL','FAILED','DISABLED','DELETED','FILL_CANCELLED','FILLED_ALL',"
+                "'SUPERSEDED')",
                 (account_id,),
             ).fetchall()
             reserved_sell = sum(
@@ -1851,7 +1889,9 @@ class PaperStore:
             ).fetchall()
         return [self._account_intent_row(row) for row in rows]
 
-    def save_account_decision(self, account_id: str, payload: dict[str, object]) -> dict[str, Any]:
+    def save_account_decision(
+        self, account_id: str, payload: dict[str, object], *, _in_transaction: bool = False,
+    ) -> dict[str, Any]:
         decision_id = str(payload["decision_id"])
         signal_date = str(payload["signal_date"])
         valid_session = str(payload["valid_session"])
@@ -1862,9 +1902,10 @@ class PaperStore:
             # A core identity exists only after the setup order is fully filled.
             # The planned quantity remains available in the immutable decision payload.
             cycle_target = None
-        with self._lock, self._connection:
+        with self._lock, self._write_context(_in_transaction):
             same_session = self._connection.execute(
-                "SELECT decision_id FROM decisions WHERE account_id=? AND signal_date=?",
+                "SELECT decision_id FROM decisions "
+                "WHERE account_id=? AND signal_date=? AND status='ACTIVE'",
                 (account_id, signal_date),
             ).fetchone()
             if same_session is not None and same_session["decision_id"] != decision_id:
@@ -1872,10 +1913,12 @@ class PaperStore:
                     "account already has another decision for the same signal date"
                 )
             existing = self._connection.execute(
-                "SELECT payload FROM decisions WHERE account_id=? AND decision_id=?",
+                "SELECT payload,status FROM decisions WHERE account_id=? AND decision_id=?",
                 (account_id, decision_id),
             ).fetchone()
             if existing is not None:
+                if existing["status"] != "ACTIVE":
+                    raise ValueError("superseded decision cannot become active again")
                 previous = json.loads(existing["payload"])
                 current = json.loads(encoded)
                 runtime_fields = {
@@ -1900,6 +1943,25 @@ class PaperStore:
                 "cycle_target=?,updated_at=? WHERE account_id=?",
                 (decision_id, canonical, cycle_target, now, account_id),
             )
+        return self.account_decision(account_id, decision_id)
+
+    def supersede_account_decision(
+        self, account_id: str, decision_id: str, superseded_by: str,
+        *, audit_event: AuditEvent | None = None, _in_transaction: bool = False,
+    ) -> dict[str, Any]:
+        if decision_id == superseded_by:
+            raise ValueError("a decision cannot supersede itself")
+        now = _utc_now()
+        with self._lock, self._write_context(_in_transaction):
+            changed = self._connection.execute(
+                "UPDATE decisions SET status='SUPERSEDED',superseded_by=?,superseded_at=? "
+                "WHERE account_id=? AND decision_id=? AND status='ACTIVE'",
+                (superseded_by, now, account_id, decision_id),
+            ).rowcount
+            if not changed:
+                raise ValueError("active decision to supersede was not found")
+            if audit_event is not None:
+                self._insert_audit_event(audit_event)
         return self.account_decision(account_id, decision_id)
 
     def account_decision(self, account_id: str, decision_id: str) -> dict[str, Any]:
@@ -2125,6 +2187,7 @@ class PaperStore:
 
     def release_account_intent(
         self, intent_id: str, status: str, *, attention_reason: str | None = None,
+        audit_event: AuditEvent | None = None, _in_transaction: bool = False,
     ) -> dict[str, Any]:
         """Release the unfilled BUY reservation once and terminate an intent."""
         from decimal import Decimal
@@ -2132,7 +2195,7 @@ class PaperStore:
         if status not in TERMINAL_INTENT_STATUSES:
             raise ValueError("intent release requires a terminal status")
         now = _utc_now()
-        with self._lock, self._connection:
+        with self._lock, self._write_context(_in_transaction):
             intent = self._connection.execute(
                 "SELECT * FROM intents WHERE intent_id=?", (intent_id,)
             ).fetchone()
@@ -2192,6 +2255,8 @@ class PaperStore:
                         int(account["quantity"]), now,
                     ),
                 )
+            if audit_event is not None:
+                self._insert_audit_event(audit_event)
         result = self.account_intent(intent_id)
         assert result is not None
         return result
@@ -2783,9 +2848,12 @@ class PaperStore:
             for row in rows
         ]
 
-    def save_account_snapshot(self, account_id: str, session: str, payload: dict[str, object]) -> None:
+    def save_account_snapshot(
+        self, account_id: str, session: str, payload: dict[str, object],
+        *, _in_transaction: bool = False,
+    ) -> None:
         now = _utc_now()
-        with self._lock, self._connection:
+        with self._lock, self._write_context(_in_transaction):
             if self._connection.execute(
                 "SELECT 1 FROM virtual_accounts WHERE account_id=?", (account_id,)
             ).fetchone() is None:

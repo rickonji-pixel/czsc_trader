@@ -185,20 +185,19 @@ class PteCoordinator:
     def drive_virtual_account_decision(self, account_id: str):
         """Drive one virtual account decision and return its operational identity."""
         account = None
-        previous_decision_id = None
         try:
             account = self.store.virtual_account(account_id)
-            previous_decision_id = account.get("last_decision_id")
-            status = self.accounts.drive_account_decision(account_id)
-            decision = status.get("last_decision")
+            drive = self.accounts.drive_account_decision(account_id)
+            decision = drive.account_status.get("last_decision")
             required_fields = {
                 "decision_id", "signal_date", "valid_session", "action",
                 "target_quantity", "execution_reference_price",
             }
             if not isinstance(decision, dict) or not required_fields.issubset(decision):
                 raise RuntimeError("账户决策完成后未生成有效决策")
+            reused_decision = drive.outcome == "DECISION_REUSED"
             result = {
-                "status": "DECISION_COMPLETED",
+                "status": drive.outcome,
                 "account_id": account_id,
                 "decision_id": decision["decision_id"],
                 "signal_date": decision["signal_date"],
@@ -206,8 +205,12 @@ class PteCoordinator:
                 "action": decision["action"],
                 "target_quantity": decision["target_quantity"],
                 "execution_reference_price": decision["execution_reference_price"],
-                "reused_decision": decision["decision_id"] == previous_decision_id,
+                "reused_decision": reused_decision,
             }
+            if drive.superseded_decision_id is not None:
+                result["superseded_decision_id"] = drive.superseded_decision_id
+            if drive.superseded_intent_ids:
+                result["superseded_intent_ids"] = list(drive.superseded_intent_ids)
             self.audit.record(
                 "ACCOUNT_DECISION_DRIVEN", source="web.control",
                 actor_type="OPERATOR", account_id=account_id,

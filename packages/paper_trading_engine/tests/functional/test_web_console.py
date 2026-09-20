@@ -29,6 +29,7 @@ class FakeEngine:
         self.paused, self.cancelled, self.audit_filters = False, [], []
         self.acknowledged = []
         self.ledger_repairs = []
+        self.decision_requests = []
         self.chart_file = None
     def status(self):
         return {"environment": "SIMULATE", "market": "CN", "symbol": "588080.SH",
@@ -52,6 +53,17 @@ class FakeEngine:
     def repair_account_ledger(self, account_id, intent_id):
         self.ledger_repairs.append((account_id, intent_id))
         return {"status": "REPAIRED", "account_id": account_id, "intent_id": intent_id}
+    def drive_virtual_account_decision(self, account_id):
+        if account_id == "blocked":
+            raise RuntimeError("虚拟账户已阻塞")
+        self.decision_requests.append(account_id)
+        return {
+            "status": "DECISION_COMPLETED", "account_id": account_id,
+            "decision_id": "DEC-ONE", "signal_date": "2026-09-18",
+            "valid_session": "2026-09-21", "action": "HOLD",
+            "target_quantity": 0, "execution_reference_price": 1.68,
+            "reused_decision": True,
+        }
     def system_status(self): return {"scope": {"system": "pte"}, "runtime": "RUNNING"}
     def health(self):
         return {
@@ -254,6 +266,28 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         )[1]
         assert repaired["status"] == "REPAIRED"
         assert engine.ledger_repairs == [("alpha", "PTE-1")]
+        with pytest.raises(HTTPError) as invalid_decision_request:
+            request_json(
+                base + "/api/virtual-accounts/alpha/decision", "POST",
+                {"force": True},
+            )
+        assert invalid_decision_request.value.code == 400
+        driven = request_json(
+            base + "/api/virtual-accounts/alpha/decision", "POST", {},
+        )[1]
+        assert driven == {
+            "status": "DECISION_COMPLETED", "account_id": "alpha",
+            "decision_id": "DEC-ONE", "signal_date": "2026-09-18",
+            "valid_session": "2026-09-21", "action": "HOLD",
+            "target_quantity": 0, "execution_reference_price": 1.68,
+            "reused_decision": True,
+        }
+        assert engine.decision_requests == ["alpha"]
+        with pytest.raises(HTTPError) as blocked_decision:
+            request_json(
+                base + "/api/virtual-accounts/blocked/decision", "POST", {},
+            )
+        assert blocked_decision.value.code == 409
         with pytest.raises(HTTPError) as denied:
             request_json(base + "/api/system/restart", "POST", {}, "wrong")
         assert denied.value.code == 403

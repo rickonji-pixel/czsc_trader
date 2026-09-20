@@ -3,8 +3,14 @@ from datetime import date, datetime, time, timezone
 import re
 import pytest
 
-from paper_trading_engine.account_engine import AccountEngine, AccountRefreshBatchError
+from paper_trading_engine.account_engine import (
+    AccountDecisionBlockedError,
+    AccountEngine,
+    AccountRefreshBatchError,
+    ActiveOrderPendingError,
+)
 from paper_trading_engine.audit import AuditRecorder
+from paper_trading_engine.coordinator import PteCoordinator
 from paper_trading_engine.contracts import AdviceDecision, OrderSpec, PlanLegSpec
 from paper_trading_engine.futu_execution import FutuExecution
 from paper_trading_engine.scheduler import RuntimeScheduler
@@ -216,10 +222,13 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     broker = FakeBroker()
     execution = FutuExecution(store, broker, symbol="588080.SH", today=lambda: date(2026, 9, 2))
 
-    accounts.refresh_account("s001-v1", force=True)
-    accounts.refresh_account("s001-v1", force=True)
+    accounts.refresh_account("s001-v1")
+    accounts.refresh_account("s001-v1")
     assert len(store.account_decisions("s001-v1")) == 1
     assert len(store.pending_account_intents()) == 1
+    with pytest.raises(ActiveOrderPendingError, match="禁止人工驱动"):
+        accounts.drive_account_decision("s001-v1")
+    assert len(advice.calls) == 1
     saved_decision = store.account_decisions("s001-v1")[0]
     assert re.fullmatch(r"DEC-20260908-1435-[0-9A-F]{12}", saved_decision["decision_id"])
     assert saved_decision["payload"]["source_decision_id"] == "DEC-ONE"
@@ -260,7 +269,10 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     assert next_advice.calls == []
     assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
     assert len(store.account_intents("s001-v1")) == 1
-    assert len(store.query_audit_events(event_type="ORDER_SUBMISSION_BLOCKED")) == 1
+    blocked_events = store.query_audit_events(event_type="ORDER_SUBMISSION_BLOCKED")
+    assert {row["details"]["reason"] for row in blocked_events} == {
+        "manual_decision_with_active_order", "previous_order_active",
+    }
     execution.refresh_orders()
     assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
 
@@ -306,7 +318,7 @@ def test_account_snapshot_values_position_with_execution_price(tmp_path):
         cycle_target_quantity=1000, delta_quantity=0,
         signal_reference_price=2.50, execution_reference_price=7.61,
     )
-    AccountEngine(store, FakeAdvice(advice)).refresh_account("s001-v1", force=True)
+    AccountEngine(store, FakeAdvice(advice)).refresh_account("s001-v1")
     snapshot = store.account_snapshots("s001-v1")[0]
     assert float(snapshot["close"]) == pytest.approx(7.61)
     assert float(snapshot["market_value"]) == pytest.approx(7_610)
@@ -551,7 +563,7 @@ def test_existing_decision_id_is_preserved_when_same_decision_is_recomputed(tmp_
         store, FakeAdvice(old_decision),
         now=lambda: datetime(2026, 9, 8, 6, 35, tzinfo=timezone.utc),
     )
-    accounts.refresh_account("s001-v1", force=True)
+    accounts.refresh_account("s001-v1")
 
     saved = store.account_decisions("s001-v1")
     assert len(saved) == 1
@@ -561,4 +573,44 @@ def test_existing_decision_id_is_preserved_when_same_decision_is_recomputed(tmp_
     conflicting["target_quantity"] = 100
     with pytest.raises(ValueError, match="idempotent"):
         store.save_account_decision("s001-v1", conflicting)
+    store.close()
+
+
+def test_operator_can_drive_one_account_decision_with_explicit_result_and_audit(tmp_path):
+    store = PaperStore(tmp_path / "manual-decision.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    accounts = AccountEngine(store, FakeAdvice(decision()))
+    coordinator = PteCoordinator(accounts, object())
+
+    first = coordinator.drive_virtual_account_decision("s001-v1")
+    repeated = coordinator.drive_virtual_account_decision("s001-v1")
+
+    assert first == {
+        "status": "DECISION_COMPLETED", "account_id": "s001-v1",
+        "decision_id": first["decision_id"], "signal_date": "2026-09-01",
+        "valid_session": "2026-09-02", "action": "WAIT",
+        "target_quantity": 0, "execution_reference_price": 1.68,
+        "reused_decision": False,
+    }
+    assert repeated["decision_id"] == first["decision_id"]
+    assert repeated["reused_decision"] is True
+    events = store.query_audit_events(
+        event_type="ACCOUNT_DECISION_DRIVEN", account_id="s001-v1",
+    )
+    assert len(events) == 2
+    assert all(row["actor_type"] == "OPERATOR" for row in events)
+    store.set_virtual_health("s001-v1", "BLOCKED", "等待人工处理")
+    with pytest.raises(AccountDecisionBlockedError, match="已阻塞"):
+        coordinator.drive_virtual_account_decision("s001-v1")
+    failed = store.query_audit_events(
+        event_type="ACCOUNT_DECISION_DRIVE_FAILED", account_id="s001-v1",
+    )
+    assert len(failed) == 1
+    assert failed[0]["outcome"] == "FAILURE"
+    assert failed[0]["details"]["error_type"] == "AccountDecisionBlockedError"
     store.close()

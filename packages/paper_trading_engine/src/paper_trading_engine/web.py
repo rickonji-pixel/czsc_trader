@@ -212,14 +212,19 @@ def create_server(
                     )
                 elif parts[:2] == ["api", "virtual-accounts"] and len(parts) == 4:
                     account_id = unquote(parts[2])
-                    if parts[3] == "pause":
+                    if parts[3] == "decision":
+                        if body:
+                            raise ValueError("decision request body must be empty")
+                        result = operations.drive_virtual_account_decision(account_id)
+                    elif parts[3] == "pause":
                         result = operations.pause_virtual(account_id)
                     elif parts[3] == "resume":
                         result = operations.resume_virtual(account_id)
                     else:
                         self._json(404, {"error": "not found"})
                         return
-                    result = api.virtual_account_snapshot(account_id)
+                    if parts[3] in {"pause", "resume"}:
+                        result = api.virtual_account_snapshot(account_id)
                 elif (
                     parts[:2] == ["api", "virtual-accounts"]
                     and len(parts) == 6
@@ -249,6 +254,8 @@ def create_server(
                     self._json(404, {"error": "not found"})
                     return
                 self._json(200, result)
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
             except KeyError as exc:
                 self._json(404, {"error": f"unknown resource: {exc.args[0]}"})
             except Exception as exc:

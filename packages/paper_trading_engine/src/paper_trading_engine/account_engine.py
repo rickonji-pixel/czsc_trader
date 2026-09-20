@@ -72,11 +72,16 @@ class AccountEngine:
             source_decision_id=source_id,
         )
 
-    def refresh_account(self, account_id: str, *, force: bool = False):
+    def refresh_account(self, account_id: str):
         with self._decision_lock:
-            return self._refresh_account(account_id, force=force)
+            return self._refresh_account(account_id)
 
-    def _refresh_account(self, account_id: str, *, force: bool = False):
+    def drive_account_decision(self, account_id: str):
+        """Explicitly evaluate one account when no prior order remains active."""
+        with self._decision_lock:
+            return self._refresh_account(account_id, require_clear_intents=True)
+
+    def _refresh_account(self, account_id: str, *, require_clear_intents: bool = False):
         account = self.store.virtual_account(account_id)
         if self._draining:
             raise AccountDecisionBlockedError("PTE正在停止，禁止生成新的账户决策")
@@ -96,16 +101,29 @@ class AccountEngine:
         if active_intents:
             previous = json.loads(previous_payload) if previous_payload else {}
             published_date = self.store.get_setting("last_data_publish_date")
-            if published_date and published_date != previous.get("signal_date"):
-                message = "存在未完成订单，新数据决策暂缓生成并等待对账"
+            if require_clear_intents or (
+                published_date and published_date != previous.get("signal_date")
+            ):
+                message = (
+                    "存在未完成订单，禁止人工驱动账户决策"
+                    if require_clear_intents
+                    else "存在未完成订单，新数据决策暂缓生成并等待对账"
+                )
                 self.audit.record(
                     "ORDER_SUBMISSION_BLOCKED", source="account_engine", outcome="SKIPPED",
                     account_id=account_id, strategy_id=account["strategy_id"],
                     strategy_version=account["strategy_version"],
                     release_hash=account["release_hash"], symbol=account["symbol"],
-                    correlation_id=f"publication:{published_date}",
+                    correlation_id=(
+                        (previous.get("decision_id") or active_intents[0]["intent_id"])
+                        if require_clear_intents
+                        else f"publication:{published_date}"
+                    ),
                     details={
-                        "reason": "previous_order_active",
+                        "reason": (
+                            "manual_decision_with_active_order"
+                            if require_clear_intents else "previous_order_active"
+                        ),
                         "published_date": published_date,
                         "active_intent_ids": [row["intent_id"] for row in active_intents],
                     },

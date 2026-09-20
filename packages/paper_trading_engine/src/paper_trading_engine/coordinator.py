@@ -182,6 +182,53 @@ class PteCoordinator:
     def refresh_decision(self, account_id: str):
         return self.accounts.refresh_account(account_id)
 
+    def drive_virtual_account_decision(self, account_id: str):
+        """Drive one virtual account decision and return its operational identity."""
+        account = None
+        previous_decision_id = None
+        try:
+            account = self.store.virtual_account(account_id)
+            previous_decision_id = account.get("last_decision_id")
+            status = self.accounts.drive_account_decision(account_id)
+            decision = status.get("last_decision")
+            required_fields = {
+                "decision_id", "signal_date", "valid_session", "action",
+                "target_quantity", "execution_reference_price",
+            }
+            if not isinstance(decision, dict) or not required_fields.issubset(decision):
+                raise RuntimeError("账户决策完成后未生成有效决策")
+            result = {
+                "status": "DECISION_COMPLETED",
+                "account_id": account_id,
+                "decision_id": decision["decision_id"],
+                "signal_date": decision["signal_date"],
+                "valid_session": decision["valid_session"],
+                "action": decision["action"],
+                "target_quantity": decision["target_quantity"],
+                "execution_reference_price": decision["execution_reference_price"],
+                "reused_decision": decision["decision_id"] == previous_decision_id,
+            }
+            self.audit.record(
+                "ACCOUNT_DECISION_DRIVEN", source="web.control",
+                actor_type="OPERATOR", account_id=account_id,
+                strategy_id=account.get("strategy_id"),
+                strategy_version=account.get("strategy_version"),
+                release_hash=account.get("release_hash"), symbol=account.get("symbol"),
+                decision_id=decision["decision_id"], details=result,
+            )
+            return result
+        except Exception as exc:
+            self.audit.record(
+                "ACCOUNT_DECISION_DRIVE_FAILED", source="web.control",
+                outcome="FAILURE", actor_type="OPERATOR", account_id=account_id,
+                strategy_id=account.get("strategy_id") if account else None,
+                strategy_version=account.get("strategy_version") if account else None,
+                release_hash=account.get("release_hash") if account else None,
+                symbol=account.get("symbol") if account else None,
+                details={"error": str(exc), "error_type": type(exc).__name__},
+            )
+            raise
+
     def status(self):
         channel = self.execution.status()
         accounts = [self.accounts.status(row["account_id"]) for row in self.store.strategy_virtual_accounts()]

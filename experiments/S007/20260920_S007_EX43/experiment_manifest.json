@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX43",
+  "status": "COMPLETE",
+  "experiment_type": "FROZEN_V1_FIRST_CLOSE_MECHANISM_DIAGNOSTIC",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "CHECKPOINT_INFORMATION_INSUFFICIENT",
+  "sample_trades": 43,
+  "strategy_parameters_changed": false,
+  "candidate_created": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 407,
+      "sha256": "349064160f689084a9ae92b5e3159b2a0cf1d1fb93ec404358dd06cf352c9d0a"
+    },
+    "02_design.md": {
+      "bytes": 904,
+      "sha256": "c08c18d1a26a18a35e720c01ae3b234079db7efe86e6e2e22978f7e8951e88ca"
+    },
+    "02_protocol.json": {
+      "bytes": 2026,
+      "sha256": "1a7bd083986ad8004947aea27a7346cce38195d312d2b823738e8d77ae5686b0"
+    },
+    "03_execution.md": {
+      "bytes": 559,
+      "sha256": "b712ccef4b33768e9c4850e02d1957d8f0ac000a265eb19fb116e9d024c8cf87"
+    },
+    "04_conclusion.md": {
+      "bytes": 521,
+      "sha256": "9bcbb3e827d489dcf51257ecbc34fae15a309b477e946e4d63a359d8939823a9"
+    },
+    "artifacts/feature_contrasts.csv": {
+      "bytes": 3444,
+      "sha256": "77fb7b75882c15222c844720d8ac8d74681ccc5d27445f713158c58b2fc63432"
+    },
+    "artifacts/mechanism_evidence.json": {
+      "bytes": 5883,
+      "sha256": "e4669c86705a66c9d2d277a777a75055430c255abd1aef2d2a0bd192a31b28dc"
+    },
+    "artifacts/trigger_mechanism_rows.csv": {
+      "bytes": 23235,
+      "sha256": "281fab55385b1e79448e2978757863495b227c4b817c6f3c0b25cbc6868f6610"
+    },
+    "artifacts/yearly_action_advantage.csv": {
+      "bytes": 397,
+      "sha256": "3a4dd5591fe37435491c9f56896397ac6585ddb2527da2b8b9a07d5d331539f8"
+    },
+    "run_experiment.py": {
+      "bytes": 20382,
+      "sha256": "f3747a5212e36edf2d162bd49c77b890c5397b7eeb2f53aba4edb41ac267b020"
+    }
+  }
+}

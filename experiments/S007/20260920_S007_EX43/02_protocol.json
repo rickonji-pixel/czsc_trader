@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX43",
+  "experiment_type": "FROZEN_V1_FIRST_CLOSE_MECHANISM_DIAGNOSTIC",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "checkpoint": "ENTRY_SESSION_CLOSE",
+  "outcome": "BASELINE_NET_RETURN_MINUS_EX42_OVERLAY_NET_RETURN",
+  "permutation_trials": 10000,
+  "model_permutation_trials": 1000,
+  "random_seed": 20260920,
+  "model": {
+    "kind": "L2_LOGISTIC_REGRESSION",
+    "c": 1.0,
+    "class_weight": "balanced",
+    "decision_threshold": 0.5,
+    "validation": "LEAVE_ONE_ENTRY_YEAR_OUT"
+  },
+  "sources": {
+    "counterfactual_archive": "experiments/S007/20260920_S007_EX42",
+    "counterfactual_manifest_sha256": "6a39ce8d80ce68e35db0dcc04caeacb7538289a73c90270f595797beb0f99a05",
+    "trade_comparison_sha256": "423330aaf529e3e9ed900cb8a7cb22f08486aa5d3c0b3d50c881c343fd45423b",
+    "overlay_triggers_sha256": "7c255b1a24f4e180339cbc2775c35f305f8d22ecbbea1d1ed870e66b070efebd",
+    "counterfactual_evidence_sha256": "a1a91ad18e508e578f416f680a4bea6bee7b7a9d99ff904111db47731a399b47",
+    "path_archive": "experiments/S007/20260920_S007_EX40",
+    "path_manifest_sha256": "a2005d20521aa0bc63024906cf3d49f7c96569b2a8616e88f3e8dd3df038a2d0",
+    "trade_path_attribution_sha256": "8318d6247986eb250290dbfe4398e08a12ddac7e50fee10d200d43f3d5de5fe7",
+    "feature_archive": "experiments/S007/20260915_S007_EX04",
+    "feature_manifest_sha256": "01fa136caeb8f940157c1ae2fd94259b87d4cefcd7e1365c60100ee14fa1d044",
+    "feature_panel_sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d",
+    "strategy_version": "strategies/S007/versions/v1.json",
+    "strategy_version_sha256": "ef5f28803422979ab416510e52f02eda7dbe009d4f1309c6c831bbce8a0d50e8"
+  },
+  "reads_forward_data": false,
+  "simulates_new_policy": false,
+  "searches_parameters": false,
+  "creates_candidate": false,
+  "changes_strategy_parameters": false,
+  "mutates_pte": false
+}

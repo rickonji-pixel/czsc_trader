@@ -52,7 +52,7 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 | 路径 | 内容 | 管理边界 |
 | --- | --- | --- |
 | `src/czsc_trader/` | TDR主程序、命令入口和应用服务 | 项目核心业务代码 |
-| `packages/` | Dataflows、SM、SE、PTE等独立子包 | 各子系统接口、实现和包级测试 |
+| `packages/` | DFLS、SM、SE、PTE等独立子包 | 各子系统接口、实现和包级测试 |
 | `catalog/` | FSC信息族、因子和信号定义 | 项目级定义来源，不保存标的值或Alpha证据 |
 | `strategy_templates/` | STC策略函数模板定义 | 项目级结构来源，不保存搜索结果或绩效证据 |
 | `strategies/` | 正式策略身份、SGC凭据链、冻结版本、生命周期和证据 | 正式策略事实来源，不保存研究草稿 |
@@ -88,14 +88,14 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 
 ### 包级技术文档
 
-- [Dataflows技术说明](packages/dataflows/README.md)：数据包接口和使用方式。
+- [DFLS技术说明](packages/dataflows/README.md)：数据包接口和使用方式。
 - [FSC技术说明](packages/factor_signal_catalog/README.md)：因子与信号定义目录及查询方式。
 - [STC技术说明](packages/strategy_template_catalog/README.md)：策略函数模板、实例化契约及边界。
-- [Strategy Evaluator技术说明](packages/strategy_evaluator/README.md)：候选评估与统计审计接口。
-- [Strategy Runtime技术说明](packages/strategy_runtime/README.md)：候选与冻结策略的数据、决策与执行边界。
-- [Trading Execution Engine技术说明](packages/trading_execution_engine/README.md)：统一成交与账户
+- [SE技术说明](packages/strategy_evaluator/README.md)：候选评估与统计审计接口。
+- [SRT技术说明](packages/strategy_runtime/README.md)：候选与冻结策略的数据、决策与执行边界。
+- [TXE技术说明](packages/trading_execution_engine/README.md)：统一成交与账户
   计算口径及其边界。
-- [Paper Trading Engine技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、
+- [PTE技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、
   接口、运行边界和包级开发信息。
 
 ### 历史设计资料

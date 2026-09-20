@@ -301,11 +301,24 @@ def test_runner_completes_one_deterministic_backtest_cycle() -> None:
     assert strategy.publish_calls == strategy.calculate_calls == account.calls == model.calls == 1
 
 
-def test_execution_pricing_rejects_different_adjusted_and_execution_sessions() -> None:
+def test_execution_pricing_accepts_different_history_with_same_cutoff() -> None:
+    adjusted = pd.DataFrame(
+        {"Date": ["2026-09-16", "2026-09-17"], "Close": [0.9, 1.0]}
+    )
+    execution = pd.DataFrame({"Date": ["2026-09-17"], "Close": [1.0]})
+
+    pricing = ExecutionPricingData("588080.SH", adjusted, execution)
+
+    assert len(pricing.adjusted_daily) == 2
+    assert len(pricing.execution_daily) == 1
+    assert pricing.data_cutoff.isoformat() == "2026-09-17"
+
+
+def test_execution_pricing_rejects_different_adjusted_and_execution_cutoffs() -> None:
     adjusted = pd.DataFrame({"Date": ["2026-09-16"], "Close": [1.0]})
     execution = pd.DataFrame({"Date": ["2026-09-17"], "Close": [1.0]})
 
-    with pytest.raises(RuntimeContractError, match="pricing sessions differ"):
+    with pytest.raises(RuntimeContractError, match="pricing cutoffs differ"):
         ExecutionPricingData("588080.SH", adjusted, execution)
 
 

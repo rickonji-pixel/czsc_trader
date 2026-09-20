@@ -639,10 +639,10 @@ class ExecutionPricingData:
         object.__setattr__(self, "symbol", _text(self.symbol, "pricing symbol").upper())
         adjusted = _daily_prices(self.adjusted_daily, "adjusted daily prices")
         execution = _daily_prices(self.execution_daily, "execution daily prices")
-        adjusted_sessions = pd.DatetimeIndex(adjusted["dt"])
-        execution_sessions = pd.DatetimeIndex(execution["dt"])
-        if not adjusted_sessions.equals(execution_sessions):
-            raise RuntimeContractError("adjusted and execution pricing sessions differ")
+        adjusted_cutoff = pd.Timestamp(adjusted.iloc[-1]["dt"])
+        execution_cutoff = pd.Timestamp(execution.iloc[-1]["dt"])
+        if adjusted_cutoff != execution_cutoff:
+            raise RuntimeContractError("adjusted and execution pricing cutoffs differ")
         object.__setattr__(self, "adjusted_daily", adjusted)
         object.__setattr__(self, "execution_daily", execution)
 

@@ -13,6 +13,8 @@ from uuid import uuid4
 
 import pandas as pd
 from dataflows import DataRequest, DataStatus, Dataflows, Dataset
+from dataflows.errors import DataflowError
+from dataflows.history_validation import inspect_market_collection
 from .loader import StrategyLoader
 from .models import DeploymentSpec, StrategyRelease
 from .publication_store import write_publication
@@ -152,9 +154,16 @@ class StrategyDataPublisher:
         )
         adjusted: dict[str, object] = {}
         execution = None
+        trading_calendar = None
         for publication in publications:
             for name, request in publication.input_requests.items():
                 result = publication.input_results[name]
+                if request.dataset == Dataset.TRADING_CALENDAR.value:
+                    if trading_calendar is None or len(result.dataframe) > len(
+                        trading_calendar.dataframe
+                    ):
+                        trading_calendar = result
+                    continue
                 subject = None if request.symbol is None else request.symbol.upper()
                 if subject != symbol:
                     continue
@@ -190,6 +199,24 @@ class StrategyDataPublisher:
             frequency: result.identity.content_sha256
             for frequency, result in sorted(adjusted.items())
         }
+        try:
+            validation_report = inspect_market_collection(
+                {
+                    frequency: result.dataframe
+                    for frequency, result in adjusted.items()
+                },
+                execution_daily=execution.dataframe,
+                trading_calendar=(
+                    None if trading_calendar is None else trading_calendar.dataframe
+                ),
+                execution_date_policy="subset",
+                calendar_requires_full_coverage=False,
+            )
+            validation_report.require_pass()
+        except DataflowError as exc:
+            raise StrategyPublicationError(
+                f"DFLS market-data validation failed: {exc}"
+            ) from exc
         adjusted_manifest = {
             "schema_version": 3,
             "symbol": symbol,
@@ -221,8 +248,8 @@ class StrategyDataPublisher:
             "fetch_metadata": dict(execution.identity.metadata),
         }
         validation = {
-            "status": "PASS",
-            "contract": "dfsl.v1",
+            **validation_report.to_dict(),
+            "contract": "dfls.history.v1",
             "data_cutoff": end_date,
             "adjusted_identities": adjusted_identities,
             "execution_identity": execution.identity.content_sha256,

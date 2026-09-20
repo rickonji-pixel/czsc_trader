@@ -34,3 +34,9 @@ class IncompleteDataError(DataflowError):
 
 class DataContractError(DataflowError):
     code = "DATA_CONTRACT_MISMATCH"
+
+
+class DataRepairError(DataflowError):
+    """An approved repair could not handle or revalidate source data."""
+
+    code = "DATA_REPAIR_FAILED"

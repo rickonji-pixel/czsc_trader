@@ -9,31 +9,26 @@ import json
 from pathlib import Path
 import re
 import shutil
-from typing import TypeAlias
+from typing import Any, TypeAlias
 
-import numpy as np
 import pandas as pd
+from dataflows.errors import DataContractError
+from dataflows.history_validation import (
+    inspect_ohlcv_frame,
+    validate_market_frames as dfls_validate_market_frames,
+)
 
 from .identity import raw_file_sha256
 from .temp_workspace import create_temporary_directory
 
-from .data import (
-    AMOUNT_RELATIVE_TOLERANCE,
-    FLOAT_COMPARISON_EPSILON,
-    PRICE_TOLERANCE,
-    VOLUME_RELATIVE_TOLERANCE,
-)
-
-
 FREQUENCIES = ("30m", "daily", "weekly")
-SESSION_TIMES = ("10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00")
 VENDOR_COLUMNS = ("Date", "Open", "High", "Low", "Close", "Volume", "Amount")
 
 MarketFetcher: TypeAlias = Callable[
-    [str, str, date, date, str], tuple[pd.DataFrame, dict[str, str]]
+    [str, str, date, date, str], tuple[pd.DataFrame, dict[str, Any]]
 ]
 ExecutionPriceFetcher: TypeAlias = Callable[
-    [str, str, date, date], tuple[pd.DataFrame, dict[str, str]]
+    [str, str, date, date], tuple[pd.DataFrame, dict[str, Any]]
 ]
 InstrumentNameFetcher: TypeAlias = Callable[[str, str], str]
 CalendarFetcher: TypeAlias = Callable[[date], tuple[date, dict[str, str]]]
@@ -51,38 +46,20 @@ def _normalize_symbol(symbol: str) -> tuple[str, str]:
 
 
 def _normalize_frame(frame: pd.DataFrame, name: str) -> pd.DataFrame:
-    missing = sorted(set(VENDOR_COLUMNS).difference(frame.columns))
-    if missing:
-        raise ValueError(f"{name}: missing columns {missing}")
+    frequency = "daily" if name == "execution daily" else name
+    try:
+        inspect_ohlcv_frame(
+            frame,
+            frequency,
+            require_complete_days=frequency == "30m",
+        ).require_pass()
+    except DataContractError as exc:
+        raise ValueError(str(exc)) from exc
     normalized = frame.loc[:, VENDOR_COLUMNS].copy()
-    normalized["Date"] = pd.to_datetime(normalized["Date"], errors="coerce")
-    if normalized["Date"].isna().any():
-        raise ValueError(f"{name}: invalid timestamps")
+    normalized["Date"] = pd.to_datetime(normalized["Date"])
     for column in VENDOR_COLUMNS[1:]:
-        normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
-    if normalized.isna().any().any():
-        raise ValueError(f"{name}: null or non-numeric values")
-    if normalized["Date"].duplicated().any():
-        raise ValueError(f"{name}: duplicate timestamps")
-    if not normalized["Date"].is_monotonic_increasing:
-        raise ValueError(f"{name}: timestamps are not increasing")
-    prices = normalized[["Open", "High", "Low", "Close"]]
-    invalid_ohlc = (
-        (prices <= 0).any(axis=1)
-        | (normalized["High"] < normalized[["Open", "Close"]].max(axis=1))
-        | (normalized["Low"] > normalized[["Open", "Close"]].min(axis=1))
-        | (normalized["High"] < normalized["Low"])
-        | (normalized[["Volume", "Amount"]] < 0).any(axis=1)
-    )
-    if invalid_ohlc.any():
-        raise ValueError(f"{name}: invalid OHLCV relationships")
+        normalized[column] = pd.to_numeric(normalized[column])
     return normalized.reset_index(drop=True)
-
-
-def _relative_match(left: pd.Series, right: pd.Series, tolerance: float) -> bool:
-    denominator = np.maximum(np.abs(right.to_numpy(dtype=float)), 1.0)
-    relative = np.abs(left.to_numpy(dtype=float) - right.to_numpy(dtype=float)) / denominator
-    return bool(np.all(relative <= tolerance))
 
 
 def validate_market_frames(
@@ -91,143 +68,30 @@ def validate_market_frames(
     weekly: pd.DataFrame,
     execution_daily: pd.DataFrame | None = None,
     trading_calendar: pd.DataFrame | None = None,
+    *,
+    expected_start: date | str | pd.Timestamp | None = None,
 ) -> dict[str, object]:
-    """Validate complete A-share sessions and reconcile all three frequencies."""
-    intraday = _normalize_frame(intraday, "30m")
-    daily = _normalize_frame(daily, "daily")
-    weekly = _normalize_frame(weekly, "weekly")
+    """Delegate market-series validation to DFLS."""
 
-    times = tuple(sorted(intraday["Date"].dt.strftime("%H:%M").unique()))
-    if times != tuple(sorted(SESSION_TIMES)):
-        raise ValueError(f"30m: unexpected session times {times}")
-    trade_dates = intraday["Date"].dt.normalize()
-    counts = intraday.groupby(trade_dates).size()
-    if not counts.eq(8).all():
-        details = ", ".join(f"{day.date()}={count}" for day, count in counts.items() if count != 8)
-        raise ValueError(f"30m: each historical trade date must contain eight bars; {details}")
-
-    intraday_daily = (
-        intraday.assign(_date=trade_dates)
-        .groupby("_date", sort=True)
-        .agg(
-            Open=("Open", "first"),
-            High=("High", "max"),
-            Low=("Low", "min"),
-            Close=("Close", "last"),
-            Volume=("Volume", "sum"),
-            Amount=("Amount", "sum"),
+    try:
+        return dfls_validate_market_frames(
+            intraday,
+            daily,
+            weekly,
+            execution_daily,
+            trading_calendar,
+            expected_start=expected_start,
         )
-    )
-    daily_indexed = daily.assign(_date=daily["Date"].dt.normalize()).set_index("_date")
-    if not intraday_daily.index.equals(daily_indexed.index):
-        raise ValueError("30m/daily reconciliation: trade dates differ")
-    for column in ("Open", "High", "Low", "Close"):
-        if not np.allclose(
-            intraday_daily[column],
-            daily_indexed[column],
-            rtol=0.0,
-            atol=PRICE_TOLERANCE + FLOAT_COMPARISON_EPSILON,
-        ):
-            raise ValueError(f"30m/daily reconciliation: {column} differs")
-    if not _relative_match(
-        intraday_daily["Volume"], daily_indexed["Volume"], VOLUME_RELATIVE_TOLERANCE
-    ):
-        raise ValueError("30m/daily reconciliation: Volume differs")
-    if not _relative_match(
-        intraday_daily["Amount"], daily_indexed["Amount"], AMOUNT_RELATIVE_TOLERANCE
-    ):
-        raise ValueError("30m/daily reconciliation: Amount differs")
-
-    if execution_daily is not None:
-        execution = _normalize_frame(execution_daily, "execution daily")
-        execution_dates = pd.DatetimeIndex(execution["Date"].dt.normalize())
-        if not execution_dates.equals(pd.DatetimeIndex(daily_indexed.index)):
-            raise ValueError("adjusted/execution daily reconciliation: trade dates differ")
-
-    calendar_sessions: pd.DatetimeIndex | None = None
-    if trading_calendar is not None:
-        required = {"Date", "IsOpen"}
-        missing = sorted(required.difference(trading_calendar.columns))
-        if missing:
-            raise ValueError(f"trading calendar: missing columns {missing}")
-        calendar = trading_calendar.loc[:, ["Date", "IsOpen"]].copy()
-        calendar["Date"] = pd.to_datetime(calendar["Date"], errors="coerce").dt.normalize()
-        calendar["IsOpen"] = pd.to_numeric(calendar["IsOpen"], errors="coerce")
-        if calendar.isna().any().any():
-            raise ValueError("trading calendar: invalid dates or open flags")
-        if calendar["Date"].duplicated().any():
-            raise ValueError("trading calendar: duplicate dates")
-        if not calendar["Date"].is_monotonic_increasing:
-            raise ValueError("trading calendar: dates are not increasing")
-        observed = pd.DatetimeIndex(daily_indexed.index)
-        calendar_sessions = pd.DatetimeIndex(
-            calendar.loc[
-                calendar["IsOpen"].astype(int).eq(1)
-                & calendar["Date"].between(observed[0], observed[-1]),
-                "Date",
-            ]
-        )
-        if not observed.equals(calendar_sessions):
-            missing_sessions = calendar_sessions.difference(observed)
-            unexpected_sessions = observed.difference(calendar_sessions)
-            raise ValueError(
-                "daily/trading calendar reconciliation: trade dates differ; "
-                f"missing={[item.date().isoformat() for item in missing_sessions]}, "
-                f"unexpected={[item.date().isoformat() for item in unexpected_sessions]}"
-            )
-
-    daily_weekly = (
-        daily.assign(_week=daily["Date"].dt.to_period("W-SUN"))
-        .groupby("_week", sort=True)
-        .agg(
-            Date=("Date", "max"),
-            Open=("Open", "first"),
-            High=("High", "max"),
-            Low=("Low", "min"),
-            Close=("Close", "last"),
-            Volume=("Volume", "sum"),
-            Amount=("Amount", "sum"),
-        )
-        .set_index("Date")
-    )
-    weekly_indexed = weekly.set_index("Date")
-    if not daily_weekly.index.equals(weekly_indexed.index):
-        raise ValueError("daily/weekly reconciliation: week-ending trade dates differ")
-    for column in ("Open", "High", "Low", "Close"):
-        if not np.allclose(
-            daily_weekly[column],
-            weekly_indexed[column],
-            rtol=0.0,
-            atol=PRICE_TOLERANCE + FLOAT_COMPARISON_EPSILON,
-        ):
-            raise ValueError(f"daily/weekly reconciliation: {column} differs")
-    if not _relative_match(
-        daily_weekly["Volume"], weekly_indexed["Volume"], VOLUME_RELATIVE_TOLERANCE
-    ):
-        raise ValueError("daily/weekly reconciliation: Volume differs")
-    if not _relative_match(
-        daily_weekly["Amount"], weekly_indexed["Amount"], AMOUNT_RELATIVE_TOLERANCE
-    ):
-        raise ValueError("daily/weekly reconciliation: Amount differs")
-
-    return {
-        "status": "PASS",
-        "intraday": {
-            "bar_count": int(len(intraday)),
-            "complete_day_count": int(len(counts)),
-            "session_times": list(SESSION_TIMES),
-        },
-        "reconciliation": {
-            "daily_matched_days": int(len(intraday_daily)),
-            "weekly_matched_periods": int(len(daily_weekly)),
-            "price_tolerance": PRICE_TOLERANCE,
-            "volume_relative_tolerance": VOLUME_RELATIVE_TOLERANCE,
-            "amount_relative_tolerance": AMOUNT_RELATIVE_TOLERANCE,
-            "calendar_matched_sessions": (
-                int(len(calendar_sessions)) if calendar_sessions is not None else None
-            ),
-        },
-    }
+    except DataContractError as exc:
+        for finding in exc.context.get("findings", []):
+            if finding.get("code") == "CALENDAR_COVERAGE_MISMATCH":
+                context = finding.get("context", {})
+                raise ValueError(
+                    "daily/trading calendar reconciliation: trade dates differ; "
+                    f"missing={context.get('missing', [])}, "
+                    f"unexpected={context.get('unexpected', [])}"
+                ) from exc
+        raise ValueError(str(exc)) from exc
 
 
 def _default_fetcher(
@@ -350,7 +214,7 @@ def prepare_market_data(
         raise ValueError("instrument name must not be empty")
     effective_fetcher = fetcher or partial(_default_fetcher, env_file=env_file)
     frames: dict[str, pd.DataFrame] = {}
-    metadata: dict[str, dict[str, str]] = {}
+    metadata: dict[str, dict[str, Any]] = {}
     for period in FREQUENCIES:
         frame, item_metadata = effective_fetcher(
             normalized_symbol, normalized_asset, start, end, period
@@ -413,13 +277,12 @@ def prepare_market_data(
             "factor_sha256": factor_sha256,
         }
     normalized_daily = _normalize_frame(frames["daily"], "daily")
-    observed_start = pd.Timestamp(normalized_daily["Date"].min()).date()
     observed_end = pd.Timestamp(normalized_daily["Date"].max()).date()
     effective_session_calendar_fetcher = session_calendar_fetcher or partial(
         _default_session_calendar_fetcher, env_file=env_file
     )
     session_calendar, session_calendar_metadata = effective_session_calendar_fetcher(
-        observed_start, observed_end
+        start, observed_end
     )
     validation = validate_market_frames(
         frames["30m"],
@@ -427,6 +290,7 @@ def prepare_market_data(
         frames["weekly"],
         execution_frame,
         session_calendar,
+        expected_start=start,
     )
 
     data_dir = Path(data_dir)

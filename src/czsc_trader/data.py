@@ -7,8 +7,13 @@ import json
 from pathlib import Path
 import re
 
-import numpy as np
 import pandas as pd
+from dataflows.errors import DataContractError
+from dataflows.history_validation import (
+    inspect_daily_against_weekly,
+    inspect_intraday_against_daily,
+    inspect_ohlcv_frame,
+)
 
 from .identity import raw_file_sha256
 
@@ -16,13 +21,6 @@ from .identity import raw_file_sha256
 SYMBOL = "588080.SH"
 FREQUENCIES = ("30m", "daily", "weekly")
 NORMALIZED_COLUMNS = ("dt", "symbol", "open", "high", "low", "close", "vol", "amount")
-SESSION_TIMES = ("10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00")
-PRICE_TOLERANCE = 0.005
-VOLUME_RELATIVE_TOLERANCE = 1e-5
-AMOUNT_RELATIVE_TOLERANCE = 1e-5
-FLOAT_COMPARISON_EPSILON = 1e-12
-
-
 @dataclass(frozen=True)
 class MarketData:
     """Validated K-lines at the three supplied frequencies."""
@@ -84,24 +82,35 @@ def _read_one(path: Path, freq: str, symbol: str) -> pd.DataFrame:
     return frame[list(NORMALIZED_COLUMNS)]
 
 
+def _dfls_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    return frame.rename(
+        columns={
+            "dt": "Date",
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "vol": "Volume",
+            "amount": "Amount",
+        }
+    ).loc[:, ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]]
+
+
+def _require_dfls(report) -> None:
+    try:
+        report.require_pass()
+    except DataContractError as exc:
+        raise ValueError(str(exc)) from exc
+
+
 def _validate_frame(frame: pd.DataFrame, name: str) -> None:
-    if frame.empty:
-        raise ValueError(f"{name}: no rows")
-    if frame.isna().any().any():
-        raise ValueError(f"{name}: null values found")
-    if not frame["dt"].is_monotonic_increasing:
-        raise ValueError(f"{name}: timestamps are not increasing")
-    if frame["dt"].duplicated().any():
-        raise ValueError(f"{name}: duplicate timestamps found")
-    prices = frame[["open", "high", "low", "close"]]
-    if (prices <= 0).any().any():
-        raise ValueError(f"{name}: non-positive price found")
-    if (frame["high"] < frame[["open", "close"]].max(axis=1)).any():
-        raise ValueError(f"{name}: high below open or close")
-    if (frame["low"] > frame[["open", "close"]].min(axis=1)).any():
-        raise ValueError(f"{name}: low above open or close")
-    if (frame[["vol", "amount"]] < 0).any().any():
-        raise ValueError(f"{name}: negative volume or amount")
+    _require_dfls(
+        inspect_ohlcv_frame(
+            _dfls_frame(frame),
+            name,
+            require_complete_days=name == "30m",
+        )
+    )
 
 
 def _validate_reconciliation(
@@ -111,82 +120,20 @@ def _validate_reconciliation(
     *,
     allow_trailing_partial_week: bool = False,
 ) -> None:
-    sessions = intraday["dt"].dt.strftime("%H:%M")
-    if tuple(sorted(sessions.unique())) != SESSION_TIMES:
-        raise ValueError("30m: unexpected session timestamps")
-    trade_dates = intraday["dt"].dt.normalize()
-    if not intraday.groupby(trade_dates).size().eq(8).all():
-        raise ValueError("30m: each trade date must contain eight bars")
+    dfls_intraday = _dfls_frame(intraday)
+    dfls_daily = _dfls_frame(daily)
+    dfls_weekly = _dfls_frame(weekly)
+    _require_dfls(inspect_intraday_against_daily(dfls_intraday, dfls_daily, "30m"))
 
-    intraday_daily = intraday.assign(date=trade_dates).groupby("date").agg(
-        open=("open", "first"),
-        high=("high", "max"),
-        low=("low", "min"),
-        close=("close", "last"),
-        vol=("vol", "sum"),
-        amount=("amount", "sum"),
-    )
-    daily_indexed = daily.set_index("dt")
-    if not intraday_daily.index.equals(daily_indexed.index):
-        raise ValueError("30m/daily: trade dates differ")
-    price_columns = ["open", "high", "low", "close"]
-    if not np.allclose(
-        intraday_daily[price_columns],
-        daily_indexed[price_columns],
-        rtol=0.0,
-        atol=PRICE_TOLERANCE + FLOAT_COMPARISON_EPSILON,
-    ):
-        raise ValueError("30m/daily: OHLC values differ beyond tolerance")
-    for column, tolerance in (
-        ("vol", VOLUME_RELATIVE_TOLERANCE),
-        ("amount", AMOUNT_RELATIVE_TOLERANCE),
-    ):
-        denominator = np.maximum(daily_indexed[column].abs().to_numpy(dtype=float), 1.0)
-        relative = (
-            intraday_daily[column].to_numpy(dtype=float)
-            - daily_indexed[column].to_numpy(dtype=float)
-        ) / denominator
-        if np.abs(relative).max() > tolerance + FLOAT_COMPARISON_EPSILON:
-            raise ValueError(f"30m/daily: {column} relative difference exceeds tolerance")
-
-    daily_with_week = daily.assign(_week=daily["dt"].dt.to_period("W-SUN"))
-    aggregated_weekly = daily_with_week.groupby("_week").agg(
-        dt=("dt", "max"),
-        open=("open", "first"),
-        high=("high", "max"),
-        low=("low", "min"),
-        close=("close", "last"),
-        vol=("vol", "sum"),
-        amount=("amount", "sum"),
-    ).set_index("dt")
-    weekly_indexed = weekly.set_index("dt")
-    if not aggregated_weekly.index.equals(weekly_indexed.index):
-        has_one_trailing_partial_week = (
-            allow_trailing_partial_week
-            and len(aggregated_weekly) == len(weekly_indexed) + 1
-            and aggregated_weekly.index[:-1].equals(weekly_indexed.index)
-        )
-        if not has_one_trailing_partial_week:
-            raise ValueError("daily/weekly: week-ending trade dates differ")
-        aggregated_weekly = aggregated_weekly.iloc[:-1]
-    if not np.allclose(
-        aggregated_weekly[price_columns],
-        weekly_indexed[price_columns],
-        rtol=0.0,
-        atol=PRICE_TOLERANCE + FLOAT_COMPARISON_EPSILON,
-    ):
-        raise ValueError("daily/weekly: OHLC values differ beyond tolerance")
-    for column, tolerance in (
-        ("vol", VOLUME_RELATIVE_TOLERANCE),
-        ("amount", AMOUNT_RELATIVE_TOLERANCE),
-    ):
-        denominator = np.maximum(weekly_indexed[column].abs().to_numpy(dtype=float), 1.0)
-        relative = (
-            aggregated_weekly[column].to_numpy(dtype=float)
-            - weekly_indexed[column].to_numpy(dtype=float)
-        ) / denominator
-        if np.abs(relative).max() > tolerance + FLOAT_COMPARISON_EPSILON:
-            raise ValueError(f"daily/weekly: {column} relative difference exceeds tolerance")
+    weekly_daily = dfls_daily
+    if allow_trailing_partial_week:
+        last_week = pd.to_datetime(dfls_daily["Date"]).dt.to_period("W-SUN").iloc[-1]
+        weekly_periods = set(pd.to_datetime(dfls_weekly["Date"]).dt.to_period("W-SUN"))
+        if last_week not in weekly_periods:
+            weekly_daily = dfls_daily.loc[
+                pd.to_datetime(dfls_daily["Date"]).dt.to_period("W-SUN") != last_week
+            ]
+    _require_dfls(inspect_daily_against_weekly(weekly_daily, dfls_weekly))
 
 
 def _validate_manifest_record(

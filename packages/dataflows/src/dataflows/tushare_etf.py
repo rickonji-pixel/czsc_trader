@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -15,52 +16,24 @@ from .bar_utils import (
     normalize_adjustment_factors,
     normalize_period,
     standardize_vendor_ohlcv,
-    validate_a_share_intraday_bars,
 )
-from .formatting import format_dataframe_report
 from .errors import EmptyDataError
+from .formatting import format_dataframe_report
+from .history_repair import (
+    SeriesKey,
+    apply_repairs_once,
+    bindings_for,
+    frame_content_sha256,
+    inspect_registered_source_anomalies,
+)
+from .history_validation import (
+    ValidationReport,
+    inspect_daily_against_weekly,
+    inspect_intraday_against_daily,
+    inspect_ohlcv_frame,
+)
 from .market_resolver import MARKET_A_SHARE, detect_market, normalize_symbol_for_vendor
 from .tushare_common import get_tushare_pro
-
-
-_TUSHARE_ETF_VOLUME_X100_DATES = {
-    "510500.SH": {
-        "2024-04-03",
-        "2024-04-19",
-        "2024-04-26",
-        "2024-04-30",
-        "2024-05-24",
-        "2024-05-31",
-        "2024-06-14",
-    },
-    "512100.SH": {
-        "2024-04-03",
-        "2024-04-19",
-        "2024-04-26",
-        "2024-04-30",
-        "2024-05-24",
-        "2024-05-31",
-        "2024-06-14",
-    },
-    "515050.SH": {
-        "2024-04-03",
-        "2024-04-19",
-        "2024-04-26",
-        "2024-04-30",
-        "2024-05-24",
-        "2024-05-31",
-        "2024-06-14",
-    },
-    "588080.SH": {
-        "2024-04-03",
-        "2024-04-19",
-        "2024-04-26",
-        "2024-04-30",
-        "2024-05-24",
-        "2024-05-31",
-        "2024-06-14",
-    },
-}
 
 
 def _intraday_boundary(value: str, *, end: bool) -> str:
@@ -132,21 +105,6 @@ def _standardize_etf_ohlcv(dataframe: pd.DataFrame, *, intraday: bool) -> pd.Dat
     return normalized
 
 
-def _apply_known_intraday_volume_corrections(
-    dataframe: pd.DataFrame, ts_code: str
-) -> tuple[pd.DataFrame, list[str]]:
-    """Correct explicitly confirmed Tushare ETF intraday volume unit errors."""
-    frame = dataframe.copy()
-    correction_dates = _TUSHARE_ETF_VOLUME_X100_DATES.get(ts_code)
-    if correction_dates is None or frame.empty:
-        return frame, []
-    trade_dates = pd.to_datetime(frame["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
-    mask = trade_dates.isin(correction_dates)
-    frame.loc[mask, "Volume"] = frame.loc[mask, "Volume"] / 100.0
-    corrected_dates = sorted(trade_dates.loc[mask].dropna().unique().tolist())
-    return frame, corrected_dates
-
-
 def _merge_opening_auction_into_first_bar(dataframe: pd.DataFrame, period: str) -> pd.DataFrame:
     if dataframe.empty:
         return dataframe.copy()
@@ -166,13 +124,18 @@ def _merge_opening_auction_into_first_bar(dataframe: pd.DataFrame, period: str) 
         if target_indices.empty:
             continue
         target_index = target_indices[0]
-        frame.at[target_index, "Open"] = frame.at[auction_index, "Open"]
-        frame.at[target_index, "High"] = max(
-            frame.at[auction_index, "High"], frame.at[target_index, "High"]
+        active = (
+            frame.at[auction_index, "Volume"] > 0
+            or frame.at[auction_index, "Amount"] > 0
         )
-        frame.at[target_index, "Low"] = min(
-            frame.at[auction_index, "Low"], frame.at[target_index, "Low"]
-        )
+        if active:
+            frame.at[target_index, "Open"] = frame.at[auction_index, "Open"]
+            frame.at[target_index, "High"] = max(
+                frame.at[auction_index, "High"], frame.at[target_index, "High"]
+            )
+            frame.at[target_index, "Low"] = min(
+                frame.at[auction_index, "Low"], frame.at[target_index, "Low"]
+            )
         frame.at[target_index, "Volume"] += frame.at[auction_index, "Volume"]
         frame.at[target_index, "Amount"] += frame.at[auction_index, "Amount"]
         merged_auction_indices.append(auction_index)
@@ -195,6 +158,66 @@ def _drop_zero_activity_days(dataframe: pd.DataFrame) -> pd.DataFrame:
     return frame.loc[trade_dates.isin(active_dates)].reset_index(drop=True)
 
 
+def _fetch_intraday_vendor(
+    pro,
+    ts_code: str,
+    start_date: str,
+    end_date: str,
+    period: str,
+) -> pd.DataFrame:
+    pieces = [
+        pro.etf_mins(
+            ts_code=ts_code,
+            start_date=_intraday_boundary(segment_start, end=False),
+            end_date=_intraday_boundary(segment_end, end=True),
+            freq=f"{INTRADAY_PERIOD_MINUTES[period]}min",
+        )
+        for segment_start, segment_end in _intraday_calendar_segments(
+            start_date, end_date, period
+        )
+    ]
+    available = [piece for piece in pieces if piece is not None and not piece.empty]
+    return pd.concat(available, ignore_index=True) if available else pd.DataFrame()
+
+
+def _fetch_daily_vendor(
+    pro,
+    ts_code: str,
+    start_date: str,
+    end_date: str,
+) -> pd.DataFrame:
+    return pro.fund_daily(
+        ts_code=ts_code,
+        start_date=start_date.replace("-", ""),
+        end_date=end_date.replace("-", ""),
+    )
+
+
+def _repair_daily_once(
+    dataframe: pd.DataFrame,
+    ts_code: str,
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+    series = SeriesKey(
+        "tushare", "fund_daily", ts_code, "etf.ohlcv", "daily", "none"
+    )
+    structural = inspect_ohlcv_frame(dataframe, "daily")
+    findings = (
+        *structural.findings,
+        *inspect_registered_source_anomalies(dataframe, series),
+    )
+    if not findings:
+        return dataframe.copy(), []
+    repaired, records = apply_repairs_once(dataframe, series, findings)
+    post = inspect_ohlcv_frame(repaired, "daily")
+    remaining = (
+        *post.findings,
+        *inspect_registered_source_anomalies(repaired, series),
+    )
+    if remaining:
+        ValidationReport(tuple(remaining)).require_pass()
+    return repaired, [record.to_dict() for record in records]
+
+
 def _fetch_tushare_etf_ohlcv(
     symbol: str,
     start_date: str,
@@ -214,51 +237,67 @@ def _fetch_tushare_etf_ohlcv(
 
     pro = get_tushare_pro(env_file)
     if period in INTRADAY_PERIOD_MINUTES:
-        pieces = [
-            pro.etf_mins(
-                ts_code=ts_code,
-                start_date=_intraday_boundary(segment_start, end=False),
-                end_date=_intraday_boundary(segment_end, end=True),
-                freq=f"{INTRADAY_PERIOD_MINUTES[period]}min",
-            )
-            for segment_start, segment_end in _intraday_calendar_segments(
-                start_date, end_date, period
-            )
-        ]
-        dataframe = (
-            pd.concat(
-                [piece for piece in pieces if piece is not None and not piece.empty],
-                ignore_index=True,
-            )
-            if any(piece is not None and not piece.empty for piece in pieces)
-            else pd.DataFrame()
+        dataframe = _fetch_intraday_vendor(
+            pro, ts_code, start_date, end_date, period
         )
     else:
-        dataframe = pro.fund_daily(
-            ts_code=ts_code,
-            start_date=start_date.replace("-", ""),
-            end_date=end_date.replace("-", ""),
-        )
+        dataframe = _fetch_daily_vendor(pro, ts_code, start_date, end_date)
 
     if dataframe is None or dataframe.empty:
         return pd.DataFrame(), market, ts_code
 
     intraday = period in INTRADAY_PERIOD_MINUTES
     normalized = _standardize_etf_ohlcv(dataframe, intraday=intraday)
-    corrected_dates: list[str] = []
-    if period == "weekly":
-        normalized = _resample_weekly(normalized)
+    repair_records: list[dict[str, Any]] = []
+    reference_daily_sha256: str | None = None
     if intraday:
-        if period != "1m":
-            normalized, corrected_dates = _apply_known_intraday_volume_corrections(
-                normalized, ts_code
-            )
         normalized = _merge_opening_auction_into_first_bar(normalized, period)
         normalized = _drop_zero_activity_days(normalized)
         normalized = drop_incomplete_intraday_bar(normalized)
-        validate_a_share_intraday_bars(normalized, period)
-    if corrected_dates:
-        normalized.attrs["hardcoded_volume_corrections"] = corrected_dates
+        daily_vendor = _fetch_daily_vendor(pro, ts_code, start_date, end_date)
+        daily = _standardize_etf_ohlcv(daily_vendor, intraday=False)
+        daily, daily_records = _repair_daily_once(daily, ts_code)
+        repair_records.extend(daily_records)
+        reference_daily_sha256 = frame_content_sha256(daily)
+        report = inspect_intraday_against_daily(normalized, daily, period)
+        if not report.passed:
+            series = SeriesKey(
+                "tushare", "etf_mins", ts_code, "etf.ohlcv", period, "none"
+            )
+            repair_bindings = bindings_for(series)
+            references: dict[str, pd.DataFrame] = {"daily": daily}
+            if any(
+                binding.algorithm == "REBUILD_INTRADAY_FROM_1M"
+                for binding in repair_bindings
+            ):
+                one_minute_vendor = _fetch_intraday_vendor(
+                    pro, ts_code, start_date, end_date, "1m"
+                )
+                references["1m"] = _standardize_etf_ohlcv(
+                    one_minute_vendor, intraday=True
+                )
+            normalized, records = apply_repairs_once(
+                normalized,
+                series,
+                report.findings,
+                references=references,
+            )
+            repair_records.extend(record.to_dict() for record in records)
+            inspect_intraday_against_daily(normalized, daily, period).require_pass()
+    else:
+        normalized, daily_records = _repair_daily_once(normalized, ts_code)
+        repair_records.extend(daily_records)
+        if period == "weekly":
+            daily = normalized
+            normalized = _resample_weekly(daily)
+            inspect_daily_against_weekly(daily, normalized).require_pass()
+        reference_daily_sha256 = frame_content_sha256(
+            daily if period == "weekly" else normalized
+        )
+    if repair_records:
+        normalized.attrs["repair_records"] = repair_records
+    if reference_daily_sha256:
+        normalized.attrs["reference_daily_sha256"] = reference_daily_sha256
     return normalized, market, ts_code
 
 
@@ -298,7 +337,7 @@ def fetch_etf_ohlcv(
     period: str = "daily",
     *,
     env_file: str | Path | None = None,
-) -> tuple[pd.DataFrame, dict[str, str]]:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Return normalized Tushare ETF bars and machine-readable metadata."""
     normalized_period = normalize_period(period)
     fetch_period = "daily" if normalized_period == "weekly" else normalized_period
@@ -311,11 +350,18 @@ def fetch_etf_ohlcv(
     )
     if dataframe.empty:
         raise EmptyDataError(f"Tushare returned no data for {symbol} {normalized_period}")
-    correction_dates = dataframe.attrs.get("hardcoded_volume_corrections", [])
+    repair_records = dataframe.attrs.get("repair_records", [])
+    reference_daily_sha256 = dataframe.attrs.get("reference_daily_sha256")
     factors = _fetch_hfq_factors(ts_code, start_date, end_date, env_file=env_file)
     dataframe = apply_hfq_adjustment(dataframe, factors)
     if normalized_period == "weekly":
         dataframe = _resample_weekly(dataframe)
+    validation = inspect_ohlcv_frame(
+        dataframe,
+        normalized_period,
+        require_complete_days=normalized_period in INTRADAY_PERIOD_MINUTES,
+    )
+    validation.require_pass()
     metadata = {
         "vendor": "tushare",
         "market": market,
@@ -325,9 +371,12 @@ def fetch_etf_ohlcv(
         "adjustment": "hfq",
         "adjustment_factor_source": "fund_adj",
         "adjustment_factor_sha256": adjustment_factor_sha256(factors),
+        "validation": validation.to_dict(),
     }
-    if correction_dates:
-        metadata["hardcoded_volume_corrections"] = ",".join(correction_dates)
+    if reference_daily_sha256:
+        metadata["reference_daily_sha256"] = str(reference_daily_sha256)
+    if repair_records:
+        metadata["repair_records"] = repair_records
     return dataframe.copy(), metadata
 
 
@@ -337,7 +386,7 @@ def fetch_etf_unadjusted_daily(
     end_date: str,
     *,
     env_file: str | Path | None = None,
-) -> tuple[pd.DataFrame, dict[str, str]]:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Return unadjusted daily ETF prices for executable order pricing."""
     dataframe, market, ts_code = _fetch_tushare_etf_ohlcv(
         symbol,
@@ -348,7 +397,7 @@ def fetch_etf_unadjusted_daily(
     )
     if dataframe.empty:
         raise EmptyDataError(f"Tushare returned no data for {symbol} unadjusted daily")
-    return dataframe.copy(), {
+    metadata: dict[str, Any] = {
         "vendor": "tushare",
         "market": market,
         "vendor_symbol": ts_code,
@@ -356,6 +405,16 @@ def fetch_etf_unadjusted_daily(
         "asset_type": "etf",
         "adjustment": "none",
     }
+    reference_daily_sha256 = dataframe.attrs.get("reference_daily_sha256")
+    repair_records = dataframe.attrs.get("repair_records", [])
+    validation = inspect_ohlcv_frame(dataframe, "daily")
+    validation.require_pass()
+    metadata["validation"] = validation.to_dict()
+    if reference_daily_sha256:
+        metadata["reference_daily_sha256"] = str(reference_daily_sha256)
+    if repair_records:
+        metadata["repair_records"] = repair_records
+    return dataframe.copy(), metadata
 
 
 def get_etf(

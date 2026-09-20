@@ -9,7 +9,7 @@ from dataflows import Dataflows, Dataset
 from strategy_runtime.publisher import StrategyDataPublisher, StrategyPublicationError
 
 
-def _flows():
+def _flows(*, invalid_adjusted: bool = False):
     dates = pd.bdate_range(end="2026-09-02", periods=700)
     bars = pd.DataFrame(
         {
@@ -27,6 +27,8 @@ def _flows():
         selected = bars.loc[
             pd.to_datetime(bars["Date"]).between(request.start, request.end)
         ].copy()
+        if invalid_adjusted and "unadjusted" not in request.dataset:
+            selected.loc[selected.index[-1], "High"] = 5.0
         return selected, {
             "vendor": "test",
             "adjustment": "none" if "unadjusted" in request.dataset else "hfq",
@@ -86,6 +88,12 @@ def test_srt_publisher_commits_authenticated_generation(tmp_path, release_id):
         (data_dir / "510500_strategy_generation.json").read_text(encoding="utf-8")
     )
     assert generation["generation_id"] == result["generation_id"]
+    validation = json.loads(
+        (data_dir / "510500_validation.json").read_text(encoding="utf-8")
+    )
+    assert validation["status"] == "PASS"
+    assert validation["contract"] == "dfls.history.v1"
+    assert validation["findings"] == []
     assert not list(tmp_path.glob(".srt-publication-*"))
 
 
@@ -111,3 +119,17 @@ def test_srt_publisher_rejects_unsafe_identity_before_writing(tmp_path):
             repo_root=tmp_path, data_dir=tmp_path / "data", dataflows=_flows()
         ).publish_release("../588080.SH", "etf", [("S007", "v1")], "2026-09-02")
     assert not (tmp_path / "data").exists()
+
+
+def test_srt_publisher_blocks_failed_dfls_validation(tmp_path):
+    root = Path(__file__).resolve().parents[4]
+    data_dir = tmp_path / "data"
+
+    with pytest.raises(StrategyPublicationError, match="DFLS market-data validation"):
+        StrategyDataPublisher(
+            repo_root=root,
+            data_dir=data_dir,
+            dataflows=_flows(invalid_adjusted=True),
+        ).publish_release("510500.SH", "etf", [("S002", "v1")], "2026-09-02")
+
+    assert not data_dir.exists()

@@ -18,18 +18,18 @@ CZSC Trader 是面向个人量化团队的可审计策略研发与模拟交易�
 | 模块 | 简称 | 位置 | 职责 |
 | --- | --- | --- | --- |
 | CZSC Trader | TDR | `src/czsc_trader/` | 正式策略结论的可信裁判员和策略生命周期维护入口 |
-| Dataflows | DFLS | `packages/dataflows/` | Tushare数据获取、复权、多频数据处理和发布清单 |
+| Dataflows | DFLS | `packages/dataflows/` | 数据获取、规范化、自校验、按供应商与标的修复和失败阻断 |
 | Factor & Signal Catalog | FSC | `packages/factor_signal_catalog/` | 项目级信息族、因子和信号定义目录 |
 | Strategy Template Catalog | STC | `packages/strategy_template_catalog/` | 策略函数模板、输入角色和参数边界目录 |
 | Strategy Manager | SM | `packages/strategy_manager/` | 策略身份、版本、资格、冻结和证据治理 |
 | Strategy Evaluator | SE | `packages/strategy_evaluator/` | 候选比较、统计审计和稳健性数值计算 |
-| Strategy Runtime | SRT | `packages/strategy_runtime/` | 候选与冻结策略共用的数据契约、决策计算、执行计划和运行身份 |
+| Strategy Runtime | SRT | `packages/strategy_runtime/` | 策略数据发布与认证、决策计算、参考价、执行计划和运行身份 |
 | Trading Execution Engine | TXE | `packages/trading_execution_engine/` | 承接SRT历史执行请求，统一订单、成交、费用和账户账本 |
 | Paper Trading Engine | PTE | `packages/paper_trading_engine/` | 虚拟账户、模拟下单、成交对账、运行审计和控制台 |
 | PTE Watchdog | WDG | PTE包内 | PTE进程托管、健康检查和故障拉起 |
 
-PTE直接加载SRT冻结实现；SRT通过DFLS发布输入并生成普通调仓计划或带执行时点、成交依赖的计划。
-PTE负责账户状态、计划校验与执行，不参与策略计算、定价或改量；Futu渠道只负责订单、成交和持仓回报。
+PTE通过SRT公共接口加载已认证的运行上下文；SRT通过DFLS获取输入，并生成普通调仓计划或带执行
+时点、成交依赖的计划。PTE负责账户状态、计划持久化与执行；Futu渠道提供订单、成交和持仓回报。
 SM管理策略生命周期，SE生成确定性数值证据；二者都不参与运行时下单。
 
 ### 核心工作流
@@ -52,7 +52,7 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 | 路径 | 内容 | 管理边界 |
 | --- | --- | --- |
 | `src/czsc_trader/` | TDR主程序、命令入口和应用服务 | 项目核心业务代码 |
-| `packages/` | DFLS、SM、SE、PTE等独立子包 | 各子系统接口、实现和包级测试 |
+| `packages/` | DFLS、FSC、STC、SM、SE、SRT、TXE、PTE八个独立子包 | 各子系统接口、实现和包级测试 |
 | `catalog/` | FSC信息族、因子和信号定义 | 项目级定义来源，不保存标的值或Alpha证据 |
 | `strategy_templates/` | STC策略函数模板定义 | 项目级结构来源，不保存搜索结果或绩效证据 |
 | `strategies/` | 正式策略身份、SGC凭据链、冻结版本、生命周期和证据 | 正式策略事实来源，不保存研究草稿 |
@@ -75,7 +75,7 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 
 | 角色 | 首要入口 | 主要内容 |
 | --- | --- | --- |
-| 策略研究 | [策略研究交接](research/README.md) | S001—S007批次状态、研究工作流、研究命令、数据污染和冻结规则 |
+| 策略研究 | [策略研究交接](research/README.md) | S001—S008批次状态、研究工作流、研究命令、数据污染和冻结规则 |
 | 开发运维 | [开发运维交接](docs/DEVELOPMENT_HANDOFF.md) | 架构契约、环境恢复、开发规则、PTE发布运维和测试边界 |
 
 ### 专项与历史资料
@@ -91,12 +91,14 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 - [DFLS技术说明](packages/dataflows/README.md)：数据包接口和使用方式。
 - [FSC技术说明](packages/factor_signal_catalog/README.md)：因子与信号定义目录及查询方式。
 - [STC技术说明](packages/strategy_template_catalog/README.md)：策略函数模板、实例化契约及边界。
+- [SM技术说明](packages/strategy_manager/README.md)：策略身份、治理凭据、冻结版本和证据账本。
 - [SE技术说明](packages/strategy_evaluator/README.md)：候选评估与统计审计接口。
 - [SRT技术说明](packages/strategy_runtime/README.md)：候选与冻结策略的数据、决策与执行边界。
 - [TXE技术说明](packages/trading_execution_engine/README.md)：统一成交与账户
   计算口径及其边界。
 - [PTE技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、
   接口、运行边界和包级开发信息。
+- [模块边界记录](docs/ARCHITECTURE_BOUNDARY_DEBT.md)：已完成的边界收口与尚待处理的技术债务。
 
 ### 历史设计资料
 

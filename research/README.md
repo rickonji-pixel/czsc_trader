@@ -45,6 +45,7 @@ SXX 策略族 → SGC研究批次 → SXX-CXXX 研究候选 → SXX-vN 冻结版
 | S005 | 588080中频增强策略 | 588080.SH | `TERMINATED_NO_CANDIDATE` | [S005](S005/HANDOFF.md) |
 | S006 | 588080全量信息策略研究 | 588080.SH | `TERMINATED_NO_CANDIDATE` | [S006](S006/HANDOFF.md) |
 | S007 | 科创50多源机会风险门控策略 | 588080.SH | `PAPER_READY`，v1在PTE观察 | [S007](S007/HANDOFF.md) |
+| S008 | 黄金ETF中期趋势突破策略 | 518880.SH | `RESEARCH_PAUSED`，等待新实验复验数据门 | [S008](S008/HANDOFF.md) |
 
 策略族名称以SM的`strategies/SXX/family.json`为准。研究批次由SGC凭据区分；候选工作名称和
 冻结版本名称可以与策略族名称不同，分别在对应`HANDOFF.md`、候选快照和版本记录中维护。
@@ -62,6 +63,10 @@ SXX 策略族 → SGC研究批次 → SXX-CXXX 研究候选 → SXX-vN 冻结版
 本表只提供入口。研究问题、指标、保留意见和下一步以各批次`HANDOFF.md`为准，实验指标和
 过程细节以对应实验档案为准。
 
+当前主研究方向为S008。S007-v1保持冻结并在PTE前瞻观察，固定v1收益归因批次已经收口，
+不继续使用既有开发池搜索S007-v2。S008从518880.SH数据门复验恢复；数据门通过前不计算收益、
+选择信号或参数。
+
 ## 研究命令入口
 
 以下命令均在仓库根目录执行；环境安装见[开发运维交接](../docs/DEVELOPMENT_HANDOFF.md)。
@@ -77,8 +82,9 @@ FSC和STC只提供可复用定义与结构，不代表存在Alpha：
 .\.venv\Scripts\czsc-trader.exe template instantiate --spec .\prototype.json
 ```
 
-研究池与普通回测池独立维护。`data prepare`写入`data/raw/`；`data update-backtest`根据冻结
-SRT的数据契约更新`data/backtest/`，回测命令不会隐式联网补数：
+研究池与普通回测池独立维护。`data prepare`写入`data/raw/`；DFLS在接口内部完成单项数据的
+校验、必要修复、重新校验和失败阻断。`data update-backtest`根据冻结SRT的数据契约更新
+`data/backtest/`，回测命令不会隐式联网补数：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data prepare `
@@ -402,8 +408,8 @@ S007是当前工作流最完整的实践样本：它从第一性原理和全量�
 
 ```powershell
 git status --short --branch
-$StrategyId = "S007"
-$ResearchSymbol = "588080.SH"
+$StrategyId = "S008"
+$ResearchSymbol = "518880.SH"
 .\.venv\Scripts\czsc-trader.exe data validate --symbol $ResearchSymbol
 .\.venv\Scripts\czsc-trader.exe strategy show --strategy $StrategyId
 .\.venv\Scripts\czsc-trader.exe strategy validate --all

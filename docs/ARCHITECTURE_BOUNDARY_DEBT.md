@@ -1,34 +1,34 @@
 # 模块边界待办
 
-本文只记录已确认、但不属于当前 DFLS 历史数据完整性分支的边界问题。当前分支不修改这些
-职责，待 DFLS 边界完成并合并后单独评审和实施。
+本文记录当前代码中仍存在的模块边界债务。已经收口的事项保留简要结论，避免后续重复设计；
+新增修复必须先确认业务边界，再进入独立实现任务。
 
-## SRT 与 PTE
+## 已完成：DFLS 与主调方
 
-- `packages/paper_trading_engine/src/paper_trading_engine/publication_inbox.py` 在 PTE 内解析并
-  鉴真 SRT generation。发布物的读取、身份校验和可用状态应由 SRT 公共读取入口返回；PTE
-  只保留活跃账户覆盖、跨标的截止日同步和调度状态判断。
-- `packages/paper_trading_engine/src/paper_trading_engine/srt_advice_client.py` 同时读取 SRT 标准
-  publication 和兼容性行情文件，并从行情文件提取截止日、下一交易日和参考价。后续应收敛
-  为单一 SRT 运行入口。
-- `packages/strategy_runtime/src/strategy_runtime/execution_planner.py` 当前由宿主传入信号价和
-  执行参考价。价格、费率、目标仓位和委托参数属于 SRT，应直接取自 SRT publication 或决策。
-- `packages/paper_trading_engine/src/paper_trading_engine/account_chart.py` 直接读取行情清单。后续
-  应消费 SRT 提供的只读观测数据，避免 PTE 感知发布文件布局。
-- `packages/paper_trading_engine/src/paper_trading_engine/release_cli.py` 的生产预检直接组合 PTE
-  generation 校验和 SRT publication 校验。后续由 SRT 返回完整预检结果。
+- DFLS在门面内部执行统一校验、按“供应商＋标的”补丁修复和重新校验；主调方只处理
+  `DataResult`。
+- 每个补丁使用独立源文件并精确注册供应商与标的，未知异常继续失败阻断。
 
-## TDR 与 SRT
+## 已完成：SRT 与 PTE
 
-- `src/czsc_trader/generation_integrity.py` 解释 SRT generation 的文件结构和哈希。后续应迁入
-  SRT，由 TDR 只消费读取结果。
-- `src/czsc_trader/application/data_service.py` 在 generation 提交后组合 TDR 文件校验、SRT
-  publication 读取和运行时校验。后续需要区分 TDR 数据池事务与 SRT 发布物鉴真职责。
-- `src/czsc_trader/backtesting/datasets.py` 和 `src/czsc_trader/backtesting/srt_bridge.py` 直接
-  校验 generation。普通回测应通过 SRT 读取已发布输入，TDR 只校验研究窗口与返回截止日。
+- SRT通过`load_strategy_runtime_context(...)`认证generation、publication、文件哈希、内容身份
+  和策略契约；PTE消费返回的`StrategyRuntimeContext`。
+- PTE保留活跃账户覆盖、跨标的截止日同步、账户事实、渠道状态和调度判断，不解析SRT发布文件。
+- SRT拥有目标仓位、参考价、委托参数和生效时点；PTE提供账户事实并执行SRT计划。
+- 账户图表和生产预检均通过SRT公共读取能力获取策略数据，不独立解释发布契约。
 
-## 双轨发布
+## 待处理：TDR 与 SRT
 
-SRT 生产发布目前同时写入按 release 保存的标准 publication，以及供 PTE 使用的平面行情
-兼容文件。两套文件都进入同一 generation，但 PTE 会分别读取并再次对齐。完成 SRT 统一读取
-入口后，应评审兼容文件是否仍有保留价值，并消除双轨身份。
+- `src/czsc_trader/generation_integrity.py`解释SRT generation的文件结构和哈希。该能力应迁入
+  SRT，由TDR只消费认证结果。
+- `src/czsc_trader/application/data_service.py`在generation提交后组合TDR文件校验、SRT
+  publication读取和运行时校验。需要区分TDR数据池事务与SRT发布物鉴真职责。
+- `src/czsc_trader/backtesting/datasets.py`仍直接加载行情、执行价格和执行清单；
+  `src/czsc_trader/backtesting/srt_bridge.py`同时接收这些TDR组装的`ReplayData`和SRT运行上下文。
+  普通回测应由SRT闭环发布并返回已认证输入，TDR只指定并校验回测评价窗口。
+
+## 待处理：双轨发布
+
+SRT生产发布目前同时写入按release保存的标准publication和历史兼容的平面行情文件。PTE已通过
+统一SRT入口消费它们，不再自行对齐；仍需评审平面兼容文件是否存在其他有效主调方，再决定是否
+删除双轨文件和相关写入逻辑。

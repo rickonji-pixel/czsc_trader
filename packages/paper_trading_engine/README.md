@@ -1,4 +1,4 @@
-# Paper Trading Engine
+# 模拟交易引擎（Paper Trading Engine，PTE）
 
 PTE是仓库内独立的模拟交易包，与SRT通过进程内接口和版本化契约协作。本文只描述包级边界、
 对象模型、技术契约和开发验证。环境安装、账户操作、版本发布以及PTE/WDG启停见
@@ -9,7 +9,7 @@ PTE是仓库内独立的模拟交易包，与SRT通过进程内接口和版本�
 PTE负责：
 
 - 虚拟账户、资金分账、订单意图、成交回报和绩效快照；
-- 校验SRT发布的数据代次、逐账户决策调度和有效交易时段提交；
+- 通过SRT认证接口加载发布代次、逐账户决策调度和有效交易时段提交；
 - Futu模拟交易执行与对账；
 - SQLite追加式审计、控制台和账户前瞻观察图；
 - 向SM导出人工确认所需的模拟盘里程碑证据。
@@ -61,8 +61,9 @@ FutuSimulateCnChannel 1 ─── 1 Futu SIMULATE/CN account
   返回HTML，不读取或保存PTE前瞻行情；PTE使用外置Plotly运行库并长期缓存，账户数据
   刷新时保留图表DOM，只有图表事实变化才加载新的轻量HTML；
 - PTE只接受冻结且资格为`PAPER_READY`的策略发布。
-- 每次数据发布先写完并校验全部文件，最后原子提交generation清单；PTE读取前逐文件复核
-  generation哈希，任何半发布或跨代混合都阻止决策。
+- 每次数据发布先写完并校验全部文件，最后原子提交 generation 清单；PTE 通过
+  `load_strategy_runtime_context(...)` 获取 SRT 已认证的运行上下文，不解析发布目录、清单或
+  契约字段。SRT 发现半发布、跨代混合或哈希不符时接口直接失败并阻止决策。
 - 新账户创建前加载SRT并检查策略身份、部署标的、数据契约和渠道能力；任一检查失败即拒绝
   创建，不能留下“账户存在但无法运行”的半部署状态。
 - 当前只部署SRT的`STATELESS`策略；依赖持久状态的运行时明确拒绝上线。
@@ -98,6 +99,29 @@ PTE日常运行状态不进入SM。只有人工复核后的里程碑通过自包
 统一使用发布根目录下的`shared/`，版本目录只包含不可变代码和策略快照。两类目录均不进入
 Git。跨机延续同一模拟盘序列需要迁移完整`shared/`，并重新核对Futu活动订单、成交和持仓。
 
+### 单账户决策接口
+
+控制台通过以下本地 Web 接口驱动一个虚拟账户立即决策：
+
+```http
+POST /api/virtual-accounts/{account_id}/decision
+Content-Type: application/json
+
+{}
+```
+
+该接口无需控制令牌。它先完成账户和订单安全检查，再以追加记录的方式保存新事实，并返回可区分的
+业务状态：
+
+- `DECISION_COMPLETED`：首次生成该信号日决策；
+- `DECISION_REUSED`：输入身份与现有活动决策一致，复用既有记录；
+- `DECISION_SUPERSEDED`：追加新决策并使旧决策失效；
+- `DECISION_AND_INTENTS_SUPERSEDED`：同时使尚未提交渠道的旧订单意图失效并释放预留资金。
+
+只有 `PENDING_SUBMIT` 或 `WAITING_DEPENDENCY` 且没有 `channel_order_id` 的意图可以随决策失效。
+已有渠道订单或结果未知时返回冲突并阻止覆盖。批量调度继续由 `serve` 的调度器负责；人工驱动单个
+账户应使用此接口。
+
 控制台中的订单意图、订单和成交表均以交易时间倒序展示；同一时间使用稳定记录ID排序，
 便于优先检查最近的执行事实。虚拟账户订单表的“下单时间”固定为第三列。
 
@@ -122,6 +146,9 @@ OpenD暂时不可用可以启动为明确的`UNAVAILABLE`降级状态，内部�
 该账户决策。PTE只维护生产存储空间、观察发布结果并消费已提交的generation。
 
 生产构建和发布分别通过`../../scripts/pte-build.ps1`与`../../scripts/pte-publish.ps1`执行。
+构建产物写入 `../../.build/pte/`，pip、uv-build 和临时目录分别位于
+`../../.tmp/pte-release/pip/`、`../../.tmp/pte-release/uv-build/` 和
+`../../.tmp/pte-release/temp/`，避免依赖用户级缓存权限。
 `pte-release`是发布脚本使用的内部入口，不作为日常人工发布命令。
 
 ## 包级开发

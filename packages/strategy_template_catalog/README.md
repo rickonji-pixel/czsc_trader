@@ -1,4 +1,4 @@
-# Strategy Template Catalog (STC)
+# 策略模板目录（Strategy Template Catalog，STC）
 
 STC 是项目级策略函数模板目录。FSC 回答“可使用哪些输入 `x`”，STC 回答“用哪种受控结构
 `F` 组合输入”，Optuna 将模板参数实例化为具体函数 `f`。首版提供五类适合 OPC 团队的模板：
@@ -45,3 +45,15 @@ czsc-trader template instantiate --spec .\prototype.json
 ```
 
 实例化只验证结构和参数，并返回确定性的 `STI-*` 身份，不代表策略有效、候选通过或获准部署。
+
+模板或参数边界发生变化时应形成新的模板定义或版本化身份；已有实验引用的目录摘要保持可复核。
+候选最终使用的具体参数、SRT实现和执行规则进入候选快照与SM治理链，不写回STC。
+
+包级验证：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q -c pyproject.toml `
+  packages\strategy_template_catalog\tests\functional
+.\.venv\Scripts\python.exe -m ruff check `
+  packages\strategy_template_catalog\src packages\strategy_template_catalog\tests
+```

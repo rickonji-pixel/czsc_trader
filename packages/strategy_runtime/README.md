@@ -1,7 +1,7 @@
 # 策略运行时（Strategy Runtime，SRT）
 
 SRT 是研究、确定性回测、模拟交易以及未来实盘交易共同使用的策略执行边界。
-它负责策略特有的数据发布、决策计算、决策解释以及显式状态契约。
+它负责策略所需数据的完整发布与认证、决策计算、参考价选择、执行计划、决策解释以及显式状态契约。
 
 ## 对象边界
 
@@ -12,28 +12,43 @@ SRT 是研究、确定性回测、模拟交易以及未来实盘交易共同使�
 - `DeploymentSpec` 将可执行策略绑定到交易标的、账户和执行渠道。
   部署所需的账户状态和策略状态分别通过 `AccountSnapshot` 和
   `StrategyStateSnapshot` 显式传入。
-- `ExecutableStrategy` 通过 DFLS 发布其声明的数据输入，计算
+- `ExecutableStrategy` 通过 DFLS 获取其声明的数据输入，计算
   `StrategyDecision` 并解释该决策。数据发布状态未达到 `READY` 时，不允许进入
   决策计算。
 - `ExecutionChannel` 通过支持幂等的宿主契约接收决策，执行渠道本身不包含策略逻辑。
 
-SRT 不负责策略生命周期治理、策略评估、券商账户管理和进程守护。这些职责分别由
+SRT 不负责策略生命周期治理、策略评估、成交记账、券商账户管理和进程守护。这些职责分别由
 SM、SE、PTE/TDR 等执行宿主以及 WDG 承担。
+
+## 数据发布与运行上下文
+
+- `StrategyDataPublisher.publish_release(...)` 根据冻结策略的数据契约向 DFLS 请求完整输入，
+  验证输入集合和截止日，先原子写入数据与清单，最后提交 generation 标记；
+- `publish_history(...)` 为历史执行准备同一口径的策略输入。调用方只指定回测评价窗口，SRT 根据
+  策略契约计算所需的数据范围；
+- `load_strategy_runtime_context(...)` 是 PTE 等运行宿主读取发布物的认证入口。SRT 在接口内部校验
+  generation、清单、文件哈希、内容身份和策略契约，返回 `StrategyRuntimeContext`；
+- `StrategyRuntimeContext` 同时携带策略输入和 `ExecutionPricingData`。调用方消费已认证对象，
+  不解析 SRT 的发布目录或契约文件。
+
+DFLS 保证单项请求结果完整且准确；SRT 保证一个策略所需的多项输入在同一 generation 中齐备、
+身份一致并达到目标截止日。
 
 ## 统一执行流程
 
 `StrategyRunner` 为研究、回测和交易宿主提供唯一的单周期编排流程：
 
 1. 校验候选或冻结版本、部署和执行渠道的身份及能力是否兼容；
-2. 调用策略通过 DFLS 发布数据，并校验每项输入的 `DataRequest` 与 `DataResult`
+2. 调用策略通过 DFLS 获取数据，并校验每项输入的 `DataRequest` 与 `DataResult`
    是否配对，数据集、标的、频率、历史观测数量和截止时间是否符合输入契约；
    `SIGNAL_SESSION`必须准确到达请求交易日，`PREVIOUS_SESSION`必须准确到达上一交易日，
    `LATEST_AVAILABLE`只能在声明的最大陈旧期限内使用；
 3. 数据未就绪时返回 `DATA_NOT_READY`，不读取账户、不计算决策、不调用渠道；
-4. 使用显式账户快照和策略状态快照计算决策；
-5. 校验决策的版本、时间、仓位边界、快照版本和输入数据身份；
-6. 使用“渠道 ID＋决策 ID”作为幂等键提交执行请求；
-7. 分别返回 `ACCEPTED` 或 `REJECTED`。渠道接受请求不代表订单已经成交，实际执行
+4. 使用显式账户快照和策略状态快照计算目标仓位；
+5. 由 SRT 选择信号参考价和执行参考价，按冻结执行规则生成订单类型、价位、数量和生效时点；
+6. 校验决策的版本、时间、仓位边界、快照版本和输入数据身份；
+7. 使用“渠道 ID＋决策 ID”作为幂等键提交执行请求；
+8. 分别返回 `ACCEPTED` 或 `REJECTED`。渠道接受请求不代表订单已经成交，实际执行
    结果只能读取 `ExecutionReceipt.status`，避免形成“假成交”。
 
 输入集合必须与运行时声明完全一致，缺项、多项或身份不匹配均拒绝执行。发布落盘只接受
@@ -46,6 +61,10 @@ SRT只定义`ExecutionChannel`协议和请求、回执等公共模型，具体�
 TXE的`HistoricalExecutor`实现历史执行渠道，负责订单、成交、费用和账户账本；
 PTE维护Futu模拟渠道、订单对账和虚拟账户账本。TDR编排回测、输出报告与图表，
 不再保留`BacktestChannel`包装层。SRT不依赖具体回测或券商实现。
+
+执行语义分为两层：`execution_rules.py` 保存进入冻结源码闭包的策略执行算法；
+`execution_planner.py` 只把已经验证的运行事实适配为算法输入，属于平台编排代码，不进入冻结策略
+源码哈希。这样既保持平台代码统一，也让会改变订单行为的规则随策略版本冻结和复签。
 
 ## 策略版本加载
 
@@ -84,3 +103,10 @@ SM接受冻结前必须能够解析对应的可执行SRT身份并验证源码闭
 
 S001-v1/v2、S002-v1、S003-v1和S007-v1均已迁入SRT。候选与冻结策略的历史执行统一由
 SRT和TXE完成；PTE只加载具备部署资格的冻结版本。TDR正式候选评估不再解析旧规则格式。
+
+## 包级验证
+
+```powershell
+.\.venv\Scripts\python.exe -B -m pytest -c pyproject.toml packages/strategy_runtime/tests -q
+.\.venv\Scripts\python.exe -m ruff check packages/strategy_runtime/src packages/strategy_runtime/tests
+```

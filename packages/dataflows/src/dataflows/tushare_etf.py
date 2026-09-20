@@ -25,6 +25,7 @@ from .history_repair import (
     bindings_for,
     frame_content_sha256,
     inspect_registered_source_anomalies,
+    repair_dates_for,
 )
 from .history_validation import (
     ValidationReport,
@@ -266,15 +267,31 @@ def _fetch_tushare_etf_ohlcv(
             )
             repair_bindings = bindings_for(series)
             references: dict[str, pd.DataFrame] = {"daily": daily}
-            if any(
-                binding.algorithm == "REBUILD_INTRADAY_FROM_1M"
-                for binding in repair_bindings
-            ):
-                one_minute_vendor = _fetch_intraday_vendor(
-                    pro, ts_code, start_date, end_date, "1m"
-                )
+            finding_codes = {item.code for item in report.findings}
+            repair_dates = sorted(
+                {
+                    trade_date
+                    for binding in repair_bindings
+                    if binding.algorithm == "REBUILD_INTRADAY_FROM_1M"
+                    and finding_codes.intersection(binding.finding_codes)
+                    for trade_date in repair_dates_for(daily, binding)
+                }
+            )
+            if repair_dates:
+                one_minute_pieces = [
+                    _fetch_intraday_vendor(pro, ts_code, trade_date, trade_date, "1m")
+                    for trade_date in repair_dates
+                ]
+                available = [
+                    piece
+                    for piece in one_minute_pieces
+                    if piece is not None and not piece.empty
+                ]
                 references["1m"] = _standardize_etf_ohlcv(
-                    one_minute_vendor, intraday=True
+                    pd.concat(available, ignore_index=True)
+                    if available
+                    else pd.DataFrame(),
+                    intraday=True,
                 )
             normalized, records = apply_repairs_once(
                 normalized,

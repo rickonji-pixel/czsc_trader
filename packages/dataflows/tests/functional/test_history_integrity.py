@@ -13,6 +13,7 @@ from dataflows.history_repair import (
     validate_repair_registry,
 )
 from dataflows.history_validation import (
+    ValidationFinding,
     inspect_intraday_against_daily,
     inspect_market_collection,
 )
@@ -141,6 +142,81 @@ def test_rebuilt_intraday_is_revalidated_against_daily() -> None:
     assert report.passed
     assert len(rebuilt) == 8
     assert rebuilt[["Open", "High", "Low", "Close"]].eq(10.0).all().all()
+
+
+def test_518880_rebuild_is_limited_to_registered_dates() -> None:
+    registered_date = "2015-07-16"
+    ordinary_date = "2015-07-17"
+    daily = _daily([registered_date, ordinary_date])
+    one_minute = pd.concat(
+        [_one_minute_day(registered_date), _one_minute_day(ordinary_date)],
+        ignore_index=True,
+    )
+    frame = rebuild_intraday_from_1m(
+        one_minute, daily, "30m", dates=[registered_date, ordinary_date]
+    )
+    frame.loc[
+        pd.to_datetime(frame["Date"]).dt.strftime("%Y-%m-%d").eq(registered_date),
+        "High",
+    ] = 9.0
+    ordinary_before = frame.loc[
+        pd.to_datetime(frame["Date"]).dt.strftime("%Y-%m-%d").eq(ordinary_date)
+    ].copy()
+    series = SeriesKey(
+        "tushare", "etf_mins", "518880.SH", "etf.ohlcv", "30m", "none"
+    )
+    findings = (
+        ValidationFinding(
+            "INVALID_OHLCV",
+            "registered source anomaly",
+            {"timestamps": [f"{registered_date} 10:00:00"]},
+        ),
+    )
+
+    repaired, records = apply_repairs_once(
+        frame,
+        series,
+        findings,
+        references={"1m": one_minute, "daily": daily},
+    )
+
+    assert records[0].affected_dates == (registered_date,)
+    pd.testing.assert_frame_equal(
+        repaired.loc[
+            pd.to_datetime(repaired["Date"])
+            .dt.strftime("%Y-%m-%d")
+            .eq(ordinary_date)
+        ].reset_index(drop=True),
+        ordinary_before.reset_index(drop=True),
+        check_dtype=False,
+    )
+    assert inspect_intraday_against_daily(repaired, daily, "30m").passed
+
+
+def test_518880_unknown_rebuild_date_is_blocked() -> None:
+    trade_date = "2015-07-17"
+    daily = _daily([trade_date])
+    one_minute = _one_minute_day(trade_date)
+    frame = rebuild_intraday_from_1m(one_minute, daily, "30m", dates=[trade_date])
+    frame.loc[0, "High"] = 9.0
+    series = SeriesKey(
+        "tushare", "etf_mins", "518880.SH", "etf.ohlcv", "30m", "none"
+    )
+    findings = (
+        ValidationFinding(
+            "INVALID_OHLCV",
+            "unknown source anomaly",
+            {"timestamps": [f"{trade_date} 10:00:00"]},
+        ),
+    )
+
+    with pytest.raises(DataRepairError, match="no repair binding matched"):
+        apply_repairs_once(
+            frame,
+            series,
+            findings,
+            references={"1m": one_minute, "daily": daily},
+        )
 
 
 def test_repair_is_not_executed_without_a_validation_finding() -> None:

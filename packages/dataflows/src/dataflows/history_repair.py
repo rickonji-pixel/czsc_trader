@@ -103,6 +103,46 @@ _VOLUME_X100_DATES = (
     "2024-06-14",
 )
 
+_REBUILD_518880_30M_DATES = (
+    "2013-08-02",
+    "2013-11-01",
+    "2013-11-08",
+    "2013-11-27",
+    "2013-11-28",
+    "2014-01-29",
+    "2014-02-07",
+    "2014-04-10",
+    "2014-04-23",
+    "2014-05-16",
+    "2014-05-19",
+    "2014-05-26",
+    "2014-05-27",
+    "2014-05-30",
+    "2014-06-03",
+    "2014-06-06",
+    "2014-06-11",
+    "2014-07-09",
+    "2014-08-19",
+    "2014-08-26",
+    "2014-12-31",
+    "2015-01-29",
+    "2015-02-11",
+    "2015-06-17",
+    "2015-07-16",
+    "2015-08-19",
+    "2015-09-02",
+    "2016-06-24",
+    "2017-08-07",
+    "2018-12-18",
+    "2024-04-03",
+    "2024-04-19",
+    "2024-04-26",
+    "2024-04-30",
+    "2024-05-24",
+    "2024-05-31",
+    "2024-06-14",
+)
+
 
 def _volume_bindings() -> tuple[RepairBinding, ...]:
     return tuple(
@@ -151,6 +191,7 @@ REPAIR_BINDINGS: tuple[RepairBinding, ...] = (
         ),
         algorithm="REBUILD_INTRADAY_FROM_1M",
         algorithm_version=1,
+        parameters={"dates": _REBUILD_518880_30M_DATES},
     ),
     RepairBinding(
         binding_id="TUSHARE_510500_15M_20241030_V1",
@@ -278,7 +319,11 @@ def inspect_registered_source_anomalies(
     return tuple(findings)
 
 
-def _active_dates(dataframe: pd.DataFrame, binding: RepairBinding) -> tuple[str, ...]:
+def repair_dates_for(
+    dataframe: pd.DataFrame, binding: RepairBinding
+) -> tuple[str, ...]:
+    """Return dates in the requested reference frame authorized by one binding."""
+
     timestamps = pd.to_datetime(dataframe["Date"], errors="coerce")
     observed = timestamps.dt.strftime("%Y-%m-%d")
     mask = observed.between(binding.valid_from, binding.valid_through)
@@ -463,11 +508,17 @@ def apply_repairs_once(
         elif binding.algorithm == "SCALE_VOLUME_ON_DATES":
             repaired, affected = _scale_volume_on_dates(result, binding, findings)
         elif binding.algorithm == "REBUILD_INTRADAY_FROM_1M":
-            if "1m" not in references or "daily" not in references:
+            if "daily" not in references:
                 raise DataRepairError(
                     f"{binding.binding_id}: 1m and daily repair references are required"
                 )
-            repair_dates = _active_dates(references["daily"], binding)
+            repair_dates = repair_dates_for(references["daily"], binding)
+            if not repair_dates:
+                continue
+            if "1m" not in references:
+                raise DataRepairError(
+                    f"{binding.binding_id}: 1m and daily repair references are required"
+                )
             rebuilt = rebuild_intraday_from_1m(
                 references["1m"],
                 references["daily"],
@@ -480,7 +531,9 @@ def apply_repairs_once(
             repaired = pd.concat(
                 [result.loc[~current_dates.isin(repair_dates)], rebuilt],
                 ignore_index=True,
-            ).sort_values("Date").reset_index(drop=True)
+            )
+            repaired["Date"] = pd.to_datetime(repaired["Date"], errors="raise")
+            repaired = repaired.sort_values("Date").reset_index(drop=True)
             affected = repair_dates
         else:
             raise DataRepairError(f"unsupported repair algorithm {binding.algorithm}")

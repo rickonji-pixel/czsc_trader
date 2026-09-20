@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX39",
+  "status": "COMPLETE",
+  "experiment_type": "FROZEN_V1_RETURN_ATTRIBUTION",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "ATTRIBUTION_COMPLETE",
+  "strategy_parameters_changed": false,
+  "candidate_created": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 596,
+      "sha256": "8646136bce39f56f29f076d0f8c2968fd739d5c7601bfeacd26537bc87818e25"
+    },
+    "02_design.md": {
+      "bytes": 1838,
+      "sha256": "8547867283a8dcb7ab36d7a182c83a6a2aafab5530776938e419cf23e964b006"
+    },
+    "02_protocol.json": {
+      "bytes": 1818,
+      "sha256": "8e9dd64d451eec47f8d8c4e2aa8653663fe85e7fe279f8e8c9d1098c34bf3b3e"
+    },
+    "03_execution.md": {
+      "bytes": 675,
+      "sha256": "68bd7ba2532bd362c3a92f7e7b3043230f09677d7959d36e0863f7f0ae3d0e96"
+    },
+    "04_conclusion.md": {
+      "bytes": 1858,
+      "sha256": "1dfac7efcb98b6b27a138b13dc2630db35db670f3185e4ef3d1f93666d8b87be"
+    },
+    "artifacts/attribution_evidence.json": {
+      "bytes": 4902,
+      "sha256": "6b659e26f58c419870cf9bb1a15b805b310498f19d20bd9ad5c3f4ea159d9e89"
+    },
+    "artifacts/composite_regime_summary.csv": {
+      "bytes": 916,
+      "sha256": "c4ed01f769c15d6fb0fd62545a983b615c578cca02de186e77f95781b791ee7a"
+    },
+    "artifacts/outcome_group_summary.csv": {
+      "bytes": 1163,
+      "sha256": "de9a483480a3864f10e335a4329dd715ac8e4a024f5f96102ef44853e91d2d3e"
+    },
+    "artifacts/regime_contrasts.csv": {
+      "bytes": 1085,
+      "sha256": "dd32b45064b563f5af1c5c68b0bbaa3a080756b0b1040c02f63358108cfea0b9"
+    },
+    "artifacts/regime_summary.csv": {
+      "bytes": 2987,
+      "sha256": "cf3e9be99ecab1bf628c29faf9c34c973bd460e2ffb2a5d3bd2db675143a5dc8"
+    },
+    "artifacts/top_profitable_trades.csv": {
+      "bytes": 800,
+      "sha256": "1f2464a83906aec2a720719f710110e9c401e8f9594a56626b299984dc884c6e"
+    },
+    "artifacts/trade_attribution.csv": {
+      "bytes": 63826,
+      "sha256": "12feed0c61b79b2f8a286db0ac210ca772f61f5ed96bb4b6f828fba4f696cc91"
+    },
+    "artifacts/yearly_summary.csv": {
+      "bytes": 1239,
+      "sha256": "67a27df45bb9530a85c1884e6a7f562427901550d0b4bced616ff13e528efae7"
+    },
+    "run_experiment.py": {
+      "bytes": 21909,
+      "sha256": "8e91ce2f28f9e0ab1148bed57985232f785a408dc76ddb7f2a20f99dfbe3f55c"
+    }
+  }
+}

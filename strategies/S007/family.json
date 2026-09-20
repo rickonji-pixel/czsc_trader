@@ -3,8 +3,14 @@
   "created_by": "tomxiao",
   "name": "科创50多源机会风险门控策略",
   "research_intent": {
-    "objective": "在控制最大回撤的前提下研究多源机会、风险与确认信息对588080.SH的择时价值",
-    "responsibility": "研究多源评分与确认门组合形成目标仓位的策略机制"
+    "baseline": "S007-v1",
+    "development_window": {
+      "cutoff": "2026-09-02",
+      "start": "2021-01-04"
+    },
+    "evidence_boundary": "只读取冻结开发窗口与不可变正式回放；2026-09-03之后的前瞻数据不参与本批次首次归因实验",
+    "objective": "固定S007-v1公式、参数和执行规则，归因正式账户闭合交易在市场状态、持有期和收益集中度上的表现，定位下一候选应优先研究仓位、退出或适用范围",
+    "responsibility": "为S007下一候选提供诊断证据，不修改S007-v1，不创建候选，不改变PTE状态"
   },
   "research_state": "RESEARCHING",
   "schema_version": 2,
@@ -12,5 +18,5 @@
     "588080.SH"
   ],
   "strategy_id": "S007",
-  "updated_at": "2026-09-18T00:00:00+08:00"
+  "updated_at": "2026-09-20T10:52:57+08:00"
 }

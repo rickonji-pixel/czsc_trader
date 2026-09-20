@@ -13,6 +13,7 @@ from strategy_runtime import (
     CutoffRule,
     DecisionContract,
     DeploymentSpec,
+    ExecutionPricingData,
     ExecutionPolicy,
     ExecutionReceipt,
     ImplementationRef,
@@ -60,7 +61,25 @@ def _definition(*, order_types: tuple[str, ...] = ("LIMIT",)) -> RuntimeDefiniti
             )
         ),
         decision=DecisionContract("TARGET_POSITION", 0.0, 1.0, "NEXT_SESSION"),
-        execution=ExecutionPolicy("MARKETABLE_LIMIT", {"limit_ratio": 0.2}),
+        execution=ExecutionPolicy(
+            "FROZEN_RULE",
+            {
+                "capital": {
+                    "allocation_fraction": 1.0,
+                    "fee_rate": 0.001,
+                    "mode": "full_available_cash",
+                    "target_scope": "entry_cycle",
+                },
+                "entry": {"limit_parameter": 0.0, "order_type": "LIMIT"},
+                "exit": {"limit_ratio": 0.1, "order_type": "LIMIT"},
+                "instrument": {
+                    "lot_size": 100,
+                    "maximum_order_quantity": 1_000_000,
+                    "price_limit_ratio": 0.1,
+                    "price_tick": 0.001,
+                },
+            },
+        ),
         monitoring=MonitoringPolicy("ROLLING", {"window_sessions": 60}),
         capabilities=RequiredCapabilities(("etf.ohlcv",), order_types),
     )
@@ -184,7 +203,7 @@ class FakeStrategy:
             request.account.revision,
             request.state.revision,
             {"daily_bars": INPUT_HASH},
-            {"score": 0.8},
+            {"score": 0.8, "signal_date": request.publication.requested_cutoff},
             {"last_target": self.target_position},
         )
 
@@ -196,9 +215,11 @@ class FakeExecutionModel:
     def __init__(self, *, accepted: bool = True) -> None:
         self.accepted = accepted
         self.calls = 0
+        self.request = None
 
     def execute(self, request, idempotency_key: str) -> ExecutionReceipt:
         self.calls += 1
+        self.request = request
         return ExecutionReceipt(
             idempotency_key,
             self.accepted,
@@ -241,11 +262,14 @@ def _state() -> StrategyStateSnapshot:
 
 
 def _run(strategy: FakeStrategy, account: FakeAccount, channel: TestExecutionChannel):
+    dates = pd.bdate_range(end="2026-09-17", periods=60)
+    frame = pd.DataFrame({"Date": dates, "Close": [1.0] * len(dates)})
     return StrategyRunner().run(
         strategy=strategy,
         deployment=_deployment(),
         state=_state(),
         dataflows=Dataflows(),
+        execution_data=ExecutionPricingData("588080.SH", frame, frame),
         account=account,
         channel=channel,
         through=NOW,
@@ -263,7 +287,26 @@ def test_runner_completes_one_deterministic_backtest_cycle() -> None:
 
     assert result.status is RuntimeRunStatus.ACCEPTED
     assert result.receipt is not None and result.receipt.status == "FILLED"
+    assert result.instruction is not None
+    assert result.instruction.reference_prices.signal_at.isoformat() == (
+        "2026-09-17T15:00:00+08:00"
+    )
+    assert result.instruction.reference_prices.valid_at.isoformat() == (
+        "2026-09-18T20:30:00+08:00"
+    )
+    assert result.instruction.order_plan["action"] == "BUY"
+    assert isinstance(result.instruction.order_plan_payload()["order"], dict)
+    assert model.request is not None
+    assert model.request.instruction == result.instruction
     assert strategy.publish_calls == strategy.calculate_calls == account.calls == model.calls == 1
+
+
+def test_execution_pricing_rejects_different_adjusted_and_execution_sessions() -> None:
+    adjusted = pd.DataFrame({"Date": ["2026-09-16"], "Close": [1.0]})
+    execution = pd.DataFrame({"Date": ["2026-09-17"], "Close": [1.0]})
+
+    with pytest.raises(RuntimeContractError, match="pricing sessions differ"):
+        ExecutionPricingData("588080.SH", adjusted, execution)
 
 
 def test_runner_stops_before_snapshot_when_data_is_not_ready() -> None:
@@ -349,6 +392,11 @@ def test_runner_accepts_morning_catchup_after_decision_effective_time() -> None:
         deployment=_deployment(),
         state=_state(),
         dataflows=Dataflows(),
+        execution_data=ExecutionPricingData(
+            "588080.SH",
+            strategy.publication.input_results["daily_bars"].dataframe,
+            strategy.publication.input_results["daily_bars"].dataframe,
+        ),
         account=FakeAccount(),
         channel=TestExecutionChannel(model, order_types=("LIMIT",)),
         through=NOW,

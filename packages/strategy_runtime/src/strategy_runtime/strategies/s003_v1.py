@@ -195,7 +195,7 @@ class S003V1:
                 __name__,
                 self.__class__.__name__,
                 1,
-                implementation_sha256(("strategies/s003_v1.py", "execution_planner.py")),
+                implementation_sha256(("strategies/s003_v1.py", "execution_rules.py")),
             ),
             ParameterSet(release.payload),
             InputContract(

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 from datetime import date
 import hashlib
 import json
@@ -28,7 +27,7 @@ class AccountChartService:
         self,
         store,
         *,
-        data_dir: Path,
+        advice,
         cache_dir: Path,
         trader_executable: str | Path = "czsc-trader",
         runner: Callable[..., Any] = subprocess.run,
@@ -37,7 +36,7 @@ class AccountChartService:
         audit: AuditRecorder | None = None,
     ) -> None:
         self.store = store
-        self.data_dir = Path(data_dir)
+        self.advice = advice
         self.cache_dir = Path(cache_dir)
         self.trader_executable = str(trader_executable)
         self.runner = runner
@@ -71,51 +70,43 @@ class AccountChartService:
         return hashlib.sha256(content).hexdigest()
 
     def _market_data(self, account: dict[str, Any]) -> tuple[str, list[dict[str, object]]]:
-        code = str(account["symbol"]).split(".", 1)[0]
-        manifest_path = self.data_dir / f"{code}_manifest.json"
-        manifest_bytes = manifest_path.read_bytes()
-        manifest = json.loads(manifest_bytes.decode("utf-8"))
-        if str(manifest.get("symbol", "")).upper() != str(account["symbol"]).upper():
-            raise ValueError("market-data manifest symbol does not match account")
-        adjustment = (
-            manifest.get("fetch_metadata", {}).get("daily", {}).get("adjustment")
-            or manifest.get("adjustment", {}).get("mode")
+        context = self.advice.runtime_context_for_account(
+            strategy_id=str(account["strategy_id"]),
+            strategy_version=str(account["strategy_version"]),
+            symbol=str(account["symbol"]),
+            asset=str(account["asset_type"]),
         )
-        if adjustment != "hfq":
-            raise ValueError("daily market data must use hfq adjustment")
-        files = [
-            (name, metadata)
-            for name, metadata in manifest.get("files", {}).items()
-            if metadata.get("frequency") == "daily"
-        ]
-        if not files:
-            raise ValueError("manifest has no daily market-data files")
+        frame = context.pricing_data.adjusted_daily.rename(
+            columns={
+                "Date": "date",
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+            }
+        )
+        if not {"date", "open", "high", "low", "close"} <= set(frame.columns):
+            raise ValueError("SRT adjusted daily input has incomplete OHLC data")
         bars: dict[str, dict[str, object]] = {}
-        for name, metadata in sorted(files):
-            if Path(name).name != name or not name.startswith(f"{code}_daily_"):
-                raise ValueError("manifest contains an unsafe daily file name")
-            content = (self.data_dir / name).read_bytes()
-            if self._sha256(content) != metadata.get("sha256"):
-                raise ValueError(f"daily market-data hash mismatch: {name}")
-            for row in csv.DictReader(content.decode("utf-8-sig").splitlines()):
-                session = date.fromisoformat(str(row["date"])[:10]).isoformat()
-                if session in bars:
-                    raise ValueError(f"duplicate daily market-data session: {session}")
-                bars[session] = {
-                    "date": session,
-                    "open": float(row["open"]),
-                    "high": float(row["high"]),
-                    "low": float(row["low"]),
-                    "close": float(row["close"]),
-                }
+        for row in frame.to_dict("records"):
+            session = date.fromisoformat(str(row["date"])[:10]).isoformat()
+            if session in bars:
+                raise ValueError(f"duplicate daily market-data session: {session}")
+            bars[session] = {
+                "date": session,
+                "open": float(row["open"]),
+                "high": float(row["high"]),
+                "low": float(row["low"]),
+                "close": float(row["close"]),
+            }
         cutoff = date.fromisoformat(str(account["selection_data_cutoff"])).isoformat()
         ordered = [bars[key] for key in sorted(bars)]
-        context = [bar for bar in ordered if bar["date"] <= cutoff][-self.context_sessions :]
+        history = [bar for bar in ordered if bar["date"] <= cutoff][-self.context_sessions :]
         forward = [bar for bar in ordered if bar["date"] > cutoff]
-        selected = context + forward
+        selected = history + forward
         if not selected:
             raise ValueError("no daily market data is available for the account chart")
-        return self._sha256(manifest_bytes), selected
+        return context.pricing_data.identity_hashes["adjusted_daily"], selected
 
     @staticmethod
     def _fact_date(row: dict[str, Any], fields: tuple[str, ...]) -> str | None:

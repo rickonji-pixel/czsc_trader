@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, time
 from enum import StrEnum
 import hashlib
 import json
@@ -11,6 +11,8 @@ import math
 import re
 from types import MappingProxyType
 from typing import Any, Mapping
+
+import pandas as pd
 
 from dataflows import DataRequest, DataResult, DataStatus
 
@@ -592,6 +594,124 @@ class PublishedStrategyData:
         return self.status is PublicationStatus.READY
 
 
+def _daily_prices(frame: pd.DataFrame, field_name: str) -> pd.DataFrame:
+    if not isinstance(frame, pd.DataFrame):
+        raise RuntimeContractError(f"{field_name} must be a dataframe")
+    normalized = frame.rename(
+        columns={
+            "Date": "dt",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "vol",
+            "Amount": "amount",
+        }
+    ).copy()
+    if not {"dt", "close"} <= set(normalized.columns):
+        raise RuntimeContractError(f"{field_name} must contain dt and close")
+    try:
+        normalized["dt"] = pd.to_datetime(normalized["dt"], errors="raise").dt.normalize()
+        normalized["close"] = pd.to_numeric(normalized["close"], errors="raise")
+    except (TypeError, ValueError) as exc:
+        raise RuntimeContractError(f"{field_name} has invalid dates or prices") from exc
+    if (
+        normalized.empty
+        or normalized["dt"].isna().any()
+        or normalized["dt"].duplicated().any()
+        or normalized["close"].map(lambda value: math.isfinite(float(value)) and value > 0).eq(False).any()
+    ):
+        raise RuntimeContractError(
+            f"{field_name} requires unique sessions and positive finite closes"
+        )
+    return normalized.sort_values("dt").reset_index(drop=True)
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionPricingData:
+    """SRT-owned market facts used to price one strategy decision."""
+
+    symbol: str
+    adjusted_daily: pd.DataFrame
+    execution_daily: pd.DataFrame
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "symbol", _text(self.symbol, "pricing symbol").upper())
+        adjusted = _daily_prices(self.adjusted_daily, "adjusted daily prices")
+        execution = _daily_prices(self.execution_daily, "execution daily prices")
+        adjusted_sessions = pd.DatetimeIndex(adjusted["dt"])
+        execution_sessions = pd.DatetimeIndex(execution["dt"])
+        if not adjusted_sessions.equals(execution_sessions):
+            raise RuntimeContractError("adjusted and execution pricing sessions differ")
+        object.__setattr__(self, "adjusted_daily", adjusted)
+        object.__setattr__(self, "execution_daily", execution)
+
+    @property
+    def data_cutoff(self) -> date:
+        return pd.Timestamp(self.execution_daily.iloc[-1]["dt"]).date()
+
+    @property
+    def identity_hashes(self) -> Mapping[str, str]:
+        from dataflows import canonical_frame_sha256
+
+        return MappingProxyType(
+            {
+                "adjusted_daily": canonical_frame_sha256(self.adjusted_daily),
+                "execution_daily": canonical_frame_sha256(self.execution_daily),
+            }
+        )
+
+    def references_for(self, decision: "StrategyDecision") -> "ReferencePriceSnapshot":
+        raw_signal_date = decision.evidence.get("signal_date")
+        if raw_signal_date is None:
+            raise RuntimeContractError("strategy decision must declare signal_date")
+        try:
+            signal_date = pd.Timestamp(raw_signal_date).normalize()
+        except (TypeError, ValueError) as exc:
+            raise RuntimeContractError("strategy decision signal_date is invalid") from exc
+        adjusted = self.adjusted_daily.loc[self.adjusted_daily["dt"].eq(signal_date)]
+        execution = self.execution_daily.loc[self.execution_daily["dt"].eq(signal_date)]
+        if len(adjusted) != 1 or len(execution) != 1:
+            raise RuntimeContractError(
+                "execution pricing has no unique reference row for the signal session"
+            )
+        if decision.valid_at.date() <= signal_date.date():
+            raise RuntimeContractError("execution instruction must follow the signal session")
+        signal_at = datetime.combine(
+            signal_date.date(), time(15, 0), tzinfo=decision.valid_at.tzinfo
+        )
+        return ReferencePriceSnapshot(
+            symbol=self.symbol,
+            signal_at=signal_at,
+            valid_at=decision.valid_at,
+            signal_reference_price=float(adjusted.iloc[0]["close"]),
+            execution_reference_price=float(execution.iloc[0]["close"]),
+            signal_price_basis="ADJUSTED_CLOSE",
+            execution_price_basis="UNADJUSTED_CLOSE",
+            price_identity_hashes=self.identity_hashes,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class StrategyRuntimeContext:
+    """Complete SRT input: strategy publication plus execution-pricing facts."""
+
+    strategy_data: PublishedStrategyData
+    pricing_data: ExecutionPricingData
+
+    def __post_init__(self) -> None:
+        if not self.strategy_data.ready:
+            raise RuntimeContractError("strategy runtime context requires READY publication")
+        try:
+            cutoff = date.fromisoformat(self.strategy_data.requested_cutoff)
+        except ValueError as exc:
+            raise RuntimeContractError("strategy publication cutoff is invalid") from exc
+        if cutoff != self.pricing_data.data_cutoff:
+            raise RuntimeContractError(
+                "strategy publication and execution pricing cutoffs differ"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class CalculationRequest:
     deployment: DeploymentSpec
@@ -695,11 +815,70 @@ class ExecutionReceipt:
 
 
 @dataclass(frozen=True, slots=True)
+class ReferencePriceSnapshot:
+    symbol: str
+    signal_at: datetime
+    valid_at: datetime
+    signal_reference_price: float
+    execution_reference_price: float
+    signal_price_basis: str
+    execution_price_basis: str
+    price_identity_hashes: Mapping[str, str]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "symbol", _text(self.symbol, "reference symbol").upper())
+        if self.signal_at.tzinfo is None or self.valid_at.tzinfo is None:
+            raise RuntimeContractError("reference timestamps must be timezone-aware")
+        if self.valid_at <= self.signal_at:
+            raise RuntimeContractError("reference valid_at must follow signal_at")
+        prices = (self.signal_reference_price, self.execution_reference_price)
+        if not all(math.isfinite(value) and value > 0 for value in prices):
+            raise RuntimeContractError("reference prices must be positive and finite")
+        object.__setattr__(
+            self, "signal_price_basis", _text(self.signal_price_basis, "signal price basis")
+        )
+        object.__setattr__(
+            self,
+            "execution_price_basis",
+            _text(self.execution_price_basis, "execution price basis"),
+        )
+        identities = _mapping(self.price_identity_hashes, "price_identity_hashes")
+        if not identities or any(not _SHA256.fullmatch(value) for value in identities.values()):
+            raise RuntimeContractError("price identities must be lowercase SHA-256")
+        object.__setattr__(self, "price_identity_hashes", identities)
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionInstruction:
+    decision: StrategyDecision
+    policy: ExecutionPolicy
+    reference_prices: ReferencePriceSnapshot
+    order_plan: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        if self.reference_prices.valid_at != self.decision.valid_at:
+            raise RuntimeContractError("instruction and decision effective times differ")
+        signal_date = self.decision.evidence.get("signal_date")
+        if signal_date is None or pd.Timestamp(signal_date).date() != self.reference_prices.signal_at.date():
+            raise RuntimeContractError("instruction and decision signal sessions differ")
+        plan = _json_mapping(self.order_plan, "execution order plan")
+        if not plan:
+            raise RuntimeContractError("execution instruction requires an order plan")
+        if float(plan.get("target_position", math.nan)) != self.decision.target_position:
+            raise RuntimeContractError("execution plan target differs from strategy decision")
+        object.__setattr__(self, "order_plan", plan)
+
+    def order_plan_payload(self) -> dict[str, Any]:
+        """Return a detached JSON-compatible order plan for execution adapters."""
+
+        return _thaw_json(self.order_plan)
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionRequest:
     deployment: DeploymentSpec
     account: AccountSnapshot
-    decision: StrategyDecision
-    policy: ExecutionPolicy
+    instruction: ExecutionInstruction
 
     def __post_init__(self) -> None:
         if self.deployment.account_id != self.account.account_id:
@@ -712,6 +891,24 @@ class ExecutionRequest:
             raise RuntimeContractError("execution deployment and decision release hashes differ")
         if self.account.revision != self.decision.account_revision:
             raise RuntimeContractError("execution account revision differs from decision")
+        if self.deployment.symbol.upper() != self.reference_prices.symbol:
+            raise RuntimeContractError("execution deployment and reference symbols differ")
+
+    @property
+    def decision(self) -> StrategyDecision:
+        return self.instruction.decision
+
+    @property
+    def policy(self) -> ExecutionPolicy:
+        return self.instruction.policy
+
+    @property
+    def reference_prices(self) -> ReferencePriceSnapshot:
+        return self.instruction.reference_prices
+
+    @property
+    def order_plan(self) -> Mapping[str, Any]:
+        return self.instruction.order_plan
 
 
 @dataclass(frozen=True, slots=True)
@@ -719,14 +916,25 @@ class RuntimeRunResult:
     status: RuntimeRunStatus
     publication: PublishedStrategyData
     decision: StrategyDecision | None = None
+    instruction: ExecutionInstruction | None = None
     receipt: ExecutionReceipt | None = None
 
     def __post_init__(self) -> None:
         if self.status is RuntimeRunStatus.DATA_NOT_READY:
-            if self.publication.ready or self.decision is not None or self.receipt is not None:
+            if (
+                self.publication.ready
+                or self.decision is not None
+                or self.instruction is not None
+                or self.receipt is not None
+            ):
                 raise RuntimeContractError("DATA_NOT_READY result cannot contain execution data")
             return
-        if not self.publication.ready or self.decision is None or self.receipt is None:
+        if (
+            not self.publication.ready
+            or self.decision is None
+            or self.instruction is None
+            or self.receipt is None
+        ):
             raise RuntimeContractError(
                 "accepted or rejected runtime result requires publication and execution"
             )

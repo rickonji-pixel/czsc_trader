@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import date
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -19,7 +20,13 @@ from dataflows import (
 )
 
 from .errors import RuntimeContractError
-from .models import PublicationStatus, PublishedStrategyData
+from .models import (
+    ExecutionPricingData,
+    PublicationStatus,
+    PublishedStrategyData,
+    StrategyRuntimeContext,
+)
+from .protocols import ExecutableStrategy
 
 
 _SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]+")
@@ -54,6 +61,90 @@ def publication_manifest_name(release_id: str) -> str:
     if _SAFE_NAME.fullmatch(safe) is None:
         raise RuntimeContractError("release ID cannot form a safe publication filename")
     return f"srt_{safe}_publication.json"
+
+
+def _strategy_symbol(strategy: ExecutableStrategy) -> str:
+    subjects = {
+        str(requirement.subject).upper()
+        for requirement in strategy.definition.inputs.requirements
+        if requirement.subject
+        and requirement.dataset.startswith(("etf.", "stock."))
+        and re.fullmatch(r"\d{6}\.(?:SH|SZ)", str(requirement.subject).upper())
+    }
+    if len(subjects) != 1:
+        raise RuntimeContractError(
+            "strategy publication must declare exactly one A-share instrument"
+        )
+    return next(iter(subjects))
+
+
+def _read_bound_generation(
+    directory: Path,
+    strategy: ExecutableStrategy,
+) -> dict[str, object]:
+    root = Path(directory).resolve()
+    symbol = _strategy_symbol(strategy)
+    marker = root / f"{symbol.split('.', 1)[0]}_strategy_generation.json"
+    try:
+        generation = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeContractError(f"cannot read SRT generation: {exc}") from exc
+    if not isinstance(generation, dict) or generation.get("schema_version") not in {1, 2}:
+        raise RuntimeContractError("SRT generation schema is unsupported")
+    if str(generation.get("symbol", "")).upper() != symbol:
+        raise RuntimeContractError("SRT generation symbol differs from strategy")
+    if generation.get("asset_type") not in {"etf", "stock"}:
+        raise RuntimeContractError("SRT generation asset type is invalid")
+    dataset = generation.get("dataset")
+    if not isinstance(dataset, str) or not dataset:
+        raise RuntimeContractError("SRT generation dataset is invalid")
+    try:
+        date.fromisoformat(str(generation["data_cutoff"]))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeContractError("SRT generation data cutoff is invalid") from exc
+    generation_id = generation.get("generation_id")
+    if not isinstance(generation_id, str) or not generation_id:
+        raise RuntimeContractError("SRT generation identity is invalid")
+    releases = generation.get("strategy_releases")
+    if (
+        not isinstance(releases, list)
+        or not releases
+        or any(not isinstance(item, str) or not item for item in releases)
+    ):
+        raise RuntimeContractError("SRT generation strategy releases are invalid")
+    release_id = strategy.definition.release_id
+    if release_id not in releases:
+        raise RuntimeContractError(
+            f"SRT generation does not contain strategy publication: {release_id}"
+        )
+    files = generation.get("files")
+    if not isinstance(files, dict) or not files:
+        raise RuntimeContractError("SRT generation has no authenticated files")
+    manifest_name = publication_manifest_name(release_id)
+    if manifest_name not in files:
+        raise RuntimeContractError(
+            f"SRT generation does not bind strategy publication: {release_id}"
+        )
+    for name, expected in files.items():
+        if (
+            not isinstance(name, str)
+            or Path(name).name != name
+            or not isinstance(expected, str)
+            or re.fullmatch(r"[0-9a-f]{64}", expected) is None
+        ):
+            raise RuntimeContractError("SRT generation file identity is invalid")
+        path = (root / name).resolve()
+        if path.parent != root:
+            raise RuntimeContractError("SRT generation file path escapes publication root")
+        try:
+            actual = _file_sha256(path)
+        except OSError as exc:
+            raise RuntimeContractError(
+                f"SRT generation file is unavailable: {name}: {exc}"
+            ) from exc
+        if actual != expected:
+            raise RuntimeContractError(f"SRT generation file was modified: {name}")
+    return generation
 
 
 def write_publication(publication: PublishedStrategyData, directory: Path) -> Path:
@@ -182,4 +273,32 @@ def read_publication(directory: Path, release_id: str) -> PublishedStrategyData:
         requested_cutoff=str(manifest.get("requested_cutoff")),
         input_requests=requests,
         input_results=results,
+    )
+
+
+def load_strategy_runtime_context(
+    directory: Path,
+    strategy: ExecutableStrategy,
+) -> StrategyRuntimeContext:
+    """Load one authenticated strategy publication and its execution prices."""
+
+    generation = _read_bound_generation(directory, strategy)
+    publication = read_publication(directory, strategy.definition.release_id)
+    from .runner import StrategyRunner
+
+    StrategyRunner.validate_publication(strategy, publication)
+    if publication.requested_cutoff != generation["data_cutoff"]:
+        raise RuntimeContractError(
+            "strategy publication cutoff differs from its SRT generation"
+        )
+    try:
+        adjusted = publication.input_results["adjusted_daily"].dataframe
+        execution = publication.input_results["execution_daily"].dataframe
+    except KeyError as exc:
+        raise RuntimeContractError(
+            "SRT generation has no complete execution-pricing publication"
+        ) from exc
+    return StrategyRuntimeContext(
+        publication,
+        ExecutionPricingData(_strategy_symbol(strategy), adjusted, execution),
     )

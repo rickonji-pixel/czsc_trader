@@ -1,9 +1,9 @@
 from datetime import datetime
-from hashlib import sha256
 import json
 from pathlib import Path
 from threading import Event, Thread
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,7 +15,14 @@ from paper_trading_engine.scheduler import RuntimeScheduler
 def test_pte_source_has_no_data_publication_capability():
     source = Path(__file__).resolve().parents[2] / "src/paper_trading_engine"
     assert not (source / "data_publisher.py").exists()
-    forbidden = ("StrategyDataPublisher", "publish_data(", "seed_runtime_data")
+    forbidden = (
+        "StrategyDataPublisher",
+        "publish_data(",
+        "seed_runtime_data",
+        "strategy_generation.json",
+        "verify_generation",
+        "_validation.json",
+    )
     for path in source.glob("*.py"):
         content = path.read_text(encoding="utf-8")
         assert not any(token in content for token in forbidden), path.name
@@ -84,21 +91,39 @@ def _account(**overrides):
     return value
 
 
-def _generation(data_dir, *, releases=("S007-v1",)):
-    payload = data_dir / "payload.csv"
-    payload.write_text("date,close\n2026-09-18,1\n", encoding="utf-8")
-    generation = {
-        "schema_version": 2,
-        "generation_id": "GEN-TEST",
-        "data_cutoff": "2026-09-18",
-        "strategy_releases": list(releases),
-        "symbol": "588080.SH",
-        "asset_type": "etf",
-        "files": {"payload.csv": sha256(payload.read_bytes()).hexdigest()},
-    }
-    (data_dir / "588080_strategy_generation.json").write_text(
-        json.dumps(generation), encoding="utf-8"
+def _publication(release_id="S007-v1", cutoff="2026-09-18", content="a" * 64):
+    return SimpleNamespace(
+        release_id=release_id,
+        release_hash="b" * 64,
+        requested_cutoff=cutoff,
+        input_results={
+            "bars": SimpleNamespace(
+                identity=SimpleNamespace(content_sha256=content)
+            )
+        },
     )
+
+
+class Advice:
+    def __init__(self, publications=None, error=None):
+        self.publications = publications or {"S007-v1": _publication()}
+        self.error = error
+
+    def runtime_context_for_account(
+        self, *, strategy_id, strategy_version, symbol, asset
+    ):
+        del symbol, asset
+        if self.error is not None:
+            raise self.error
+        return SimpleNamespace(
+            strategy_data=self.publications[f"{strategy_id}-{strategy_version}"],
+            pricing_data=SimpleNamespace(
+                identity_hashes={
+                    "adjusted_daily": "c" * 64,
+                    "execution_daily": "d" * 64,
+                }
+            ),
+        )
 
 
 def _observed():
@@ -109,43 +134,46 @@ def _observed():
                 "symbol": "588080.SH",
                 "result": {
                     "data_cutoff": "2026-09-18",
-                    "generation_id": "GEN-TEST",
+                    "publication_id": "PUB-TEST",
                 },
             }
         ],
     }
 
 
-def test_publication_inbox_authenticates_required_release(tmp_path):
+def test_publication_inbox_observes_required_release():
     store = Store()
     store.accounts = [_account()]
-    _generation(tmp_path)
-    result = PublicationInbox(data_dir=tmp_path, store=store).observe()
-    assert result["generation_ids"] == ["GEN-TEST"]
+    result = PublicationInbox(store=store, advice=Advice()).observe()
+    assert len(result["publication_ids"]) == 1
+    assert result["instruments"][0]["result"]["publication_id"] == result[
+        "publication_ids"
+    ][0]
     store.accounts[0]["strategy_version"] = "v2"
-    with pytest.raises(PublicationInboxError, match="missing releases"):
-        PublicationInbox(data_dir=tmp_path, store=store).observe()
+    with pytest.raises(PublicationInboxError, match="publication is unavailable"):
+        PublicationInbox(store=store, advice=Advice()).observe()
 
 
-def test_publication_inbox_rejects_mixed_generation(tmp_path):
+def test_publication_inbox_rejects_srt_publication_failure():
     store = Store()
     store.accounts = [_account()]
-    _generation(tmp_path)
-    (tmp_path / "payload.csv").write_text("changed\n", encoding="utf-8")
-    with pytest.raises(PublicationInboxError, match="incomplete or mixed"):
-        PublicationInbox(data_dir=tmp_path, store=store).observe()
+    with pytest.raises(PublicationInboxError, match="publication is unavailable"):
+        PublicationInbox(
+            store=store, advice=Advice(error=RuntimeError("authentication failed"))
+        ).observe()
 
 
-def test_publication_inbox_rejects_paths_outside_data_directory(tmp_path):
+def test_publication_inbox_rejects_different_release_cutoffs():
     store = Store()
-    store.accounts = [_account()]
-    _generation(tmp_path)
-    marker = tmp_path / "588080_strategy_generation.json"
-    generation = json.loads(marker.read_text(encoding="utf-8"))
-    generation["files"] = {"../payload.csv": "0" * 64}
-    marker.write_text(json.dumps(generation), encoding="utf-8")
-    with pytest.raises(PublicationInboxError, match="unsafe"):
-        PublicationInbox(data_dir=tmp_path, store=store).observe()
+    store.accounts = [_account(), _account(account_id="s008-v1", strategy_id="S008")]
+    advice = Advice(
+        publications={
+            "S007-v1": _publication(),
+            "S008-v1": _publication("S008-v1", "2026-09-17"),
+        }
+    )
+    with pytest.raises(PublicationInboxError, match="different cutoffs"):
+        PublicationInbox(store=store, advice=advice).observe()
 
 
 def test_scheduler_observes_generation_and_refreshes_once():
@@ -203,7 +231,7 @@ def test_scheduler_onboards_from_existing_publication_without_writing():
     store.values.update(
         last_data_publish_date="2026-09-18",
         last_account_decision_date="2026-09-18",
-        last_data_generation_ids=json.dumps({"588080.SH": "GEN-TEST"}),
+        last_data_publication_ids=json.dumps({"588080.SH": "PUB-TEST"}),
     )
     store.accounts = [_account(last_decision_payload=None)]
     RuntimeScheduler(engine, Inbox(), store, observation_time="00:00").tick_daily(

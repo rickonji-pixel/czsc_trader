@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from strategy_runtime import (
     DeploymentSpec,
+    ExecutionPricingData,
     PublishedStrategyData,
     StrategyDecision,
     StrategyLoader,
@@ -20,7 +21,9 @@ from strategy_runtime import (
     StrategyRunner,
     StrategyCandidate,
     RuntimeContractError,
+    StrategyRuntimeContext,
     effective_target_order_type,
+    load_strategy_runtime_context,
     read_publication,
     canonical_sha256,
 )
@@ -30,7 +33,6 @@ from .datasets import ReplayData
 from .models import StrategySnapshot
 from .result import BacktestResult
 from .signal_replay import SignalReplay
-from czsc_trader.generation_integrity import validate_strategy_generation
 
 
 def _validate_historical_decisions(
@@ -197,15 +199,21 @@ def build_srt_signal_replay(
     evaluation = sessions[(sessions >= start.normalize()) & (sessions <= end.normalize())]
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
-    if publication is None:
-        publication = read_publication(replay_data.root, strategy.definition.release_id)
-    if replay_data.dataset == "backtest":
-        validate_strategy_generation(
-            replay_data.root,
-            symbol=replay_data.adjusted.symbol,
-            asset_type=replay_data.adjusted.asset_type,
-            dataset=replay_data.dataset,
-            release_id=strategy.definition.release_id,
+    if publication is None and replay_data.dataset == "backtest":
+        runtime_context = load_strategy_runtime_context(replay_data.root, strategy)
+        publication = runtime_context.strategy_data
+    else:
+        if publication is None:
+            publication = read_publication(
+                replay_data.root, strategy.definition.release_id
+            )
+        runtime_context = StrategyRuntimeContext(
+            publication,
+            ExecutionPricingData(
+                replay_data.adjusted.symbol,
+                replay_data.adjusted.daily,
+                replay_data.execution_daily,
+            ),
         )
     StrategyRunner.validate_publication(strategy, publication)
     if not publication.ready:
@@ -313,6 +321,7 @@ def build_srt_signal_replay(
         calculation_end=pd.Timestamp(calculations.max()),
         evaluation_start=evaluation[0],
         evaluation_end=evaluation[-1],
+        runtime_context=runtime_context,
         support_data={
             "mode": "srt_input_contract",
             "release_id": strategy.definition.release_id,
@@ -352,7 +361,6 @@ def replay_srt_account(
     channel = HistoricalExecutor(
         strategy_reference=signals.snapshot.identity.reference,
         execution_daily=replay_data.execution_daily,
-        signal_daily=replay_data.adjusted.daily,
         execution_intraday=replay_data.execution_intraday,
         execution_five_minute=replay_data.execution_five_minute,
         evaluation_start=signals.evaluation_start,
@@ -420,6 +428,8 @@ def replay_srt_account(
             account_snapshot=account,
             channel=channel,
             decision=decision,
+            context=signals.runtime_context,
+            execution_policy=channel.effective_policy,
         )
     ledger = channel.finalize()
     return BacktestResult(

@@ -9,9 +9,13 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from pandas.testing import assert_frame_equal
 import pytest
+from dataflows import DataIdentity, DataRequest, DataResult, DataStatus
 
 from strategy_runtime import (
     DeploymentSpec,
+    ExecutionPricingData,
+    PublicationStatus,
+    PublishedStrategyData,
     RuntimeCompatibilityError,
     RuntimeContractError,
     StrategyCandidate,
@@ -19,10 +23,36 @@ from strategy_runtime import (
     StrategyLoader,
     StrategyRelease,
     StrategyRunner,
+    StrategyRuntimeContext,
     canonical_sha256,
 )
 from strategy_runtime import implementation_identity
 from trading_execution_engine import HistoricalExecutor
+
+
+def _runtime_context(strategy, daily: pd.DataFrame) -> StrategyRuntimeContext:
+    cutoff = pd.to_datetime(daily["dt"]).max().date().isoformat()
+    request = DataRequest(
+        "test.replay", "588080.SH", cutoff, cutoff, cutoff, "daily"
+    )
+    result = DataResult(
+        DataStatus.READY,
+        daily,
+        DataIdentity(
+            "test.replay", "test", "588080.SH", cutoff, cutoff, "d" * 64
+        ),
+    )
+    publication = PublishedStrategyData(
+        strategy.definition.release_id,
+        strategy.definition.release_hash,
+        PublicationStatus.READY,
+        cutoff,
+        {"test": request},
+        {"test": result},
+    )
+    return StrategyRuntimeContext(
+        publication, ExecutionPricingData("588080.SH", daily, daily)
+    )
 
 
 def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
@@ -129,7 +159,6 @@ def _execute(strategy):
     channel = HistoricalExecutor(
         strategy_reference=strategy.definition.release_id,
         execution_daily=daily,
-        signal_daily=daily,
         execution_intraday=pd.DataFrame(columns=["dt", "open", "high", "low", "close"]),
         evaluation_start=sessions[1],
         evaluation_end=sessions[-1],
@@ -138,6 +167,7 @@ def _execute(strategy):
         order_types=strategy.definition.capabilities.order_types,
     )
     definition = strategy.definition
+    runtime_context = _runtime_context(strategy, daily)
     for i in range(1, len(sessions)):
         timestamp = datetime.combine(
             sessions[i - 1].date(), time(20, 30), ZoneInfo("Asia/Shanghai")
@@ -173,6 +203,8 @@ def _execute(strategy):
             account_snapshot=account,
             channel=channel,
             decision=decision,
+            context=runtime_context,
+            execution_policy=channel.effective_policy,
         )
     return history, channel.finalize()
 
@@ -234,7 +266,6 @@ def test_candidate_load_fails_closed_on_source_and_parameter_identity_errors(
     execution = dict(
         strategy_reference=valid.definition.release_id,
         execution_daily=daily,
-        signal_daily=daily,
         execution_intraday=pd.DataFrame(columns=["dt", "high", "low"]),
         evaluation_start=pd.Timestamp("2026-09-17"),
         evaluation_end=pd.Timestamp("2026-09-17"),

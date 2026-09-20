@@ -103,7 +103,7 @@ class PteWebApi:
             "scheduler_heartbeat_at": heartbeat,
             "release": dict(getattr(self.operations, "runtime_identity", {})),
             "data_cutoff": published,
-            "data_generation_ids": self.store.get_setting("last_data_generation_ids"),
+            "data_publication_ids": self.store.get_setting("last_data_publication_ids"),
             "last_publication": self.store.get_setting("last_data_publication"),
             "scheduler_failures": failures,
             "futu_connection": (

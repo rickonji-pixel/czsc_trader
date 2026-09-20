@@ -12,7 +12,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
-from ..execution_planner import effective_target_order_type
+from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
@@ -303,7 +303,7 @@ class S007V1:
                 __name__,
                 self.__class__.__name__,
                 1,
-                implementation_sha256(("strategies/s007_v1.py", "execution_planner.py")),
+                implementation_sha256(("strategies/s007_v1.py", "execution_rules.py")),
             ),
             ParameterSet(release.payload),
             InputContract(requirements),

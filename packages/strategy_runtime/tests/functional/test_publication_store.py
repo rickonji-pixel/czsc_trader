@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -9,7 +10,11 @@ from dataflows import DataIdentity, DataRequest, DataResult, DataStatus, Dataset
 from strategy_runtime import (
     PublicationStatus,
     PublishedStrategyData,
+    CutoffRule,
+    InputContract,
+    InputRequirement,
     RuntimeContractError,
+    load_strategy_runtime_context,
     read_publication,
     write_publication,
 )
@@ -22,7 +27,7 @@ def publication() -> PublishedStrategyData:
             "Close": [1.0, 1.1],
         }
     )
-    request = DataRequest(
+    adjusted_request = DataRequest(
         Dataset.ETF_OHLCV,
         "588080.SH",
         "2026-09-15",
@@ -30,7 +35,7 @@ def publication() -> PublishedStrategyData:
         "2026-09-16",
         "daily",
     )
-    identity = DataIdentity(
+    adjusted_identity = DataIdentity(
         str(Dataset.ETF_OHLCV),
         "test",
         "588080.SH",
@@ -44,8 +49,84 @@ def publication() -> PublishedStrategyData:
         sha256(b"release").hexdigest(),
         PublicationStatus.READY,
         "2026-09-16",
-        {"market_daily": request},
-        {"market_daily": DataResult(DataStatus.READY, frame, identity)},
+        {
+            "adjusted_daily": adjusted_request,
+            "execution_daily": DataRequest(
+                Dataset.ETF_UNADJUSTED_DAILY,
+                "588080.SH",
+                "2026-09-15",
+                "2026-09-16",
+                "2026-09-16",
+                "daily",
+            ),
+        },
+        {
+            "adjusted_daily": DataResult(DataStatus.READY, frame, adjusted_identity),
+            "execution_daily": DataResult(
+                DataStatus.READY,
+                frame,
+                DataIdentity(
+                    str(Dataset.ETF_UNADJUSTED_DAILY),
+                    "test",
+                    "588080.SH",
+                    "2026-09-15T00:00:00",
+                    "2026-09-16T00:00:00",
+                    sha256(b"execution-frame").hexdigest(),
+                    {"primary_key": ["Date"]},
+                ),
+            ),
+        },
+    )
+
+
+def strategy(value: PublishedStrategyData):
+    requirements = (
+        InputRequirement(
+            "adjusted_daily",
+            str(Dataset.ETF_OHLCV),
+            "588080.SH",
+            "daily",
+            0,
+            CutoffRule.SIGNAL_SESSION,
+        ),
+        InputRequirement(
+            "execution_daily",
+            str(Dataset.ETF_UNADJUSTED_DAILY),
+            "588080.SH",
+            "daily",
+            0,
+            CutoffRule.SIGNAL_SESSION,
+        ),
+    )
+    definition = SimpleNamespace(
+        release_id=value.release_id,
+        release_hash=value.release_hash,
+        inputs=InputContract(requirements),
+    )
+    return SimpleNamespace(definition=definition)
+
+
+def write_generation(tmp_path, value: PublishedStrategyData, *, schema_version: int = 2):
+    write_publication(value, tmp_path)
+    files = {
+        path.name: sha256(path.read_bytes()).hexdigest()
+        for path in tmp_path.iterdir()
+        if path.is_file()
+    }
+    (tmp_path / "588080_strategy_generation.json").write_text(
+        json.dumps(
+            {
+                "schema_version": schema_version,
+                "generation_id": "GEN-TEST",
+                "dataset": "runtime" if schema_version == 2 else "backtest",
+                "symbol": "588080.SH",
+                "asset_type": "etf",
+                "data_cutoff": value.requested_cutoff,
+                "strategy_releases": [value.release_id],
+                "files": files,
+            }
+        ),
+        encoding="utf-8",
     )
 
 
@@ -57,16 +138,16 @@ def test_publication_store_round_trip_preserves_contract_and_frame(tmp_path):
 
     assert actual.release_hash == expected.release_hash
     assert actual.requested_cutoff == "2026-09-16"
-    assert actual.input_requests["market_daily"] == expected.input_requests["market_daily"]
+    assert actual.input_requests["adjusted_daily"] == expected.input_requests["adjusted_daily"]
     pd.testing.assert_frame_equal(
-        actual.input_results["market_daily"].dataframe,
-        expected.input_results["market_daily"].dataframe,
+        actual.input_results["adjusted_daily"].dataframe,
+        expected.input_results["adjusted_daily"].dataframe,
     )
 
 
 def test_publication_store_rejects_modified_frame(tmp_path):
     write_publication(publication(), tmp_path)
-    frame_path = tmp_path / "srt_s007_v1_market_daily.csv.gz"
+    frame_path = tmp_path / "srt_s007_v1_adjusted_daily.csv.gz"
     frame_path.write_bytes(frame_path.read_bytes() + b"modified")
 
     with pytest.raises(RuntimeContractError, match="was modified"):
@@ -76,8 +157,43 @@ def test_publication_store_rejects_modified_frame(tmp_path):
 def test_publication_store_recomputes_stored_content_identity(tmp_path):
     manifest_path = write_publication(publication(), tmp_path)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest["inputs"]["market_daily"]["stored_content_sha256"] = "0" * 64
+    manifest["inputs"]["adjusted_daily"]["stored_content_sha256"] = "0" * 64
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     with pytest.raises(RuntimeContractError, match="content identity differs"):
         read_publication(tmp_path, "S007-v1")
+
+
+@pytest.mark.parametrize("schema_version", [1, 2])
+def test_load_strategy_runtime_context_authenticates_bound_generation(
+    tmp_path, schema_version
+):
+    expected = publication()
+    write_generation(tmp_path, expected, schema_version=schema_version)
+
+    actual = load_strategy_runtime_context(tmp_path, strategy(expected))
+
+    assert actual.strategy_data.release_id == "S007-v1"
+    assert actual.strategy_data.requested_cutoff == "2026-09-16"
+    assert actual.pricing_data.symbol == "588080.SH"
+
+
+def test_load_strategy_runtime_context_rejects_modified_generation_file(tmp_path):
+    expected = publication()
+    write_generation(tmp_path, expected)
+    (tmp_path / "srt_s007_v1_adjusted_daily.csv.gz").write_bytes(b"modified")
+
+    with pytest.raises(RuntimeContractError, match="generation file was modified"):
+        load_strategy_runtime_context(tmp_path, strategy(expected))
+
+
+def test_load_strategy_runtime_context_requires_release_binding(tmp_path):
+    expected = publication()
+    write_generation(tmp_path, expected)
+    marker = tmp_path / "588080_strategy_generation.json"
+    generation = json.loads(marker.read_text(encoding="utf-8"))
+    generation["strategy_releases"] = ["S001-v1"]
+    marker.write_text(json.dumps(generation), encoding="utf-8")
+
+    with pytest.raises(RuntimeContractError, match="does not contain"):
+        load_strategy_runtime_context(tmp_path, strategy(expected))

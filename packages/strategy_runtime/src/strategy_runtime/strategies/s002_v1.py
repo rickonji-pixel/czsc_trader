@@ -13,7 +13,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
-from ..execution_planner import effective_target_order_type
+from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
@@ -44,7 +44,7 @@ _INPUT_CALENDAR = "trading_calendar"
 
 
 def _source_sha256() -> str:
-    return implementation_sha256(("strategies/s002_v1.py", "execution_planner.py"))
+    return implementation_sha256(("strategies/s002_v1.py", "execution_rules.py"))
 
 
 def _object(value: Any, field_name: str) -> Mapping[str, Any]:

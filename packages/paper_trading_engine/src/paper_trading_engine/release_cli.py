@@ -701,34 +701,33 @@ def verify_release_publications(
     *,
     runner: Runner = subprocess.run,
 ) -> dict[str, object]:
-    """Validate every committed SRT generation against the target release."""
+    """Validate every active account publication against the target release."""
     release = load_release(runtime_root, release_id)
     data_dir = release.runtime_root / "shared" / "data"
+    database = release.runtime_root / "shared" / "state" / "runtime.db"
     script = (
-        "import json,sys\n"
+        "import json,sqlite3,sys\n"
         "from pathlib import Path\n"
-        "from paper_trading_engine.publication_inbox import verify_generation\n"
-        "from strategy_runtime import read_publication,StrategyLoader,StrategyRelease,StrategyRunner\n"
-        "root=Path(sys.argv[1]); data=Path(sys.argv[2])\n"
-        "manifests=sorted(data.glob('*_strategy_generation.json'))\n"
-        "assert manifests, 'PTE publication preflight found no SRT generations'\n"
+        "from paper_trading_engine.srt_advice_client import SrtAdviceClient\n"
+        "root=Path(sys.argv[1]); data=Path(sys.argv[2]); database=Path(sys.argv[3])\n"
+        "assert database.is_file(), 'PTE publication preflight found no runtime database'\n"
+        "connection=sqlite3.connect(f'file:{database.resolve().as_posix()}?mode=ro',uri=True)\n"
+        "try:\n"
+        "    rows=connection.execute(\"SELECT strategy_id,strategy_version,symbol,asset_type FROM virtual_accounts WHERE account_type='STRATEGY' AND status<>'RETIRED'\").fetchall()\n"
+        "finally:\n"
+        "    connection.close()\n"
+        "assert rows, 'PTE publication preflight found no active strategy accounts'\n"
+        "client=SrtAdviceClient(repo_root=root,data_dir=data)\n"
         "validated=[]\n"
-        "for path in manifests:\n"
-        "    raw=json.loads(path.read_text(encoding='utf-8'))\n"
-        "    generation=verify_generation(data,str(raw['symbol']))\n"
-        "    for release_id in generation['strategy_releases']:\n"
-        "        strategy_id,version=release_id.rsplit('-',1)\n"
-        "        payload=json.loads((root/'strategies'/strategy_id/'versions'/f'{version}.json').read_text(encoding='utf-8'))\n"
-        "        strategy=StrategyLoader().load(StrategyRelease.from_mapping(payload))\n"
-        "        publication=read_publication(data,release_id)\n"
-        "        StrategyRunner.validate_publication(strategy,publication)\n"
-        "        validated.append(release_id)\n"
-        "print(json.dumps({'generations':len(manifests),'releases':sorted(validated)}))\n"
+        "for strategy_id,version,symbol,asset in rows:\n"
+        "    publication=client.publication_for_account(strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset)\n"
+        "    validated.append(publication.release_id)\n"
+        "print(json.dumps({'accounts':len(rows),'releases':sorted(set(validated))}))\n"
     )
     completed = _run(
         [
             str(_python_in(release.release_root / ".venv")), "-c", script,
-            str(release.release_root), str(data_dir),
+            str(release.release_root), str(data_dir), str(database),
         ],
         cwd=release.release_root,
         runner=runner,

@@ -325,15 +325,8 @@ def _verify_committed_generation(
     data_cutoff: str,
 ) -> None:
     import pandas as pd
-    from strategy_runtime import StrategyRunner, read_publication
+    from strategy_runtime import load_strategy_publication
 
-    validate_strategy_generation(
-        target,
-        symbol=symbol,
-        asset_type=asset_type,
-        dataset=dataset,
-        release_id=release_id,
-    )
     market = load_market_data(target, symbol, asset_type)
     execution = load_execution_prices(target, symbol, asset_type)
     market_sessions = pd.DatetimeIndex(pd.to_datetime(market.daily["dt"]).dt.normalize())
@@ -342,8 +335,7 @@ def _verify_committed_generation(
     )
     if not market_sessions.equals(execution_sessions):
         raise ValueError("committed adjusted and execution daily sessions differ")
-    committed = read_publication(target, release_id)
-    StrategyRunner.validate_publication(strategy, committed)
+    committed = load_strategy_publication(target, strategy)
     if committed.requested_cutoff != data_cutoff:
         raise ValueError(
             "committed SRT publication cutoff differs from market data cutoff"

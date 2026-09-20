@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -9,7 +10,11 @@ from dataflows import DataIdentity, DataRequest, DataResult, DataStatus, Dataset
 from strategy_runtime import (
     PublicationStatus,
     PublishedStrategyData,
+    CutoffRule,
+    InputContract,
+    InputRequirement,
     RuntimeContractError,
+    load_strategy_publication,
     read_publication,
     write_publication,
 )
@@ -49,6 +54,47 @@ def publication() -> PublishedStrategyData:
     )
 
 
+def strategy(value: PublishedStrategyData):
+    requirement = InputRequirement(
+        "market_daily",
+        str(Dataset.ETF_OHLCV),
+        "588080.SH",
+        "daily",
+        0,
+        CutoffRule.SIGNAL_SESSION,
+    )
+    definition = SimpleNamespace(
+        release_id=value.release_id,
+        release_hash=value.release_hash,
+        inputs=InputContract((requirement,)),
+    )
+    return SimpleNamespace(definition=definition)
+
+
+def write_generation(tmp_path, value: PublishedStrategyData, *, schema_version: int = 2):
+    write_publication(value, tmp_path)
+    files = {
+        path.name: sha256(path.read_bytes()).hexdigest()
+        for path in tmp_path.iterdir()
+        if path.is_file()
+    }
+    (tmp_path / "588080_strategy_generation.json").write_text(
+        json.dumps(
+            {
+                "schema_version": schema_version,
+                "generation_id": "GEN-TEST",
+                "dataset": "runtime" if schema_version == 2 else "backtest",
+                "symbol": "588080.SH",
+                "asset_type": "etf",
+                "data_cutoff": value.requested_cutoff,
+                "strategy_releases": [value.release_id],
+                "files": files,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_publication_store_round_trip_preserves_contract_and_frame(tmp_path):
     expected = publication()
     write_publication(expected, tmp_path)
@@ -81,3 +127,37 @@ def test_publication_store_recomputes_stored_content_identity(tmp_path):
 
     with pytest.raises(RuntimeContractError, match="content identity differs"):
         read_publication(tmp_path, "S007-v1")
+
+
+@pytest.mark.parametrize("schema_version", [1, 2])
+def test_load_strategy_publication_authenticates_bound_generation(
+    tmp_path, schema_version
+):
+    expected = publication()
+    write_generation(tmp_path, expected, schema_version=schema_version)
+
+    actual = load_strategy_publication(tmp_path, strategy(expected))
+
+    assert actual.release_id == "S007-v1"
+    assert actual.requested_cutoff == "2026-09-16"
+
+
+def test_load_strategy_publication_rejects_modified_generation_file(tmp_path):
+    expected = publication()
+    write_generation(tmp_path, expected)
+    (tmp_path / "srt_s007_v1_market_daily.csv.gz").write_bytes(b"modified")
+
+    with pytest.raises(RuntimeContractError, match="generation file was modified"):
+        load_strategy_publication(tmp_path, strategy(expected))
+
+
+def test_load_strategy_publication_requires_release_binding(tmp_path):
+    expected = publication()
+    write_generation(tmp_path, expected)
+    marker = tmp_path / "588080_strategy_generation.json"
+    generation = json.loads(marker.read_text(encoding="utf-8"))
+    generation["strategy_releases"] = ["S001-v1"]
+    marker.write_text(json.dumps(generation), encoding="utf-8")
+
+    with pytest.raises(RuntimeContractError, match="does not contain"):
+        load_strategy_publication(tmp_path, strategy(expected))

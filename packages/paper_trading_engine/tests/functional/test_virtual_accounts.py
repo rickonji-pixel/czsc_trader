@@ -2,7 +2,6 @@ from argparse import Namespace
 from dataclasses import replace
 from datetime import date
 import json
-import hashlib
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -277,29 +276,32 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
             "target_quantity": 0,
         },
     )
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
     dates = list(pd.bdate_range(end="2026-09-02", periods=185)) + list(
         pd.bdate_range("2026-09-03", "2026-09-04")
     )
-    rows = ["date,open,high,low,close,volume,amount"]
+    rows = []
     for index, dt in enumerate(dates):
         close = 1 + index / 1000
-        rows.append(f"{dt.date().isoformat()},{close},{close + .01},{close - .01},{close},1,1")
-    csv_bytes = ("\n".join(rows) + "\n").encode()
-    data_file = data_dir / "588080_daily_2026.csv"
-    data_file.write_bytes(csv_bytes)
-    manifest = {
-        "symbol": "588080.SH",
-        "files": {
-            data_file.name: {
-                "frequency": "daily",
-                "sha256": hashlib.sha256(csv_bytes).hexdigest(),
+        rows.append(
+            {
+                "Date": dt.date().isoformat(),
+                "Open": close,
+                "High": close + 0.01,
+                "Low": close - 0.01,
+                "Close": close,
             }
-        },
-        "fetch_metadata": {"daily": {"adjustment": "hfq"}},
-    }
-    (data_dir / "588080_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        )
+    publication = SimpleNamespace(
+        input_results={
+            "adjusted_daily": SimpleNamespace(
+                dataframe=pd.DataFrame(rows),
+                identity=SimpleNamespace(content_sha256="a" * 64),
+            )
+        }
+    )
+    advice = SimpleNamespace(
+        publication_for_account=lambda **_kwargs: publication
+    )
 
     calls = []
 
@@ -309,7 +311,7 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
 
     service = AccountChartService(
         store,
-        data_dir=data_dir,
+        advice=advice,
         cache_dir=tmp_path / "charts",
         trader_executable="czsc-trader",
         runner=renderer,
@@ -432,20 +434,6 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
 ):
     data_dir = tmp_path / "data"
     data_dir.mkdir()
-    (data_dir / "588080_manifest.json").write_text(
-        json.dumps({
-            "symbol": "588080.SH",
-            "asset_type": "etf",
-            "requested_end": "2026-09-16",
-            "files": {
-                "588080_daily_2026.csv": {
-                    "frequency": "daily",
-                    "last": "2026-09-15T00:00:00",
-                },
-            },
-        }),
-        encoding="utf-8",
-    )
     release_hash = "7" * 64
     identity = {
         "strategy_id": "S007",
@@ -480,20 +468,6 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
     assert empty.virtual_accounts() == []
     empty.close()
 
-    payload = data_dir / "published.csv"
-    payload.write_text("date,close\n2026-09-15,1\n", encoding="utf-8")
-    (data_dir / "588080_strategy_generation.json").write_text(
-        json.dumps({
-            "schema_version": 2,
-            "generation_id": "GEN-TEST",
-            "strategy_releases": ["S007-v1"],
-            "data_cutoff": "2026-09-15",
-            "symbol": "588080.SH",
-            "asset_type": "etf",
-            "files": {"published.csv": hashlib.sha256(payload.read_bytes()).hexdigest()},
-        }),
-        encoding="utf-8",
-    )
     accepted = replace(
         decision(),
         signal_date=date(2026, 9, 15),

@@ -21,6 +21,7 @@ from strategy_runtime import (
     StrategyCandidate,
     RuntimeContractError,
     effective_target_order_type,
+    load_strategy_publication,
     read_publication,
     canonical_sha256,
 )
@@ -30,7 +31,6 @@ from .datasets import ReplayData
 from .models import StrategySnapshot
 from .result import BacktestResult
 from .signal_replay import SignalReplay
-from czsc_trader.generation_integrity import validate_strategy_generation
 
 
 def _validate_historical_decisions(
@@ -198,14 +198,10 @@ def build_srt_signal_replay(
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
     if publication is None:
-        publication = read_publication(replay_data.root, strategy.definition.release_id)
-    if replay_data.dataset == "backtest":
-        validate_strategy_generation(
-            replay_data.root,
-            symbol=replay_data.adjusted.symbol,
-            asset_type=replay_data.adjusted.asset_type,
-            dataset=replay_data.dataset,
-            release_id=strategy.definition.release_id,
+        publication = (
+            load_strategy_publication(replay_data.root, strategy)
+            if replay_data.dataset == "backtest"
+            else read_publication(replay_data.root, strategy.definition.release_id)
         )
     StrategyRunner.validate_publication(strategy, publication)
     if not publication.ready:

@@ -20,7 +20,7 @@ from uuid import uuid4
 
 from .audit import AuditRecorder
 from .srt_advice_client import SrtAdviceClient
-from .publication_inbox import PublicationInbox, PublicationInboxError, verify_generation
+from .publication_inbox import PublicationInbox
 from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
@@ -310,7 +310,7 @@ def build_engine(args: argparse.Namespace):
     stage_started = time.perf_counter()
     account_chart = AccountChartService(
         store,
-        data_dir=args.data_dir,
+        advice=advice,
         cache_dir=args.database.parent / "charts",
         trader_executable=args.advice_executable or _default_executable(args.repo_root),
         audit=audit,
@@ -436,31 +436,24 @@ def _preflight_strategy_account(
     identity: dict[str, object],
 ) -> None:
     """Prove an existing SRT publication and advice contract before account creation."""
+    initial_cash = Decimal(args.initial_cash).quantize(Decimal("0.0001"))
     try:
-        generation = verify_generation(args.data_dir, args.symbol)
-    except PublicationInboxError as exc:
+        decision = SrtAdviceClient(
+            repo_root=args.repo_root,
+            data_dir=args.data_dir,
+        ).get_decision(
+            0,
+            float(initial_cash),
+            strategy_id=str(identity["strategy_id"]),
+            strategy_version=str(identity["version"]),
+            account_id="preflight",
+            symbol=args.symbol,
+            asset=args.asset,
+        )
+    except Exception as exc:
         raise RuntimeError(
             f"{args.symbol}: a valid SRT publication is required before account creation: {exc}"
         ) from exc
-    if generation.get("asset_type") != args.asset:
-        raise RuntimeError("SRT publication asset type differs from account")
-    release_id = f"{identity['strategy_id']}-{identity['version']}"
-    if release_id not in generation["strategy_releases"]:
-        raise RuntimeError(f"SRT publication does not contain {release_id}")
-    cutoff = str(generation["data_cutoff"])
-    initial_cash = Decimal(args.initial_cash).quantize(Decimal("0.0001"))
-    decision = SrtAdviceClient(
-        repo_root=args.repo_root,
-        data_dir=args.data_dir,
-    ).get_decision(
-        0,
-        float(initial_cash),
-        strategy_id=str(identity["strategy_id"]),
-        strategy_version=str(identity["version"]),
-        account_id="preflight",
-        symbol=args.symbol,
-        asset=args.asset,
-    )
     expected_strategy = (
         identity["strategy_id"], identity["version"], identity["release_hash"],
     )
@@ -471,7 +464,7 @@ def _preflight_strategy_account(
     )
     if actual_strategy != expected_strategy:
         raise RuntimeError("strategy advice identity differs from frozen release")
-    if decision.symbol != args.symbol.upper() or decision.data_cutoff.isoformat() != cutoff:
+    if decision.symbol != args.symbol.upper():
         raise RuntimeError("strategy advice data identity differs from virtual account")
     expected_fee = (
         identity.get("strategy_payload", {})
@@ -810,7 +803,7 @@ def main(
         initial_observation_at = shanghai_now()
         scheduler = RuntimeScheduler(
             engine,
-            PublicationInbox(data_dir=args.data_dir, store=engine.store),
+            PublicationInbox(store=engine.store, advice=engine.virtual.advice),
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,

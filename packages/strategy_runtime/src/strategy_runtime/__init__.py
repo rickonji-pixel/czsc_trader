@@ -41,6 +41,7 @@ from .models import (
 from .protocols import ExecutableStrategy, ExecutionChannel, RuntimeAccount, RuntimeClock
 from .runner import StrategyRunner
 from .publication_store import (
+    load_strategy_publication,
     publication_manifest_name,
     read_publication,
     write_publication,
@@ -85,6 +86,7 @@ __all__ = [
     "StrategyRuntimeError",
     "StrategyRunner",
     "publication_manifest_name",
+    "load_strategy_publication",
     "read_publication",
     "write_publication",
     "StrategyStateSnapshot",

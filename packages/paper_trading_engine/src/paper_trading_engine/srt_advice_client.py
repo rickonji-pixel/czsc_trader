@@ -22,25 +22,16 @@ from strategy_runtime import (
     StrategyRunner,
     StrategyStateSnapshot,
     build_execution_plan,
-    read_publication,
+    load_strategy_publication,
 )
 
 from .errors import AdviceClientError
 from .audit import AuditRecorder
 from .contracts import AdviceContractError, AdviceDecision
-from .publication_inbox import PublicationInboxError, verify_generation
 
 
 _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 _CHANNEL_ID = "futu_simulate_cn"
-
-
-def _sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _published(frame: pd.DataFrame) -> pd.DataFrame:
@@ -70,103 +61,53 @@ def _load_manifest(path: Path) -> dict[str, object]:
     return value
 
 
-def _load_manifest_frames(data_dir: Path, manifest: Mapping[str, object]) -> dict[str, pd.DataFrame]:
-    files = manifest.get("files")
-    if not isinstance(files, dict) or not files:
-        raise AdviceClientError("published data manifest has no files")
-    grouped: dict[str, list[pd.DataFrame]] = {}
-    for name, metadata in files.items():
-        if not isinstance(name, str) or not isinstance(metadata, dict):
-            raise AdviceClientError("published data manifest file entry is invalid")
-        path = data_dir / name
-        expected = metadata.get("sha256")
-        if not isinstance(expected, str) or _sha256(path) != expected:
-            raise AdviceClientError(f"published data file hash differs from manifest: {name}")
-        frequency = str(metadata.get("frequency", ""))
-        grouped.setdefault(frequency, []).append(pd.read_csv(path))
-    result: dict[str, pd.DataFrame] = {}
-    for frequency, frames in grouped.items():
-        frame = pd.concat(frames, ignore_index=True)
-        date_column = next(
-            (candidate for candidate in ("date", "dt", "datetime") if candidate in frame),
-            None,
-        )
-        if date_column is None:
-            raise AdviceClientError(f"published {frequency} data has no date column")
-        result[frequency] = frame.sort_values(date_column)
-    return result
-
-
 @dataclass(frozen=True)
 class _PublishedInputs:
     cutoff: pd.Timestamp
     next_session: pd.Timestamp
-    inputs: Mapping[str, pd.DataFrame]
-    identity: str
     signal_close: float
     execution_close: float
 
 
-def _load_inputs(data_dir: Path, symbol: str) -> _PublishedInputs:
+def _publication_inputs(publication) -> _PublishedInputs:
     try:
-        verify_generation(data_dir, symbol)
-    except PublicationInboxError as exc:
-        raise AdviceClientError(str(exc)) from exc
-    code = symbol.split(".", 1)[0]
-    adjusted_manifest_path = data_dir / f"{code}_manifest.json"
-    execution_manifest_path = data_dir / f"{code}_execution_manifest.json"
-    validation_path = data_dir / f"{code}_validation.json"
-    adjusted_manifest = _load_manifest(adjusted_manifest_path)
-    execution_manifest = _load_manifest(execution_manifest_path)
-    validation = _load_manifest(validation_path)
-    if validation.get("status") != "PASS":
-        raise AdviceClientError(f"published data validation is not PASS for {symbol}")
-    if str(adjusted_manifest.get("symbol", "")).upper() != symbol:
-        raise AdviceClientError("adjusted-data manifest symbol differs from account")
-    if str(execution_manifest.get("symbol", "")).upper() != symbol:
-        raise AdviceClientError("execution-data manifest symbol differs from account")
-    adjusted_cutoff = pd.Timestamp(str(adjusted_manifest.get("requested_end"))).normalize()
-    execution_cutoff = pd.Timestamp(str(execution_manifest.get("requested_end"))).normalize()
-    if adjusted_cutoff != execution_cutoff:
-        raise AdviceClientError("adjusted and execution publication cutoffs differ")
-    try:
-        next_session = pd.Timestamp(str(execution_manifest["next_trading_session"])).normalize()
-    except (KeyError, ValueError) as exc:
-        raise AdviceClientError("execution manifest has no valid next trading session") from exc
-    if next_session <= adjusted_cutoff:
-        raise AdviceClientError("next trading session must follow the published cutoff")
-
-    adjusted = _load_manifest_frames(data_dir, adjusted_manifest)
-    execution = _load_manifest_frames(data_dir, execution_manifest)
-    if "daily" not in adjusted or "daily" not in execution:
-        raise AdviceClientError("published daily or execution data is missing")
-    daily = _published(adjusted["daily"])
-    execution_daily = _published(execution["daily"])
+        daily = _published(publication.input_results["adjusted_daily"].dataframe)
+        execution_daily = _published(
+            publication.input_results["execution_daily"].dataframe
+        )
+        calendar = _published(
+            publication.input_results["trading_calendar"].dataframe
+        )
+        cutoff = pd.Timestamp(publication.requested_cutoff).normalize()
+    except (KeyError, TypeError, ValueError) as exc:
+        raise AdviceClientError(
+            "SRT publication has no complete execution context"
+        ) from exc
+    if not {"Date", "Close"} <= set(daily.columns) or not {
+        "Date",
+        "Close",
+    } <= set(execution_daily.columns):
+        raise AdviceClientError("SRT publication daily inputs are incomplete")
+    if not {"Date", "IsOpen"} <= set(calendar.columns):
+        raise AdviceClientError("SRT publication trading calendar is incomplete")
     daily_dates = pd.to_datetime(daily["Date"]).dt.normalize()
     execution_dates = pd.to_datetime(execution_daily["Date"]).dt.normalize()
-    daily_row = daily.loc[daily_dates.eq(adjusted_cutoff)]
-    execution_row = execution_daily.loc[execution_dates.eq(adjusted_cutoff)]
+    daily_row = daily.loc[daily_dates.eq(cutoff)]
+    execution_row = execution_daily.loc[execution_dates.eq(cutoff)]
     if len(daily_row) != 1 or len(execution_row) != 1:
-        raise AdviceClientError("published data does not contain exactly one cutoff row")
-
-    inputs: dict[str, pd.DataFrame] = {
-        "adjusted_daily": daily,
-        "execution_daily": execution_daily,
-    }
-    if "30m" in adjusted:
-        inputs["adjusted_30m"] = _published(adjusted["30m"])
-    if "weekly" in adjusted:
-        inputs["adjusted_weekly"] = _published(adjusted["weekly"])
-    digest = sha256()
-    identity_paths = [adjusted_manifest_path, execution_manifest_path, validation_path]
-    for path in identity_paths:
-        digest.update(path.name.encode("utf-8"))
-        digest.update(path.read_bytes())
+        raise AdviceClientError(
+            "SRT publication does not contain exactly one cutoff price row"
+        )
+    calendar_dates = pd.to_datetime(calendar["Date"], errors="coerce").dt.normalize()
+    open_mask = pd.to_numeric(calendar["IsOpen"], errors="coerce").eq(1)
+    following = calendar_dates.loc[open_mask & calendar_dates.gt(cutoff)]
+    if following.empty:
+        raise AdviceClientError(
+            "SRT publication has no next open trading session"
+        )
     return _PublishedInputs(
-        adjusted_cutoff,
-        next_session,
-        inputs,
-        digest.hexdigest(),
+        cutoff,
+        pd.Timestamp(following.min()),
         float(daily_row.iloc[0]["Close"]),
         float(execution_row.iloc[0]["Close"]),
     )
@@ -270,30 +211,64 @@ class SrtAdviceClient:
         self.audit = audit
         self.now = now or (lambda: datetime.now(_BEIJING))
         self._published_cache: dict[tuple[str, str, str], _PublishedInputs] = {}
-        self._srt_publication_cache: dict[tuple[str, str], object] = {}
 
     def _load_release(self, strategy_id: str, strategy_version: str) -> StrategyRelease:
         path = self.repo_root / "strategies" / strategy_id / "versions" / f"{strategy_version}.json"
         return StrategyRelease.from_mapping(_load_manifest(path))
 
-    def _publication_key(self, symbol: str, release_id: str) -> tuple[str, str, str]:
-        digest = sha256(self.data_identity(symbol).encode("ascii"))
-        return symbol, release_id, digest.hexdigest()
+    @staticmethod
+    def _publication_key(symbol: str, publication) -> tuple[str, str, str]:
+        identity = {
+            "release_id": publication.release_id,
+            "release_hash": publication.release_hash,
+            "requested_cutoff": publication.requested_cutoff,
+            "inputs": {
+                name: result.identity.content_sha256
+                for name, result in sorted(publication.input_results.items())
+            },
+        }
+        digest = sha256(
+            json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return symbol, publication.release_id, digest
 
-    def _stored_publication(self, release_id: str):
-        path = self.data_dir / f"srt_{release_id.lower().replace('-', '_')}_publication.json"
-        identity = _sha256(path)
-        key = (release_id, identity)
-        publication = self._srt_publication_cache.get(key)
-        if publication is None:
-            publication = read_publication(self.data_dir, release_id)
-            self._srt_publication_cache = {
-                cached_key: value
-                for cached_key, value in self._srt_publication_cache.items()
-                if cached_key[0] != release_id
-            }
-            self._srt_publication_cache[key] = publication
-        return publication
+    def _strategy_publication(
+        self,
+        strategy_id: str,
+        strategy_version: str,
+        symbol: str,
+        asset: str,
+    ):
+        release = self._load_release(strategy_id, strategy_version)
+        strategy = StrategyLoader().load(release)
+        publication = load_strategy_publication(self.data_dir, strategy)
+        if asset != "etf":
+            raise AdviceClientError("PTE currently requires one ETF publication")
+        subjects = {
+            str(request.symbol).upper()
+            for request in publication.input_requests.values()
+            if str(request.dataset).startswith("etf.") and request.symbol
+        }
+        if subjects != {symbol}:
+            raise AdviceClientError("SRT publication symbol differs from account")
+        return release, strategy, publication
+
+    def publication_for_account(
+        self,
+        *,
+        strategy_id: str,
+        strategy_version: str,
+        symbol: str,
+        asset: str,
+    ):
+        """Return the authenticated SRT publication bound to one PTE account."""
+
+        return self._strategy_publication(
+            strategy_id,
+            strategy_version,
+            symbol.upper(),
+            asset,
+        )[2]
 
     def _audit_call(self, started: float, *, error=None, **scope) -> None:
         if self.audit is None or error is None:
@@ -344,27 +319,27 @@ class SrtAdviceClient:
                 raise AdviceClientError("SRT advice requires strategy, version, and account")
             if selected_asset != "etf" or not selected_symbol:
                 raise AdviceClientError("SRT advice requires one ETF symbol")
-            release = self._load_release(strategy_id, strategy_version)
-            strategy = StrategyLoader().load(release)
+            release, strategy, publication = self._strategy_publication(
+                strategy_id,
+                strategy_version,
+                selected_symbol,
+                selected_asset,
+            )
             if strategy.definition.state_mode != "STATELESS":
                 raise AdviceClientError(
                     "PTE does not support persisted SRT strategy state yet"
                 )
             identity = _strategy_identity(self.repo_root, release)
-            publication_key = self._publication_key(selected_symbol, release.release_id)
+            publication_key = self._publication_key(selected_symbol, publication)
             published = self._published_cache.get(publication_key)
             if published is None:
-                published = _load_inputs(self.data_dir, selected_symbol)
+                published = _publication_inputs(publication)
                 self._published_cache = {
                     key: value
                     for key, value in self._published_cache.items()
                     if key[:2] != publication_key[:2]
                 }
                 self._published_cache[publication_key] = published
-            publication = self._stored_publication(release.release_id)
-            cutoff = published.cutoff
-            if pd.Timestamp(publication.requested_cutoff).normalize() != cutoff:
-                raise AdviceClientError("SRT and operational publication cutoffs differ")
             generated_at = self.now()
             if generated_at.tzinfo is None:
                 generated_at = generated_at.replace(tzinfo=_BEIJING)
@@ -423,24 +398,3 @@ class SrtAdviceClient:
                 raise
             raise AdviceClientError(f"SRT decision generation failed: {exc}") from exc
         return decision
-
-    def data_identity(self, symbol: str | None = None) -> str:
-        selected_symbol = (symbol or self.symbol or "").upper()
-        if not selected_symbol:
-            raise AdviceClientError("data identity symbol is required")
-        code = selected_symbol.split(".", 1)[0]
-        try:
-            generation = verify_generation(self.data_dir, selected_symbol)
-        except PublicationInboxError as exc:
-            raise AdviceClientError(str(exc)) from exc
-        digest = sha256()
-        digest.update(str(generation["generation_id"]).encode("utf-8"))
-        for name in (
-            f"{code}_manifest.json",
-            f"{code}_validation.json",
-            f"{code}_execution_manifest.json",
-        ):
-            path = self.data_dir / name
-            digest.update(name.encode("utf-8"))
-            digest.update(path.read_bytes())
-        return digest.hexdigest()

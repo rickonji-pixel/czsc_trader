@@ -141,32 +141,32 @@ class RuntimeScheduler:
             raise ValueError("data publication result has no valid data_cutoff") from exc
         instruments = result.get("instruments")
         if not isinstance(instruments, list) or not instruments:
-            raise ValueError("data publication result has no instrument generations")
-        generations: dict[str, str] = {}
+            raise ValueError("data publication result has no instrument publications")
+        publications: dict[str, str] = {}
         for item in instruments:
             if not isinstance(item, dict) or not isinstance(item.get("result"), dict):
                 raise ValueError("data publication instrument result is invalid")
             symbol = str(item.get("symbol", "")).upper()
-            generation = item["result"].get("generation_id")
+            publication = item["result"].get("publication_id")
             item_cutoff = item["result"].get("data_cutoff")
-            if not symbol or not isinstance(generation, str) or not generation:
+            if not symbol or not isinstance(publication, str) or not publication:
                 raise ValueError("data publication instrument identity is incomplete")
             if item_cutoff != cutoff:
                 raise ValueError(f"{symbol}: instrument cutoff differs from publication")
-            if symbol in generations:
+            if symbol in publications:
                 raise ValueError(f"duplicate publication instrument: {symbol}")
-            generations[symbol] = generation
+            publications[symbol] = publication
         expected = {
             str(account["symbol"]).upper()
             for account in self.store.strategy_virtual_accounts()
             if account.get("status") != "RETIRED"
         }
-        if set(generations) != expected:
+        if set(publications) != expected:
             raise ValueError(
                 "data publication instruments differ from active accounts: "
-                f"published={sorted(generations)}, expected={sorted(expected)}"
+                f"published={sorted(publications)}, expected={sorted(expected)}"
             )
-        return cutoff, generations
+        return cutoff, publications
 
     def tick(self, now: datetime) -> None:
         self.tick_fast(now)
@@ -197,7 +197,7 @@ class RuntimeScheduler:
             def observe_publication():
                 try:
                     result = self.publications.observe()
-                    cutoff, generations = self._validated_publication_result(result)
+                    cutoff, publications = self._validated_publication_result(result)
                 except Exception as exc:
                     self.store.set_setting("data_publication_error", str(exc))
                     if self.audit is not None:
@@ -207,13 +207,13 @@ class RuntimeScheduler:
                             details={"error_type": type(exc).__name__, "error": str(exc)},
                         )
                     raise
-                generation_json = json.dumps(generations, sort_keys=True)
-                if generation_json == self.store.get_setting("last_data_generation_ids"):
+                publication_json = json.dumps(publications, sort_keys=True)
+                if publication_json == self.store.get_setting("last_data_publication_ids"):
                     self.store.set_setting("data_publication_error", "")
                     return
                 correlation_id = f"publication:{cutoff}"
                 self.store.set_setting("last_data_publish_date", cutoff)
-                self.store.set_setting("last_data_generation_ids", generation_json)
+                self.store.set_setting("last_data_publication_ids", publication_json)
                 self.store.set_setting("last_data_publication", now.isoformat())
                 self.store.set_setting("data_publication_error", "")
                 if self.audit is not None:

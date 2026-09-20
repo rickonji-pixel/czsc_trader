@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from dataclasses import replace
 from hashlib import sha256
 from math import isfinite
 from typing import Any, Mapping
@@ -16,7 +15,6 @@ from strategy_runtime import (
     ExecutionReceipt,
     ExecutionRequest,
     RuntimeContractError,
-    build_execution_plan,
 )
 from .fills import OrderSpec, resolve_fill
 from .result import ExecutionResult
@@ -64,7 +62,6 @@ class HistoricalExecutor:
         *,
         strategy_reference: str,
         execution_daily: pd.DataFrame,
-        signal_daily: pd.DataFrame,
         execution_intraday: pd.DataFrame,
         evaluation_start: pd.Timestamp,
         evaluation_end: pd.Timestamp,
@@ -103,7 +100,6 @@ class HistoricalExecutor:
             self._effective_policy = ExecutionPolicy(execution_policy.policy_type, settings)
         self._initial_cash = float(initial_cash)
         self._daily = _prices(execution_daily, "execution daily", ("open", "close"))
-        self._signal_daily = _prices(signal_daily, "signal daily", ("close",))
         self._intraday = _prices(execution_intraday, "execution intraday", ("high", "low"))
         self._five_minute = (
             None
@@ -200,17 +196,9 @@ class HistoricalExecutor:
             return self._receipts[key]
         self._validate_request(request)
 
-        signal_date = pd.Timestamp(
-            request.decision.evidence.get("signal_date", request.decision.generated_at.date())
-        ).normalize()
-        execution_date = pd.Timestamp(request.decision.valid_at.date()).normalize()
-        signal_reference_price = float(self._signal_daily.loc[signal_date, "close"])
-        execution_reference_price = float(self._daily.loc[signal_date, "close"])
-        plan = build_execution_plan(
-            replace(request, policy=self._effective_policy),
-            signal_reference_price=signal_reference_price,
-            execution_reference_price=execution_reference_price,
-        )
+        signal_date = pd.Timestamp(request.reference_prices.signal_at.date()).normalize()
+        execution_date = pd.Timestamp(request.reference_prices.valid_at.date()).normalize()
+        plan = request.instruction.order_plan_payload()
         fee_rate = float(plan["fee_rate"])
         if not isfinite(fee_rate) or not 0 <= fee_rate < 1:
             raise RuntimeContractError("execution fee_rate must be finite and in [0, 1)")
@@ -334,16 +322,14 @@ class HistoricalExecutor:
         self._cash -= quantity * price * (1.0 + fee)
 
     def _validate_request(self, request: ExecutionRequest) -> None:
-        if request.policy != self._policy:
+        if request.policy != self._effective_policy:
             raise RuntimeContractError("backtest request policy differs from channel policy")
         execution_date = pd.Timestamp(request.decision.valid_at.date()).normalize()
-        signal_date = pd.Timestamp(
-            request.decision.evidence.get("signal_date", request.decision.generated_at.date())
-        ).normalize()
+        signal_date = pd.Timestamp(request.reference_prices.signal_at.date()).normalize()
         if signal_date >= execution_date:
             raise RuntimeContractError("historical execution must follow the signal session")
-        if signal_date not in self._signal_daily.index or signal_date not in self._daily.index:
-            raise RuntimeContractError("historical execution is missing its signal reference price")
+        if signal_date not in self._daily.index:
+            raise RuntimeContractError("historical execution is missing its signal session")
         if request.deployment.channel_id != self.channel_id:
             raise RuntimeContractError("request belongs to another execution channel")
         if request.decision.release_id != self._strategy_reference:

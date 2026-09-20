@@ -109,13 +109,21 @@ class Advice:
         self.publications = publications or {"S007-v1": _publication()}
         self.error = error
 
-    def publication_for_account(
+    def runtime_context_for_account(
         self, *, strategy_id, strategy_version, symbol, asset
     ):
         del symbol, asset
         if self.error is not None:
             raise self.error
-        return self.publications[f"{strategy_id}-{strategy_version}"]
+        return SimpleNamespace(
+            strategy_data=self.publications[f"{strategy_id}-{strategy_version}"],
+            pricing_data=SimpleNamespace(
+                identity_hashes={
+                    "adjusted_daily": "c" * 64,
+                    "execution_daily": "d" * 64,
+                }
+            ),
+        )
 
 
 def _observed():

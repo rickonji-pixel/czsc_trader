@@ -2,6 +2,6 @@
   "schema_version": 1,
   "release_id": "S001-v1",
   "release_hash": "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
-  "source_files": ["strategies/s001_v1.py", "strategies/s001_common.py", "execution_planner.py"],
-  "implementation_sha256": "f552b6a69558cfcf92b37f6e9aa4dbb0e81c5b52c0a49eb4ba7bc69405344150"
+  "source_files": ["strategies/s001_v1.py", "strategies/s001_common.py", "execution_rules.py"],
+  "implementation_sha256": "55f5551bbe31b3d88a788ae276d7dada149fac234c8bd18c59125c524bba8b54"
 }

@@ -720,7 +720,7 @@ def verify_release_publications(
         "client=SrtAdviceClient(repo_root=root,data_dir=data)\n"
         "validated=[]\n"
         "for strategy_id,version,symbol,asset in rows:\n"
-        "    publication=client.publication_for_account(strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset)\n"
+        "    publication=client.runtime_context_for_account(strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset).strategy_data\n"
         "    validated.append(publication.release_id)\n"
         "print(json.dumps({'accounts':len(rows),'releases':sorted(set(validated))}))\n"
     )

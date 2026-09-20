@@ -20,7 +20,12 @@ from dataflows import (
 )
 
 from .errors import RuntimeContractError
-from .models import PublicationStatus, PublishedStrategyData
+from .models import (
+    ExecutionPricingData,
+    PublicationStatus,
+    PublishedStrategyData,
+    StrategyRuntimeContext,
+)
 from .protocols import ExecutableStrategy
 
 
@@ -271,11 +276,11 @@ def read_publication(directory: Path, release_id: str) -> PublishedStrategyData:
     )
 
 
-def load_strategy_publication(
+def load_strategy_runtime_context(
     directory: Path,
     strategy: ExecutableStrategy,
-) -> PublishedStrategyData:
-    """Load the complete, authenticated input publication for one strategy."""
+) -> StrategyRuntimeContext:
+    """Load one authenticated strategy publication and its execution prices."""
 
     generation = _read_bound_generation(directory, strategy)
     publication = read_publication(directory, strategy.definition.release_id)
@@ -286,4 +291,14 @@ def load_strategy_publication(
         raise RuntimeContractError(
             "strategy publication cutoff differs from its SRT generation"
         )
-    return publication
+    try:
+        adjusted = publication.input_results["adjusted_daily"].dataframe
+        execution = publication.input_results["execution_daily"].dataframe
+    except KeyError as exc:
+        raise RuntimeContractError(
+            "SRT generation has no complete execution-pricing publication"
+        ) from exc
+    return StrategyRuntimeContext(
+        publication,
+        ExecutionPricingData(_strategy_symbol(strategy), adjusted, execution),
+    )

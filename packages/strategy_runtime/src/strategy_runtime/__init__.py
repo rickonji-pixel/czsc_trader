@@ -7,7 +7,7 @@ from .errors import (
     StrategyRuntimeError,
 )
 from .loader import StrategyLoader
-from .execution_planner import build_execution_plan, effective_target_order_type
+from .execution_rules import effective_target_order_type
 from .historical_publication import publish_history
 from .models import (
     AccountSnapshot,
@@ -16,7 +16,9 @@ from .models import (
     CutoffRule,
     DecisionContract,
     DeploymentSpec,
+    ExecutionInstruction,
     ExecutionPolicy,
+    ExecutionPricingData,
     ExecutionReceipt,
     ExecutionRequest,
     ImplementationRef,
@@ -31,17 +33,19 @@ from .models import (
     RuntimeDefinition,
     RuntimeRunResult,
     RuntimeRunStatus,
+    ReferencePriceSnapshot,
     StrategyDecision,
     StrategyCandidate,
     StrategyExplanation,
     StrategyRelease,
+    StrategyRuntimeContext,
     StrategyStateSnapshot,
     canonical_sha256,
 )
 from .protocols import ExecutableStrategy, ExecutionChannel, RuntimeAccount, RuntimeClock
 from .runner import StrategyRunner
 from .publication_store import (
-    load_strategy_publication,
+    load_strategy_runtime_context,
     publication_manifest_name,
     read_publication,
     write_publication,
@@ -59,6 +63,8 @@ __all__ = [
     "ExecutableStrategy",
     "ExecutionChannel",
     "ExecutionPolicy",
+    "ExecutionInstruction",
+    "ExecutionPricingData",
     "ExecutionReceipt",
     "ExecutionRequest",
     "ImplementationRef",
@@ -77,21 +83,22 @@ __all__ = [
     "RuntimeDefinition",
     "RuntimeRunResult",
     "RuntimeRunStatus",
+    "ReferencePriceSnapshot",
     "RuntimeExecutionError",
     "StrategyDecision",
     "StrategyCandidate",
     "StrategyExplanation",
     "StrategyLoader",
     "StrategyRelease",
+    "StrategyRuntimeContext",
     "StrategyRuntimeError",
     "StrategyRunner",
     "publication_manifest_name",
-    "load_strategy_publication",
+    "load_strategy_runtime_context",
     "read_publication",
     "write_publication",
     "StrategyStateSnapshot",
     "canonical_sha256",
-    "build_execution_plan",
     "effective_target_order_type",
     "publish_history",
 ]

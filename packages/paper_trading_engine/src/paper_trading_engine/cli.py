@@ -444,6 +444,7 @@ def _preflight_strategy_account(
         ).get_decision(
             0,
             float(initial_cash),
+            total_assets=float(initial_cash),
             strategy_id=str(identity["strategy_id"]),
             strategy_version=str(identity["version"]),
             account_id="preflight",

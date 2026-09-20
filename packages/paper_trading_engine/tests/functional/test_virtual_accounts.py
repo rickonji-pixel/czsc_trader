@@ -291,16 +291,14 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
                 "Close": close,
             }
         )
-    publication = SimpleNamespace(
-        input_results={
-            "adjusted_daily": SimpleNamespace(
-                dataframe=pd.DataFrame(rows),
-                identity=SimpleNamespace(content_sha256="a" * 64),
-            )
-        }
+    context = SimpleNamespace(
+        pricing_data=SimpleNamespace(
+            adjusted_daily=pd.DataFrame(rows),
+            identity_hashes={"adjusted_daily": "a" * 64},
+        )
     )
     advice = SimpleNamespace(
-        publication_for_account=lambda **_kwargs: publication
+        runtime_context_for_account=lambda **_kwargs: context
     )
 
     calls = []
@@ -317,7 +315,7 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
         runner=renderer,
     )
     first = service.status("s001-v2")
-    assert first["status"] == "READY"
+    assert first["status"] == "READY", first["message"]
     assert first["scope"] == {"account_id": "s001-v2", "release_id": "S001-v2"}
     assert service.chart_path("s001-v2").read_text(encoding="utf-8") == "<html>chart</html>"
     request = json.loads(calls[0][1]["input"])

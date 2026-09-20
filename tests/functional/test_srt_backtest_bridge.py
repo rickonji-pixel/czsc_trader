@@ -6,16 +6,42 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
+from dataflows import DataIdentity, DataRequest, DataResult, DataStatus
 from strategy_runtime import (
     DeploymentSpec,
+    ExecutionPricingData,
     ExecutionPolicy,
+    PublicationStatus,
+    PublishedStrategyData,
     RuntimeContractError,
     StrategyDecision,
+    StrategyRuntimeContext,
     StrategyRunner,
 )
 
 from trading_execution_engine import HistoricalExecutor
 from czsc_trader.backtesting.srt_bridge import _validate_historical_decisions
+
+
+def _runtime_context(
+    release_id: str, release_hash: str, symbol: str, daily: pd.DataFrame
+) -> StrategyRuntimeContext:
+    cutoff = pd.to_datetime(daily["dt"]).max().date().isoformat()
+    request = DataRequest("test.prices", symbol, cutoff, cutoff, cutoff, "daily")
+    identity = DataIdentity(
+        "test.prices", "test", symbol, cutoff, cutoff, "c" * 64
+    )
+    publication = PublishedStrategyData(
+        release_id,
+        release_hash,
+        PublicationStatus.READY,
+        cutoff,
+        {"test": request},
+        {"test": DataResult(DataStatus.READY, daily, identity)},
+    )
+    return StrategyRuntimeContext(
+        publication, ExecutionPricingData(symbol, daily, daily)
+    )
 
 
 def test_srt_history_rejects_missing_required_score_instead_of_silent_hold() -> None:
@@ -40,7 +66,6 @@ def test_txe_historical_executor_refuses_to_finalize_an_unsubmitted_decision() -
     channel = HistoricalExecutor(
         strategy_reference="S001-v1",
         execution_daily=daily,
-        signal_daily=daily,
         execution_intraday=pd.DataFrame(columns=["dt", "open", "high", "low", "close"]),
         evaluation_start=pd.Timestamp("2026-09-18"),
         evaluation_end=pd.Timestamp("2026-09-18"),
@@ -119,7 +144,6 @@ def test_txe_historical_executor_executes_requests_against_its_confirmed_ledger(
     channel = HistoricalExecutor(
         strategy_reference="S999-v1",
         execution_daily=replay_data.execution_daily,
-        signal_daily=replay_data.adjusted.daily,
         execution_intraday=replay_data.execution_intraday,
         evaluation_start=pd.Timestamp("2026-09-17"),
         evaluation_end=pd.Timestamp("2026-09-18"),
@@ -181,6 +205,8 @@ def test_txe_historical_executor_executes_requests_against_its_confirmed_ledger(
             account_snapshot=account,
             channel=channel,
             decision=decision,
+            context=_runtime_context("S999-v1", release_hash, "588080.SH", daily),
+            execution_policy=channel.effective_policy,
         )
 
     result = channel.finalize()
@@ -238,7 +264,6 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
         strategy_reference="S003-v1",
         execution_five_minute=five,
         execution_daily=replay_data.execution_daily,
-        signal_daily=replay_data.adjusted.daily,
         execution_intraday=replay_data.execution_intraday,
         evaluation_start=pd.Timestamp("2026-09-17"),
         evaluation_end=pd.Timestamp("2026-09-17"),
@@ -295,6 +320,8 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
         account_snapshot=account,
         channel=channel,
         decision=decision,
+        context=_runtime_context("S003-v1", "a" * 64, "510500.SH", daily),
+        execution_policy=channel.effective_policy,
     )
 
     result = channel.finalize()

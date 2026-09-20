@@ -8,18 +8,23 @@ import pandas as pd
 from dataflows import Dataflows, Dataset
 
 from .errors import RuntimeCompatibilityError, RuntimeContractError
+from .execution_planner import build_execution_plan
 from .models import (
     AccountSnapshot,
     CalculationRequest,
     CutoffRule,
     DeploymentSpec,
+    ExecutionInstruction,
     ExecutionRequest,
     ExecutionReceipt,
+    ExecutionPricingData,
+    ExecutionPolicy,
     PublishedStrategyData,
     RuntimeRunResult,
     RuntimeRunStatus,
     RuntimeDefinition,
     StrategyDecision,
+    StrategyRuntimeContext,
     StrategyStateSnapshot,
 )
 from .protocols import ExecutableStrategy, ExecutionChannel, RuntimeAccount
@@ -43,6 +48,7 @@ class StrategyRunner:
         deployment: DeploymentSpec,
         state: StrategyStateSnapshot,
         dataflows: Dataflows,
+        execution_data: ExecutionPricingData,
         account: RuntimeAccount,
         channel: ExecutionChannel,
         through: datetime,
@@ -57,6 +63,7 @@ class StrategyRunner:
         self._validate_publication(definition, publication)
         if not publication.ready:
             return RuntimeRunResult(RuntimeRunStatus.DATA_NOT_READY, publication)
+        context = StrategyRuntimeContext(publication, execution_data)
 
         account_snapshot = account.snapshot(deployment)
         request = CalculationRequest(
@@ -69,18 +76,20 @@ class StrategyRunner:
         decision = strategy.calculate(request)
         self._validate_decision(definition, request, decision)
 
-        execution_request = ExecutionRequest(
-            deployment=deployment,
-            account=account_snapshot,
-            decision=decision,
-            policy=definition.execution,
+        instruction = self._execution_instruction(
+            deployment,
+            account_snapshot,
+            decision,
+            definition.execution,
+            context,
         )
+        execution_request = ExecutionRequest(deployment, account_snapshot, instruction)
         idempotency_key = f"{deployment.channel_id}:{decision.decision_id}"
         receipt = channel.submit(execution_request, idempotency_key)
         if receipt.idempotency_key != idempotency_key:
             raise RuntimeContractError("execution receipt idempotency key differs from request")
         status = RuntimeRunStatus.ACCEPTED if receipt.accepted else RuntimeRunStatus.REJECTED
-        return RuntimeRunResult(status, publication, decision, receipt)
+        return RuntimeRunResult(status, publication, decision, instruction, receipt)
 
     def submit_precomputed(
         self,
@@ -90,6 +99,8 @@ class StrategyRunner:
         account_snapshot: AccountSnapshot,
         channel: ExecutionChannel,
         decision: StrategyDecision,
+        context: StrategyRuntimeContext,
+        execution_policy: ExecutionPolicy | None = None,
     ) -> ExecutionReceipt:
         """Validate and submit one batch-calculated historical decision.
 
@@ -115,12 +126,23 @@ class StrategyRunner:
             <= definition.decision.maximum_target
         ):
             raise RuntimeContractError("decision target_position exceeds declared bounds")
-        execution_request = ExecutionRequest(
-            deployment=deployment,
-            account=account_snapshot,
-            decision=decision,
-            policy=definition.execution,
+        if context.strategy_data.release_id != definition.release_id:
+            raise RuntimeContractError("strategy and runtime context release IDs differ")
+        if context.strategy_data.release_hash != definition.release_hash:
+            raise RuntimeContractError("strategy and runtime context release hashes differ")
+        selected_policy = execution_policy or definition.execution
+        if selected_policy.policy_type != definition.execution.policy_type:
+            raise RuntimeContractError(
+                "historical execution policy type differs from strategy"
+            )
+        instruction = self._execution_instruction(
+            deployment,
+            account_snapshot,
+            decision,
+            selected_policy,
+            context,
         )
+        execution_request = ExecutionRequest(deployment, account_snapshot, instruction)
         idempotency_key = f"{deployment.channel_id}:{decision.decision_id}"
         receipt = channel.submit(execution_request, idempotency_key)
         if receipt.idempotency_key != idempotency_key:
@@ -133,7 +155,7 @@ class StrategyRunner:
         strategy: ExecutableStrategy,
         deployment: DeploymentSpec,
         state: StrategyStateSnapshot,
-        publication: PublishedStrategyData,
+        context: StrategyRuntimeContext,
         account: RuntimeAccount,
         channel: ExecutionChannel,
         calculation_time: datetime,
@@ -142,6 +164,7 @@ class StrategyRunner:
 
         definition = strategy.definition
         self._validate_compatibility(definition, deployment, channel)
+        publication = context.strategy_data
         self._validate_publication(definition, publication)
         if not publication.ready:
             return RuntimeRunResult(RuntimeRunStatus.DATA_NOT_READY, publication)
@@ -155,18 +178,42 @@ class StrategyRunner:
         )
         decision = strategy.calculate(request)
         self._validate_decision(definition, request, decision)
-        execution_request = ExecutionRequest(
-            deployment=deployment,
-            account=account_snapshot,
-            decision=decision,
-            policy=definition.execution,
+        instruction = self._execution_instruction(
+            deployment,
+            account_snapshot,
+            decision,
+            definition.execution,
+            context,
         )
+        execution_request = ExecutionRequest(deployment, account_snapshot, instruction)
         idempotency_key = f"{deployment.channel_id}:{decision.decision_id}"
         receipt = channel.submit(execution_request, idempotency_key)
         if receipt.idempotency_key != idempotency_key:
             raise RuntimeContractError("execution receipt idempotency key differs from request")
         status = RuntimeRunStatus.ACCEPTED if receipt.accepted else RuntimeRunStatus.REJECTED
-        return RuntimeRunResult(status, publication, decision, receipt)
+        return RuntimeRunResult(status, publication, decision, instruction, receipt)
+
+    @staticmethod
+    def _execution_instruction(
+        deployment: DeploymentSpec,
+        account: AccountSnapshot,
+        decision: StrategyDecision,
+        policy: ExecutionPolicy,
+        context: StrategyRuntimeContext,
+    ) -> ExecutionInstruction:
+        if deployment.symbol.upper() != context.pricing_data.symbol:
+            raise RuntimeContractError(
+                "deployment symbol differs from execution-pricing context"
+            )
+        references = context.pricing_data.references_for(decision)
+        plan = build_execution_plan(
+            deployment=deployment,
+            account=account,
+            decision=decision,
+            policy=policy,
+            reference_prices=references,
+        )
+        return ExecutionInstruction(decision, policy, references, plan)
 
     @staticmethod
     def _validate_compatibility(

@@ -10,13 +10,26 @@ from strategy_runtime import (
     AccountSnapshot,
     DeploymentSpec,
     ExecutionPolicy,
-    ExecutionRequest,
+    ReferencePriceSnapshot,
     RuntimeCompatibilityError,
     StrategyDecision,
     StrategyLoader,
     StrategyRelease,
-    build_execution_plan,
 )
+from strategy_runtime.execution_planner import build_execution_plan
+
+
+def _references(signal_price: float, execution_price: float) -> ReferencePriceSnapshot:
+    return ReferencePriceSnapshot(
+        "588080.SH",
+        datetime.fromisoformat("2026-09-17T15:00:00+08:00"),
+        datetime.fromisoformat("2026-09-18T09:30:00+08:00"),
+        signal_price,
+        execution_price,
+        "ADJUSTED_CLOSE",
+        "UNADJUSTED_CLOSE",
+        {"adjusted_daily": "c" * 64, "execution_daily": "d" * 64},
+    )
 
 
 def test_schema_v2_release_hash_covers_executable_identity_not_governance() -> None:
@@ -172,9 +185,11 @@ def test_target_execution_plan_honors_frozen_limit_exit() -> None:
     )
 
     plan = build_execution_plan(
-        ExecutionRequest(deployment, account, decision, policy),
-        signal_reference_price=1.6,
-        execution_reference_price=1.5,
+        deployment=deployment,
+        account=account,
+        decision=decision,
+        policy=policy,
+        reference_prices=_references(1.6, 1.5),
     )
 
     assert plan["action"] == "SELL"
@@ -231,9 +246,11 @@ def test_target_execution_plan_preserves_audited_marketable_exit_semantics() -> 
     )
 
     plan = build_execution_plan(
-        ExecutionRequest(deployment, account, decision, policy),
-        signal_reference_price=1.5,
-        execution_reference_price=1.5,
+        deployment=deployment,
+        account=account,
+        decision=decision,
+        policy=policy,
+        reference_prices=_references(1.5, 1.5),
     )
 
     assert plan["action"] == "SELL"

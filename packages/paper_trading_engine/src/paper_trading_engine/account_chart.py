@@ -70,16 +70,13 @@ class AccountChartService:
         return hashlib.sha256(content).hexdigest()
 
     def _market_data(self, account: dict[str, Any]) -> tuple[str, list[dict[str, object]]]:
-        publication = self.advice.publication_for_account(
+        context = self.advice.runtime_context_for_account(
             strategy_id=str(account["strategy_id"]),
             strategy_version=str(account["strategy_version"]),
             symbol=str(account["symbol"]),
             asset=str(account["asset_type"]),
         )
-        result = publication.input_results.get("adjusted_daily")
-        if result is None or result.identity is None:
-            raise ValueError("SRT publication has no adjusted daily input")
-        frame = result.dataframe.rename(
+        frame = context.pricing_data.adjusted_daily.rename(
             columns={
                 "Date": "date",
                 "Open": "open",
@@ -104,12 +101,12 @@ class AccountChartService:
             }
         cutoff = date.fromisoformat(str(account["selection_data_cutoff"])).isoformat()
         ordered = [bars[key] for key in sorted(bars)]
-        context = [bar for bar in ordered if bar["date"] <= cutoff][-self.context_sessions :]
+        history = [bar for bar in ordered if bar["date"] <= cutoff][-self.context_sessions :]
         forward = [bar for bar in ordered if bar["date"] > cutoff]
-        selected = context + forward
+        selected = history + forward
         if not selected:
             raise ValueError("no daily market data is available for the account chart")
-        return result.identity.content_sha256, selected
+        return context.pricing_data.identity_hashes["adjusted_daily"], selected
 
     @staticmethod
     def _fact_date(row: dict[str, Any], fields: tuple[str, ...]) -> str | None:

@@ -325,7 +325,7 @@ def _verify_committed_generation(
     data_cutoff: str,
 ) -> None:
     import pandas as pd
-    from strategy_runtime import load_strategy_publication
+    from strategy_runtime import load_strategy_runtime_context
 
     market = load_market_data(target, symbol, asset_type)
     execution = load_execution_prices(target, symbol, asset_type)
@@ -335,8 +335,8 @@ def _verify_committed_generation(
     )
     if not market_sessions.equals(execution_sessions):
         raise ValueError("committed adjusted and execution daily sessions differ")
-    committed = load_strategy_publication(target, strategy)
-    if committed.requested_cutoff != data_cutoff:
+    committed = load_strategy_runtime_context(target, strategy)
+    if committed.strategy_data.requested_cutoff != data_cutoff:
         raise ValueError(
             "committed SRT publication cutoff differs from market data cutoff"
         )

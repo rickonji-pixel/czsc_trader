@@ -15,7 +15,7 @@ import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
 from ..errors import RuntimeContractError
-from ..execution_planner import effective_target_order_type
+from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
     CalculationRequest,
@@ -98,7 +98,7 @@ def _source_sha256(strategy_class: type) -> str:
         (
             f"strategies/{wrapper}.py",
             "strategies/s001_common.py",
-            "execution_planner.py",
+            "execution_rules.py",
         )
     )
 

@@ -119,6 +119,7 @@ class AccountEngine:
             return self._assign_decision_id(account_id, previous_payload, value)
         decision = self.advice.get_decision(
             int(account["quantity"]), float(account["cash"]),
+            total_assets=float(account["total_assets"]),
             cycle_target_quantity=account["cycle_target"],
             strategy_id=account["strategy_id"],
             strategy_version=account["strategy_version"],

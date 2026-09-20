@@ -11,9 +11,10 @@ class PublicationInboxError(RuntimeError):
     """An active account has no consistent authenticated SRT publication."""
 
 
-def _publication_identity(publications: list[object]) -> str:
+def _publication_identity(contexts: list[object]) -> str:
     releases: dict[str, object] = {}
-    for publication in publications:
+    for context in contexts:
+        publication = context.strategy_data
         inputs: dict[str, str] = {}
         for name, result in sorted(publication.input_results.items()):
             identity = result.identity
@@ -26,6 +27,7 @@ def _publication_identity(publications: list[object]) -> str:
             "release_hash": publication.release_hash,
             "requested_cutoff": publication.requested_cutoff,
             "inputs": inputs,
+            "execution_prices": dict(context.pricing_data.identity_hashes),
         }
     encoded = json.dumps(
         releases, sort_keys=True, separators=(",", ":")
@@ -56,11 +58,11 @@ class PublicationInbox:
         publication_ids: list[str] = []
         observed_cutoffs: set[str] = set()
         for (symbol, asset), accounts in sorted(required.items()):
-            publications = []
+            contexts = []
             instrument_cutoffs: set[str] = set()
             for release_id, account in sorted(accounts.items()):
                 try:
-                    publication = self.advice.publication_for_account(
+                    context = self.advice.runtime_context_for_account(
                         strategy_id=str(account["strategy_id"]),
                         strategy_version=str(account["strategy_version"]),
                         symbol=symbol,
@@ -70,6 +72,7 @@ class PublicationInbox:
                     raise PublicationInboxError(
                         f"{symbol}/{release_id}: SRT publication is unavailable: {exc}"
                     ) from exc
+                publication = context.strategy_data
                 if publication.release_id != release_id:
                     raise PublicationInboxError(
                         f"{symbol}: SRT returned a different strategy publication"
@@ -82,14 +85,14 @@ class PublicationInbox:
                     raise PublicationInboxError(
                         f"{symbol}/{release_id}: publication cutoff is invalid"
                     ) from exc
-                publications.append(publication)
+                contexts.append(context)
                 instrument_cutoffs.add(cutoff)
             if len(instrument_cutoffs) != 1:
                 raise PublicationInboxError(
                     f"{symbol}: active strategy publications have different cutoffs"
                 )
             cutoff = next(iter(instrument_cutoffs))
-            publication_id = _publication_identity(publications)
+            publication_id = _publication_identity(contexts)
             observed_cutoffs.add(cutoff)
             publication_ids.append(publication_id)
             instruments.append(

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX40",
+  "experiment_type": "FROZEN_V1_POST_ENTRY_PATH_ATTRIBUTION",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "early_path_sessions": 2,
+  "post_exit_close_horizons": [
+    1,
+    3,
+    5
+  ],
+  "permutation_trials": 5000,
+  "random_seed": 20260920,
+  "sources": {
+    "formal_replay_archive": "experiments/S007/20260915_S007_EX31",
+    "formal_replay_manifest_sha256": "5f61bd6c5caf8ff7eb9dbbe6a3063d495d13084bbfeec11b4ddf3f970cf8f2e5",
+    "trades_sha256": "d351bcfae415d8f67b9fc7ee102a96bc9c19f45cdc207e56ac206de9d747e107",
+    "decisions_sha256": "dafaa7865128027c7cf2bb6647df5194b772538bd750fa39876cbbf95bbe9371",
+    "account_daily_sha256": "bbd8b313be5acb90647d93cfce1f2073593cfbb066836d0d5a3ab48a443875a6",
+    "fills_sha256": "1ccef3917094c72e8b9d23ce114fcff9ace54597391fb7cc1720360947c6eb44",
+    "attribution_archive": "experiments/S007/20260920_S007_EX39",
+    "attribution_manifest_sha256": "171f493c66ae1889c0a820256fa86205ce62f9ef5d5c2df57250306900df2e38",
+    "trade_attribution_sha256": "12feed0c61b79b2f8a286db0ac210ca772f61f5ed96bb4b6f828fba4f696cc91",
+    "strategy_version": "strategies/S007/versions/v1.json",
+    "strategy_version_sha256": "ef5f28803422979ab416510e52f02eda7dbe009d4f1309c6c831bbce8a0d50e8"
+  },
+  "reads_forward_data": false,
+  "searches_parameters": false,
+  "creates_candidate": false,
+  "changes_strategy_parameters": false,
+  "mutates_pte": false
+}

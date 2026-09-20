@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX40",
+  "status": "COMPLETE",
+  "experiment_type": "FROZEN_V1_POST_ENTRY_PATH_ATTRIBUTION",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "PATH_ATTRIBUTION_COMPLETE",
+  "strategy_parameters_changed": false,
+  "candidate_created": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 547,
+      "sha256": "7434055436a86f5b51b728cc69420b37df0aa4e6de58c1a1d304b3db78e00d90"
+    },
+    "02_design.md": {
+      "bytes": 1686,
+      "sha256": "74c27a62bf24fbd6cbb3e311fc257999e280e81afcd0479263bfa229fe024d28"
+    },
+    "02_protocol.json": {
+      "bytes": 1564,
+      "sha256": "2c6f004ea4673b2f33eba34303d72e6adf98f03aedd33adeab71abf6687d6c72"
+    },
+    "03_execution.md": {
+      "bytes": 664,
+      "sha256": "2df80102869cc6c430968d8b88ed8f391f4c05609198a49ef9aa6d278fa26f4a"
+    },
+    "04_conclusion.md": {
+      "bytes": 2108,
+      "sha256": "61419a0a9295fe4c045f7e26dcd9f58b49b43d3b65883accef0ba392d3ceb42e"
+    },
+    "artifacts/aligned_age_summary.csv": {
+      "bytes": 1615,
+      "sha256": "e5165b190bef3cef678c6a811ac04c6539f8346b0844864953bd9aef5993a826"
+    },
+    "artifacts/aligned_holding_paths.csv": {
+      "bytes": 57669,
+      "sha256": "01a92f4ae66e6f9bd05afa3306b36405a18ef9b1900906a832fdd468b06e1978"
+    },
+    "artifacts/early_path_comparisons.csv": {
+      "bytes": 1079,
+      "sha256": "e3a0da0665999ecaa32607b7ea1486d990653e970adbe76f8b971a57bc372000"
+    },
+    "artifacts/outcome_path_summary.csv": {
+      "bytes": 1229,
+      "sha256": "9ccf76fa32132bc1e315a759749c889209425e3efd85c48c46e1281a813e8ecc"
+    },
+    "artifacts/path_attribution_evidence.json": {
+      "bytes": 10414,
+      "sha256": "8e72bdbed3a1bb5a616db101a22eb029cb5d43454764c1815cc062f63eadb53f"
+    },
+    "artifacts/post_exit_close_diagnostic.csv": {
+      "bytes": 1283,
+      "sha256": "2a0b49377ef95ec07d4bcb9926dd0358c2aba1ee27c138d02f8c33f850461965"
+    },
+    "artifacts/trade_path_attribution.csv": {
+      "bytes": 67763,
+      "sha256": "8318d6247986eb250290dbfe4398e08a12ddac7e50fee10d200d43f3d5de5fe7"
+    },
+    "run_experiment.py": {
+      "bytes": 18476,
+      "sha256": "6907c61ee1f30752400ab1e0b20966517dd6d942f2b4fe8b7908dfe644aeb886"
+    }
+  }
+}

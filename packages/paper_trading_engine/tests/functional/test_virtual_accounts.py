@@ -284,11 +284,11 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
         close = 1 + index / 1000
         rows.append(
             {
-                "Date": dt.date().isoformat(),
-                "Open": close,
-                "High": close + 0.01,
-                "Low": close - 0.01,
-                "Close": close,
+                "dt": dt.date().isoformat(),
+                "open": close,
+                "high": close + 0.01,
+                "low": close - 0.01,
+                "close": close,
             }
         )
     context = SimpleNamespace(

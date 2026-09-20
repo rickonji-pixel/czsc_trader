@@ -78,6 +78,7 @@ class AccountChartService:
         )
         frame = context.pricing_data.adjusted_daily.rename(
             columns={
+                "dt": "date",
                 "Date": "date",
                 "Open": "open",
                 "High": "high",

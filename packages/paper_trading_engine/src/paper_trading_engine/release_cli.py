@@ -13,7 +13,7 @@ import sqlite3
 import subprocess
 import sys
 import tarfile
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -48,18 +48,22 @@ PTE_RESOLUTION_DISTRIBUTIONS = (
     "czsc-dataflows",
     "czsc-strategy-manager",
 )
+PTE_SOURCE_DISTRIBUTIONS = ("futu-api",)
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
+SourceDistributionFetcher = Callable[[str, str, Path], Path]
 BUILD_MANIFEST_NAME = "build-manifest.json"
 
 
 def _run(
     command: Sequence[str], *, cwd: Path, runner: Runner = subprocess.run,
+    env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     completed = runner(
         list(command), cwd=cwd, check=False, capture_output=True, text=True,
         encoding="utf-8", errors="replace",
+        **({"env": dict(env)} if env is not None else {}),
     )
     if completed.returncode:
         detail = "\n".join(
@@ -157,6 +161,56 @@ def _wheel_path(artifacts: Path, distribution: str) -> Path:
     return matches[0]
 
 
+def _constraint_pin(constraints: Path, distribution: str) -> str:
+    normalized = distribution.lower().replace("_", "-").replace(".", "-")
+    for raw_line in constraints.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "==" not in line:
+            continue
+        name, version = line.split("==", 1)
+        if name.lower().replace("_", "-").replace(".", "-") == normalized:
+            if version and all(
+                char.isalnum() or char in ".+_-" for char in version
+            ):
+                return version
+            break
+    raise RuntimeError(f"PTE build requires an exact {distribution} constraint")
+
+
+def _download_pypi_sdist(
+    distribution: str, version: str, destination: Path,
+) -> Path:
+    destination.mkdir(parents=True, exist_ok=True)
+    api_url = f"https://pypi.org/pypi/{distribution}/{version}/json"
+    with urlopen(api_url, timeout=30) as response:
+        metadata = json.load(response)
+    candidates = [
+        item for item in metadata.get("urls", [])
+        if isinstance(item, dict) and item.get("packagetype") == "sdist"
+    ]
+    if len(candidates) != 1:
+        raise RuntimeError(
+            f"PyPI returned {len(candidates)} source archives for {distribution}=={version}"
+        )
+    candidate = candidates[0]
+    filename = candidate.get("filename")
+    download_url = candidate.get("url")
+    expected_hash = (candidate.get("digests") or {}).get("sha256")
+    if (
+        not isinstance(filename, str) or Path(filename).name != filename
+        or not isinstance(download_url, str) or not download_url.startswith("https://")
+        or not isinstance(expected_hash, str) or len(expected_hash) != 64
+    ):
+        raise RuntimeError(f"PyPI source metadata is invalid for {distribution}=={version}")
+    target = destination / filename
+    with urlopen(download_url, timeout=60) as response, target.open("wb") as output:
+        shutil.copyfileobj(response, output)
+    if file_sha256(target) != expected_hash:
+        target.unlink(missing_ok=True)
+        raise RuntimeError(f"PyPI source hash differs for {distribution}=={version}")
+    return target
+
+
 def _build_pte_wheelhouse(
     *,
     source_python: Path,
@@ -165,6 +219,7 @@ def _build_pte_wheelhouse(
     cache_dir: Path,
     repo_root: Path,
     runner: Runner,
+    env: Mapping[str, str] | None = None,
 ) -> None:
     wheels = artifacts.parent / ".dependency-wheels"
     wheels.mkdir()
@@ -178,9 +233,10 @@ def _build_pte_wheelhouse(
                 str(source_python), "-m", "pip", "wheel",
                 "--cache-dir", str(cache_dir),
                 "--wheel-dir", str(wheels), "--constraint", str(constraints),
+                "--only-binary", ":all:", "--find-links", str(artifacts),
                 *roots,
             ],
-            cwd=repo_root,
+            cwd=repo_root, env=env,
             runner=runner,
         )
         for source in sorted(wheels.iterdir()):
@@ -436,11 +492,14 @@ def build_release(
     build_root: Path,
     release_id: str,
     source_python: Path = Path(sys.executable),
+    uv_executable: Path | None = None,
+    source_distribution_fetcher: SourceDistributionFetcher = _download_pypi_sdist,
     runner: Runner = subprocess.run,
 ) -> dict[str, object]:
     """Build a portable release bundle without writing to the PTE runtime."""
     repo_root = repo_root.resolve()
     build_root = build_root.resolve()
+    cache_root = repo_root / ".tmp" / "pte-release"
     if not RELEASE_ID_PATTERN.fullmatch(release_id):
         raise RuntimeError(f"invalid PTE release id: {release_id}")
     git_commit = _git_tag_identity(repo_root, release_id, runner)
@@ -455,6 +514,36 @@ def build_release(
         _export_tag_source(repo_root, release_id, source_root, runner)
         artifacts = staging / "artifacts"
         artifacts.mkdir()
+        if uv_executable is None:
+            discovered_uv = shutil.which("uv")
+            if discovered_uv is None:
+                raise RuntimeError("PTE build requires uv on PATH")
+            uv_executable = Path(discovered_uv)
+        uv_version = _run(
+            [str(uv_executable), "--version"], cwd=source_root, runner=runner,
+        ).stdout.strip()
+        if not uv_version.startswith("uv "):
+            raise RuntimeError(f"PTE build found an invalid uv executable: {uv_version}")
+        build_env = os.environ.copy()
+        if os.name == "nt":
+            temp_root = cache_root / "temp"
+            temp_root.mkdir(parents=True, exist_ok=True)
+            build_support = (
+                source_root / "packages" / "paper_trading_engine" / "src"
+                / "paper_trading_engine" / "build_support"
+            )
+            if not (build_support / "sitecustomize.py").is_file():
+                raise RuntimeError("PTE release source has no Windows sandbox build support")
+            build_env.update({
+                "PTE_INHERITED_TEMP_ACL": "1",
+                "TEMP": str(temp_root),
+                "TMP": str(temp_root),
+                "PYTHONPATH": os.pathsep.join(
+                    part for part in (
+                        str(build_support), build_env.get("PYTHONPATH", ""),
+                    ) if part
+                ),
+            })
         frozen = _run(
             [
                 str(source_python), "-m", "pip", "freeze", "--exclude-editable",
@@ -469,16 +558,33 @@ def build_release(
         ).stdout
         constraints = staging / "build-constraints.txt"
         constraints.write_text(frozen, encoding="utf-8")
-        pip_cache = build_root / "cache" / "pip"
+        pip_cache = cache_root / "pip"
+        uv_cache = cache_root / "uv-build"
         for project in PTE_LOCAL_PROJECTS:
             _run(
                 [
-                    str(source_python), "-m", "pip", "wheel", "--no-deps",
-                    "--cache-dir", str(pip_cache),
-                    "--wheel-dir", str(artifacts), str(source_root / project),
+                    str(uv_executable), "build", "--wheel",
+                    "--out-dir", str(artifacts), "--cache-dir", str(uv_cache),
+                    "--python", str(source_python), "--no-python-downloads",
+                    "--no-create-gitignore", str(source_root / project),
                 ],
-                cwd=source_root,
+                cwd=source_root, env=build_env,
                 runner=runner,
+            )
+        source_archives = staging / ".source-archives"
+        for distribution in PTE_SOURCE_DISTRIBUTIONS:
+            version = _constraint_pin(constraints, distribution)
+            source_archive = source_distribution_fetcher(
+                distribution, version, source_archives,
+            )
+            _run(
+                [
+                    str(uv_executable), "build", "--wheel",
+                    "--out-dir", str(artifacts), "--cache-dir", str(uv_cache),
+                    "--python", str(source_python), "--no-python-downloads",
+                    "--no-create-gitignore", str(source_archive),
+                ],
+                cwd=source_root, env=build_env, runner=runner,
             )
         _build_pte_wheelhouse(
             source_python=source_python,
@@ -486,8 +592,10 @@ def build_release(
             constraints=constraints,
             cache_dir=pip_cache,
             repo_root=source_root,
+            env=build_env,
             runner=runner,
         )
+        shutil.rmtree(source_archives)
         shutil.copytree(
             source_root / "strategies",
             staging / "strategies",
@@ -528,7 +636,7 @@ def publish_release(
     build_root = build_root.resolve()
     runtime_root = runtime_root.resolve()
     built = load_built_release(build_root, release_id)
-    uv_cache = build_root / "cache" / "uv"
+    uv_cache = build_root.parent.parent / ".tmp" / "pte-release" / "uv"
     if uv_executable is None:
         discovered_uv = shutil.which("uv")
         if discovered_uv is None:
@@ -833,6 +941,7 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--build-root", required=True, type=Path)
     build.add_argument("--release", required=True)
     build.add_argument("--python", type=Path, default=Path(sys.executable))
+    build.add_argument("--uv", type=Path)
     publish = actions.add_parser("publish")
     publish.add_argument("--build-root", required=True, type=Path)
     publish.add_argument("--runtime-root", required=True, type=Path)
@@ -860,6 +969,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 build_root=args.build_root,
                 release_id=args.release,
                 source_python=args.python,
+                uv_executable=args.uv,
             )
         elif args.action == "publish":
             result = publish_release(

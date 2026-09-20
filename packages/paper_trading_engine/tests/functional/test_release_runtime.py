@@ -6,6 +6,7 @@ import pytest
 
 from paper_trading_engine.release_cli import (
     PTE_LOCAL_PROJECTS,
+    PTE_SOURCE_DISTRIBUTIONS,
     _run,
     build_release,
     load_built_release,
@@ -37,6 +38,12 @@ def _create_tagged_release_repo(repo: Path, release_id: str = "v0.4.1") -> None:
         (root / "pyproject.toml").write_text(
             f"[project]\nname='{root.name}'\n", encoding="utf-8",
         )
+    build_support = (
+        repo / "packages" / "paper_trading_engine" / "src"
+        / "paper_trading_engine" / "build_support"
+    )
+    build_support.mkdir()
+    (build_support / "sitecustomize.py").write_text("", encoding="utf-8")
     strategies = repo / "strategies"
     strategies.mkdir()
     (strategies / "registry.json").write_text(
@@ -88,21 +95,23 @@ class FakeReleaseRunner:
             return subprocess.CompletedProcess(
                 command, 0, stdout="paper-trading-engine==0.1.0\n", stderr="",
             )
+        if command[1] == "build":
+            assert not (Path(command[-1]) / "build").exists()
+            destination = Path(command[command.index("--out-dir") + 1])
+            destination.mkdir(parents=True, exist_ok=True)
+            if str(command[-1]).endswith((".tar.gz", ".zip")):
+                name = "futu_api-10.10.7008-py3-none-any.whl"
+            else:
+                prefixes = (
+                    "czsc_dataflows", "czsc_strategy_manager", "czsc_strategy_runtime",
+                    "czsc_trader_research", "paper_trading_engine",
+                )
+                name = f"{prefixes[self.wheel_index]}-0.1.0-py3-none-any.whl"
+                self.wheel_index += 1
+            (destination / name).write_bytes(b"wheel")
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:4] == ["-m", "pip", "wheel"] and "--constraint" in command:
             Path(command[command.index("--wheel-dir") + 1]).mkdir(parents=True, exist_ok=True)
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[1:4] == ["-m", "pip", "wheel"]:
-            assert not (Path(command[-1]) / "build").exists()
-            destination = Path(command[command.index("--wheel-dir") + 1])
-            destination.mkdir(parents=True, exist_ok=True)
-            prefixes = (
-                "czsc_dataflows", "czsc_strategy_manager", "czsc_strategy_runtime",
-                "czsc_trader_research", "paper_trading_engine",
-            )
-            (destination / f"{prefixes[self.wheel_index]}-0.1.0-py3-none-any.whl").write_bytes(
-                b"wheel"
-            )
-            self.wheel_index += 1
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1] == "venv":
             venv = Path(command[2])
@@ -121,6 +130,24 @@ class FakeReleaseRunner:
         raise AssertionError(command)
 
 
+def _source_build_fakes(runner):
+    def fetch_sdist(distribution, version, destination):
+        destination.mkdir(parents=True, exist_ok=True)
+        archive = destination / f"{distribution.replace('-', '_')}-{version}.tar.gz"
+        archive.write_bytes(b"sdist")
+        return archive
+
+    def pinned_runner(command, **kwargs):
+        completed = runner(command, **kwargs)
+        if list(command)[1:5] == ["-m", "pip", "freeze", "--exclude-editable"]:
+            return subprocess.CompletedProcess(
+                command, 0, stdout="futu-api==10.10.7008\n", stderr="",
+            )
+        return completed
+
+    return fetch_sdist, pinned_runner
+
+
 def test_release_command_preserves_status_with_non_utf8_windows_output(tmp_path):
     completed = _run(
         [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xb5')"],
@@ -137,32 +164,39 @@ def test_build_is_local_and_publish_installs_final_runtime(tmp_path):
     runtime = (tmp_path / "runtime").resolve()
     _create_tagged_release_repo(repo)
     runner = FakeReleaseRunner()
+    fetch_sdist, pinned_runner = _source_build_fakes(runner)
 
     built_result = build_release(
         repo_root=repo,
         build_root=build_root,
         release_id="v0.4.1",
         source_python=Path("C:/Python/python.exe"),
-        runner=runner,
+        uv_executable=Path("C:/uv/uv.exe"),
+        source_distribution_fetcher=fetch_sdist,
+        runner=pinned_runner,
     )
 
     built = load_built_release(build_root, "v0.4.1")
     assert built_result["build"]["release_id"] == "v0.4.1"
-    assert built_result["artifact_count"] == len(PTE_LOCAL_PROJECTS)
+    assert built_result["artifact_count"] == (
+        len(PTE_LOCAL_PROJECTS) + len(PTE_SOURCE_DISTRIBUTIONS)
+    )
     assert not (built.release_root / ".venv").exists()
     assert not (built.release_root / "runtime-root.json").exists()
+    assert not (built.release_root / ".source-archives").exists()
     assert not runtime.exists()
     assert not (built.release_root / "experiments").exists()
-    wheel_commands = [
-        command for command in runner.commands
-        if command[1:4] == ["-m", "pip", "wheel"] and "--constraint" not in command
-    ]
-    assert len(wheel_commands) == len(PTE_LOCAL_PROJECTS)
-    assert all(".source" in command[-1] for command in wheel_commands)
+    wheel_commands = [command for command in runner.commands if command[1] == "build"]
+    assert len(wheel_commands) == len(PTE_LOCAL_PROJECTS) + len(PTE_SOURCE_DISTRIBUTIONS)
+    assert sum(
+        not str(command[-1]).endswith((".tar.gz", ".zip"))
+        for command in wheel_commands
+    ) == len(PTE_LOCAL_PROJECTS)
     wheelhouse = next(command for command in runner.commands if "--constraint" in command)
     assert wheelhouse[wheelhouse.index("--cache-dir") + 1] == str(
-        build_root / "cache" / "pip"
+        repo / ".tmp" / "pte-release" / "pip"
     )
+    assert wheelhouse[wheelhouse.index("--only-binary") + 1] == ":all:"
 
     published = publish_release(
         build_root=build_root,
@@ -196,7 +230,8 @@ def test_build_is_local_and_publish_installs_final_runtime(tmp_path):
     ]
     installs = [command for command in runner.commands if command[1:3] == ["pip", "install"]]
     assert all(
-        command[command.index("--cache-dir") + 1] == str(build_root / "cache" / "uv")
+        command[command.index("--cache-dir") + 1]
+        == str(repo / ".tmp" / "pte-release" / "uv")
         for command in installs
     )
     assert not (runtime / "cache").exists()
@@ -213,12 +248,15 @@ def test_publish_rejects_tampered_build_and_existing_service_host(tmp_path):
     runtime = (tmp_path / "runtime").resolve()
     _create_tagged_release_repo(repo)
     runner = FakeReleaseRunner()
+    fetch_sdist, pinned_runner = _source_build_fakes(runner)
     build_release(
         repo_root=repo,
         build_root=build_root,
         release_id="v0.4.1",
         source_python=Path("C:/Python/python.exe"),
-        runner=runner,
+        uv_executable=Path("C:/uv/uv.exe"),
+        source_distribution_fetcher=fetch_sdist,
+        runner=pinned_runner,
     )
     artifact = next((build_root / "releases" / "v0.4.1" / "artifacts").glob("*.whl"))
     original = artifact.read_bytes()

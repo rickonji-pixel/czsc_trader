@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX42",
+  "status": "COMPLETE",
+  "experiment_type": "FROZEN_V1_FIXED_PRICE_RISK_OVERLAY_COUNTERFACTUAL",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "decision": "AWAITING_HUMAN_REVIEW",
+  "overlay_trigger_count": 43,
+  "observed_as_no_trade": false,
+  "strategy_parameters_changed": false,
+  "candidate_created": false,
+  "pte_mutated": false,
+  "files": {
+    "01_goal.md": {
+      "bytes": 474,
+      "sha256": "0bc4e85d7f5ac239a46871bd45b98da780ec48e29db6bf1824e13ade85b13eca"
+    },
+    "02_design.md": {
+      "bytes": 1054,
+      "sha256": "08240812937a2152058ca9b1267f5c00199d3cc898da412d1b119d314634b5e0"
+    },
+    "02_protocol.json": {
+      "bytes": 2187,
+      "sha256": "70f895f6c9a9cc2e54853c38250e032cd8fd02ec44d57756b888ff77a291afbd"
+    },
+    "03_execution.md": {
+      "bytes": 476,
+      "sha256": "03feb64dde2fc87f3ac4477bb0a4386db8cc8d485dd2703f78c06604c21dd263"
+    },
+    "04_conclusion.md": {
+      "bytes": 950,
+      "sha256": "db388afbd53432cf757e688e0aa422daf1d7ef56cc8fd3c24f8c6992da832056"
+    },
+    "artifacts/baseline_account_daily.csv": {
+      "bytes": 122340,
+      "sha256": "bbd8b313be5acb90647d93cfce1f2073593cfbb066836d0d5a3ab48a443875a6"
+    },
+    "artifacts/baseline_decisions.csv": {
+      "bytes": 121931,
+      "sha256": "95c8ced4141814e2c5a8d5adda9d07d3fdcc47b1a796d77e406ed094cada9d76"
+    },
+    "artifacts/baseline_fills.csv": {
+      "bytes": 44173,
+      "sha256": "259fbbccfd51413b47d551bd8b2cbadcb6f03f3d03c5ff1d2bbc54e2619cde69"
+    },
+    "artifacts/baseline_orders.csv": {
+      "bytes": 35519,
+      "sha256": "836864eb39bb3c7f317cb60073141e0cf1edd42946f59c3820eeb940cef4419c"
+    },
+    "artifacts/baseline_trades.csv": {
+      "bytes": 13197,
+      "sha256": "24842317097b7dcae0672cc83577ac76cb20490a4109f9065c8f524e7eb0b1e6"
+    },
+    "artifacts/counterfactual_evidence.json": {
+      "bytes": 6128,
+      "sha256": "21443beee44b8a04611734f43633da461261192498f08400e1e9ff5ab6ef1655"
+    },
+    "artifacts/overlay_account_daily.csv": {
+      "bytes": 121161,
+      "sha256": "f819dfa3d4f9035c6cc5a2cdafebb19604ff68de87e5c2512d4afe5193e4a407"
+    },
+    "artifacts/overlay_decisions.csv": {
+      "bytes": 143365,
+      "sha256": "ce163a3c8c826fcd98669b0b644873631f9c07e7b231536d346676f59f8e2e7e"
+    },
+    "artifacts/overlay_fills.csv": {
+      "bytes": 44001,
+      "sha256": "a5c947fbc3871cbb92f5b91d8b54014a56eba1780278532e74361674165a1952"
+    },
+    "artifacts/overlay_orders.csv": {
+      "bytes": 35488,
+      "sha256": "96b432fe929d8761668660fcd51d54274bbafbd59cb7f86fc02b5a68d58bf287"
+    },
+    "artifacts/overlay_trades.csv": {
+      "bytes": 13373,
+      "sha256": "e5843a9765e894fd24de1a06be65334fbbe7520d673c729a85ce17bee51ea4ff"
+    },
+    "artifacts/overlay_triggers.csv": {
+      "bytes": 14435,
+      "sha256": "7c255b1a24f4e180339cbc2775c35f305f8d22ecbbea1d1ed870e66b070efebd"
+    },
+    "artifacts/trade_comparison.csv": {
+      "bytes": 20713,
+      "sha256": "423330aaf529e3e9ed900cb8a7cb22f08486aa5d3c0b3d50c881c343fd45423b"
+    },
+    "artifacts/yearly_trade_frequency.csv": {
+      "bytes": 119,
+      "sha256": "8c7d38cc144dfb7dad0bd127c838ca7b927279949620e4966088d071acab735d"
+    },
+    "run_experiment.py": {
+      "bytes": 32547,
+      "sha256": "ed5a864c881c478336d2d3dd8c821e3fb9a9f7aa72655f186e9ff2311b8dc4eb"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment_id": "20260920_S007_EX42",
+  "experiment_type": "FROZEN_V1_FIXED_PRICE_RISK_OVERLAY_COUNTERFACTUAL",
+  "strategy_id": "S007",
+  "strategy_version": "v1",
+  "credential_id": "SGC-S007-002",
+  "symbol": "588080.SH",
+  "development_cutoff": "2026-09-02",
+  "evaluation_start": "2021-01-05",
+  "initial_cash": 100000.0,
+  "fee_rate_per_side": 0.001,
+  "rolling_frequency_sessions": 60,
+  "overlay_rule": {
+    "checkpoint": "ENTRY_SESSION_CLOSE",
+    "trigger": "COST_ADJUSTED_MARK_TO_MARKET_NET_LE_ZERO",
+    "requires_base_continue_holding": true,
+    "exit_execution": "NEXT_SESSION",
+    "reentry": "BLOCK_UNTIL_BASE_CYCLE_FLAT"
+  },
+  "sources": {
+    "formal_replay_archive": "experiments/S007/20260915_S007_EX31",
+    "formal_replay_manifest_sha256": "5f61bd6c5caf8ff7eb9dbbe6a3063d495d13084bbfeec11b4ddf3f970cf8f2e5",
+    "formal_trades_sha256": "d351bcfae415d8f67b9fc7ee102a96bc9c19f45cdc207e56ac206de9d747e107",
+    "formal_decisions_sha256": "dafaa7865128027c7cf2bb6647df5194b772538bd750fa39876cbbf95bbe9371",
+    "execution_contract_archive": "experiments/S007/20260918_S007_EX38",
+    "execution_contract_manifest_sha256": "d56c7a4c096487319d060d11acda6b192250e7de27fe20f2a09e1e8b1ad543c3",
+    "corrected_backtest": "outputs/588080_0918_BT04",
+    "corrected_decisions_sha256": "14bef24a87de68039e753fde41f3bdcb0c7dfc4c6912aa1efd3d6a01d69414d6",
+    "corrected_manifest_sha256": "f685ad1c8ed43302aa43afb7b73a3cd2b902efa98f1fb863967560fc1d2e009e",
+    "action_overlap_archive": "experiments/S007/20260920_S007_EX41",
+    "action_overlap_manifest_sha256": "61be5f3a965786a0c59f55366a414994698e1f0e10978b18de89f8f37dee60ef",
+    "action_overlap_sha256": "93977b4367b452935e168775efd6a4f6d516275a1a3289000e602795b5e1f0dc",
+    "strategy_version": "strategies/S007/versions/v1.json",
+    "strategy_version_sha256": "ef5f28803422979ab416510e52f02eda7dbe009d4f1309c6c831bbce8a0d50e8",
+    "expected_behavior_hash": "d6dafcf9f65c2ea0be11f7c127a2a6e4acf0aa4a4e767dcf6fc3e21042ff26a3"
+  },
+  "reads_forward_data": false,
+  "searches_parameters": false,
+  "creates_candidate": false,
+  "changes_strategy_parameters": false,
+  "mutates_pte": false
+}

@@ -59,7 +59,9 @@ def _load_years(prefix: str, request: DataRequest) -> pd.DataFrame:
 def _adjusted_provider(request: DataRequest):
     return _load_years("510500_daily", request), {
         "vendor": "test-backtest-data",
-        "frequency": "daily",
+        "period": "daily",
+        "asset_type": "etf",
+        "adjustment": "hfq",
         "primary_key": ["Date"],
     }
 
@@ -67,7 +69,9 @@ def _adjusted_provider(request: DataRequest):
 def _execution_provider(request: DataRequest):
     return _load_years("510500_execution_daily", request), {
         "vendor": "test-backtest-data",
-        "frequency": "daily",
+        "period": "daily",
+        "asset_type": "etf",
+        "adjustment": "none",
         "primary_key": ["Date"],
     }
 

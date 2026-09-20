@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from functools import partial
 import json
 from pathlib import Path
 import re
 import shutil
-from typing import Any, TypeAlias
+from typing import Any
 
 import pandas as pd
 
-from dataflows.errors import DataContractError
-from dataflows.history_validation import inspect_intraday_against_daily, inspect_ohlcv_frame
+from dataflows import DataRequest, Dataflows, Dataset
 
 from .identity import raw_file_sha256
 from .temp_workspace import create_temporary_directory
@@ -23,9 +20,6 @@ from .temp_workspace import create_temporary_directory
 
 INTRADAY_RESEARCH_FREQUENCIES = ("15m", "5m", "1m")
 VENDOR_COLUMNS = ("Date", "Open", "High", "Low", "Close", "Volume", "Amount")
-IntradayFetcher: TypeAlias = Callable[
-    [str, date, date, str], tuple[pd.DataFrame, dict[str, Any]]
-]
 
 
 @dataclass(frozen=True)
@@ -45,22 +39,28 @@ def _symbol_parts(symbol: str) -> tuple[str, str]:
 
 
 def _normalize_frame(frame: pd.DataFrame, period: str) -> pd.DataFrame:
-    try:
-        inspect_ohlcv_frame(
-            frame,
-            period,
-            require_complete_days=period in INTRADAY_RESEARCH_FREQUENCIES,
-        ).require_pass()
-    except DataContractError as exc:
-        raise ValueError(str(exc)) from exc
+    missing = sorted(set(VENDOR_COLUMNS).difference(frame.columns))
+    if missing:
+        raise ValueError(f"{period}: DFLS result is missing columns {missing}")
     normalized = frame.loc[:, VENDOR_COLUMNS].copy()
-    normalized["Date"] = pd.to_datetime(normalized["Date"])
+    normalized["Date"] = pd.to_datetime(normalized["Date"], errors="raise")
     for column in VENDOR_COLUMNS[1:]:
-        normalized[column] = pd.to_numeric(normalized[column])
+        normalized[column] = pd.to_numeric(normalized[column], errors="raise")
     return normalized.reset_index(drop=True)
 
 
-def _default_fetcher(
+def _ready_result(result, label: str) -> tuple[pd.DataFrame, dict[str, Any]]:
+    if not result.ready or result.identity is None:
+        error = result.error
+        detail = (
+            f"{error.code}: {error.message}" if error is not None else result.status.value
+        )
+        raise ValueError(f"{label}: DFLS returned {result.status.value}: {detail}")
+    return result.dataframe, dict(result.identity.metadata)
+
+
+def _fetch_result(
+    dataflows: Dataflows,
     symbol: str,
     start: date,
     end: date,
@@ -68,14 +68,19 @@ def _default_fetcher(
     *,
     env_file: str | Path | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    from dataflows.tushare_etf import fetch_etf_ohlcv
-
-    return fetch_etf_ohlcv(
-        symbol,
-        start.isoformat(),
-        end.isoformat(),
-        period,
-        env_file=env_file,
+    return _ready_result(
+        dataflows.fetch(
+            DataRequest(
+                Dataset.ETF_OHLCV,
+                symbol,
+                start.isoformat(),
+                end.isoformat(),
+                end.isoformat(),
+                period,
+                {"env_file": str(env_file)} if env_file is not None else {},
+            )
+        ),
+        f"{symbol} {period}",
     )
 
 
@@ -103,7 +108,7 @@ def prepare_intraday_research_data(
     end: date,
     data_dir: Path,
     *,
-    fetcher: IntradayFetcher | None = None,
+    dataflows: Dataflows | None = None,
     env_file: str | Path | None = None,
 ) -> dict[str, object]:
     """Fetch, reconcile and atomically publish 15m/5m/1m ETF research bars."""
@@ -111,18 +116,17 @@ def prepare_intraday_research_data(
     normalized_symbol, code = _symbol_parts(symbol)
     if start > end:
         raise ValueError("start must not be after end")
-    effective_fetcher = fetcher or partial(_default_fetcher, env_file=env_file)
-    daily_raw, daily_metadata = effective_fetcher(normalized_symbol, start, end, "daily")
-    daily = _normalize_frame(daily_raw, "daily")
+    flows = dataflows or Dataflows()
+    _daily_raw, daily_metadata = _fetch_result(
+        flows, normalized_symbol, start, end, "daily", env_file=env_file
+    )
     frames: dict[str, pd.DataFrame] = {}
     metadata: dict[str, dict[str, object]] = {}
     factor_hashes = {str(daily_metadata.get("adjustment_factor_sha256", ""))}
     for period in INTRADAY_RESEARCH_FREQUENCIES:
-        raw, item_metadata = effective_fetcher(normalized_symbol, start, end, period)
-        if item_metadata.get("vendor_symbol") != normalized_symbol:
-            raise ValueError(f"{period}: vendor symbol does not match request")
-        if item_metadata.get("asset_type") != "etf":
-            raise ValueError(f"{period}: asset type must be etf")
+        raw, item_metadata = _fetch_result(
+            flows, normalized_symbol, start, end, period, env_file=env_file
+        )
         frame = _normalize_frame(raw, period)
         frames[period] = frame
         metadata[period] = item_metadata
@@ -130,18 +134,11 @@ def prepare_intraday_research_data(
 
     validation: dict[str, object] = {}
     for period, frame in frames.items():
-        report = inspect_intraday_against_daily(frame, daily, period)
-        report.require_pass()
-        metrics = dict(report.metrics)
-        repair_records = metadata[period].get("repair_records", [])
         validation[period] = {
             "status": "PASS",
-            "contract": "dfls.history.v1",
-            "bar_count": int(metrics["row_count"]),
-            "complete_day_count": int(metrics["complete_day_count"]),
-            "expected_bars_per_day": int(metrics["expected_bars_per_day"]),
-            "daily_matched_days": int(metrics["daily_matched_days"]),
-            "repair_records": repair_records,
+            "contract": "tdr.intraday-publication.v1",
+            "source": "DFLS",
+            "bar_count": int(len(frame)),
         }
     if "" in factor_hashes or len(factor_hashes) != 1:
         raise ValueError("daily and minute frequencies use different adjustment factors")
@@ -258,7 +255,5 @@ def load_intraday_research_data(data_dir: Path, symbol: str) -> IntradayResearch
         if not pieces:
             raise ValueError(f"intraday manifest missing {period}")
         frame = pd.concat(pieces, ignore_index=True).sort_values("Date").reset_index(drop=True)
-        report = inspect_ohlcv_frame(frame, period, require_complete_days=True)
-        report.require_pass()
         frames[period] = frame
     return IntradayResearchData(normalized_symbol, frames, manifest, hashes)

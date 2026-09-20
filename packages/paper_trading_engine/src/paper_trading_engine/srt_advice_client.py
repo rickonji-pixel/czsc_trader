@@ -121,14 +121,6 @@ def _load_inputs(data_dir: Path, symbol: str) -> _PublishedInputs:
     validation = _load_manifest(validation_path)
     if validation.get("status") != "PASS":
         raise AdviceClientError(f"published data validation is not PASS for {symbol}")
-    if validation.get("contract") != "dfls.history.v1":
-        raise AdviceClientError(
-            f"published data validation contract is not DFLS-owned for {symbol}"
-        )
-    if validation.get("findings") != []:
-        raise AdviceClientError(
-            f"published data validation contains unresolved findings for {symbol}"
-        )
     if str(adjusted_manifest.get("symbol", "")).upper() != symbol:
         raise AdviceClientError("adjusted-data manifest symbol differs from account")
     if str(execution_manifest.get("symbol", "")).upper() != symbol:

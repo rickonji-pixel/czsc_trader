@@ -130,8 +130,20 @@ def test_out_of_boundary_data_fails_contract() -> None:
 
 
 def test_date_only_end_includes_intraday_rows() -> None:
-    frame = _frame().iloc[[0]].copy()
-    frame.loc[0, "Date"] = "2026-09-14 15:00:00"
+    frame = pd.concat([_frame().iloc[[0]].copy()] * 8, ignore_index=True)
+    frame["Date"] = [
+        f"2026-09-14 {value}:00"
+        for value in (
+            "10:00",
+            "10:30",
+            "11:00",
+            "11:30",
+            "13:30",
+            "14:00",
+            "14:30",
+            "15:00",
+        )
+    ]
     request = DataRequest(
         Dataset.ETF_OHLCV,
         "588080.SH",
@@ -146,6 +158,45 @@ def test_date_only_end_includes_intraday_rows() -> None:
     ).fetch(request)
 
     assert result.status is DataStatus.READY
+
+
+def test_facade_blocks_semantically_invalid_ohlcv_before_ready() -> None:
+    frame = _frame()
+    frame.loc[1, "High"] = 0.5
+
+    result = Dataflows(
+        {Dataset.ETF_OHLCV.value: lambda ignored: (frame, {"vendor": "test"})}
+    ).fetch(_request())
+
+    assert result.status is DataStatus.FAILED
+    assert result.error is not None
+    assert result.error.code == "DATA_CONTRACT_MISMATCH"
+
+
+def test_facade_blocks_invalid_calendar_before_ready() -> None:
+    calendar = pd.DataFrame(
+        {"Date": ["2026-09-14", "2026-09-15"], "IsOpen": [1, 2]}
+    )
+    request = DataRequest(
+        Dataset.TRADING_CALENDAR,
+        "SSE",
+        "2026-09-14",
+        "2026-09-15",
+        "2026-09-15",
+    )
+
+    result = Dataflows(
+        {
+            Dataset.TRADING_CALENDAR.value: lambda ignored: (
+                calendar,
+                {"vendor": "test", "primary_key": ["Date"]},
+            )
+        }
+    ).fetch(request)
+
+    assert result.status is DataStatus.FAILED
+    assert result.error is not None
+    assert result.error.code == "DATA_CONTRACT_MISMATCH"
 
 
 def test_multi_entity_dataset_uses_declared_primary_key() -> None:

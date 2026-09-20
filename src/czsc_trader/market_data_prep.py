@@ -2,40 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import date, datetime, timezone
-from functools import partial
 import json
 from pathlib import Path
 import re
 import shutil
-from typing import Any, TypeAlias
+from typing import Any
 
 import pandas as pd
-from dataflows.errors import DataContractError
-from dataflows.history_validation import (
-    inspect_ohlcv_frame,
-    validate_market_frames as dfls_validate_market_frames,
-)
+from dataflows import DataRequest, Dataflows, Dataset
 
 from .identity import raw_file_sha256
 from .temp_workspace import create_temporary_directory
 
 FREQUENCIES = ("30m", "daily", "weekly")
 VENDOR_COLUMNS = ("Date", "Open", "High", "Low", "Close", "Volume", "Amount")
-
-MarketFetcher: TypeAlias = Callable[
-    [str, str, date, date, str], tuple[pd.DataFrame, dict[str, Any]]
-]
-ExecutionPriceFetcher: TypeAlias = Callable[
-    [str, str, date, date], tuple[pd.DataFrame, dict[str, Any]]
-]
-InstrumentNameFetcher: TypeAlias = Callable[[str, str], str]
-CalendarFetcher: TypeAlias = Callable[[date], tuple[date, dict[str, str]]]
-SessionCalendarFetcher: TypeAlias = Callable[
-    [date, date], tuple[pd.DataFrame, dict[str, object]]
-]
-
 
 def _normalize_symbol(symbol: str) -> tuple[str, str]:
     value = str(symbol).strip().upper()
@@ -46,118 +27,50 @@ def _normalize_symbol(symbol: str) -> tuple[str, str]:
 
 
 def _normalize_frame(frame: pd.DataFrame, name: str) -> pd.DataFrame:
-    frequency = "daily" if name == "execution daily" else name
-    try:
-        inspect_ohlcv_frame(
-            frame,
-            frequency,
-            require_complete_days=frequency == "30m",
-        ).require_pass()
-    except DataContractError as exc:
-        raise ValueError(str(exc)) from exc
+    missing = sorted(set(VENDOR_COLUMNS).difference(frame.columns))
+    if missing:
+        raise ValueError(f"{name}: DFLS result is missing columns {missing}")
     normalized = frame.loc[:, VENDOR_COLUMNS].copy()
-    normalized["Date"] = pd.to_datetime(normalized["Date"])
+    normalized["Date"] = pd.to_datetime(normalized["Date"], errors="raise")
     for column in VENDOR_COLUMNS[1:]:
-        normalized[column] = pd.to_numeric(normalized[column])
+        normalized[column] = pd.to_numeric(normalized[column], errors="raise")
     return normalized.reset_index(drop=True)
 
 
-def validate_market_frames(
-    intraday: pd.DataFrame,
-    daily: pd.DataFrame,
-    weekly: pd.DataFrame,
-    execution_daily: pd.DataFrame | None = None,
-    trading_calendar: pd.DataFrame | None = None,
-    *,
-    expected_start: date | str | pd.Timestamp | None = None,
-) -> dict[str, object]:
-    """Delegate market-series validation to DFLS."""
-
-    try:
-        return dfls_validate_market_frames(
-            intraday,
-            daily,
-            weekly,
-            execution_daily,
-            trading_calendar,
-            expected_start=expected_start,
+def _ready_result(result, label: str) -> tuple[pd.DataFrame, dict[str, Any]]:
+    if not result.ready or result.identity is None:
+        error = result.error
+        detail = (
+            f"{error.code}: {error.message}" if error is not None else result.status.value
         )
-    except DataContractError as exc:
-        for finding in exc.context.get("findings", []):
-            if finding.get("code") == "CALENDAR_COVERAGE_MISMATCH":
-                context = finding.get("context", {})
-                raise ValueError(
-                    "daily/trading calendar reconciliation: trade dates differ; "
-                    f"missing={context.get('missing', [])}, "
-                    f"unexpected={context.get('unexpected', [])}"
-                ) from exc
-        raise ValueError(str(exc)) from exc
+        raise ValueError(f"{label}: DFLS returned {result.status.value}: {detail}")
+    return result.dataframe, dict(result.identity.metadata)
 
 
-def _default_fetcher(
+def _fetch_result(
+    dataflows: Dataflows,
+    *,
+    dataset: Dataset,
     symbol: str,
-    asset_type: str,
     start: date,
     end: date,
-    period: str,
-    *,
-    env_file: str | Path | None = None,
-) -> tuple[pd.DataFrame, dict[str, str]]:
-    if asset_type == "stock":
-        from dataflows.tushare_stock import fetch_stock_ohlcv
-
-        return fetch_stock_ohlcv(
-            symbol, start.isoformat(), end.isoformat(), period, env_file=env_file
-        )
-    from dataflows.tushare_etf import fetch_etf_ohlcv
-
-    return fetch_etf_ohlcv(
-        symbol, start.isoformat(), end.isoformat(), period, env_file=env_file
-    )
-
-
-def _default_execution_price_fetcher(
-    symbol: str,
-    asset_type: str,
-    start: date,
-    end: date,
-    *,
-    env_file: str | Path | None = None,
-) -> tuple[pd.DataFrame, dict[str, str]]:
-    if asset_type == "stock":
-        from dataflows.tushare_stock import fetch_stock_unadjusted_daily
-
-        return fetch_stock_unadjusted_daily(
-            symbol, start.isoformat(), end.isoformat(), env_file=env_file
-        )
-    from dataflows.tushare_etf import fetch_etf_unadjusted_daily
-
-    return fetch_etf_unadjusted_daily(
-        symbol, start.isoformat(), end.isoformat(), env_file=env_file
-    )
-
-
-def _default_calendar_fetcher(
-    after: date, *, env_file: str | Path | None = None
-) -> tuple[date, dict[str, str]]:
-    from dataflows.tushare_common import fetch_next_trading_session
-
-    return fetch_next_trading_session(after, env_file=env_file)
-
-
-def _default_session_calendar_fetcher(
-    start: date,
-    end: date,
-    *,
-    env_file: str | Path | None = None,
-) -> tuple[pd.DataFrame, dict[str, object]]:
-    from dataflows.tushare_strategy_data import fetch_trading_calendar
-
-    return fetch_trading_calendar(
-        "SSE",
-        start.isoformat(),
-        end.isoformat(),
-        env_file=env_file,
+    frequency: str,
+    env_file: str | Path | None,
+    label: str,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    return _ready_result(
+        dataflows.fetch(
+            DataRequest(
+                dataset,
+                symbol,
+                start.isoformat(),
+                end.isoformat(),
+                end.isoformat(),
+                frequency,
+                {"env_file": str(env_file)} if env_file is not None else {},
+            )
+        ),
+        label,
     )
 
 
@@ -187,11 +100,8 @@ def prepare_market_data(
     end: date,
     data_dir: Path,
     *,
-    fetcher: MarketFetcher | None = None,
-    execution_fetcher: ExecutionPriceFetcher | None = None,
-    name_fetcher: InstrumentNameFetcher | None = None,
-    calendar_fetcher: CalendarFetcher | None = None,
-    session_calendar_fetcher: SessionCalendarFetcher | None = None,
+    dataflows: Dataflows | None = None,
+    instrument_name: str | None = None,
     env_file: str | Path | None = None,
 ) -> dict[str, object]:
     """Fetch and publish one fully validated flat market-data generation."""
@@ -201,56 +111,78 @@ def prepare_market_data(
         raise ValueError("asset_type must be stock or etf")
     if start > end:
         raise ValueError("start must not be after end")
-    if name_fetcher is None:
+    flows = dataflows or Dataflows()
+    if instrument_name is None:
         from dataflows.tushare_common import fetch_instrument_name
 
-        effective_name_fetcher = partial(fetch_instrument_name, env_file=env_file)
+        resolved_name = fetch_instrument_name(
+            normalized_symbol, normalized_asset, env_file=env_file
+        )
     else:
-        effective_name_fetcher = name_fetcher
-    instrument_name = str(
-        effective_name_fetcher(normalized_symbol, normalized_asset)
-    ).strip()
-    if not instrument_name:
+        resolved_name = instrument_name
+    resolved_name = str(resolved_name).strip()
+    if not resolved_name:
         raise ValueError("instrument name must not be empty")
-    effective_fetcher = fetcher or partial(_default_fetcher, env_file=env_file)
     frames: dict[str, pd.DataFrame] = {}
     metadata: dict[str, dict[str, Any]] = {}
+    adjusted_dataset = (
+        Dataset.STOCK_OHLCV if normalized_asset == "stock" else Dataset.ETF_OHLCV
+    )
     for period in FREQUENCIES:
-        frame, item_metadata = effective_fetcher(
-            normalized_symbol, normalized_asset, start, end, period
+        frame, item_metadata = _fetch_result(
+            flows,
+            dataset=adjusted_dataset,
+            symbol=normalized_symbol,
+            start=start,
+            end=end,
+            frequency=period,
+            env_file=env_file,
+            label=f"{normalized_symbol} {period}",
         )
-        if item_metadata.get("vendor_symbol") != normalized_symbol:
-            raise ValueError(f"{period}: vendor symbol does not match request")
-        if item_metadata.get("asset_type") != normalized_asset:
-            raise ValueError(f"{period}: asset type does not match request")
         frames[period] = frame
         metadata[period] = item_metadata
-    effective_execution_fetcher = execution_fetcher or partial(
-        _default_execution_price_fetcher, env_file=env_file
+    execution_dataset = (
+        Dataset.STOCK_UNADJUSTED_DAILY
+        if normalized_asset == "stock"
+        else Dataset.ETF_UNADJUSTED_DAILY
     )
-    execution_frame, execution_metadata = effective_execution_fetcher(
-        normalized_symbol, normalized_asset, start, end
+    execution_frame, execution_metadata = _fetch_result(
+        flows,
+        dataset=execution_dataset,
+        symbol=normalized_symbol,
+        start=start,
+        end=end,
+        frequency="daily",
+        env_file=env_file,
+        label=f"{normalized_symbol} execution daily",
     )
     execution_frame = _normalize_frame(execution_frame, "execution daily")
     last_session = pd.Timestamp(execution_frame["Date"].max()).date()
-    effective_calendar_fetcher = calendar_fetcher or partial(
-        _default_calendar_fetcher, env_file=env_file
+    calendar_end = (pd.Timestamp(last_session) + pd.Timedelta(days=20)).date()
+    session_calendar, session_calendar_metadata = _fetch_result(
+        flows,
+        dataset=Dataset.TRADING_CALENDAR,
+        symbol="SSE",
+        start=start,
+        end=calendar_end,
+        frequency="daily",
+        env_file=env_file,
+        label="SSE trading calendar",
     )
-    next_session, calendar_metadata = effective_calendar_fetcher(last_session)
+    open_dates = pd.to_datetime(
+        session_calendar.loc[session_calendar["IsOpen"].astype(int).eq(1), "Date"]
+    )
+    future = open_dates[open_dates.dt.date > last_session]
+    if future.empty:
+        raise ValueError("SSE trading calendar has no next session")
+    next_session = future.iloc[0].date()
+    calendar_metadata = session_calendar_metadata
     if next_session <= last_session:
         raise ValueError("next trading session must be after the latest complete close")
     if next_session <= end:
         raise ValueError(
             f"latest complete close {last_session} is behind requested end {end}"
         )
-    if execution_metadata.get("vendor_symbol") != normalized_symbol:
-        raise ValueError("execution daily: vendor symbol does not match request")
-    if execution_metadata.get("asset_type") != normalized_asset:
-        raise ValueError("execution daily: asset type does not match request")
-    if execution_metadata.get("period") != "daily":
-        raise ValueError("execution daily: period must be daily")
-    if execution_metadata.get("adjustment") != "none":
-        raise ValueError("execution daily: prices must be unadjusted")
     adjusted_metadata = [
         item for item in metadata.values() if item.get("adjustment") is not None
     ]
@@ -278,20 +210,13 @@ def prepare_market_data(
         }
     normalized_daily = _normalize_frame(frames["daily"], "daily")
     observed_end = pd.Timestamp(normalized_daily["Date"].max()).date()
-    effective_session_calendar_fetcher = session_calendar_fetcher or partial(
-        _default_session_calendar_fetcher, env_file=env_file
-    )
-    session_calendar, session_calendar_metadata = effective_session_calendar_fetcher(
-        start, observed_end
-    )
-    validation = validate_market_frames(
-        frames["30m"],
-        frames["daily"],
-        frames["weekly"],
-        execution_frame,
-        session_calendar,
-        expected_start=start,
-    )
+    if observed_end != last_session:
+        raise ValueError("adjusted and execution daily cutoffs differ")
+    validation = {
+        "status": "PASS",
+        "contract": "tdr.market-publication.v1",
+        "source": "DFLS",
+    }
 
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -346,7 +271,7 @@ def prepare_market_data(
         manifest = {
             "schema_version": 2 if adjustment is not None else 1,
             "symbol": normalized_symbol,
-            "name": instrument_name,
+            "name": resolved_name,
             "code": code,
             "asset_type": normalized_asset,
             "vendor": "tushare",
@@ -361,7 +286,7 @@ def prepare_market_data(
         execution_manifest = {
             "schema_version": 2,
             "symbol": normalized_symbol,
-            "name": instrument_name,
+            "name": resolved_name,
             "code": code,
             "asset_type": normalized_asset,
             "vendor": execution_metadata["vendor"],

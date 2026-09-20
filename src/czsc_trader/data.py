@@ -8,12 +8,6 @@ from pathlib import Path
 import re
 
 import pandas as pd
-from dataflows.errors import DataContractError
-from dataflows.history_validation import (
-    inspect_daily_against_weekly,
-    inspect_intraday_against_daily,
-    inspect_ohlcv_frame,
-)
 
 from .identity import raw_file_sha256
 
@@ -21,6 +15,8 @@ from .identity import raw_file_sha256
 SYMBOL = "588080.SH"
 FREQUENCIES = ("30m", "daily", "weekly")
 NORMALIZED_COLUMNS = ("dt", "symbol", "open", "high", "low", "close", "vol", "amount")
+
+
 @dataclass(frozen=True)
 class MarketData:
     """Validated K-lines at the three supplied frequencies."""
@@ -77,63 +73,11 @@ def _read_one(path: Path, freq: str, symbol: str) -> pd.DataFrame:
     if set(frame.columns) != expected:
         raise ValueError(f"{path.name}: columns {list(frame.columns)} do not match {sorted(expected)}")
     frame = frame.rename(columns={source_time: "dt", "volume": "vol"})
-    frame["dt"] = pd.to_datetime(frame["dt"])
+    frame["dt"] = pd.to_datetime(frame["dt"], errors="raise")
+    for column in ("open", "high", "low", "close", "vol", "amount"):
+        frame[column] = pd.to_numeric(frame[column], errors="raise")
     frame.insert(1, "symbol", symbol)
     return frame[list(NORMALIZED_COLUMNS)]
-
-
-def _dfls_frame(frame: pd.DataFrame) -> pd.DataFrame:
-    return frame.rename(
-        columns={
-            "dt": "Date",
-            "open": "Open",
-            "high": "High",
-            "low": "Low",
-            "close": "Close",
-            "vol": "Volume",
-            "amount": "Amount",
-        }
-    ).loc[:, ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]]
-
-
-def _require_dfls(report) -> None:
-    try:
-        report.require_pass()
-    except DataContractError as exc:
-        raise ValueError(str(exc)) from exc
-
-
-def _validate_frame(frame: pd.DataFrame, name: str) -> None:
-    _require_dfls(
-        inspect_ohlcv_frame(
-            _dfls_frame(frame),
-            name,
-            require_complete_days=name == "30m",
-        )
-    )
-
-
-def _validate_reconciliation(
-    intraday: pd.DataFrame,
-    daily: pd.DataFrame,
-    weekly: pd.DataFrame,
-    *,
-    allow_trailing_partial_week: bool = False,
-) -> None:
-    dfls_intraday = _dfls_frame(intraday)
-    dfls_daily = _dfls_frame(daily)
-    dfls_weekly = _dfls_frame(weekly)
-    _require_dfls(inspect_intraday_against_daily(dfls_intraday, dfls_daily, "30m"))
-
-    weekly_daily = dfls_daily
-    if allow_trailing_partial_week:
-        last_week = pd.to_datetime(dfls_daily["Date"]).dt.to_period("W-SUN").iloc[-1]
-        weekly_periods = set(pd.to_datetime(dfls_weekly["Date"]).dt.to_period("W-SUN"))
-        if last_week not in weekly_periods:
-            weekly_daily = dfls_daily.loc[
-                pd.to_datetime(dfls_daily["Date"]).dt.to_period("W-SUN") != last_week
-            ]
-    _require_dfls(inspect_daily_against_weekly(weekly_daily, dfls_weekly))
 
 
 def _validate_manifest_record(
@@ -164,13 +108,10 @@ def load_market_data(
     *,
     cutoff: pd.Timestamp | str | None = None,
 ) -> MarketData:
-    """Load, normalize, hash, and fully reconcile the supplied raw K-lines."""
+    """Load one hash-bound DFLS publication without redoing DFLS validation."""
     raw_dir = Path(raw_dir)
     normalized_symbol, code = _symbol_parts(symbol)
     manifest = _read_json_object(raw_dir / f"{code}_manifest.json")
-    validation = _read_json_object(raw_dir / f"{code}_validation.json")
-    if validation.get("status") != "PASS":
-        raise ValueError(f"{code}: market-data validation status is not PASS")
     if manifest.get("symbol") != normalized_symbol:
         raise ValueError(
             f"{code}: manifest symbol {manifest.get('symbol')} does not match {normalized_symbol}"
@@ -227,14 +168,6 @@ def load_market_data(
     intraday = pd.concat(grouped["30m"], ignore_index=True).sort_values("dt").reset_index(drop=True)
     daily = pd.concat(grouped["daily"], ignore_index=True).sort_values("dt").reset_index(drop=True)
     weekly = pd.concat(grouped["weekly"], ignore_index=True).sort_values("dt").reset_index(drop=True)
-    for name, frame in (("30m", intraday), ("daily", daily), ("weekly", weekly)):
-        _validate_frame(frame, name)
-    _validate_reconciliation(
-        intraday,
-        daily,
-        weekly,
-        allow_trailing_partial_week=cutoff_ts is not None,
-    )
     visible_manifest = manifest.copy()
     visible_manifest["files"] = visible_records
     if cutoff_ts is not None:
@@ -295,7 +228,6 @@ def load_execution_prices(
     if not frames:
         raise ValueError(f"{code}: no visible execution prices")
     result = pd.concat(frames, ignore_index=True).sort_values("dt").reset_index(drop=True)
-    _validate_frame(result, "execution daily")
     return result
 
 

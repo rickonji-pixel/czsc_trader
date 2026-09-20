@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import numpy as np
 
 from .contract import DataError, DataIdentity, DataRequest, DataResult, Dataset, DataStatus
 from .errors import (
@@ -18,8 +19,36 @@ from .errors import (
     IncompleteDataError,
     SourceNotReadyError,
 )
+from .history_validation import inspect_ohlcv_frame
 
 Provider = Callable[[DataRequest], tuple[pd.DataFrame, Mapping[str, Any]]]
+
+
+_OHLCV_DATASETS = {
+    Dataset.ETF_OHLCV.value,
+    Dataset.ETF_UNADJUSTED_DAILY.value,
+    Dataset.STOCK_OHLCV.value,
+    Dataset.STOCK_UNADJUSTED_DAILY.value,
+}
+
+_DATASET_FIELDS: dict[str, tuple[set[str], set[str]]] = {
+    Dataset.SHIBOR_DAILY.value: ({"Date", "OvernightRate"}, {"OvernightRate"}),
+    Dataset.INDEX_DAILY_BASIC.value: (
+        {"Date", "TurnoverRateFreeFloat"},
+        {"TurnoverRateFreeFloat"},
+    ),
+    Dataset.ETF_SHARE_SIZE.value: ({"Date", "TotalShare"}, {"TotalShare"}),
+    Dataset.GLOBAL_INDEX_DAILY.value: ({"Date", "PercentChange"}, {"PercentChange"}),
+    Dataset.INDEX_CONSTITUENT_WEIGHT.value: (
+        {"Date", "ConstituentSymbol", "Weight"},
+        {"Weight"},
+    ),
+    Dataset.STOCK_MONEYFLOW.value: (
+        {"Date", "Symbol", "NetMoneyflowAmount"},
+        {"NetMoneyflowAmount"},
+    ),
+    Dataset.TRADING_CALENDAR.value: ({"Date", "IsOpen"}, {"IsOpen"}),
+}
 
 
 def canonical_frame_sha256(dataframe: pd.DataFrame) -> str:
@@ -30,6 +59,105 @@ def canonical_frame_sha256(dataframe: pd.DataFrame) -> str:
     digest.update(json.dumps(schema, separators=(",", ":")).encode("utf-8"))
     digest.update(pd.util.hash_pandas_object(dataframe, index=True).values.tobytes())
     return digest.hexdigest()
+
+
+def _validate_provider_output(
+    dataframe: pd.DataFrame,
+    request: DataRequest,
+    metadata: Mapping[str, Any],
+) -> None:
+    """Apply the final DFLS-owned contract before READY can cross the facade."""
+
+    dataset = str(request.dataset)
+    vendor_symbol = metadata.get("vendor_symbol")
+    if vendor_symbol is not None and request.symbol is not None:
+        if str(vendor_symbol).upper() != request.symbol.upper():
+            raise DataContractError(
+                "provider symbol differs from request",
+                requested_symbol=request.symbol,
+                provider_symbol=str(vendor_symbol),
+            )
+
+    if dataset in _OHLCV_DATASETS:
+        frequency = (
+            "daily"
+            if dataset
+            in {Dataset.ETF_UNADJUSTED_DAILY.value, Dataset.STOCK_UNADJUSTED_DAILY.value}
+            else request.frequency
+        )
+        declared_period = metadata.get("period")
+        if declared_period is not None and str(declared_period) != frequency:
+            raise DataContractError(
+                "provider frequency differs from request",
+                requested_frequency=frequency,
+                provider_frequency=str(declared_period),
+            )
+        expected_asset = "etf" if dataset.startswith("etf.") else "stock"
+        declared_asset = metadata.get("asset_type")
+        if declared_asset is not None and str(declared_asset) != expected_asset:
+            raise DataContractError(
+                "provider asset type differs from dataset",
+                expected_asset_type=expected_asset,
+                provider_asset_type=str(declared_asset),
+            )
+        if dataset in {
+            Dataset.ETF_UNADJUSTED_DAILY.value,
+            Dataset.STOCK_UNADJUSTED_DAILY.value,
+        } and metadata.get("adjustment") != "none":
+            raise DataContractError(
+                "unadjusted dataset provider did not declare adjustment=none",
+                dataset=dataset,
+            )
+        inspect_ohlcv_frame(
+            dataframe,
+            frequency,
+            require_complete_days=frequency in {"1m", "5m", "15m", "30m"},
+        ).require_pass()
+        return
+
+    specification = _DATASET_FIELDS.get(dataset)
+    if specification is None:
+        return
+    required, numeric = specification
+    missing = sorted(required.difference(dataframe.columns))
+    if missing:
+        raise DataContractError(
+            "provider output is missing required dataset fields",
+            dataset=dataset,
+            missing_fields=missing,
+        )
+    for column in numeric:
+        values = pd.to_numeric(dataframe[column], errors="coerce")
+        if values.isna().any() or not np.isfinite(values.to_numpy(dtype=float)).all():
+            raise DataContractError(
+                "provider output contains invalid numeric values",
+                dataset=dataset,
+                field=column,
+            )
+    if dataset == Dataset.TRADING_CALENDAR.value:
+        flags = pd.to_numeric(dataframe["IsOpen"], errors="coerce")
+        if not flags.isin([0, 1]).all():
+            raise DataContractError("trading calendar contains invalid open flags")
+        observed_dates = pd.DatetimeIndex(
+            pd.to_datetime(dataframe["Date"], errors="coerce").dt.normalize()
+        )
+        expected_dates = pd.date_range(
+            pd.Timestamp(request.start).normalize(),
+            pd.Timestamp(request.end).normalize(),
+            freq="D",
+        )
+        if not observed_dates.equals(expected_dates):
+            raise DataContractError(
+                "trading calendar does not cover every requested calendar date",
+                missing_dates=[
+                    item.date().isoformat()
+                    for item in expected_dates.difference(observed_dates)
+                ],
+                unexpected_dates=[
+                    item.date().isoformat()
+                    for item in observed_dates.difference(expected_dates)
+                ],
+            )
 
 
 def _date_bounds(
@@ -114,6 +242,7 @@ class Dataflows:
             if dataframe is None or dataframe.empty:
                 raise EmptyDataError("provider returned no rows")
             frame = dataframe.copy()
+            _validate_provider_output(frame, request, metadata)
             data_start, data_cutoff = _date_bounds(frame, request, metadata)
             source = str(metadata.get("vendor", "unknown"))
             identity = DataIdentity(

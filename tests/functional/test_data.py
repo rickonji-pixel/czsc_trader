@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from dataflows import Dataflows, Dataset
 
 from czsc_trader import market_data_prep
 from czsc_trader.application.context import RepositoryContext
@@ -129,18 +130,20 @@ def test_ft_t01_data_prepare_validate_and_tamper_detection(
     original = market_data_prep.prepare_market_data
 
     def offline_prepare(symbol, asset, start, end, output_dir, *, env_file=None):
-        def fetcher(_symbol, _asset, _start, _end, period):
-            return adjusted[period], {
+        del env_file
+
+        def market(request):
+            return adjusted[request.frequency], {
                 "vendor": "functional-test",
                 "vendor_symbol": symbol,
                 "asset_type": asset,
-                "period": period,
+                "period": request.frequency,
                 "adjustment": "hfq",
                 "adjustment_factor_source": "fixed",
                 "adjustment_factor_sha256": "factor-hash",
             }
 
-        def execution_fetcher(_symbol, _asset, _start, _end):
+        def execution(request):
             return vendor_frame([(day, 1.688)]), {
                 "vendor": "functional-test",
                 "vendor_symbol": symbol,
@@ -149,23 +152,30 @@ def test_ft_t01_data_prepare_validate_and_tamper_detection(
                 "adjustment": "none",
             }
 
+        def calendar(request):
+            days = pd.date_range(request.start, request.end)
+            return pd.DataFrame(
+                {"Date": days, "IsOpen": (days.dayofweek < 5).astype(int)}
+            ), {
+                "vendor": "functional-test",
+                "exchange": "SSE",
+                "primary_key": ["Date"],
+            }
+
         return original(
             symbol,
             asset,
             start,
             end,
             output_dir,
-            fetcher=fetcher,
-            execution_fetcher=execution_fetcher,
-            calendar_fetcher=lambda _after: (
-                date(2026, 9, 2),
-                {"vendor": "functional-test", "exchange": "SSE"},
+            dataflows=Dataflows(
+                {
+                    Dataset.ETF_OHLCV.value: market,
+                    Dataset.ETF_UNADJUSTED_DAILY.value: execution,
+                    Dataset.TRADING_CALENDAR.value: calendar,
+                }
             ),
-            session_calendar_fetcher=lambda _start, _end: (
-                pd.DataFrame({"Date": [pd.Timestamp(day)], "IsOpen": [1]}),
-                {"vendor": "functional-test", "exchange": "SSE"},
-            ),
-            name_fetcher=lambda _symbol, _asset: "科创50ETF",
+            instrument_name="科创50ETF",
         )
 
     monkeypatch.setattr(market_data_prep, "prepare_market_data", offline_prepare)
@@ -196,7 +206,7 @@ def test_ft_t01_data_prepare_validate_and_tamper_detection(
     execution_metadata = pd.read_json(execution_manifest, typ="series")
     assert execution_metadata["next_trading_session"] == "2026-09-02"
     assert validated["result"]["frequencies"] == ["30m", "daily", "weekly"]
-    with pytest.raises(ValueError, match="behind requested end"):
+    with pytest.raises(ValueError, match="DFLS returned INCOMPLETE"):
         offline_prepare(
             "588080.SH", "etf", date(2026, 9, 1), date(2026, 9, 2),
             functional_repo / "state" / "stale-data",

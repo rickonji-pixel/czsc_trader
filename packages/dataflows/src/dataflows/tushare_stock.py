@@ -20,6 +20,11 @@ from .bar_utils import (
 from .formatting import format_dataframe_report
 from .errors import EmptyDataError
 from .indicator_utils import compute_indicator_report
+from .history_validation import (
+    inspect_daily_against_weekly,
+    inspect_intraday_against_daily,
+    inspect_ohlcv_frame,
+)
 from .market_resolver import (
     MARKET_A_SHARE,
     MARKET_HK,
@@ -236,7 +241,22 @@ def fetch_stock_ohlcv(
         factors = _fetch_hfq_factors(ts_code, start_date, end_date, env_file=env_file)
         dataframe = apply_hfq_adjustment(dataframe, factors)
         if normalized_period == "weekly":
+            daily = dataframe
             dataframe = _resample_weekly(dataframe)
+            inspect_daily_against_weekly(daily, dataframe).require_pass()
+        elif normalized_period in INTRADAY_PERIOD_MINUTES:
+            daily, _daily_market, _daily_symbol = _fetch_tushare_ohlcv(
+                symbol,
+                start_date,
+                end_date,
+                period="daily",
+                asset_type="stock",
+                env_file=env_file,
+            )
+            daily = apply_hfq_adjustment(daily, factors)
+            inspect_intraday_against_daily(
+                dataframe, daily, normalized_period
+            ).require_pass()
         metadata.update(
             {
                 "adjustment": "hfq",
@@ -244,6 +264,13 @@ def fetch_stock_ohlcv(
                 "adjustment_factor_sha256": adjustment_factor_sha256(factors),
             }
         )
+    validation = inspect_ohlcv_frame(
+        dataframe,
+        normalized_period,
+        require_complete_days=normalized_period in INTRADAY_PERIOD_MINUTES,
+    )
+    validation.require_pass()
+    metadata["validation"] = validation.to_dict()
     return dataframe.copy(), metadata
 
 
@@ -267,6 +294,8 @@ def fetch_stock_unadjusted_daily(
         raise ValueError("unadjusted execution prices currently require an A-share symbol")
     if dataframe.empty:
         raise EmptyDataError(f"Tushare returned no data for {symbol} unadjusted daily")
+    validation = inspect_ohlcv_frame(dataframe, "daily")
+    validation.require_pass()
     return dataframe.copy(), {
         "vendor": "tushare",
         "market": market,
@@ -274,6 +303,7 @@ def fetch_stock_unadjusted_daily(
         "period": "daily",
         "asset_type": "stock",
         "adjustment": "none",
+        "validation": validation.to_dict(),
     }
 
 

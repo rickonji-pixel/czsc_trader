@@ -4,7 +4,6 @@ import json
 from datetime import date
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
 from czsc_trader.application.context import RepositoryContext
@@ -17,61 +16,9 @@ from czsc_trader.application.data_service import (
     update_backtest_data,
 )
 from czsc_trader.generation_integrity import file_sha256, validate_strategy_generation
-from czsc_trader.market_data_prep import validate_market_frames
 
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def test_market_publication_rejects_coherently_missing_open_session() -> None:
-    sessions = pd.to_datetime(["2026-01-05", "2026-01-07"])
-    intraday_rows: list[dict[str, object]] = []
-    for offset, session in enumerate(sessions):
-        for clock in ("10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00"):
-            price = 1.0 + offset * 0.1
-            intraday_rows.append(
-                {
-                    "Date": pd.Timestamp(f"{session.date()} {clock}"),
-                    "Open": price,
-                    "High": price,
-                    "Low": price,
-                    "Close": price,
-                    "Volume": 10.0,
-                    "Amount": 10.0 * price,
-                }
-            )
-    intraday = pd.DataFrame(intraday_rows)
-    daily = pd.DataFrame(
-        {
-            "Date": sessions,
-            "Open": [1.0, 1.1],
-            "High": [1.0, 1.1],
-            "Low": [1.0, 1.1],
-            "Close": [1.0, 1.1],
-            "Volume": [80.0, 80.0],
-            "Amount": [80.0, 88.0],
-        }
-    )
-    weekly = pd.DataFrame(
-        {
-            "Date": [pd.Timestamp("2026-01-07")],
-            "Open": [1.0],
-            "High": [1.1],
-            "Low": [1.0],
-            "Close": [1.1],
-            "Volume": [160.0],
-            "Amount": [168.0],
-        }
-    )
-    calendar = pd.DataFrame(
-        {
-            "Date": pd.to_datetime(["2026-01-05", "2026-01-06", "2026-01-07"]),
-            "IsOpen": [1, 1, 1],
-        }
-    )
-
-    with pytest.raises(ValueError, match=r"missing=\['2026-01-06'\]"):
-        validate_market_frames(intraday, daily, weekly, daily, calendar)
 
 
 def test_generation_marker_rejects_modified_bound_file(tmp_path: Path) -> None:

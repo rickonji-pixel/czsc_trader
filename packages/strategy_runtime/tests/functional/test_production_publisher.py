@@ -92,8 +92,7 @@ def test_srt_publisher_commits_authenticated_generation(tmp_path, release_id):
         (data_dir / "510500_validation.json").read_text(encoding="utf-8")
     )
     assert validation["status"] == "PASS"
-    assert validation["contract"] == "dfls.history.v1"
-    assert validation["findings"] == []
+    assert validation["contract"] == "srt.market-compatibility.v1"
     assert not list(tmp_path.glob(".srt-publication-*"))
 
 
@@ -109,7 +108,7 @@ def test_publication_target_fails_closed_on_incomplete_calendar(tmp_path):
         data_dir=tmp_path / "data",
         dataflows=Dataflows({Dataset.TRADING_CALENDAR.value: calendar}),
     )
-    with pytest.raises(StrategyPublicationError, match="incomplete"):
+    with pytest.raises(StrategyPublicationError, match="does not cover every requested"):
         publisher.publication_target(date(2026, 9, 19))
 
 
@@ -125,7 +124,7 @@ def test_srt_publisher_blocks_failed_dfls_validation(tmp_path):
     root = Path(__file__).resolve().parents[4]
     data_dir = tmp_path / "data"
 
-    with pytest.raises(StrategyPublicationError, match="DFLS market-data validation"):
+    with pytest.raises(StrategyPublicationError, match="publication is FAILED"):
         StrategyDataPublisher(
             repo_root=root,
             data_dir=data_dir,

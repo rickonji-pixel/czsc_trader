@@ -22,10 +22,9 @@ from .formatting import format_dataframe_report
 from .history_repair import (
     SeriesKey,
     apply_repairs_once,
-    bindings_for,
     frame_content_sha256,
     inspect_registered_source_anomalies,
-    repair_dates_for,
+    patch_for,
 )
 from .history_validation import (
     ValidationReport,
@@ -265,17 +264,15 @@ def _fetch_tushare_etf_ohlcv(
             series = SeriesKey(
                 "tushare", "etf_mins", ts_code, "etf.ohlcv", period, "none"
             )
-            repair_bindings = bindings_for(series)
+            repair_patch = patch_for(series)
             references: dict[str, pd.DataFrame] = {"daily": daily}
-            finding_codes = {item.code for item in report.findings}
-            repair_dates = sorted(
-                {
-                    trade_date
-                    for binding in repair_bindings
-                    if binding.algorithm == "REBUILD_INTRADAY_FROM_1M"
-                    and finding_codes.intersection(binding.finding_codes)
-                    for trade_date in repair_dates_for(daily, binding)
-                }
+            repair_dates = (
+                repair_patch.reference_dates(
+                    daily, repair_patch, series, report.findings
+                )
+                if repair_patch is not None
+                and repair_patch.reference_dates is not None
+                else ()
             )
             if repair_dates:
                 one_minute_pieces = [

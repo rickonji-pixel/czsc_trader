@@ -5,12 +5,13 @@ import pytest
 
 from dataflows import DataRepairError
 from dataflows.history_repair import (
-    RepairBinding,
+    REPAIR_PATCHES,
+    RepairPatch,
     SeriesKey,
     apply_repairs_once,
     inspect_registered_source_anomalies,
     rebuild_intraday_from_1m,
-    validate_repair_registry,
+    validate_repair_patches,
 )
 from dataflows.history_validation import (
     ValidationFinding,
@@ -79,7 +80,7 @@ def test_known_source_anomaly_fails_before_exact_repair() -> None:
     assert [item.code for item in findings] == ["KNOWN_SOURCE_ANOMALY"]
     assert repaired.loc[0, "Low"] == 3.548
     assert len(records) == 1
-    assert records[0].binding_id == "TUSHARE_518880_DAILY_FIELDS_V1"
+    assert records[0].patch_id == "TUSHARE_518880_V1"
     assert records[0].raw_content_sha256 != records[0].repaired_content_sha256
     assert records[0].to_dict()["affected_date_count"] == 1
     assert not inspect_registered_source_anomalies(repaired, series)
@@ -105,11 +106,11 @@ def test_unknown_source_signature_is_blocked() -> None:
     findings = inspect_registered_source_anomalies(frame, series)
 
     assert [item.code for item in findings] == ["SOURCE_SIGNATURE_UNKNOWN"]
-    with pytest.raises(DataRepairError, match="no repair binding matched"):
+    with pytest.raises(DataRepairError, match="no repair patch matched"):
         apply_repairs_once(frame, series, findings)
 
 
-def test_repair_binding_does_not_cross_symbol_boundary() -> None:
+def test_repair_patch_does_not_cross_symbol_boundary() -> None:
     frame = pd.DataFrame(
         [
             {
@@ -210,13 +211,48 @@ def test_518880_unknown_rebuild_date_is_blocked() -> None:
         ),
     )
 
-    with pytest.raises(DataRepairError, match="no repair binding matched"):
+    with pytest.raises(DataRepairError, match="no repair patch matched"):
         apply_repairs_once(
             frame,
             series,
             findings,
             references={"1m": one_minute, "daily": daily},
         )
+
+
+def test_one_vendor_symbol_patch_handles_multiple_series_repairs() -> None:
+    volume_date = "2024-04-03"
+    missing_date = "2024-10-30"
+    daily = _daily([volume_date, missing_date])
+    one_minute = pd.concat(
+        [_one_minute_day(volume_date), _one_minute_day(missing_date)],
+        ignore_index=True,
+    )
+    frame = rebuild_intraday_from_1m(
+        one_minute, daily, "15m", dates=[volume_date, missing_date]
+    )
+    trade_dates = pd.to_datetime(frame["Date"]).dt.strftime("%Y-%m-%d")
+    frame = frame.loc[trade_dates.ne(missing_date)].reset_index(drop=True)
+    volume_rows = pd.to_datetime(frame["Date"]).dt.strftime("%Y-%m-%d").eq(
+        volume_date
+    )
+    frame.loc[volume_rows, "Volume"] *= 100
+    findings = inspect_intraday_against_daily(frame, daily, "15m").findings
+    series = SeriesKey(
+        "tushare", "etf_mins", "510500.SH", "etf.ohlcv", "15m", "none"
+    )
+
+    repaired, records = apply_repairs_once(
+        frame,
+        series,
+        findings,
+        references={"1m": one_minute, "daily": daily},
+    )
+
+    assert len(records) == 1
+    assert records[0].patch_id == "TUSHARE_510500_V1"
+    assert records[0].affected_dates == (volume_date, missing_date)
+    assert inspect_intraday_against_daily(repaired, daily, "15m").passed
 
 
 def test_repair_is_not_executed_without_a_validation_finding() -> None:
@@ -274,28 +310,37 @@ def test_invalid_daily_and_empty_calendar_return_findings_instead_of_crashing() 
     ]
 
 
-def test_repair_registry_rejects_ambiguous_bindings() -> None:
-    series = SeriesKey(
-        "tushare", "etf_mins", "510500.SH", "etf.ohlcv", "15m", "none"
+def test_repair_registry_rejects_duplicate_vendor_symbol_patches() -> None:
+    def executor(dataframe, patch, series, findings, references):
+        del patch, series, findings, references
+        return dataframe.copy(), ()
+
+    left = RepairPatch(
+        patch_id="LEFT",
+        patch_version=1,
+        vendor="tushare",
+        symbol="510500.SH",
+        execute=executor,
     )
-    left = RepairBinding(
-        "LEFT",
-        series,
-        "2024-01-01",
-        "2024-01-31",
-        ("TRADING_DATE_MISMATCH",),
-        "REBUILD_INTRADAY_FROM_1M",
-        1,
-    )
-    right = RepairBinding(
-        "RIGHT",
-        series,
-        "2024-01-15",
-        "2024-02-15",
-        ("TRADING_DATE_MISMATCH",),
-        "REBUILD_INTRADAY_FROM_1M",
-        1,
+    right = RepairPatch(
+        patch_id="RIGHT",
+        patch_version=1,
+        vendor="tushare",
+        symbol="510500.SH",
+        execute=executor,
     )
 
-    with pytest.raises(DataRepairError, match="ambiguous"):
-        validate_repair_registry((left, right))
+    with pytest.raises(DataRepairError, match="duplicate vendor-symbol"):
+        validate_repair_patches((left, right))
+
+
+def test_repair_registry_is_managed_by_vendor_and_symbol() -> None:
+    assert {
+        (patch.vendor, patch.symbol): patch.patch_id for patch in REPAIR_PATCHES
+    } == {
+        ("tushare", "510500.SH"): "TUSHARE_510500_V1",
+        ("tushare", "512100.SH"): "TUSHARE_512100_V1",
+        ("tushare", "515050.SH"): "TUSHARE_515050_V1",
+        ("tushare", "518880.SH"): "TUSHARE_518880_V1",
+        ("tushare", "588080.SH"): "TUSHARE_588080_V1",
+    }

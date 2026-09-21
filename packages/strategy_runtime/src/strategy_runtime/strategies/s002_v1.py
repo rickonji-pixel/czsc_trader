@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 import re
 from typing import Any, Mapping
 
@@ -9,6 +10,14 @@ import czsc
 import pandas as pd
 from dataflows import Dataset
 
+from ..algorithm import StrategyImplementation
+from ..calculation import (
+    CalculationScope,
+    CalendarWindow,
+    next_session_calculation_scope,
+    next_session_calendar_window,
+)
+from ..contracts import TradableWindow
 from ..errors import RuntimeContractError
 from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
@@ -33,7 +42,9 @@ _INPUT_CALENDAR = "trading_calendar"
 
 
 def _source_sha256() -> str:
-    return implementation_sha256(("strategies/s002_v1.py", "execution_rules.py"))
+    return implementation_sha256(
+        ("strategies/s002_v1.py", "calculation.py", "execution_rules.py")
+    )
 
 
 def _object(value: Any, field_name: str) -> Mapping[str, Any]:
@@ -133,7 +144,7 @@ def _calculate_target_history(
     return history
 
 
-class S002V1:
+class S002V1(StrategyImplementation):
     """Executable S002-v1 implementation with no TDR dependency."""
 
     def __init__(self, release: StrategyRelease, deployment_symbol: str | None = None) -> None:
@@ -239,6 +250,20 @@ class S002V1:
     @property
     def definition(self) -> RuntimeDefinition:
         return self._definition
+
+    def calendar_window(self, tradable_window: TradableWindow) -> CalendarWindow:
+        return next_session_calendar_window(self._definition, tradable_window)
+
+    def derive_calculation_scope(
+        self,
+        tradable_window: TradableWindow,
+        calendar_dates: tuple[date, ...],
+    ) -> CalculationScope:
+        return next_session_calculation_scope(
+            self._definition,
+            tradable_window,
+            calendar_dates,
+        )
 
     def calculate_history(
         self,

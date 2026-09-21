@@ -1,5 +1,7 @@
 """Strategy Runtime (SRT) public contracts."""
 
+from .algorithm import StrategyImplementation
+from .calculation import CalculationScope, CalendarWindow, InputRange
 from .contracts import (
     DataPreparationResult,
     ExecutionCapabilities,
@@ -37,11 +39,14 @@ __version__ = "0.1.0"
 
 __all__ = [
     "DataPreparationResult",
+    "CalculationScope",
+    "CalendarWindow",
     "ExecutionCapabilities",
     "ExecutionOutcome",
     "ExecutionPlan",
     "ExecutionPolicy",
     "ExecutionState",
+    "InputRange",
     "OrderSide",
     "OrderType",
     "PlanLeg",
@@ -55,6 +60,7 @@ __all__ = [
     "StrategyCandidate",
     "StrategyIdentity",
     "StrategyInit",
+    "StrategyImplementation",
     "StrategyInstance",
     "StrategyRelease",
     "StrategyRuntime",

@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Mapping
 
 import pandas as pd
 from dataflows import Dataset
 
+from ..algorithm import StrategyImplementation
+from ..calculation import (
+    CalculationScope,
+    CalendarWindow,
+    next_session_calculation_scope,
+    next_session_calendar_window,
+)
+from ..contracts import TradableWindow
 from ..errors import RuntimeContractError
 from ..implementation_identity import implementation_sha256
 from ..models import (
@@ -149,7 +158,7 @@ def calculate_s003_evidence_history(
     return daily
 
 
-class S003V1:
+class S003V1(StrategyImplementation):
     """Executable S003-v1 with DFLS-owned raw inputs and no TDR dependency."""
 
     def __init__(self, release: StrategyRelease) -> None:
@@ -173,7 +182,9 @@ class S003V1:
                 __name__,
                 self.__class__.__name__,
                 1,
-                implementation_sha256(("strategies/s003_v1.py", "execution_rules.py")),
+                implementation_sha256(
+                    ("strategies/s003_v1.py", "calculation.py", "execution_rules.py")
+                ),
             ),
             ParameterSet(release.payload),
             InputContract(
@@ -246,6 +257,20 @@ class S003V1:
     @property
     def definition(self) -> RuntimeDefinition:
         return self._definition
+
+    def calendar_window(self, tradable_window: TradableWindow) -> CalendarWindow:
+        return next_session_calendar_window(self._definition, tradable_window)
+
+    def derive_calculation_scope(
+        self,
+        tradable_window: TradableWindow,
+        calendar_dates: tuple[date, ...],
+    ) -> CalculationScope:
+        return next_session_calculation_scope(
+            self._definition,
+            tradable_window,
+            calendar_dates,
+        )
 
     def calculate_history(
         self,

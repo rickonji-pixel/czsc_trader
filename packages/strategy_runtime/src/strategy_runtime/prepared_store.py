@@ -82,7 +82,7 @@ def load_prepared_inputs(
     expected = _manifest_identity(strategy, tradable_window)
     if (
         not isinstance(manifest, dict)
-        or manifest.get("schema_version") != 1
+        or manifest.get("schema_version") != 2
         or any(manifest.get(key) != value for key, value in expected.items())
     ):
         raise RuntimeContractError(
@@ -130,7 +130,11 @@ def load_prepared_inputs(
         calculation_dates = tuple(
             pd.Timestamp(item).date() for item in manifest["calculation_dates"]
         )
-    except (KeyError, TypeError, ValueError) as exc:
+        signal_dates = {
+            pd.Timestamp(key).date(): pd.Timestamp(value).date()
+            for key, value in manifest["signal_dates"].items()
+        }
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise RuntimeContractError("prepared data dates are invalid") from exc
     prepared = PreparedInputs(
         strategy,
@@ -140,6 +144,7 @@ def load_prepared_inputs(
         requests,
         results,
         calendar_dates,
+        signal_dates,
         calculation_dates,
     )
     if prepared.data_identity != manifest.get("data_identity"):
@@ -195,11 +200,15 @@ def save_prepared_inputs(prepared: PreparedInputs, directory: Path) -> Path:
                 },
             }
         manifest = {
-            "schema_version": 1,
+            "schema_version": 2,
             **_manifest_identity(prepared.strategy, prepared.tradable_window),
             "available_through": prepared.available_through.isoformat(),
             "data_identity": prepared.data_identity,
             "calendar_dates": [item.isoformat() for item in prepared.calendar_dates],
+            "signal_dates": {
+                key.isoformat(): value.isoformat()
+                for key, value in prepared.signal_dates.items()
+            },
             "calculation_dates": [
                 item.isoformat() for item in prepared.calculation_dates
             ],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import date
 import re
 from typing import Any, Mapping
 
@@ -11,6 +12,14 @@ import numpy as np
 import pandas as pd
 from dataflows import Dataset
 
+from ..algorithm import StrategyImplementation
+from ..calculation import (
+    CalculationScope,
+    CalendarWindow,
+    next_session_calculation_scope,
+    next_session_calendar_window,
+)
+from ..contracts import TradableWindow
 from ..errors import RuntimeContractError
 from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
@@ -87,6 +96,7 @@ def _source_sha256(strategy_class: type) -> str:
         (
             f"strategies/{wrapper}.py",
             "strategies/s001_common.py",
+            "calculation.py",
             "execution_rules.py",
         )
     )
@@ -328,7 +338,7 @@ def calculate_s001_history(
     return pd.DataFrame({"factor_score": scores, "regime": regimes, "target_position": targets})
 
 
-class S001Base:
+class S001Base(StrategyImplementation):
     """Common executable behavior for immutable S001 releases."""
 
     expected_release_id = ""
@@ -439,6 +449,20 @@ class S001Base:
     @property
     def definition(self) -> RuntimeDefinition:
         return self._definition
+
+    def calendar_window(self, tradable_window: TradableWindow) -> CalendarWindow:
+        return next_session_calendar_window(self._definition, tradable_window)
+
+    def derive_calculation_scope(
+        self,
+        tradable_window: TradableWindow,
+        calendar_dates: tuple[date, ...],
+    ) -> CalculationScope:
+        return next_session_calculation_scope(
+            self._definition,
+            tradable_window,
+            calendar_dates,
+        )
 
     def calculate_history(
         self,

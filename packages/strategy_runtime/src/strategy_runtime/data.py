@@ -27,6 +27,7 @@ class PreparedStrategyData:
     input_identities: Mapping[str, str]
     price_identities: Mapping[str, str]
     _calendar_dates: tuple[date, ...]
+    _signal_dates: Mapping[date, date]
     _calculation_dates: tuple[date, ...]
     _inputs: PreparedInputs
     _pricing: ExecutionPricingData
@@ -50,8 +51,15 @@ class PreparedStrategyData:
             raise RuntimeContractError("prepared calculation dates have an invalid cutoff")
         inputs = MappingProxyType(dict(sorted(self.input_identities.items())))
         prices = MappingProxyType(dict(sorted(self.price_identities.items())))
+        signal_dates = MappingProxyType(dict(sorted(self._signal_dates.items())))
+        trading_dates = tuple(
+            value for value in self._calendar_dates if self.tradable_window.contains(value)
+        )
+        if set(signal_dates) != set(trading_dates):
+            raise RuntimeContractError("prepared signal dates differ from trading dates")
         object.__setattr__(self, "input_identities", inputs)
         object.__setattr__(self, "price_identities", prices)
+        object.__setattr__(self, "_signal_dates", signal_dates)
         expected = canonical_sha256(
             {
                 "strategy": self.strategy.reference_id,
@@ -62,6 +70,10 @@ class PreparedStrategyData:
                 },
                 "available_through": self.available_through.isoformat(),
                 "calendar_dates": [value.isoformat() for value in self._calendar_dates],
+                "signal_dates": {
+                    key.isoformat(): value.isoformat()
+                    for key, value in signal_dates.items()
+                },
                 "calculation_dates": [value.isoformat() for value in self._calculation_dates],
                 "inputs": dict(inputs),
                 "prices": dict(prices),
@@ -91,6 +103,10 @@ class PreparedStrategyData:
                 },
                 "available_through": inputs.available_through.isoformat(),
                 "calendar_dates": [value.isoformat() for value in inputs.calendar_dates],
+                "signal_dates": {
+                    key.isoformat(): value.isoformat()
+                    for key, value in inputs.signal_dates.items()
+                },
                 "calculation_dates": [value.isoformat() for value in inputs.calculation_dates],
                 "inputs": dict(sorted(input_identities.items())),
                 "prices": dict(sorted(price_identities.items())),
@@ -104,6 +120,7 @@ class PreparedStrategyData:
             input_identities,
             price_identities,
             inputs.calendar_dates,
+            inputs.signal_dates,
             inputs.calculation_dates,
             inputs,
             pricing,
@@ -137,10 +154,12 @@ class PreparedStrategyData:
     def signal_date_for(self, trading_date: date) -> date:
         if not self.tradable_window.contains(trading_date):
             raise RuntimeContractError("trading date is outside the strategy window")
-        previous = [value for value in self._calendar_dates if value < trading_date]
-        if not previous:
-            raise RuntimeContractError("prepared data has no signal session before trading date")
-        return previous[-1]
+        try:
+            return self._signal_dates[trading_date]
+        except KeyError as exc:
+            raise RuntimeContractError(
+                "prepared data has no signal session for trading date"
+            ) from exc
 
     def price_reference(self, signal_date: date, trading_date: date) -> PriceReference:
         """Return the channel-neutral prices used to size one execution plan."""

@@ -5,6 +5,7 @@ import pytest
 from strategy_runtime import (
     ExecutionPolicy,
     RuntimeContractError,
+    StrategyImplementation,
 )
 from strategy_runtime.models import (
     CutoffRule,
@@ -20,6 +21,14 @@ from strategy_runtime.models import (
 
 
 RELEASE_HASH = "a" * 64
+
+
+def test_strategy_implementation_requires_every_strategy_owned_method() -> None:
+    class IncompleteStrategy(StrategyImplementation):
+        pass
+
+    with pytest.raises(TypeError, match="abstract methods.*calculate_history"):
+        IncompleteStrategy()
 
 
 def _requirement() -> InputRequirement:

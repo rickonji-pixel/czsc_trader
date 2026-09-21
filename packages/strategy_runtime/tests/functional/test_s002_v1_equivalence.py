@@ -248,6 +248,11 @@ def test_runtime_definition_preserves_frozen_calculation_contract() -> None:
 
     assert definition.release_id == baseline["strategy_reference"]
     assert definition.release_hash == baseline["release_hash"]
+    assert definition.runtime_sha256 == baseline["resigned_runtime_sha256"]
+    assert (
+        definition.implementation.source_sha256
+        == baseline["resigned_implementation_sha256"]
+    )
     assert _input_contract(definition) == baseline["calculation_contract"]["inputs"]
     assert _decision_contract(definition) == baseline["calculation_contract"]["decision"]
 

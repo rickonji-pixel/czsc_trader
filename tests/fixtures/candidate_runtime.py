@@ -4,9 +4,22 @@ Tests install this source in an isolated SRT package path. It is never a
 production strategy or registered frozen release.
 """
 
+from datetime import date
+
 import pandas as pd
 from dataflows import Dataset
-from strategy_runtime import ExecutionPolicy, StrategyCandidate
+from strategy_runtime import (
+    ExecutionPolicy,
+    StrategyCandidate,
+    StrategyImplementation,
+    TradableWindow,
+)
+from strategy_runtime.calculation import (
+    CalculationScope,
+    CalendarWindow,
+    next_session_calculation_scope,
+    next_session_calendar_window,
+)
 from strategy_runtime.models import (
     CutoffRule,
     DecisionContract,
@@ -20,12 +33,12 @@ from strategy_runtime.models import (
 )
 
 
-class CandidateFixture:
+class CandidateFixture(StrategyImplementation):
     def __init__(self, identity):
         candidate = isinstance(identity, StrategyCandidate)
         payload = identity.payload
         ref = payload["runtime"]
-        self.definition = RuntimeDefinition(
+        self._definition = RuntimeDefinition(
             schema_version=2,
             strategy_family_id=identity.strategy_family_id,
             version=None if candidate else identity.version,
@@ -117,6 +130,28 @@ class CandidateFixture:
     @classmethod
     def from_release(cls, release):
         return cls(release)
+
+    @property
+    def definition(self):
+        return self._definition
+
+    @definition.setter
+    def definition(self, value):
+        self._definition = value
+
+    def calendar_window(self, tradable_window: TradableWindow) -> CalendarWindow:
+        return next_session_calendar_window(self.definition, tradable_window)
+
+    def derive_calculation_scope(
+        self,
+        tradable_window: TradableWindow,
+        calendar_dates: tuple[date, ...],
+    ) -> CalculationScope:
+        return next_session_calculation_scope(
+            self.definition,
+            tradable_window,
+            calendar_dates,
+        )
 
     def calculate_history(self, inputs, sessions):
         threshold = float(self.definition.parameters.values["threshold"])

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 
+from .algorithm import StrategyImplementation
 from .contracts import StrategyIdentity, TradableWindow
 from .errors import RuntimeContractError, RuntimeExecutionError
 from .models import CutoffRule, RuntimeDefinition, canonical_sha256
@@ -25,6 +26,7 @@ class PreparedInputs:
     requests: Mapping[str, DataRequest]
     results: Mapping[str, DataResult]
     calendar_dates: tuple[date, ...]
+    signal_dates: Mapping[date, date]
     calculation_dates: tuple[date, ...]
 
     @property
@@ -75,20 +77,6 @@ def _request_options(
     return options
 
 
-def _calendar_start(definition: RuntimeDefinition, window: TradableWindow) -> date:
-    lookback = max(
-        (
-            item.lookback_sessions
-            for item in definition.inputs.requirements
-            if item.dataset != Dataset.TRADING_CALENDAR.value
-        ),
-        default=1,
-    )
-    policy_start = definition.history.preparation_start(window.start)
-    estimated = window.start - timedelta(days=max(31, lookback * 2))
-    return min(policy_start, estimated)
-
-
 def _open_dates(frame: pd.DataFrame) -> tuple[date, ...]:
     if not {"Date", "IsOpen"} <= set(frame.columns):
         raise RuntimeContractError("trading calendar is structurally incomplete")
@@ -97,27 +85,6 @@ def _open_dates(frame: pd.DataFrame) -> tuple[date, ...]:
     result = tuple(dict.fromkeys(dates.loc[mask]))
     if tuple(sorted(result)) != result:
         raise RuntimeContractError("trading calendar dates are not ordered")
-    return result
-
-
-def _input_start(
-    definition: RuntimeDefinition,
-    requirement,
-    first_signal: date,
-    calendar_dates: tuple[date, ...],
-) -> date:
-    available = [item for item in calendar_dates if item <= first_signal]
-    required = max(1, requirement.lookback_sessions)
-    if len(available) < required:
-        raise RuntimeContractError(
-            f"trading calendar cannot satisfy input lookback: {requirement.name}"
-        )
-    result = min(
-        definition.history.preparation_start(first_signal),
-        available[-required],
-    )
-    if requirement.cutoff_rule is CutoffRule.LATEST_AVAILABLE:
-        result -= timedelta(days=requirement.maximum_staleness_days)
     return result
 
 
@@ -131,13 +98,14 @@ def _ready(result: DataResult, name: str) -> DataResult:
 def prepare_inputs(
     *,
     strategy: StrategyIdentity,
-    definition: RuntimeDefinition,
+    algorithm: StrategyImplementation,
     tradable_window: TradableWindow,
     data_dir: Path,
     dataflows: Dataflows | None = None,
 ) -> PreparedInputs:
     """Derive, fetch and validate every dataset required by one instance."""
 
+    definition = algorithm.definition
     root = Path(data_dir).resolve()
     root.mkdir(parents=True, exist_ok=True)
     symbol = _declared_symbol(definition)
@@ -153,50 +121,26 @@ def prepare_inputs(
         raise RuntimeContractError("strategy requires exactly one trading calendar")
     calendar_requirement = calendars[0]
     flows = dataflows or Dataflows()
-    calendar_start = _calendar_start(definition, tradable_window)
-    calendar_end = tradable_window.end + timedelta(days=20)
+    calendar_window = algorithm.calendar_window(tradable_window)
     base_options = _request_options(
         definition, calendar_requirement, {}
     )
-    required_sessions = max(
-        (item.lookback_sessions for item in definition.inputs.requirements),
-        default=1,
+    calendar_request = DataRequest(
+        calendar_requirement.dataset,
+        calendar_requirement.subject,
+        calendar_window.start.isoformat(),
+        calendar_window.end.isoformat(),
+        calendar_window.end.isoformat(),
+        calendar_requirement.frequency,
+        base_options,
     )
-    for _ in range(8):
-        calendar_request = DataRequest(
-            calendar_requirement.dataset,
-            calendar_requirement.subject,
-            calendar_start.isoformat(),
-            calendar_end.isoformat(),
-            calendar_end.isoformat(),
-            calendar_requirement.frequency,
-            base_options,
-        )
-        calendar_result = _ready(
-            flows.fetch(calendar_request), calendar_requirement.name
-        )
-        calendar_dates = _open_dates(calendar_result.dataframe)
-        before = [item for item in calendar_dates if item < tradable_window.start]
-        if len(before) >= required_sessions:
-            break
-        span = max(31, (tradable_window.start - calendar_start).days)
-        calendar_start -= timedelta(days=span)
-    else:
-        raise RuntimeContractError(
-            "trading calendar cannot satisfy the declared strategy lookback"
-        )
-
-    trading_dates = tuple(
-        item for item in calendar_dates if tradable_window.contains(item)
+    calendar_result = _ready(
+        flows.fetch(calendar_request), calendar_requirement.name
     )
-    if (
-        not trading_dates
-        or trading_dates[0] != tradable_window.start
-        or trading_dates[-1] != tradable_window.end
-    ):
-        raise RuntimeContractError("tradable window endpoints must be open sessions")
-    first_signal = max(item for item in calendar_dates if item < trading_dates[0])
-    last_signal = max(item for item in calendar_dates if item < trading_dates[-1])
+    calendar_dates = _open_dates(calendar_result.dataframe)
+    scope = algorithm.derive_calculation_scope(tradable_window, calendar_dates)
+    if set(scope.inputs) != set(requirements):
+        raise RuntimeContractError("strategy calculation scope differs from input contract")
     requests: dict[str, DataRequest] = {
         calendar_requirement.name: calendar_request
     }
@@ -206,22 +150,7 @@ def prepare_inputs(
     for name, requirement in requirements.items():
         if name == calendar_requirement.name:
             continue
-        request_start = _input_start(
-            definition, requirement, first_signal, calendar_dates
-        )
-        request_end = last_signal
-        if requirement.cutoff_rule is CutoffRule.SIGNAL_SESSION:
-            required_cutoff = last_signal.isoformat()
-        elif requirement.cutoff_rule is CutoffRule.PREVIOUS_SESSION:
-            previous = [item for item in calendar_dates if item < last_signal]
-            if not previous:
-                raise RuntimeContractError(
-                    f"prepared data has no previous session for input {name}"
-                )
-            request_end = previous[-1]
-            required_cutoff = request_end.isoformat()
-        else:
-            required_cutoff = None
+        input_range = scope.inputs[name]
         options = _request_options(definition, requirement, {})
         if (
             requirement.dataset == Dataset.STOCK_MONEYFLOW.value
@@ -230,14 +159,16 @@ def prepare_inputs(
             options["trading_dates"] = [
                 item.isoformat()
                 for item in calendar_dates
-                if request_start <= item <= request_end
+                if input_range.start <= item <= input_range.end
             ]
         request = DataRequest(
             requirement.dataset,
             requirement.subject,
-            request_start.isoformat(),
-            request_end.isoformat(),
-            required_cutoff,
+            input_range.start.isoformat(),
+            input_range.end.isoformat(),
+            None
+            if input_range.required_cutoff is None
+            else input_range.required_cutoff.isoformat(),
             requirement.frequency,
             options,
         )
@@ -247,7 +178,7 @@ def prepare_inputs(
             requirement.cutoff_rule is CutoffRule.LATEST_AVAILABLE
             and requirement.maximum_staleness_days
             and pd.Timestamp(result.identity.data_cutoff)
-            < pd.Timestamp(last_signal)
+            < pd.Timestamp(scope.available_through)
             - pd.Timedelta(days=requirement.maximum_staleness_days)
         ):
             raise RuntimeContractError(
@@ -269,25 +200,22 @@ def prepare_inputs(
                 "start": tradable_window.start.isoformat(),
                 "end": tradable_window.end.isoformat(),
             },
-            "available_through": last_signal.isoformat(),
+            "available_through": scope.available_through.isoformat(),
+            "signal_dates": {
+                key.isoformat(): value.isoformat()
+                for key, value in scope.signal_dates.items()
+            },
             "inputs": input_identities,
         }
-    )
-    calculation_start = (
-        date.fromisoformat(definition.history.canonical_start)
-        if definition.history.canonical_start is not None
-        else first_signal
-    )
-    calculation_dates = tuple(
-        item for item in calendar_dates if calculation_start <= item <= last_signal
     )
     return PreparedInputs(
         strategy,
         tradable_window,
-        last_signal,
+        scope.available_through,
         data_identity,
         requests,
         results,
         calendar_dates,
-        calculation_dates,
+        scope.signal_dates,
+        scope.calculation_dates,
     )

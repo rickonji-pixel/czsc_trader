@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
 from dataflows import Dataset
 
+from ..algorithm import StrategyImplementation
+from ..calculation import (
+    CalculationScope,
+    CalendarWindow,
+    next_session_calculation_scope,
+    next_session_calendar_window,
+)
+from ..contracts import TradableWindow
 from ..errors import RuntimeContractError
 from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
@@ -202,7 +211,7 @@ def resolve_s007_feature_panel(
     return panel[~panel.index.duplicated(keep="last")].sort_index().reindex(sessions)
 
 
-class S007V1:
+class S007V1(StrategyImplementation):
     """Executable S007-v1; every feature is materialized from DFLS inputs."""
 
     def __init__(self, release: StrategyRelease) -> None:
@@ -281,7 +290,9 @@ class S007V1:
                 __name__,
                 self.__class__.__name__,
                 1,
-                implementation_sha256(("strategies/s007_v1.py", "execution_rules.py")),
+                implementation_sha256(
+                    ("strategies/s007_v1.py", "calculation.py", "execution_rules.py")
+                ),
             ),
             ParameterSet(release.payload),
             InputContract(requirements),
@@ -311,6 +322,20 @@ class S007V1:
     @property
     def definition(self) -> RuntimeDefinition:
         return self._definition
+
+    def calendar_window(self, tradable_window: TradableWindow) -> CalendarWindow:
+        return next_session_calendar_window(self._definition, tradable_window)
+
+    def derive_calculation_scope(
+        self,
+        tradable_window: TradableWindow,
+        calendar_dates: tuple[date, ...],
+    ) -> CalculationScope:
+        return next_session_calculation_scope(
+            self._definition,
+            tradable_window,
+            calendar_dates,
+        )
 
     def calculate_history(
         self,

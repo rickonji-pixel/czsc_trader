@@ -2,6 +2,6 @@
   "schema_version": 1,
   "release_id": "S007-v1",
   "release_hash": "84cd9fc5ee202a47638cd3e2275af72a4105d5e60d6a3f8cc59148a33a124d79",
-  "source_files": ["strategies/s007_v1.py", "execution_rules.py"],
-  "implementation_sha256": "83d6097825571d403963c5f49f8861759076239f78b3f5e3fa81273889e4fb7a"
+  "source_files": ["strategies/s007_v1.py", "calculation.py", "execution_rules.py"],
+  "implementation_sha256": "329be643e8eb15da8e3de936d4f09f5a86b669398bf1bab2a7e062407cb99fa4"
 }

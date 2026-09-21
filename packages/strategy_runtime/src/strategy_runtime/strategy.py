@@ -140,7 +140,7 @@ class StrategyInstance:
         if inputs is None:
             inputs = prepare_inputs(
                 strategy=self._identity,
-                definition=self.definition,
+                algorithm=self._algorithm,
                 tradable_window=self._tradable_window,
                 data_dir=self._data_dir,
             )

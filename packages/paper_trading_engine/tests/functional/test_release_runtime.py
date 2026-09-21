@@ -3,18 +3,20 @@ import json
 import subprocess
 import sys
 from types import SimpleNamespace
+from zipfile import ZipFile
 
 import pytest
 
 from paper_trading_engine.release_cli import (
     PTE_LOCAL_PROJECTS,
     PTE_SOURCE_DISTRIBUTIONS,
+    SRT_REQUIRED_RESOURCES,
     _run,
+    _verify_strategy_runtime_wheel_resources,
     build_release,
     load_built_release,
-    prepare_release_account_data,
     publish_release,
-    verify_release_prepared_data,
+    verify_release_configuration,
 )
 from paper_trading_engine.runtime_release import load_release
 from czsc_trader.application.context import RepositoryContext
@@ -112,7 +114,17 @@ class FakeReleaseRunner:
                 )
                 name = f"{prefixes[self.wheel_index]}-0.1.0-py3-none-any.whl"
                 self.wheel_index += 1
-            (destination / name).write_bytes(b"wheel")
+            wheel = destination / name
+            if name.startswith("czsc_strategy_runtime-"):
+                with ZipFile(wheel, "w") as archive:
+                    archive.writestr(
+                        "strategy_runtime/resources/s003_v1_seed.csv.gz", b"s003",
+                    )
+                    archive.writestr(
+                        "strategy_runtime/resources/s007_v1_seed.csv.gz", b"s007",
+                    )
+            else:
+                wheel.write_bytes(b"wheel")
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[1:4] == ["-m", "pip", "wheel"] and "--constraint" in command:
             Path(command[command.index("--wheel-dir") + 1]).mkdir(parents=True, exist_ok=True)
@@ -162,7 +174,16 @@ def test_release_command_preserves_status_with_non_utf8_windows_output(tmp_path)
     assert completed.stdout == "\ufffd"
 
 
-def test_release_prepares_account_data_before_read_only_verification(
+def test_build_rejects_strategy_runtime_wheel_without_all_resources(tmp_path):
+    wheel = tmp_path / "czsc_strategy_runtime-0.1.0-py3-none-any.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr(SRT_REQUIRED_RESOURCES[0], b"s003")
+
+    with pytest.raises(RuntimeError, match="resources are incomplete"):
+        _verify_strategy_runtime_wheel_resources(tmp_path)
+
+
+def test_release_verifies_configuration_and_bindings_without_preparing_data(
     tmp_path, monkeypatch,
 ):
     runtime = tmp_path / "runtime"
@@ -178,35 +199,25 @@ def test_release_prepares_account_data_before_read_only_verification(
         "paper_trading_engine.release_cli.load_release",
         lambda _runtime, _release_id: release,
     )
+    monkeypatch.setattr(
+        "paper_trading_engine.release_cli._require_database_compatibility",
+        lambda _release, _database: 9,
+    )
     calls = []
 
     def runner(command, **_kwargs):
         calls.append(list(command))
-        script = command[2]
-        if "prepare_account_data" in script:
-            output = {
-                "accounts": 1,
-                "prepared": [{
-                    "account_id": "s003-v1",
-                    "release_id": "S003-v1",
-                    "signal_date": "2026-09-18",
-                    "data_identity": "a" * 64,
-                }],
-            }
-        else:
-            output = {"accounts": 1, "releases": ["S003-v1"]}
+        output = {"accounts": 1, "releases": ["S003-v1"]}
         return subprocess.CompletedProcess(
             command, 0, stdout=json.dumps(output), stderr="",
         )
 
-    prepared = prepare_release_account_data(runtime, "v0.6.0", runner=runner)
-    verified = verify_release_prepared_data(runtime, "v0.6.0", runner=runner)
+    verified = verify_release_configuration(runtime, "v0.6.0", runner=runner)
 
-    assert prepared["prepared"][0]["account_id"] == "s003-v1"
     assert verified == {"accounts": 1, "releases": ["S003-v1"]}
-    assert "last_decision_payload" in calls[0][2]
-    assert "prepare_account_data" in calls[0][2]
-    assert "verify_account_data" in calls[1][2]
+    assert "validate_account_binding" in calls[0][2]
+    assert "prepare_account_data" not in calls[0][2]
+    assert "current.json" not in calls[0][2]
     assert calls[0][-1] == str(runtime / "shared" / "config")
 
 

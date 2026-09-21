@@ -406,6 +406,21 @@ class SrtAdviceClient:
             raise AdviceClientError("SRT execution-pricing symbol differs from account")
         return prepared
 
+    def validate_account_binding(
+        self,
+        *,
+        strategy_id: str,
+        strategy_version: str,
+        symbol: str,
+        asset: str,
+    ) -> dict[str, str]:
+        """Validate one account's frozen strategy binding without preparing data."""
+        if asset != "etf":
+            raise AdviceClientError("PTE currently requires one ETF strategy")
+        release = self._load_release(strategy_id, strategy_version)
+        StrategyRuntime().describe(release, symbol=symbol.upper())
+        return _strategy_identity(self.repo_root, release)
+
     def price_history_for_account(
         self,
         *,

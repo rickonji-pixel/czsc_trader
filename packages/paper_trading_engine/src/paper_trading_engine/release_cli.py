@@ -16,6 +16,7 @@ import tarfile
 from typing import Any, Callable, Mapping, Sequence
 from urllib.request import urlopen
 from uuid import uuid4
+from zipfile import BadZipFile, ZipFile
 
 from .runtime_release import (
     MANIFEST_NAME,
@@ -54,6 +55,10 @@ PTE_SOURCE_DISTRIBUTIONS = ("futu-api",)
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 SourceDistributionFetcher = Callable[[str, str, Path], Path]
 BUILD_MANIFEST_NAME = "build-manifest.json"
+SRT_REQUIRED_RESOURCES = (
+    "strategy_runtime/resources/s003_v1_seed.csv.gz",
+    "strategy_runtime/resources/s007_v1_seed.csv.gz",
+)
 
 
 def _run(
@@ -159,6 +164,26 @@ def _wheel_path(artifacts: Path, distribution: str) -> Path:
             f"PTE release requires exactly one {distribution} wheel; found {len(matches)}"
         )
     return matches[0]
+
+
+def _verify_strategy_runtime_wheel_resources(artifacts: Path) -> None:
+    wheel = _wheel_path(artifacts, "czsc-strategy-runtime")
+    try:
+        with ZipFile(wheel) as archive:
+            members = set(archive.namelist())
+            missing = [name for name in SRT_REQUIRED_RESOURCES if name not in members]
+            empty = [
+                name
+                for name in SRT_REQUIRED_RESOURCES
+                if name in members and archive.getinfo(name).file_size == 0
+            ]
+    except (BadZipFile, OSError) as exc:
+        raise RuntimeError(f"cannot inspect strategy runtime wheel: {wheel.name}") from exc
+    if missing or empty:
+        raise RuntimeError(
+            "strategy runtime wheel resources are incomplete: "
+            f"missing={missing}, empty={empty}"
+        )
 
 
 def _constraint_pin(constraints: Path, distribution: str) -> str:
@@ -571,6 +596,7 @@ def build_release(
                 cwd=source_root, env=build_env,
                 runner=runner,
             )
+        _verify_strategy_runtime_wheel_resources(artifacts)
         source_archives = staging / ".source-archives"
         for distribution in PTE_SOURCE_DISTRIBUTIONS:
             version = _constraint_pin(constraints, distribution)
@@ -803,42 +829,45 @@ def _require_database_compatibility(release, database: Path) -> int:
     return database_schema
 
 
-def prepare_release_account_data(
+def verify_release_configuration(
     runtime_root: Path,
     release_id: str,
     *,
     runner: Runner = subprocess.run,
 ) -> dict[str, object]:
-    """Prepare account-scoped SRT data with the target release before activation."""
+    """Read-only validation of runtime configuration and account strategy bindings."""
     release = load_release(runtime_root, release_id)
     shared = release.runtime_root / "shared"
     data_dir = shared / "data"
     database = shared / "state" / "runtime.db"
     config_dir = shared / "config"
+    _require_database_compatibility(release, database)
     script = (
         "import json,sqlite3,sys\n"
-        "from datetime import date\n"
         "from pathlib import Path\n"
-        "from dotenv import load_dotenv\n"
+        "from dotenv import dotenv_values\n"
         "from paper_trading_engine.srt_advice_client import SrtAdviceClient\n"
         "root=Path(sys.argv[1]); data=Path(sys.argv[2]); database=Path(sys.argv[3]); config=Path(sys.argv[4])\n"
-        "load_dotenv(config/'.env',override=False)\n"
-        "assert database.is_file(), 'PTE data preparation found no runtime database'\n"
+        "def require(condition,message):\n"
+        "    if not condition: raise RuntimeError(message)\n"
+        "require(database.is_file(),'PTE release verification found no runtime database')\n"
+        "require(data.is_dir(),'PTE release verification found no shared data directory')\n"
+        "env_file=config/'.env'\n"
+        "require(env_file.is_file(),'PTE release verification found no runtime configuration')\n"
+        "require(str(dotenv_values(env_file).get('TUSHARE_TOKEN') or '').strip(),'PTE release verification found no TUSHARE_TOKEN')\n"
         "connection=sqlite3.connect(f'file:{database.resolve().as_posix()}?mode=ro',uri=True)\n"
         "try:\n"
-        "    rows=connection.execute(\"SELECT account_id,strategy_id,strategy_version,symbol,asset_type,last_decision_payload FROM virtual_accounts WHERE account_type='STRATEGY' AND status<>'RETIRED'\").fetchall()\n"
+        "    rows=connection.execute(\"SELECT account_id,strategy_id,strategy_version,release_hash,symbol,asset_type FROM virtual_accounts WHERE account_type='STRATEGY' AND status<>'RETIRED'\").fetchall()\n"
         "finally:\n"
         "    connection.close()\n"
-        "assert rows, 'PTE data preparation found no active strategy accounts'\n"
+        "require(rows,'PTE release verification found no active strategy accounts')\n"
         "client=SrtAdviceClient(repo_root=root,data_dir=data)\n"
-        "prepared=[]\n"
-        "for account_id,strategy_id,version,symbol,asset,payload_text in rows:\n"
-        "    payload=json.loads(payload_text) if payload_text else {}\n"
-        "    signal_date=date.fromisoformat(str(payload['signal_date'])) if payload.get('signal_date') else client.latest_completed_signal_date()\n"
-        "    result=client.prepare_account_data(account_id=account_id,strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset,signal_date=signal_date)\n"
-        "    assert result is not None, f'{account_id}: decision signal date is not an SSE trading day'\n"
-        "    prepared.append({'account_id':account_id,'release_id':result.strategy.reference_id,'signal_date':result.available_through.isoformat(),'data_identity':result.data_identity})\n"
-        "print(json.dumps({'accounts':len(rows),'prepared':prepared},sort_keys=True))\n"
+        "validated=[]\n"
+        "for account_id,strategy_id,version,release_hash,symbol,asset in rows:\n"
+        "    identity=client.validate_account_binding(strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset)\n"
+        "    require(identity['release_hash']==release_hash,f'{account_id}: account release hash differs from frozen strategy')\n"
+        "    validated.append(identity['release_id'])\n"
+        "print(json.dumps({'accounts':len(rows),'releases':sorted(set(validated))}))\n"
     )
     completed = _run(
         [
@@ -851,55 +880,9 @@ def prepare_release_account_data(
     try:
         result = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("PTE account-data preparation returned invalid output") from exc
-    if not isinstance(result, dict) or not result.get("prepared"):
-        raise RuntimeError("PTE account-data preparation prepared no accounts")
-    return result
-
-
-def verify_release_prepared_data(
-    runtime_root: Path,
-    release_id: str,
-    *,
-    runner: Runner = subprocess.run,
-) -> dict[str, object]:
-    """Validate prepared data for every active account against the target release."""
-    release = load_release(runtime_root, release_id)
-    data_dir = release.runtime_root / "shared" / "data"
-    database = release.runtime_root / "shared" / "state" / "runtime.db"
-    script = (
-        "import json,sqlite3,sys\n"
-        "from pathlib import Path\n"
-        "from paper_trading_engine.srt_advice_client import SrtAdviceClient\n"
-        "root=Path(sys.argv[1]); data=Path(sys.argv[2]); database=Path(sys.argv[3])\n"
-        "assert database.is_file(), 'PTE prepared-data preflight found no runtime database'\n"
-        "connection=sqlite3.connect(f'file:{database.resolve().as_posix()}?mode=ro',uri=True)\n"
-        "try:\n"
-        "    rows=connection.execute(\"SELECT account_id,strategy_id,strategy_version,symbol,asset_type FROM virtual_accounts WHERE account_type='STRATEGY' AND status<>'RETIRED'\").fetchall()\n"
-        "finally:\n"
-        "    connection.close()\n"
-        "assert rows, 'PTE prepared-data preflight found no active strategy accounts'\n"
-        "client=SrtAdviceClient(repo_root=root,data_dir=data)\n"
-        "validated=[]\n"
-        "for account_id,strategy_id,version,symbol,asset in rows:\n"
-        "    prepared=client.verify_account_data(account_id=account_id,strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset)\n"
-        "    validated.append(prepared.strategy.reference_id)\n"
-        "print(json.dumps({'accounts':len(rows),'releases':sorted(set(validated))}))\n"
-    )
-    completed = _run(
-        [
-            str(_python_in(release.release_root / ".venv")), "-c", script,
-            str(release.release_root), str(data_dir), str(database),
-        ],
-        cwd=release.release_root,
-        runner=runner,
-    )
-    try:
-        result = json.loads(completed.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("PTE prepared-data preflight returned invalid output") from exc
+        raise RuntimeError("PTE release verification returned invalid output") from exc
     if not isinstance(result, dict) or not result.get("releases"):
-        raise RuntimeError("PTE prepared-data preflight validated no strategy releases")
+        raise RuntimeError("PTE release verification validated no strategy releases")
     return result
 
 
@@ -1002,12 +985,10 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("--release", required=True)
     publish.add_argument("--python", type=Path, default=Path(sys.executable))
     publish.add_argument("--uv", type=Path)
-    for action in (
-        "activate", "prepare-data", "verify", "deploy", "rollback", "status",
-    ):
+    for action in ("activate", "verify", "deploy", "rollback", "status"):
         leaf = actions.add_parser(action)
         leaf.add_argument("--runtime-root", required=True, type=Path)
-        if action in {"activate", "prepare-data", "verify", "deploy"}:
+        if action in {"activate", "verify", "deploy"}:
             leaf.add_argument("--release", required=True)
         if action in {"deploy", "rollback"}:
             leaf.add_argument("--wait", type=float, default=60.0)
@@ -1041,10 +1022,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 release, args.runtime_root / "shared" / "state" / "runtime.db"
             )
             result = activate_release(args.runtime_root, args.release)
-        elif args.action == "prepare-data":
-            result = prepare_release_account_data(args.runtime_root, args.release)
         elif args.action == "verify":
-            result = verify_release_prepared_data(args.runtime_root, args.release)
+            result = verify_release_configuration(args.runtime_root, args.release)
         elif args.action == "deploy":
             result = deploy_release(
                 args.runtime_root,

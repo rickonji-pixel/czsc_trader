@@ -76,13 +76,6 @@ try {
     if (-not (Test-Path -LiteralPath $ReleaseCli -PathType Leaf)) {
         throw "Published PTE release CLI is missing: $ReleaseCli"
     }
-    & $ReleaseCli prepare-data `
-        --runtime-root $ProductionRoot `
-        --release $Tag
-    if ($LASTEXITCODE -ne 0) {
-        throw "PTE account-data preparation failed for $Tag with exit code $LASTEXITCODE"
-    }
-
     & $ReleaseCli verify `
         --runtime-root $ProductionRoot `
         --release $Tag

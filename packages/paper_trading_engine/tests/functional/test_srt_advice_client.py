@@ -151,6 +151,20 @@ def test_default_session_resolver_uses_sse_calendar(tmp_path, monkeypatch):
     ) == date(2026, 9, 7)
 
 
+def test_account_binding_validation_loads_frozen_s003_and_s007_resources(tmp_path):
+    client = SrtAdviceClient(repo_root=ROOT, data_dir=tmp_path)
+
+    s003 = client.validate_account_binding(
+        strategy_id="S003", strategy_version="v1", symbol="510500.SH", asset="etf",
+    )
+    s007 = client.validate_account_binding(
+        strategy_id="S007", strategy_version="v1", symbol="588080.SH", asset="etf",
+    )
+
+    assert s003["release_id"] == "S003-v1"
+    assert s007["release_id"] == "S007-v1"
+
+
 def test_legacy_data_directory_migrates_through_prepare_and_decision(
     tmp_path, monkeypatch,
 ):

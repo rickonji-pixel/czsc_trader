@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
+from importlib.resources import files
 from pathlib import Path
 
 import pandas as pd
@@ -67,9 +68,16 @@ def _request_options(
         or not isinstance(data_source.get("sha256"), str)
     ):
         raise RuntimeContractError("strategy evidence data source is incomplete")
+    package = data_source.get("package")
+    if package is None:
+        root = Path.cwd().resolve()
+    elif isinstance(package, str) and package:
+        root = Path(str(files(package))).resolve()
+    else:
+        raise RuntimeContractError("strategy evidence package is invalid")
     options.update(
         {
-            "repository_root": str(Path.cwd().resolve()),
+            "repository_root": str(root),
             "source_path": str(data_source["path"]),
             "source_sha256": str(data_source["sha256"]),
         }
@@ -151,6 +159,8 @@ def prepare_inputs(
         if name == calendar_requirement.name:
             continue
         input_range = scope.inputs[name]
+        if input_range is None:
+            continue
         options = _request_options(definition, requirement, {})
         if (
             requirement.dataset == Dataset.STOCK_MONEYFLOW.value

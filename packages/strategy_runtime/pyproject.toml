@@ -23,7 +23,7 @@ test = ["pytest>=8.0", "ruff>=0.12"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-strategy_runtime = ["bindings/*.json"]
+strategy_runtime = ["bindings/*.json", "resources/*.csv.gz"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/functional"]

@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "strategy_reference": "S003-v1",
+  "release_hash": "f84cf6ecba0eb232660e8db1a8b05052fc0bf9322e84134302d01c56e7f751b3",
+  "legacy_implementation_sha256": "43edf5511982173ec6d3fb11f87409579c7ff7c3b77e856ab06b34b3242cd53b",
+  "resigned_runtime_sha256": "41853856c4a2904727a9e7204b5c0e9a60564fdb03a0a1a85bc094a94d00c49a",
+  "resigned_implementation_sha256": "e0411fa1083da9bc187680369c6b2eef0afe1977eee29aa4d619cc7a423c9dec",
+  "frozen_source_evidence": {
+    "path": "experiments/S003/20260911_S003_EX43/artifacts/constituent_moneyflow_panel.csv.gz",
+    "sha256": "c67f3a21e4180751e65733173d2e2072fccc4011ded14c1fa36d0611fa467062",
+    "rows": 688261,
+    "sessions": 1378
+  },
+  "runtime_seed": {
+    "path": "packages/strategy_runtime/src/strategy_runtime/resources/s003_v1_seed.csv.gz",
+    "sha256": "6a60c143617fcf6597ccd475782849763cb413e4cf47b7c45199f720c988d86c",
+    "rows": 1378,
+    "first_session": "2021-01-04",
+    "last_session": "2026-09-08",
+    "snapshot_date": "2026-08-31",
+    "constituent_count": 500
+  },
+  "formal_execution_evidence": {
+    "directory": "experiments/S003/20260911_S003_EX56/artifacts",
+    "files": {
+      "account_daily.csv": {
+        "rows": 1311,
+        "sha256": "750db3ca6ddb794357ab9e62f8df29ef69af04a82a77945f796009460f611304"
+      },
+      "decisions.csv": {
+        "rows": 276,
+        "sha256": "2417fb1c5bff1fc6773fbb590aa90c810fa0856e121a5ce27e917e247c46951e"
+      },
+      "fills.csv": {
+        "rows": 552,
+        "sha256": "4a7f8f5ebfa5c80dc784ca41eeaff8dd1e009e5d6660fec830eb23c25e0c83dd"
+      },
+      "orders.csv": {
+        "rows": 552,
+        "sha256": "6dfa665e07d26a72d2a26af2d0f8ee74fe2febb114875a791de3b9a31daaa348"
+      },
+      "trades.csv": {
+        "rows": 276,
+        "sha256": "dec5114b72c01ebf6b8314d2661e9240a1c8afb5592bfe7cb4a6a9ac4e04a976"
+      }
+    },
+    "semantic_counts": {
+      "event_signals": 276,
+      "orders": 552,
+      "fills": 552,
+      "closed_trades": 276
+    }
+  },
+  "calculation_contract": {
+    "decision": {
+      "effective_time_rule": "NEXT_SESSION_OPEN_TO_11_30",
+      "maximum_target": 1.0,
+      "minimum_target": 0.0,
+      "output_kind": "INTRADAY_OVERLAY"
+    },
+    "inputs": [
+      {
+        "cutoff_rule": "LATEST_AVAILABLE",
+        "dataset": "strategy.feature_evidence",
+        "frequency": "daily",
+        "lookback_sessions": 0,
+        "maximum_staleness_days": 0,
+        "name": "constituent_moneyflow_seed",
+        "subject": "S003-v1"
+      },
+      {
+        "cutoff_rule": "LATEST_AVAILABLE",
+        "dataset": "index.constituent_weight",
+        "frequency": "snapshot",
+        "lookback_sessions": 1,
+        "maximum_staleness_days": 370,
+        "name": "incremental_constituent_weights",
+        "subject": "000905.SH"
+      },
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "stock.moneyflow",
+        "frequency": "daily",
+        "lookback_sessions": 0,
+        "maximum_staleness_days": 0,
+        "name": "incremental_constituent_moneyflow",
+        "subject": null
+      },
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "etf.ohlcv",
+        "frequency": "daily",
+        "lookback_sessions": 1,
+        "maximum_staleness_days": 0,
+        "name": "adjusted_daily",
+        "subject": "510500.SH"
+      },
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "etf.unadjusted_daily",
+        "frequency": "daily",
+        "lookback_sessions": 1,
+        "maximum_staleness_days": 0,
+        "name": "execution_daily",
+        "subject": "510500.SH"
+      },
+      {
+        "cutoff_rule": "LATEST_AVAILABLE",
+        "dataset": "calendar.trading_sessions",
+        "frequency": "daily",
+        "lookback_sessions": 0,
+        "maximum_staleness_days": 0,
+        "name": "trading_calendar",
+        "subject": "SSE"
+      }
+    ]
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "strategy_reference": "S002-v1",
+  "release_hash": "67326ee14e0b67b3cbebb6ba7fd3d10e6fc053002d2a5f1323fe3489a2f84ee9",
+  "legacy_runtime_sha256": "9639f28872d12823fe5077ca6c36c87f9c89247bb6229793ebff534cf719649d",
+  "legacy_implementation_sha256": "50d8e519b9fc3b02fd05cbda36d66901319e5e2149f29f6adea9bbda89bfe915",
+  "formal_execution_evidence": {
+    "directory": "experiments/S002/20260910_S002_EX14/artifacts",
+    "files": {
+      "account_daily.csv": {
+        "rows": 1378,
+        "sha256": "29392979a6e51e8cd61481346d7ddf6609c825b062b561536e7b05e5f0960fbd"
+      },
+      "decisions.csv": {
+        "rows": 1379,
+        "sha256": "305290b5b28afbeb0eb3631286fd7d5ff4ddecd7743991adf6ea64bc32d9f27e"
+      },
+      "fills.csv": {
+        "rows": 51,
+        "sha256": "510ef1f72d174625f7410a06d2fa49c378960fb2bdf104a8a85b4287b36adb52"
+      },
+      "orders.csv": {
+        "rows": 60,
+        "sha256": "0b6eaad8a219a880d9845a4066dd0ef53961b9b05a5600336f9888707dae4595"
+      },
+      "trades.csv": {
+        "rows": 26,
+        "sha256": "927783394ed7250fed05fa1c38285490304a1604b62466d5a2afac7cedca60e6"
+      }
+    },
+    "semantic_counts": {
+      "buy_orders": 35,
+      "buy_orders_filled": 26,
+      "buy_orders_unfilled": 9,
+      "closed_trades": 25,
+      "entry_signals": 26,
+      "exit_signals": 25,
+      "sell_orders": 25,
+      "sell_orders_filled": 25
+    }
+  },
+  "calculation_contract": {
+    "decision": {
+      "effective_time_rule": "NEXT_SESSION_OPEN",
+      "maximum_target": 1.0,
+      "minimum_target": 0.0,
+      "output_kind": "TARGET_POSITION"
+    },
+    "inputs": [
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "etf.ohlcv",
+        "frequency": "daily",
+        "lookback_sessions": 300,
+        "maximum_staleness_days": 0,
+        "name": "adjusted_daily",
+        "subject": "510500.SH"
+      },
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "etf.unadjusted_daily",
+        "frequency": "daily",
+        "lookback_sessions": 1,
+        "maximum_staleness_days": 0,
+        "name": "execution_daily",
+        "subject": "510500.SH"
+      },
+      {
+        "cutoff_rule": "LATEST_AVAILABLE",
+        "dataset": "calendar.trading_sessions",
+        "frequency": "daily",
+        "lookback_sessions": 0,
+        "maximum_staleness_days": 0,
+        "name": "trading_calendar",
+        "subject": "SSE"
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Mapping
 
 import numpy as np
@@ -13,6 +13,7 @@ from ..algorithm import StrategyImplementation
 from ..calculation import (
     CalculationScope,
     CalendarWindow,
+    InputRange,
     next_session_calculation_scope,
     next_session_calendar_window,
 )
@@ -36,15 +37,16 @@ from ..models import (
 )
 
 
+_SEED = "feature_seed"
 _MARKET = "adjusted_daily"
-_SHIBOR = "shibor_daily"
-_CHINEXT = "chinext_daily_basic"
-_SHARES = "etf_share_size"
-_SPX = "spx_daily"
+_SHIBOR = "incremental_shibor_daily"
+_CHINEXT = "incremental_chinext_daily_basic"
+_SHARES = "incremental_etf_share_size"
+_SPX = "incremental_spx_daily"
 _EXECUTION = "execution_daily"
 _CALENDAR = "trading_calendar"
-_EVIDENCE = "strategy_evidence"
 _FROZEN_HISTORY_START = pd.Timestamp("2021-01-04")
+_FROZEN_HISTORY_END = pd.Timestamp("2026-09-02")
 _GLOBAL_HISTORY_START = pd.Timestamp("2020-12-01")
 
 
@@ -135,6 +137,25 @@ def materialize_s007_features(inputs: Mapping[str, pd.DataFrame]) -> pd.DataFram
     return output.loc[output.index >= _FROZEN_HISTORY_START]
 
 
+def _seed_panel(seed: pd.DataFrame, features: list[str]) -> pd.DataFrame:
+    required = {"Date", *features}
+    if not required <= set(seed.columns):
+        raise RuntimeContractError("S007-v1 feature seed is structurally incomplete")
+    panel = seed.loc[:, ["Date", *features]].copy()
+    panel["Date"] = pd.to_datetime(panel["Date"], errors="raise").dt.normalize()
+    if panel["Date"].duplicated().any():
+        raise RuntimeContractError("S007-v1 feature seed contains duplicate sessions")
+    for feature in features:
+        panel[feature] = pd.to_numeric(panel[feature], errors="coerce")
+    panel = panel.set_index("Date").sort_index()
+    if (
+        panel.index.min() != _FROZEN_HISTORY_START
+        or panel.index.max() > _FROZEN_HISTORY_END
+    ):
+        raise RuntimeContractError("S007-v1 feature seed has an invalid frozen range")
+    return panel
+
+
 def calculate_s007_history(
     panel: pd.DataFrame, normalization: Mapping[str, Any], score: Mapping[str, Any]
 ) -> pd.DataFrame:
@@ -189,26 +210,24 @@ def calculate_s007_history(
 def resolve_s007_feature_panel(
     inputs: Mapping[str, pd.DataFrame],
     score: Mapping[str, Any],
-    sessions: pd.DatetimeIndex,
 ) -> pd.DataFrame:
-    """Combine immutable development evidence with post-cutoff DFLS features."""
+    """Combine the immutable frozen seed with point-in-time incremental features."""
 
     features = sorted(score["orientations"])
-    evidence = inputs.get(_EVIDENCE)
-    if evidence is None:
-        panel = materialize_s007_features(inputs)
-    else:
-        frozen = evidence.copy()
-        date_column = "Date" if "Date" in frozen else "date"
-        frozen[date_column] = pd.to_datetime(frozen[date_column]).dt.normalize()
-        frozen = frozen.set_index(date_column).sort_index().loc[:, features]
-        if sessions.max() <= frozen.index.max():
-            panel = frozen
-        else:
-            materialized = materialize_s007_features(inputs)
-            additions = materialized.loc[materialized.index > frozen.index.max(), features]
-            panel = pd.concat([frozen, additions])
-    return panel[~panel.index.duplicated(keep="last")].sort_index().reindex(sessions)
+    if _SEED not in inputs:
+        raise RuntimeContractError("S007-v1 prepared inputs have no feature seed")
+    panel = _seed_panel(inputs[_SEED], features)
+    incremental_names = {_SHIBOR, _CHINEXT, _SHARES, _SPX}
+    present = incremental_names.intersection(inputs)
+    if present and present != incremental_names:
+        raise RuntimeContractError("S007-v1 incremental inputs are incomplete")
+    if present:
+        materialized = materialize_s007_features(inputs)
+        additions = materialized.loc[
+            materialized.index > _FROZEN_HISTORY_END, features
+        ]
+        panel = pd.concat([panel, additions])
+    return panel[~panel.index.duplicated(keep="last")].sort_index()
 
 
 class S007V1(StrategyImplementation):
@@ -228,22 +247,30 @@ class S007V1(StrategyImplementation):
         self._release = release
         requirements = (
             InputRequirement(
+                _SEED,
+                Dataset.STRATEGY_FEATURE_EVIDENCE.value,
+                release.release_id,
+                "daily",
+                0,
+                CutoffRule.LATEST_AVAILABLE,
+            ),
+            InputRequirement(
                 _MARKET,
                 Dataset.ETF_OHLCV.value,
                 self._symbol,
                 "daily",
-                252,
+                1,
                 CutoffRule.SIGNAL_SESSION,
             ),
             InputRequirement(
-                _SHIBOR, Dataset.SHIBOR_DAILY.value, None, "daily", 252, CutoffRule.SIGNAL_SESSION
+                _SHIBOR, Dataset.SHIBOR_DAILY.value, None, "daily", 6, CutoffRule.SIGNAL_SESSION
             ),
             InputRequirement(
                 _CHINEXT,
                 Dataset.INDEX_DAILY_BASIC.value,
                 "399006.SZ",
                 "daily",
-                252,
+                20,
                 CutoffRule.SIGNAL_SESSION,
             ),
             InputRequirement(
@@ -259,7 +286,7 @@ class S007V1(StrategyImplementation):
                 Dataset.GLOBAL_INDEX_DAILY.value,
                 "SPX",
                 "daily",
-                252,
+                1,
                 CutoffRule.LATEST_AVAILABLE,
                 7,
             ),
@@ -291,7 +318,12 @@ class S007V1(StrategyImplementation):
                 self.__class__.__name__,
                 1,
                 implementation_sha256(
-                    ("strategies/s007_v1.py", "calculation.py", "execution_rules.py")
+                    (
+                        "strategies/s007_v1.py",
+                        "calculation.py",
+                        "execution_rules.py",
+                        "resources/s007_v1_seed.csv.gz",
+                    )
                 ),
             ),
             ParameterSet(release.payload),
@@ -331,10 +363,61 @@ class S007V1(StrategyImplementation):
         tradable_window: TradableWindow,
         calendar_dates: tuple[date, ...],
     ) -> CalculationScope:
-        return next_session_calculation_scope(
+        base = next_session_calculation_scope(
             self._definition,
             tradable_window,
             calendar_dates,
+        )
+        first_signal = base.signal_dates[base.trading_dates[0]]
+        last_signal = base.signal_dates[base.trading_dates[-1]]
+        calculation_start = date.fromisoformat(
+            self._definition.history.canonical_start
+        )
+        calculation_dates = tuple(
+            item for item in calendar_dates if calculation_start <= item <= last_signal
+        )
+        ranges = dict(base.inputs)
+        seed_end = min(_FROZEN_HISTORY_END.date(), last_signal)
+        ranges[_SEED] = InputRange(calculation_start, seed_end, None)
+        ranges[_EXECUTION] = InputRange(first_signal, last_signal, last_signal)
+
+        incremental_dates = tuple(
+            item for item in calculation_dates if item > _FROZEN_HISTORY_END.date()
+        )
+        if incremental_dates:
+            first_incremental = incremental_dates[0]
+            available = tuple(item for item in calendar_dates if item <= first_incremental)
+            if len(available) < 21:
+                raise RuntimeContractError(
+                    "S007-v1 trading calendar cannot satisfy incremental feature history"
+                )
+            feature_start = available[-21]
+            ranges[_MARKET] = InputRange(
+                min(first_signal, feature_start), last_signal, last_signal
+            )
+            ranges[_SHIBOR] = InputRange(feature_start, last_signal, last_signal)
+            ranges[_CHINEXT] = InputRange(feature_start, last_signal, last_signal)
+            previous = tuple(item for item in calendar_dates if item < last_signal)
+            if not previous:
+                raise RuntimeContractError(
+                    "S007-v1 trading calendar has no prior share publication session"
+                )
+            ranges[_SHARES] = InputRange(feature_start, previous[-1], previous[-1])
+            ranges[_SPX] = InputRange(
+                feature_start - timedelta(days=7), last_signal, None
+            )
+        else:
+            ranges[_MARKET] = InputRange(first_signal, last_signal, last_signal)
+            ranges[_SHIBOR] = None
+            ranges[_CHINEXT] = None
+            ranges[_SHARES] = None
+            ranges[_SPX] = None
+        return CalculationScope(
+            tradable_window,
+            base.trading_dates,
+            base.signal_dates,
+            calculation_dates,
+            ranges,
         )
 
     def calculate_history(
@@ -342,5 +425,14 @@ class S007V1(StrategyImplementation):
         inputs: Mapping[str, pd.DataFrame],
         sessions: pd.DatetimeIndex,
     ) -> pd.DataFrame:
-        panel = resolve_s007_feature_panel(inputs, self._score, sessions)
-        return calculate_s007_history(panel, self._normalization, self._score)
+        panel = resolve_s007_feature_panel(inputs, self._score)
+        history = calculate_s007_history(panel, self._normalization, self._score)
+        requested = pd.DatetimeIndex(sessions).normalize()
+        requested.name = "date"
+        missing = requested.difference(history.index)
+        if not missing.empty:
+            raise RuntimeContractError(
+                "S007-v1 prepared history misses calculation sessions: "
+                + ",".join(item.date().isoformat() for item in missing)
+            )
+        return history.reindex(requested)

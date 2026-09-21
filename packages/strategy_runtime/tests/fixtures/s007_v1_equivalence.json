@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "strategy_reference": "S007-v1",
+  "legacy_release_hash": "84cd9fc5ee202a47638cd3e2275af72a4105d5e60d6a3f8cc59148a33a124d79",
+  "release_hash": "42168d648a885ffe0424b947ea44095970c91b05e1a2c6339892fd14892959f0",
+  "resigned_runtime_sha256": "8923c43479c85c893c25ef73c7cf19f410f346892b206d6e059be0cc65b89989",
+  "resigned_implementation_sha256": "9d8219f92a6c27f6ab9caaacdff70ad264f4f9df582beacb8cf4e1b2eb9397f4",
+  "frozen_source_evidence": {
+    "path": "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz",
+    "sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d",
+    "rows": 1374,
+    "columns": 102,
+    "first_session": "2021-01-04",
+    "last_session": "2026-09-02"
+  },
+  "runtime_seed": {
+    "path": "packages/strategy_runtime/src/strategy_runtime/resources/s007_v1_seed.csv.gz",
+    "sha256": "32282766b0f65be661dfad9bd0f0f5c683ef84eef4ae2817a195730d03b59a39",
+    "rows": 1374,
+    "features": 7,
+    "first_session": "2021-01-04",
+    "last_session": "2026-09-02"
+  },
+  "formal_execution_evidence": {
+    "directory": "experiments/S007/20260915_S007_EX31/artifacts",
+    "behavior_hash": "d6dafcf9f65c2ea0be11f7c127a2a6e4acf0aa4a4e767dcf6fc3e21042ff26a3",
+    "files": {
+      "account_daily.csv": {
+        "rows": 1373,
+        "sha256": "bbd8b313be5acb90647d93cfce1f2073593cfbb066836d0d5a3ab48a443875a6"
+      },
+      "decisions.csv": {
+        "rows": 1374,
+        "sha256": "dafaa7865128027c7cf2bb6647df5194b772538bd750fa39876cbbf95bbe9371"
+      },
+      "fills.csv": {
+        "rows": 278,
+        "sha256": "1ccef3917094c72e8b9d23ce114fcff9ace54597391fb7cc1720360947c6eb44"
+      },
+      "orders.csv": {
+        "rows": 278,
+        "sha256": "24d1fddc1f84ade5bb18706dccbea11670bd3a4d8e453b98f6b7dd08700accec"
+      },
+      "trades.csv": {
+        "rows": 139,
+        "sha256": "d351bcfae415d8f67b9fc7ee102a96bc9c19f45cdc207e56ac206de9d747e107"
+      }
+    },
+    "semantic_counts": {
+      "cash_sessions": 1106,
+      "position_sessions": 268,
+      "entries": 139,
+      "exits": 139,
+      "orders": 278,
+      "fills": 278,
+      "closed_trades": 139
+    },
+    "metrics": {
+      "return": 2.1954283480000005,
+      "max_drawdown": -0.1081234745732389,
+      "calmar": 2.1980362055036253,
+      "sharpe": 1.3859774843583401
+    }
+  },
+  "calculation_contract": {
+    "decision": {
+      "effective_time_rule": "NEXT_SESSION_OPEN",
+      "maximum_target": 1.0,
+      "minimum_target": 0.0,
+      "output_kind": "TARGET_POSITION"
+    },
+    "inputs": [
+      {
+        "cutoff_rule": "LATEST_AVAILABLE",
+        "dataset": "strategy.feature_evidence",
+        "frequency": "daily",
+        "lookback_sessions": 0,
+        "maximum_staleness_days": 0,
+        "name": "feature_seed",
+        "subject": "S007-v1"
+      },
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "etf.ohlcv",
+        "frequency": "daily",
+        "lookback_sessions": 1,
+        "maximum_staleness_days": 0,
+        "name": "adjusted_daily",
+        "subject": "588080.SH"
+      },
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "macro.shibor_daily",
+        "frequency": "daily",
+        "lookback_sessions": 6,
+        "maximum_staleness_days": 0,
+        "name": "incremental_shibor_daily",
+        "subject": null
+      },
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "index.daily_basic",
+        "frequency": "daily",
+        "lookback_sessions": 20,
+        "maximum_staleness_days": 0,
+        "name": "incremental_chinext_daily_basic",
+        "subject": "399006.SZ"
+      },
+      {
+        "cutoff_rule": "PREVIOUS_SESSION",
+        "dataset": "etf.share_size",
+        "frequency": "daily",
+        "lookback_sessions": 6,
+        "maximum_staleness_days": 0,
+        "name": "incremental_etf_share_size",
+        "subject": "588080.SH"
+      },
+      {
+        "cutoff_rule": "LATEST_AVAILABLE",
+        "dataset": "index.global_daily",
+        "frequency": "daily",
+        "lookback_sessions": 1,
+        "maximum_staleness_days": 7,
+        "name": "incremental_spx_daily",
+        "subject": "SPX"
+      },
+      {
+        "cutoff_rule": "SIGNAL_SESSION",
+        "dataset": "etf.unadjusted_daily",
+        "frequency": "daily",
+        "lookback_sessions": 1,
+        "maximum_staleness_days": 0,
+        "name": "execution_daily",
+        "subject": "588080.SH"
+      },
+      {
+        "cutoff_rule": "LATEST_AVAILABLE",
+        "dataset": "calendar.trading_sessions",
+        "frequency": "daily",
+        "lookback_sessions": 0,
+        "maximum_staleness_days": 0,
+        "name": "trading_calendar",
+        "subject": "SSE"
+      }
+    ]
+  }
+}

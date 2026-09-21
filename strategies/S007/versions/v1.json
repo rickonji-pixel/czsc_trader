@@ -2,7 +2,7 @@
   "change_summary": "冻结S007-C001多源机会风险门控机制及唯一正式执行规则",
   "forward_start": "2026-09-03",
   "parent_version": null,
-  "release_hash": "84cd9fc5ee202a47638cd3e2275af72a4105d5e60d6a3f8cc59148a33a124d79",
+  "release_hash": "42168d648a885ffe0424b947ea44095970c91b05e1a2c6339892fd14892959f0",
   "release_id": "S007-v1",
   "schema_version": 1,
   "selection_data_cutoff": "2026-09-02",
@@ -18,8 +18,10 @@
     },
     "rule": {
       "data_source": {
-        "path": "experiments/S007/20260915_S007_EX04/artifacts/causal_feature_panel.csv.gz",
-        "sha256": "29e2717dc9deb5f8184906782c816dae21027dd4c86654ffa517670dd5d0672d"
+        "format": "S007_SELECTED_FEATURE_SEED_V1",
+        "package": "strategy_runtime",
+        "path": "resources/s007_v1_seed.csv.gz",
+        "sha256": "32282766b0f65be661dfad9bd0f0f5c683ef84eef4ae2817a195730d03b59a39"
       },
       "execution": {
         "capital": {

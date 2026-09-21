@@ -210,5 +210,16 @@ def test_ft_t03_backtest_preparation_describes_srt_contract_without_data_couplin
     )
 
     assert result.result["data_contract"]["source"] == "SRT"
-    assert len(result.result["data_contract"]["inputs"]) == 7
+    assert {
+        item["name"] for item in result.result["data_contract"]["inputs"]
+    } == {
+        "feature_seed",
+        "adjusted_daily",
+        "incremental_shibor_daily",
+        "incremental_chinext_daily_basic",
+        "incremental_etf_share_size",
+        "incremental_spx_daily",
+        "execution_daily",
+        "trading_calendar",
+    }
     assert not any(context.backtest_data_root.glob("srt_*"))

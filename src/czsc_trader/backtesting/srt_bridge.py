@@ -54,14 +54,6 @@ def _validate_historical_decisions(
         raise RuntimeContractError(
             "SRT historical target_position contains unavailable or invalid values"
         )
-    for column in visible.columns:
-        if column == "target_position" or not pd.api.types.is_numeric_dtype(visible[column]):
-            continue
-        values = pd.to_numeric(visible[column], errors="coerce")
-        if values.isna().any() or not np.isfinite(values.to_numpy(dtype=float)).all():
-            raise RuntimeContractError(
-                f"SRT historical decision field is unavailable: {column}"
-            )
 
 
 def _plain_json(value):

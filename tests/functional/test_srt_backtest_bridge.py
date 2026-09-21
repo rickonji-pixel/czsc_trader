@@ -101,7 +101,7 @@ def _execution_plan(
     )
 
 
-def test_srt_history_rejects_missing_required_score_instead_of_silent_hold() -> None:
+def test_srt_history_allows_unavailable_diagnostics_during_warmup() -> None:
     sessions = pd.DatetimeIndex(pd.to_datetime(["2026-09-16", "2026-09-17"]), name="dt")
     history = pd.DataFrame(
         {
@@ -112,7 +112,20 @@ def test_srt_history_rejects_missing_required_score_instead_of_silent_hold() -> 
         index=sessions,
     )
 
-    with pytest.raises(RuntimeContractError, match="base_score"):
+    _validate_historical_decisions(history, sessions)
+
+
+def test_srt_history_rejects_unavailable_target_position() -> None:
+    sessions = pd.DatetimeIndex(pd.to_datetime(["2026-09-16", "2026-09-17"]), name="dt")
+    history = pd.DataFrame(
+        {
+            "base_score": [0.2, 0.3],
+            "target_position": [0.0, float("nan")],
+        },
+        index=sessions,
+    )
+
+    with pytest.raises(RuntimeContractError, match="target_position"):
         _validate_historical_decisions(history, sessions)
 
 

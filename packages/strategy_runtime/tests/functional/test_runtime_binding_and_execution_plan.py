@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ from strategy_runtime import (
 )
 from strategy_runtime.loader import StrategyLoader
 from strategy_runtime.execution_planner import build_execution_plan
+from strategy_runtime.strategy import _capital_terms
 
 
 def test_schema_v2_release_hash_covers_executable_identity_not_governance() -> None:
@@ -150,6 +152,29 @@ def test_target_execution_plan_honors_frozen_limit_exit() -> None:
     assert plan["action"] == "SELL"
     assert plan["orders"][0]["order_type"] == "LIMIT"
     assert plan["orders"][0]["limit_price"] < 1.5
+
+
+def test_intraday_overlay_capital_terms_are_explicit_for_each_plan_mode() -> None:
+    policy = ExecutionPolicy(
+        "INTRADAY_OVERLAY",
+        {
+            "core_fraction": 0.5,
+            "event_fraction": 0.5,
+        },
+    )
+
+    assert _capital_terms(
+        raw={"plan_mode": "CORE_SETUP"},
+        execution_policy=policy,
+    ) == ("available_cash_fraction", Decimal("0.5"))
+    assert _capital_terms(
+        raw={"plan_mode": "CORE_EVENT_INTRADAY_ROTATION"},
+        execution_policy=policy,
+    ) == ("full_available_cash", Decimal("1"))
+    assert _capital_terms(
+        raw={"plan_mode": "NONE"},
+        execution_policy=policy,
+    ) == ("full_available_cash", Decimal("1"))
 
 
 def test_target_execution_plan_preserves_audited_marketable_exit_semantics() -> None:

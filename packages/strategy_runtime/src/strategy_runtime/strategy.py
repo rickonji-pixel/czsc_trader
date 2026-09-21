@@ -31,7 +31,7 @@ from .contracts import (
 from .data import PreparedStrategyData
 from .errors import RuntimeCompatibilityError, RuntimeContractError
 from .execution_planner import build_execution_plan
-from .models import ExecutionPricingData
+from .models import ExecutionPolicy, ExecutionPricingData
 from .preparation import PreparedInputs, prepare_inputs
 from .prepared_store import load_prepared_inputs, save_prepared_inputs
 from .signals import StrategySignal
@@ -56,6 +56,31 @@ def _parse_time(value: object, name: str) -> time:
         return time.fromisoformat(str(value))
     except ValueError as exc:
         raise RuntimeContractError(f"{name} must use ISO local time") from exc
+
+
+def _capital_terms(
+    *, raw: dict[str, object], execution_policy: ExecutionPolicy
+) -> tuple[str, Decimal]:
+    """Map one policy-specific planner result to the public plan capital terms."""
+
+    policy_type = str(execution_policy.policy_type)
+    if policy_type == "FROZEN_RULE":
+        capital_rule = dict(raw["capital_rule"])
+        return (
+            str(capital_rule["mode"]),
+            Decimal(str(capital_rule["allocation_fraction"])),
+        )
+    if policy_type == "INTRADAY_OVERLAY":
+        plan_mode = str(raw.get("plan_mode", "NONE"))
+        if plan_mode == "CORE_SETUP":
+            return (
+                "available_cash_fraction",
+                Decimal(str(execution_policy.settings["core_fraction"])),
+            )
+        if plan_mode in {"NONE", "CORE_EVENT_INTRADAY_ROTATION"}:
+            return "full_available_cash", Decimal("1")
+        raise RuntimeContractError(f"unsupported intraday overlay plan mode: {plan_mode}")
+    raise RuntimeContractError(f"unsupported execution policy: {policy_type}")
 
 
 class StrategyInstance:
@@ -344,9 +369,10 @@ class StrategyInstance:
         cycle_target = int(raw["cycle_target_quantity"])
         target_quantity = int(raw["target_quantity"])
         plan_mode = str(raw.get("plan_mode", "NONE"))
-        capital_rule = dict(raw["capital_rule"])
-        capital_mode = str(capital_rule["mode"])
-        allocation_fraction = Decimal(str(capital_rule["allocation_fraction"]))
+        capital_mode, allocation_fraction = _capital_terms(
+            raw=raw,
+            execution_policy=self._execution_policy,
+        )
         plan_identity = plan_identity_for(
             signal_identity=signal_identity,
             actual_quantity=portfolio.position_quantity,

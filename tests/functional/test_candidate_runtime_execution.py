@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import replace
-from datetime import datetime, time
 from types import SimpleNamespace
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 from pandas.testing import assert_frame_equal
@@ -12,47 +10,21 @@ import pytest
 from dataflows import DataIdentity, DataRequest, DataResult, DataStatus
 
 from strategy_runtime import (
-    DeploymentSpec,
-    ExecutionPricingData,
+    HistoricalDataSource,
     PublicationStatus,
     PublishedStrategyData,
     RuntimeCompatibilityError,
     RuntimeContractError,
     StrategyCandidate,
-    StrategyDecision,
+    StrategyInit,
     StrategyLoader,
     StrategyRelease,
-    StrategyRunner,
-    StrategyRuntimeContext,
+    StrategyRuntime,
+    TradableWindow,
     canonical_sha256,
 )
 from strategy_runtime import implementation_identity
 from trading_execution_engine import HistoricalExecutor
-
-
-def _runtime_context(strategy, daily: pd.DataFrame) -> StrategyRuntimeContext:
-    cutoff = pd.to_datetime(daily["dt"]).max().date().isoformat()
-    request = DataRequest(
-        "test.replay", "588080.SH", cutoff, cutoff, cutoff, "daily"
-    )
-    result = DataResult(
-        DataStatus.READY,
-        daily,
-        DataIdentity(
-            "test.replay", "test", "588080.SH", cutoff, cutoff, "d" * 64
-        ),
-    )
-    publication = PublishedStrategyData(
-        strategy.definition.release_id,
-        strategy.definition.release_hash,
-        PublicationStatus.READY,
-        cutoff,
-        {"test": request},
-        {"test": result},
-    )
-    return StrategyRuntimeContext(
-        publication, ExecutionPricingData("588080.SH", daily, daily)
-    )
 
 
 def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
@@ -108,7 +80,7 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
     replay = replay_srt_account(
         strategy=loaded, signals=signals, replay_data=replay_data, initial_cash=100_000,
     )
-    _, direct = _execute(strategy)
+    _, direct = _execute(candidate)
     assert_frame_equal(replay.account_daily, direct.account_daily, check_exact=True)
     assert len(replay.fills) == 3
     assert signals.support_data["runtime_sha256"] == definition.runtime_sha256
@@ -151,13 +123,58 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
 
 
 
-def _execute(strategy):
+def _execute(source: StrategyCandidate | StrategyRelease):
     sessions = pd.bdate_range("2026-09-14", periods=5)
     inputs = {"flow": pd.DataFrame({"Date": sessions, "Flow": [0.1, 0.8, 0.2, 0.9, 0.0]})}
-    history = strategy.calculate_history(inputs, sessions)
     daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0})
+    runtime = StrategyRuntime()
+    strategy = runtime.create(
+        StrategyInit(
+            source,
+            TradableWindow(sessions[1].date(), sessions[-1].date()),
+        )
+    )
+    cutoff = sessions[-1].date().isoformat()
+    requirement = strategy.definition.inputs.requirements[0]
+    request = DataRequest(
+        requirement.dataset,
+        requirement.subject,
+        sessions[0].date().isoformat(),
+        cutoff,
+        cutoff,
+        requirement.frequency,
+    )
+    result = DataResult(
+        DataStatus.READY,
+        inputs["flow"],
+        DataIdentity(
+            requirement.dataset,
+            "test",
+            requirement.subject,
+            sessions[0].date().isoformat(),
+            cutoff,
+            "d" * 64,
+        ),
+    )
+    publication = PublishedStrategyData(
+        strategy.definition.release_id,
+        strategy.definition.release_hash,
+        PublicationStatus.READY,
+        cutoff,
+        {"flow": request},
+        {"flow": result},
+    )
+    prepared = strategy.prepare_data(
+        HistoricalDataSource(
+            publication=publication,
+            symbol=strategy.identity.symbol,
+            adjusted_daily=daily,
+            execution_daily=daily,
+        )
+    )
     channel = HistoricalExecutor(
         strategy_reference=strategy.definition.release_id,
+        symbol=strategy.identity.symbol,
         execution_daily=daily,
         execution_intraday=pd.DataFrame(columns=["dt", "open", "high", "low", "close"]),
         evaluation_start=sessions[1],
@@ -166,47 +183,8 @@ def _execute(strategy):
         execution_policy=strategy.definition.execution,
         order_types=strategy.definition.capabilities.order_types,
     )
-    definition = strategy.definition
-    runtime_context = _runtime_context(strategy, daily)
-    for i in range(1, len(sessions)):
-        timestamp = datetime.combine(
-            sessions[i - 1].date(), time(20, 30), ZoneInfo("Asia/Shanghai")
-        )
-        account = channel.account_snapshot("fixture", timestamp)
-        deployment = DeploymentSpec(
-            "fixture",
-            definition.release_id,
-            definition.release_hash,
-            "588080.SH",
-            "fixture",
-            channel.channel_id,
-            channel.deployment_settings,
-        )
-        decision = StrategyDecision(
-            f"DEC-{i}",
-            "fixture",
-            definition.release_id,
-            definition.release_hash,
-            definition.runtime_sha256,
-            timestamp,
-            datetime.combine(sessions[i].date(), time(9, 30), ZoneInfo("Asia/Shanghai")),
-            float(history.iloc[i - 1]["target_position"]),
-            account.revision,
-            0,
-            {"fixture": "d" * 64},
-            {"signal_date": sessions[i - 1].date().isoformat()},
-            {},
-        )
-        StrategyRunner().submit_precomputed(
-            strategy=strategy,
-            deployment=deployment,
-            account_snapshot=account,
-            channel=channel,
-            decision=decision,
-            context=runtime_context,
-            execution_policy=channel.effective_policy,
-        )
-    return history, channel.finalize()
+    history = strategy.inspect_signals(prepared)
+    return history, strategy.run_window(data=prepared, executor=channel)
 
 
 def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(candidate_payload):
@@ -216,15 +194,16 @@ def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(ca
     first = loader.load_candidate(candidate)
     changed = deepcopy(payload)
     changed["parameters"]["threshold"] = 1.0
-    second = loader.load_candidate(StrategyCandidate("S900", "C001", changed))
+    second_source = StrategyCandidate("S900", "C001", changed)
+    second = loader.load_candidate(second_source)
     assert first.definition.version is None
     assert first.definition.identity_kind == "CANDIDATE"
     assert first.definition.runtime_sha256 != second.definition.runtime_sha256
-    history, ledger = _execute(first)
-    _, other = _execute(second)
+    history, ledger = _execute(candidate)
+    _, other = _execute(second_source)
     assert len(ledger.fills) == 3
     assert other.fills.empty
-    _, repeat = _execute(first)
+    _, repeat = _execute(candidate)
     assert_frame_equal(ledger.account_daily, repeat.account_daily, check_exact=True)
 
     # A real frozen identity binds the same source and parameters without a v1 Python wrapper.
@@ -236,8 +215,9 @@ def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(ca
         "strategy_payload": payload,
     }
     raw["release_hash"] = canonical_sha256(raw)
-    frozen = loader.load(StrategyRelease.from_mapping(raw))
-    frozen_history, frozen_ledger = _execute(frozen)
+    frozen_source = StrategyRelease.from_mapping(raw)
+    frozen = loader.load(frozen_source)
+    frozen_history, frozen_ledger = _execute(frozen_source)
     assert frozen.definition.identity_kind == "RELEASE"
     assert frozen.definition.implementation == first.definition.implementation
     assert frozen.definition.parameters == first.definition.parameters
@@ -265,6 +245,7 @@ def test_candidate_load_fails_closed_on_source_and_parameter_identity_errors(
     daily = pd.DataFrame({"dt": pd.to_datetime(["2026-09-17"]), "open": [1.0], "close": [1.0]})
     execution = dict(
         strategy_reference=valid.definition.release_id,
+        symbol="588080.SH",
         execution_daily=daily,
         execution_intraday=pd.DataFrame(columns=["dt", "high", "low"]),
         evaluation_start=pd.Timestamp("2026-09-17"),

@@ -486,8 +486,8 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
     )
     monkeypatch.setattr(
         pte_cli.SrtAdviceClient,
-        "publication_date",
-        lambda _self, *_args, **_kwargs: date(2026, 9, 15),
+        "trading_date",
+        lambda _self, *_args, **_kwargs: date(2026, 9, 16),
     )
     created = pte_cli._run_account_command(args)
     assert created["account_id"] == "s007-v1"

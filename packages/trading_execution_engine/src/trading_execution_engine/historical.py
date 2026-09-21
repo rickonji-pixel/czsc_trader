@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, time
+from decimal import Decimal
 from hashlib import sha256
 from math import isfinite
 from typing import Any, Mapping
 
 import pandas as pd
 from strategy_runtime import (
-    AccountSnapshot,
-    ChannelCapabilities,
+    ExecutionCapabilities,
+    ExecutionOutcome,
+    ExecutionPlan,
+    ExecutionState,
     ExecutionPolicy,
-    ExecutionReceipt,
-    ExecutionRequest,
+    OrderType,
+    PortfolioSnapshot,
     RuntimeContractError,
+    TradingPoint,
 )
 from .fills import OrderSpec, resolve_fill
 from .result import ExecutionResult
@@ -61,6 +65,7 @@ class HistoricalExecutor:
         self,
         *,
         strategy_reference: str,
+        symbol: str,
         execution_daily: pd.DataFrame,
         execution_intraday: pd.DataFrame,
         evaluation_start: pd.Timestamp,
@@ -69,23 +74,28 @@ class HistoricalExecutor:
         execution_policy: ExecutionPolicy,
         order_types: tuple[str, ...],
         checkpoints: tuple[str, ...] = (),
-        channel_id: str = "backtest",
+        account_id: str = "backtest-account",
         execution_five_minute: pd.DataFrame | None = None,
         fee_rate_override: float | None = None,
     ) -> None:
-        if not channel_id.strip():
-            raise RuntimeContractError("backtest channel_id must be non-empty")
+        if not account_id.strip():
+            raise RuntimeContractError("backtest account_id must be non-empty")
         if not isfinite(initial_cash) or initial_cash <= 0:
             raise RuntimeContractError("backtest initial_cash must be positive and finite")
         if execution_policy.policy_type not in {"FROZEN_RULE", "INTRADAY_OVERLAY"}:
             raise RuntimeContractError(
                 f"unsupported backtest execution policy: {execution_policy.policy_type}"
             )
-        self._channel_id = channel_id.strip()
-        self._capabilities = ChannelCapabilities(order_types, checkpoints)
+        self._account_id = account_id.strip()
+        self._capabilities = ExecutionCapabilities(
+            tuple(OrderType(value) for value in order_types), checkpoints
+        )
         if not strategy_reference.strip():
             raise RuntimeContractError("strategy_reference must be non-empty")
         self._strategy_reference = strategy_reference
+        if not symbol.strip():
+            raise RuntimeContractError("backtest symbol must be non-empty")
+        self._strategy_symbol = symbol.strip().upper()
         self._policy = execution_policy
         # A declared evaluation cost scenario changes costs, never the SRT identity.
         self._effective_policy = execution_policy
@@ -124,8 +134,8 @@ class HistoricalExecutor:
         self._cycle_id: str | None = None
         self._revision = 0
         self._last_execution: pd.Timestamp | None = None
-        self._requests: dict[str, ExecutionRequest] = {}
-        self._receipts: dict[str, ExecutionReceipt] = {}
+        self._plans: dict[str, ExecutionPlan] = {}
+        self._outcomes: dict[str, ExecutionOutcome] = {}
         self._decision_rows: list[dict[str, object]] = []
         self._order_rows: list[dict[str, object]] = []
         self._fill_rows: list[dict[str, object]] = []
@@ -140,11 +150,7 @@ class HistoricalExecutor:
         self._opening_quantity = self._quantity
 
     @property
-    def channel_id(self) -> str:
-        return self._channel_id
-
-    @property
-    def capabilities(self) -> ChannelCapabilities:
+    def capabilities(self) -> ExecutionCapabilities:
         return self._capabilities
 
     @property
@@ -152,21 +158,10 @@ class HistoricalExecutor:
         """Expose the exact policy used for sizing, fees and ledger audit."""
         return self._effective_policy
 
-    @property
-    def receipts(self) -> tuple[ExecutionReceipt, ...]:
-        return tuple(self._receipts.values())
+    def snapshot(self, point: TradingPoint) -> tuple[PortfolioSnapshot, ExecutionState]:
+        """Return the confirmed ledger and strategy state for one signal point."""
 
-    @property
-    def deployment_settings(self) -> Mapping[str, object]:
-        """Return channel-owned mutable execution state for the next request."""
-
-        if self._cycle_target is None:
-            return {}
-        return {"cycle_target_quantity": self._cycle_target}
-
-    def account_snapshot(self, account_id: str, as_of: datetime) -> AccountSnapshot:
-        """Expose the confirmed ledger state consumed by the next SRT decision."""
-
+        as_of = point.calculation_time
         if as_of.tzinfo is None:
             raise RuntimeContractError("backtest account snapshot time must be timezone-aware")
         session = pd.Timestamp(as_of.date())
@@ -174,52 +169,82 @@ class HistoricalExecutor:
         if prices.empty:
             raise RuntimeContractError("backtest account snapshot has no reference close")
         total_assets = self._cash + self._quantity * float(prices.iloc[-1])
-        return AccountSnapshot(
-            account_id,
-            self._cash,
-            total_assets,
+        return PortfolioSnapshot(
+            self._account_id,
+            self._strategy_symbol,
+            Decimal(str(self._cash)),
+            Decimal(str(total_assets)),
             self._quantity,
             self._revision,
             as_of,
-        )
+        ), ExecutionState(self._revision, as_of, self._cycle_target)
 
-    def submit(self, request: ExecutionRequest, idempotency_key: str) -> ExecutionReceipt:
+    def execute(self, plan: ExecutionPlan) -> ExecutionOutcome:
         if self._result is not None:
-            raise RuntimeContractError("backtest channel is already finalized")
-        key = idempotency_key.strip()
-        if not key:
-            raise RuntimeContractError("execution idempotency key must be non-empty")
-        existing = self._requests.get(key)
+            raise RuntimeContractError("historical executor is already finalized")
+        key = plan.plan_identity
+        existing = self._plans.get(key)
         if existing is not None:
-            if existing != request:
-                raise RuntimeContractError("idempotency key was reused for another request")
-            return self._receipts[key]
-        self._validate_request(request)
+            if existing != plan:
+                raise RuntimeContractError("plan identity was reused for another plan")
+            return self._outcomes[key]
+        self._validate_plan(plan)
 
-        signal_date = pd.Timestamp(request.reference_prices.signal_at.date()).normalize()
-        execution_date = pd.Timestamp(request.reference_prices.valid_at.date()).normalize()
-        plan = request.instruction.order_plan_payload()
-        fee_rate = float(plan["fee_rate"])
+        signal_date = pd.Timestamp(plan.signal_date).normalize()
+        execution_date = pd.Timestamp(plan.valid_session).normalize()
+        payload = self._plan_payload(plan)
+        fee_rate = float(payload["fee_rate"])
         if not isfinite(fee_rate) or not 0 <= fee_rate < 1:
             raise RuntimeContractError("execution fee_rate must be finite and in [0, 1)")
-        if self._policy.policy_type == "INTRADAY_OVERLAY":
-            self._execute_overlay(request, plan, signal_date, execution_date)
+        should_record = True
+        if self._policy.policy_type == "INTRADAY_OVERLAY" and plan.legs:
+            self._execute_overlay(plan, payload, signal_date, execution_date)
+        elif self._policy.policy_type == "INTRADAY_OVERLAY":
+            self._state_by_date[execution_date] = {
+                "signal_date": signal_date,
+                "target_position": float(self._policy.settings["core_fraction"]),
+                "cash_before": self._cash,
+                "quantity_before": self._quantity,
+                "cash": self._cash,
+                "quantity": self._quantity,
+            }
+            should_record = False
         else:
-            self._execute_target(request, plan, signal_date, execution_date)
-        self._record_decision(request, signal_date, execution_date)
+            self._execute_target(plan, payload, signal_date, execution_date)
+        if should_record:
+            self._record_decision(plan, signal_date, execution_date)
         self._revision += 1
         self._last_execution = execution_date
 
-        receipt = ExecutionReceipt(
-            key,
-            True,
-            request.decision.decision_id,
-            "SETTLED",
-            "executed by deterministic TXE historical executor",
+        outcome = ExecutionOutcome(
+            plan_identity=key,
+            portfolio=self.snapshot(
+                TradingPoint(
+                    plan.valid_session,
+                    datetime.combine(
+                        plan.valid_session,
+                        time(15, 0),
+                        tzinfo=plan.generated_at.tzinfo,
+                    ),
+                )
+            )[0],
+            state=ExecutionState(
+                self._revision,
+                datetime.combine(
+                    plan.valid_session,
+                    time(15, 0),
+                    tzinfo=plan.generated_at.tzinfo,
+                ),
+                self._cycle_target,
+            ),
+            status="SETTLED",
         )
-        self._requests[key] = request
-        self._receipts[key] = receipt
-        return receipt
+        self._plans[key] = plan
+        self._outcomes[key] = outcome
+        return outcome
+
+    def finish(self) -> ExecutionResult:
+        return self.finalize()
 
     def finalize(self) -> ExecutionResult:
         """Close the deterministic ledger exactly once."""
@@ -321,37 +346,63 @@ class HistoricalExecutor:
         self._cycle_target = quantity
         self._cash -= quantity * price * (1.0 + fee)
 
-    def _validate_request(self, request: ExecutionRequest) -> None:
-        if request.policy != self._effective_policy:
-            raise RuntimeContractError("backtest request policy differs from channel policy")
-        execution_date = pd.Timestamp(request.decision.valid_at.date()).normalize()
-        signal_date = pd.Timestamp(request.reference_prices.signal_at.date()).normalize()
+    @staticmethod
+    def _decision_id(plan: ExecutionPlan) -> str:
+        return "DEC-" + plan.plan_identity[:20].upper()
+
+    @staticmethod
+    def _plan_payload(plan: ExecutionPlan) -> dict[str, object]:
+        def order_payload(order) -> dict[str, object]:
+            return {
+                "side": order.side.value,
+                "quantity": order.quantity,
+                "order_type": order.order_type.value,
+                "limit_price": None if order.limit_price is None else float(order.limit_price),
+            }
+
+        return {
+            "fee_rate": float(plan.fee_rate),
+            "cycle_target_quantity": plan.cycle_target_quantity,
+            "plan_mode": plan.plan_mode,
+            "orders": [order_payload(order) for order in plan.orders],
+            "plan_legs": [
+                {
+                    "sequence": leg.sequence,
+                    "checkpoint": leg.checkpoint,
+                    "dependency_sequence": leg.dependency_sequence,
+                    "order": order_payload(leg.order),
+                }
+                for leg in plan.legs
+            ],
+        }
+
+    def _validate_plan(self, plan: ExecutionPlan) -> None:
+        execution_date = pd.Timestamp(plan.valid_session).normalize()
+        signal_date = pd.Timestamp(plan.signal_date).normalize()
         if signal_date >= execution_date:
             raise RuntimeContractError("historical execution must follow the signal session")
         if signal_date not in self._daily.index:
             raise RuntimeContractError("historical execution is missing its signal session")
-        if request.deployment.channel_id != self.channel_id:
-            raise RuntimeContractError("request belongs to another execution channel")
-        if request.decision.release_id != self._strategy_reference:
-            raise RuntimeContractError("request belongs to another strategy")
+        if plan.strategy.reference_id != self._strategy_reference:
+            raise RuntimeContractError("plan belongs to another strategy")
+        if plan.symbol != self._strategy_symbol:
+            raise RuntimeContractError("plan belongs to another instrument")
         if execution_date not in self._evaluation.index:
-            raise RuntimeContractError("backtest request is outside the evaluation interval")
+            raise RuntimeContractError("historical plan is outside the evaluation interval")
         if self._last_execution is not None and execution_date <= self._last_execution:
-            raise RuntimeContractError("backtest requests must use increasing sessions")
-        expected_cycle = request.deployment.settings.get("cycle_target_quantity")
-        if expected_cycle != self._cycle_target:
-            raise RuntimeContractError("backtest deployment execution state is stale")
-        account = request.account
-        if account.revision != self._revision:
-            raise RuntimeContractError("backtest request account revision is stale")
-        if account.position_quantity != self._quantity:
-            raise RuntimeContractError("backtest request position differs from ledger")
-        if abs(account.available_cash - self._cash) > 1e-6:
-            raise RuntimeContractError("backtest request cash differs from ledger")
+            raise RuntimeContractError("historical plans must use increasing sessions")
+        if plan.expected_state_revision != self._revision:
+            raise RuntimeContractError("historical plan execution state is stale")
+        if plan.expected_portfolio_revision != self._revision:
+            raise RuntimeContractError("historical plan portfolio revision is stale")
+        if plan.actual_quantity != self._quantity:
+            raise RuntimeContractError("historical plan position differs from ledger")
+        if abs(float(plan.available_cash) - self._cash) > 1e-6:
+            raise RuntimeContractError("historical plan cash differs from ledger")
 
     def _execute_target(
         self,
-        request: ExecutionRequest,
+        execution_plan: ExecutionPlan,
         plan: Mapping[str, Any],
         signal_date: pd.Timestamp,
         execution_date: pd.Timestamp,
@@ -359,7 +410,8 @@ class HistoricalExecutor:
         price_row = self._evaluation.loc[execution_date]
         cash_before = self._cash
         quantity_before = self._quantity
-        target = int(request.decision.target_position)
+        target = int(execution_plan.target_position)
+        decision_id = self._decision_id(execution_plan)
         if target == 1 and self._quantity == 0 and self._cycle_id is None:
             self._cycle_id = _id("CYC", self._strategy_reference, signal_date)
         exit_proceeds = 0.0
@@ -371,7 +423,7 @@ class HistoricalExecutor:
             self._intraday.index.normalize() == execution_date.normalize()
         ]
         for slice_number, order in enumerate(plan["orders"], start=1):
-            order_id = _id("ORD", request.decision.decision_id, execution_date, slice_number)
+            order_id = _id("ORD", decision_id, execution_date, slice_number)
             side = str(order["side"])
             quantity = int(order["quantity"])
             order_type = str(order["order_type"])
@@ -400,7 +452,7 @@ class HistoricalExecutor:
             self._order_rows.append(
                 {
                     "order_id": order_id,
-                    "decision_id": request.decision.decision_id,
+                    "decision_id": decision_id,
                     "cycle_id": self._cycle_id,
                     "signal_date": signal_date,
                     "execution_date": execution_date,
@@ -425,7 +477,7 @@ class HistoricalExecutor:
                 {
                     "fill_id": _id("FIL", order_id, fill_time),
                     "order_id": order_id,
-                    "decision_id": request.decision.decision_id,
+                    "decision_id": decision_id,
                     "cycle_id": self._cycle_id,
                     "signal_date": signal_date,
                     "fill_time": fill_time,
@@ -490,7 +542,7 @@ class HistoricalExecutor:
 
     def _execute_overlay(
         self,
-        request: ExecutionRequest,
+        execution_plan: ExecutionPlan,
         plan: Mapping[str, Any],
         signal_date: pd.Timestamp,
         execution_date: pd.Timestamp,
@@ -512,7 +564,8 @@ class HistoricalExecutor:
             raise RuntimeContractError("intraday overlay has incomplete execution checkpoints")
         cash_before = self._cash
         quantity_before = self._quantity
-        cycle_id = _id("CYC", request.decision.decision_id, execution_date)
+        decision_id = self._decision_id(execution_plan)
+        cycle_id = _id("CYC", decision_id, execution_date)
         fee_rate = float(plan["fee_rate"])
         leg_status: dict[int, str] = {}
         entry_price = 0.0
@@ -544,7 +597,7 @@ class HistoricalExecutor:
             self._order_rows.append(
                 {
                     "order_id": order_id,
-                    "decision_id": request.decision.decision_id,
+                    "decision_id": decision_id,
                     "cycle_id": cycle_id,
                     "signal_date": signal_date,
                     "execution_date": execution_date,
@@ -577,7 +630,7 @@ class HistoricalExecutor:
                 {
                     "fill_id": _id("FIL", order_id, checkpoint),
                     "order_id": order_id,
-                    "decision_id": request.decision.decision_id,
+                    "decision_id": decision_id,
                     "cycle_id": cycle_id,
                     "signal_date": signal_date,
                     "fill_time": fill_time,
@@ -615,17 +668,17 @@ class HistoricalExecutor:
 
     def _record_decision(
         self,
-        request: ExecutionRequest,
+        plan: ExecutionPlan,
         signal_date: pd.Timestamp,
         execution_date: pd.Timestamp,
     ) -> None:
         row: dict[str, object] = {
-            "decision_id": request.decision.decision_id,
+            "decision_id": self._decision_id(plan),
             "signal_date": signal_date,
             "valid_session": execution_date,
-            "target_position": request.decision.target_position,
+            "target_position": plan.target_position,
         }
-        for key, value in request.decision.evidence.items():
+        for key, value in plan.evidence.items():
             if key not in row:
                 row[key] = value
         self._decision_rows.append(row)

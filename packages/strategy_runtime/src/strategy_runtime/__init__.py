@@ -7,8 +7,6 @@ from .errors import (
     StrategyRuntimeError,
 )
 from .contracts import (
-    DecisionPoint,
-    DecisionWindow,
     ExecutionCapabilities,
     ExecutionOutcome,
     ExecutionPlan,
@@ -20,10 +18,13 @@ from .contracts import (
     PortfolioSnapshot,
     PriceReference,
     StrategyIdentity,
+    TradableWindow,
+    TradingPoint,
     WindowExecutor,
 )
 from .data import (
     DataPreparationRequest,
+    HistoricalDataSource,
     PreparedStrategyData,
     PublishedDataSource,
     StrategyDataSource,
@@ -93,6 +94,7 @@ __all__ = [
     "ExecutionRequest",
     "ImplementationRef",
     "HistoryPolicy",
+    "HistoricalDataSource",
     "InputContract",
     "InputRequirement",
     "MonitoringPolicy",
@@ -124,8 +126,6 @@ __all__ = [
     "StrategyStateSnapshot",
     "canonical_sha256",
     "DataPreparationRequest",
-    "DecisionPoint",
-    "DecisionWindow",
     "ExecutionCapabilities",
     "ExecutionOutcome",
     "ExecutionPlan",
@@ -140,6 +140,8 @@ __all__ = [
     "PublishedDataSource",
     "StrategyDataSource",
     "StrategyIdentity",
+    "TradableWindow",
+    "TradingPoint",
     "StrategyInit",
     "StrategyInstance",
     "StrategyRuntime",

@@ -11,8 +11,6 @@ import re
 from types import MappingProxyType
 from typing import Mapping, Protocol, TypeAlias, runtime_checkable
 
-import pandas as pd
-
 from .errors import RuntimeContractError
 from .models import canonical_sha256
 
@@ -47,15 +45,15 @@ def _identities(values: Mapping[str, str], name: str) -> Mapping[str, str]:
 
 
 @dataclass(frozen=True, slots=True)
-class DecisionWindow:
-    """Inclusive range of signal dates evaluated by one strategy instance."""
+class TradableWindow:
+    """Inclusive range of execution sessions handled by one strategy instance."""
 
     start: date
     end: date
 
     def __post_init__(self) -> None:
         if self.start > self.end:
-            raise RuntimeContractError("decision window start must not follow end")
+            raise RuntimeContractError("tradable window start must not follow end")
 
     def contains(self, value: date) -> bool:
         return self.start <= value <= self.end
@@ -130,8 +128,8 @@ class PortfolioSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
-class DecisionPoint:
-    signal_date: date
+class TradingPoint:
+    trading_date: date
     calculation_time: datetime
 
     def __post_init__(self) -> None:
@@ -424,7 +422,7 @@ class WindowExecutor(Protocol):
     @property
     def capabilities(self) -> ExecutionCapabilities: ...
 
-    def snapshot(self, point: DecisionPoint) -> tuple[PortfolioSnapshot, ExecutionState]: ...
+    def snapshot(self, point: TradingPoint) -> tuple[PortfolioSnapshot, ExecutionState]: ...
 
     def execute(self, plan: ExecutionPlan) -> ExecutionOutcome: ...
 

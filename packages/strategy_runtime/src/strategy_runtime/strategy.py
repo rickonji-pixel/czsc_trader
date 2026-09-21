@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import datetime, time
 from decimal import Decimal
 from types import MappingProxyType
 from zoneinfo import ZoneInfo
 
+import pandas as pd
+
 from .contracts import (
-    DecisionPoint,
-    DecisionWindow,
     ExecutionCapabilities,
     ExecutionPlan,
     ExecutionState,
@@ -21,6 +20,8 @@ from .contracts import (
     PortfolioSnapshot,
     PriceReference,
     StrategyIdentity,
+    TradingPoint,
+    TradableWindow,
     WindowExecutor,
     plan_identity_for,
     signal_identity_for,
@@ -28,13 +29,7 @@ from .contracts import (
 from .data import DataPreparationRequest, PreparedStrategyData, StrategyDataSource
 from .errors import RuntimeCompatibilityError, RuntimeContractError
 from .execution_planner import build_execution_plan
-from .models import (
-    AccountSnapshot,
-    CalculationRequest,
-    DeploymentSpec,
-    StrategyStateSnapshot,
-)
-from .validation import validate_decision
+from .signals import StrategySignal
 
 
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -59,24 +54,37 @@ def _parse_time(value: object, name: str) -> time:
 
 
 class StrategyInstance:
-    """One immutable strategy identity, parameter set and decision window."""
+    """One immutable strategy identity, parameter set and tradable window."""
 
-    def __init__(self, *, algorithm, identity: StrategyIdentity, window: DecisionWindow) -> None:
+    def __init__(
+        self,
+        *,
+        algorithm,
+        identity: StrategyIdentity,
+        window: TradableWindow,
+        execution_policy,
+    ) -> None:
         self._algorithm = algorithm
         self._identity = identity
         self._window = window
+        self._execution_policy = execution_policy
+        self._history_cache: tuple[str, pd.DataFrame, pd.DatetimeIndex] | None = None
 
     @property
     def identity(self) -> StrategyIdentity:
         return self._identity
 
     @property
-    def window(self) -> DecisionWindow:
+    def window(self) -> TradableWindow:
         return self._window
 
     @property
     def definition(self):
         return self._algorithm.definition
+
+    @property
+    def execution_policy(self):
+        return self._execution_policy
 
     def prepare_data(self, source: StrategyDataSource) -> PreparedStrategyData:
         prepared = source.prepare(
@@ -86,78 +94,127 @@ class StrategyInstance:
             raise RuntimeContractError("data source returned data for another strategy instance")
         return prepared
 
+    def _history(
+        self, data: PreparedStrategyData
+    ) -> tuple[pd.DataFrame, pd.DatetimeIndex]:
+        frames = {
+            name: result.dataframe
+            for name, result in data._publication.input_results.items()
+        }
+        sessions = pd.DatetimeIndex(
+            pd.to_datetime(data._tradable_dates, errors="raise"), name="dt"
+        ).normalize()
+        cached = self._history_cache
+        if cached is not None and cached[0] == data.dataset_identity:
+            history, sessions = cached[1], cached[2]
+        else:
+            history = self._algorithm.calculate_history(frames, sessions)
+            self._history_cache = (data.dataset_identity, history, sessions)
+        return history, sessions
+
+    def _calculate_signal(
+        self,
+        data: PreparedStrategyData,
+        point: TradingPoint,
+    ) -> StrategySignal:
+        history, sessions = self._history(data)
+        signal_date = data.signal_date_for(point.trading_date)
+        signal_session = pd.Timestamp(signal_date).normalize()
+        if signal_session not in history.index:
+            raise RuntimeContractError(
+                "strategy history does not reach the signal date: "
+                f"signal={signal_date.isoformat()}, "
+                f"range={history.index.min()}..{history.index.max()}"
+            )
+        row = history.loc[signal_session]
+        target_position = float(row["target_position"])
+        if not (
+            self.definition.decision.minimum_target
+            <= target_position
+            <= self.definition.decision.maximum_target
+        ):
+            raise RuntimeContractError("strategy target position violates its contract")
+        evidence: dict[str, object] = {"signal_date": signal_date.isoformat()}
+        for name, value in row.items():
+            if name == "target_position" or pd.isna(value):
+                continue
+            if isinstance(value, pd.Timestamp):
+                evidence[str(name)] = value.date().isoformat()
+            elif hasattr(value, "item"):
+                evidence[str(name)] = value.item()
+            else:
+                evidence[str(name)] = value
+        if "action" not in evidence:
+            if bool(evidence.get("signal_active", False)):
+                evidence["action"] = "INTRADAY_LONG_OVERLAY"
+            elif self.definition.decision.output_kind == "INTRADAY_OVERLAY":
+                evidence["action"] = "NO_EVENT"
+            else:
+                previous = history["target_position"].shift(1, fill_value=0.0).loc[
+                    signal_session
+                ]
+                evidence["action"] = (
+                    "BUY"
+                    if target_position > float(previous)
+                    else "SELL"
+                    if target_position < float(previous)
+                    else "HOLD"
+                )
+        return StrategySignal(
+            valid_session=point.trading_date,
+            target_position=target_position,
+            evidence=evidence,
+            next_state={
+                "signal_date": signal_date.isoformat(),
+                "target_position": target_position,
+            },
+        )
+
+    def inspect_signals(self, data: PreparedStrategyData) -> pd.DataFrame:
+        """Return a defensive copy of strategy signal history for diagnostics."""
+
+        if data.strategy != self._identity or data.window != self._window:
+            raise RuntimeContractError("prepared data belongs to another strategy instance")
+        history, _ = self._history(data)
+        return history.copy()
+
     def plan_at(
         self,
         *,
         data: PreparedStrategyData,
-        point: DecisionPoint,
+        point: TradingPoint,
         portfolio: PortfolioSnapshot,
         state: ExecutionState,
     ) -> ExecutionPlan:
         if data.strategy != self._identity or data.window != self._window:
             raise RuntimeContractError("prepared data belongs to another strategy instance")
-        if not self._window.contains(point.signal_date):
-            raise RuntimeContractError("decision point is outside the strategy window")
+        if not self._window.contains(point.trading_date):
+            raise RuntimeContractError("trading point is outside the strategy window")
         if portfolio.symbol != self._identity.symbol:
             raise RuntimeContractError("portfolio symbol differs from strategy")
         if portfolio.as_of > point.calculation_time or state.as_of > point.calculation_time:
             raise RuntimeContractError("planning state is newer than calculation time")
 
-        publication = replace(
-            data._publication,
-            requested_cutoff=point.signal_date.isoformat(),
+        signal = self._calculate_signal(data, point)
+        signal_date = data.signal_date_for(point.trading_date)
+        if signal.evidence.get("signal_date") != signal_date.isoformat():
+            raise RuntimeContractError("strategy signal evidence refers to another date")
+        references = data._pricing.references_for_dates(
+            signal_date,
+            point.trading_date,
+            timezone=point.calculation_time.tzinfo,
         )
-        deployment = DeploymentSpec(
-            deployment_id=f"plan:{portfolio.account_id}",
-            release_id=self._identity.reference_id,
-            release_hash=self._identity.release_hash,
-            symbol=self._identity.symbol,
-            account_id=portfolio.account_id,
-            channel_id="strategy_runtime",
-            settings={"cycle_target_quantity": state.cycle_target_quantity},
-        )
-        account = AccountSnapshot(
-            portfolio.account_id,
-            float(portfolio.available_cash),
-            float(portfolio.total_assets),
-            portfolio.position_quantity,
-            portfolio.revision,
-            portfolio.as_of,
-        )
-        legacy_state = StrategyStateSnapshot(
-            deployment.deployment_id,
-            self._identity.release_hash,
-            state.revision,
-            state.as_of,
-            {},
-        )
-        decision = self._algorithm.calculate(
-            CalculationRequest(
-                deployment,
-                publication,
-                account,
-                legacy_state,
-                point.calculation_time,
-            )
-        )
-        validate_decision(
-            self.definition,
-            expected_release_id=self._identity.reference_id,
-            expected_release_hash=self._identity.release_hash,
-            expected_runtime_sha256=self._identity.runtime_sha256,
-            expected_account_revision=portfolio.revision,
-            expected_state_revision=state.revision,
-            expected_input_identities=dict(data.input_identities),
-            decision=decision,
-        )
-        references = data._pricing.references_for(decision)
         raw = dict(
             build_execution_plan(
-                deployment=deployment,
-                account=account,
-                decision=decision,
-                policy=self.definition.execution,
-                reference_prices=references,
+                deployment_settings={
+                    "cycle_target_quantity": state.cycle_target_quantity
+                },
+                available_cash=float(portfolio.available_cash),
+                position_quantity=portfolio.position_quantity,
+                target_position=signal.target_position,
+                policy=self._execution_policy,
+                signal_reference_price=references.signal_reference_price,
+                execution_reference_price=references.execution_reference_price,
             )
         )
         orders = tuple(_planned_order(value) for value in raw.get("orders", ()))
@@ -192,8 +249,8 @@ class StrategyInstance:
         required_checkpoints = tuple(sorted({leg.checkpoint for leg in legs}))
         signal_identity = signal_identity_for(
             strategy=self._identity,
-            signal_date=point.signal_date,
-            target_position=decision.target_position,
+            signal_date=signal_date,
+            target_position=signal.target_position,
             input_identities=data.input_identities,
             price_identities=data.price_identities,
         )
@@ -219,15 +276,15 @@ class StrategyInstance:
             signal_identity=signal_identity,
             plan_identity=plan_identity,
             symbol=self._identity.symbol,
-            signal_date=point.signal_date,
-            valid_session=decision.valid_at.date(),
+            signal_date=signal_date,
+            valid_session=point.trading_date,
             generated_at=point.calculation_time,
             expected_portfolio_revision=portfolio.revision,
             expected_state_revision=state.revision,
             actual_quantity=portfolio.position_quantity,
             target_quantity=target_quantity,
             cycle_target_quantity=cycle_target,
-            target_position=decision.target_position,
+            target_position=signal.target_position,
             action=str(raw["action"]),
             plan_mode=plan_mode,
             capital_mode=capital_mode,
@@ -250,13 +307,14 @@ class StrategyInstance:
             ),
             input_identities=data.input_identities,
             price_identities=data.price_identities,
-            evidence=MappingProxyType(dict(decision.evidence)),
+            evidence=MappingProxyType(dict(signal.evidence)),
         )
 
     def run_window(self, *, data: PreparedStrategyData, executor: WindowExecutor):
-        for signal_date in data.decision_dates():
-            point = DecisionPoint(
-                signal_date,
+        for trading_date in data.trading_dates():
+            signal_date = data.signal_date_for(trading_date)
+            point = TradingPoint(
+                trading_date,
                 datetime.combine(signal_date, time(20, 31), tzinfo=_SHANGHAI),
             )
             portfolio, state = executor.snapshot(point)

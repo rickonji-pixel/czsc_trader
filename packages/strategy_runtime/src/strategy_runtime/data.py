@@ -10,7 +10,7 @@ from typing import Mapping, Protocol, runtime_checkable
 
 import pandas as pd
 
-from .contracts import DecisionWindow, StrategyIdentity
+from .contracts import StrategyIdentity, TradableWindow
 from .errors import RuntimeContractError
 from .models import ExecutionPricingData, PublishedStrategyData, RuntimeDefinition, canonical_sha256
 from .publication_store import (
@@ -25,7 +25,7 @@ from .validation import validate_publication
 class DataPreparationRequest:
     strategy: StrategyIdentity
     definition: RuntimeDefinition
-    window: DecisionWindow
+    window: TradableWindow
 
     def __post_init__(self) -> None:
         if self.strategy.reference_id != self.definition.release_id:
@@ -36,14 +36,15 @@ class DataPreparationRequest:
 
 @dataclass(frozen=True, slots=True)
 class PreparedStrategyData:
-    """Immutable-by-contract data admitted for one strategy decision window."""
+    """Immutable-by-contract data admitted for one strategy tradable window."""
 
     strategy: StrategyIdentity
-    window: DecisionWindow
+    window: TradableWindow
     available_through: date
     dataset_identity: str
     input_identities: Mapping[str, str]
     price_identities: Mapping[str, str]
+    _tradable_dates: tuple[date, ...]
     _publication: PublishedStrategyData
     _pricing: ExecutionPricingData
 
@@ -54,8 +55,10 @@ class PreparedStrategyData:
             raise RuntimeContractError("prepared data release hash differs from strategy")
         if self.strategy.symbol != self._pricing.symbol:
             raise RuntimeContractError("prepared data symbol differs from strategy")
-        if self.available_through < self.window.end:
-            raise RuntimeContractError("prepared data does not cover the decision window")
+        if not self._tradable_dates or tuple(sorted(set(self._tradable_dates))) != self._tradable_dates:
+            raise RuntimeContractError("prepared tradable dates must be unique and ordered")
+        if self.window.start not in self._tradable_dates or self.window.end not in self._tradable_dates:
+            raise RuntimeContractError("prepared data does not cover the tradable window")
         inputs = MappingProxyType(dict(sorted(self.input_identities.items())))
         prices = MappingProxyType(dict(sorted(self.price_identities.items())))
         object.__setattr__(self, "input_identities", inputs)
@@ -69,6 +72,7 @@ class PreparedStrategyData:
                     "end": self.window.end.isoformat(),
                 },
                 "available_through": self.available_through.isoformat(),
+                "tradable_dates": [value.isoformat() for value in self._tradable_dates],
                 "inputs": dict(inputs),
                 "prices": dict(prices),
             }
@@ -81,9 +85,10 @@ class PreparedStrategyData:
         cls,
         *,
         strategy: StrategyIdentity,
-        window: DecisionWindow,
+        window: TradableWindow,
         publication: PublishedStrategyData,
         pricing: ExecutionPricingData,
+        tradable_dates: tuple[date, ...] | None = None,
     ) -> "PreparedStrategyData":
         input_identities = {
             name: result.identity.content_sha256
@@ -91,6 +96,23 @@ class PreparedStrategyData:
         }
         price_identities = dict(pricing.identity_hashes)
         available_through = date.fromisoformat(publication.requested_cutoff)
+        if tradable_dates is None:
+            calendars = [
+                result.dataframe
+                for result in publication.input_results.values()
+                if {"Date", "IsOpen"} <= set(result.dataframe.columns)
+            ]
+            if not calendars:
+                raise RuntimeContractError("prepared data has no trading calendar")
+            frame = calendars[0]
+            tradable_dates = tuple(
+                dict.fromkeys(
+                    pd.to_datetime(
+                        frame.loc[frame["IsOpen"].astype(int).eq(1), "Date"],
+                        errors="raise",
+                    ).dt.date
+                )
+            )
         identity = canonical_sha256(
             {
                 "strategy": strategy.reference_id,
@@ -100,6 +122,7 @@ class PreparedStrategyData:
                     "end": window.end.isoformat(),
                 },
                 "available_through": available_through.isoformat(),
+                "tradable_dates": [value.isoformat() for value in tradable_dates],
                 "inputs": dict(sorted(input_identities.items())),
                 "prices": dict(sorted(price_identities.items())),
             }
@@ -111,6 +134,7 @@ class PreparedStrategyData:
             identity,
             input_identities,
             price_identities,
+            tradable_dates,
             publication,
             pricing,
         )
@@ -129,24 +153,23 @@ class PreparedStrategyData:
         except KeyError as exc:
             raise RuntimeContractError(f"prepared input is unavailable: {name}") from exc
 
-    def decision_dates(self) -> tuple[date, ...]:
-        calendars = [
-            result.dataframe
-            for result in self._publication.input_results.values()
-            if {"Date", "IsOpen"} <= set(result.dataframe.columns)
-        ]
-        if calendars:
-            frame = calendars[0]
-            dates = pd.to_datetime(
-                frame.loc[frame["IsOpen"].astype(int).eq(1), "Date"], errors="raise"
-            ).dt.date
-        else:
-            dates = pd.to_datetime(self._pricing.execution_daily["dt"], errors="raise").dt.date
+    def _calendar_dates(self) -> tuple[date, ...]:
+        return self._tradable_dates
+
+    def trading_dates(self) -> tuple[date, ...]:
         return tuple(
             value
-            for value in dict.fromkeys(dates)
+            for value in self._calendar_dates()
             if self.window.contains(value)
         )
+
+    def signal_date_for(self, trading_date: date) -> date:
+        if not self.window.contains(trading_date):
+            raise RuntimeContractError("trading date is outside the strategy window")
+        previous = [value for value in self._calendar_dates() if value < trading_date]
+        if not previous:
+            raise RuntimeContractError("prepared data has no signal session before trading date")
+        return previous[-1]
 
 
 @runtime_checkable
@@ -169,10 +192,29 @@ class PublishedDataSource:
         except ValueError as exc:
             raise RuntimeContractError("strategy publication cutoff is invalid") from exc
 
+    def trading_date_for(self, reference_id: str) -> date:
+        publication = read_publication(self._directory, reference_id)
+        cutoff = self.cutoff_for(reference_id)
+        calendars = [
+            result.dataframe
+            for result in publication.input_results.values()
+            if {"Date", "IsOpen"} <= set(result.dataframe.columns)
+        ]
+        if not calendars:
+            raise RuntimeContractError("strategy publication has no trading calendar")
+        frame = calendars[0]
+        future = pd.to_datetime(
+            frame.loc[frame["IsOpen"].astype(int).eq(1), "Date"], errors="raise"
+        ).dt.date
+        future = [value for value in future if value > cutoff]
+        if not future:
+            raise RuntimeContractError("strategy publication has no next trading session")
+        return future[0]
+
     def prepare(self, request: DataPreparationRequest) -> PreparedStrategyData:
         if request.window.start != request.window.end:
             raise RuntimeContractError(
-                "published data source supports one decision cutoff per preparation"
+                "published data source supports one trading session per preparation"
             )
         symbol = _definition_symbol(request.definition)
         if symbol != request.strategy.symbol:
@@ -188,10 +230,6 @@ class PublishedDataSource:
             raise RuntimeContractError(
                 "strategy publication cutoff differs from its SRT generation"
             )
-        if date.fromisoformat(publication.requested_cutoff) != request.window.end:
-            raise RuntimeContractError(
-                "strategy publication cutoff differs from the decision window"
-            )
         try:
             adjusted = publication.input_results["adjusted_daily"].dataframe
             execution = publication.input_results["execution_daily"].dataframe
@@ -199,9 +237,58 @@ class PublishedDataSource:
             raise RuntimeContractError(
                 "SRT publication has no complete execution-pricing data"
             ) from exc
-        return PreparedStrategyData.from_publication(
+        prepared = PreparedStrategyData.from_publication(
             strategy=request.strategy,
             window=request.window,
             publication=publication,
             pricing=ExecutionPricingData(symbol, adjusted, execution),
         )
+        if prepared.signal_date_for(request.window.start) != date.fromisoformat(
+            publication.requested_cutoff
+        ):
+            raise RuntimeContractError(
+                "strategy publication cutoff is not the signal session for trading"
+            )
+        return prepared
+
+
+class HistoricalDataSource:
+    """Admit a publication with caller-supplied historical execution prices."""
+
+    def __init__(
+        self,
+        *,
+        publication: PublishedStrategyData,
+        symbol: str,
+        adjusted_daily: pd.DataFrame,
+        execution_daily: pd.DataFrame,
+    ) -> None:
+        self._publication = publication
+        self._pricing = ExecutionPricingData(
+            symbol.upper(), adjusted_daily, execution_daily
+        )
+
+    def prepare(self, request: DataPreparationRequest) -> PreparedStrategyData:
+        validate_publication(request.definition, self._publication)
+        if self._publication.release_id != request.strategy.reference_id:
+            raise RuntimeContractError("historical publication belongs to another strategy")
+        if self._pricing.symbol != request.strategy.symbol:
+            raise RuntimeContractError("historical pricing belongs to another symbol")
+        prepared = PreparedStrategyData.from_publication(
+            strategy=request.strategy,
+            window=request.window,
+            publication=self._publication,
+            pricing=self._pricing,
+            tradable_dates=tuple(
+                dict.fromkeys(
+                    pd.to_datetime(
+                        self._pricing.adjusted_daily["dt"], errors="raise"
+                    ).dt.date
+                )
+            ),
+        )
+        cutoff = date.fromisoformat(self._publication.requested_cutoff)
+        last_signal = prepared.signal_date_for(request.window.end)
+        if cutoff < last_signal:
+            raise RuntimeContractError("historical publication ends before the signal window")
+        return prepared

@@ -7,14 +7,14 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from strategy_runtime import (
-    DecisionPoint,
-    DecisionWindow,
     ExecutionState,
     PortfolioSnapshot,
     PublishedDataSource,
     StrategyInit,
     StrategyRelease,
     StrategyRuntime,
+    TradableWindow,
+    TradingPoint,
 )
 
 
@@ -33,17 +33,18 @@ def _release(strategy_id: str, version: str) -> StrategyRelease:
 
 def test_public_runtime_prepares_and_plans_without_an_execution_channel() -> None:
     signal_date = date(2026, 9, 18)
+    trading_date = date(2026, 9, 21)
     strategy = StrategyRuntime().create(
         StrategyInit(
             _release("S007", "v1"),
-            DecisionWindow(signal_date, signal_date),
+            TradableWindow(trading_date, trading_date),
         )
     )
     prepared = strategy.prepare_data(PublishedDataSource(ROOT / "data/backtest"))
     calculated_at = datetime(2026, 9, 20, 22, 14, tzinfo=ZONE)
     plan = strategy.plan_at(
         data=prepared,
-        point=DecisionPoint(signal_date, calculated_at),
+        point=TradingPoint(trading_date, calculated_at),
         portfolio=PortfolioSnapshot(
             "s007-v1",
             "588080.SH",

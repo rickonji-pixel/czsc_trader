@@ -661,34 +661,49 @@ class ExecutionPricingData:
             }
         )
 
-    def references_for(self, decision: "StrategyDecision") -> "ReferencePriceSnapshot":
-        raw_signal_date = decision.evidence.get("signal_date")
-        if raw_signal_date is None:
-            raise RuntimeContractError("strategy decision must declare signal_date")
-        try:
-            signal_date = pd.Timestamp(raw_signal_date).normalize()
-        except (TypeError, ValueError) as exc:
-            raise RuntimeContractError("strategy decision signal_date is invalid") from exc
+    def references_for_dates(
+        self,
+        signal_date: date,
+        valid_session: date,
+        *,
+        timezone,
+    ) -> "ReferencePriceSnapshot":
+        signal_date = pd.Timestamp(signal_date).normalize()
         adjusted = self.adjusted_daily.loc[self.adjusted_daily["dt"].eq(signal_date)]
         execution = self.execution_daily.loc[self.execution_daily["dt"].eq(signal_date)]
         if len(adjusted) != 1 or len(execution) != 1:
             raise RuntimeContractError(
                 "execution pricing has no unique reference row for the signal session"
             )
-        if decision.valid_at.date() <= signal_date.date():
+        if valid_session <= signal_date.date():
             raise RuntimeContractError("execution instruction must follow the signal session")
         signal_at = datetime.combine(
-            signal_date.date(), time(15, 0), tzinfo=decision.valid_at.tzinfo
+            signal_date.date(), time(15, 0), tzinfo=timezone
         )
+        valid_at = datetime.combine(valid_session, time(9, 30), tzinfo=timezone)
         return ReferencePriceSnapshot(
             symbol=self.symbol,
             signal_at=signal_at,
-            valid_at=decision.valid_at,
+            valid_at=valid_at,
             signal_reference_price=float(adjusted.iloc[0]["close"]),
             execution_reference_price=float(execution.iloc[0]["close"]),
             signal_price_basis="ADJUSTED_CLOSE",
             execution_price_basis="UNADJUSTED_CLOSE",
             price_identity_hashes=self.identity_hashes,
+        )
+
+    def references_for(self, decision: "StrategyDecision") -> "ReferencePriceSnapshot":
+        raw_signal_date = decision.evidence.get("signal_date")
+        if raw_signal_date is None:
+            raise RuntimeContractError("strategy decision must declare signal_date")
+        try:
+            signal_date = pd.Timestamp(raw_signal_date).date()
+        except (TypeError, ValueError) as exc:
+            raise RuntimeContractError("strategy decision signal_date is invalid") from exc
+        return self.references_for_dates(
+            signal_date,
+            decision.valid_at.date(),
+            timezone=decision.valid_at.tzinfo,
         )
 
 

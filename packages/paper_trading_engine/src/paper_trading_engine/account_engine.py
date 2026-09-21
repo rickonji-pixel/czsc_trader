@@ -209,7 +209,7 @@ class AccountEngine:
         if not published_date:
             raise AccountDecisionBlockedError("PTE尚无可用于决策的数据发布日期")
         try:
-            signal_date = datetime.strptime(str(published_date), "%Y-%m-%d").date()
+            datetime.strptime(str(published_date), "%Y-%m-%d").date()
         except ValueError as exc:
             raise AccountDecisionBlockedError("PTE数据发布日期格式无效") from exc
         source_revision = self._planning_revision(account, active_intents)
@@ -271,10 +271,20 @@ class AccountEngine:
         previous_action = (
             json.loads(previous_payload).get("action") if previous_payload else None
         )
+        if hasattr(self.advice, "trading_date"):
+            trading_date = self.advice.trading_date(
+                str(account["strategy_id"]), str(account["strategy_version"])
+            )
+        elif previous_payload:
+            trading_date = datetime.strptime(
+                str(json.loads(previous_payload)["valid_session"]), "%Y-%m-%d"
+            ).date()
+        else:
+            raise AccountDecisionBlockedError("决策适配器未提供目标交易日")
         decision = self.advice.get_decision(
             int(account["quantity"]), float(decision_cash),
             total_assets=float(account["total_assets"]),
-            signal_date=signal_date,
+            trading_date=trading_date,
             portfolio_revision=portfolio_revision,
             state_revision=state_revision,
             cycle_target_quantity=account["cycle_target"],

@@ -1,46 +1,103 @@
 from __future__ import annotations
 
-from datetime import datetime
-from types import SimpleNamespace
+from datetime import datetime, time
+from decimal import Decimal
+from types import MappingProxyType, SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
-from dataflows import DataIdentity, DataRequest, DataResult, DataStatus
 from strategy_runtime import (
-    DeploymentSpec,
-    ExecutionPricingData,
+    ExecutionCapabilities,
+    ExecutionPlan,
     ExecutionPolicy,
-    PublicationStatus,
-    PublishedStrategyData,
+    OrderSide,
+    OrderType,
+    PlanLeg,
+    PlannedOrder,
+    PriceReference,
     RuntimeContractError,
-    StrategyDecision,
-    StrategyRuntimeContext,
-    StrategyRunner,
+    StrategyIdentity,
+    TradingPoint,
 )
+from strategy_runtime.contracts import plan_identity_for, signal_identity_for
 
 from trading_execution_engine import HistoricalExecutor
 from czsc_trader.backtesting.srt_bridge import _validate_historical_decisions
 
 
-def _runtime_context(
-    release_id: str, release_hash: str, symbol: str, daily: pd.DataFrame
-) -> StrategyRuntimeContext:
-    cutoff = pd.to_datetime(daily["dt"]).max().date().isoformat()
-    request = DataRequest("test.prices", symbol, cutoff, cutoff, cutoff, "daily")
-    identity = DataIdentity(
-        "test.prices", "test", symbol, cutoff, cutoff, "c" * 64
+def _execution_plan(
+    *,
+    reference: str,
+    symbol: str,
+    signal_date: str,
+    valid_date: str,
+    generated_at: datetime,
+    portfolio,
+    state,
+    target_position: float,
+    target_quantity: int,
+    cycle_target_quantity: int,
+    orders: tuple[PlannedOrder, ...] = (),
+    legs: tuple[PlanLeg, ...] = (),
+    plan_mode: str = "TARGET_POSITION",
+    fee_rate: float = 0.001,
+) -> ExecutionPlan:
+    strategy = StrategyIdentity(
+        reference.split("-")[0], reference, "a" * 64, "b" * 64, symbol
     )
-    publication = PublishedStrategyData(
-        release_id,
-        release_hash,
-        PublicationStatus.READY,
-        cutoff,
-        {"test": request},
-        {"test": DataResult(DataStatus.READY, daily, identity)},
+    inputs = MappingProxyType({"fixture": "c" * 64})
+    prices = MappingProxyType({"execution_daily": "d" * 64})
+    signal = signal_identity_for(
+        strategy=strategy,
+        signal_date=pd.Timestamp(signal_date).date(),
+        target_position=target_position,
+        input_identities=inputs,
+        price_identities=prices,
     )
-    return StrategyRuntimeContext(
-        publication, ExecutionPricingData(symbol, daily, daily)
+    identity = plan_identity_for(
+        signal_identity=signal,
+        actual_quantity=portfolio.position_quantity,
+        target_quantity=target_quantity,
+        cycle_target_quantity=cycle_target_quantity,
+        plan_mode=plan_mode,
+        capital_mode="full_available_cash",
+        allocation_fraction=Decimal("1"),
+        orders=orders,
+        legs=legs,
+    )
+    return ExecutionPlan(
+        strategy=strategy,
+        signal_identity=signal,
+        plan_identity=identity,
+        symbol=symbol,
+        signal_date=pd.Timestamp(signal_date).date(),
+        valid_session=pd.Timestamp(valid_date).date(),
+        generated_at=generated_at,
+        expected_portfolio_revision=portfolio.revision,
+        expected_state_revision=state.revision,
+        actual_quantity=portfolio.position_quantity,
+        target_quantity=target_quantity,
+        cycle_target_quantity=cycle_target_quantity,
+        target_position=target_position,
+        action="PLAN",
+        plan_mode=plan_mode,
+        capital_mode="full_available_cash",
+        allocation_fraction=Decimal("1"),
+        orders=orders,
+        legs=legs,
+        available_cash=portfolio.available_cash,
+        fee_rate=Decimal(str(fee_rate)),
+        estimated_order_cost=Decimal("0"),
+        unallocated_cash=Decimal("0"),
+        references=PriceReference(Decimal("1"), Decimal("1"), "close", "open"),
+        required_capabilities=ExecutionCapabilities(
+            tuple(dict.fromkeys(order.order_type for order in orders + tuple(leg.order for leg in legs))),
+            tuple(dict.fromkeys(leg.checkpoint for leg in legs)),
+        ),
+        input_identities=inputs,
+        price_identities=prices,
+        evidence=MappingProxyType({"signal_date": signal_date}),
     )
 
 
@@ -59,12 +116,13 @@ def test_srt_history_rejects_missing_required_score_instead_of_silent_hold() -> 
         _validate_historical_decisions(history, sessions)
 
 
-def test_txe_historical_executor_refuses_to_finalize_an_unsubmitted_decision() -> None:
+def test_txe_historical_executor_refuses_to_finish_with_missing_session_plan() -> None:
     daily = pd.DataFrame(
         [{"dt": pd.Timestamp("2026-09-18"), "open": 1.0, "close": 1.0}]
     )
     channel = HistoricalExecutor(
         strategy_reference="S001-v1",
+        symbol="588080.SH",
         execution_daily=daily,
         execution_intraday=pd.DataFrame(columns=["dt", "open", "high", "low", "close"]),
         evaluation_start=pd.Timestamp("2026-09-18"),
@@ -88,7 +146,7 @@ def test_txe_historical_executor_refuses_to_finalize_an_unsubmitted_decision() -
     )
 
     with pytest.raises(RuntimeContractError, match="incomplete target-position requests"):
-        channel.finalize()
+        channel.finish()
 
 
 def test_txe_historical_executor_executes_requests_against_its_confirmed_ledger() -> None:
@@ -143,6 +201,7 @@ def test_txe_historical_executor_executes_requests_against_its_confirmed_ledger(
     )
     channel = HistoricalExecutor(
         strategy_reference="S999-v1",
+        symbol="588080.SH",
         execution_daily=replay_data.execution_daily,
         execution_intraday=replay_data.execution_intraday,
         evaluation_start=pd.Timestamp("2026-09-17"),
@@ -152,65 +211,46 @@ def test_txe_historical_executor_executes_requests_against_its_confirmed_ledger(
         order_types=("LIMIT",),
     )
     zone = ZoneInfo("Asia/Shanghai")
-    release_hash = "a" * 64
-    runtime_hash = "b" * 64
-    input_hash = "c" * 64
-    runner = StrategyRunner()
-    for revision, (signal_date, valid_date, target) in enumerate(
+    outcomes = []
+    for revision, (signal_date, valid_date, target, target_quantity, order) in enumerate(
         (
-            ("2026-09-16", "2026-09-17", 1.0),
-            ("2026-09-17", "2026-09-18", 0.0),
+            (
+                "2026-09-16",
+                "2026-09-17",
+                1.0,
+                99_900,
+                PlannedOrder(OrderSide.BUY, 99_900, OrderType.LIMIT, Decimal("1.0")),
+            ),
+            (
+                "2026-09-17",
+                "2026-09-18",
+                0.0,
+                0,
+                PlannedOrder(OrderSide.SELL, 99_900, OrderType.LIMIT, Decimal("0.99")),
+            ),
         )
     ):
         generated_at = datetime.fromisoformat(f"{signal_date}T20:30:00").replace(tzinfo=zone)
-        account = channel.account_snapshot("account", generated_at)
-        assert account.revision == revision
-        deployment = DeploymentSpec(
-            "deployment",
-            "S999-v1",
-            release_hash,
-            "588080.SH",
-            "account",
-            channel.channel_id,
-            channel.deployment_settings,
+        point = TradingPoint(pd.Timestamp(valid_date).date(), generated_at)
+        portfolio, state = channel.snapshot(point)
+        assert portfolio.revision == state.revision == revision
+        plan = _execution_plan(
+            reference="S999-v1",
+            symbol="588080.SH",
+            signal_date=signal_date,
+            valid_date=valid_date,
+            generated_at=generated_at,
+            portfolio=portfolio,
+            state=state,
+            target_position=target,
+            target_quantity=target_quantity,
+            cycle_target_quantity=99_900,
+            orders=(order,),
         )
-        decision = StrategyDecision(
-            f"DEC-{revision}",
-            deployment.deployment_id,
-            deployment.release_id,
-            deployment.release_hash,
-            runtime_hash,
-            generated_at,
-            datetime.fromisoformat(f"{valid_date}T09:30:00").replace(tzinfo=zone),
-            target,
-            account.revision,
-            0,
-            {"test": input_hash},
-            {"signal_date": signal_date},
-            {"target_position": target},
-        )
-        strategy = SimpleNamespace(
-            definition=SimpleNamespace(
-                release_id="S999-v1",
-                release_hash=release_hash,
-                runtime_sha256=runtime_hash,
-                capabilities=SimpleNamespace(order_types=("LIMIT",), checkpoints=()),
-                decision=SimpleNamespace(minimum_target=0.0, maximum_target=1.0),
-                execution=policy,
-            )
-        )
-        runner.submit_precomputed(
-            strategy=strategy,
-            deployment=deployment,
-            account_snapshot=account,
-            channel=channel,
-            decision=decision,
-            context=_runtime_context("S999-v1", release_hash, "588080.SH", daily),
-            execution_policy=channel.effective_policy,
-        )
+        outcomes.append(channel.execute(plan))
 
-    result = channel.finalize()
-    assert [receipt.status for receipt in channel.receipts] == ["SETTLED", "SETTLED"]
+    result = channel.finish()
+    assert [outcome.status for outcome in outcomes] == ["SETTLED", "SETTLED"]
     assert result.orders["side"].tolist() == ["BUY", "SELL"]
     assert result.fills["side"].tolist() == ["BUY", "SELL"]
     assert result.account_daily["quantity"].tolist() == [99_900, 0]
@@ -262,6 +302,7 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
     )
     channel = HistoricalExecutor(
         strategy_reference="S003-v1",
+        symbol="510500.SH",
         execution_five_minute=five,
         execution_daily=replay_data.execution_daily,
         execution_intraday=replay_data.execution_intraday,
@@ -275,56 +316,42 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
     )
     zone = ZoneInfo("Asia/Shanghai")
     generated_at = datetime.fromisoformat("2026-09-16T20:30:00").replace(tzinfo=zone)
-    account = channel.account_snapshot("account", generated_at)
-    assert account.position_quantity == 4_900
-    deployment = DeploymentSpec(
-        "deployment",
-        "S003-v1",
-        "a" * 64,
-        "510500.SH",
-        "account",
-        channel.channel_id,
-        channel.deployment_settings,
-    )
-    decision = StrategyDecision(
-        "DEC-OVERLAY",
-        deployment.deployment_id,
-        deployment.release_id,
-        deployment.release_hash,
-        "b" * 64,
-        generated_at,
-        datetime.fromisoformat("2026-09-17T09:30:00").replace(tzinfo=zone),
-        1.0,
-        account.revision,
-        0,
-        {"test": "c" * 64},
-        {"signal_date": "2026-09-16", "action": "INTRADAY_LONG_OVERLAY"},
-        {"event_active": True},
-    )
-    strategy = SimpleNamespace(
-        definition=SimpleNamespace(
-            release_id="S003-v1",
-            release_hash="a" * 64,
-            runtime_sha256="b" * 64,
-            capabilities=SimpleNamespace(
-                order_types=("LIMIT", "MARKET"),
-                checkpoints=("OPEN", "11:30_CLOSE"),
+    point = TradingPoint(pd.Timestamp("2026-09-17").date(), generated_at)
+    portfolio, state = channel.snapshot(point)
+    assert portfolio.position_quantity == 4_900
+    buy = PlannedOrder(OrderSide.BUY, 4_600, OrderType.LIMIT, Decimal("10.0"))
+    sell = PlannedOrder(OrderSide.SELL, 4_600, OrderType.MARKET, Decimal("10.2"))
+    plan = _execution_plan(
+        reference="S003-v1",
+        symbol="510500.SH",
+        signal_date="2026-09-16",
+        valid_date="2026-09-17",
+        generated_at=generated_at,
+        portfolio=portfolio,
+        state=state,
+        target_position=1.0,
+        target_quantity=9_500,
+        cycle_target_quantity=4_900,
+        plan_mode="CORE_EVENT_INTRADAY_ROTATION",
+        fee_rate=float(channel.effective_policy.settings["one_way_cost"]),
+        legs=(
+            PlanLeg(1, "OPEN_ROTATION_BUY", "OPEN", time(9, 15), time(10), buy),
+            PlanLeg(
+                2,
+                "MIDDAY_ROTATION_SELL",
+                "11:30_CLOSE",
+                time(11, 25),
+                time(11, 35),
+                sell,
+                dependency_sequence=1,
+                dependency_required_status="FILLED_ALL",
             ),
-            decision=SimpleNamespace(minimum_target=0.0, maximum_target=1.0),
-            execution=policy,
-        )
+        ),
     )
-    StrategyRunner().submit_precomputed(
-        strategy=strategy,
-        deployment=deployment,
-        account_snapshot=account,
-        channel=channel,
-        decision=decision,
-        context=_runtime_context("S003-v1", "a" * 64, "510500.SH", daily),
-        execution_policy=channel.effective_policy,
-    )
+    outcome = channel.execute(plan)
+    assert outcome.status == "SETTLED"
 
-    result = channel.finalize()
+    result = channel.finish()
     assert result.orders["side"].tolist() == ["BUY", "SELL"]
     assert result.orders["order_type"].tolist() == ["LIMIT", "MARKET"]
     assert result.fills["price"].tolist() == [10.0, 10.2]

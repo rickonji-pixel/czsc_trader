@@ -79,13 +79,16 @@ class FakeAdvice:
     def publication_date(self, _strategy_id, _strategy_version):
         return self.value.signal_date
 
+    def trading_date(self, _strategy_id, _strategy_version):
+        return self.value.valid_session
+
     def get_decision(self, actual_quantity, available_cash, **kwargs):
         self.calls.append((actual_quantity, available_cash, kwargs))
         value = replace(
             self.value,
             actual_quantity=actual_quantity,
             available_cash=available_cash,
-            signal_date=kwargs.get("signal_date", self.value.signal_date),
+            valid_session=kwargs.get("trading_date", self.value.valid_session),
             portfolio_revision=kwargs.get(
                 "portfolio_revision", self.value.portfolio_revision
             ),

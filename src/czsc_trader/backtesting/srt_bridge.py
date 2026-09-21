@@ -2,28 +2,24 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
 from hashlib import sha256
 import json
 from pathlib import Path
 from collections.abc import Mapping
-from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 from strategy_runtime import (
-    DeploymentSpec,
-    ExecutionPricingData,
+    TradableWindow,
+    HistoricalDataSource,
+    ExecutionPolicy,
     PublishedStrategyData,
-    StrategyDecision,
-    StrategyLoader,
+    StrategyInit,
     StrategyRelease,
-    StrategyRunner,
+    StrategyRuntime,
     StrategyCandidate,
     RuntimeContractError,
-    StrategyRuntimeContext,
     effective_target_order_type,
-    load_strategy_runtime_context,
     read_publication,
     canonical_sha256,
 )
@@ -72,9 +68,6 @@ def _validate_historical_decisions(
             )
 
 
-_SHANGHAI = ZoneInfo("Asia/Shanghai")
-
-
 def _plain_json(value):
     if isinstance(value, Mapping):
         return {str(key): _plain_json(item) for key, item in value.items()}
@@ -108,25 +101,21 @@ def load_srt_strategy(
     """Load a frozen runtime, optionally bound to an explicit backtest symbol."""
 
     release = _load_release(repository_root, reference)
-    loader = StrategyLoader()
-    strategy = (
-        loader.load_for_symbol(release, deployment_symbol)
-        if deployment_symbol is not None
-        else loader.load(release)
-    )
-    return release, strategy
+    definition = StrategyRuntime().describe(release, symbol=deployment_symbol)
+    return release, definition
 
 
 def strategy_reference_symbol(strategy) -> str:
     """Return the single ETF instrument declared by one frozen runtime."""
 
+    definition = getattr(strategy, "definition", strategy)
     subjects = {
         item.subject.upper()
-        for item in strategy.definition.inputs.requirements
+        for item in definition.inputs.requirements
         if item.subject and item.dataset.startswith("etf.")
     }
     if len(subjects) != 1:
-        payload = strategy.definition.parameters.values
+        payload = definition.parameters.values
         rule = payload.get("rule")
         if isinstance(rule, Mapping):
             execution = rule.get("execution")
@@ -147,7 +136,8 @@ def strategy_reference_symbol(strategy) -> str:
 def execution_intraday_frequencies(strategy) -> tuple[str, ...]:
     """Map SRT channel checkpoints to TDR execution-price datasets."""
 
-    checkpoints = set(strategy.definition.capabilities.checkpoints)
+    definition = getattr(strategy, "definition", strategy)
+    checkpoints = set(definition.capabilities.checkpoints)
     unsupported = checkpoints - {"OPEN", "11:30_CLOSE"}
     if unsupported:
         raise ValueError(f"unsupported SRT execution checkpoints: {sorted(unsupported)}")
@@ -169,27 +159,32 @@ def build_srt_signal_replay(
         family, separator, candidate_id = snapshot.identity.reference.partition("-")
         if not separator:
             raise RuntimeContractError("candidate replay requires a family-qualified identity")
-        candidate = StrategyCandidate(family, candidate_id, snapshot.strategy_payload)
-        strategy = StrategyLoader().load_candidate(candidate)
-        if snapshot.source_hash != candidate.runtime_identity_sha256:
+        source = StrategyCandidate(family, candidate_id, snapshot.strategy_payload)
+        if snapshot.source_hash != source.runtime_identity_sha256:
             raise RuntimeContractError("candidate release hashes differ from the snapshot")
         if snapshot.content_hash != canonical_sha256(snapshot.strategy_payload):
             raise RuntimeContractError("candidate snapshot content hash differs")
     elif snapshot.identity.kind == "REGISTERED":
-        release, strategy = load_srt_strategy(
-            repository_root, snapshot.identity.reference,
-            deployment_symbol=replay_data.adjusted.symbol,
-        )
+        source = _load_release(repository_root, snapshot.identity.reference)
         if (
-            snapshot.source_hash != release.release_hash
-            or canonical_sha256(snapshot.strategy_payload) != canonical_sha256(release.payload)
+            snapshot.source_hash != source.release_hash
+            or canonical_sha256(snapshot.strategy_payload) != canonical_sha256(source.payload)
         ):
             raise RuntimeContractError("registered snapshot differs from its frozen release")
     else:
         raise RuntimeContractError(f"unsupported strategy identity: {snapshot.identity.kind}")
-    if strategy.definition.release_id != snapshot.identity.reference:
+    runtime = StrategyRuntime()
+    definition = runtime.describe(
+        source,
+        symbol=(
+            replay_data.adjusted.symbol
+            if snapshot.identity.kind == "REGISTERED"
+            else None
+        ),
+    )
+    if definition.release_id != snapshot.identity.reference:
         raise RuntimeContractError("historical runtime differs from the replay identity")
-    if strategy_reference_symbol(strategy) != replay_data.adjusted.symbol:
+    if strategy_reference_symbol(definition) != replay_data.adjusted.symbol:
         raise RuntimeContractError("historical runtime differs from the replay symbol")
     if replay_data.dataset == "research" and end.normalize() > pd.Timestamp(replay_data.cutoff):
         raise RuntimeContractError("research backtest window exceeds the published cutoff")
@@ -199,23 +194,8 @@ def build_srt_signal_replay(
     evaluation = sessions[(sessions >= start.normalize()) & (sessions <= end.normalize())]
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
-    if publication is None and replay_data.dataset == "backtest":
-        runtime_context = load_strategy_runtime_context(replay_data.root, strategy)
-        publication = runtime_context.strategy_data
-    else:
-        if publication is None:
-            publication = read_publication(
-                replay_data.root, strategy.definition.release_id
-            )
-        runtime_context = StrategyRuntimeContext(
-            publication,
-            ExecutionPricingData(
-                replay_data.adjusted.symbol,
-                replay_data.adjusted.daily,
-                replay_data.execution_daily,
-            ),
-        )
-    StrategyRunner.validate_publication(strategy, publication)
+    if publication is None:
+        publication = read_publication(replay_data.root, definition.release_id)
     if not publication.ready:
         raise RuntimeContractError("historical calculation requires a READY publication")
     if replay_data.dataset == "research" and pd.Timestamp(publication.requested_cutoff).date() != replay_data.cutoff:
@@ -224,15 +204,30 @@ def build_srt_signal_replay(
         raise ValueError(
             "SRT historical publication ends before the requested backtest interval"
         )
-    inputs = {
-        name: result.dataframe
-        for name, result in publication.input_results.items()
-    }
-    history = strategy.calculate_history(inputs, sessions)
     first_location = int(sessions.get_loc(evaluation[0]))
     visible = sessions[max(0, first_location - 1) : int(sessions.get_loc(evaluation[-1])) + 1]
-    _validate_historical_decisions(history, visible)
     next_sessions = pd.Series(sessions[1:], index=sessions[:-1])
+    strategy = runtime.create(
+        StrategyInit(
+            source,
+            TradableWindow(evaluation[0].date(), evaluation[-1].date()),
+            symbol=(
+                replay_data.adjusted.symbol
+                if snapshot.identity.kind == "REGISTERED"
+                else None
+            ),
+        )
+    )
+    prepared_data = strategy.prepare_data(
+        HistoricalDataSource(
+            publication=publication,
+            symbol=replay_data.adjusted.symbol,
+            adjusted_daily=replay_data.adjusted.daily,
+            execution_daily=replay_data.execution_daily,
+        )
+    )
+    history = strategy.inspect_signals(prepared_data)
+    _validate_historical_decisions(history, visible)
     rows: list[dict[str, object]] = []
     output_kind = strategy.definition.decision.output_kind
     if output_kind == "INTRADAY_OVERLAY":
@@ -304,7 +299,7 @@ def build_srt_signal_replay(
         if "regime" in history:
             chart_data["regime"] = history.loc[visible, "regime"].astype("string").to_numpy()
     calculations = history.index
-    execution = strategy.definition.execution
+    execution = definition.execution
     target_order_types: dict[str, str | None] = {
         "entry_order_type": None,
         "exit_order_type": None,
@@ -316,16 +311,17 @@ def build_srt_signal_replay(
         }
     replay = SignalReplay(
         snapshot=snapshot,
+        strategy_source=source,
         decisions=pd.DataFrame(rows),
         calculation_start=pd.Timestamp(calculations.min()),
         calculation_end=pd.Timestamp(calculations.max()),
         evaluation_start=evaluation[0],
         evaluation_end=evaluation[-1],
-        runtime_context=runtime_context,
+        prepared_data=prepared_data,
         support_data={
             "mode": "srt_input_contract",
-            "release_id": strategy.definition.release_id,
-            "runtime_sha256": strategy.definition.runtime_sha256,
+            "release_id": definition.release_id,
+            "runtime_sha256": definition.runtime_sha256,
             "execution_policy": {
                 "policy_type": execution.policy_type,
                 "settings": _plain_json(execution.settings),
@@ -358,80 +354,45 @@ def replay_srt_account(
     """Route SRT decisions directly through TXE, then wrap facts for reporting."""
 
     definition = strategy.definition
+    effective_policy = definition.execution
+    if fee_rate_override is not None:
+        if not np.isfinite(fee_rate_override) or not 0 <= fee_rate_override < 1:
+            raise RuntimeContractError("fee_rate_override must be finite and in [0, 1)")
+        settings = dict(effective_policy.settings)
+        if effective_policy.policy_type == "FROZEN_RULE":
+            settings["capital"] = {
+                **settings["capital"],
+                "fee_rate": float(fee_rate_override),
+            }
+        else:
+            settings["one_way_cost"] = float(fee_rate_override)
+        effective_policy = ExecutionPolicy(effective_policy.policy_type, settings)
+    strategy = StrategyRuntime().create(
+        StrategyInit(
+            signals.strategy_source,
+            strategy.window,
+            symbol=(
+                replay_data.adjusted.symbol
+                if signals.snapshot.identity.kind == "REGISTERED"
+                else None
+            ),
+            execution_policy=effective_policy,
+        )
+    )
     channel = HistoricalExecutor(
         strategy_reference=signals.snapshot.identity.reference,
+        symbol=replay_data.adjusted.symbol,
         execution_daily=replay_data.execution_daily,
         execution_intraday=replay_data.execution_intraday,
         execution_five_minute=replay_data.execution_five_minute,
         evaluation_start=signals.evaluation_start,
         evaluation_end=signals.evaluation_end,
         initial_cash=initial_cash,
-        execution_policy=definition.execution,
+        execution_policy=effective_policy,
         order_types=definition.capabilities.order_types,
         checkpoints=definition.capabilities.checkpoints,
-        fee_rate_override=fee_rate_override,
     )
-    publication_hash = (signals.support_data or {}).get("publication_sha256", "")
-    identity_hash = sha256(
-        f"{replay_data.fingerprint}|{publication_hash}|{definition.runtime_sha256}".encode()
-    ).hexdigest()
-    runner = StrategyRunner()
-    valid = signals.decisions.dropna(subset=["valid_session"])
-    for row in valid.itertuples(index=False):
-        signal_date = pd.Timestamp(row.signal_date)
-        generated_at = datetime.combine(signal_date.date(), time(20, 30), _SHANGHAI)
-        valid_session = pd.Timestamp(row.valid_session)
-        valid_at = datetime.combine(valid_session.date(), time(9, 30), _SHANGHAI)
-        deployment = DeploymentSpec(
-            "backtest-deployment",
-            definition.release_id,
-            definition.release_hash,
-            replay_data.adjusted.symbol,
-            "backtest-account",
-            channel.channel_id,
-            channel.deployment_settings,
-        )
-        account = channel.account_snapshot(deployment.account_id, generated_at)
-        evidence: dict[str, object] = {"signal_date": signal_date.date().isoformat()}
-        for key in (
-            "factor_score",
-            "confirmation_score",
-            "regime",
-            "threshold",
-            "observed_weight_ratio",
-            "action",
-        ):
-            if not hasattr(row, key):
-                continue
-            value = getattr(row, key)
-            if pd.isna(value):
-                continue
-            evidence[key] = value.item() if hasattr(value, "item") else value
-        decision = StrategyDecision(
-            str(row.decision_id),
-            deployment.deployment_id,
-            definition.release_id,
-            definition.release_hash,
-            definition.runtime_sha256,
-            generated_at,
-            valid_at,
-            float(row.target_position),
-            account.revision,
-            0,
-            {"historical_replay": identity_hash},
-            evidence,
-            {"target_position": float(row.target_position)},
-        )
-        runner.submit_precomputed(
-            strategy=strategy,
-            deployment=deployment,
-            account_snapshot=account,
-            channel=channel,
-            decision=decision,
-            context=signals.runtime_context,
-            execution_policy=channel.effective_policy,
-        )
-    ledger = channel.finalize()
+    ledger = strategy.run_window(data=signals.prepared_data, executor=channel)
     return BacktestResult(
         identity=signals.snapshot.identity,
         decisions=ledger.decisions,

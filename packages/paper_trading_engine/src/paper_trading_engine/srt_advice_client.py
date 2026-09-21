@@ -10,8 +10,6 @@ import time as clock
 from typing import Callable
 
 from strategy_runtime import (
-    DecisionPoint,
-    DecisionWindow,
     ExecutionPlan,
     ExecutionState,
     PortfolioSnapshot,
@@ -20,6 +18,8 @@ from strategy_runtime import (
     StrategyInit,
     StrategyRelease,
     StrategyRuntime,
+    TradableWindow,
+    TradingPoint,
 )
 
 from .audit import AuditRecorder
@@ -157,6 +157,9 @@ class SrtAdviceClient:
     def publication_date(self, strategy_id: str, strategy_version: str) -> date:
         return self.data_source.cutoff_for(f"{strategy_id}-{strategy_version}")
 
+    def trading_date(self, strategy_id: str, strategy_version: str) -> date:
+        return self.data_source.trading_date_for(f"{strategy_id}-{strategy_version}")
+
     def prepared_data_for_account(
         self,
         *,
@@ -168,9 +171,9 @@ class SrtAdviceClient:
         if asset != "etf":
             raise AdviceClientError("PTE currently requires one ETF publication")
         release = self._load_release(strategy_id, strategy_version)
-        signal_date = self.data_source.cutoff_for(release.release_id)
+        trading_date = self.data_source.trading_date_for(release.release_id)
         strategy = StrategyRuntime().create(
-            StrategyInit(release, DecisionWindow(signal_date, signal_date))
+            StrategyInit(release, TradableWindow(trading_date, trading_date))
         )
         if strategy.identity.symbol != symbol.upper():
             raise AdviceClientError("SRT execution-pricing symbol differs from account")
@@ -202,7 +205,7 @@ class SrtAdviceClient:
         available_cash: float,
         total_assets: float,
         *,
-        signal_date: date,
+        trading_date: date,
         portfolio_revision: int,
         state_revision: int,
         cycle_target_quantity: int | None = None,
@@ -230,7 +233,7 @@ class SrtAdviceClient:
                 raise AdviceClientError("SRT advice requires one ETF symbol")
             release = self._load_release(strategy_id, strategy_version)
             strategy = StrategyRuntime().create(
-                StrategyInit(release, DecisionWindow(signal_date, signal_date))
+                StrategyInit(release, TradableWindow(trading_date, trading_date))
             )
             if strategy.definition.state_mode != "STATELESS":
                 raise AdviceClientError("PTE does not support persisted SRT strategy state yet")
@@ -246,7 +249,7 @@ class SrtAdviceClient:
             )
             plan = strategy.plan_at(
                 data=data,
-                point=DecisionPoint(signal_date, generated_at),
+                point=TradingPoint(trading_date, generated_at),
                 portfolio=PortfolioSnapshot(
                     account_id,
                     selected_symbol,

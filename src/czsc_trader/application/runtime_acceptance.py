@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, replace
 
 from strategy_manager import CandidateSnapshot, StrategyVersion, canonical_sha256
-from strategy_runtime import StrategyCandidate, StrategyLoader, StrategyRelease
+from strategy_runtime import StrategyCandidate, StrategyRelease, StrategyRuntime
 
 
 def _plain(value):
@@ -25,8 +25,7 @@ def prospective_release(version: StrategyVersion) -> StrategyRelease:
     return StrategyRelease.from_mapping(frozen.to_dict())
 
 
-def _runtime_report(strategy) -> dict[str, object]:
-    definition = strategy.definition
+def _runtime_report(definition) -> dict[str, object]:
     return {
         "schema_version": 1,
         "status": "PASS",
@@ -72,7 +71,7 @@ def _runtime_report(strategy) -> dict[str, object]:
 
 def validate_runtime_readiness(version: StrategyVersion) -> dict[str, object]:
     """Load the exact prospective release without changing SM state."""
-    return _runtime_report(StrategyLoader().load(prospective_release(version)))
+    return _runtime_report(StrategyRuntime().describe(prospective_release(version)))
 
 
 def validate_candidate_readiness(snapshot: CandidateSnapshot) -> dict[str, object]:
@@ -80,7 +79,7 @@ def validate_candidate_readiness(snapshot: CandidateSnapshot) -> dict[str, objec
     candidate = StrategyCandidate(
         snapshot.strategy_id, snapshot.candidate_id, snapshot.strategy_payload,
     )
-    report = _runtime_report(StrategyLoader().load_candidate(candidate))
+    report = _runtime_report(StrategyRuntime().describe(candidate))
     report["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
     return report
 

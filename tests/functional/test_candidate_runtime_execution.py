@@ -551,7 +551,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         strategy = StrategyLoader().load_candidate(StrategyCandidate("S900", identity, params))
         candidates.append({"candidate_id": identity, "strategy_id": "S900", "strategy_payload": params,
                            "strategy_hash": canonical_sha256(params),
-                           "execution_policy_hash": _runtime_report(strategy)["execution_policy_sha256"],
+                           "execution_policy_hash": _runtime_report(strategy.definition)["execution_policy_sha256"],
                            "parameter_distance": abs(threshold - .5),
                            "behavior_hash": canonical_sha256(
                                ((flow_values <= threshold) if identity == "C000" else (flow_values > threshold)).tolist()
@@ -612,7 +612,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     candidate = candidates[1]
     metrics = pd.read_csv(experiment / "artifacts" / "formal_metrics.csv")
     claimed_return = float(metrics.loc[metrics.candidate_id == "C001", "net_cagr"].iloc[0])
-    ready = _runtime_report(StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", candidate["strategy_payload"])))
+    ready = _runtime_report(StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", candidate["strategy_payload"])).definition)
     snapshot = _hashed({
         "schema_version": 1, "strategy_id": "S900", "candidate_id": "C001",
         "source_experiment": "experiments/S900/REVIEW", "strategy_payload": candidate["strategy_payload"],
@@ -674,7 +674,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     ]
     release = StrategyRelease.from_mapping(registry.get_version("S900", "v1").to_dict())
     frozen_strategy = StrategyLoader().load(release)
-    frozen_runtime = _runtime_report(frozen_strategy)
+    frozen_runtime = _runtime_report(frozen_strategy.definition)
     for field in (
         "input_contract", "execution_policy", "implementation", "parameters_sha256",
         "decision_contract", "state_mode", "capabilities_sha256", "monitoring_sha256",

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from strategy_manager import StrategyRegistry, canonical_sha256
-from strategy_runtime import StrategyCandidate, StrategyLoader
+from strategy_runtime import StrategyCandidate, StrategyRuntime
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.identity import canonical_json_sha256
@@ -69,7 +69,7 @@ def resolve_candidate_snapshot(
     if not separator:
         raise ValueError("candidate replay requires a family-qualified identity")
     candidate = StrategyCandidate(family, local_id, strategy_payload)
-    StrategyLoader().load_candidate(candidate)
+    StrategyRuntime().describe(candidate)
     return StrategySnapshot(
         identity=StrategyIdentity("CANDIDATE", candidate.reference_id, source),
         source_hash=candidate.runtime_identity_sha256,

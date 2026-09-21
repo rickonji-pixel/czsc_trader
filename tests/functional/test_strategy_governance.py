@@ -305,7 +305,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     from strategy_runtime import StrategyCandidate, StrategyLoader
     from czsc_trader.application.runtime_acceptance import _runtime_report
     loaded = StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", payload))
-    readiness = _runtime_report(loaded)
+    readiness = _runtime_report(loaded.definition)
     requirements = readiness["input_contract"]["requirements"]
     execution_policy = readiness["execution_policy"]
     root = ["--repo-root", str(functional_repo)]
@@ -712,7 +712,9 @@ def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
     from strategy_runtime import StrategyCandidate, StrategyLoader
     from czsc_trader.application.runtime_acceptance import _runtime_report
     readiness = _runtime_report(
-        StrategyLoader().load_candidate(StrategyCandidate("S901", "C001", payload))
+        StrategyLoader().load_candidate(
+            StrategyCandidate("S901", "C001", payload)
+        ).definition
     )
     requirements = readiness["input_contract"]["requirements"]
     policy = readiness["execution_policy"]

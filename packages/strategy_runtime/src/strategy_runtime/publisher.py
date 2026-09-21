@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date, datetime, time as datetime_time, timedelta, timezone
+from datetime import date, timedelta
 from hashlib import sha256
 from pathlib import Path
 import re
@@ -13,9 +13,10 @@ from uuid import uuid4
 
 import pandas as pd
 from dataflows import DataRequest, DataStatus, Dataflows, Dataset
-from .loader import StrategyLoader
-from .models import DeploymentSpec, StrategyRelease
+from .historical_publication import publish_history
+from .models import StrategyRelease
 from .publication_store import write_publication
+from .runtime import StrategyRuntime
 from .validation import validate_publication
 
 
@@ -333,29 +334,22 @@ class StrategyDataPublisher:
                 release = self._release(
                     Path(self.repo_root), strategy_id, strategy_version
                 )
-                strategy = StrategyLoader().load(release)
-                deployment = DeploymentSpec(
-                    f"publication:{release.release_id}",
-                    release.release_id,
-                    release.release_hash,
-                    normalized_symbol,
-                    "publication",
-                    "futu_simulate_cn",
-                    {
+                definition = StrategyRuntime().describe(
+                    release, symbol=normalized_symbol
+                )
+                cutoff = date.fromisoformat(end_date)
+                publication = publish_history(
+                    definition,
+                    self.dataflows,
+                    symbol=normalized_symbol,
+                    start=cutoff,
+                    through=cutoff,
+                    settings={
                         "env_file": str(self.config_root / ".env"),
                         "repository_root": str(Path(self.repo_root)),
                     },
                 )
-                publication = strategy.publish_data(
-                    self.dataflows,
-                    deployment,
-                    datetime.combine(
-                        pd.Timestamp(end_date).date(),
-                        datetime_time(20, 30),
-                        timezone(timedelta(hours=8), "Asia/Shanghai"),
-                    ),
-                )
-                validate_publication(strategy.definition, publication)
+                validate_publication(definition, publication)
                 if not publication.ready:
                     raise StrategyPublicationError(
                         f"{release.release_id}: publication is {publication.status.value}: "
@@ -365,9 +359,9 @@ class StrategyDataPublisher:
                     raise StrategyPublicationError(
                         f"{release.release_id}: publication cutoff differs from request"
                     )
-                if strategy.definition.execution.settings.get("instrument"):
+                if definition.execution.settings.get("instrument"):
                     rule_symbol = str(
-                        strategy.definition.execution.settings["instrument"]["symbol"]
+                        definition.execution.settings["instrument"]["symbol"]
                     ).upper()
                     if rule_symbol != normalized_symbol:
                         raise StrategyPublicationError(

@@ -90,6 +90,48 @@ def _open_sessions(calendar: pd.DataFrame, start: date, through: date) -> pd.Dat
     return pd.DatetimeIndex(dates[(dates >= pd.Timestamp(start)) & (dates <= pd.Timestamp(through))])
 
 
+def _calendar_start(definition: RuntimeDefinition, requested_start: date) -> date:
+    """Choose an initial calendar range that can prove every declared lookback."""
+
+    policy_start = definition.history.publication_start(requested_start)
+    if policy_start < requested_start:
+        return policy_start
+    lookback = max(
+        (
+            item.lookback_sessions
+            for item in definition.inputs.requirements
+            if item.dataset != Dataset.TRADING_CALENDAR.value
+        ),
+        default=1,
+    )
+    if lookback <= 1:
+        return requested_start
+    return requested_start - timedelta(days=max(31, lookback * 2))
+
+
+def _input_start(
+    definition: RuntimeDefinition,
+    requirement,
+    requested_start: date,
+    sessions: pd.DatetimeIndex,
+) -> date:
+    """Derive one input's earliest date from history policy and its contract."""
+
+    policy_start = definition.history.publication_start(requested_start)
+    required = max(1, requirement.lookback_sessions)
+    available = sessions[sessions <= pd.Timestamp(requested_start)]
+    if len(available) < required:
+        raise RuntimeContractError(
+            f"trading calendar cannot satisfy lookback for input {requirement.name}: "
+            f"required={required}, available={len(available)}"
+        )
+    lookback_start = available[-required].date()
+    result = min(policy_start, lookback_start)
+    if requirement.cutoff_rule is CutoffRule.LATEST_AVAILABLE:
+        result -= timedelta(days=requirement.maximum_staleness_days)
+    return result
+
+
 def publish_history(
     definition: RuntimeDefinition,
     dataflows: Dataflows,
@@ -107,7 +149,6 @@ def publish_history(
     if not normalized_symbol:
         raise RuntimeContractError("historical publication symbol must be non-empty")
     preparation_settings = {} if settings is None else dict(settings)
-    publication_start = definition.history.publication_start(start)
     declared_symbol = _declared_symbol(definition)
     if declared_symbol is not None and normalized_symbol != declared_symbol:
         raise RuntimeContractError("historical publication symbol differs from strategy")
@@ -126,29 +167,50 @@ def publish_history(
     if len(calendar_items) != 1:
         raise RuntimeContractError("historical publication requires one trading calendar input")
     calendar_requirement = calendar_items[0]
+    calendar_start = _calendar_start(definition, start)
     calendar_end = through + timedelta(days=20)
-    calendar_request = DataRequest(
-        calendar_requirement.dataset,
-        calendar_requirement.subject,
-        publication_start.isoformat(),
-        calendar_end.isoformat(),
-        calendar_end.isoformat(),
-        calendar_requirement.frequency,
-        options,
+    required_calendar_sessions = max(
+        (
+            item.lookback_sessions
+            for item in definition.inputs.requirements
+            if item.dataset != Dataset.TRADING_CALENDAR.value
+        ),
+        default=1,
     )
-    calendar_result = dataflows.fetch(calendar_request)
+    for _ in range(8):
+        calendar_request = DataRequest(
+            calendar_requirement.dataset,
+            calendar_requirement.subject,
+            calendar_start.isoformat(),
+            calendar_end.isoformat(),
+            calendar_end.isoformat(),
+            calendar_requirement.frequency,
+            options,
+        )
+        calendar_result = dataflows.fetch(calendar_request)
+        if not calendar_result.ready:
+            break
+        sessions = _open_sessions(calendar_result.dataframe, calendar_start, through)
+        available = sessions[sessions <= pd.Timestamp(start)]
+        if len(available) >= required_calendar_sessions:
+            break
+        span = max(31, (start - calendar_start).days)
+        calendar_start -= timedelta(days=span)
+    else:
+        raise RuntimeContractError(
+            "trading calendar cannot satisfy the declared strategy lookback"
+        )
     requests: dict[str, DataRequest] = {calendar_requirement.name: calendar_request}
     results: dict[str, DataResult] = {calendar_requirement.name: calendar_result}
 
     if calendar_result.ready:
-        sessions = _open_sessions(calendar_result.dataframe, publication_start, through)
         previous = sessions[sessions < pd.Timestamp(through)]
         for name, requirement in requirements.items():
             if name == calendar_requirement.name:
                 continue
-            request_start = publication_start
-            if requirement.dataset == Dataset.INDEX_CONSTITUENT_WEIGHT.value:
-                request_start -= timedelta(days=requirement.maximum_staleness_days)
+            request_start = _input_start(
+                definition, requirement, start, sessions
+            )
             request_end = through
             required_cutoff: str | None
             if requirement.cutoff_rule is CutoffRule.SIGNAL_SESSION:
@@ -165,7 +227,9 @@ def publish_history(
             request_options = dict(options)
             if requirement.dataset == Dataset.STOCK_MONEYFLOW.value and requirement.subject is None:
                 request_options["trading_dates"] = [
-                    item.date().isoformat() for item in sessions if item.date() <= request_end
+                    item.date().isoformat()
+                    for item in sessions
+                    if request_start <= item.date() <= request_end
                 ]
             request = DataRequest(
                 requirement.dataset,
@@ -187,7 +251,7 @@ def publish_history(
             request = DataRequest(
                 requirement.dataset,
                 requirement.subject,
-                publication_start.isoformat(),
+                calendar_start.isoformat(),
                 through.isoformat(),
                 None,
                 requirement.frequency,

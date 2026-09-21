@@ -156,5 +156,25 @@ def test_s003_history_expands_cross_sectional_requests_from_contract() -> None:
     weights = publication.input_requests["constituent_weights"]
     moneyflow = publication.input_requests["constituent_moneyflow"]
     assert weights.start == "2019-12-28"
-    assert moneyflow.options["trading_dates"][0] == "2021-01-01"
+    assert moneyflow.start == "2020-10-12"
+    assert moneyflow.options["trading_dates"][0] == "2020-10-12"
     assert moneyflow.options["trading_dates"][-1] == "2021-03-31"
+
+
+def test_single_cutoff_publication_derives_history_from_input_contract() -> None:
+    definition = _definition("S002-v1")
+
+    publication = publish_history(
+        definition,
+        RecordingDataflows(),
+        symbol="510500.SH",
+        start=date(2026, 9, 15),
+        through=date(2026, 9, 15),
+        settings={"repository_root": str(ROOT)},
+    )
+
+    validate_publication(definition, publication)
+    history = publication.input_requests["adjusted_daily"]
+    execution = publication.input_requests["execution_daily"]
+    assert history.start < "2026-09-15"
+    assert execution.start == "2026-09-15"

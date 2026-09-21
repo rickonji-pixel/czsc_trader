@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "basis": "S001 pre-StrategyImplementation calculation output and centralized preparation semantics",
+  "input_window": {
+    "start": "2024-01-02",
+    "end": "2026-06-30",
+    "symbol": "588080.SH"
+  },
+  "v1": {
+    "input_rows": {
+      "adjusted_30m": 4800,
+      "adjusted_daily": 387,
+      "adjusted_weekly": 128
+    },
+    "history_rows": 387,
+    "history_start": "2024-11-22",
+    "history_end": "2026-06-30",
+    "regimes": {
+      "range": 188,
+      "trend": 138,
+      "warmup": 61
+    },
+    "target_positions": {
+      "0.0": 165,
+      "1.0": 222
+    },
+    "entries": 19,
+    "exits": 18,
+    "history_sha256": "25d3e2fd645c6e1dfa0435f75e6d190c8d5a8cfd05f5b6f1ed845684e474b17d"
+  },
+  "v2": {
+    "input_rows": {
+      "adjusted_30m": 4800,
+      "adjusted_daily": 387,
+      "adjusted_weekly": 128
+    },
+    "history_rows": 387,
+    "history_start": "2024-11-22",
+    "history_end": "2026-06-30",
+    "regimes": {
+      "range": 188,
+      "trend": 138,
+      "warmup": 61
+    },
+    "target_positions": {
+      "0.0": 175,
+      "1.0": 212
+    },
+    "entries": 18,
+    "exits": 17,
+    "history_sha256": "6a1ce86b83fd6067b0026391c8c8de0193d8bb691027b84e9c841c9446b94caa"
+  }
+}

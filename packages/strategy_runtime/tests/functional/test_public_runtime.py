@@ -126,12 +126,12 @@ def _flows() -> Dataflows:
     bars = pd.DataFrame(
         {
             "Date": dates,
-            "Open": 6.0,
-            "High": 6.1,
-            "Low": 5.9,
-            "Close": 6.0,
-            "Volume": 1000.0,
-            "Amount": 6000.0,
+            "Open": pd.array([6.0] * len(dates), dtype="Float64"),
+            "High": pd.array([6.1] * len(dates), dtype="Float64"),
+            "Low": pd.array([5.9] * len(dates), dtype="Float64"),
+            "Close": pd.array([6.0] * len(dates), dtype="Float64"),
+            "Volume": pd.array([1000] * len(dates), dtype="Int64"),
+            "Amount": pd.array([6000.0] * len(dates), dtype="Float64"),
         }
     )
 

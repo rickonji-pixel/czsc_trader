@@ -497,7 +497,11 @@ def _daily_prices(frame: pd.DataFrame, field_name: str) -> pd.DataFrame:
         raise RuntimeContractError(f"{field_name} must contain dt and close")
     try:
         normalized["dt"] = pd.to_datetime(normalized["dt"], errors="raise").dt.normalize()
-        normalized["close"] = pd.to_numeric(normalized["close"], errors="raise")
+        for column in ("open", "high", "low", "close", "vol", "amount"):
+            if column in normalized.columns:
+                normalized[column] = pd.to_numeric(
+                    normalized[column], errors="raise"
+                ).astype("float64")
     except (TypeError, ValueError) as exc:
         raise RuntimeContractError(f"{field_name} has invalid dates or prices") from exc
     if (

@@ -249,7 +249,7 @@ def test_scheduler_account_failure_does_not_block_other_account_and_retries():
     assert "account_strategy_cycle:s007-v1" not in store.failures
 
 
-def test_scheduler_retries_decision_without_using_old_data():
+def test_scheduler_revalidates_prepared_data_before_retrying_decision():
     store, engine, advice = Store(), Engine(), Advice()
     store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
     engine.failures["s007-v1"] = RuntimeError("decision failed")
@@ -270,7 +270,7 @@ def test_scheduler_retries_decision_without_using_old_data():
     engine.failures.clear()
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
     _wait_until(lambda: len(engine.calls) == 3)
-    assert len(advice.calls) == 2
+    assert len(advice.calls) == 3
     assert engine.calls == [
         ("decision", "s007-v1"),
         ("decision", "s003-v1"),

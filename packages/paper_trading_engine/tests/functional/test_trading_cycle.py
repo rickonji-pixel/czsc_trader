@@ -11,6 +11,7 @@ from paper_trading_engine.account_engine import (
     AccountRefreshBatchError,
     ActiveOrderPendingError,
 )
+from paper_trading_engine.account_strategy_cycle import AccountStrategyCycle
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.broker import TERMINAL_INTENT_STATUSES
 from paper_trading_engine.coordinator import PteCoordinator
@@ -28,6 +29,25 @@ def _wait_until(predicate, timeout=2.0):
             return
         sleep(0.01)
     assert predicate()
+
+
+def _operator_coordinator(accounts, store):
+    class Preparer:
+        @staticmethod
+        def latest_completed_signal_date(at):
+            del at
+            return date(2026, 9, 1)
+
+        @staticmethod
+        def prepare(account, *, signal_date):
+            del account
+            return SimpleNamespace(
+                available_through=signal_date,
+                data_identity="c" * 64,
+            )
+
+    cycle = AccountStrategyCycle(accounts, Preparer(), store)
+    return PteCoordinator(accounts, object(), strategy_cycle=cycle)
 
 
 def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_path):
@@ -50,7 +70,12 @@ def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_p
                 data_identity="c" * 64,
             )
 
-    scheduler = RuntimeScheduler(accounts, Preparer(), store, preparation_time="00:00")
+    scheduler = RuntimeScheduler(
+        accounts,
+        AccountStrategyCycle(accounts, Preparer(), store),
+        store,
+        preparation_time="00:00",
+    )
     scheduler.tick_daily(datetime(2026, 9, 2, 20, 30, 0))
     _wait_until(lambda: bool(store.operation_failures()))
     assert store.get_setting("last_account_decision_date") is None
@@ -612,7 +637,7 @@ def test_operator_can_drive_one_account_decision_with_explicit_result_and_audit(
     )
     advice = FakeAdvice(decision())
     accounts = AccountEngine(store, advice)
-    coordinator = PteCoordinator(accounts, object())
+    coordinator = _operator_coordinator(accounts, store)
 
     first = coordinator.drive_virtual_account_decision("s001-v1")
     store.set_setting("last_data_prepare_date", "2026-09-01")
@@ -668,7 +693,7 @@ def test_operator_supersedes_unsubmitted_intents_and_releases_reservations(tmp_p
         qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
     )
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
-    coordinator = PteCoordinator(AccountEngine(store, advice), object())
+    coordinator = _operator_coordinator(AccountEngine(store, advice), store)
     first = coordinator.drive_virtual_account_decision("s001-v1")
     old_intent = store.account_intents("s001-v1")[0]
     assert store.virtual_account("s001-v1")["frozen_cash"] != "0.0000"

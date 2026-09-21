@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 
 class AccountDataPreparationError(RuntimeError):
@@ -14,6 +14,9 @@ class AccountDataPreparer:
 
     def __init__(self, *, advice) -> None:
         self.advice = advice
+
+    def latest_completed_signal_date(self, at: datetime) -> date:
+        return self.advice.latest_completed_signal_date(at)
 
     def prepare(
         self, account: dict[str, object], *, signal_date: date

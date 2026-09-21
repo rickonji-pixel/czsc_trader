@@ -9,6 +9,7 @@ from dataflows import Dataflows, Dataset
 
 from paper_trading_engine.account_data_preparer import AccountDataPreparer
 from paper_trading_engine.account_engine import AccountEngine
+from paper_trading_engine.account_strategy_cycle import AccountStrategyCycle
 from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.srt_advice_client import SrtAdviceClient
 from paper_trading_engine.store import PaperStore
@@ -204,7 +205,9 @@ def test_legacy_data_directory_migrates_through_prepare_and_decision(
 
     scheduler = RuntimeScheduler(
         Engine(),
-        AccountDataPreparer(advice=client),
+        AccountStrategyCycle(
+            accounts, AccountDataPreparer(advice=client), store
+        ),
         store,
         preparation_time="20:30",
     )

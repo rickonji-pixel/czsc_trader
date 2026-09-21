@@ -45,7 +45,7 @@ def test_manual_refresh_propagates_channel_failure(tmp_path):
             raise RuntimeError("Futu unavailable")
 
     accounts = Accounts()
-    coordinator = PteCoordinator(accounts, Execution())
+    coordinator = PteCoordinator(accounts, Execution(), strategy_cycle=object())
     with pytest.raises(RuntimeError, match="Futu unavailable"):
         coordinator.refresh()
     assert accounts.called is False
@@ -74,7 +74,9 @@ def test_startup_only_allows_explicit_unavailable_channel_degradation(tmp_path):
                 "alerts": ["CHANNEL_UNAVAILABLE"],
             }
 
-    degraded = PteCoordinator(Accounts(), UnavailableChannel()).startup()
+    degraded = PteCoordinator(
+        Accounts(), UnavailableChannel(), strategy_cycle=object()
+    ).startup()
     assert degraded["channel"]["reconciliation_status"] == "UNAVAILABLE"
 
     class UnsafeChannel(UnavailableChannel):
@@ -87,7 +89,9 @@ def test_startup_only_allows_explicit_unavailable_channel_degradation(tmp_path):
             }
 
     with pytest.raises(ConnectionError, match="OpenD unavailable"):
-        PteCoordinator(Accounts(), UnsafeChannel()).startup()
+        PteCoordinator(
+            Accounts(), UnsafeChannel(), strategy_cycle=object()
+        ).startup()
     store.close()
 
 

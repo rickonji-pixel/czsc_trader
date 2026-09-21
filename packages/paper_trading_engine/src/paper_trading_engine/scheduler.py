@@ -14,7 +14,7 @@ class RuntimeScheduler:
     def __init__(
         self,
         engine,
-        prepared_data,
+        strategy_cycle,
         store,
         *,
         order_interval: float = 5,
@@ -25,7 +25,7 @@ class RuntimeScheduler:
         initial_observation_at: datetime | None = None,
     ) -> None:
         self.engine = engine
-        self.prepared_data = prepared_data
+        self.strategy_cycle = strategy_cycle
         self.store = store
         self.order_interval = float(order_interval)
         self.account_interval = float(account_interval)
@@ -167,56 +167,15 @@ class RuntimeScheduler:
             self._last_order = now
 
     def _account_cycle(
-        self, account: dict[str, object], signal_date, now: datetime
+        self, account_id: str, signal_date, now: datetime
     ) -> None:
-        account_id = str(account["account_id"])
-        completed_key = f"last_account_decision_date:{account_id}"
-        skipped_key = f"last_account_schedule_skip_date:{account_id}"
-
-        def prepare_and_decide():
-            error_key = f"data_preparation_error:{account_id}"
-            cutoff = self.store.get_setting(f"last_data_prepare_date:{account_id}")
-            if cutoff != signal_date.isoformat():
-                try:
-                    prepared = self.prepared_data.prepare(
-                        account, signal_date=signal_date
-                    )
-                except Exception as exc:
-                    self.store.set_setting(error_key, str(exc))
-                    raise
-                if prepared is None:
-                    self.store.set_setting(skipped_key, signal_date.isoformat())
-                    self.store.set_setting(error_key, "")
-                    return
-                cutoff = prepared.available_through.isoformat()
-                self.store.set_setting(f"last_data_prepare_date:{account_id}", cutoff)
-                self.store.set_setting(
-                    f"last_prepared_data_id:{account_id}", prepared.data_identity
-                )
-                self.store.set_setting(
-                    f"last_data_preparation:{account_id}", now.isoformat()
-                )
-                self.store.set_setting(error_key, "")
-                if self.audit is not None:
-                    self.audit.record(
-                        "MARKET_DATA_PREPARED",
-                        source="scheduler",
-                        actor_type="SCHEDULER",
-                        account_id=account_id,
-                        strategy_id=str(account["strategy_id"]),
-                        strategy_version=str(account["strategy_version"]),
-                        release_hash=str(account["release_hash"]),
-                        symbol=str(account["symbol"]),
-                        correlation_id=f"prepared-data:{account_id}:{cutoff}",
-                        details={
-                            "prepared_through": cutoff,
-                            "data_identity": prepared.data_identity,
-                        },
-                    )
-            self.engine.refresh_decision(account_id)
-            self.store.set_setting(completed_key, cutoff)
-
-        self._guard(f"account_strategy_cycle:{account_id}", now, prepare_and_decide)
+        self._guard(
+            f"account_strategy_cycle:{account_id}",
+            now,
+            lambda: self.strategy_cycle.run(
+                account_id, signal_date=signal_date, observed_at=now
+            ),
+        )
 
     def tick_daily(self, now: datetime) -> None:
         local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
@@ -246,7 +205,7 @@ class RuntimeScheduler:
                 continue
             worker = Thread(
                 target=self._account_cycle,
-                args=(account, signal_date, now),
+                args=(account_id, signal_date, now),
                 name=f"pte-strategy-{account_id}",
                 daemon=True,
             )

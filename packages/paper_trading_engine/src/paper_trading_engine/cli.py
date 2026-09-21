@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 from .audit import AuditRecorder
 from .srt_advice_client import SrtAdviceClient
 from .account_data_preparer import AccountDataPreparer
+from .account_strategy_cycle import AccountStrategyCycle
 from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
@@ -320,11 +321,19 @@ def build_engine(args: argparse.Namespace):
     startup_timings["chart_service_ms"] = round(
         (time.perf_counter() - stage_started) * 1000, 1,
     )
+    account_engine = AccountEngine(store, advice, audit=audit)
+    strategy_cycle = AccountStrategyCycle(
+        account_engine,
+        AccountDataPreparer(advice=advice),
+        store,
+        audit=audit,
+    )
     return PteCoordinator(
-        AccountEngine(store, advice, audit=audit),
+        account_engine,
         execution,
         audit=audit,
         account_chart=account_chart,
+        strategy_cycle=strategy_cycle,
         startup_timings=startup_timings,
         runtime_identity=args.runtime_identity,
     )
@@ -826,7 +835,7 @@ def main(
         initial_observation_at = shanghai_now()
         scheduler = RuntimeScheduler(
             engine,
-            AccountDataPreparer(advice=engine.virtual.advice),
+            engine.strategy_cycle,
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,

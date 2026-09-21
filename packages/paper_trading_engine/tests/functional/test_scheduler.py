@@ -10,6 +10,7 @@ from paper_trading_engine.account_data_preparer import (
     AccountDataPreparationError,
     AccountDataPreparer,
 )
+from paper_trading_engine.account_strategy_cycle import AccountStrategyCycle
 from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.scheduler import RuntimeScheduler
 
@@ -22,8 +23,14 @@ class Engine:
     def refresh_orders(self):
         self.calls.append("orders")
 
-    def refresh_account(self):
-        self.calls.append("account")
+    def refresh_account(self, account_id=None):
+        if account_id is None:
+            self.calls.append("account")
+            return
+        self.calls.append(("decision", account_id))
+        error = self.failures.get(account_id)
+        if error is not None:
+            raise error
 
     def refresh_decisions(self):
         self.calls.append("decisions")
@@ -65,6 +72,14 @@ class Store:
 
     def strategy_virtual_accounts(self):
         return [a for a in self.accounts if a.get("account_type", "STRATEGY") == "STRATEGY"]
+
+    def virtual_account(self, account_id):
+        return next(a for a in self.accounts if a["account_id"] == account_id)
+
+
+def _scheduler(engine, prepared_data, store, **kwargs):
+    cycle = AccountStrategyCycle(engine, prepared_data, store)
+    return RuntimeScheduler(engine, cycle, store, **kwargs)
 
 
 def _wait_until(predicate, timeout=2.0):
@@ -117,6 +132,10 @@ class Advice:
             kwargs["signal_date"],
         )
 
+    def latest_completed_signal_date(self, at):
+        self.calls.append(("latest", at))
+        return date(2026, 9, 18)
+
 
 def test_account_data_preparer_delegates_one_account_to_srt():
     advice = Advice()
@@ -143,10 +162,47 @@ def test_account_data_preparer_rejects_wrong_release():
         )
 
 
+def test_operator_cycle_derives_date_prepares_then_drives_decision():
+    trace = []
+    store = Store()
+    store.accounts = [_account()]
+
+    class Preparer:
+        @staticmethod
+        def latest_completed_signal_date(at):
+            trace.append(("date", at))
+            return date(2026, 9, 18)
+
+        @staticmethod
+        def prepare(account, *, signal_date):
+            trace.append(("prepare", account["account_id"], signal_date))
+            return _prepared(signal_date=signal_date)
+
+    class Accounts:
+        @staticmethod
+        def drive_account_decision(account_id):
+            trace.append(("decide", account_id))
+            return "decision-result"
+
+    observed_at = datetime(2026, 9, 19, 8, 0)
+    result = AccountStrategyCycle(Accounts(), Preparer(), store).run_latest(
+        "s007-v1", observed_at=observed_at
+    )
+
+    assert result == "decision-result"
+    assert trace == [
+        ("date", observed_at),
+        ("prepare", "s007-v1", date(2026, 9, 18)),
+        ("decide", "s007-v1"),
+    ]
+    assert store.values["last_data_prepare_date:s007-v1"] == "2026-09-18"
+    assert store.values["last_account_decision_date:s007-v1"] == "2026-09-18"
+
+
 def test_scheduler_prepares_then_decides_each_account_after_2030():
     store, engine, advice = Store(), Engine(), Advice()
     store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
-    scheduler = RuntimeScheduler(
+    scheduler = _scheduler(
         engine,
         AccountDataPreparer(advice=advice),
         store,
@@ -171,7 +227,7 @@ def test_scheduler_account_failure_does_not_block_other_account_and_retries():
     store, engine, advice = Store(), Engine(), Advice()
     store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
     advice.results["s007-v1"] = RuntimeError("source not ready")
-    scheduler = RuntimeScheduler(
+    scheduler = _scheduler(
         engine,
         AccountDataPreparer(advice=advice),
         store,
@@ -197,7 +253,7 @@ def test_scheduler_retries_decision_without_using_old_data():
     store, engine, advice = Store(), Engine(), Advice()
     store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
     engine.failures["s007-v1"] = RuntimeError("decision failed")
-    scheduler = RuntimeScheduler(
+    scheduler = _scheduler(
         engine,
         AccountDataPreparer(advice=advice),
         store,
@@ -226,7 +282,7 @@ def test_scheduler_skips_closed_session_for_that_calendar_date():
     store, engine, advice = Store(), Engine(), Advice()
     store.accounts = [_account()]
     advice.results["s007-v1"] = None
-    scheduler = RuntimeScheduler(
+    scheduler = _scheduler(
         engine,
         AccountDataPreparer(advice=advice),
         store,
@@ -254,7 +310,7 @@ def test_hung_account_preparation_does_not_block_other_accounts():
 
     store, engine = Store(), Engine()
     store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
-    scheduler = RuntimeScheduler(
+    scheduler = _scheduler(
         engine, Preparer(), store, preparation_time="00:00"
     )
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30))
@@ -277,7 +333,7 @@ def test_slow_preparation_does_not_stop_order_reconciliation():
 
     engine, store = Engine(), Store()
     store.accounts = [_account()]
-    scheduler = RuntimeScheduler(
+    scheduler = _scheduler(
         engine,
         Preparer(),
         store,
@@ -306,4 +362,4 @@ def test_scheduler_rejects_malformed_persisted_failure_state():
         "next_retry": "2026-09-18T08:01:00",
     }
     with pytest.raises(ValueError, match="invalid persisted scheduler failure"):
-        RuntimeScheduler(Engine(), object(), store)
+        _scheduler(Engine(), object(), store)

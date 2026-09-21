@@ -5,6 +5,7 @@ from threading import RLock
 from .audit import AuditRecorder
 from .futu_gateway import FutuGatewayError
 from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
+from .trading_window import shanghai_now
 
 
 class UnavailableExecution:
@@ -122,6 +123,8 @@ class PteCoordinator:
         self,
         accounts,
         execution,
+        *,
+        strategy_cycle,
         audit: AuditRecorder | None = None,
         account_chart=None,
         startup_timings: dict[str, float] | None = None,
@@ -131,6 +134,7 @@ class PteCoordinator:
         self.store = accounts.store
         self.audit = audit or AuditRecorder(self.store)
         self.account_chart = account_chart
+        self.strategy_cycle = strategy_cycle
         self.startup_timings = dict(startup_timings or {})
         self.runtime_identity = dict(runtime_identity or {"mode": "DEV"})
 
@@ -177,17 +181,16 @@ class PteCoordinator:
         self.execution.refresh_orders()
         return self.execution.submit_pending(reconcile=False)
 
-    def refresh_decisions(self): return self.accounts.refresh_all()
-
-    def refresh_decision(self, account_id: str):
-        return self.accounts.refresh_account(account_id)
-
     def drive_virtual_account_decision(self, account_id: str):
         """Drive one virtual account decision and return its operational identity."""
         account = None
         try:
             account = self.store.virtual_account(account_id)
-            drive = self.accounts.drive_account_decision(account_id)
+            drive = self.strategy_cycle.run_latest(
+                account_id, observed_at=shanghai_now()
+            )
+            if drive is None:
+                raise RuntimeError("最近已完成日期不是交易日，未生成账户决策")
             decision = drive.account_status.get("last_decision")
             required_fields = {
                 "decision_id", "signal_date", "valid_session", "action",

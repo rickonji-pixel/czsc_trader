@@ -26,14 +26,20 @@ class CommandParser(argparse.ArgumentParser):
         raise UsageError("invalid_arguments", message)
 
 
-def _add_repository_root(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--repo-root", type=Path)
+def _add_output_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--format", choices=("json", "text"), default="json")
     parser.add_argument("--debug", action="store_true")
 
 
+def _add_repository_root(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--repo-root", type=Path)
+    _add_output_options(parser)
+
+
 def _context(args: argparse.Namespace) -> RepositoryContext:
-    context = RepositoryContext.discover(Path.cwd(), explicit_root=args.repo_root)
+    context = RepositoryContext.discover(
+        Path.cwd(), explicit_root=getattr(args, "repo_root", None)
+    )
     load_dotenv(context.root / ".env", override=False)
     data_dir = getattr(args, "data_dir", None)
     if data_dir is not None:
@@ -94,7 +100,6 @@ def _backtest_run(args: argparse.Namespace):
             start=args.start,
             end=args.end,
             init_cash=args.init_cash,
-            outputs_root=args.outputs_root,
         ),
     )
 
@@ -361,8 +366,7 @@ def build_parser() -> argparse.ArgumentParser:
     backtest_run.add_argument("--start", required=True, type=date.fromisoformat)
     backtest_run.add_argument("--end", required=True, type=date.fromisoformat)
     backtest_run.add_argument("--init-cash", required=True, type=float)
-    backtest_run.add_argument("--outputs-root", type=Path)
-    _add_repository_root(backtest_run)
+    _add_output_options(backtest_run)
     backtest_run.set_defaults(
         command_handler=_backtest_run,
         command_name="backtest.run",

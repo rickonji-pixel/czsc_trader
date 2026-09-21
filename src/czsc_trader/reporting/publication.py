@@ -24,6 +24,7 @@ def _replace_directory(staging: Path, destination: Path) -> None:
 def publish_run_directory(
     staging: Path,
     outputs_root: Path,
+    strategy_reference: str,
     symbol: str,
     run_date: date,
 ) -> Path:
@@ -31,9 +32,12 @@ def publish_run_directory(
     staging = Path(staging)
     outputs_root = Path(outputs_root)
     outputs_root.mkdir(parents=True, exist_ok=True)
+    strategy = strategy_reference.replace("-", "")
     code = symbol.split(".", maxsplit=1)[0]
     for revision in count(1):
-        destination = outputs_root / f"{code}_{run_date:%m%d}_BT{revision:02d}"
+        destination = outputs_root / (
+            f"{strategy}_{code}_{run_date:%m%d}_BT{revision:02d}"
+        )
         if destination.exists():
             continue
         try:

@@ -139,6 +139,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         "ma_trades.csv", "ma_chart.html",
     }
     assert required == {path.name for path in summary.output_dir.iterdir()}
+    assert summary.output_dir.name == "S001v1_588080_0904_BT01"
     assert not any((functional_repo / ".tmp" / "backtest").iterdir())
     assert set(summary.metrics) == {"strategy", "benchmarks"}
     assert summary.metrics["strategy"]["reference"] == "S001-v1"
@@ -270,8 +271,9 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
 
 
 def test_backtest_does_not_read_legacy_srt_publication_manifests(
-    functional_repo: Path, capsys
+    functional_repo: Path, capsys, monkeypatch
 ) -> None:
+    monkeypatch.chdir(functional_repo)
     data_root = functional_repo / "data" / "backtest"
     for name in ("588080_manifest.json", "588080_strategy_generation.json"):
         (data_root / name).write_text("{}\n", encoding="utf-8")
@@ -287,8 +289,6 @@ def test_backtest_does_not_read_legacy_srt_publication_manifests(
             "--start", "2026-01-05",
             "--end", "2026-01-30",
             "--init-cash", "100000",
-            "--outputs-root", str(functional_repo / "outputs"),
-            "--repo-root", str(functional_repo),
         ],
         capsys,
     )
@@ -298,8 +298,9 @@ def test_backtest_does_not_read_legacy_srt_publication_manifests(
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
-    functional_repo: Path, capsys
+    functional_repo: Path, capsys, monkeypatch
 ) -> None:
+    monkeypatch.chdir(functional_repo)
     payload = invoke_main(
         [
             "backtest",
@@ -320,10 +321,6 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
             "2026-09-02",
             "--init-cash",
             "100000",
-            "--outputs-root",
-            str(functional_repo / "outputs"),
-            "--repo-root",
-            str(functional_repo),
         ],
         capsys,
     )
@@ -399,8 +396,6 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
             "--strategy", "S001", "--strategy-version", "v1",
             "--dataset", "backtest", "--symbol", "159352.SZ", "--asset", "etf",
             "--start", "2026-01-01", "--end", "2026-09-02", "--init-cash", "100000",
-            "--outputs-root", str(functional_repo / "outputs"),
-            "--repo-root", str(functional_repo),
         ],
         capsys,
     )
@@ -422,16 +417,15 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
 
 
 def test_backtest_rejects_false_success_beyond_published_session(
-    functional_repo: Path, capsys
+    functional_repo: Path, capsys, monkeypatch
 ) -> None:
+    monkeypatch.chdir(functional_repo)
     payload = invoke_main_failure(
         [
             "backtest", "run",
             "--strategy", "S001", "--strategy-version", "v1",
             "--dataset", "backtest", "--symbol", "588080.SH", "--asset", "etf",
             "--start", "2026-01-01", "--end", "2026-09-06", "--init-cash", "100000",
-            "--outputs-root", str(functional_repo / "outputs"),
-            "--repo-root", str(functional_repo),
         ],
         capsys,
     )
@@ -455,16 +449,15 @@ def test_backtest_rejects_false_success_beyond_published_session(
 
 
 def test_backtest_historical_window_remains_valid_after_dataset_advances(
-    functional_repo: Path, capsys
+    functional_repo: Path, capsys, monkeypatch
 ) -> None:
+    monkeypatch.chdir(functional_repo)
     payload = invoke_main(
         [
             "backtest", "run",
             "--strategy", "S001", "--strategy-version", "v1",
             "--dataset", "backtest", "--symbol", "588080.SH", "--asset", "etf",
             "--start", "2026-06-25", "--end", "2026-08-31", "--init-cash", "100000",
-            "--outputs-root", str(functional_repo / "outputs"),
-            "--repo-root", str(functional_repo),
         ],
         capsys,
     )

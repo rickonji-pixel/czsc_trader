@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from pathlib import Path
 
 from czsc_trader.backtesting import (
     BacktestRequestV2,
@@ -28,14 +27,6 @@ class BacktestCommand:
     start: date
     end: date
     init_cash: float
-    outputs_root: Path | None = None
-
-
-def _repository_path(context: RepositoryContext, path: Path | None) -> Path | None:
-    if path is None:
-        return None
-    value = Path(path)
-    return value.resolve() if value.is_absolute() else (context.root / value).resolve()
 
 
 def run_backtest(
@@ -59,7 +50,7 @@ def run_backtest(
                 initial_cash=request.init_cash,
             ),
             data_dir=context.backtest_data_root,
-            outputs_root=_repository_path(context, request.outputs_root) or context.outputs_root,
+            outputs_root=context.outputs_root,
             run_date=run_date or datetime.now().astimezone().date(),
             repository_root=context.root,
         )

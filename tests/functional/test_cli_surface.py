@@ -84,7 +84,17 @@ def test_ft_t08_installed_cli_exposes_supported_command_surface() -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert completed.stderr == ""
     assert all(resource in completed.stdout for resource in EXPECTED_ACTIONS)
-    assert _command_surface(build_parser()) == EXPECTED_ACTIONS
+    parser = build_parser()
+    assert _command_surface(parser) == EXPECTED_ACTIONS
+    resources = _subparsers(parser)
+    backtest_actions = _subparsers(resources.choices["backtest"])
+    run_options = {
+        option
+        for action in backtest_actions.choices["run"]._actions
+        for option in action.option_strings
+    }
+    assert "--outputs-root" not in run_options
+    assert "--repo-root" not in run_options
 
 
 def test_ft_t08_strategy_governance_documented_commands_parse() -> None:

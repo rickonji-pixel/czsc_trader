@@ -226,7 +226,13 @@ def run_backtest_v2(
         }
         if {item.name for item in staging.iterdir()} != expected:
             raise AssertionError("backtest publication is structurally incomplete")
-        output_dir = publish_run_directory(staging, root, request.symbol, run_date)
+        output_dir = publish_run_directory(
+            staging,
+            root,
+            snapshot.identity.reference,
+            request.symbol,
+            run_date,
+        )
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise

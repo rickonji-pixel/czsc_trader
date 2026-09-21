@@ -42,9 +42,10 @@
 - PTE控制台：<http://127.0.0.1:8080>。
 - WDG Windows服务：`CZSC-PTE-Watchdog`。
 - 当前唯一交易渠道：Futu中国市场模拟交易。
-- 仓库当前版本为`v0.5.8`；截至2026-09-21只读核验，PTE生产环境运行`v0.5.7`
-  （提交`ad38215`，状态`RUNNING`）。PTE采用附注tag构建和独立生产环境发布，生产版本目录
-  不可变，账户、发布数据、配置和日志集中在共享运行目录。
+- 仓库最新发布版本为`v0.5.10`；截至2026-09-22只读核验，PTE生产环境运行`v0.5.10`
+  （提交`c2ae818`，状态`RUNNING`）。当前SRT重构仍位于开发分支，尚未合并或发布。PTE采用
+  附注tag构建和独立生产环境发布，生产版本目录
+  不可变，账户、SRT准备数据、配置和日志集中在共享运行目录。
 
 每次接手先执行：
 
@@ -64,10 +65,15 @@ Tushare → DFLS（获取、校验、按供应商与标的修复）
         → SRT + TXE → 独立复算账本 → SE数值审计 → SGC裁判印章
         → 人工批准 → SM冻结版本（同一SRT实现及参数）
 
-候选/冻结版本 → SRT Runner → TXE HistoricalExecutor → 历史执行账本
-SM冻结版本   → SRT发布与认证 → PTE → SRT Runner → PTE Futu渠道 → Futu模拟账户
-                            ↑
-                       WDG进程托管
+候选/冻结版本 → StrategyRuntime.create → StrategyInstance
+                                      ├─ prepare_data → DFLS
+                                      └─ run_window → TXE HistoricalExecutor → 历史执行账本
+
+SM冻结版本 → srt-prepare → 隔离的StrategyInstance数据目录
+                              ↓
+                PTE → plan_at → PTE Futu渠道 → Futu模拟账户
+                 ↑
+            WDG进程托管
 ```
 
 ### 模块边界
@@ -91,20 +97,22 @@ SM冻结版本   → SRT发布与认证 → PTE → SRT Runner → PTE Futu渠�
 - **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的结构化事实，执行筛劣、Pareto
   排名、PBO、DSR、Bootstrap、参数邻域和成本压力等确定性数值计算；它不读取仓库、不理解
   金融语义，也不签发TDR裁决或改变SM、PTE状态。
-- **SRT**位于`packages/strategy_runtime/`。它把`StrategyCandidate`或SM冻结版本投影为可执行策略，
-  通过DFLS获取并发布完整输入，在公共读取入口内认证发布物，计算目标仓位、参考价与执行计划，
-  并定义宿主通用的`ExecutionChannel`协议；源码闭包、
-  候选或冻结身份和参数共同形成运行身份。候选没有虚构的`v1`身份，冻结前后使用同一实现。
-  SRT不实现回测或券商渠道。
+- **SRT**位于`packages/strategy_runtime/`。`StrategyRuntime`校验候选或冻结版本并创建
+  `StrategyInstance`；实例根据交易窗口自主推导信号日、历史范围和全部数据依赖，通过DFLS
+  准备并认证数据，再计算目标仓位、参考价与渠道无关的`ExecutionPlan`。源码闭包、候选或冻结
+  身份和参数共同形成运行身份。调用方只提供隔离可写的数据目录，不理解或传递策略数据集。
+  SRT不实现回测、账户账本或券商渠道。
 - **TXE**位于`packages/trading_execution_engine/`。它提供研究、回测和冻结复核共享的成交、
-  滑点、费用、现金、持仓与净值计算；`HistoricalExecutor`实现SRT渠道协议并管理隔离的历史
-  账本及幂等请求。它不生成信号、不获取数据、不管理策略生命周期或真实券商状态。
-- **PTE**位于`packages/paper_trading_engine/`。它通过SRT公共接口加载已认证的运行上下文，管理账户
-  分账、决策、订单意图、Futu回报、调度、SQLite审计和控制台，不解析SRT发布契约，也不导入
+  滑点、费用、现金、持仓与净值计算；`HistoricalExecutor`实现SRT的`WindowExecutor`协议，
+  由`StrategyInstance.run_window(...)`逐日驱动并管理隔离的历史账本。它不生成信号、不获取
+  策略数据、不管理策略生命周期或真实券商状态。
+- **PTE**位于`packages/paper_trading_engine/`。外部任务先通过`srt-prepare`为活跃冻结版本准备
+  隔离实例数据；PTE观察准备结果，通过SRT公共接口恢复实例并调用`plan_at(...)`，管理账户分账、
+  决策、订单意图、Futu回报、调度、SQLite审计和控制台。PTE不解析SRT私有数据清单，也不导入
   TDR、SM或SE。
 - **WDG**位于PTE包内。它只负责PTE子进程生命周期和HTTP探活，不包含交易业务逻辑。
 - **DFLS**负责单项数据请求的获取、规范化、统一校验、按“供应商＋标的”修复和失败阻断。
-  主调方只处理`DataResult`；多输入策略发布及其跨序列完整性由SRT负责。
+  SRT只处理`DataResult`；多输入策略的范围推导、组合认证和实例级数据身份由SRT负责。
 - **新闻事件抽取**位于TDR的`news_events`独立内部包。dataflows或实验脚本负责缓存原文，
   TDR逐篇调用单一MaaS模型并执行严格结构校验、原文证据回查、断点复用和审计落盘；SE、
   SM和PTE不直接调用模型。MaaS凭据只从进程环境或Git忽略的根目录`.env`读取。
@@ -126,15 +134,15 @@ SM冻结版本   → SRT发布与认证 → PTE → SRT Runner → PTE Futu渠�
 4. 只有明确的累计成交增量能够改变现金和持仓。结果未知时保持原账本并持续双向对账；自动
    交易保持单写进程，意图与计划必须幂等、事务化持久，并能在重启后恢复。
 5. 研究、回测和运行时决策必须遵守因果时间边界。DFLS对每个请求完成校验、必要修复和重新
-   校验，无法提供准确完整数据时返回失败；SRT负责把全部声明输入发布为同一认证generation。
-   普通回测只指定评价窗口并通过SRT获取输入，不解析generation，也不在回测过程中修改数据；
-   窗口或截止日无法满足时必须失败，禁止静默截短后返回成功。
+   校验，无法提供准确完整数据时返回失败；`StrategyInstance.prepare_data()`负责推导并认证
+   全部声明输入。普通回测只指定评价窗口和实例数据目录，不理解策略数据集；窗口或截止日
+   无法满足时必须失败，禁止静默截短后返回成功。
 6. 正式策略通过SRT运行；SM管理身份和资格，SE执行确定性数值审计，TXE统一研究、回测和
    冻结复核的执行口径，PTE只部署`PAPER_READY`版本。冻结前必须能解析并校验对应SRT实现、
    源码闭包和运行身份；冻结策略的回测与模拟盘均直接走SRT单一路径。研究、模拟盘和未来
    实盘证据分阶段保存，不得相互替代。冻结与PTE账户创建是两个独立授权动作。
 7. WDG只负责PTE进程启动、探活和故障拉起，不包含交易、数据发布或账户状态判断。
-8. 批处理只有全部目标完成才可更新成功日期或成功状态。部分标的发布成功、部分账户决策成功、
+8. 批处理只有全部目标完成才可更新成功日期或成功状态。部分策略数据准备成功、部分账户决策成功、
    渠道仅受理委托或外部结果未知，都不能汇总成全局成功；失败事实必须进入审计、告警和退避。
 9. 新版`StrategyVersion`同时维护运行身份和治理身份：`release_hash`覆盖SRT执行所需的版本号
    与`strategy_payload`；`governance_hash`覆盖SGC凭据、候选、评价合同、裁判报告和人工批准
@@ -154,9 +162,10 @@ SM冻结版本   → SRT发布与认证 → PTE → SRT Runner → PTE Futu渠�
 送审前必须完成候选SRT，声明模块、类、源码闭包及其哈希、参数和完整输入契约；研究者宜在
 搜索前完成实现，以复用同一SRT与TXE。旧`rule`字典不能绕过候选运行身份校验。
 
-复算由TDR的`application/review_data.py`组织：根据实验`review_data_sources`读取研究池内
-显式哈希绑定的标准化输入，经SRT与DFLS发布至`data/review/<凭据ID>/<送审哈希>/`。发布失败
-不产生可用快照；审核过程离线运行，无隐式联网补数。评估制品写入快照目录下独立实验副本，
+复算由TDR的`application/review_data.py`组织：TDR把显式哈希绑定的执行行情封存到
+`data/review/<凭据ID>/<送审哈希>/`，每个候选或冻结版本再在该快照内获得独立的SRT数据空间，
+并由`StrategyInstance.prepare_data()`准备策略依赖。任何执行数据、策略输入或运行身份校验失败
+都不产生可用快照；审核过程离线运行，无隐式联网补数。评估制品写入快照目录下独立实验副本，
 不覆盖原实验。重复读取已通过报告和正式冻结都重新验证封存证据，不能让缓存掩盖证据漂移。
 
 候选与冻结回测共同通过`backtesting/srt_bridge.py`接入SRT与TXE。旧策略解析器和`baseline`
@@ -202,7 +211,7 @@ Tushare与新闻MaaS凭据写入由Git忽略的`.env`；使用Futu模拟交易�
 
 - `.venv/`：解释器和依赖；
 - `.env`：本机凭据；
-- `data/raw/`、`data/backtest/`及`data/review/`：分别恢复受控研究输入、回测发布代次与封存审核证据；
+- `data/raw/`、`data/backtest/`及`data/review/`：分别恢复受控研究输入、回测执行数据与封存审核证据；
 - `experiments/**/artifacts/`：本机研究制品；公开克隆只承诺人工查阅，不保证历史重放或部署可用；
 - `.tmp/`：测试缓存、测试运行目录和业务发布前的暂存工作区；
 - `.build/pte/`：可重建的PTE版本构建产物；
@@ -210,11 +219,11 @@ Tushare与新闻MaaS凭据写入由Git忽略的`.env`；使用Futu模拟交易�
 - `outputs/`：普通回测输出；
 - `state/paper_trading/`：仅在显式运行开发态PTE时生成的数据库、备份、数据、图表缓存和日志；
   未运行开发态PTE时可以删除，生产PTE不会读取该目录；
-- PTE生产根目录的`shared/`：生产账户、订单、成交、暂停状态、审计、发布数据、配置与日志；
+- PTE生产根目录的`shared/`：生产账户、订单、成交、暂停状态、审计、SRT准备数据、配置与日志；
 - Windows服务、Futu OpenD及其登录状态。
 
 跨机继续开发可以创建新的本地状态。跨机延续同一条模拟盘观察序列，需要迁移完整SQLite，
-发布数据及配置组成的完整生产`shared/`，并与Futu活动订单、成交和持仓逐笔核对；核对完成
+SRT准备数据及配置组成的完整生产`shared/`，并与Futu活动订单、成交和持仓逐笔核对；核对完成
 前保持新单阻塞。
 
 ## PTE发布与日常运维
@@ -284,7 +293,8 @@ Content-Type: application/json
 `channel_order_id`的订单意图可以随旧决策失效；已有渠道订单或结果未知时返回冲突。
 
 冻结策略不会自动进入PTE；创建账户是独立授权动作。暂停只阻止新单，已有订单继续对账。
-PTE没有data prepare入口；SRT发布并认证完整generation，PTE只消费运行上下文并维护生产存储空间。
+PTE没有策略数据准备业务入口；生产定时任务显式调用`srt-prepare`，SRT实例负责实际准备和认证，
+PTE只观察准备结果、恢复实例并维护生产存储空间。准备异常必须先于账户决策明确暴露。
 需要把模拟盘里程碑写回策略生命周期时，先导出自包含证据，再由TDR登记：
 
 ```powershell
@@ -330,7 +340,7 @@ Get-Content (Join-Path $PteRoot 'shared\logs\watchdog.log') -Tail 100
 Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
 ```
 
-生产状态、发布数据、图表、配置和日志统一位于`shared/`。端口冲突、数据库写锁、数据代次
+生产状态、SRT准备数据、图表、配置和日志统一位于`shared/`。端口冲突、数据库写锁、准备结果
 不完整、渠道订单归属不明或持仓不一致都会明确失败或阻止新单。恢复前先核对Futu当前及历史
 订单、成交和持仓；禁止直接修改SQLite。只有审计证据满足受保护修复条件时才使用：
 
@@ -352,7 +362,7 @@ Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
 [测试用例治理](TEST_GOVERNANCE.md)。该文档是后续周期性治理的唯一操作规范。
 
 治理和执行链路由根目录及各独立包的长期功能场景验收：TDR覆盖三道闸门、证据漂移与失败
-语义，SRT/TXE覆盖候选和冻结版本的同路径执行，PTE覆盖发布代次、账户、订单、账本与服务
+语义，SRT/TXE覆盖候选和冻结版本的同路径执行，PTE覆盖准备结果、账户、订单、账本与服务
 配置。历史实验只保证档案校验和人工查看，不承诺旧脚本回放。完整命令及版本验收边界见
 [测试用例治理](TEST_GOVERNANCE.md)；任何生产部署仍需独立授权。
 
@@ -379,7 +389,7 @@ Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
   `packages/strategy_template_catalog/README.md`、`packages/strategy_manager/README.md`、
   `packages/strategy_evaluator/README.md`、`packages/strategy_runtime/README.md`、
   `packages/trading_execution_engine/README.md`、`packages/paper_trading_engine/README.md`
-- 当前模块边界待办：`docs/ARCHITECTURE_BOUNDARY_DEBT.md`
+- 当前模块边界记录：`docs/ARCHITECTURE_BOUNDARY_DEBT.md`
 - 研究批次目标、当前结论与工作流：`research/README.md`
 - 已批准设计与实施计划：`docs/superpowers/specs/`、`docs/superpowers/plans/`
 

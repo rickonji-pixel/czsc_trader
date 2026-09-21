@@ -23,14 +23,15 @@ CZSC Trader 是面向个人量化团队的可审计策略研发与模拟交易�
 | Strategy Template Catalog | STC | `packages/strategy_template_catalog/` | 策略函数模板、输入角色和参数边界目录 |
 | Strategy Manager | SM | `packages/strategy_manager/` | 策略身份、版本、资格、冻结和证据治理 |
 | Strategy Evaluator | SE | `packages/strategy_evaluator/` | 候选比较、统计审计和稳健性数值计算 |
-| Strategy Runtime | SRT | `packages/strategy_runtime/` | 策略数据发布与认证、决策计算、参考价、执行计划和运行身份 |
+| Strategy Runtime | SRT | `packages/strategy_runtime/` | 策略实例、数据准备、决策计算、参考价、执行计划和运行身份 |
 | Trading Execution Engine | TXE | `packages/trading_execution_engine/` | 承接SRT历史执行请求，统一订单、成交、费用和账户账本 |
 | Paper Trading Engine | PTE | `packages/paper_trading_engine/` | 虚拟账户、模拟下单、成交对账、运行审计和控制台 |
 | PTE Watchdog | WDG | PTE包内 | PTE进程托管、健康检查和故障拉起 |
 
-PTE通过SRT公共接口加载已认证的运行上下文；SRT通过DFLS获取输入，并生成普通调仓计划或带执行
-时点、成交依赖的计划。PTE负责账户状态、计划持久化与执行；Futu渠道提供订单、成交和持仓回报。
-SM管理策略生命周期，SE生成确定性数值证据；二者都不参与运行时下单。
+SRT以`StrategyInstance`为运行边界，根据交易窗口自主推导和准备数据，并生成普通调仓计划或
+带执行时点、成交依赖的计划。TDR通过`run_window(...)`连接TXE完成历史执行；PTE通过
+`plan_at(...)`提供账户事实并执行单日计划。Futu渠道提供订单、成交和持仓回报。SM管理策略
+生命周期，SE生成确定性数值证据；二者都不参与运行时下单。
 
 ### 核心工作流
 
@@ -58,7 +59,7 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
 | `strategies/` | 正式策略身份、SGC凭据链、冻结版本、生命周期和证据 | 正式策略事实来源，不保存研究草稿 |
 | `research/` | 研究总交接、各SXX批次目标、候选和监测方案 | 研究领域唯一入口；目标与批次绑定 |
 | `experiments/` | 按策略和实验编号归档的输入、结果及审计证据 | 不可变研究档案，失败实验同样保留 |
-| `data/` | 研究池、普通回测池、冻结评审快照及发布清单 | `raw/`、`backtest/`、`review/`隔离管理；本地数据不随Git分发 |
+| `data/` | 研究池、普通回测执行数据和冻结评审快照 | `raw/`、`backtest/`、`review/`隔离管理；本地数据不随Git分发 |
 | `docs/` | 用户、开发、测试治理、事故和历史设计文档 | 非研究领域说明与历史资料入口 |
 | `scripts/` | PTE构建和发布脚本 | 构建产物与生产发布分离；生产写入需独立授权 |
 | `tests/` | TDR端到端功能测试和共享测试支持 | 根项目的行为契约验证 |
@@ -98,7 +99,7 @@ SM管理策略生命周期，SE生成确定性数值证据；二者都不参与�
   计算口径及其边界。
 - [PTE技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、
   接口、运行边界和包级开发信息。
-- [模块边界记录](docs/ARCHITECTURE_BOUNDARY_DEBT.md)：已完成的边界收口与尚待处理的技术债务。
+- [模块边界记录](docs/ARCHITECTURE_BOUNDARY_DEBT.md)：SRT、TDR、TXE、PTE与DFLS的当前职责边界。
 
 ### 历史设计资料
 

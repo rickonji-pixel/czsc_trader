@@ -1,34 +1,37 @@
-# 模块边界待办
+# 模块边界记录
 
-本文记录当前代码中仍存在的模块边界债务。已经收口的事项保留简要结论，避免后续重复设计；
-新增修复必须先确认业务边界，再进入独立实现任务。
+本文记录已经确认并落地的模块边界，避免后续重新引入已删除的兼容层。新增跨模块职责前必须先
+确认业务所有权，再进入独立设计和实现任务。
 
-## 已完成：DFLS 与主调方
+## DFLS与SRT
 
-- DFLS在门面内部执行统一校验、按“供应商＋标的”补丁修复和重新校验；主调方只处理
-  `DataResult`。
-- 每个补丁使用独立源文件并精确注册供应商与标的，未知异常继续失败阻断。
+- DFLS负责单项数据请求的获取、规范化、统一校验、按“供应商＋标的”修复和失败阻断；成功
+  返回`DataResult`及其内容身份。
+- SRT负责一个策略实例的多输入范围推导、组合认证和持久化。`StrategyInstance.prepare_data()`
+  是唯一策略数据准备入口。
+- 初始信号日、历史回看窗口、因果滞后和增量特征构造属于`StrategyImplementation`，主调方
+  不传入或解释策略数据集。
 
-## 已完成：SRT 与 PTE
+## SRT与TDR
 
-- SRT通过`load_strategy_runtime_context(...)`认证generation、publication、文件哈希、内容身份
-  和策略契约；PTE消费返回的`StrategyRuntimeContext`。
-- PTE保留活跃账户覆盖、跨标的截止日同步、账户事实、渠道状态和调度判断，不解析SRT发布文件。
-- SRT拥有目标仓位、参考价、委托参数和生效时点；PTE提供账户事实并执行SRT计划。
-- 账户图表和生产预检均通过SRT公共读取能力获取策略数据，不独立解释发布契约。
+- TDR拥有普通回测和审核快照的执行行情、评价窗口、初始资金、审计、报告和图表。
+- TDR为每次运行分配隔离数据目录，创建`StrategyInstance`并显式调用`prepare_data()`；策略依赖
+  由实例自行准备。
+- 历史执行由`StrategyInstance.run_window(...)`驱动TXE的`HistoricalExecutor`。TDR不维护按策略
+  ID分支的规则解码器，也不把诊断字段当成强制决策字段。
+- `generation_integrity.py`和`data_service.py`中的generation只描述TDR执行数据池事务，不属于
+  SRT策略数据制品。
 
-## 待处理：TDR 与 SRT
+## SRT与PTE
 
-- `src/czsc_trader/generation_integrity.py`解释SRT generation的文件结构和哈希。该能力应迁入
-  SRT，由TDR只消费认证结果。
-- `src/czsc_trader/application/data_service.py`在generation提交后组合TDR文件校验、SRT
-  publication读取和运行时校验。需要区分TDR数据池事务与SRT发布物鉴真职责。
-- `src/czsc_trader/backtesting/datasets.py`仍直接加载行情、执行价格和执行清单；
-  `src/czsc_trader/backtesting/srt_bridge.py`同时接收这些TDR组装的`ReplayData`和SRT运行上下文。
-  普通回测应由SRT闭环发布并返回已认证输入，TDR只指定并校验回测评价窗口。
+- 外部生产任务调用`srt-prepare`，为每个冻结版本及交易日创建隔离实例数据目录；全部实例准备
+  成功后原子更新`prepared-data-index.json`。
+- PTE通过SRT公共接口恢复实例并核对`data_identity`，不解析`prepared-data.json`或任何策略输入。
+- SRT拥有目标仓位、参考价、资金规则、委托参数和生效时点；PTE提供账户现金、持仓和修订号，
+  持久化计划并依据Futu回报执行和记账。
+- 旧的publication、generation运行上下文、Runner和双轨平面发布接口已经删除，不提供兼容路径。
 
-## 待处理：双轨发布
+## 当前状态
 
-SRT生产发布目前同时写入按release保存的标准publication和历史兼容的平面行情文件。PTE已通过
-统一SRT入口消费它们，不再自行对齐；仍需评审平面兼容文件是否存在其他有效主调方，再决定是否
-删除双轨文件和相关写入逻辑。
+SRT、TDR、TXE和PTE的本轮边界收口已经完成。后续工作属于版本交付：全量回归、文档同步、合并、
+打tag以及经单独授权后的PTE生产发布；当前没有已知的接口迁移待办。

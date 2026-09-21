@@ -12,8 +12,9 @@ OPC-v3在筛选和排名后，对TDR提供的事实执行PBO、DSR、绝对及�
 成本压力和外部复现等确定性计算。`FAVORABLE`、`MIXED`、`WEAK`、`ADVERSE`是数值证据标签，
 不等于人工投资判断或正式冻结裁决。
 
-完整冻结体检由TDR依据EvaluationMandate组织：TDR负责准备和核验数据、TXE成交账本、证据
-身份、SRT运行时、监测方案及所有必需审计项，并把SE的数值结果纳入AdjudicationReport。
+完整冻结体检由TDR依据EvaluationMandate组织：TDR指定评价窗口并调用SRT准备和认证策略数据，
+再核验TXE成交账本、证据身份、SRT运行时、监测方案及所有必需审计项，并把SE的数值结果纳入
+AdjudicationReport。
 
 评价协议由 TDR 根据已批准的研究协议和 `EvaluationMandate` 显式传入。SE 只执行协议中声明的
 硬门槛；PBO、DSR、Bootstrap、参数邻域和成本压力等结果在未被协议指定为门槛时属于诊断证据，

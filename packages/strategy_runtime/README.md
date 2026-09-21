@@ -1,112 +1,130 @@
 # 策略运行时（Strategy Runtime，SRT）
 
-SRT 是研究、确定性回测、模拟交易以及未来实盘交易共同使用的策略执行边界。
-它负责策略所需数据的完整发布与认证、决策计算、参考价选择、执行计划、决策解释以及显式状态契约。
+SRT 是研究、回测、模拟交易及未来实盘共用的策略计算锚点。它把一个候选或冻结策略转换为
+`StrategyInstance`，由实例自主准备计算数据、执行策略计算，并输出与渠道无关的执行计划。
 
-## 对象边界
+SRT 不管理策略生命周期，不评价策略优劣，也不记录成交和账户账本。SM 管理策略身份与治理，
+SE 负责数值评估，TXE 和 PTE 分别负责历史执行与模拟交易执行。
 
-- `StrategyFamily` 是长期存在的策略族身份，由 SM 治理和持久化。SRT 通过
-  `RuntimeDefinition.strategy_family_id` 引用策略族，不重复保存策略族对象。
-- `StrategyCandidate` 表示带有参数和实现身份的研究候选；策略版本是 SM 发布的不可变版本。
-  二者共用 `RuntimeDefinition`，保留各自身份，候选不伪装成冻结的 `v1`。
-- `DeploymentSpec` 将可执行策略绑定到交易标的、账户和执行渠道。
-  部署所需的账户状态和策略状态分别通过 `AccountSnapshot` 和
-  `StrategyStateSnapshot` 显式传入。
-- `ExecutableStrategy` 通过 DFLS 获取其声明的数据输入，计算
-  `StrategyDecision` 并解释该决策。数据发布状态未达到 `READY` 时，不允许进入
-  决策计算。
-- `ExecutionChannel` 通过支持幂等的宿主契约接收决策，执行渠道本身不包含策略逻辑。
+## 公共门面
 
-SRT 不负责策略生命周期治理、策略评估、成交记账、券商账户管理和进程守护。这些职责分别由
-SM、SE、PTE/TDR 等执行宿主以及 WDG 承担。
+调用方只需要使用以下入口：
 
-## 数据发布与运行上下文
+- `StrategyRuntime.describe(source, symbol=None)`：校验策略及源码绑定，返回只读
+  `RuntimeDefinition`；
+- `StrategyRuntime.create(StrategyInit(...))`：创建一个不可变的 `StrategyInstance`；
+- `StrategyInstance.prepare_data()`：显式准备并认证该实例所需的全部数据；
+- `StrategyInstance.plan_at(...)`：结合调用方提供的资金、持仓和执行状态，生成单个交易日的
+  `ExecutionPlan`；
+- `StrategyInstance.run_window(executor=...)`：在交易窗口内连续计算，并把计划回调给调用方提供的
+  `WindowExecutor`；
+- `inspect_signals()`、`inspect_price_history()`：测试和诊断使用的只读接口。
 
-- `StrategyDataPublisher.publish_release(...)` 根据冻结策略的数据契约向 DFLS 请求完整输入，
-  验证输入集合和截止日，先原子写入数据与清单，最后提交 generation 标记；
-- `publish_history(...)` 为历史执行准备同一口径的策略输入。调用方只指定回测评价窗口，SRT 根据
-  策略契约计算所需的数据范围；
-- `load_strategy_runtime_context(...)` 是 PTE 等运行宿主读取发布物的认证入口。SRT 在接口内部校验
-  generation、清单、文件哈希、内容身份和策略契约，返回 `StrategyRuntimeContext`；
-- `StrategyRuntimeContext` 同时携带策略输入和 `ExecutionPricingData`。调用方消费已认证对象，
-  不解析 SRT 的发布目录或契约文件。
+`StrategyRuntime` 是实例工厂，不持有运行中的策略状态。业务行为、数据和缓存均归属于创建出来的
+`StrategyInstance`。
 
-DFLS 保证单项请求结果完整且准确；SRT 保证一个策略所需的多项输入在同一 generation 中齐备、
-身份一致并达到目标截止日。
+## 实例初始化
 
-## 统一执行流程
+```python
+from datetime import date
+from pathlib import Path
 
-`StrategyRunner` 为研究、回测和交易宿主提供唯一的单周期编排流程：
+from strategy_runtime import StrategyInit, StrategyRuntime, TradableWindow
 
-1. 校验候选或冻结版本、部署和执行渠道的身份及能力是否兼容；
-2. 调用策略通过 DFLS 获取数据，并校验每项输入的 `DataRequest` 与 `DataResult`
-   是否配对，数据集、标的、频率、历史观测数量和截止时间是否符合输入契约；
-   `SIGNAL_SESSION`必须准确到达请求交易日，`PREVIOUS_SESSION`必须准确到达上一交易日，
-   `LATEST_AVAILABLE`只能在声明的最大陈旧期限内使用；
-3. 数据未就绪时返回 `DATA_NOT_READY`，不读取账户、不计算决策、不调用渠道；
-4. 使用显式账户快照和策略状态快照计算目标仓位；
-5. 由 SRT 选择信号参考价和执行参考价，按冻结执行规则生成订单类型、价位、数量和生效时点；
-6. 校验决策的版本、时间、仓位边界、快照版本和输入数据身份；
-7. 使用“渠道 ID＋决策 ID”作为幂等键提交执行请求；
-8. 分别返回 `ACCEPTED` 或 `REJECTED`。渠道接受请求不代表订单已经成交，实际执行
-   结果只能读取 `ExecutionReceipt.status`，避免形成“假成交”。
+instance = StrategyRuntime().create(
+    StrategyInit(
+        source=release,
+        tradable_window=TradableWindow(date(2026, 9, 21), date(2026, 9, 21)),
+        data_dir=Path("state/srt/S007-v1/2026-09-21"),
+    )
+)
+prepared = instance.prepare_data()
+```
 
-输入集合必须与运行时声明完全一致，缺项、多项或身份不匹配均拒绝执行。发布落盘只接受
-`READY`结果，先原子写入数据文件和清单，读取时再校验文件哈希、内容哈希与清单身份；
-半发布、跨代混合或截止日不足不能进入决策计算。
+初始化参数的业务语义：
 
-## 执行渠道
+- `source`：带实现身份和参数的候选，或 SM 发布的冻结版本；
+- `tradable_window`：需要生成执行计划的闭区间，端点必须是可交易日；
+- `data_dir`：由主调方分配、可写且与其他实例隔离的数据空间；
+- `symbol`：仅用于冻结版本的显式标的绑定；不支持候选策略静默换标的；
+- `execution_policy`：只允许在保持原策略执行策略类型不变时覆盖，用于受控复算。
 
-SRT只定义`ExecutionChannel`协议和请求、回执等公共模型，具体渠道由执行宿主维护。
-TXE的`HistoricalExecutor`实现历史执行渠道，负责订单、成交、费用和账户账本；
-PTE维护Futu模拟渠道、订单对账和虚拟账户账本。TDR编排回测、输出报告与图表，
-不再保留`BacktestChannel`包装层。SRT不依赖具体回测或券商实现。
+调用方不需要理解策略依赖哪些数据集，也不传入“初始信号日”或“回看窗口”。这些范围由策略实现
+根据交易窗口和交易日历自行推导。
 
-执行语义分为两层：`execution_rules.py` 保存进入冻结源码闭包的策略执行算法；
-`execution_planner.py` 只把已经验证的运行事实适配为算法输入，属于平台编排代码，不进入冻结策略
-源码哈希。这样既保持平台代码统一，也让会改变订单行为的规则随策略版本冻结和复签。
+## 策略实现契约
 
-## 策略版本加载
+每个策略实现必须派生 `StrategyImplementation`，并实现四项职责：
 
-候选通过`StrategyLoader.load_candidate`加载，显式声明实现模块、工厂、契约版本、
-源码闭包和参数。鼓励在参数搜索前实现候选SRT，进入TDR冻结评审前必须完成。
-冻结时沿用同一实现和参数，并校验输入、执行、决策、能力与监测契约，只转换生命周期身份。
+1. `definition`：声明不可变身份、参数、输入、决策、执行和能力契约；
+2. `calendar_window(...)`：推导解析交易窗口所需的交易日历范围；
+3. `derive_calculation_scope(...)`：推导信号日、初始计算日及每项输入的准确范围；
+4. `calculate_history(...)`：使用已准备输入计算渠道无关的目标仓位和诊断信息。
 
-`StrategyLoader` 也接收完整的 SM 冻结版本记录，并在加载前重新计算和核对
-`release_hash`及独立源码闭包绑定。策略实现采用约定式定位：例如 `S002-v1` 对应
-`strategy_runtime.strategies.s002_v1.S002V1`。因此新增策略版本只需要新增自己的
-实现模块，无需修改中央分派表。显式绑定实现的候选冻结后继续使用原实现；约定式定位
-用于既有冻结版本，不能要求研究候选提前创建未来版本模块。
+策略实现负责自身的因果滞后、特征构造、预热、状态推导和目标仓位。平台层不维护按策略 ID
+分支的历史规则解码器，也不为旧制品提供兼容路径。
 
-SM接受冻结前必须能够解析对应的可执行SRT身份并验证源码闭包。冻结策略的回测与PTE模拟盘
-均直接加载该SRT实现，不再通过历史冻结格式解码或中央策略分派表兜底。
+## 数据准备
 
-运行身份同时包含：
+`prepare_data()` 是显式阶段。调用方可以在进入决策或执行前处理数据准备异常。实例内部会：
+
+1. 根据 `tradable_window` 请求交易日历；
+2. 调用策略实现推导计算日期、信号日期和每项输入范围；
+3. 通过 DFLS 获取并验证所有声明输入；
+4. 生成覆盖策略身份、运行身份、窗口和全部输入身份的 `data_identity`；
+5. 在实例数据目录原子写入 `prepared-data.json` 和压缩数据文件。
+
+再次使用同一目录时，SRT 会校验策略、窗口、文件哈希和内容身份后加载。目录属于私有持久化格式，
+PTE、TDR 和其他主调方不得解析其中的数据集和清单字段。
+
+PTE 的外部准备进程可使用：
+
+```powershell
+srt-prepare `
+  --repo-root . `
+  --data-dir state/paper_trading/prepared `
+  --symbol 588080.SH `
+  --release S007-v1 `
+  --trading-date 2026-09-21
+```
+
+该命令仍然通过 `StrategyInstance.prepare_data()` 完成实际准备，只额外原子生成 PTE 用于定位隔离
+实例目录的 `prepared-data-index.json`。
+
+## 执行计划
+
+`plan_at(...)` 接收调用方权威的 `PortfolioSnapshot`、`ExecutionState` 和 `TradingPoint`，输出
+`ExecutionPlan`。计划包括：
+
+- 策略、信号、计划和输入数据身份；
+- 实际数量、目标数量和周期目标数量；
+- 资金模式、分配比例、费用和未分配现金；
+- 普通订单，或带时点和成交依赖的多环节计划；
+- 所需订单类型及检查点能力。
+
+SRT 计算目标仓位、订单数量、委托类型、委托价和生效时点。执行宿主只负责校验自身能力并执行
+计划。执行结果必须通过 `ExecutionOutcome` 返回，计划生成成功不代表订单已经成交。
+
+`run_window(...)` 面向 TDR 等连续执行场景。调用方注册 `WindowExecutor`，由 SRT 逐交易日获取
+账户快照、生成计划并回调执行器。PTE 使用 `plan_at(...)`，以自己的事务和券商回报管理单日执行。
+
+## 身份与冻结版本
+
+运行身份由以下内容共同决定：
 
 - SM 冻结版本的 `release_hash`；
-- 策略实现源码的 `source_sha256`；
-- 策略参数的 `parameters_sha256`。
+- 策略实现及其声明源码闭包的 `source_sha256`；
+- 参数身份和完整运行定义。
 
-三者共同形成 `runtime_sha256`，并写入每个决策。源码与冻结绑定不一致时直接拒绝加载，
-同一冻结版本不能静默改变交易行为。
+三者形成 `runtime_sha256`。源码、资源文件或绑定发生变化时，冻结版本必须重新签署；加载时任何
+哈希不一致都会失败。
 
-当前PTE只接受`STATELESS`运行时。`PERSISTED`状态型策略会在账户决策前明确拒绝，待PTE实现
-状态修订号和事务化持久后再开放，避免重启后静默丢失策略状态。
-
-## 已迁移样板
-
-`S002-v1` 是首个迁入 SRT 的冻结策略样板。它直接通过 DFLS 获取：
-
-- 510500.SH 后复权日线，用于生成“三连跌”信号；
-- 不复权日线，用于提供执行参考价；
-- 上交所交易日历，用于确定下一有效交易日。
-
-S001-v1/v2、S002-v1、S003-v1和S007-v1均已迁入SRT。候选与冻结策略的历史执行统一由
-SRT和TXE完成；PTE只加载具备部署资格的冻结版本。TDR正式候选评估不再解析旧规则格式。
+当前已迁移并完成等价验证的冻结版本为：S001-v1、S001-v2、S002-v1、S003-v1 和 S007-v1。
 
 ## 包级验证
 
 ```powershell
-.\.venv\Scripts\python.exe -B -m pytest -c pyproject.toml packages/strategy_runtime/tests -q
-.\.venv\Scripts\python.exe -m ruff check packages/strategy_runtime/src packages/strategy_runtime/tests
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml packages\strategy_runtime\tests -q
+.\.venv\Scripts\python.exe -m ruff check `
+  packages\strategy_runtime\src packages\strategy_runtime\tests
 ```

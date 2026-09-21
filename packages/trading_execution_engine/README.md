@@ -24,16 +24,17 @@ PTE仍以渠道成交回报作为模拟账户事实来源。TXE用于研究、�
 
 ## 当前接口
 
-- `HistoricalExecutor`：实现SRT的`ExecutionChannel`协议，管理历史执行、账户状态、幂等请求
-  和完整账本；研究参数搜索、候选/冻结策略回测、TDR节点二复核共用这条执行链路；
+- `HistoricalExecutor`：实现SRT的`WindowExecutor`协议，向SRT提供逐日账户快照，接收
+  `ExecutionPlan`并管理历史订单、成交、费用、账户状态和完整账本；研究参数搜索、候选/冻结
+  策略回测、TDR复核共用这条执行链路；
 - `resolve_fill(...)`：根据订单与历史行情判断单笔委托是否成交；
 - `execute_target_positions(...)`：供受控数值场景使用的仓位序列辅助接口，按交易日开盘生成订单、
   费用和账户日状态。
 
-后两者是数值能力接口；正式策略回放经SRT与`HistoricalExecutor`执行，不能用简化仓位收益
-替代完整执行证据。SRT决定委托类型、参考价、委托价和生效时点，TXE根据历史行情完成触发、
-成交、滑点和记账。原`BacktestChannel`
-已移除，TDR负责工作流编排、报告和图表。
+后两者是数值能力接口；正式策略回放由 `StrategyInstance.run_window(...)` 驱动
+`HistoricalExecutor`，不能用简化仓位收益替代完整执行证据。SRT决定委托类型、参考价、委托价
+和生效时点，TXE根据历史行情完成触发、成交、滑点和记账。TDR只指定评价窗口、初始资金和
+执行数据，并负责审计、报告与图表。
 
 限价触碰默认采用保守的严格穿越规则，以保持现有正式回测口径；如调用方明确需要“触价即成交”，
 必须显式传入`inclusive_touch=True`并在证据中记录。

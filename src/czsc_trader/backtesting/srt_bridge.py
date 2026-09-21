@@ -21,7 +21,7 @@ from strategy_runtime import (
 )
 
 from trading_execution_engine import HistoricalExecutor
-from .datasets import ReplayData
+from .execution_data import BacktestExecutionData
 from .models import StrategySnapshot
 from .result import BacktestResult
 from .signal_replay import SignalReplay
@@ -101,6 +101,46 @@ def load_srt_strategy(
     return release, definition
 
 
+def describe_snapshot_strategy(
+    repository_root: Path,
+    snapshot: StrategySnapshot,
+    *,
+    deployment_symbol: str,
+):
+    """Authenticate one TDR snapshot and return its SRT source and definition."""
+
+    if snapshot.identity.kind == "CANDIDATE":
+        family, separator, candidate_id = snapshot.identity.reference.partition("-")
+        if not separator:
+            raise RuntimeContractError(
+                "candidate replay requires a family-qualified identity"
+            )
+        source = StrategyCandidate(family, candidate_id, snapshot.strategy_payload)
+        if snapshot.source_hash != source.runtime_identity_sha256:
+            raise RuntimeContractError("candidate release hashes differ from the snapshot")
+        if snapshot.content_hash != canonical_sha256(snapshot.strategy_payload):
+            raise RuntimeContractError("candidate snapshot content hash differs")
+        definition = StrategyRuntime().describe(source)
+    elif snapshot.identity.kind == "REGISTERED":
+        source = _load_release(repository_root, snapshot.identity.reference)
+        if (
+            snapshot.source_hash != source.release_hash
+            or canonical_sha256(snapshot.strategy_payload)
+            != canonical_sha256(source.payload)
+        ):
+            raise RuntimeContractError("registered snapshot differs from its frozen release")
+        definition = StrategyRuntime().describe(source, symbol=deployment_symbol)
+    else:
+        raise RuntimeContractError(
+            f"unsupported strategy identity: {snapshot.identity.kind}"
+        )
+    if definition.release_id != snapshot.identity.reference:
+        raise RuntimeContractError("historical runtime differs from the replay identity")
+    if strategy_reference_symbol(definition) != deployment_symbol.upper():
+        raise RuntimeContractError("historical runtime differs from the replay symbol")
+    return source, definition
+
+
 def strategy_reference_symbol(strategy) -> str:
     """Return the single ETF instrument declared by one frozen runtime."""
 
@@ -165,48 +205,25 @@ def srt_data_directory(
 def build_srt_signal_replay(
     *,
     snapshot: StrategySnapshot,
-    replay_data: ReplayData,
+    execution_data: BacktestExecutionData,
     start: pd.Timestamp,
     end: pd.Timestamp,
     repository_root: Path,
 ) -> tuple[object, SignalReplay]:
-    """Calculate one complete historical decision series inside its SRT class."""
+    """Create one SRT instance and calculate its complete historical window."""
 
-    if snapshot.identity.kind == "CANDIDATE":
-        family, separator, candidate_id = snapshot.identity.reference.partition("-")
-        if not separator:
-            raise RuntimeContractError("candidate replay requires a family-qualified identity")
-        source = StrategyCandidate(family, candidate_id, snapshot.strategy_payload)
-        if snapshot.source_hash != source.runtime_identity_sha256:
-            raise RuntimeContractError("candidate release hashes differ from the snapshot")
-        if snapshot.content_hash != canonical_sha256(snapshot.strategy_payload):
-            raise RuntimeContractError("candidate snapshot content hash differs")
-    elif snapshot.identity.kind == "REGISTERED":
-        source = _load_release(repository_root, snapshot.identity.reference)
-        if (
-            snapshot.source_hash != source.release_hash
-            or canonical_sha256(snapshot.strategy_payload) != canonical_sha256(source.payload)
-        ):
-            raise RuntimeContractError("registered snapshot differs from its frozen release")
-    else:
-        raise RuntimeContractError(f"unsupported strategy identity: {snapshot.identity.kind}")
-    runtime = StrategyRuntime()
-    definition = runtime.describe(
-        source,
-        symbol=(
-            replay_data.adjusted.symbol
-            if snapshot.identity.kind == "REGISTERED"
-            else None
-        ),
+    source, definition = describe_snapshot_strategy(
+        repository_root,
+        snapshot,
+        deployment_symbol=execution_data.symbol,
     )
-    if definition.release_id != snapshot.identity.reference:
-        raise RuntimeContractError("historical runtime differs from the replay identity")
-    if strategy_reference_symbol(definition) != replay_data.adjusted.symbol:
-        raise RuntimeContractError("historical runtime differs from the replay symbol")
-    if replay_data.dataset == "research" and end.normalize() > pd.Timestamp(replay_data.cutoff):
+    runtime = StrategyRuntime()
+    if execution_data.dataset == "research" and end.normalize() > pd.Timestamp(
+        execution_data.cutoff
+    ):
         raise RuntimeContractError("research backtest window exceeds the published cutoff")
     sessions = pd.DatetimeIndex(
-        pd.to_datetime(replay_data.adjusted.daily["dt"]).dt.normalize(), name="dt"
+        pd.to_datetime(execution_data.adjusted_daily["dt"]).dt.normalize(), name="dt"
     )
     evaluation = sessions[(sessions >= start.normalize()) & (sessions <= end.normalize())]
     if evaluation.empty:
@@ -217,11 +234,11 @@ def build_srt_signal_replay(
     ]
     next_sessions = pd.Series(sessions[1:], index=sessions[:-1])
     data_dir = srt_data_directory(
-        replay_data.root,
+        execution_data.root,
         snapshot,
         evaluation[0],
         evaluation[-1],
-        replay_data.adjusted.symbol,
+        execution_data.symbol,
     )
     strategy = runtime.create(
         StrategyInit(
@@ -229,7 +246,7 @@ def build_srt_signal_replay(
             TradableWindow(evaluation[0].date(), evaluation[-1].date()),
             data_dir,
             symbol=(
-                replay_data.adjusted.symbol
+                execution_data.symbol
                 if snapshot.identity.kind == "REGISTERED"
                 else None
             ),
@@ -350,7 +367,7 @@ def replay_srt_account(
     *,
     strategy,
     signals: SignalReplay,
-    replay_data: ReplayData,
+    execution_data: BacktestExecutionData,
     initial_cash: float,
     fee_rate_override: float | None = None,
 ) -> BacktestResult:
@@ -376,7 +393,7 @@ def replay_srt_account(
             strategy.tradable_window,
             signals.data_dir,
             symbol=(
-                replay_data.adjusted.symbol
+                execution_data.symbol
                 if signals.snapshot.identity.kind == "REGISTERED"
                 else None
             ),
@@ -386,10 +403,10 @@ def replay_srt_account(
     strategy.prepare_data()
     channel = HistoricalExecutor(
         strategy_reference=signals.snapshot.identity.reference,
-        symbol=replay_data.adjusted.symbol,
-        execution_daily=replay_data.execution_daily,
-        execution_intraday=replay_data.execution_intraday,
-        execution_five_minute=replay_data.execution_five_minute,
+        symbol=execution_data.symbol,
+        execution_daily=execution_data.execution_daily,
+        execution_intraday=execution_data.execution_intraday,
+        execution_five_minute=execution_data.execution_five_minute,
         evaluation_start=signals.evaluation_start,
         evaluation_end=signals.evaluation_end,
         initial_cash=initial_cash,

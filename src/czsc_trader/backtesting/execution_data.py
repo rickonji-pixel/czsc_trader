@@ -1,0 +1,272 @@
+"""TDR-owned market data used only for historical execution and reporting."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, timedelta
+from pathlib import Path
+
+import pandas as pd
+from dataflows import DataRequest, DataStatus, Dataflows, Dataset
+from strategy_runtime import canonical_sha256
+
+
+@dataclass(frozen=True)
+class BacktestExecutionData:
+    """Execution-channel facts; never used as SRT calculation input."""
+
+    dataset: str
+    root: Path
+    symbol: str
+    asset_type: str
+    adjusted_daily: pd.DataFrame
+    execution_daily: pd.DataFrame
+    execution_intraday: pd.DataFrame
+    fingerprint: str
+    cutoff: date
+    evaluation_sessions: pd.DatetimeIndex
+    execution_five_minute: pd.DataFrame | None = None
+
+    @property
+    def evaluation_start(self) -> pd.Timestamp:
+        return pd.Timestamp(self.evaluation_sessions[0])
+
+    @property
+    def evaluation_end(self) -> pd.Timestamp:
+        return pd.Timestamp(self.evaluation_sessions[-1])
+
+
+class BacktestExecutionDataNotReadyError(ValueError):
+    def __init__(
+        self,
+        *,
+        requested_cutoff: date,
+        published_cutoff: date,
+        first_unpublished_session: date,
+    ) -> None:
+        self.requested_cutoff = requested_cutoff
+        self.published_cutoff = published_cutoff
+        self.first_unpublished_session = first_unpublished_session
+        super().__init__(
+            "backtest data is not ready: "
+            f"requested cutoff {requested_cutoff.isoformat()} includes unpublished "
+            f"trading session {first_unpublished_session.isoformat()}; "
+            f"published cutoff is {published_cutoff.isoformat()}"
+        )
+
+
+def _ready(
+    flows: Dataflows,
+    request: DataRequest,
+    name: str,
+    evaluation_sessions: pd.DatetimeIndex | None = None,
+    requested_cutoff: date | None = None,
+):
+    result = flows.fetch(request)
+    if result.status is DataStatus.READY and result.identity is not None:
+        return result
+    if (
+        result.status is DataStatus.INCOMPLETE
+        and result.error is not None
+        and evaluation_sessions is not None
+    ):
+        actual = pd.Timestamp(str(result.error.context.get("actual_cutoff"))).normalize()
+        missing = evaluation_sessions[evaluation_sessions > actual]
+        if not missing.empty:
+            raise BacktestExecutionDataNotReadyError(
+                requested_cutoff=requested_cutoff or evaluation_sessions[-1].date(),
+                published_cutoff=actual.date(),
+                first_unpublished_session=missing[0].date(),
+            )
+    detail = result.error.message if result.error is not None else result.status.value
+    raise ValueError(f"TDR execution-data preparation failed for {name}: {detail}")
+
+
+def _prices(frame: pd.DataFrame) -> pd.DataFrame:
+    value = frame.rename(
+        columns={
+            "Date": "dt",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "vol",
+            "Amount": "amount",
+        }
+    ).copy()
+    value["dt"] = pd.to_datetime(value["dt"], errors="raise")
+    return value[["dt", "open", "high", "low", "close", "vol", "amount"]]
+
+
+def _unadjust_intraday(
+    adjusted_intraday: pd.DataFrame,
+    adjusted_daily: pd.DataFrame,
+    execution_daily: pd.DataFrame,
+) -> pd.DataFrame:
+    adjusted = adjusted_daily.set_index(adjusted_daily["dt"].dt.normalize())
+    execution = execution_daily.set_index(execution_daily["dt"].dt.normalize())
+    common = adjusted.index.intersection(execution.index)
+    factors = adjusted.loc[common, "close"].astype(float).div(
+        execution.loc[common, "close"].astype(float)
+    )
+    result = adjusted_intraday.copy()
+    row_factors = result["dt"].dt.normalize().map(factors)
+    if row_factors.isna().any() or row_factors.le(0).any():
+        raise ValueError("TDR intraday prices have no complete positive adjustment factors")
+    for column in ("open", "high", "low", "close"):
+        result[column] = result[column].astype(float).div(row_factors.to_numpy(dtype=float))
+    return result
+
+
+def prepare_backtest_execution_data(
+    *,
+    dataset: str,
+    data_dir: Path,
+    symbol: str,
+    asset_type: str,
+    start: date,
+    end: date,
+    env_file: Path,
+    include_five_minute: bool = False,
+    dataflows: Dataflows | None = None,
+) -> BacktestExecutionData:
+    """Prepare TDR/TXE data without inspecting any strategy input contract."""
+
+    if dataset not in {"research", "backtest"}:
+        raise ValueError(f"unknown backtest dataset: {dataset}")
+    if start > end:
+        raise ValueError("backtest start must not follow end")
+    normalized_asset = asset_type.lower()
+    if normalized_asset not in {"stock", "etf"}:
+        raise ValueError("backtest asset type must be stock or etf")
+    normalized_symbol = symbol.upper()
+    flows = dataflows or Dataflows()
+    options = {"env_file": str(Path(env_file).resolve())}
+    calendar = _ready(
+        flows,
+        DataRequest(
+            Dataset.TRADING_CALENDAR,
+            "SSE",
+            start.isoformat(),
+            end.isoformat(),
+            end.isoformat(),
+            "daily",
+            options,
+        ),
+        "trading_calendar",
+    )
+    calendar_frame = calendar.dataframe.copy()
+    calendar_dates = pd.to_datetime(calendar_frame["Date"], errors="raise").dt.normalize()
+    sessions = pd.DatetimeIndex(
+        calendar_dates.loc[pd.to_numeric(calendar_frame["IsOpen"], errors="raise").eq(1)],
+        name="dt",
+    )
+    if sessions.empty:
+        raise ValueError("backtest interval contains no trading sessions")
+    if sessions.has_duplicates or not sessions.is_monotonic_increasing:
+        raise ValueError("backtest trading sessions must be unique and increasing")
+
+    actual_start = sessions[0].date()
+    actual_end = sessions[-1].date()
+    history_start = actual_start - timedelta(days=400)
+    adjusted_dataset = Dataset.ETF_OHLCV if normalized_asset == "etf" else Dataset.STOCK_OHLCV
+    execution_dataset = (
+        Dataset.ETF_UNADJUSTED_DAILY
+        if normalized_asset == "etf"
+        else Dataset.STOCK_UNADJUSTED_DAILY
+    )
+
+    requests = {
+        "adjusted_daily": DataRequest(
+            adjusted_dataset,
+            normalized_symbol,
+            history_start.isoformat(),
+            actual_end.isoformat(),
+            actual_end.isoformat(),
+            "daily",
+            options,
+        ),
+        "adjusted_30m": DataRequest(
+            adjusted_dataset,
+            normalized_symbol,
+            history_start.isoformat(),
+            actual_end.isoformat(),
+            actual_end.isoformat(),
+            "30m",
+            options,
+        ),
+        "execution_daily": DataRequest(
+            execution_dataset,
+            normalized_symbol,
+            history_start.isoformat(),
+            actual_end.isoformat(),
+            actual_end.isoformat(),
+            "daily",
+            options,
+        ),
+    }
+    if include_five_minute:
+        requests["adjusted_5m"] = DataRequest(
+            adjusted_dataset,
+            normalized_symbol,
+            history_start.isoformat(),
+            actual_end.isoformat(),
+            actual_end.isoformat(),
+            "5m",
+            options,
+        )
+    results = {
+        name: _ready(flows, request, name, sessions, end)
+        for name, request in requests.items()
+    }
+    adjusted_daily = _prices(results["adjusted_daily"].dataframe)
+    adjusted_daily.insert(1, "symbol", normalized_symbol)
+    execution_daily = _prices(results["execution_daily"].dataframe)
+    adjusted_intraday = _prices(results["adjusted_30m"].dataframe)
+    execution_intraday = _unadjust_intraday(
+        adjusted_intraday, adjusted_daily, execution_daily
+    )
+    execution_five_minute = None
+    if include_five_minute:
+        execution_five_minute = _unadjust_intraday(
+            _prices(results["adjusted_5m"].dataframe),
+            adjusted_daily,
+            execution_daily,
+        )
+    execution_sessions = pd.DatetimeIndex(execution_daily["dt"].dt.normalize())
+    if not sessions.isin(execution_sessions).all():
+        missing = sessions[~sessions.isin(execution_sessions)]
+        raise ValueError(
+            "TDR execution prices do not cover evaluation sessions: "
+            f"{[item.date().isoformat() for item in missing]}"
+        )
+    identities = {
+        "trading_calendar": calendar.identity.content_sha256,
+        **{
+            name: result.identity.content_sha256
+            for name, result in sorted(results.items())
+        },
+    }
+    fingerprint = canonical_sha256(
+        {
+            "dataset": dataset,
+            "symbol": normalized_symbol,
+            "asset_type": normalized_asset,
+            "evaluation_start": actual_start.isoformat(),
+            "evaluation_end": actual_end.isoformat(),
+            "inputs": identities,
+        }
+    )
+    return BacktestExecutionData(
+        dataset=dataset,
+        root=Path(data_dir).resolve(),
+        symbol=normalized_symbol,
+        asset_type=normalized_asset,
+        adjusted_daily=adjusted_daily,
+        execution_daily=execution_daily,
+        execution_intraday=execution_intraday,
+        execution_five_minute=execution_five_minute,
+        fingerprint=fingerprint,
+        cutoff=actual_end,
+        evaluation_sessions=sessions,
+    )

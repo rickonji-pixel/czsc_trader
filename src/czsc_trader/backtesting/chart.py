@@ -13,7 +13,7 @@ from czsc_trader.charting import (
     extract_pen_points,
 )
 
-from .datasets import ReplayData
+from .execution_data import BacktestExecutionData
 from .metrics import calculate_metrics
 from .result import BacktestResult
 from .signal_replay import SignalReplay
@@ -528,12 +528,12 @@ h1{{margin:0;font-size:22px;line-height:1.35;font-weight:500;letter-spacing:-.01
 
 def render_backtest_chart_html(
     signal_replay: SignalReplay,
-    replay_data: ReplayData,
+    execution_data: BacktestExecutionData,
     result: BacktestResult,
     initial_cash: float,
 ) -> str:
     """Render the audited replay as the full interactive backtest chart."""
-    prices = _normalize_daily(replay_data.adjusted.daily).loc[
+    prices = _normalize_daily(execution_data.adjusted_daily).loc[
         signal_replay.evaluation_start : signal_replay.evaluation_end
     ]
     family = _strategy_family(result.identity.reference)
@@ -598,7 +598,7 @@ def render_backtest_chart_html(
         row=1,
         col=1,
     )
-    pens = extract_pen_points(replay_data.adjusted.daily, signal_replay.evaluation_end)
+    pens = extract_pen_points(execution_data.adjusted_daily, signal_replay.evaluation_end)
     pens = pens.loc[pens["dt"].between(prices.index.min(), prices.index.max())]
     price_axis_range = _price_axis_range(prices, pens)
     figure.add_trace(
@@ -697,7 +697,7 @@ def render_backtest_chart_html(
         line={"color": "#8195ad", "dash": "dot", "width": 1},
         layer="above",
     )
-    backtest_symbol = replay_data.adjusted.symbol
+    backtest_symbol = execution_data.symbol
     figure.update_layout(
         height=640 if row_count == 2 else 760,
         template="plotly_dark",

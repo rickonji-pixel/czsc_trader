@@ -13,19 +13,20 @@ from strategy_runtime import (
     canonical_sha256,
 )
 
-from czsc_trader.backtesting.datasets import ReplayData, _fingerprint
+from czsc_trader.backtesting.execution_data import BacktestExecutionData
 from czsc_trader.backtesting.srt_bridge import (
     build_srt_signal_replay,
     execution_intraday_frequencies,
 )
-from czsc_trader.data import MarketData
 from czsc_trader.temp_workspace import create_temporary_directory
 
 
 MANIFEST = "review_dataset.json"
 TABLES = (
-    "adjusted_daily", "adjusted_intraday", "adjusted_weekly",
-    "execution_daily", "execution_intraday", "execution_five_minute", "signal_one_minute",
+    "adjusted_daily",
+    "execution_daily",
+    "execution_intraday",
+    "execution_five_minute",
 )
 
 
@@ -52,7 +53,7 @@ def _snapshot_file(root: Path, name: str) -> Path:
 def verify_review_dataset(directory: Path, expected_hash: str | None = None) -> dict:
     raw = json.loads((directory / MANIFEST).read_text(encoding="utf-8"))
     digest = raw.pop("snapshot_hash")
-    if raw.get("schema_version") != 1 or canonical_sha256(raw) != digest:
+    if raw.get("schema_version") != 2 or canonical_sha256(raw) != digest:
         raise ValueError("review dataset manifest hash mismatch")
     if expected_hash is not None and expected_hash != digest:
         raise ValueError("review dataset differs from the sealed snapshot")
@@ -67,7 +68,9 @@ def verify_review_dataset(directory: Path, expected_hash: str | None = None) -> 
     return {**raw, "snapshot_hash": digest}
 
 
-def load_review_dataset(directory: Path, expected_hash: str | None = None) -> ReplayData:
+def load_review_dataset(
+    directory: Path, expected_hash: str | None = None
+) -> BacktestExecutionData:
     manifest = verify_review_dataset(directory, expected_hash)
     frames = {}
     for name, item in manifest["tables"].items():
@@ -81,24 +84,22 @@ def load_review_dataset(directory: Path, expected_hash: str | None = None) -> Re
         for column in item["dates"]:
             frame[column] = pd.to_datetime(frame[column], errors="raise")
         frames[name] = frame
-    adjusted = MarketData(
-        intraday=frames["adjusted_intraday"], daily=frames["adjusted_daily"],
-        weekly=frames["adjusted_weekly"], hashes=manifest["market_hashes"],
-        symbol=manifest["symbol"], asset_type=manifest["asset_type"],
-        manifest=manifest["market_manifest"],
+    sessions = pd.DatetimeIndex(
+        pd.to_datetime(manifest["evaluation_sessions"], errors="raise"), name="dt"
     )
-    replay = ReplayData(
-        "research", directory, adjusted, frames["execution_daily"], frames["execution_intraday"],
-        "", date.fromisoformat(manifest["cutoff"]),
-        frames["execution_five_minute"], frames["signal_one_minute"],
+    return BacktestExecutionData(
+        dataset="research",
+        root=directory,
+        symbol=manifest["symbol"],
+        asset_type=manifest["asset_type"],
+        adjusted_daily=frames["adjusted_daily"],
+        execution_daily=frames["execution_daily"],
+        execution_intraday=frames["execution_intraday"],
+        execution_five_minute=frames["execution_five_minute"],
+        fingerprint=manifest["execution_data_identity"],
+        cutoff=date.fromisoformat(manifest["cutoff"]),
+        evaluation_sessions=sessions,
     )
-    fingerprint = _fingerprint(
-        "research", adjusted, replay.execution_daily, replay.execution_intraday,
-        replay.execution_five_minute, replay.signal_one_minute,
-    )
-    if fingerprint != manifest["replay_fingerprint"]:
-        raise ValueError("review replay fingerprint mismatch")
-    return replace(replay, fingerprint=fingerprint)
 
 
 def publish_review_dataset(context, manifest: dict, protocol, directory: Path) -> dict:
@@ -123,16 +124,14 @@ def publish_review_dataset(context, manifest: dict, protocol, directory: Path) -
     strategies = [item[1] for item in snapshots]
     if not strategies or len({s.release_id for s in strategies}) != len(strategies):
         raise ValueError("review requires non-empty, unique runtime identities")
-    replay = prepare_evaluation_workspace(
+    execution_data = prepare_evaluation_workspace(
         run, protocol, include_five_minute=any(execution_intraday_frequencies(s) for s in strategies),
-    ).replay_data
+    ).execution_data
     directory.parent.mkdir(parents=True, exist_ok=True)
     # Retain failed staging for diagnosis; only the final atomic rename publishes READY.
     staging = create_temporary_directory(context.root, "review-data", repository_root=context.root)
     frames = {
-        "adjusted_daily": replay.adjusted.daily, "adjusted_intraday": replay.adjusted.intraday,
-        "adjusted_weekly": replay.adjusted.weekly,
-        **{key: getattr(replay, key) for key in TABLES[3:]},
+        key: getattr(execution_data, key) for key in TABLES
     }
     tables = {}
     for name, frame in frames.items():
@@ -144,23 +143,28 @@ def publish_review_dataset(context, manifest: dict, protocol, directory: Path) -
         tables[name] = {"file": filename,
                         "dtypes": {col: str(dtype) for col, dtype in frame.dtypes.items()},
                         "dates": [col for col in frame if pd.api.types.is_datetime64_any_dtype(frame[col])]}
-    sealed_replay = replace(replay, root=staging)
+    sealed_execution = replace(execution_data, root=staging)
     runtimes = {}
     for snapshot, definition in snapshots:
         for _, (start, end) in periods:
             build_srt_signal_replay(
                 snapshot=snapshot,
-                replay_data=sealed_replay,
+                execution_data=sealed_execution,
                 start=start,
                 end=end,
                 repository_root=context.root,
             )
         runtimes[definition.release_id] = definition.runtime_sha256
     content = {
-        "schema_version": 1, "recipe_hash": recipe_hash,
-        "symbol": run.symbol, "asset_type": run.asset_type, "cutoff": replay.cutoff.isoformat(),
-        "replay_fingerprint": replay.fingerprint, "market_hashes": replay.adjusted.hashes,
-        "market_manifest": replay.adjusted.manifest, "runtimes": runtimes,
+        "schema_version": 2, "recipe_hash": recipe_hash,
+        "symbol": run.symbol,
+        "asset_type": run.asset_type,
+        "cutoff": execution_data.cutoff.isoformat(),
+        "execution_data_identity": execution_data.fingerprint,
+        "evaluation_sessions": [
+            item.date().isoformat() for item in execution_data.evaluation_sessions
+        ],
+        "runtimes": runtimes,
         "tables": tables,
         "files": {
             path.relative_to(staging).as_posix(): _hash_file(path)

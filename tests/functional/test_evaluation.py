@@ -68,17 +68,19 @@ def test_formal_evaluation_rejects_data_that_stops_before_development_cutoff(
             "amount": [1.0],
         }
     )
-    def load_stale(_context, _dataset, _symbol, _asset_type, cutoff):
-        # Match the real loader's boundary contract instead of accepting any type.
-        assert type(cutoff) is date
-        assert cutoff == date(2026, 9, 2)
+    def load_stale(**request):
+        # Match the TDR execution-data boundary instead of accepting any type.
+        assert request["end"] == date(2026, 9, 2)
         return SimpleNamespace(
-            adjusted=SimpleNamespace(daily=stale),
+            adjusted_daily=stale,
             execution_daily=stale,
             execution_intraday=pd.DataFrame(),
         )
 
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", load_stale)
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        load_stale,
+    )
     context = CandidateEvaluationContext(
         RepositoryContext.discover(functional_repo, explicit_root=functional_repo),
         "588080.SH",

@@ -148,7 +148,7 @@ def build_champion_audit_request(
     comparison_returns = _return_evidence(run_context, results, comparison_ids)
     signals, ledger = results[champion_id]
     execution = build_replay_evidence(
-        signals, workspace.replay_data, ledger, run_context.init_cash,
+        signals, workspace.execution_data, ledger, run_context.init_cash,
         calculate_metrics(ledger, run_context.init_cash),
     )
     execution = replace(execution, content_hash=hash_execution_evidence(execution))

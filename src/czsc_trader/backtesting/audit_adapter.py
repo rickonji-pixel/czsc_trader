@@ -6,7 +6,7 @@ from typing import Any
 import pandas as pd
 from strategy_evaluator import BenchmarkEvidence, ReplayEvidence
 
-from .datasets import ReplayData
+from .execution_data import BacktestExecutionData
 from .result import BacktestResult
 from .signal_replay import SignalReplay
 from .benchmarks import BenchmarkReplay
@@ -25,7 +25,7 @@ def _records(frame: pd.DataFrame, date_columns: tuple[str, ...]) -> tuple[dict[s
 
 def build_replay_evidence(
     signals: SignalReplay,
-    data: ReplayData,
+    data: BacktestExecutionData,
     result: BacktestResult,
     initial_cash: float,
     metrics: dict[str, object],
@@ -160,7 +160,7 @@ def build_replay_evidence(
 def build_benchmark_evidence(
     benchmarks: BenchmarkReplay,
     signals: SignalReplay,
-    data: ReplayData,
+    data: BacktestExecutionData,
     initial_cash: float,
 ) -> dict[str, BenchmarkEvidence]:
     evaluation = data.execution_daily.loc[

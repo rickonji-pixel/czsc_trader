@@ -6,14 +6,11 @@ from pathlib import Path
 
 from czsc_trader.backtesting import (
     BacktestRequestV2,
-    load_replay_data,
     resolve_registered_strategy,
     run_backtest_v2,
 )
-from czsc_trader.backtesting.datasets import ReplayDataNotReadyError
-from czsc_trader.backtesting.srt_bridge import (
-    execution_intraday_frequencies,
-    load_srt_strategy,
+from czsc_trader.backtesting.execution_data import (
+    BacktestExecutionDataNotReadyError,
 )
 
 from .context import RepositoryContext
@@ -51,37 +48,22 @@ def run_backtest(
         snapshot = resolve_registered_strategy(
             context, request.strategy_id, request.strategy_version
         )
-        _, strategy = load_srt_strategy(
-            context.root,
-            snapshot.identity.reference,
-            deployment_symbol=request.symbol,
-        )
-        intraday_frequencies = execution_intraday_frequencies(strategy)
-        data = load_replay_data(
-            context,
-            request.dataset,  # type: ignore[arg-type]
-            request.symbol,
-            request.asset_type,
-            request.end,
-            include_five_minute="5m" in intraday_frequencies,
-            include_one_minute="1m" in intraday_frequencies,
-        )
         summary = run_backtest_v2(
             snapshot=snapshot,
-            replay_data=data,
             request=BacktestRequestV2(
                 symbol=request.symbol,
                 asset_type=request.asset_type,
-                dataset=data.dataset,
+                dataset=request.dataset,  # type: ignore[arg-type]
                 start=request.start,
                 end=request.end,
                 initial_cash=request.init_cash,
             ),
+            data_dir=context.backtest_data_root,
             outputs_root=_repository_path(context, request.outputs_root) or context.outputs_root,
             run_date=run_date or datetime.now().astimezone().date(),
             repository_root=context.root,
         )
-    except ReplayDataNotReadyError as exc:
+    except BacktestExecutionDataNotReadyError as exc:
         raise ExecutionError(
             "backtest_data_not_ready",
             str(exc),
@@ -109,7 +91,7 @@ def run_backtest(
         command="backtest.run",
         result={
             "strategy": snapshot.identity.reference,
-            "dataset": data.dataset,
+            "dataset": request.dataset,
             "metrics": summary.metrics,
             "audit_status": summary.manifest["audit"]["status"],
             "runtime_engine": summary.manifest["application"]["runtime_engine"],

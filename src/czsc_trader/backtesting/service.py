@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 import shutil
 
-import pandas as pd
 from strategy_evaluator import AuditStatus, audit_benchmark_replay, audit_replay
 
 from czsc_trader.reporting.publication import publish_run_directory
@@ -14,7 +13,8 @@ from czsc_trader.ma_charting import write_ma_chart
 from czsc_trader.temp_workspace import create_temporary_directory
 
 from .benchmarks import replay_benchmarks
-from .datasets import DatasetName, ReplayData
+from .datasets import DatasetName
+from .execution_data import BacktestExecutionData, prepare_backtest_execution_data
 from .audit_adapter import build_benchmark_evidence, build_replay_evidence
 from .chart import render_backtest_chart_html
 from .evidence import build_manifest
@@ -23,6 +23,8 @@ from .models import StrategySnapshot
 from .report import render_report
 from .srt_bridge import (
     build_srt_signal_replay,
+    describe_snapshot_strategy,
+    execution_intraday_frequencies,
     load_srt_strategy,
     replay_srt_account,
     strategy_reference_symbol,
@@ -56,27 +58,44 @@ def _write_json(path: Path, value: object) -> None:
 def run_backtest_v2(
     *,
     snapshot: StrategySnapshot,
-    replay_data: ReplayData,
     request: BacktestRequestV2,
+    data_dir: Path,
     outputs_root: Path,
     run_date: date,
     repository_root: Path | None = None,
+    execution_data: BacktestExecutionData | None = None,
 ) -> BacktestRunSummary:
     """Run, validate, and atomically publish one immutable replay."""
-    if request.dataset != replay_data.dataset:
-        raise ValueError("request dataset differs from loaded replay data")
     request = replace(request, symbol=request.symbol.upper())
-    if replay_data.adjusted.symbol != request.symbol:
-        raise ValueError("request symbol differs from loaded replay data")
-    if replay_data.adjusted.asset_type != request.asset_type:
-        raise ValueError("request asset type differs from loaded replay data")
     if repository_root is None:
         raise ValueError("SRT backtest requires a repository root")
+    _, definition = describe_snapshot_strategy(
+        repository_root,
+        snapshot,
+        deployment_symbol=request.symbol,
+    )
+    if execution_data is None:
+        execution_data = prepare_backtest_execution_data(
+            dataset=request.dataset,
+            data_dir=data_dir,
+            symbol=request.symbol,
+            asset_type=request.asset_type,
+            start=request.start,
+            end=request.end,
+            env_file=Path(repository_root) / ".env",
+            include_five_minute="5m" in execution_intraday_frequencies(definition),
+        )
+    if request.dataset != execution_data.dataset:
+        raise ValueError("request dataset differs from TDR execution data")
+    if execution_data.symbol != request.symbol:
+        raise ValueError("request symbol differs from TDR execution data")
+    if execution_data.asset_type != request.asset_type:
+        raise ValueError("request asset type differs from TDR execution data")
     strategy, signals = build_srt_signal_replay(
         snapshot=snapshot,
-        replay_data=replay_data,
-        start=pd.Timestamp(request.start),
-        end=pd.Timestamp(request.end),
+        execution_data=execution_data,
+        start=execution_data.evaluation_start,
+        end=execution_data.evaluation_end,
         repository_root=repository_root,
     )
     reference_symbol = strategy_reference_symbol(strategy)
@@ -91,22 +110,22 @@ def run_backtest_v2(
         "runtime_engine": "srt",
     }
     result = replay_srt_account(
-        strategy=strategy, signals=signals, replay_data=replay_data,
+        strategy=strategy, signals=signals, execution_data=execution_data,
         initial_cash=request.initial_cash,
     )
     strategy_metrics = calculate_metrics(result, request.initial_cash)
     evidence = build_replay_evidence(
-        signals, replay_data, result, request.initial_cash, strategy_metrics
+        signals, execution_data, result, request.initial_cash, strategy_metrics
     )
     audited = audit_replay(evidence)
     if audited.status is not AuditStatus.PASS:
         raise ValueError(f"SE replay audit failed: {', '.join(audited.reason_codes)}")
     audit = audited.to_dict()
-    benchmarks = replay_benchmarks(signals, replay_data, request.initial_cash)
+    benchmarks = replay_benchmarks(signals, execution_data, request.initial_cash)
     benchmark_audits = {
         name: audit_benchmark_replay(evidence)
         for name, evidence in build_benchmark_evidence(
-            benchmarks, signals, replay_data, request.initial_cash
+            benchmarks, signals, execution_data, request.initial_cash
         ).items()
     }
     failures = {
@@ -129,7 +148,7 @@ def run_backtest_v2(
     manifest = build_manifest(
         request=request,
         snapshot=snapshot,
-        data=replay_data,
+        data=execution_data,
         signals=signals,
         metrics=metrics,
         audit=audit,
@@ -174,12 +193,12 @@ def run_backtest_v2(
             encoding="utf-8",
         )
         (staging / "chart.html").write_text(
-            render_backtest_chart_html(signals, replay_data, result, request.initial_cash),
+            render_backtest_chart_html(signals, execution_data, result, request.initial_cash),
             encoding="utf-8",
         )
         ma_chart_signals = benchmarks.ma_signals.set_index("date")
         write_ma_chart(
-            replay_data.adjusted.daily,
+            execution_data.adjusted_daily,
             ma_chart_signals,
             benchmarks.ma_orders,
             signals.evaluation_start,

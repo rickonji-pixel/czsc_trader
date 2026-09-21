@@ -8,7 +8,7 @@ from czsc_trader.moving_average import moving_average_signals
 from czsc_trader.research_backtest import run_backtest as run_next_open_backtest
 from czsc_trader.strategy_metrics import closed_trade_ledger, strategy_comparison_metrics
 
-from .datasets import ReplayData
+from .execution_data import BacktestExecutionData
 from .signal_replay import SignalReplay
 
 
@@ -72,12 +72,12 @@ def _account_daily(
 
 def replay_benchmarks(
     signals: SignalReplay,
-    replay_data: ReplayData,
+    execution_data: BacktestExecutionData,
     initial_cash: float,
 ) -> BenchmarkReplay:
     """Run independently funded BuyHold and MA5/MA20 next-open benchmarks."""
     fee_rate = _fee_rate(signals)
-    execution = replay_data.execution_daily.copy()
+    execution = execution_data.execution_daily.copy()
     execution["dt"] = pd.to_datetime(execution["dt"]).dt.normalize()
     evaluation = execution.loc[
         execution["dt"].between(signals.evaluation_start, signals.evaluation_end)
@@ -86,7 +86,7 @@ def replay_benchmarks(
     if evaluation.empty:
         raise ValueError("benchmark interval contains no execution sessions")
 
-    adjusted_signals = moving_average_signals(replay_data.adjusted.daily)
+    adjusted_signals = moving_average_signals(execution_data.adjusted_daily)
     prior_dates = adjusted_signals.index[adjusted_signals.index < signals.evaluation_start]
     if prior_dates.empty:
         raise ValueError("benchmark interval has no prior signal session")

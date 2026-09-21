@@ -139,8 +139,10 @@ def functional_repo(tmp_path: Path, monkeypatch) -> Path:
     observed_sessions = pd.DatetimeIndex(
         pd.to_datetime(frames[("etf.ohlcv", "588080.SH", "daily")]["Date"])
     ).normalize()
+    is_open = dates.normalize().isin(observed_sessions)
+    is_open |= (dates > observed_sessions.max()) & (dates.weekday < 5)
     frames[("calendar.trading_sessions", "SSE", "daily")] = pd.DataFrame(
-        {"Date": dates, "IsOpen": dates.normalize().isin(observed_sessions).astype(int)}
+        {"Date": dates, "IsOpen": is_open.astype(int)}
     )
 
     def fetch(request):
@@ -163,6 +165,9 @@ def functional_repo(tmp_path: Path, monkeypatch) -> Path:
 
     flows = Dataflows({key[0]: fetch for key in frames})
     monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: flows)
+    monkeypatch.setattr(
+        "czsc_trader.backtesting.execution_data.Dataflows", lambda: flows
+    )
     for relative in (
         Path("S001/0824_EX04/artifacts/frozen_challenger.json"),
         Path("S001/0901_EX20/artifacts/frozen_challenger.json"),

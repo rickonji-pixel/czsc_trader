@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from .datasets import ReplayData
+from .execution_data import BacktestExecutionData
 from .models import StrategySnapshot
 from .signal_replay import SignalReplay
 
@@ -11,7 +11,7 @@ def build_manifest(
     *,
     request: object,
     snapshot: StrategySnapshot,
-    data: ReplayData,
+    data: BacktestExecutionData,
     signals: SignalReplay,
     metrics: dict[str, object],
     audit: dict[str, object],

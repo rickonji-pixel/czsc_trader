@@ -20,7 +20,7 @@ from czsc_trader.backtesting.srt_bridge import (
 )
 from strategy_evaluator import AuditStatus, audit_replay
 
-from functional_support import invoke_main, invoke_main_failure
+from functional_support import execution_data_from_replay, invoke_main, invoke_main_failure
 
 
 METRIC_KEYS = {
@@ -52,9 +52,12 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     data = load_replay_data(
         context, "backtest", "588080.SH", "etf", pd.Timestamp("2026-09-02").date()
     )
+    execution_data = execution_data_from_replay(
+        data, start=pd.Timestamp("2026-01-01"), end=pd.Timestamp("2026-09-02")
+    )
     strategy, signals = build_srt_signal_replay(
         snapshot=snapshot,
-        replay_data=data,
+        execution_data=execution_data,
         start=pd.Timestamp("2026-01-01"),
         end=pd.Timestamp("2026-09-02"),
         repository_root=functional_repo,
@@ -62,7 +65,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     result = replay_srt_account(
         strategy=strategy,
         signals=signals,
-        replay_data=data,
+        execution_data=execution_data,
         initial_cash=100_000,
     )
 
@@ -83,7 +86,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert result.decisions["signal_date"].max() <= pd.Timestamp("2026-09-02")
     assert set(result.decisions["regime"].dropna()) <= {"trend", "range", "warmup"}
     assert result.account_daily["equity"].gt(0).all()
-    chart = render_backtest_chart_html(signals, data, result, 100_000)
+    chart = render_backtest_chart_html(signals, execution_data, result, 100_000)
     traces, _ = _plotly_payload(chart)
     trace_names = {trace["name"] for trace in traces}
     assert {"策略得分", "买入阈值", "卖出阈值"} <= trace_names
@@ -96,7 +99,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert "策略得分" in hover_text
     assert "行情状态" in hover_text
     evidence = build_replay_evidence(
-        signals, data, result, 100_000, calculate_metrics(result, 100_000)
+        signals, execution_data, result, 100_000, calculate_metrics(result, 100_000)
     )
     assert audit_replay(evidence).status is AuditStatus.PASS
     corrupted = list(evidence.account_daily)
@@ -114,7 +117,6 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
 
     summary = run_backtest_v2(
         snapshot=snapshot,
-        replay_data=data,
         request=BacktestRequestV2(
             symbol="588080.SH",
             asset_type="etf",
@@ -123,9 +125,11 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
             end=pd.Timestamp("2026-09-02").date(),
             initial_cash=100_000,
         ),
+        data_dir=functional_repo / "data" / "backtest",
         outputs_root=functional_repo / "outputs",
         run_date=pd.Timestamp("2026-09-04").date(),
         repository_root=functional_repo,
+        execution_data=execution_data,
     )
     required = {
         "manifest.json", "decisions.csv", "orders.csv", "fills.csv",
@@ -263,6 +267,34 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert "行情状态" in details["2026-01-29"]
     assert "买入阈值 0.175" in details["2026-01-29"]
     assert "卖出阈值 0.025" in details["2026-01-29"]
+
+
+def test_backtest_does_not_read_legacy_srt_publication_manifests(
+    functional_repo: Path, capsys
+) -> None:
+    data_root = functional_repo / "data" / "backtest"
+    for name in ("588080_manifest.json", "588080_strategy_generation.json"):
+        (data_root / name).write_text("{}\n", encoding="utf-8")
+
+    payload = invoke_main(
+        [
+            "backtest", "run",
+            "--strategy", "S001",
+            "--strategy-version", "v1",
+            "--dataset", "backtest",
+            "--symbol", "588080.SH",
+            "--asset", "etf",
+            "--start", "2026-01-05",
+            "--end", "2026-01-30",
+            "--init-cash", "100000",
+            "--outputs-root", str(functional_repo / "outputs"),
+            "--repo-root", str(functional_repo),
+        ],
+        capsys,
+    )
+
+    assert payload["result"]["runtime_engine"] == "srt"
+    assert payload["result"]["audit_status"] == "PASS"
 
 
 def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(

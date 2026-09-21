@@ -71,6 +71,7 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
     candidate_payload, tmp_path, monkeypatch,
 ):
     from czsc_trader.backtesting.datasets import ReplayData
+    from functional_support import execution_data_from_replay
     from czsc_trader.backtesting.srt_bridge import build_srt_signal_replay, replay_srt_account
     from czsc_trader.backtesting.strategy_source import resolve_candidate_snapshot
     from czsc_trader.backtesting.service import BacktestRequestV2, run_backtest_v2
@@ -94,6 +95,9 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
         MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf"),
         daily, pd.DataFrame(columns=["dt", "high", "low"]), "d" * 64, sessions[-1].date(),
     )
+    execution_data = execution_data_from_replay(
+        replay_data, start=sessions[1], end=sessions[-1]
+    )
     context = RepositoryContext.discover(tmp_path)
     snapshot = resolve_candidate_snapshot(context, candidate.reference_id, payload, canonical_sha256(payload), "fixture")
     assert snapshot.source_hash == candidate.runtime_identity_sha256
@@ -104,20 +108,24 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
     with pytest.raises(RuntimeContractError):
         resolve_candidate_snapshot(context, candidate.reference_id, {"rule": {}}, canonical_sha256({"rule": {}}), "fixture")
     loaded, signals = build_srt_signal_replay(
-        snapshot=snapshot, replay_data=replay_data, start=sessions[1], end=sessions[-1],
+        snapshot=snapshot, execution_data=execution_data,
+        start=sessions[1], end=sessions[-1],
         repository_root=tmp_path,
     )
     replay = replay_srt_account(
-        strategy=loaded, signals=signals, replay_data=replay_data, initial_cash=100_000,
+        strategy=loaded, signals=signals, execution_data=execution_data,
+        initial_cash=100_000,
     )
     _, direct = _execute(candidate, tmp_path / "direct", monkeypatch)
     assert_frame_equal(replay.account_daily, direct.account_daily, check_exact=True)
     assert len(replay.fills) == 3
     assert signals.support_data["runtime_sha256"] == definition.runtime_sha256
     summary = run_backtest_v2(
-        snapshot=snapshot, replay_data=replay_data,
+        snapshot=snapshot,
         request=BacktestRequestV2("588080.SH", "etf", "research", sessions[1].date(), sessions[-1].date(), 100_000),
-        outputs_root=tmp_path / "outputs", run_date=sessions[-1].date(), repository_root=tmp_path,
+        data_dir=tmp_path,
+        outputs_root=tmp_path / "outputs", run_date=sessions[-1].date(),
+        repository_root=tmp_path, execution_data=execution_data,
     )
     assert summary.manifest["strategy"]["kind"] == "CANDIDATE"
     assert summary.manifest["application"]["runtime_engine"] == "srt"
@@ -133,14 +141,16 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
     ):
         with pytest.raises(RuntimeContractError, match=message):
             build_srt_signal_replay(
-                snapshot=invalid, replay_data=replay_data, start=sessions[1], end=end,
+                snapshot=invalid, execution_data=execution_data,
+                start=sessions[1], end=end,
                 repository_root=tmp_path,
             )
     changed = deepcopy(payload)
     changed["parameters"]["threshold"] = 0.9
     with pytest.raises(RuntimeContractError, match="release hashes"):
         build_srt_signal_replay(
-            snapshot=replace(snapshot, strategy_payload=changed), replay_data=replay_data,
+            snapshot=replace(snapshot, strategy_payload=changed),
+            execution_data=execution_data,
             start=sessions[1], end=sessions[-1], repository_root=tmp_path,
         )
 
@@ -312,7 +322,14 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
         "research", tmp_path, SimpleNamespace(daily=daily, symbol="588080.SH", asset_type="etf"),
         daily, pd.DataFrame(columns=["dt", "high", "low"]), "d" * 64, sessions[-1].date(),
     )
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay_data)
+    from functional_support import execution_data_from_replay
+    execution_data = execution_data_from_replay(
+        replay_data, start=sessions[1], end=sessions[-1]
+    )
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        lambda **kw: execution_data,
+    )
     def forbidden(*args, **kwargs):
         raise AssertionError("evaluation must not invoke the old simple backtest")
 
@@ -390,7 +407,14 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         "research", pool, market, daily, daily.copy(),
         _fingerprint("research", market, daily, daily), sessions[-1].date(),
     )
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
+    from functional_support import execution_data_from_replay
+    execution_data = execution_data_from_replay(
+        replay, start=sessions[1], end=sessions[-1]
+    )
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        lambda **kw: execution_data,
+    )
     def forbidden(*args, **kwargs):
         raise AssertionError("review publication must not access remote adapters")
     monkeypatch.setattr("dataflows.facade._default_providers", forbidden)
@@ -423,7 +447,7 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     published = publish_review_dataset(context, manifest, protocol, directory)
     restored = load_review_dataset(directory, published["snapshot_hash"])
     assert_frame_equal(restored.execution_daily, daily)
-    assert_frame_equal(restored.adjusted.daily, daily)
+    assert_frame_equal(restored.adjusted_daily, daily)
     assert restored.root != pool
     run = CandidateEvaluationContext(
         context, "588080.SH", "etf", (("full", (sessions[1], sessions[-1])),),
@@ -436,7 +460,9 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     # Source changes after publication cannot change already sealed review results.
     original = (pool / "flow.csv").read_bytes()
     (pool / "flow.csv").write_bytes(original + b"\n")
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", forbidden)
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data", forbidden
+    )
     assert publish_review_dataset(context, manifest, protocol, directory) == published
     assert evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL") == rows
     with pytest.raises(ValueError, match="sealed snapshot"):
@@ -447,7 +473,10 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         publish_review_dataset(context, changed, protocol, directory)
 
     # A new preparation fails atomically when SRT cannot prepare its own inputs.
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        lambda **kw: execution_data,
+    )
     failed_directory = directory.parent / ("b" * 64)
     monkeypatch.setattr("strategy_runtime.preparation.Dataflows", forbidden)
     with pytest.raises(AssertionError, match="must not access remote"):
@@ -489,7 +518,14 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     pool.mkdir(parents=True)
     replay = ReplayData("research", pool, market, daily, daily.copy(),
                         _fingerprint("research", market, daily, daily), sessions[-1].date())
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
+    from functional_support import execution_data_from_replay
+    execution_data = execution_data_from_replay(
+        replay, start=sessions[1], end=sessions[-1]
+    )
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        lambda **kw: execution_data,
+    )
     context = RepositoryContext(
         root=tmp_path, raw_dir=pool, research_data_root=pool, backtest_data_root=tmp_path / "data/backtest",
         strategy_root=tmp_path / "strategies", experiments_root=tmp_path / "experiments",
@@ -562,7 +598,9 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     published = publish_review_dataset(context, manifest, protocol, directory)
     def forbidden(*args, **kwargs):
         raise AssertionError("review computation must not read the mutable research pool")
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", forbidden)
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data", forbidden
+    )
     result = evaluate_experiment(
         context, "REVIEW", allow_artifact_reuse=False, use_cached_result=False,
         review_data_root=directory, review_data_hash=published["snapshot_hash"],
@@ -615,7 +653,10 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         context, credential_id="SGC-S900-001", candidate_path=_write_json(tmp_path / "candidate.json", snapshot),
         mandate_path=_write_json(tmp_path / "mandate.json", mandate.to_dict()), actor="tester", reason="test gate 2",
     )
-    monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
+    monkeypatch.setattr(
+        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        lambda **kw: execution_data,
+    )
     reviewed = evaluate_freeze_review(context, "S900", "SGC-S900-001")
     report = reviewed.result["adjudication_report"]
     assert {path.name: sha256(path.read_bytes()).hexdigest() for path in (experiment / "artifacts").iterdir()} == source_before

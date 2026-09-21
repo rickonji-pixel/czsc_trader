@@ -13,7 +13,10 @@ import pandas as pd
 from strategy_evaluator import EvaluationProtocol, MetricObservation, MetricStatus
 from strategy_runtime import StrategyCandidate, StrategyRuntime, canonical_sha256
 
-from .backtesting.datasets import load_replay_data
+from .backtesting.execution_data import (
+    BacktestExecutionData,
+    prepare_backtest_execution_data,
+)
 from .backtesting.models import StrategyIdentity, StrategySnapshot
 from .backtesting.srt_bridge import (
     build_srt_signal_replay, execution_intraday_frequencies, load_srt_strategy,
@@ -40,7 +43,7 @@ class CandidateEvaluationContext:
 
 @dataclass(frozen=True)
 class EvaluationWorkspace:
-    replay_data: Any
+    execution_data: BacktestExecutionData
     periods: dict[str, tuple[pd.Timestamp, pd.Timestamp]]
 
 
@@ -69,23 +72,42 @@ def prepare_evaluation_workspace(
         from .application.review_data import load_review_dataset
         if context.review_data_hash is None:
             raise ValueError("review execution requires the sealed dataset hash")
-        replay = load_review_dataset(context.review_data_root, context.review_data_hash)
-        if (replay.adjusted.symbol, replay.adjusted.asset_type, replay.cutoff) != (
+        execution_data = load_review_dataset(
+            context.review_data_root, context.review_data_hash
+        )
+        if (
+            execution_data.symbol,
+            execution_data.asset_type,
+            execution_data.cutoff,
+        ) != (
             context.symbol, context.asset_type, pd.Timestamp(protocol.development_cutoff).date(),
         ):
             raise ValueError("review dataset identity differs from evaluation request")
-        if include_five_minute and replay.execution_five_minute is None:
+        if include_five_minute and execution_data.execution_five_minute is None:
             raise ValueError("review dataset has no required five-minute execution prices")
     else:
         if context.review_data_hash is not None:
             raise ValueError("review dataset hash requires a snapshot directory")
-        replay = load_replay_data(
-            context.repository, "research", context.symbol, context.asset_type,
-            pd.Timestamp(protocol.development_cutoff).date(), **options,
+        first_start = min(start for _, (start, _) in context.periods)
+        execution_data = prepare_backtest_execution_data(
+            dataset="research",
+            data_dir=getattr(
+                context.repository,
+                "research_data_root",
+                Path(context.repository.root) / "data" / "raw",
+            ),
+            symbol=context.symbol,
+            asset_type=context.asset_type,
+            start=first_start.date(),
+            end=pd.Timestamp(protocol.development_cutoff).date(),
+            env_file=context.repository.root / ".env",
+            include_five_minute=bool(options),
         )
     cutoff = pd.Timestamp(protocol.development_cutoff).normalize()
-    dates = pd.DatetimeIndex(pd.to_datetime(replay.adjusted.daily["dt"])).normalize()
-    execution_dates = pd.DatetimeIndex(pd.to_datetime(replay.execution_daily["dt"])).normalize()
+    dates = pd.DatetimeIndex(pd.to_datetime(execution_data.adjusted_daily["dt"])).normalize()
+    execution_dates = pd.DatetimeIndex(
+        pd.to_datetime(execution_data.execution_daily["dt"])
+    ).normalize()
     for label, index in (("research market", dates), ("execution", execution_dates)):
         if index.empty or index.max() != cutoff:
             actual = None if index.empty else index.max().date().isoformat()
@@ -106,7 +128,7 @@ def prepare_evaluation_workspace(
             raise ValueError(f"evaluation window {name} exceeds development cutoff")
         if not (dates < start).any():
             raise ValueError(f"evaluation window {name} has no prior signal session")
-    return EvaluationWorkspace(replay, periods)
+    return EvaluationWorkspace(execution_data, periods)
 
 
 def _snapshot(context: CandidateEvaluationContext, item: dict[str, object]):
@@ -145,7 +167,10 @@ def prepare_candidate_replays(context, protocol, payloads, candidate_ids):
     for key, (snapshot, _) in loaded.items():
         replays[key] = {
             name: build_srt_signal_replay(
-                snapshot=snapshot, replay_data=workspace.replay_data, start=start, end=end,
+                snapshot=snapshot,
+                execution_data=workspace.execution_data,
+                start=start,
+                end=end,
                 repository_root=context.repository.root,
             )
             for name, (start, end) in workspace.periods.items()
@@ -157,7 +182,9 @@ def execute_candidate_replay(context, workspace, prepared, fee_rate):
     """Return the ledger and its effective-cost evidence without editing SRT."""
     strategy, signals = prepared
     result = replay_srt_account(
-        strategy=strategy, signals=signals, replay_data=workspace.replay_data,
+        strategy=strategy,
+        signals=signals,
+        execution_data=workspace.execution_data,
         initial_cash=context.init_cash, fee_rate_override=fee_rate,
     )
     support = dict(signals.support_data)
@@ -172,7 +199,7 @@ def execute_candidate_replay(context, workspace, prepared, fee_rate):
     return replace(signals, support_data=support), result
 
 
-def _observation(context, candidate_id, window, tier, scenario, result, replay_data=None):
+def _observation(context, candidate_id, window, tier, scenario, result, execution_data=None):
     equity = result.equity
     total = float(equity.iloc[-1] / context.init_cash - 1)
     cagr = float((1 + total) ** (252 / len(equity)) - 1)
@@ -197,9 +224,11 @@ def _observation(context, candidate_id, window, tier, scenario, result, replay_d
     # Overlay core establishment is represented by opening account state, not an event fill.
     opening = result.account_daily.iloc[0]
     if int(opening["quantity_before"]) > 0:
-        if replay_data is None:
+        if execution_data is None:
             raise ValueError("opening holdings require an execution-price ledger")
-        prior = replay_data.execution_daily.loc[replay_data.execution_daily["dt"] < opening["date"]]
+        prior = execution_data.execution_daily.loc[
+            execution_data.execution_daily["dt"] < opening["date"]
+        ]
         if prior.empty:
             raise ValueError("opening holdings have no pre-window execution price")
         gross = int(opening["quantity_before"]) * float(prior.iloc[-1]["close"])
@@ -246,7 +275,9 @@ def evaluate_candidate_payloads(context, protocol, candidates, candidate_ids, ti
     def compute(task):
         key, window, scenario, prepared, fee = task
         result = execute_candidate_replay(context, workspace, prepared, fee)[1]
-        return _observation(context, key, window, tier, scenario, result, workspace.replay_data)
+        return _observation(
+            context, key, window, tier, scenario, result, workspace.execution_data
+        )
     if context.workers == 1 or len(tasks) < 2:
         return tuple(map(compute, tasks))
     with ThreadPoolExecutor(max_workers=min(context.workers, len(tasks))) as executor:

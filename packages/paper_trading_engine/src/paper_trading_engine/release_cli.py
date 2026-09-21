@@ -150,6 +150,7 @@ def _create_environment(
             "--python", str(python),
             "--no-python-downloads", "--no-index",
             "--find-links", str(artifacts), "--cache-dir", str(cache_dir),
+            "--refresh",
         ]
         if not dependencies:
             command.append("--no-deps")

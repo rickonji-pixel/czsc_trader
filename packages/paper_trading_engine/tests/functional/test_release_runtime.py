@@ -297,6 +297,7 @@ def test_build_is_local_and_publish_installs_final_runtime(tmp_path):
         == str(repo / ".tmp" / "pte-release" / "uv")
         for command in installs
     )
+    assert all("--refresh" in command for command in installs)
     assert not (runtime / "cache").exists()
     assert any(
         "--no-deps" in command and "czsc-trader-research==0.1.0" in command

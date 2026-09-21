@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 
 from .audit import AuditCategory, AuditOutcome, AuditSeverity, EVENT_CATALOG
 from .store import DEFAULT_FUTU_CAPITAL_POOL
@@ -74,9 +75,31 @@ class PteWebApi:
         channel = self.channel_snapshot(FUTU_SIMULATE_CN_CHANNEL_ID)
         failures = channel.get("scheduler_failures", self.store.operation_failures())
         alerts = list(channel.get("alerts", []))
-        if self.store.get_setting("data_preparation_error"):
+        accounts = [
+            row for row in self.store.strategy_virtual_accounts()
+            if row.get("status") != "RETIRED"
+        ]
+        prepared_by_account = {
+            str(row["account_id"]): self.store.get_setting(
+                f"last_data_prepare_date:{row['account_id']}"
+            )
+            for row in accounts
+        }
+        decided_by_account = {
+            str(row["account_id"]): self.store.get_setting(
+                f"last_account_decision_date:{row['account_id']}"
+            )
+            for row in accounts
+        }
+        errors = {
+            str(row["account_id"]): self.store.get_setting(
+                f"data_preparation_error:{row['account_id']}"
+            )
+            for row in accounts
+        }
+        if any(errors.values()):
             alerts.append("DATA_PREPARATION_FAILED")
-        if any(row.get("health") == "BLOCKED" for row in self.store.strategy_virtual_accounts()):
+        if any(row.get("health") == "BLOCKED" for row in accounts):
             alerts.append("VIRTUAL_ACCOUNT_BLOCKED")
         if self.store.unresolved_account_intents():
             alerts.append("ORDER_SUBMISSION_UNRESOLVED")
@@ -89,10 +112,23 @@ class PteWebApi:
         scheduler_stalled = _is_stale(heartbeat, seconds=45)
         if scheduler_stalled:
             alerts.append("SCHEDULER_STALLED")
-        prepared_through = self.store.get_setting("last_data_prepare_date")
-        decided = self.store.get_setting("last_account_decision_date")
-        if prepared_through and prepared_through != decided:
+        if any(
+            prepared_by_account[account_id]
+            and prepared_by_account[account_id] != decided_by_account[account_id]
+            for account_id in prepared_by_account
+        ):
             alerts.append("DECISION_GENERATION_OVERDUE")
+        cutoffs = [value for value in prepared_by_account.values() if value]
+        prepared_through = min(cutoffs) if cutoffs else None
+        data_identities = {
+            account_id: self.store.get_setting(f"last_prepared_data_id:{account_id}")
+            for account_id in prepared_by_account
+        }
+        preparation_times = [
+            value
+            for account_id in prepared_by_account
+            if (value := self.store.get_setting(f"last_data_preparation:{account_id}"))
+        ]
         alerts = list(dict.fromkeys(alerts))
         channel_alerts = channel.get("alerts", [])
         return {
@@ -103,8 +139,8 @@ class PteWebApi:
             "scheduler_heartbeat_at": heartbeat,
             "release": dict(getattr(self.operations, "runtime_identity", {})),
             "data_cutoff": prepared_through,
-            "prepared_data_ids": self.store.get_setting("last_prepared_data_ids"),
-            "last_data_preparation": self.store.get_setting("last_data_preparation"),
+            "prepared_data_ids": json.dumps(data_identities, sort_keys=True),
+            "last_data_preparation": max(preparation_times) if preparation_times else None,
             "scheduler_failures": failures,
             "futu_connection": (
                 "UNAVAILABLE"

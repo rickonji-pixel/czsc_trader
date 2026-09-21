@@ -1,9 +1,8 @@
-"""Independent cadences for broker reconciliation and SRT data preparation."""
+"""Independent cadences for broker reconciliation and account strategy cycles."""
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
-import json
+from datetime import datetime, time, timedelta, timezone
 from threading import Event, Thread
 
 from .audit import AuditRecorder
@@ -19,8 +18,8 @@ class RuntimeScheduler:
         *,
         order_interval: float = 5,
         account_interval: float = 60,
-        data_observe_interval: float = 5,
-        observation_time: str = "20:30",
+        data_prepare_interval: float = 5,
+        preparation_time: str = "20:30",
         audit: AuditRecorder | None = None,
         initial_observation_at: datetime | None = None,
     ) -> None:
@@ -29,8 +28,8 @@ class RuntimeScheduler:
         self.store = store
         self.order_interval = float(order_interval)
         self.account_interval = float(account_interval)
-        self.data_observe_interval = float(data_observe_interval)
-        self.observation_time = time.fromisoformat(observation_time)
+        self.data_prepare_interval = float(data_prepare_interval)
+        self.preparation_time = time.fromisoformat(preparation_time)
         self.audit = audit or (
             AuditRecorder(store) if hasattr(store, "append_audit_event") else None
         )
@@ -128,46 +127,6 @@ class RuntimeScheduler:
     def _due(last: datetime | None, now: datetime, seconds: float) -> bool:
         return last is None or (now - last).total_seconds() >= seconds
 
-    def _validated_prepared_data(
-        self, result: object,
-    ) -> tuple[str, dict[str, str]]:
-        """Accept an observation only when every active instrument is authenticated."""
-        if not isinstance(result, dict):
-            raise ValueError("prepared-data observation must be an object")
-        cutoff = result.get("prepared_through")
-        try:
-            cutoff = date.fromisoformat(str(cutoff)).isoformat()
-        except (TypeError, ValueError) as exc:
-            raise ValueError("prepared-data observation has no valid cutoff") from exc
-        instruments = result.get("instruments")
-        if not isinstance(instruments, list) or not instruments:
-            raise ValueError("prepared-data observation has no instruments")
-        identities: dict[str, str] = {}
-        for item in instruments:
-            if not isinstance(item, dict) or not isinstance(item.get("result"), dict):
-                raise ValueError("prepared-data instrument result is invalid")
-            symbol = str(item.get("symbol", "")).upper()
-            identity = item["result"].get("data_identity")
-            item_cutoff = item["result"].get("prepared_through")
-            if not symbol or not isinstance(identity, str) or not identity:
-                raise ValueError("prepared-data instrument identity is incomplete")
-            if item_cutoff != cutoff:
-                raise ValueError(f"{symbol}: instrument prepared-through date differs")
-            if symbol in identities:
-                raise ValueError(f"duplicate prepared-data instrument: {symbol}")
-            identities[symbol] = identity
-        expected = {
-            str(account["symbol"]).upper()
-            for account in self.store.strategy_virtual_accounts()
-            if account.get("status") != "RETIRED"
-        }
-        if set(identities) != expected:
-            raise ValueError(
-                "prepared-data instruments differ from active accounts: "
-                f"prepared={sorted(identities)}, expected={sorted(expected)}"
-            )
-        return cutoff, identities
-
     def tick(self, now: datetime) -> None:
         self.tick_fast(now)
         self.tick_daily(now)
@@ -189,67 +148,72 @@ class RuntimeScheduler:
     def tick_daily(self, now: datetime) -> None:
         local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
         if (
-            local_now.time().replace(tzinfo=None) >= self.observation_time
+            local_now.time().replace(tzinfo=None) >= self.preparation_time
             and self._due(
-                self._last_data_check, now, self.data_observe_interval
+                self._last_data_check, now, self.data_prepare_interval
             )
         ):
-            def observe_prepared_data():
-                try:
-                    result = self.prepared_data.observe()
-                    cutoff, identities = self._validated_prepared_data(result)
-                except Exception as exc:
-                    self.store.set_setting("data_preparation_error", str(exc))
-                    if self.audit is not None:
-                        self.audit.record(
-                            "DATA_PREPARATION_OBSERVATION_FAILED", source="scheduler",
-                            outcome="FAILURE", actor_type="SCHEDULER",
-                            details={"error_type": type(exc).__name__, "error": str(exc)},
-                        )
-                    raise
-                identity_json = json.dumps(identities, sort_keys=True)
-                if identity_json == self.store.get_setting("last_prepared_data_ids"):
-                    self.store.set_setting("data_preparation_error", "")
-                    return
-                correlation_id = f"prepared-data:{cutoff}"
-                self.store.set_setting("last_data_prepare_date", cutoff)
-                self.store.set_setting("last_prepared_data_ids", identity_json)
-                self.store.set_setting("last_data_preparation", now.isoformat())
-                self.store.set_setting("data_preparation_error", "")
-                if self.audit is not None:
-                    self.audit.record(
-                        "MARKET_DATA_PREPARED", source="scheduler", actor_type="SCHEDULER",
-                        correlation_id=correlation_id,
-                        details={"prepared_through": cutoff, "result": result},
-                    )
-            self._guard("data_preparation_observation", now, observe_prepared_data)
-            self._last_data_check = now
-        prepared_through = self.store.get_setting("last_data_prepare_date")
-        if (
-            prepared_through is not None
-            and self.store.get_setting("last_account_decision_date") != prepared_through
-        ):
-            def refresh_accounts():
-                self.engine.refresh_decisions()
-                self.store.set_setting("last_account_decision_date", prepared_through)
-            self._guard("account_decisions", now, refresh_accounts)
-        elif prepared_through is not None:
-            pending = []
+            signal_date = local_now.date()
             for account in self.store.strategy_virtual_accounts():
-                if account.get("status") == "RETIRED":
+                if account.get("status") != "RUNNING":
                     continue
-                payload = account.get("last_decision_payload")
-                try:
-                    signal_date = json.loads(payload).get("signal_date") if payload else None
-                except (json.JSONDecodeError, TypeError):
-                    signal_date = None
-                if signal_date is None:
-                    pending.append(account)
-            if pending:
-                def onboard_accounts():
-                    for account in pending:
-                        self.engine.refresh_decision(str(account["account_id"]))
-                self._guard("account_onboarding", now, onboard_accounts)
+                account_id = str(account["account_id"])
+                completed_key = f"last_account_decision_date:{account_id}"
+                skipped_key = f"last_account_schedule_skip_date:{account_id}"
+                if self.store.get_setting(completed_key) == signal_date.isoformat():
+                    continue
+                if self.store.get_setting(skipped_key) == signal_date.isoformat():
+                    continue
+
+                def prepare_and_decide(account=account, account_id=account_id):
+                    error_key = f"data_preparation_error:{account_id}"
+                    cutoff = self.store.get_setting(
+                        f"last_data_prepare_date:{account_id}"
+                    )
+                    if cutoff != signal_date.isoformat():
+                        try:
+                            prepared = self.prepared_data.prepare(
+                                account, signal_date=signal_date
+                            )
+                        except Exception as exc:
+                            self.store.set_setting(error_key, str(exc))
+                            raise
+                        if prepared is None:
+                            self.store.set_setting(skipped_key, signal_date.isoformat())
+                            self.store.set_setting(error_key, "")
+                            return
+                        cutoff = prepared.available_through.isoformat()
+                        self.store.set_setting(
+                            f"last_data_prepare_date:{account_id}", cutoff
+                        )
+                        self.store.set_setting(
+                            f"last_prepared_data_id:{account_id}", prepared.data_identity
+                        )
+                        self.store.set_setting(
+                            f"last_data_preparation:{account_id}", now.isoformat()
+                        )
+                        self.store.set_setting(error_key, "")
+                        if self.audit is not None:
+                            self.audit.record(
+                                "MARKET_DATA_PREPARED",
+                                source="scheduler",
+                                actor_type="SCHEDULER",
+                                account_id=account_id,
+                                strategy_id=str(account["strategy_id"]),
+                                strategy_version=str(account["strategy_version"]),
+                                release_hash=str(account["release_hash"]),
+                                symbol=str(account["symbol"]),
+                                correlation_id=f"prepared-data:{account_id}:{cutoff}",
+                                details={
+                                    "prepared_through": cutoff,
+                                    "data_identity": prepared.data_identity,
+                                },
+                            )
+                    self.engine.refresh_decision(account_id)
+                    self.store.set_setting(completed_key, cutoff)
+
+                self._guard(f"account_strategy_cycle:{account_id}", now, prepare_and_decide)
+            self._last_data_check = now
 
     def run(self, stopped: Event) -> None:
         def run_daily() -> None:

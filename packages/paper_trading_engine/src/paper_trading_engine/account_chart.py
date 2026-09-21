@@ -71,6 +71,7 @@ class AccountChartService:
 
     def _market_data(self, account: dict[str, Any]) -> tuple[str, list[dict[str, object]]]:
         price_identity, frame = self.advice.price_history_for_account(
+            account_id=str(account["account_id"]),
             strategy_id=str(account["strategy_id"]),
             strategy_version=str(account["strategy_version"]),
             symbol=str(account["symbol"]),

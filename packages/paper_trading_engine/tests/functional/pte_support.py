@@ -73,14 +73,14 @@ class FakeAdvice:
         self.value = value
         self.calls = []
 
-    def data_identity(self):
-        return "2026-09-01"
-
-    def prepared_through(self, _strategy_id, _strategy_version):
+    def prepared_through(self, _account_id, _strategy_id, _strategy_version):
         return self.value.signal_date
 
-    def tradable_date(self, _strategy_id, _strategy_version):
+    def tradable_date(self, _account_id, _strategy_id, _strategy_version):
         return self.value.valid_session
+
+    def data_identity(self, _account_id, _strategy_id, _strategy_version):
+        return "a" * 64
 
     def get_decision(self, actual_quantity, available_cash, **kwargs):
         self.calls.append((actual_quantity, available_cash, kwargs))

@@ -20,7 +20,7 @@ from uuid import uuid4
 
 from .audit import AuditRecorder
 from .srt_advice_client import SrtAdviceClient
-from .prepared_data_inbox import PreparedDataInbox
+from .account_data_preparer import AccountDataPreparer
 from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
@@ -113,9 +113,9 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", default=8080, type=int)
     serve.add_argument("--order-interval", default=5.0, type=float)
     serve.add_argument("--account-interval", default=60.0, type=float)
-    serve.add_argument("--data-observe-interval", default=5.0, type=float)
+    serve.add_argument("--data-prepare-interval", default=5.0, type=float)
     serve.add_argument(
-        "--data-observe-time", default="20:30",
+        "--data-prepare-time", default="20:30",
     )
     account = actions.add_parser("account")
     account_actions = account.add_subparsers(dest="account_action", required=True)
@@ -442,8 +442,20 @@ def _preflight_strategy_account(
             repo_root=args.repo_root,
             data_dir=args.data_dir,
         )
+        prepared = client.prepare_account_data(
+            account_id=args.account_id,
+            strategy_id=str(identity["strategy_id"]),
+            strategy_version=str(identity["version"]),
+            symbol=args.symbol,
+            asset=args.asset,
+            signal_date=shanghai_now().date(),
+        )
+        if prepared is None:
+            raise RuntimeError("account creation requires an SSE trading day")
         trading_date = client.tradable_date(
-            str(identity["strategy_id"]), str(identity["version"])
+            args.account_id,
+            str(identity["strategy_id"]),
+            str(identity["version"]),
         )
         decision = client.get_decision(
             0,
@@ -811,12 +823,12 @@ def main(
         initial_observation_at = shanghai_now()
         scheduler = RuntimeScheduler(
             engine,
-            PreparedDataInbox(store=engine.store, advice=engine.virtual.advice),
+            AccountDataPreparer(advice=engine.virtual.advice),
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,
-            data_observe_interval=args.data_observe_interval,
-            observation_time=args.data_observe_time,
+            data_prepare_interval=args.data_prepare_interval,
+            preparation_time=args.data_prepare_time,
             audit=audit,
             initial_observation_at=initial_observation_at,
         )

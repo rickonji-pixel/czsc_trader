@@ -1,39 +1,23 @@
 from datetime import date, datetime
 import json
-from pathlib import Path
 from threading import Event, Thread
 import time
 from types import SimpleNamespace
 
 import pytest
 
-from paper_trading_engine.audit import AuditRecorder
-from paper_trading_engine.prepared_data_inbox import (
-    PreparedDataInbox,
-    PreparedDataInboxError,
+from paper_trading_engine.account_data_preparer import (
+    AccountDataPreparationError,
+    AccountDataPreparer,
 )
+from paper_trading_engine.audit import AuditRecorder
 from paper_trading_engine.scheduler import RuntimeScheduler
-
-
-def test_pte_source_has_no_data_publication_capability():
-    source = Path(__file__).resolve().parents[2] / "src/paper_trading_engine"
-    assert not (source / "data_publisher.py").exists()
-    forbidden = (
-        "StrategyDataPublisher",
-        "publish_data(",
-        "seed_runtime_data",
-        "strategy_generation.json",
-        "verify_generation",
-        "_validation.json",
-    )
-    for path in source.glob("*.py"):
-        content = path.read_text(encoding="utf-8")
-        assert not any(token in content for token in forbidden), path.name
 
 
 class Engine:
     def __init__(self):
         self.calls = []
+        self.failures = {}
 
     def refresh_orders(self):
         self.calls.append("orders")
@@ -46,6 +30,9 @@ class Engine:
 
     def refresh_decision(self, account_id):
         self.calls.append(("decision", account_id))
+        error = self.failures.get(account_id)
+        if error is not None:
+            raise error
 
 
 class Store:
@@ -80,174 +67,163 @@ class Store:
         return [a for a in self.accounts if a.get("account_type", "STRATEGY") == "STRATEGY"]
 
 
-def _account(**overrides):
+def _account(account_id="s007-v1", **overrides):
     value = {
-        "account_id": "s007-v1",
+        "account_id": account_id,
         "symbol": "588080.SH",
         "asset_type": "etf",
         "status": "RUNNING",
         "strategy_id": "S007",
         "strategy_version": "v1",
-        "last_decision_payload": json.dumps({"signal_date": "2026-09-18"}),
+        "release_hash": "b" * 64,
+        "last_decision_payload": json.dumps({"signal_date": "2026-09-17"}),
     }
     value.update(overrides)
     return value
 
 
-def _publication(release_id="S007-v1", cutoff="2026-09-18", content="a" * 64):
+def _prepared(release_id="S007-v1", signal_date=date(2026, 9, 18), identity="a" * 64):
     return SimpleNamespace(
-        release_id=release_id,
-        release_hash="b" * 64,
-        requested_cutoff=cutoff,
-        input_results={
-            "bars": SimpleNamespace(
-                identity=SimpleNamespace(content_sha256=content)
-            )
-        },
+        strategy=SimpleNamespace(reference_id=release_id, release_hash="b" * 64),
+        available_through=signal_date,
+        data_identity=identity,
     )
 
 
 class Advice:
-    def __init__(self, publications=None, error=None):
-        self.publications = publications or {"S007-v1": _publication()}
-        self.error = error
+    def __init__(self):
+        self.calls = []
+        self.results = {}
 
-    def prepare_for_account(
-        self, *, strategy_id, strategy_version, symbol, asset
-    ):
-        del symbol, asset
-        if self.error is not None:
-            raise self.error
-        publication = self.publications[f"{strategy_id}-{strategy_version}"]
-        return SimpleNamespace(
-            strategy=SimpleNamespace(
-                reference_id=publication.release_id,
-                release_hash=publication.release_hash,
-            ),
-            available_through=date.fromisoformat(publication.requested_cutoff),
-            data_identity=next(iter(publication.input_results.values())).identity.content_sha256,
+    def prepare_account_data(self, **kwargs):
+        self.calls.append(kwargs)
+        account_id = kwargs["account_id"]
+        if account_id in self.results:
+            result = self.results[account_id]
+            if isinstance(result, Exception):
+                raise result
+            return result
+        return _prepared(
+            f"{kwargs['strategy_id']}-{kwargs['strategy_version']}",
+            kwargs["signal_date"],
         )
 
 
-def _observed():
-    return {
-        "prepared_through": "2026-09-18",
-        "instruments": [
-            {
-                "symbol": "588080.SH",
-                "result": {
-                    "prepared_through": "2026-09-18",
-                    "data_identity": "a" * 64,
-                },
-            }
-        ],
-    }
-
-
-def test_prepared_data_inbox_observes_required_release():
-    store = Store()
-    store.accounts = [_account()]
-    result = PreparedDataInbox(store=store, advice=Advice()).observe()
-    assert len(result["data_identities"]) == 1
-    assert result["instruments"][0]["result"]["data_identity"] == result[
-        "data_identities"
-    ][0]
-    store.accounts[0]["strategy_version"] = "v2"
-    with pytest.raises(PreparedDataInboxError, match="prepared data is unavailable"):
-        PreparedDataInbox(store=store, advice=Advice()).observe()
-
-
-def test_prepared_data_inbox_rejects_srt_preparation_failure():
-    store = Store()
-    store.accounts = [_account()]
-    with pytest.raises(PreparedDataInboxError, match="prepared data is unavailable"):
-        PreparedDataInbox(
-            store=store, advice=Advice(error=RuntimeError("authentication failed"))
-        ).observe()
-
-
-def test_prepared_data_inbox_rejects_different_release_cutoffs():
-    store = Store()
-    store.accounts = [_account(), _account(account_id="s008-v1", strategy_id="S008")]
-    advice = Advice(
-        publications={
-            "S007-v1": _publication(),
-            "S008-v1": _publication("S008-v1", "2026-09-17"),
-        }
+def test_account_data_preparer_delegates_one_account_to_srt():
+    advice = Advice()
+    result = AccountDataPreparer(advice=advice).prepare(
+        _account(), signal_date=date(2026, 9, 18)
     )
-    with pytest.raises(PreparedDataInboxError, match="different prepared-through"):
-        PreparedDataInbox(store=store, advice=advice).observe()
+    assert result.data_identity == "a" * 64
+    assert advice.calls == [{
+        "account_id": "s007-v1",
+        "strategy_id": "S007",
+        "strategy_version": "v1",
+        "symbol": "588080.SH",
+        "asset": "etf",
+        "signal_date": date(2026, 9, 18),
+    }]
 
 
-def test_scheduler_observes_generation_and_refreshes_once():
-    class Inbox:
-        def __init__(self):
-            self.calls = 0
+def test_account_data_preparer_rejects_wrong_release():
+    advice = Advice()
+    advice.results["s007-v1"] = _prepared("S003-v1")
+    with pytest.raises(AccountDataPreparationError, match="another strategy"):
+        AccountDataPreparer(advice=advice).prepare(
+            _account(), signal_date=date(2026, 9, 18)
+        )
 
-        def observe(self):
-            self.calls += 1
-            return _observed()
 
-    store, engine, inbox = Store(), Engine(), Inbox()
-    store.accounts = [_account()]
+def test_scheduler_prepares_then_decides_each_account_after_2030():
+    store, engine, advice = Store(), Engine(), Advice()
+    store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
     scheduler = RuntimeScheduler(
-        engine, inbox, store, observation_time="20:30", audit=AuditRecorder(store)
+        engine,
+        AccountDataPreparer(advice=advice),
+        store,
+        preparation_time="20:30",
+        audit=AuditRecorder(store),
     )
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 29, 59))
-    assert inbox.calls == 0
-    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 0))
-    assert store.values["last_data_prepare_date"] == "2026-09-18"
-    assert engine.calls == ["decisions"]
+    assert advice.calls == []
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30))
+    assert [item["account_id"] for item in advice.calls] == ["s007-v1", "s003-v1"]
+    assert engine.calls == [
+        ("decision", "s007-v1"),
+        ("decision", "s003-v1"),
+    ]
+    assert store.values["last_account_decision_date:s007-v1"] == "2026-09-18"
+    assert store.values["last_account_decision_date:s003-v1"] == "2026-09-18"
+    assert [e["account_id"] for e in store.audit_events] == ["s007-v1", "s003-v1"]
+
+
+def test_scheduler_account_failure_does_not_block_other_account_and_retries():
+    store, engine, advice = Store(), Engine(), Advice()
+    store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
+    advice.results["s007-v1"] = RuntimeError("source not ready")
+    scheduler = RuntimeScheduler(
+        engine,
+        AccountDataPreparer(advice=advice),
+        store,
+        preparation_time="00:00",
+    )
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30))
+    assert engine.calls == [("decision", "s003-v1")]
+    assert "account_strategy_cycle:s007-v1" in store.failures
+    assert store.values["last_account_decision_date:s003-v1"] == "2026-09-18"
+
+    advice.results["s007-v1"] = _prepared()
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
-    assert engine.calls == ["decisions"]
-    assert "MARKET_DATA_PREPARED" in {e["event_type"] for e in store.audit_events}
+    assert engine.calls[-1] == ("decision", "s007-v1")
+    assert "account_strategy_cycle:s007-v1" not in store.failures
 
 
-def test_scheduler_observation_failure_is_visible_and_retried():
-    class Inbox:
-        def __init__(self):
-            self.calls = 0
+def test_scheduler_retries_decision_without_using_old_data():
+    store, engine, advice = Store(), Engine(), Advice()
+    store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
+    engine.failures["s007-v1"] = RuntimeError("decision failed")
+    scheduler = RuntimeScheduler(
+        engine,
+        AccountDataPreparer(advice=advice),
+        store,
+        preparation_time="00:00",
+    )
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30))
+    assert store.values["last_data_prepare_date:s007-v1"] == "2026-09-18"
+    assert "last_account_decision_date:s007-v1" not in store.values
+    assert store.values["last_account_decision_date:s003-v1"] == "2026-09-18"
+    engine.failures.clear()
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
+    assert len(advice.calls) == 2
+    assert engine.calls == [
+        ("decision", "s007-v1"),
+        ("decision", "s003-v1"),
+        ("decision", "s007-v1"),
+    ]
 
-        def observe(self):
-            self.calls += 1
-            if self.calls == 1:
-                raise RuntimeError("data preparation incomplete")
-            return _observed()
 
-    store, engine, inbox = Store(), Engine(), Inbox()
+def test_scheduler_skips_closed_session_for_that_calendar_date():
+    store, engine, advice = Store(), Engine(), Advice()
     store.accounts = [_account()]
-    scheduler = RuntimeScheduler(engine, inbox, store, observation_time="00:00")
-    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 0))
-    assert store.values["data_preparation_error"] == "data preparation incomplete"
-    assert "data_preparation_observation" in store.failures
-    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
-    assert store.values["last_data_prepare_date"] == "2026-09-18"
-    assert engine.calls == ["decisions"]
-
-
-def test_scheduler_onboards_from_existing_prepared_data_without_writing():
-    class Inbox:
-        def observe(self):
-            return _observed()
-
-    store, engine = Store(), Engine()
-    store.values.update(
-        last_data_prepare_date="2026-09-18",
-        last_account_decision_date="2026-09-18",
-        last_prepared_data_ids=json.dumps({"588080.SH": "a" * 64}),
+    advice.results["s007-v1"] = None
+    scheduler = RuntimeScheduler(
+        engine,
+        AccountDataPreparer(advice=advice),
+        store,
+        preparation_time="00:00",
     )
-    store.accounts = [_account(last_decision_payload=None)]
-    RuntimeScheduler(engine, Inbox(), store, observation_time="00:00").tick_daily(
-        datetime(2026, 9, 18, 20, 31)
-    )
-    assert engine.calls == [("decision", "s007-v1")]
+    scheduler.tick_daily(datetime(2026, 9, 19, 20, 30))
+    scheduler.tick_daily(datetime(2026, 9, 19, 20, 30, 5))
+    assert len(advice.calls) == 1
+    assert engine.calls == []
 
 
-def test_slow_observation_does_not_stop_order_reconciliation():
+def test_slow_preparation_does_not_stop_order_reconciliation():
     entered, release, stopped = Event(), Event(), Event()
 
-    class Inbox:
-        def observe(self):
+    class Preparer:
+        def prepare(self, account, *, signal_date):
+            del account, signal_date
             entered.set()
             assert release.wait(2)
             raise RuntimeError("test stop")
@@ -256,11 +232,11 @@ def test_slow_observation_does_not_stop_order_reconciliation():
     store.accounts = [_account()]
     scheduler = RuntimeScheduler(
         engine,
-        Inbox(),
+        Preparer(),
         store,
         order_interval=0.01,
         account_interval=0.02,
-        observation_time="00:00",
+        preparation_time="00:00",
     )
     worker = Thread(target=scheduler.run, args=(stopped,))
     worker.start()

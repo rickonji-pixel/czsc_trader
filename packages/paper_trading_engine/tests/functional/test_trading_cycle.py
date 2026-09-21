@@ -1,6 +1,7 @@
 from dataclasses import asdict, replace
 from datetime import date, datetime, time, timezone
 import re
+from types import SimpleNamespace
 import pytest
 
 from paper_trading_engine.account_engine import (
@@ -32,18 +33,21 @@ def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_p
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
     accounts = AccountEngine(store, advice)
 
-    class Publisher:
-        def publish(self, end_date):
-            raise AssertionError("publication is not due in this test")
+    class Preparer:
+        def prepare(self, account, *, signal_date):
+            return SimpleNamespace(
+                available_through=signal_date,
+                data_identity="c" * 64,
+            )
 
-    scheduler = RuntimeScheduler(accounts, Publisher(), store)
-    scheduler.tick_daily(datetime(2026, 9, 2, 10, 0, 0))
+    scheduler = RuntimeScheduler(accounts, Preparer(), store, preparation_time="00:00")
+    scheduler.tick_daily(datetime(2026, 9, 2, 20, 30, 0))
     assert store.get_setting("last_account_decision_date") is None
     assert store.account_decisions("s001-v1") == []
     assert store.account_intents("s001-v1") == []
     assert advice.calls == []
     assert {row["operation"] for row in store.operation_failures()} == {
-        "account_decisions"
+        "account_strategy_cycle:s001-v1"
     }
 
     store.set_virtual_health("s001-v1", "OK")

@@ -199,10 +199,12 @@ class AccountEngine:
             row for row in self.store.account_intents(account_id)
             if row["status"] not in TERMINAL_INTENT_STATUSES
         ]
-        prepared_through = self.store.get_setting("last_data_prepare_date")
-        if not prepared_through and hasattr(self.advice, "prepared_through"):
+        prepared_through = None
+        if hasattr(self.advice, "prepared_through"):
             prepared_through = self.advice.prepared_through(
-                str(account["strategy_id"]), str(account["strategy_version"])
+                account_id,
+                str(account["strategy_id"]),
+                str(account["strategy_version"]),
             ).isoformat()
         if not prepared_through and previous_payload:
             prepared_through = json.loads(previous_payload).get("signal_date")
@@ -273,7 +275,9 @@ class AccountEngine:
         )
         if hasattr(self.advice, "tradable_date"):
             trading_date = self.advice.tradable_date(
-                str(account["strategy_id"]), str(account["strategy_version"])
+                account_id,
+                str(account["strategy_id"]),
+                str(account["strategy_version"]),
             )
         elif previous_payload:
             trading_date = datetime.strptime(
@@ -348,16 +352,19 @@ class AccountEngine:
         payload = asdict(decision)
         if bool(execution_account["paused"]):
             payload["execution_disposition"] = "SKIPPED_PAUSED"
-        try:
-            prepared_data = json.loads(
-                self.store.get_setting("last_prepared_data_ids") or "{}"
+        if hasattr(self.advice, "data_identity"):
+            payload["prepared_data_identity"] = self.advice.data_identity(
+                account_id,
+                str(account["strategy_id"]),
+                str(account["strategy_version"]),
             )
-        except (json.JSONDecodeError, TypeError):
-            prepared_data = {}
-        data_identity = prepared_data.get(str(account["symbol"]).upper())
-        if isinstance(data_identity, str) and data_identity:
-            payload["prepared_data_identity"] = data_identity
         previous = json.loads(previous_payload) if previous_payload else None
+        if (
+            previous is not None
+            and previous.get("decision_id") == payload.get("decision_id")
+            and "prepared_data_identity" not in previous
+        ):
+            payload.pop("prepared_data_identity", None)
         previous_decision_id = previous.get("decision_id") if previous else None
         supersede_previous = bool(
             operator_drive

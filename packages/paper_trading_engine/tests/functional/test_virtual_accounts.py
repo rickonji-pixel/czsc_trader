@@ -30,9 +30,9 @@ def test_pte_cli_rejects_retired_account_and_scheduler_aliases(tmp_path):
     parser = pte_cli.build_parser()
     current = parser.parse_args([
         "serve", "--repo-root", str(tmp_path),
-        "--data-observe-interval", "7",
+        "--data-prepare-interval", "7",
     ])
-    assert current.data_observe_interval == 7
+    assert current.data_prepare_interval == 7
 
     with pytest.raises(SystemExit):
         parser.parse_args([
@@ -477,6 +477,13 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
             "qualification": "PAPER_READY",
         },
         fee_rate=0.001,
+    )
+    monkeypatch.setattr(
+        pte_cli.SrtAdviceClient,
+        "prepare_account_data",
+        lambda _self, **_kwargs: SimpleNamespace(
+            available_through=date(2026, 9, 15)
+        ),
     )
     monkeypatch.setattr(
         pte_cli.SrtAdviceClient,

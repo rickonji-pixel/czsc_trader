@@ -13,7 +13,7 @@ from .errors import RuntimeContractError
 
 @dataclass(frozen=True, slots=True)
 class StrategySignal:
-    valid_session: date
+    trading_date: date
     target_position: float
     evidence: Mapping[str, Any] = field(default_factory=dict)
     next_state: Mapping[str, Any] = field(default_factory=dict)

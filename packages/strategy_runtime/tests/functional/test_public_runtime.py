@@ -78,6 +78,6 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel() -> Non
     assert plan.expected_state_revision == 3
     assert plan.actual_quantity == 5900
     assert plan.signal_identity != plan.plan_identity
-    assert plan.valid_session == date(2026, 9, 21)
+    assert plan.trading_date == date(2026, 9, 21)
     assert {order.order_type.value for order in plan.orders} <= {"LIMIT", "MARKET"}
     assert {leg.order.order_type.value for leg in plan.legs} <= {"LIMIT", "MARKET"}

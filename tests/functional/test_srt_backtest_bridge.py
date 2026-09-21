@@ -72,7 +72,7 @@ def _execution_plan(
         plan_identity=identity,
         symbol=symbol,
         signal_date=pd.Timestamp(signal_date).date(),
-        valid_session=pd.Timestamp(valid_date).date(),
+        trading_date=pd.Timestamp(valid_date).date(),
         generated_at=generated_at,
         expected_portfolio_revision=portfolio.revision,
         expected_state_revision=state.revision,

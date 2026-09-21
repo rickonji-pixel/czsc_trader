@@ -166,7 +166,7 @@ class StrategyInstance:
                     else "HOLD"
                 )
         return StrategySignal(
-            valid_session=point.trading_date,
+            trading_date=point.trading_date,
             target_position=target_position,
             evidence=evidence,
             next_state={
@@ -288,7 +288,7 @@ class StrategyInstance:
             plan_identity=plan_identity,
             symbol=self._identity.symbol,
             signal_date=signal_date,
-            valid_session=point.trading_date,
+            trading_date=point.trading_date,
             generated_at=point.calculation_time,
             expected_portfolio_revision=portfolio.revision,
             expected_state_revision=state.revision,

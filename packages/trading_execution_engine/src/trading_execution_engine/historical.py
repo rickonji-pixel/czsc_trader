@@ -6,8 +6,6 @@ from datetime import datetime, time
 from decimal import Decimal
 from hashlib import sha256
 from math import isfinite
-from typing import Any, Mapping
-
 import pandas as pd
 from strategy_runtime import (
     ExecutionCapabilities,
@@ -191,14 +189,13 @@ class HistoricalExecutor:
         self._validate_plan(plan)
 
         signal_date = pd.Timestamp(plan.signal_date).normalize()
-        execution_date = pd.Timestamp(plan.valid_session).normalize()
-        payload = self._plan_payload(plan)
-        fee_rate = float(payload["fee_rate"])
+        execution_date = pd.Timestamp(plan.trading_date).normalize()
+        fee_rate = float(plan.fee_rate)
         if not isfinite(fee_rate) or not 0 <= fee_rate < 1:
             raise RuntimeContractError("execution fee_rate must be finite and in [0, 1)")
         should_record = True
         if self._policy.policy_type == "INTRADAY_OVERLAY" and plan.legs:
-            self._execute_overlay(plan, payload, signal_date, execution_date)
+            self._execute_overlay(plan, signal_date, execution_date)
         elif self._policy.policy_type == "INTRADAY_OVERLAY":
             self._state_by_date[execution_date] = {
                 "signal_date": signal_date,
@@ -210,7 +207,7 @@ class HistoricalExecutor:
             }
             should_record = False
         else:
-            self._execute_target(plan, payload, signal_date, execution_date)
+            self._execute_target(plan, signal_date, execution_date)
         if should_record:
             self._record_decision(plan, signal_date, execution_date)
         self._revision += 1
@@ -220,9 +217,9 @@ class HistoricalExecutor:
             plan_identity=key,
             portfolio=self.snapshot(
                 TradingPoint(
-                    plan.valid_session,
+                    plan.trading_date,
                     datetime.combine(
-                        plan.valid_session,
+                        plan.trading_date,
                         time(15, 0),
                         tzinfo=plan.generated_at.tzinfo,
                     ),
@@ -231,7 +228,7 @@ class HistoricalExecutor:
             state=ExecutionState(
                 self._revision,
                 datetime.combine(
-                    plan.valid_session,
+                    plan.trading_date,
                     time(15, 0),
                     tzinfo=plan.generated_at.tzinfo,
                 ),
@@ -347,34 +344,8 @@ class HistoricalExecutor:
     def _decision_id(plan: ExecutionPlan) -> str:
         return "DEC-" + plan.plan_identity[:20].upper()
 
-    @staticmethod
-    def _plan_payload(plan: ExecutionPlan) -> dict[str, object]:
-        def order_payload(order) -> dict[str, object]:
-            return {
-                "side": order.side.value,
-                "quantity": order.quantity,
-                "order_type": order.order_type.value,
-                "limit_price": None if order.limit_price is None else float(order.limit_price),
-            }
-
-        return {
-            "fee_rate": float(plan.fee_rate),
-            "cycle_target_quantity": plan.cycle_target_quantity,
-            "plan_mode": plan.plan_mode,
-            "orders": [order_payload(order) for order in plan.orders],
-            "plan_legs": [
-                {
-                    "sequence": leg.sequence,
-                    "checkpoint": leg.checkpoint,
-                    "dependency_sequence": leg.dependency_sequence,
-                    "order": order_payload(leg.order),
-                }
-                for leg in plan.legs
-            ],
-        }
-
     def _validate_plan(self, plan: ExecutionPlan) -> None:
-        execution_date = pd.Timestamp(plan.valid_session).normalize()
+        execution_date = pd.Timestamp(plan.trading_date).normalize()
         signal_date = pd.Timestamp(plan.signal_date).normalize()
         if signal_date >= execution_date:
             raise RuntimeContractError("historical execution must follow the signal session")
@@ -399,36 +370,37 @@ class HistoricalExecutor:
 
     def _execute_target(
         self,
-        execution_plan: ExecutionPlan,
-        plan: Mapping[str, Any],
+        plan: ExecutionPlan,
         signal_date: pd.Timestamp,
         execution_date: pd.Timestamp,
     ) -> None:
         price_row = self._evaluation.loc[execution_date]
         cash_before = self._cash
         quantity_before = self._quantity
-        target = int(execution_plan.target_position)
-        decision_id = self._decision_id(execution_plan)
+        target = int(plan.target_position)
+        decision_id = self._decision_id(plan)
         if target == 1 and self._quantity == 0 and self._cycle_id is None:
             self._cycle_id = _id("CYC", self._strategy_reference, signal_date)
         exit_proceeds = 0.0
         exit_fees = 0.0
         exit_time: pd.Timestamp | None = None
         exit_quantity = 0
-        fee_rate = float(plan["fee_rate"])
+        fee_rate = float(plan.fee_rate)
         day_bars = self._intraday.loc[
             self._intraday.index.normalize() == execution_date.normalize()
         ]
-        for slice_number, order in enumerate(plan["orders"], start=1):
+        for slice_number, order in enumerate(plan.orders, start=1):
             order_id = _id("ORD", decision_id, execution_date, slice_number)
-            side = str(order["side"])
-            quantity = int(order["quantity"])
-            order_type = str(order["order_type"])
-            limit_price = float(order["limit_price"])
+            side = order.side.value
+            quantity = order.quantity
+            order_type = order.order_type.value
+            limit_price = (
+                None if order.limit_price is None else float(order.limit_price)
+            )
             touch_column = "low" if side == "BUY" else "high"
             fill = resolve_fill(
                 OrderSpec(
-                    side, order_type, quantity, None if order_type == "MARKET" else limit_price
+                    side, order_type, quantity, limit_price
                 ),
                 session_open=float(price_row["open"]),
                 session_time=execution_date.to_pydatetime(),
@@ -524,7 +496,7 @@ class HistoricalExecutor:
                 }
             )
             self._open_trade = None
-        self._cycle_target = int(plan["cycle_target_quantity"])
+        self._cycle_target = plan.cycle_target_quantity
         if target == 0 and self._quantity == 0:
             self._cycle_target = None
             self._cycle_id = None
@@ -539,12 +511,11 @@ class HistoricalExecutor:
 
     def _execute_overlay(
         self,
-        execution_plan: ExecutionPlan,
-        plan: Mapping[str, Any],
+        plan: ExecutionPlan,
         signal_date: pd.Timestamp,
         execution_date: pd.Timestamp,
     ) -> None:
-        if plan["plan_mode"] != "CORE_EVENT_INTRADAY_ROTATION":
+        if plan.plan_mode != "CORE_EVENT_INTRADAY_ROTATION":
             raise RuntimeContractError(
                 "historical overlay account must enter the window with a sellable core"
             )
@@ -561,30 +532,40 @@ class HistoricalExecutor:
             raise RuntimeContractError("intraday overlay has incomplete execution checkpoints")
         cash_before = self._cash
         quantity_before = self._quantity
-        decision_id = self._decision_id(execution_plan)
+        decision_id = self._decision_id(plan)
         cycle_id = _id("CYC", decision_id, execution_date)
-        fee_rate = float(plan["fee_rate"])
+        fee_rate = float(plan.fee_rate)
         leg_status: dict[int, str] = {}
         entry_price = 0.0
         exit_price = 0.0
         trade_quantity = 0
-        for leg in plan["plan_legs"]:
-            sequence = int(leg["sequence"])
-            dependency = leg["dependency_sequence"]
+        for leg in plan.legs:
+            sequence = leg.sequence
+            dependency = leg.dependency_sequence
             if dependency is not None and leg_status.get(int(dependency)) != "FILLED_ALL":
                 leg_status[sequence] = "BLOCKED"
                 continue
-            order = dict(leg["order"])
-            side = str(order["side"])
-            quantity = int(order["quantity"])
-            order_type = str(order["order_type"])
-            checkpoint = str(leg["checkpoint"])
+            order = leg.order
+            side = order.side.value
+            quantity = order.quantity
+            order_type = order.order_type.value
+            checkpoint = leg.checkpoint
             reference = float(opening.iloc[0] if checkpoint == "OPEN" else closing.iloc[0])
-            limit_price = float(order["limit_price"])
+            limit_price = (
+                None if order.limit_price is None else float(order.limit_price)
+            )
             can_fill = (
                 order_type == "MARKET"
-                or (side == "BUY" and reference <= limit_price)
-                or (side == "SELL" and reference >= limit_price)
+                or (
+                    limit_price is not None
+                    and side == "BUY"
+                    and reference <= limit_price
+                )
+                or (
+                    limit_price is not None
+                    and side == "SELL"
+                    and reference >= limit_price
+                )
             )
             if side == "BUY" and can_fill:
                 can_fill = quantity * reference * (1.0 + fee_rate) <= self._cash + 1e-8

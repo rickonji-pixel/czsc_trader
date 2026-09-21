@@ -98,7 +98,7 @@ def _decision_from_plan(plan: ExecutionPlan, identity: dict[str, str]) -> Advice
         "state_revision": plan.expected_state_revision,
         "symbol": plan.symbol,
         "signal_date": plan.signal_date.isoformat(),
-        "valid_session": plan.valid_session.isoformat(),
+        "valid_session": plan.trading_date.isoformat(),
         "actual_quantity": plan.actual_quantity,
         "target_quantity": plan.target_quantity,
         "cycle_target_quantity": plan.cycle_target_quantity,

@@ -313,7 +313,7 @@ class ExecutionPlan:
     plan_identity: str
     symbol: str
     signal_date: date
-    valid_session: date
+    trading_date: date
     generated_at: datetime
     expected_portfolio_revision: int
     expected_state_revision: int
@@ -343,8 +343,8 @@ class ExecutionPlan:
             raise RuntimeContractError("plan symbol differs from strategy")
         if self.generated_at.tzinfo is None:
             raise RuntimeContractError("plan generated_at must be timezone-aware")
-        if self.valid_session <= self.signal_date:
-            raise RuntimeContractError("plan valid session must follow signal date")
+        if self.trading_date <= self.signal_date:
+            raise RuntimeContractError("plan trading date must follow signal date")
         if self.expected_portfolio_revision < 0 or self.expected_state_revision < 0:
             raise RuntimeContractError("plan revisions must be non-negative")
         quantities = (

@@ -79,17 +79,9 @@ PTE、TDR 和其他主调方不得解析其中的数据集和清单字段。
 
 PTE 的外部准备进程可使用：
 
-```powershell
-srt-prepare `
-  --repo-root . `
-  --data-dir state/paper_trading/prepared `
-  --symbol 588080.SH `
-  --release S007-v1 `
-  --trading-date 2026-09-21
-```
-
-该命令仍然通过 `StrategyInstance.prepare_data()` 完成实际准备，只额外原子生成 PTE 用于定位隔离
-实例目录的 `prepared-data-index.json`。
+PTE日调度直接为每个账户创建`StrategyInstance`并显式调用`prepare_data()`。PTE只提供账户隔离的
+数据目录、交易窗口和业务参数；策略依赖、初始信号日及回看范围仍由实例和策略实现推导。
+`srt-prepare`仅用于人工诊断或独立准备，不是PTE日常运行的前置任务。
 
 ## 执行计划
 

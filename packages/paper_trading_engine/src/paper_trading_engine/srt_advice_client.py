@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from hashlib import sha256
 import json
 import os
 from pathlib import Path
 import re
+from threading import Lock
 import time as clock
 from typing import Callable
 from uuid import uuid4
@@ -159,6 +160,7 @@ class SrtAdviceClient:
         self.now = now or (lambda: datetime.now(_BEIJING))
         self.session_resolver = session_resolver or self._next_tradable_session
         self._session_cache: dict[date, date | None] = {}
+        self._session_cache_lock = Lock()
 
     def _load_release(self, strategy_id: str, strategy_version: str) -> StrategyRelease:
         path = self.repo_root / "strategies" / strategy_id / "versions" / f"{strategy_version}.json"
@@ -243,34 +245,60 @@ class SrtAdviceClient:
             raise AdviceClientError("prepared-data identity differs from its index")
         return strategy, prepared
 
-    def _next_tradable_session(self, signal_date: date) -> date | None:
-        end = signal_date + timedelta(days=40)
+    def _trading_calendar(self, start: date, end: date) -> dict[date, int]:
         result = Dataflows().fetch(
             DataRequest(
                 Dataset.TRADING_CALENDAR,
                 "SSE",
-                signal_date.isoformat(),
+                start.isoformat(),
                 end.isoformat(),
                 end.isoformat(),
-                options={"env_file": self.repo_root / ".env"},
             )
         )
         if not result.ready:
             message = result.error.message if result.error is not None else result.status
             raise AdviceClientError(f"SSE trading calendar is unavailable: {message}")
-        frame = result.dataframe.copy()
-        sessions = {
+        return {
             value.date(): int(flag)
             for value, flag in zip(
-                frame["Date"], frame["IsOpen"], strict=True
+                result.dataframe["Date"], result.dataframe["IsOpen"], strict=True
             )
         }
+
+    def _next_tradable_session(self, signal_date: date) -> date | None:
+        sessions = self._trading_calendar(
+            signal_date, signal_date + timedelta(days=40)
+        )
         if sessions.get(signal_date) != 1:
             return None
         future = sorted(day for day, is_open in sessions.items() if day > signal_date and is_open)
         if not future:
             raise AdviceClientError(f"SSE calendar has no session after {signal_date}")
         return future[0]
+
+    def latest_completed_signal_date(
+        self,
+        at: datetime | None = None,
+        *,
+        completion_time: time = time(20, 30),
+    ) -> date:
+        moment = at or self.now()
+        moment = (
+            moment.replace(tzinfo=_BEIJING)
+            if moment.tzinfo is None
+            else moment.astimezone(_BEIJING)
+        )
+        end = moment.date()
+        sessions = self._trading_calendar(end - timedelta(days=40), end)
+        candidates = [
+            day
+            for day, is_open in sessions.items()
+            if is_open
+            and (day < end or (day == end and moment.time() >= completion_time))
+        ]
+        if not candidates:
+            raise AdviceClientError("SSE calendar has no completed trading session")
+        return max(candidates)
 
     @staticmethod
     def _instance_directory(
@@ -313,9 +341,14 @@ class SrtAdviceClient:
         if asset != "etf":
             raise AdviceClientError("PTE currently requires one ETF strategy")
         release = self._load_release(strategy_id, strategy_version)
-        if signal_date not in self._session_cache:
-            self._session_cache[signal_date] = self.session_resolver(signal_date)
-        trading_date = self._session_cache[signal_date]
+        with self._session_cache_lock:
+            cached = self._session_cache.get(signal_date, ...)
+        if cached is ...:
+            resolved = self.session_resolver(signal_date)
+            with self._session_cache_lock:
+                trading_date = self._session_cache.setdefault(signal_date, resolved)
+        else:
+            trading_date = cached
         if trading_date is None:
             return None
         root = self._account_root(account_id)

@@ -7,7 +7,11 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from dataflows import Dataflows, Dataset
 
+from paper_trading_engine.account_data_preparer import AccountDataPreparer
+from paper_trading_engine.account_engine import AccountEngine
+from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.srt_advice_client import SrtAdviceClient
+from paper_trading_engine.store import PaperStore
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -139,3 +143,67 @@ def test_default_session_resolver_uses_sse_calendar(tmp_path, monkeypatch):
     client = SrtAdviceClient(repo_root=ROOT, data_dir=tmp_path)
     assert client._next_tradable_session(date(2026, 9, 2)) == date(2026, 9, 3)
     assert client._next_tradable_session(date(2026, 9, 5)) is None
+    assert client.latest_completed_signal_date(
+        datetime(2026, 9, 5, 12, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    ) == date(2026, 9, 4)
+    assert client.latest_completed_signal_date(
+        datetime(2026, 9, 7, 20, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
+    ) == date(2026, 9, 7)
+
+
+def test_legacy_data_directory_migrates_through_prepare_and_decision(
+    tmp_path, monkeypatch,
+):
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
+    monkeypatch.setattr(
+        "paper_trading_engine.srt_advice_client.Dataflows", lambda: _flows()
+    )
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "srt_s002_v1_publication.json").write_text("{}", encoding="utf-8")
+    store = PaperStore(tmp_path / "runtime.db")
+    store.create_virtual_account(
+        "s002-v1",
+        "S002-v1模拟账户",
+        "legacy",
+        "a" * 64,
+        "100000",
+        strategy_id="S002",
+        strategy_name_snapshot="三连跌五日策略",
+        strategy_version="v1",
+        release_hash="67326ee14e0b67b3cbebb6ba7fd3d10e6fc053002d2a5f1323fe3489a2f84ee9",
+        qualification_snapshot="PAPER_READY",
+        selection_data_cutoff="2026-09-08",
+        symbol="510500.SH",
+        asset_type="etf",
+    )
+    client = SrtAdviceClient(
+        repo_root=ROOT,
+        data_dir=data_dir,
+        now=lambda: datetime(2026, 9, 2, 20, 30, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+    accounts = AccountEngine(store, client)
+
+    class Engine:
+        def refresh_decision(self, account_id):
+            return accounts.refresh_account(account_id)
+
+    scheduler = RuntimeScheduler(
+        Engine(),
+        AccountDataPreparer(advice=client),
+        store,
+        preparation_time="20:30",
+    )
+
+    scheduler.tick_daily(datetime(2026, 9, 2, 20, 30))
+    for worker in tuple(scheduler._account_workers.values()):
+        worker.join(5)
+
+    assert (data_dir / "accounts/s002-v1/current.json").is_file()
+    assert store.get_setting("last_data_prepare_date:s002-v1") == "2026-09-02"
+    assert store.operation_failures() == []
+    decisions = store.account_decisions("s002-v1")
+    assert len(decisions) == 1
+    assert decisions[0]["signal_date"] == "2026-09-02"
+    assert decisions[0]["valid_session"] == "2026-09-03"
+    store.close()

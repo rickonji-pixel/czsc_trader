@@ -24,9 +24,10 @@
 
 ## SRT与PTE
 
-- 外部生产任务调用`srt-prepare`，为每个冻结版本及交易日创建隔离实例数据目录；全部实例准备
-  成功后原子更新`prepared-data-index.json`。
-- PTE通过SRT公共接口恢复实例并核对`data_identity`，不解析`prepared-data.json`或任何策略输入。
+- PTE在每个交易日20:30后为每个运行账户创建隔离`StrategyInstance`并显式调用
+  `prepare_data()`；准备成功后立即计算该账户决策。账户之间的数据空间、进度和失败退避相互隔离。
+- PTE只提供账户数据目录、交易窗口、现金、持仓和修订号，通过SRT公共接口准备和恢复实例并
+  核对`data_identity`，不解析`prepared-data.json`或任何策略输入。
 - SRT拥有目标仓位、参考价、资金规则、委托参数和生效时点；PTE提供账户现金、持仓和修订号，
   持久化计划并依据Futu回报执行和记账。
 - 旧的publication、generation运行上下文、Runner和双轨平面发布接口已经删除，不提供兼容路径。

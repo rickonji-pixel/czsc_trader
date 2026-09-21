@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta, timezone
-from threading import Event, Thread
+from threading import Event, RLock, Thread
+from time import monotonic
 
 from .audit import AuditRecorder
 from .trading_window import SHANGHAI, shanghai_now
@@ -38,6 +39,8 @@ class RuntimeScheduler:
         self._last_heartbeat = initial_observation_at
         self._last_data_check: datetime | None = None
         self._daily_thread: Thread | None = None
+        self._account_workers: dict[str, Thread] = {}
+        self._failure_lock = RLock()
         self.shutdown_clean = True
         self._failures = self._restore_failures()
         self._retry_delays = (5, 15, 30, 60, 300)
@@ -70,57 +73,75 @@ class RuntimeScheduler:
         return restored
 
     def _guard(self, name: str, now: datetime, operation) -> bool:
-        state = self._failures.get(name)
-        if state is not None and now < state["next_retry"]:
-            return False
+        with self._failure_lock:
+            state = self._failures.get(name)
+            if state is not None and now < state["next_retry"]:
+                return False
         try:
             operation()
         except Exception as exc:
-            fingerprint = f"{type(exc).__name__}:{exc}"
-            previous = self._failures.get(name)
-            count = 1 if previous is None or previous["fingerprint"] != fingerprint else int(previous["count"]) + 1
-            first_at = now if count == 1 else previous["first_at"]
-            delay = self._retry_delays[min(count - 1, len(self._retry_delays) - 1)]
-            self._failures[name] = {
-                "fingerprint": fingerprint, "count": count, "first_at": first_at,
-                "last_at": now, "next_retry": now + timedelta(seconds=delay),
-            }
-            persist = getattr(self.store, "set_operation_failure", None)
-            if persist is not None:
-                persist(name, {
-                    "error": str(exc), "fingerprint": fingerprint, "failure_count": count,
-                    "first_at": first_at.isoformat(), "last_at": now.isoformat(),
-                    "next_retry": (now + timedelta(seconds=delay)).isoformat(),
-                })
-            if count == 1:
-                details = {"operation": name, "error": str(exc), "failure_count": count,
-                           "first_at": now.isoformat(), "retry_after_seconds": delay}
-                if self.audit is not None:
-                    self.audit.record(
-                        "SCHEDULER_OPERATION_FAILED", source="scheduler", outcome="FAILURE",
-                        actor_type="SCHEDULER", details=details,
-                    )
-                else:
-                    self.store.add_event("SCHEDULER_OPERATION_FAILED", details)
+            with self._failure_lock:
+                fingerprint = f"{type(exc).__name__}:{exc}"
+                previous = self._failures.get(name)
+                count = (
+                    1
+                    if previous is None or previous["fingerprint"] != fingerprint
+                    else int(previous["count"]) + 1
+                )
+                first_at = now if count == 1 else previous["first_at"]
+                delay = self._retry_delays[
+                    min(count - 1, len(self._retry_delays) - 1)
+                ]
+                self._failures[name] = {
+                    "fingerprint": fingerprint,
+                    "count": count,
+                    "first_at": first_at,
+                    "last_at": now,
+                    "next_retry": now + timedelta(seconds=delay),
+                }
+                persist = getattr(self.store, "set_operation_failure", None)
+                if persist is not None:
+                    persist(name, {
+                        "error": str(exc), "fingerprint": fingerprint,
+                        "failure_count": count, "first_at": first_at.isoformat(),
+                        "last_at": now.isoformat(),
+                        "next_retry": (now + timedelta(seconds=delay)).isoformat(),
+                    })
+                if count == 1:
+                    details = {
+                        "operation": name, "error": str(exc), "failure_count": count,
+                        "first_at": now.isoformat(), "retry_after_seconds": delay,
+                    }
+                    if self.audit is not None:
+                        self.audit.record(
+                            "SCHEDULER_OPERATION_FAILED", source="scheduler",
+                            outcome="FAILURE", actor_type="SCHEDULER", details=details,
+                        )
+                    else:
+                        self.store.add_event("SCHEDULER_OPERATION_FAILED", details)
             return False
         else:
-            self.store.set_setting(f"last_{name}_success_at", now.isoformat())
-            if name in self._failures:
-                previous = self._failures.pop(name)
-                details = {"operation": name, "previous_error": previous["fingerprint"],
-                           "failure_count": previous["count"],
-                           "first_at": previous["first_at"].isoformat(),
-                           "last_at": previous["last_at"].isoformat()}
-                if self.audit is not None:
-                    self.audit.record(
-                        "SCHEDULER_OPERATION_RECOVERED", source="scheduler",
-                        actor_type="SCHEDULER", details=details,
-                    )
-                else:
-                    self.store.add_event("SCHEDULER_OPERATION_RECOVERED", details)
-            clear = getattr(self.store, "clear_operation_failure", None)
-            if clear is not None:
-                clear(name)
+            with self._failure_lock:
+                self.store.set_setting(f"last_{name}_success_at", now.isoformat())
+                if name in self._failures:
+                    previous = self._failures.pop(name)
+                    details = {
+                        "operation": name,
+                        "previous_error": previous["fingerprint"],
+                        "failure_count": previous["count"],
+                        "first_at": previous["first_at"].isoformat(),
+                        "last_at": previous["last_at"].isoformat(),
+                    }
+                    if self.audit is not None:
+                        self.audit.record(
+                            "SCHEDULER_OPERATION_RECOVERED", source="scheduler",
+                            actor_type="SCHEDULER", details=details,
+                        )
+                    else:
+                        self.store.add_event("SCHEDULER_OPERATION_RECOVERED", details)
+                clear = getattr(self.store, "clear_operation_failure", None)
+                if clear is not None:
+                    clear(name)
             return True
 
     @staticmethod
@@ -145,75 +166,93 @@ class RuntimeScheduler:
             self._guard("orders", now, self.engine.refresh_orders)
             self._last_order = now
 
+    def _account_cycle(
+        self, account: dict[str, object], signal_date, now: datetime
+    ) -> None:
+        account_id = str(account["account_id"])
+        completed_key = f"last_account_decision_date:{account_id}"
+        skipped_key = f"last_account_schedule_skip_date:{account_id}"
+
+        def prepare_and_decide():
+            error_key = f"data_preparation_error:{account_id}"
+            cutoff = self.store.get_setting(f"last_data_prepare_date:{account_id}")
+            if cutoff != signal_date.isoformat():
+                try:
+                    prepared = self.prepared_data.prepare(
+                        account, signal_date=signal_date
+                    )
+                except Exception as exc:
+                    self.store.set_setting(error_key, str(exc))
+                    raise
+                if prepared is None:
+                    self.store.set_setting(skipped_key, signal_date.isoformat())
+                    self.store.set_setting(error_key, "")
+                    return
+                cutoff = prepared.available_through.isoformat()
+                self.store.set_setting(f"last_data_prepare_date:{account_id}", cutoff)
+                self.store.set_setting(
+                    f"last_prepared_data_id:{account_id}", prepared.data_identity
+                )
+                self.store.set_setting(
+                    f"last_data_preparation:{account_id}", now.isoformat()
+                )
+                self.store.set_setting(error_key, "")
+                if self.audit is not None:
+                    self.audit.record(
+                        "MARKET_DATA_PREPARED",
+                        source="scheduler",
+                        actor_type="SCHEDULER",
+                        account_id=account_id,
+                        strategy_id=str(account["strategy_id"]),
+                        strategy_version=str(account["strategy_version"]),
+                        release_hash=str(account["release_hash"]),
+                        symbol=str(account["symbol"]),
+                        correlation_id=f"prepared-data:{account_id}:{cutoff}",
+                        details={
+                            "prepared_through": cutoff,
+                            "data_identity": prepared.data_identity,
+                        },
+                    )
+            self.engine.refresh_decision(account_id)
+            self.store.set_setting(completed_key, cutoff)
+
+        self._guard(f"account_strategy_cycle:{account_id}", now, prepare_and_decide)
+
     def tick_daily(self, now: datetime) -> None:
         local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
         if (
-            local_now.time().replace(tzinfo=None) >= self.preparation_time
-            and self._due(
-                self._last_data_check, now, self.data_prepare_interval
-            )
+            local_now.time().replace(tzinfo=None) < self.preparation_time
+            or not self._due(self._last_data_check, now, self.data_prepare_interval)
         ):
-            signal_date = local_now.date()
-            for account in self.store.strategy_virtual_accounts():
-                if account.get("status") != "RUNNING":
-                    continue
-                account_id = str(account["account_id"])
-                completed_key = f"last_account_decision_date:{account_id}"
-                skipped_key = f"last_account_schedule_skip_date:{account_id}"
-                if self.store.get_setting(completed_key) == signal_date.isoformat():
-                    continue
-                if self.store.get_setting(skipped_key) == signal_date.isoformat():
-                    continue
-
-                def prepare_and_decide(account=account, account_id=account_id):
-                    error_key = f"data_preparation_error:{account_id}"
-                    cutoff = self.store.get_setting(
-                        f"last_data_prepare_date:{account_id}"
-                    )
-                    if cutoff != signal_date.isoformat():
-                        try:
-                            prepared = self.prepared_data.prepare(
-                                account, signal_date=signal_date
-                            )
-                        except Exception as exc:
-                            self.store.set_setting(error_key, str(exc))
-                            raise
-                        if prepared is None:
-                            self.store.set_setting(skipped_key, signal_date.isoformat())
-                            self.store.set_setting(error_key, "")
-                            return
-                        cutoff = prepared.available_through.isoformat()
-                        self.store.set_setting(
-                            f"last_data_prepare_date:{account_id}", cutoff
-                        )
-                        self.store.set_setting(
-                            f"last_prepared_data_id:{account_id}", prepared.data_identity
-                        )
-                        self.store.set_setting(
-                            f"last_data_preparation:{account_id}", now.isoformat()
-                        )
-                        self.store.set_setting(error_key, "")
-                        if self.audit is not None:
-                            self.audit.record(
-                                "MARKET_DATA_PREPARED",
-                                source="scheduler",
-                                actor_type="SCHEDULER",
-                                account_id=account_id,
-                                strategy_id=str(account["strategy_id"]),
-                                strategy_version=str(account["strategy_version"]),
-                                release_hash=str(account["release_hash"]),
-                                symbol=str(account["symbol"]),
-                                correlation_id=f"prepared-data:{account_id}:{cutoff}",
-                                details={
-                                    "prepared_through": cutoff,
-                                    "data_identity": prepared.data_identity,
-                                },
-                            )
-                    self.engine.refresh_decision(account_id)
-                    self.store.set_setting(completed_key, cutoff)
-
-                self._guard(f"account_strategy_cycle:{account_id}", now, prepare_and_decide)
-            self._last_data_check = now
+            return
+        for account_id, worker in tuple(self._account_workers.items()):
+            if not worker.is_alive():
+                worker.join()
+                self._account_workers.pop(account_id, None)
+        signal_date = local_now.date()
+        for account in self.store.strategy_virtual_accounts():
+            if account.get("status") != "RUNNING":
+                continue
+            account_id = str(account["account_id"])
+            if account_id in self._account_workers:
+                continue
+            if self.store.get_setting(
+                f"last_account_decision_date:{account_id}"
+            ) == signal_date.isoformat():
+                continue
+            if self.store.get_setting(
+                f"last_account_schedule_skip_date:{account_id}"
+            ) == signal_date.isoformat():
+                continue
+            worker = Thread(
+                target=self._account_cycle,
+                args=(account, signal_date, now),
+                name=f"pte-strategy-{account_id}",
+                daemon=True,
+            )
+            self._account_workers[account_id] = worker
+            worker.start()
+        self._last_data_check = now
 
     def run(self, stopped: Event) -> None:
         def run_daily() -> None:
@@ -235,7 +274,13 @@ class RuntimeScheduler:
                 self._record_cycle_failure(exc, "fast")
             stopped.wait(0.5)
         self._daily_thread.join(timeout=25.0)
-        self.shutdown_clean = not self._daily_thread.is_alive()
+        deadline = monotonic() + 25.0
+        for worker in tuple(self._account_workers.values()):
+            worker.join(timeout=max(0.0, deadline - monotonic()))
+        self.shutdown_clean = (
+            not self._daily_thread.is_alive()
+            and not any(worker.is_alive() for worker in self._account_workers.values())
+        )
 
     def _record_cycle_failure(self, exc: Exception, lane: str) -> None:
         details = {

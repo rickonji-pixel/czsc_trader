@@ -76,7 +76,14 @@ try {
     if (-not (Test-Path -LiteralPath $ReleaseCli -PathType Leaf)) {
         throw "Published PTE release CLI is missing: $ReleaseCli"
     }
-    & $Python -m paper_trading_engine.release_cli verify `
+    & $ReleaseCli prepare-data `
+        --runtime-root $ProductionRoot `
+        --release $Tag
+    if ($LASTEXITCODE -ne 0) {
+        throw "PTE account-data preparation failed for $Tag with exit code $LASTEXITCODE"
+    }
+
+    & $ReleaseCli verify `
         --runtime-root $ProductionRoot `
         --release $Tag
     if ($LASTEXITCODE -ne 0) {

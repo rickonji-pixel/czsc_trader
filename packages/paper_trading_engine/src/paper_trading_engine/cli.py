@@ -18,6 +18,8 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
+from dotenv import load_dotenv
+
 from .audit import AuditRecorder
 from .srt_advice_client import SrtAdviceClient
 from .account_data_preparer import AccountDataPreparer
@@ -448,7 +450,7 @@ def _preflight_strategy_account(
             strategy_version=str(identity["version"]),
             symbol=args.symbol,
             asset=args.asset,
-            signal_date=shanghai_now().date(),
+            signal_date=client.latest_completed_signal_date(shanghai_now()),
         )
         if prepared is None:
             raise RuntimeError("account creation requires an SSE trading day")
@@ -466,7 +468,7 @@ def _preflight_strategy_account(
             state_revision=0,
             strategy_id=str(identity["strategy_id"]),
             strategy_version=str(identity["version"]),
-            account_id="preflight",
+            account_id=args.account_id,
             symbol=args.symbol,
             asset=args.asset,
         )
@@ -750,6 +752,7 @@ def main(
     engine_factory: Callable[[argparse.Namespace], object] = build_engine,
 ) -> int:
     args = build_parser().parse_args(argv)
+    load_dotenv(args.config_root / ".env", override=False)
     engine = None
     runtime_lock = None
     close_engine = True

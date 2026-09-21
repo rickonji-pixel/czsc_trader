@@ -803,6 +803,60 @@ def _require_database_compatibility(release, database: Path) -> int:
     return database_schema
 
 
+def prepare_release_account_data(
+    runtime_root: Path,
+    release_id: str,
+    *,
+    runner: Runner = subprocess.run,
+) -> dict[str, object]:
+    """Prepare account-scoped SRT data with the target release before activation."""
+    release = load_release(runtime_root, release_id)
+    shared = release.runtime_root / "shared"
+    data_dir = shared / "data"
+    database = shared / "state" / "runtime.db"
+    config_dir = shared / "config"
+    script = (
+        "import json,sqlite3,sys\n"
+        "from datetime import date\n"
+        "from pathlib import Path\n"
+        "from dotenv import load_dotenv\n"
+        "from paper_trading_engine.srt_advice_client import SrtAdviceClient\n"
+        "root=Path(sys.argv[1]); data=Path(sys.argv[2]); database=Path(sys.argv[3]); config=Path(sys.argv[4])\n"
+        "load_dotenv(config/'.env',override=False)\n"
+        "assert database.is_file(), 'PTE data preparation found no runtime database'\n"
+        "connection=sqlite3.connect(f'file:{database.resolve().as_posix()}?mode=ro',uri=True)\n"
+        "try:\n"
+        "    rows=connection.execute(\"SELECT account_id,strategy_id,strategy_version,symbol,asset_type,last_decision_payload FROM virtual_accounts WHERE account_type='STRATEGY' AND status<>'RETIRED'\").fetchall()\n"
+        "finally:\n"
+        "    connection.close()\n"
+        "assert rows, 'PTE data preparation found no active strategy accounts'\n"
+        "client=SrtAdviceClient(repo_root=root,data_dir=data)\n"
+        "prepared=[]\n"
+        "for account_id,strategy_id,version,symbol,asset,payload_text in rows:\n"
+        "    payload=json.loads(payload_text) if payload_text else {}\n"
+        "    signal_date=date.fromisoformat(str(payload['signal_date'])) if payload.get('signal_date') else client.latest_completed_signal_date()\n"
+        "    result=client.prepare_account_data(account_id=account_id,strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset,signal_date=signal_date)\n"
+        "    assert result is not None, f'{account_id}: decision signal date is not an SSE trading day'\n"
+        "    prepared.append({'account_id':account_id,'release_id':result.strategy.reference_id,'signal_date':result.available_through.isoformat(),'data_identity':result.data_identity})\n"
+        "print(json.dumps({'accounts':len(rows),'prepared':prepared},sort_keys=True))\n"
+    )
+    completed = _run(
+        [
+            str(_python_in(release.release_root / ".venv")), "-c", script,
+            str(release.release_root), str(data_dir), str(database), str(config_dir),
+        ],
+        cwd=release.release_root,
+        runner=runner,
+    )
+    try:
+        result = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("PTE account-data preparation returned invalid output") from exc
+    if not isinstance(result, dict) or not result.get("prepared"):
+        raise RuntimeError("PTE account-data preparation prepared no accounts")
+    return result
+
+
 def verify_release_prepared_data(
     runtime_root: Path,
     release_id: str,
@@ -948,10 +1002,12 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("--release", required=True)
     publish.add_argument("--python", type=Path, default=Path(sys.executable))
     publish.add_argument("--uv", type=Path)
-    for action in ("activate", "verify", "deploy", "rollback", "status"):
+    for action in (
+        "activate", "prepare-data", "verify", "deploy", "rollback", "status",
+    ):
         leaf = actions.add_parser(action)
         leaf.add_argument("--runtime-root", required=True, type=Path)
-        if action in {"activate", "verify", "deploy"}:
+        if action in {"activate", "prepare-data", "verify", "deploy"}:
             leaf.add_argument("--release", required=True)
         if action in {"deploy", "rollback"}:
             leaf.add_argument("--wait", type=float, default=60.0)
@@ -985,6 +1041,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 release, args.runtime_root / "shared" / "state" / "runtime.db"
             )
             result = activate_release(args.runtime_root, args.release)
+        elif args.action == "prepare-data":
+            result = prepare_release_account_data(args.runtime_root, args.release)
         elif args.action == "verify":
             result = verify_release_prepared_data(args.runtime_root, args.release)
         elif args.action == "deploy":

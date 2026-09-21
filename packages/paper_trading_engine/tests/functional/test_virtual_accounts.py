@@ -480,15 +480,22 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
     )
     monkeypatch.setattr(
         pte_cli.SrtAdviceClient,
+        "latest_completed_signal_date",
+        lambda _self, *_args, **_kwargs: date(2026, 9, 15),
+    )
+    monkeypatch.setattr(
+        pte_cli.SrtAdviceClient,
         "prepare_account_data",
         lambda _self, **_kwargs: SimpleNamespace(
             available_through=date(2026, 9, 15)
         ),
     )
+    def preflight_decision(_self, *_args, **kwargs):
+        assert kwargs["account_id"] == args.account_id
+        return accepted
+
     monkeypatch.setattr(
-        pte_cli.SrtAdviceClient,
-        "get_decision",
-        lambda _self, *_args, **_kwargs: accepted,
+        pte_cli.SrtAdviceClient, "get_decision", preflight_decision,
     )
     monkeypatch.setattr(
         pte_cli.SrtAdviceClient,

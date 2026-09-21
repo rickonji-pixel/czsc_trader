@@ -1,6 +1,7 @@
 from dataclasses import asdict, replace
 from datetime import date, datetime, time, timezone
 import re
+from time import monotonic, sleep
 from types import SimpleNamespace
 import pytest
 
@@ -18,6 +19,15 @@ from paper_trading_engine.futu_execution import FutuExecution
 from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.store import PaperStore
 from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision
+
+
+def _wait_until(predicate, timeout=2.0):
+    deadline = monotonic() + timeout
+    while monotonic() < deadline:
+        if predicate():
+            return
+        sleep(0.01)
+    assert predicate()
 
 
 def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_path):
@@ -42,6 +52,7 @@ def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_p
 
     scheduler = RuntimeScheduler(accounts, Preparer(), store, preparation_time="00:00")
     scheduler.tick_daily(datetime(2026, 9, 2, 20, 30, 0))
+    _wait_until(lambda: bool(store.operation_failures()))
     assert store.get_setting("last_account_decision_date") is None
     assert store.account_decisions("s001-v1") == []
     assert store.account_intents("s001-v1") == []

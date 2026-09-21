@@ -67,6 +67,15 @@ class Store:
         return [a for a in self.accounts if a.get("account_type", "STRATEGY") == "STRATEGY"]
 
 
+def _wait_until(predicate, timeout=2.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.01)
+    assert predicate()
+
+
 def _account(account_id="s007-v1", **overrides):
     value = {
         "account_id": account_id,
@@ -147,6 +156,7 @@ def test_scheduler_prepares_then_decides_each_account_after_2030():
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 29, 59))
     assert advice.calls == []
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30))
+    _wait_until(lambda: len(engine.calls) == 2)
     assert [item["account_id"] for item in advice.calls] == ["s007-v1", "s003-v1"]
     assert engine.calls == [
         ("decision", "s007-v1"),
@@ -168,12 +178,17 @@ def test_scheduler_account_failure_does_not_block_other_account_and_retries():
         preparation_time="00:00",
     )
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30))
+    _wait_until(
+        lambda: "account_strategy_cycle:s007-v1" in store.failures
+        and len(engine.calls) == 1
+    )
     assert engine.calls == [("decision", "s003-v1")]
     assert "account_strategy_cycle:s007-v1" in store.failures
     assert store.values["last_account_decision_date:s003-v1"] == "2026-09-18"
 
     advice.results["s007-v1"] = _prepared()
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
+    _wait_until(lambda: len(engine.calls) == 2)
     assert engine.calls[-1] == ("decision", "s007-v1")
     assert "account_strategy_cycle:s007-v1" not in store.failures
 
@@ -189,11 +204,16 @@ def test_scheduler_retries_decision_without_using_old_data():
         preparation_time="00:00",
     )
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30))
+    _wait_until(
+        lambda: "account_strategy_cycle:s007-v1" in store.failures
+        and store.values.get("last_account_decision_date:s003-v1") == "2026-09-18"
+    )
     assert store.values["last_data_prepare_date:s007-v1"] == "2026-09-18"
     assert "last_account_decision_date:s007-v1" not in store.values
     assert store.values["last_account_decision_date:s003-v1"] == "2026-09-18"
     engine.failures.clear()
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
+    _wait_until(lambda: len(engine.calls) == 3)
     assert len(advice.calls) == 2
     assert engine.calls == [
         ("decision", "s007-v1"),
@@ -213,9 +233,36 @@ def test_scheduler_skips_closed_session_for_that_calendar_date():
         preparation_time="00:00",
     )
     scheduler.tick_daily(datetime(2026, 9, 19, 20, 30))
+    _wait_until(lambda: len(advice.calls) == 1)
     scheduler.tick_daily(datetime(2026, 9, 19, 20, 30, 5))
     assert len(advice.calls) == 1
     assert engine.calls == []
+
+
+def test_hung_account_preparation_does_not_block_other_accounts():
+    blocked, release = Event(), Event()
+
+    class Preparer:
+        def prepare(self, account, *, signal_date):
+            if account["account_id"] == "s007-v1":
+                blocked.set()
+                assert release.wait(2)
+            return _prepared(
+                f"{account['strategy_id']}-{account['strategy_version']}",
+                signal_date,
+            )
+
+    store, engine = Store(), Engine()
+    store.accounts = [_account(), _account("s003-v1", strategy_id="S003")]
+    scheduler = RuntimeScheduler(
+        engine, Preparer(), store, preparation_time="00:00"
+    )
+    scheduler.tick_daily(datetime(2026, 9, 18, 20, 30))
+    assert blocked.wait(1)
+    _wait_until(lambda: ("decision", "s003-v1") in engine.calls)
+    assert ("decision", "s007-v1") not in engine.calls
+    release.set()
+    _wait_until(lambda: ("decision", "s007-v1") in engine.calls)
 
 
 def test_slow_preparation_does_not_stop_order_reconciliation():

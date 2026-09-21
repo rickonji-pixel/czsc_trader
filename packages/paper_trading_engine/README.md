@@ -61,11 +61,13 @@ FutuSimulateCnChannel 1 ─── 1 Futu SIMULATE/CN account
   返回HTML，不读取或保存PTE前瞻行情；PTE使用外置Plotly运行库并长期缓存，账户数据
   刷新时保留图表DOM，只有图表事实变化才加载新的轻量HTML；
 - PTE只接受冻结且资格为`PAPER_READY`的策略发布。
-- 外部准备任务调用 `srt-prepare`，为每个冻结版本创建隔离的 `StrategyInstance` 数据目录，
-  成功后原子更新 `prepared-data-index.json`。PTE只通过SRT公共接口加载实例并核对
-  `data_identity`，不解析策略输入数据集或实例私有清单。
-- PTE调度器观察全部活跃账户的准备结果。不同标的、不同策略截止日不一致，索引缺失或身份
-  不一致时，准备阶段明确失败并阻止决策。
+- PTE在每个交易日20:30后按账户创建隔离的`StrategyInstance`并显式调用
+  `prepare_data()`；实例自行推导并准备策略依赖。准备成功后原子更新
+  `accounts/<account_id>/current.json`，随后立即计算该账户决策。
+- 各账户使用独立准备、决策和退避状态；单个账户失败或数据调用阻塞不影响其他账户以及订单
+  对账线程。决策失败时保留已经认证的准备结果，只重试该账户决策。
+- PTE只保存账户级实例位置和`data_identity`，不解析策略输入数据集或实例私有清单。非交易日
+  明确跳过；策略数据未达到当日截止日时准备失败，禁止使用旧数据生成新决策。
 - 新账户创建前加载SRT并检查策略身份、标的、准备结果和渠道能力；任一检查失败即拒绝
   创建，不能留下“账户存在但无法运行”的半部署状态。
 - 当前只部署SRT的`STATELESS`策略；依赖持久状态的运行时明确拒绝上线。
@@ -89,9 +91,9 @@ PTE日常运行状态不进入SM。只有人工复核后的里程碑通过自包
 ## 运行结构
 
 - `cli.py`：`once`、`serve`、账户、绩效导出和控制接口；
-- `scheduler.py`：观察SRT准备结果、退避、逐账户决策及订单/账户对账节奏；
-- `prepared_data_inbox.py`：核对全部活跃账户的准备截止日和数据身份；
-- `srt_advice_client.py`：创建SRT实例，把`ExecutionPlan`转换为PTE持久决策；
+- `scheduler.py`：20:30账户级准备/决策、独立退避及订单/账户对账节奏；
+- `account_data_preparer.py`：把单账户准备请求委托给SRT适配器并校验结果；
+- `srt_advice_client.py`：管理账户隔离实例，核对数据身份并把`ExecutionPlan`转换为PTE持久决策；
 - `coordinator.py`与`account_engine.py`：账户中心编排和账本；
 - `futu_gateway.py`与`futu_execution.py`：Futu交易适配与执行；
 - `store.py`与`audit.py`：SQLite状态及四类追加式审计事件；

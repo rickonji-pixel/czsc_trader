@@ -22,6 +22,11 @@ from .channel import FUTU_SIMULATE_CN_CHANNEL_ID, require_futu_simulate_cn_broke
 from .trading_window import SHANGHAI, is_submission_window, shanghai_now
 
 
+FUTU_CN_MAX_VARIABLE_FEE_RATE = Decimal("0.005")
+FUTU_CN_MAX_FIXED_FEE_PER_ORDER = Decimal("20")
+FUTU_CN_FEE_ROUNDING_TOLERANCE = Decimal("1")
+
+
 class ChannelReconciliationError(RuntimeError):
     pass
 
@@ -348,6 +353,7 @@ class FutuExecution:
             (Decimal(str(fill["price"])) * int(fill["quantity"]) for fill in fills),
             Decimal("0"),
         )
+        broker_order_count = len({str(fill["order_id"]) for fill in fills})
         modeled_fee = sum((Decimal(fill["fee"]) for fill in fills), Decimal("0"))
         previous_broker_cash = Decimal(str(checkpoint.get("broker_cash", capital_pool)))
         gross_cash_change = sum(
@@ -361,9 +367,15 @@ class FutuExecution:
         actual_fee = (gross_cash_change - (broker_cash - previous_broker_cash)).quantize(
             Decimal("0.0001")
         )
-        maximum_fee = (turnover * Decimal("0.005") + Decimal("1")).quantize(
-            Decimal("0.0001")
-        )
+        # This is a safety envelope, not a broker fee calculator.  Futu CN fees
+        # include per-order fixed/minimum charges, so a turnover-only bound rejects
+        # legitimate small orders.  Keep the variable allowance deliberately broad
+        # while bounding the fixed allowance by the number of broker orders.
+        maximum_fee = (
+            turnover * FUTU_CN_MAX_VARIABLE_FEE_RATE
+            + FUTU_CN_MAX_FIXED_FEE_PER_ORDER * broker_order_count
+            + FUTU_CN_FEE_ROUNDING_TOLERANCE
+        ).quantize(Decimal("0.0001"))
         if actual_fee < Decimal("-0.01") or actual_fee > maximum_fee:
             self.store.set_setting("futu_cash_reconciliation_status", "OUT_OF_RANGE")
             return
@@ -382,7 +394,8 @@ class FutuExecution:
             correlation_id=reference,
             details={
                 "adjustment": str(difference), "modeled_fee": str(modeled_fee),
-                "actual_fee": str(actual_fee), "fill_count": len(fills),
+                "actual_fee": str(actual_fee), "maximum_fee": str(maximum_fee),
+                "fill_count": len(fills), "broker_order_count": broker_order_count,
                 "fill_rowid_from": fill_rowid + 1, "fill_rowid_to": latest_rowid,
                 "strategy_account_ids": sorted(account_ids),
                 "treatment": "CHANNEL_RECONCILIATION_ACCOUNT",

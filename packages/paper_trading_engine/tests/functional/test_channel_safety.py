@@ -233,6 +233,87 @@ def test_ft_pte03_estimated_fees_reconcile_to_futu_cash_exactly_once(tmp_path):
     reopened.close()
 
 
+def test_ft_pte03_accepts_fixed_futu_fees_for_a_small_order(tmp_path):
+    store = PaperStore(tmp_path / "small-order-fees.db")
+    store.create_virtual_account(
+        "s003-v1", "S003-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S003", strategy_name_snapshot="成分资金流宽度早盘延续",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-08",
+        symbol="510500.SH",
+    )
+    store.create_channel_reconciliation_account()
+    store.create_account_intent(
+        account_id="s003-v1", decision_id="DEC-SMALL-BUY", order_sequence=0,
+        symbol="510500.SH", side="BUY", quantity=400,
+        limit_price="8.613", valid_session="2026-09-21", fee_rate="0.00012",
+    )
+    broker = FakeBroker()
+    execution = FutuExecution(
+        store, broker, now=lambda: datetime.fromisoformat("2026-09-21T09:30:00+08:00"),
+    )
+    execution.submit_pending()
+    filled_buy = replace(
+        broker.value.orders[0], status="FILLED_ALL",
+        cumulative_filled_quantity=400, average_fill_price=7.871,
+    )
+    broker.value = BrokerSnapshot(
+        BrokerAccount("SIMULATE", "CN", 996_833.321, 999_981.721, 0),
+        (BrokerPosition("510500.SH", 400),), (filled_buy,),
+    )
+
+    execution.refresh_orders()
+
+    account = store.virtual_account("s003-v1")
+    assert float(account["cash"]) == pytest.approx(96_851.2222)
+    assert float(store.channel_reconciliation_account()["cash"]) == pytest.approx(-17.9012)
+    assert store.get_setting("futu_cash_reconciliation_status") == "OK"
+    events = store.query_audit_events(event_type="CHANNEL_FEE_VARIANCE_RECONCILED")
+    assert events[0]["details"]["actual_fee"] == "18.2790"
+    assert events[0]["details"]["maximum_fee"] == "36.7420"
+    assert events[0]["details"]["broker_order_count"] == 1
+    assert store.account_invariant_violations() == []
+    store.close()
+
+
+def test_ft_pte03_blocks_implausible_small_order_cash_charge(tmp_path):
+    store = PaperStore(tmp_path / "implausible-small-order-fees.db")
+    store.create_virtual_account(
+        "s003-v1", "S003-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S003", strategy_name_snapshot="成分资金流宽度早盘延续",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-08",
+        symbol="510500.SH",
+    )
+    store.create_channel_reconciliation_account()
+    store.create_account_intent(
+        account_id="s003-v1", decision_id="DEC-IMPLAUSIBLE-FEE", order_sequence=0,
+        symbol="510500.SH", side="BUY", quantity=400,
+        limit_price="8.613", valid_session="2026-09-21", fee_rate="0.00012",
+    )
+    broker = FakeBroker()
+    execution = FutuExecution(
+        store, broker, now=lambda: datetime.fromisoformat("2026-09-21T09:30:00+08:00"),
+    )
+    execution.submit_pending()
+    filled_buy = replace(
+        broker.value.orders[0], status="FILLED_ALL",
+        cumulative_filled_quantity=400, average_fill_price=7.871,
+    )
+    broker.value = BrokerSnapshot(
+        BrokerAccount("SIMULATE", "CN", 996_751.6, 999_900, 0),
+        (BrokerPosition("510500.SH", 400),), (filled_buy,),
+    )
+
+    with pytest.raises(ChannelReconciliationError, match="OUT_OF_RANGE"):
+        execution.refresh_orders()
+
+    assert store.get_setting("futu_cash_reconciliation_status") == "OUT_OF_RANGE"
+    assert store.get_setting("channel_reconciliation_status") == "BLOCKED"
+    assert store.channel_reconciliation_account()["cash"] == "0.0000"
+    store.close()
+
+
 def test_ft_pte03_rejects_undefined_execution_channel_and_protects_system_account(tmp_path):
     store = PaperStore(tmp_path / "strict-channel.db")
     reconciliation = store.create_channel_reconciliation_account()

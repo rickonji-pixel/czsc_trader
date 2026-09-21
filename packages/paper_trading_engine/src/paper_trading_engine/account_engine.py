@@ -38,6 +38,47 @@ class AccountDecisionDriveResult:
 class AccountEngine:
     _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 
+    @staticmethod
+    def _replacement_intent_snapshot(intents) -> tuple[tuple[object, ...], ...]:
+        """Capture every field that determines whether projected cash is still valid."""
+        return tuple(sorted(
+            (
+                str(row["intent_id"]),
+                str(row["decision_id"]),
+                str(row["status"]),
+                row.get("channel_order_id"),
+                int(row.get("reservation_generation", 0)),
+                str(row["side"]),
+                int(row["quantity"]),
+                str(row["limit_price"]),
+                str(row["payload"].get("fee_rate", "0.0005")),
+            )
+            for row in intents
+        ))
+
+    @staticmethod
+    def _cash_after_replaceable_intents(account, intents) -> Decimal:
+        """Project cash after unsubmitted intents release their reservations."""
+        release = Decimal("0")
+        for row in intents:
+            if str(row["side"]).upper() != "BUY":
+                continue
+            if int(row.get("reservation_generation", 0)) <= 0:
+                raise AccountDecisionBlockedError(
+                    "待替代买入意图缺少可核验的资金预占"
+                )
+            fee_rate = Decimal(str(row["payload"].get("fee_rate", "0.0005")))
+            release += (
+                Decimal(str(row["limit_price"]))
+                * int(row["quantity"])
+                * (Decimal("1") + fee_rate)
+            ).quantize(Decimal("0.0001"))
+        release = release.quantize(Decimal("0.0001"))
+        frozen_cash = Decimal(str(account["frozen_cash"]))
+        if release > frozen_cash:
+            raise AccountDecisionBlockedError("待替代意图预占资金超过账户冻结资金")
+        return (Decimal(str(account["cash"])) + release).quantize(Decimal("0.0001"))
+
     def __init__(
         self, store: PaperStore, advice, audit: AuditRecorder | None = None,
         now=None,
@@ -106,6 +147,8 @@ class AccountEngine:
             row for row in self.store.account_intents(account_id)
             if row["status"] not in TERMINAL_INTENT_STATUSES
         ]
+        decision_cash = Decimal(str(account["cash"]))
+        replacement_snapshot: tuple[tuple[object, ...], ...] | None = None
         if active_intents:
             previous = json.loads(previous_payload) if previous_payload else {}
             published_date = self.store.get_setting("last_data_publish_date")
@@ -136,6 +179,11 @@ class AccountEngine:
                     },
                 )
                 raise ActiveOrderPendingError(message)
+            if replaceable:
+                # Size the replacement against the cash that the final atomic
+                # update will release, without exposing a transient cash balance.
+                replacement_snapshot = self._replacement_intent_snapshot(active_intents)
+                decision_cash = self._cash_after_replaceable_intents(account, active_intents)
             if not operator_drive and published_date and published_date != previous.get("signal_date"):
                 message = "存在未完成订单，新数据决策暂缓生成并等待对账"
                 self.audit.record(
@@ -159,7 +207,7 @@ class AccountEngine:
         def transform(value):
             return self._assign_decision_id(account_id, previous_payload, value)
         decision = self.advice.get_decision(
-            int(account["quantity"]), float(account["cash"]),
+            int(account["quantity"]), float(decision_cash),
             total_assets=float(account["total_assets"]),
             cycle_target_quantity=account["cycle_target"],
             strategy_id=account["strategy_id"],
@@ -229,11 +277,20 @@ class AccountEngine:
                     row for row in self.store.account_intents(account_id)
                     if row["status"] not in TERMINAL_INTENT_STATUSES
                 ]
-                if any(
-                    row["decision_id"] != previous_decision_id
-                    or row["status"] not in {"PENDING_SUBMIT", "WAITING_DEPENDENCY"}
-                    or row.get("channel_order_id") is not None
-                    for row in current_active
+                replacement_state_changed = (
+                    bool(current_active)
+                    if replacement_snapshot is None
+                    else self._replacement_intent_snapshot(current_active)
+                    != replacement_snapshot
+                )
+                if (
+                    replacement_state_changed
+                    or any(
+                        row["decision_id"] != previous_decision_id
+                        or row["status"] not in {"PENDING_SUBMIT", "WAITING_DEPENDENCY"}
+                        or row.get("channel_order_id") is not None
+                        for row in current_active
+                    )
                 ):
                     raise ActiveOrderPendingError(
                         "订单已提交或状态已变化，禁止替换账户决策"

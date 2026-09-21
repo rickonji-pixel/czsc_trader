@@ -655,6 +655,7 @@ def test_operator_supersedes_unsubmitted_intents_and_releases_reservations(tmp_p
     result = coordinator.drive_virtual_account_decision("s001-v1")
 
     assert result["status"] == "DECISION_AND_INTENTS_SUPERSEDED"
+    assert advice.calls[-1][1] == pytest.approx(100_000)
     assert result["superseded_decision_id"] == first["decision_id"]
     assert result["superseded_intent_ids"] == [old_intent["intent_id"]]
     assert store.account_intent(old_intent["intent_id"])["status"] == "SUPERSEDED"
@@ -670,6 +671,103 @@ def test_operator_supersedes_unsubmitted_intents_and_releases_reservations(tmp_p
     assert float(account["frozen_cash"]) == pytest.approx(3341.67)
     assert len(store.query_audit_events(event_type="DECISION_SUPERSEDED")) == 1
     assert len(store.query_audit_events(event_type="ORDER_INTENT_SUPERSEDED")) == 1
+    store.close()
+
+
+def test_operator_supersession_projects_s003_style_reserved_cash(tmp_path):
+    store = PaperStore(tmp_path / "supersession-s003-cash.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 55_076.373,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    first_decision = replace(
+        decision(OrderSpec("BUY", 5900, "LIMIT", 8.613, "DAY")),
+        fee_rate=0.00012,
+    )
+    advice = FakeAdvice(first_decision)
+    accounts = AccountEngine(store, advice)
+    accounts.drive_account_decision("s001-v1")
+
+    reserved = store.virtual_account("s001-v1")
+    assert float(reserved["cash"]) == pytest.approx(4253.575)
+    assert float(reserved["frozen_cash"]) == pytest.approx(50_822.798)
+
+    advice.value = replace(
+        first_decision, decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+    )
+    result = accounts.drive_account_decision("s001-v1")
+
+    assert result.outcome == "DECISION_AND_INTENTS_SUPERSEDED"
+    assert advice.calls[-1][1] == pytest.approx(55_076.373)
+    current = [
+        row for row in store.account_intents("s001-v1")
+        if row["status"] not in TERMINAL_INTENT_STATUSES
+    ]
+    assert len(current) == 1
+    assert current[0]["quantity"] == 5900
+    store.close()
+
+
+def test_operator_supersession_calculation_failure_preserves_old_reservation(tmp_path):
+    store = PaperStore(tmp_path / "supersession-calculation-failure.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
+    accounts = AccountEngine(store, advice)
+    accounts.drive_account_decision("s001-v1")
+    old_intent = store.account_intents("s001-v1")[0]
+    before = store.virtual_account("s001-v1")
+
+    class FailingAdvice:
+        def get_decision(self, *_args, **_kwargs):
+            raise RuntimeError("simulated calculation failure")
+
+    accounts.advice = FailingAdvice()
+    with pytest.raises(RuntimeError, match="simulated calculation failure"):
+        accounts.drive_account_decision("s001-v1")
+
+    after = store.virtual_account("s001-v1")
+    assert after["cash"] == before["cash"]
+    assert after["frozen_cash"] == before["frozen_cash"]
+    assert store.account_intent(old_intent["intent_id"])["status"] == "PENDING_SUBMIT"
+    assert len(store.account_decisions("s001-v1")) == 1
+    store.close()
+
+
+def test_operator_supersession_rejects_intent_claimed_during_calculation(tmp_path):
+    store = PaperStore(tmp_path / "supersession-concurrent-claim.db")
+    store.create_virtual_account(
+        "s001-v1", "S001-v1模拟账户", "legacy", "a" * 64, 100_000,
+        strategy_id="S001", strategy_name_snapshot="综合基线策略",
+        strategy_version="v1", release_hash="b" * 64,
+        qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
+    )
+    advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
+    accounts = AccountEngine(store, advice)
+    accounts.drive_account_decision("s001-v1")
+    old_intent = store.account_intents("s001-v1")[0]
+
+    class ClaimingAdvice(FakeAdvice):
+        def get_decision(self, *args, **kwargs):
+            value = super().get_decision(*args, **kwargs)
+            assert store.claim_account_intent(old_intent["intent_id"])
+            return value
+
+    accounts.advice = ClaimingAdvice(replace(
+        decision(OrderSpec("BUY", 2000, "LIMIT", 1.67, "DAY")),
+        decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+    ))
+    with pytest.raises(ActiveOrderPendingError, match="状态已变化"):
+        accounts.drive_account_decision("s001-v1")
+
+    assert store.account_intent(old_intent["intent_id"])["status"] == "SUBMITTING"
+    assert len(store.account_decisions("s001-v1")) == 1
     store.close()
 
 

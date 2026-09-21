@@ -2,42 +2,31 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
 import re
-from types import MappingProxyType
 from typing import Any, Mapping
-from zoneinfo import ZoneInfo
 
 import czsc
 import pandas as pd
-from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
+from dataflows import Dataset
 
 from ..errors import RuntimeContractError
 from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
-    CalculationRequest,
     CutoffRule,
     DecisionContract,
-    DeploymentSpec,
     ExecutionPolicy,
     ImplementationRef,
     InputContract,
     InputRequirement,
     MonitoringPolicy,
     ParameterSet,
-    PublicationStatus,
-    PublishedStrategyData,
     RequiredCapabilities,
     RuntimeDefinition,
-    StrategyDecision,
-    StrategyExplanation,
     StrategyRelease,
-    canonical_sha256,
 )
 
 
-_SHANGHAI = ZoneInfo("Asia/Shanghai")
 _INPUT_DAILY = "adjusted_daily"
 _INPUT_EXECUTION = "execution_daily"
 _INPUT_CALENDAR = "trading_calendar"
@@ -51,17 +40,6 @@ def _object(value: Any, field_name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise RuntimeContractError(f"{field_name} must be an object")
     return value
-
-
-def _publication_status(results: Mapping[str, DataResult]) -> PublicationStatus:
-    statuses = {item.status for item in results.values()}
-    if statuses == {DataStatus.READY}:
-        return PublicationStatus.READY
-    if DataStatus.FAILED in statuses:
-        return PublicationStatus.FAILED
-    if DataStatus.WAITING_SOURCE in statuses:
-        return PublicationStatus.WAITING_SOURCE
-    return PublicationStatus.INCOMPLETE
 
 
 def _primary_value(value: object) -> str | None:
@@ -187,10 +165,14 @@ class S002V1:
         self._signal = signal
         self._portfolio = portfolio
         self._symbol = symbol
-        order_types = tuple(sorted({
-            effective_target_order_type(execution, "BUY"),
-            effective_target_order_type(execution, "SELL"),
-        }))
+        order_types = tuple(
+            sorted(
+                {
+                    effective_target_order_type(execution, "BUY"),
+                    effective_target_order_type(execution, "SELL"),
+                }
+            )
+        )
         self._definition = RuntimeDefinition(
             schema_version=1,
             strategy_family_id=release.strategy_family_id,
@@ -249,9 +231,7 @@ class S002V1:
         return cls(release)
 
     @classmethod
-    def from_release_for_symbol(
-        cls, release: StrategyRelease, symbol: str
-    ) -> "S002V1":
+    def from_release_for_symbol(cls, release: StrategyRelease, symbol: str) -> "S002V1":
         if release.release_id != "S002-v1":
             raise RuntimeContractError("S002V1 can only load S002-v1")
         return cls(release, symbol)
@@ -271,145 +251,4 @@ class S002V1:
             symbol=self._symbol,
             signal=self._signal,
             portfolio=self._portfolio,
-        )
-
-    def publish_data(
-        self,
-        dataflows: Dataflows,
-        deployment: DeploymentSpec,
-        through: datetime,
-    ) -> PublishedStrategyData:
-        local = through.astimezone(_SHANGHAI)
-        cutoff = local.date()
-        start = cutoff - timedelta(days=650)
-        calendar_end = cutoff + timedelta(days=20)
-        options = {}
-        env_file = deployment.settings.get("env_file")
-        if env_file is not None:
-            options["env_file"] = str(env_file)
-        requests = {
-            _INPUT_DAILY: DataRequest(
-                Dataset.ETF_OHLCV,
-                self._symbol,
-                start.isoformat(),
-                cutoff.isoformat(),
-                cutoff.isoformat(),
-                "daily",
-                options,
-            ),
-            _INPUT_EXECUTION: DataRequest(
-                Dataset.ETF_UNADJUSTED_DAILY,
-                self._symbol,
-                cutoff.isoformat(),
-                cutoff.isoformat(),
-                cutoff.isoformat(),
-                "daily",
-                options,
-            ),
-            _INPUT_CALENDAR: DataRequest(
-                Dataset.TRADING_CALENDAR,
-                "SSE",
-                cutoff.isoformat(),
-                calendar_end.isoformat(),
-                calendar_end.isoformat(),
-                "daily",
-                options,
-            ),
-        }
-        results = {name: dataflows.fetch(request) for name, request in requests.items()}
-        status = _publication_status(results)
-        error = None
-        if status is not PublicationStatus.READY:
-            failures = [
-                f"{name}:{result.status.value}:{result.error.code if result.error else 'UNKNOWN'}"
-                for name, result in results.items()
-                if not result.ready
-            ]
-            error = "; ".join(failures)
-        return PublishedStrategyData(
-            self._release.release_id,
-            self._release.release_hash,
-            status,
-            cutoff.isoformat(),
-            requests,
-            results,
-            error,
-        )
-
-    def calculate(self, request: CalculationRequest) -> StrategyDecision:
-        daily = request.publication.input_results[_INPUT_DAILY].dataframe.copy()
-        history = _calculate_target_history(
-            daily,
-            symbol=self._symbol,
-            signal=self._signal,
-            portfolio=self._portfolio,
-        )
-        cutoff = pd.Timestamp(request.publication.requested_cutoff).normalize()
-        if cutoff not in history.index:
-            raise RuntimeContractError("S002-v1 signal history does not reach requested cutoff")
-        latest = history.loc[cutoff]
-
-        execution = request.publication.input_results[_INPUT_EXECUTION].dataframe
-        execution_rows = execution.loc[pd.to_datetime(execution["Date"]).dt.normalize().eq(cutoff)]
-        if len(execution_rows) != 1:
-            raise RuntimeContractError("S002-v1 requires one execution-price row at cutoff")
-        reference_price = float(execution_rows.iloc[0]["Close"])
-
-        calendar = request.publication.input_results[_INPUT_CALENDAR].dataframe.copy()
-        calendar_dates = pd.to_datetime(calendar["Date"]).dt.normalize()
-        next_sessions = calendar.loc[
-            calendar_dates.gt(cutoff) & calendar["IsOpen"].astype(int).eq(1), "Date"
-        ]
-        if next_sessions.empty:
-            raise RuntimeContractError("S002-v1 calendar has no next trading session")
-        valid_date = pd.Timestamp(next_sessions.iloc[0]).date()
-        valid_at = datetime.combine(valid_date, time(9, 30), tzinfo=_SHANGHAI)
-        generated = request.calculation_time.astimezone(_SHANGHAI)
-        identity_payload = {
-            name: result.identity.content_sha256
-            for name, result in request.publication.input_results.items()
-        }
-        decision_suffix = canonical_sha256(
-            {
-                "release": self._release.release_hash,
-                "cutoff": cutoff.date().isoformat(),
-                "target": float(latest["target_position"]),
-                "inputs": identity_payload,
-            }
-        )[:12].upper()
-        return StrategyDecision(
-            decision_id=f"DEC-{generated:%Y%m%d-%H%M}-{decision_suffix}",
-            deployment_id=request.deployment.deployment_id,
-            release_id=self._release.release_id,
-            release_hash=self._release.release_hash,
-            runtime_sha256=self._definition.runtime_sha256,
-            generated_at=request.calculation_time,
-            valid_at=valid_at,
-            target_position=float(latest["target_position"]),
-            account_revision=request.account.revision,
-            state_revision=request.state.revision,
-            input_identity_hashes=identity_payload,
-            evidence={
-                "signal_date": cutoff.date().isoformat(),
-                "signal_state": latest["signal_state"],
-                "entry_transition": bool(latest["entry_transition"]),
-                "held_sessions": int(latest["held_sessions"]),
-                "action": str(latest["action"]),
-                "execution_reference_price": reference_price,
-            },
-            next_state={
-                "signal_date": cutoff.date().isoformat(),
-                "target_position": float(latest["target_position"]),
-                "action": str(latest["action"]),
-            },
-        )
-
-    def explain(self, decision: StrategyDecision) -> StrategyExplanation:
-        action = str(decision.evidence.get("action", "UNKNOWN"))
-        state = decision.evidence.get("signal_state")
-        return StrategyExplanation(
-            summary=f"S002-v1 根据三连跌新鲜切换与五日持有规则给出 {action}",
-            drivers=(f"信号状态：{state}", f"目标仓位：{decision.target_position:.0%}"),
-            risks=("短期均值修复可能在持续下跌行情中失效",),
-            details=MappingProxyType(dict(decision.evidence)),
         )

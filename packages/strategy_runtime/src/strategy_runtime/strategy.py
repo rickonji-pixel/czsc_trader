@@ -21,7 +21,6 @@ from .contracts import (
     PlanLeg,
     PlannedOrder,
     PortfolioSnapshot,
-    PriceReference,
     StrategyIdentity,
     TradingPoint,
     TradableWindow,
@@ -106,8 +105,7 @@ class StrategyInstance:
         execution = [
             result.dataframe
             for name, result in inputs.results.items()
-            if str(inputs.requests[name].dataset)
-            == Dataset.ETF_UNADJUSTED_DAILY.value
+            if str(inputs.requests[name].dataset) == Dataset.ETF_UNADJUSTED_DAILY.value
             and inputs.requests[name].frequency == "daily"
             and inputs.requests[name].symbol == self._identity.symbol
         ]
@@ -162,18 +160,11 @@ class StrategyInstance:
 
     def _prepared(self) -> PreparedStrategyData:
         if self._prepared_data is None:
-            raise RuntimeContractError(
-                "strategy data is not prepared; call prepare_data() first"
-            )
+            raise RuntimeContractError("strategy data is not prepared; call prepare_data() first")
         return self._prepared_data
 
-    def _history(
-        self, data: PreparedStrategyData
-    ) -> tuple[pd.DataFrame, pd.DatetimeIndex]:
-        frames = {
-            name: result.dataframe
-            for name, result in data._inputs.results.items()
-        }
+    def _history(self, data: PreparedStrategyData) -> tuple[pd.DataFrame, pd.DatetimeIndex]:
+        frames = {name: result.dataframe for name, result in data._inputs.results.items()}
         sessions = pd.DatetimeIndex(
             pd.to_datetime(data.calculation_dates(), errors="raise"), name="dt"
         ).normalize()
@@ -223,9 +214,7 @@ class StrategyInstance:
             elif self.definition.decision.output_kind == "INTRADAY_OVERLAY":
                 evidence["action"] = "NO_EVENT"
             else:
-                previous = history["target_position"].shift(1, fill_value=0.0).loc[
-                    signal_session
-                ]
+                previous = history["target_position"].shift(1, fill_value=0.0).loc[signal_session]
                 evidence["action"] = (
                     "BUY"
                     if target_position > float(previous)
@@ -274,22 +263,16 @@ class StrategyInstance:
         signal_date = data.signal_date_for(point.trading_date)
         if signal.evidence.get("signal_date") != signal_date.isoformat():
             raise RuntimeContractError("strategy signal evidence refers to another date")
-        references = data._pricing.references_for_dates(
-            signal_date,
-            point.trading_date,
-            timezone=point.calculation_time.tzinfo,
-        )
+        references = data.price_reference(signal_date, point.trading_date)
         raw = dict(
             build_execution_plan(
-                deployment_settings={
-                    "cycle_target_quantity": state.cycle_target_quantity
-                },
+                deployment_settings={"cycle_target_quantity": state.cycle_target_quantity},
                 available_cash=float(portfolio.available_cash),
                 position_quantity=portfolio.position_quantity,
                 target_position=signal.target_position,
                 policy=self._execution_policy,
-                signal_reference_price=references.signal_reference_price,
-                execution_reference_price=references.execution_reference_price,
+                signal_reference_price=float(references.signal_price),
+                execution_reference_price=float(references.execution_price),
             )
         )
         orders = tuple(_planned_order(value) for value in raw.get("orders", ()))
@@ -316,8 +299,7 @@ class StrategyInstance:
         )
         required_orders = tuple(
             sorted(
-                {order.order_type for order in orders}
-                | {leg.order.order_type for leg in legs},
+                {order.order_type for order in orders} | {leg.order.order_type for leg in legs},
                 key=lambda value: value.value,
             )
         )
@@ -370,12 +352,7 @@ class StrategyInstance:
             fee_rate=Decimal(str(raw["fee_rate"])),
             estimated_order_cost=Decimal(str(raw["estimated_order_cost"])),
             unallocated_cash=Decimal(str(raw["unallocated_cash"])),
-            references=PriceReference(
-                Decimal(str(references.signal_reference_price)),
-                Decimal(str(references.execution_reference_price)),
-                references.signal_price_basis,
-                references.execution_price_basis,
-            ),
+            references=references,
             required_capabilities=ExecutionCapabilities(
                 required_orders,
                 required_checkpoints,

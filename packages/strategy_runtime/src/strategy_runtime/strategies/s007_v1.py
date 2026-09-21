@@ -2,23 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
-from types import MappingProxyType
 from typing import Any, Mapping
-from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
+from dataflows import Dataset
 
 from ..errors import RuntimeContractError
 from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
-    CalculationRequest,
     CutoffRule,
     DecisionContract,
-    DeploymentSpec,
     ExecutionPolicy,
     HistoryPolicy,
     ImplementationRef,
@@ -26,18 +21,12 @@ from ..models import (
     InputRequirement,
     MonitoringPolicy,
     ParameterSet,
-    PublicationStatus,
-    PublishedStrategyData,
     RequiredCapabilities,
     RuntimeDefinition,
-    StrategyDecision,
-    StrategyExplanation,
     StrategyRelease,
-    canonical_sha256,
 )
 
 
-_SHANGHAI = ZoneInfo("Asia/Shanghai")
 _MARKET = "adjusted_daily"
 _SHIBOR = "shibor_daily"
 _CHINEXT = "chinext_daily_basic"
@@ -54,17 +43,6 @@ def _object(value: Any, field_name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise RuntimeContractError(f"{field_name} must be an object")
     return value
-
-
-def _status(results: Mapping[str, DataResult]) -> PublicationStatus:
-    statuses = {item.status for item in results.values()}
-    if statuses == {DataStatus.READY}:
-        return PublicationStatus.READY
-    if DataStatus.FAILED in statuses:
-        return PublicationStatus.FAILED
-    if DataStatus.WAITING_SOURCE in statuses:
-        return PublicationStatus.WAITING_SOURCE
-    return PublicationStatus.INCOMPLETE
 
 
 def causal_percentile(values: pd.Series, window: int, minimum: int) -> pd.Series:
@@ -312,10 +290,14 @@ class S007V1:
             MonitoringPolicy("FORWARD_OBSERVATION", {"frozen": True}),
             RequiredCapabilities(
                 tuple(sorted({item.dataset for item in requirements})),
-                tuple(sorted({
-                    effective_target_order_type(execution, "BUY"),
-                    effective_target_order_type(execution, "SELL"),
-                })),
+                tuple(
+                    sorted(
+                        {
+                            effective_target_order_type(execution, "BUY"),
+                            effective_target_order_type(execution, "SELL"),
+                        }
+                    )
+                ),
             ),
             history=HistoryPolicy("CANONICAL_REPLAY", "2021-01-04", "2020-12-01"),
         )
@@ -337,186 +319,3 @@ class S007V1:
     ) -> pd.DataFrame:
         panel = resolve_s007_feature_panel(inputs, self._score, sessions)
         return calculate_s007_history(panel, self._normalization, self._score)
-
-    def publish_data(
-        self, dataflows: Dataflows, deployment: DeploymentSpec, through: datetime
-    ) -> PublishedStrategyData:
-        cutoff = through.astimezone(_SHANGHAI).date()
-        start = _FROZEN_HISTORY_START.date()
-        calendar_end = cutoff + timedelta(days=20)
-        options: dict[str, object] = {}
-        if deployment.settings.get("env_file") is not None:
-            options["env_file"] = str(deployment.settings["env_file"])
-        calendar_request = DataRequest(
-            Dataset.TRADING_CALENDAR,
-            "SSE",
-            start.isoformat(),
-            calendar_end.isoformat(),
-            calendar_end.isoformat(),
-            "daily",
-            options,
-        )
-        calendar_result = dataflows.fetch(calendar_request)
-        requests: dict[str, DataRequest] = {_CALENDAR: calendar_request}
-        results: dict[str, DataResult] = {_CALENDAR: calendar_result}
-        if calendar_result.ready:
-            dates = pd.to_datetime(
-                calendar_result.dataframe.loc[
-                    calendar_result.dataframe["IsOpen"].astype(int).eq(1), "Date"
-                ]
-            ).dt.normalize()
-            previous = dates[dates < pd.Timestamp(cutoff)]
-            if previous.empty:
-                raise RuntimeContractError("S007-v1 calendar has no previous session")
-            previous_date = previous.iloc[-1].date().isoformat()
-            specs = {
-                _MARKET: (Dataset.ETF_OHLCV, self._symbol, cutoff.isoformat(), "daily"),
-                _SHIBOR: (Dataset.SHIBOR_DAILY, None, cutoff.isoformat(), "daily"),
-                _CHINEXT: (Dataset.INDEX_DAILY_BASIC, "399006.SZ", cutoff.isoformat(), "daily"),
-                _SHARES: (Dataset.ETF_SHARE_SIZE, self._symbol, previous_date, "daily"),
-                _SPX: (Dataset.GLOBAL_INDEX_DAILY, "SPX", None, "daily"),
-                _EXECUTION: (
-                    Dataset.ETF_UNADJUSTED_DAILY,
-                    self._symbol,
-                    cutoff.isoformat(),
-                    "daily",
-                ),
-            }
-            for name, (dataset, symbol, required, frequency) in specs.items():
-                request_end = previous_date if name == _SHARES else cutoff.isoformat()
-                request_start = (
-                    _GLOBAL_HISTORY_START.date().isoformat()
-                    if name == _SPX
-                    else start.isoformat()
-                )
-                requests[name] = DataRequest(
-                    dataset,
-                    symbol,
-                    (
-                        cutoff.isoformat()
-                        if name == _EXECUTION
-                        else request_start
-                    ),
-                    request_end,
-                    required,
-                    frequency,
-                    options,
-                )
-                results[name] = dataflows.fetch(requests[name])
-        else:
-            for requirement in self._definition.inputs.requirements:
-                if requirement.name == _CALENDAR:
-                    continue
-                requests[requirement.name] = DataRequest(
-                    requirement.dataset,
-                    requirement.subject,
-                    start.isoformat(),
-                    cutoff.isoformat(),
-                    None,
-                    requirement.frequency,
-                    options,
-                )
-                results[requirement.name] = DataResult(
-                    DataStatus.INCOMPLETE, error=calendar_result.error
-                )
-        status = _status(results)
-        error = (
-            None
-            if status is PublicationStatus.READY
-            else "; ".join(
-                f"{name}:{result.status.value}"
-                for name, result in results.items()
-                if not result.ready
-            )
-        )
-        return PublishedStrategyData(
-            self._release.release_id,
-            self._release.release_hash,
-            status,
-            cutoff.isoformat(),
-            requests,
-            results,
-            error,
-        )
-
-    def calculate(self, request: CalculationRequest) -> StrategyDecision:
-        frames = {
-            name: result.dataframe for name, result in request.publication.input_results.items()
-        }
-        sessions = pd.DatetimeIndex(
-            pd.to_datetime(frames[_MARKET]["Date"]).dt.normalize().sort_values().unique()
-        )
-        panel = resolve_s007_feature_panel(frames, self._score, sessions)
-        history = calculate_s007_history(panel, self._normalization, self._score)
-        cutoff = pd.Timestamp(request.publication.requested_cutoff).normalize()
-        if (
-            cutoff not in history.index
-            or pd.isna(history.loc[cutoff, "base_score"])
-            or pd.isna(history.loc[cutoff, "confirmation_score"])
-        ):
-            raise RuntimeContractError("S007-v1 feature history does not reach a valid cutoff")
-        row = history.loc[cutoff]
-        calendar = frames[_CALENDAR]
-        dates = pd.to_datetime(
-            calendar.loc[calendar["IsOpen"].astype(int).eq(1), "Date"]
-        ).dt.normalize()
-        future = dates[dates > cutoff]
-        if future.empty:
-            raise RuntimeContractError("S007-v1 calendar has no next session")
-        valid_at = datetime.combine(future.iloc[0].date(), time(9, 30), tzinfo=_SHANGHAI)
-        execution = frames[_EXECUTION]
-        execution_row = execution.loc[pd.to_datetime(execution["Date"]).dt.normalize().eq(cutoff)]
-        if len(execution_row) != 1:
-            raise RuntimeContractError("S007-v1 requires one execution-price row")
-        identities = {
-            name: result.identity.content_sha256
-            for name, result in request.publication.input_results.items()
-        }
-        suffix = canonical_sha256(
-            {
-                "release": self._release.release_hash,
-                "cutoff": cutoff.date().isoformat(),
-                "target": float(row["target_position"]),
-                "inputs": identities,
-            }
-        )[:12].upper()
-        evidence = {
-            "signal_date": cutoff.date().isoformat(),
-            "base_score": float(row["base_score"]),
-            "confirmation_score": float(row["confirmation_score"]),
-            "action": str(row["action"]),
-            "execution_reference_price": float(execution_row.iloc[0]["Close"]),
-            "features": {
-                name: float(panel.loc[cutoff, name]) for name in sorted(self._score["orientations"])
-            },
-        }
-        return StrategyDecision(
-            f"DEC-{request.calculation_time.astimezone(_SHANGHAI):%Y%m%d-%H%M}-{suffix}",
-            request.deployment.deployment_id,
-            self._release.release_id,
-            self._release.release_hash,
-            self._definition.runtime_sha256,
-            request.calculation_time,
-            valid_at,
-            float(row["target_position"]),
-            request.account.revision,
-            request.state.revision,
-            identities,
-            evidence,
-            {
-                "signal_date": cutoff.date().isoformat(),
-                "target_position": float(row["target_position"]),
-                "action": str(row["action"]),
-            },
-        )
-
-    def explain(self, decision: StrategyDecision) -> StrategyExplanation:
-        return StrategyExplanation(
-            f"S007-v1 由基础分与确认门共同给出 {decision.evidence['action']}",
-            (
-                f"基础分：{decision.evidence['base_score']:.4f}",
-                f"确认分：{decision.evidence['confirmation_score']:.4f}",
-            ),
-            ("跨市场与资金状态的历史关系可能随市场结构变化而衰减",),
-            MappingProxyType(dict(decision.evidence)),
-        )

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from types import MappingProxyType
 from typing import Mapping
 
 import pandas as pd
 
-from .contracts import StrategyIdentity, TradableWindow
+from .contracts import PriceReference, StrategyIdentity, TradableWindow
 from .errors import RuntimeContractError
 from .models import ExecutionPricingData, canonical_sha256
 from .preparation import PreparedInputs
@@ -45,10 +46,7 @@ class PreparedStrategyData:
             or self.tradable_window.end not in self._calendar_dates
         ):
             raise RuntimeContractError("prepared data does not cover the tradable window")
-        if (
-            not self._calculation_dates
-            or self._calculation_dates[-1] != self.available_through
-        ):
+        if not self._calculation_dates or self._calculation_dates[-1] != self.available_through:
             raise RuntimeContractError("prepared calculation dates have an invalid cutoff")
         inputs = MappingProxyType(dict(sorted(self.input_identities.items())))
         prices = MappingProxyType(dict(sorted(self.price_identities.items())))
@@ -64,9 +62,7 @@ class PreparedStrategyData:
                 },
                 "available_through": self.available_through.isoformat(),
                 "calendar_dates": [value.isoformat() for value in self._calendar_dates],
-                "calculation_dates": [
-                    value.isoformat() for value in self._calculation_dates
-                ],
+                "calculation_dates": [value.isoformat() for value in self._calculation_dates],
                 "inputs": dict(inputs),
                 "prices": dict(prices),
             }
@@ -82,8 +78,7 @@ class PreparedStrategyData:
         pricing: ExecutionPricingData,
     ) -> "PreparedStrategyData":
         input_identities = {
-            name: result.identity.content_sha256
-            for name, result in inputs.results.items()
+            name: result.identity.content_sha256 for name, result in inputs.results.items()
         }
         price_identities = dict(pricing.identity_hashes)
         identity = canonical_sha256(
@@ -95,12 +90,8 @@ class PreparedStrategyData:
                     "end": inputs.tradable_window.end.isoformat(),
                 },
                 "available_through": inputs.available_through.isoformat(),
-                "calendar_dates": [
-                    value.isoformat() for value in inputs.calendar_dates
-                ],
-                "calculation_dates": [
-                    value.isoformat() for value in inputs.calculation_dates
-                ],
+                "calendar_dates": [value.isoformat() for value in inputs.calendar_dates],
+                "calculation_dates": [value.isoformat() for value in inputs.calculation_dates],
                 "inputs": dict(sorted(input_identities.items())),
                 "prices": dict(sorted(price_identities.items())),
             }
@@ -140,9 +131,7 @@ class PreparedStrategyData:
 
     def trading_dates(self) -> tuple[date, ...]:
         return tuple(
-            value
-            for value in self._calendar_dates
-            if self.tradable_window.contains(value)
+            value for value in self._calendar_dates if self.tradable_window.contains(value)
         )
 
     def signal_date_for(self, trading_date: date) -> date:
@@ -152,3 +141,24 @@ class PreparedStrategyData:
         if not previous:
             raise RuntimeContractError("prepared data has no signal session before trading date")
         return previous[-1]
+
+    def price_reference(self, signal_date: date, trading_date: date) -> PriceReference:
+        """Return the channel-neutral prices used to size one execution plan."""
+
+        signal = pd.Timestamp(signal_date).normalize()
+        adjusted = self._pricing.adjusted_daily.loc[self._pricing.adjusted_daily["dt"].eq(signal)]
+        execution = self._pricing.execution_daily.loc[
+            self._pricing.execution_daily["dt"].eq(signal)
+        ]
+        if len(adjusted) != 1 or len(execution) != 1:
+            raise RuntimeContractError(
+                "prepared pricing has no unique reference row for the signal session"
+            )
+        if trading_date <= signal_date:
+            raise RuntimeContractError("execution session must follow the signal session")
+        return PriceReference(
+            Decimal(str(adjusted.iloc[0]["close"])),
+            Decimal(str(execution.iloc[0]["close"])),
+            "ADJUSTED_CLOSE",
+            "UNADJUSTED_CLOSE",
+        )

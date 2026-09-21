@@ -3,5 +3,5 @@
   "release_id": "S003-v1",
   "release_hash": "1ddcc3dd6df2ce0ee920ddaa40ba257d237ddab18a39471eb49ec3c395dd947b",
   "source_files": ["strategies/s003_v1.py", "execution_rules.py"],
-  "implementation_sha256": "82e4769b3b83debae20a6955b66ef9a3cf0736d69c8c356bf31b35baf33b1a32"
+  "implementation_sha256": "43edf5511982173ec6d3fb11f87409579c7ff7c3b77e856ab06b34b3242cd53b"
 }

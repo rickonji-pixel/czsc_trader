@@ -18,7 +18,6 @@ from strategy_runtime.models import (
     RequiredCapabilities,
     RuntimeDefinition,
 )
-from strategy_runtime.models import StrategyDecision
 
 
 class CandidateFixture:
@@ -50,15 +49,27 @@ class CandidateFixture:
                         CutoffRule.SIGNAL_SESSION,
                     ),
                     InputRequirement(
-                        "market", Dataset.ETF_OHLCV.value, "588080.SH", "daily", 1,
+                        "market",
+                        Dataset.ETF_OHLCV.value,
+                        "588080.SH",
+                        "daily",
+                        1,
                         CutoffRule.SIGNAL_SESSION,
                     ),
                     InputRequirement(
-                        "execution", Dataset.ETF_UNADJUSTED_DAILY.value,
-                        "588080.SH", "daily", 1, CutoffRule.SIGNAL_SESSION,
+                        "execution",
+                        Dataset.ETF_UNADJUSTED_DAILY.value,
+                        "588080.SH",
+                        "daily",
+                        1,
+                        CutoffRule.SIGNAL_SESSION,
                     ),
                     InputRequirement(
-                        "calendar", Dataset.TRADING_CALENDAR.value, "SSE", "daily", 0,
+                        "calendar",
+                        Dataset.TRADING_CALENDAR.value,
+                        "SSE",
+                        "daily",
+                        0,
                         CutoffRule.LATEST_AVAILABLE,
                     ),
                 )
@@ -72,7 +83,10 @@ class CandidateFixture:
                         "mode": "full_available_cash",
                         "target_scope": "entry_cycle",
                     },
-                    "entry": {"limit_parameter": payload["parameters"].get("entry_premium", 0.0), "order_type": "LIMIT"},
+                    "entry": {
+                        "limit_parameter": payload["parameters"].get("entry_premium", 0.0),
+                        "order_type": "LIMIT",
+                    },
                     "exit": {"limit_ratio": 0.1, "order_type": "MARKET"},
                     "instrument": {
                         "lot_size": 100,
@@ -104,9 +118,6 @@ class CandidateFixture:
     def from_release(cls, release):
         return cls(release)
 
-    def publish_data(self, dataflows, deployment, through):
-        raise NotImplementedError("fixture only exercises pre-published historical calculation")
-
     def calculate_history(self, inputs, sessions):
         threshold = float(self.definition.parameters.values["threshold"])
         flow = inputs["flow"].copy()
@@ -118,28 +129,3 @@ class CandidateFixture:
         if self.definition.parameters.values.get("invert", False):
             target = 1.0 - target
         return pd.DataFrame({"target_position": target}, index=sessions)
-
-    def calculate(self, request):
-        frame = request.publication.input_results["flow"].dataframe
-        target = float(frame.iloc[-1]["Flow"] > self.definition.parameters.values["threshold"])
-        if self.definition.parameters.values.get("invert", False):
-            target = 1.0 - target
-        definition = self.definition
-        return StrategyDecision(
-            f"fixture-{request.calculation_time.isoformat()}",
-            request.deployment.deployment_id,
-            definition.release_id,
-            definition.release_hash,
-            definition.runtime_sha256,
-            request.calculation_time,
-            request.calculation_time + pd.Timedelta(days=1),
-            target,
-            request.account.revision,
-            request.state.revision,
-            {"flow": request.publication.input_results["flow"].identity.content_sha256},
-            {},
-            {},
-        )
-
-    def explain(self, decision):
-        return {"target": decision.target_position}

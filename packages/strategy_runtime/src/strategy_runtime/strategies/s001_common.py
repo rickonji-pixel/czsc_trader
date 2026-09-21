@@ -3,43 +3,32 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, time, timedelta
 import re
-from types import MappingProxyType
 from typing import Any, Mapping
-from zoneinfo import ZoneInfo
 
 import czsc
 import numpy as np
 import pandas as pd
-from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
+from dataflows import Dataset
 
 from ..errors import RuntimeContractError
 from ..execution_rules import effective_target_order_type
 from ..implementation_identity import implementation_sha256
 from ..models import (
-    CalculationRequest,
     CutoffRule,
     DecisionContract,
-    DeploymentSpec,
     ExecutionPolicy,
     ImplementationRef,
     InputContract,
     InputRequirement,
     MonitoringPolicy,
     ParameterSet,
-    PublicationStatus,
-    PublishedStrategyData,
     RequiredCapabilities,
     RuntimeDefinition,
-    StrategyDecision,
-    StrategyExplanation,
     StrategyRelease,
-    canonical_sha256,
 )
 
 
-_SHANGHAI = ZoneInfo("Asia/Shanghai")
 _INTRADAY = "adjusted_30m"
 _DAILY = "adjusted_daily"
 _WEEKLY = "adjusted_weekly"
@@ -107,17 +96,6 @@ def _object(value: Any, field_name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise RuntimeContractError(f"{field_name} must be an object")
     return value
-
-
-def _status(results: Mapping[str, DataResult]) -> PublicationStatus:
-    statuses = {item.status for item in results.values()}
-    if statuses == {DataStatus.READY}:
-        return PublicationStatus.READY
-    if DataStatus.FAILED in statuses:
-        return PublicationStatus.FAILED
-    if DataStatus.WAITING_SOURCE in statuses:
-        return PublicationStatus.WAITING_SOURCE
-    return PublicationStatus.INCOMPLETE
 
 
 def _ohlcv(dataframe: pd.DataFrame, symbol: str) -> pd.DataFrame:
@@ -373,10 +351,14 @@ class S001Base:
         self._release = release
         self._rule = rule
         self._symbol = symbol
-        order_types = tuple(sorted({
-            effective_target_order_type(execution, "BUY"),
-            effective_target_order_type(execution, "SELL"),
-        }))
+        order_types = tuple(
+            sorted(
+                {
+                    effective_target_order_type(execution, "BUY"),
+                    effective_target_order_type(execution, "SELL"),
+                }
+            )
+        )
         datasets = (
             Dataset.ETF_OHLCV.value,
             Dataset.ETF_UNADJUSTED_DAILY.value,
@@ -451,9 +433,7 @@ class S001Base:
         return cls(release)
 
     @classmethod
-    def from_release_for_symbol(
-        cls, release: StrategyRelease, symbol: str
-    ) -> "S001Base":
+    def from_release_for_symbol(cls, release: StrategyRelease, symbol: str) -> "S001Base":
         return cls(release, symbol)
 
     @property
@@ -472,151 +452,4 @@ class S001Base:
             inputs[_WEEKLY],
             self._rule,
             self._symbol,
-        )
-
-    def publish_data(
-        self, dataflows: Dataflows, deployment: DeploymentSpec, through: datetime
-    ) -> PublishedStrategyData:
-        cutoff = through.astimezone(_SHANGHAI).date()
-        start = cutoff - timedelta(days=900)
-        options = {}
-        if deployment.settings.get("env_file") is not None:
-            options["env_file"] = str(deployment.settings["env_file"])
-        requests = {
-            _INTRADAY: DataRequest(
-                Dataset.ETF_OHLCV,
-                self._symbol,
-                start.isoformat(),
-                cutoff.isoformat(),
-                cutoff.isoformat(),
-                "30m",
-                options,
-            ),
-            _DAILY: DataRequest(
-                Dataset.ETF_OHLCV,
-                self._symbol,
-                start.isoformat(),
-                cutoff.isoformat(),
-                cutoff.isoformat(),
-                "daily",
-                options,
-            ),
-            _WEEKLY: DataRequest(
-                Dataset.ETF_OHLCV,
-                self._symbol,
-                start.isoformat(),
-                cutoff.isoformat(),
-                None,
-                "weekly",
-                options,
-            ),
-            _EXECUTION: DataRequest(
-                Dataset.ETF_UNADJUSTED_DAILY,
-                self._symbol,
-                cutoff.isoformat(),
-                cutoff.isoformat(),
-                cutoff.isoformat(),
-                "daily",
-                options,
-            ),
-            _CALENDAR: DataRequest(
-                Dataset.TRADING_CALENDAR,
-                "SSE",
-                cutoff.isoformat(),
-                (cutoff + timedelta(days=20)).isoformat(),
-                (cutoff + timedelta(days=20)).isoformat(),
-                "daily",
-                options,
-            ),
-        }
-        results = {name: dataflows.fetch(request) for name, request in requests.items()}
-        status = _status(results)
-        error = None
-        if status is not PublicationStatus.READY:
-            error = "; ".join(
-                f"{name}:{result.status.value}:{result.error.code if result.error else 'UNKNOWN'}"
-                for name, result in results.items()
-                if not result.ready
-            )
-        return PublishedStrategyData(
-            self._release.release_id,
-            self._release.release_hash,
-            status,
-            cutoff.isoformat(),
-            requests,
-            results,
-            error,
-        )
-
-    def calculate(self, request: CalculationRequest) -> StrategyDecision:
-        results = request.publication.input_results
-        history = calculate_s001_history(
-            results[_INTRADAY].dataframe,
-            results[_DAILY].dataframe,
-            results[_WEEKLY].dataframe,
-            self._rule,
-            self._symbol,
-        )
-        cutoff = pd.Timestamp(request.publication.requested_cutoff).normalize()
-        if cutoff not in history.index:
-            raise RuntimeContractError("S001 history does not reach requested cutoff")
-        latest = history.loc[cutoff]
-        execution = results[_EXECUTION].dataframe
-        row = execution.loc[pd.to_datetime(execution["Date"]).dt.normalize().eq(cutoff)]
-        if len(row) != 1:
-            raise RuntimeContractError("S001 requires one execution-price row at cutoff")
-        calendar = results[_CALENDAR].dataframe
-        dates = pd.to_datetime(calendar["Date"]).dt.normalize()
-        next_sessions = calendar.loc[
-            dates.gt(cutoff) & calendar["IsOpen"].astype(int).eq(1), "Date"
-        ]
-        if next_sessions.empty:
-            raise RuntimeContractError("S001 calendar has no next trading session")
-        valid_at = datetime.combine(
-            pd.Timestamp(next_sessions.iloc[0]).date(), time(9, 30), tzinfo=_SHANGHAI
-        )
-        identities = {name: result.identity.content_sha256 for name, result in results.items()}
-        generated = request.calculation_time.astimezone(_SHANGHAI)
-        target = float(latest["target_position"])
-        suffix = canonical_sha256(
-            {
-                "release": self._release.release_hash,
-                "cutoff": cutoff.date().isoformat(),
-                "target": target,
-                "inputs": identities,
-            }
-        )[:12].upper()
-        previous = history["target_position"].shift(1, fill_value=0.0).loc[cutoff]
-        action = "BUY" if target > previous else "SELL" if target < previous else "HOLD"
-        return StrategyDecision(
-            f"DEC-{generated:%Y%m%d-%H%M}-{suffix}",
-            request.deployment.deployment_id,
-            self._release.release_id,
-            self._release.release_hash,
-            self._definition.runtime_sha256,
-            request.calculation_time,
-            valid_at,
-            target,
-            request.account.revision,
-            request.state.revision,
-            identities,
-            {
-                "signal_date": cutoff.date().isoformat(),
-                "action": action,
-                "factor_score": float(latest["factor_score"]),
-                "regime": str(latest["regime"]),
-                "execution_reference_price": float(row.iloc[0]["Close"]),
-            },
-            {"signal_date": cutoff.date().isoformat(), "target_position": target, "action": action},
-        )
-
-    def explain(self, decision: StrategyDecision) -> StrategyExplanation:
-        return StrategyExplanation(
-            summary=f"{self._release.release_id} 综合结构、趋势和量价位置后给出 {decision.evidence['action']}",
-            drivers=(
-                f"综合得分：{float(decision.evidence['factor_score']):.4f}",
-                f"市场状态：{decision.evidence['regime']}",
-            ),
-            risks=("多类技术信号在市场结构切换时可能同步失效",),
-            details=MappingProxyType(dict(decision.evidence)),
         )

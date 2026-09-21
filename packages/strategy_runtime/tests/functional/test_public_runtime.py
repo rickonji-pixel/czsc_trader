@@ -48,15 +48,37 @@ def test_legacy_runner_surface_is_not_public() -> None:
         assert not hasattr(strategy_runtime, name)
 
 
+def test_legacy_runtime_models_are_removed() -> None:
+    from strategy_runtime import models
+
+    for name in (
+        "AccountSnapshot",
+        "CalculationRequest",
+        "ChannelCapabilities",
+        "DeploymentSpec",
+        "ExecutionInstruction",
+        "ExecutionReceipt",
+        "ExecutionRequest",
+        "PublishedStrategyData",
+        "PublicationStatus",
+        "ReferencePriceSnapshot",
+        "RuntimeRunResult",
+        "RuntimeRunStatus",
+        "StrategyDecision",
+        "StrategyExplanation",
+        "StrategyRuntimeContext",
+        "StrategyStateSnapshot",
+    ):
+        assert not hasattr(models, name)
+
+
 ROOT = Path(__file__).resolve().parents[4]
 ZONE = ZoneInfo("Asia/Shanghai")
 
 
 def _release(strategy_id: str, version: str) -> StrategyRelease:
     payload = json.loads(
-        (ROOT / f"strategies/{strategy_id}/versions/{version}.json").read_text(
-            encoding="utf-8"
-        )
+        (ROOT / f"strategies/{strategy_id}/versions/{version}.json").read_text(encoding="utf-8")
     )
     return StrategyRelease.from_mapping(payload)
 
@@ -76,9 +98,7 @@ def _flows() -> Dataflows:
     )
 
     def market(request):
-        frame = bars.loc[
-            pd.to_datetime(bars["Date"]).between(request.start, request.end)
-        ].copy()
+        frame = bars.loc[pd.to_datetime(bars["Date"]).between(request.start, request.end)].copy()
         return frame, {
             "vendor": "test",
             "adjustment": "none" if "unadjusted" in request.dataset else "hfq",
@@ -87,9 +107,10 @@ def _flows() -> Dataflows:
 
     def calendar(request):
         days = pd.date_range(request.start, request.end)
-        return pd.DataFrame(
-            {"Date": days, "IsOpen": (days.dayofweek < 5).astype(int)}
-        ), {"vendor": "test", "primary_key": ["Date"]}
+        return pd.DataFrame({"Date": days, "IsOpen": (days.dayofweek < 5).astype(int)}), {
+            "vendor": "test",
+            "primary_key": ["Date"],
+        }
 
     return Dataflows(
         {
@@ -159,13 +180,17 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
         "strategy_runtime.preparation.Dataflows",
         lambda: (_ for _ in ()).throw(AssertionError("cache must be self-contained")),
     )
-    cached = StrategyRuntime().create(
-        StrategyInit(
-            _release("S002", "v1"),
-            TradableWindow(trading_date, trading_date),
-            tmp_path,
+    cached = (
+        StrategyRuntime()
+        .create(
+            StrategyInit(
+                _release("S002", "v1"),
+                TradableWindow(trading_date, trading_date),
+                tmp_path,
+            )
         )
-    ).prepare_data()
+        .prepare_data()
+    )
     assert cached == prepared
 
     with pytest.raises(RuntimeContractError, match="another strategy instance"):

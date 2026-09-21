@@ -78,12 +78,28 @@ def _strategy_symbol(strategy: ExecutableStrategy) -> str:
     return next(iter(subjects))
 
 
+def _definition_symbol(definition) -> str:
+    subjects = {
+        str(requirement.subject).upper()
+        for requirement in definition.inputs.requirements
+        if requirement.subject
+        and requirement.dataset.startswith(("etf.", "stock."))
+        and re.fullmatch(r"\d{6}\.(?:SH|SZ)", str(requirement.subject).upper())
+    }
+    if len(subjects) != 1:
+        raise RuntimeContractError(
+            "strategy publication must declare exactly one A-share instrument"
+        )
+    return next(iter(subjects))
+
+
 def _read_bound_generation(
     directory: Path,
-    strategy: ExecutableStrategy,
+    *,
+    release_id: str,
+    symbol: str,
 ) -> dict[str, object]:
     root = Path(directory).resolve()
-    symbol = _strategy_symbol(strategy)
     marker = root / f"{symbol.split('.', 1)[0]}_strategy_generation.json"
     try:
         generation = json.loads(marker.read_text(encoding="utf-8"))
@@ -112,7 +128,6 @@ def _read_bound_generation(
         or any(not isinstance(item, str) or not item for item in releases)
     ):
         raise RuntimeContractError("SRT generation strategy releases are invalid")
-    release_id = strategy.definition.release_id
     if release_id not in releases:
         raise RuntimeContractError(
             f"SRT generation does not contain strategy publication: {release_id}"
@@ -282,7 +297,11 @@ def load_strategy_runtime_context(
 ) -> StrategyRuntimeContext:
     """Load one authenticated strategy publication and its execution prices."""
 
-    generation = _read_bound_generation(directory, strategy)
+    generation = _read_bound_generation(
+        directory,
+        release_id=strategy.definition.release_id,
+        symbol=_strategy_symbol(strategy),
+    )
     publication = read_publication(directory, strategy.definition.release_id)
     from .runner import StrategyRunner
 

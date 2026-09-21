@@ -1923,7 +1923,10 @@ class PaperStore:
                 current = json.loads(encoded)
                 runtime_fields = {
                     "source_decision_id", "actual_quantity", "delta_quantity", "available_cash",
+                    "portfolio_revision", "state_revision",
                 }
+                if not previous.get("plan_identity"):
+                    runtime_fields.update({"signal_identity", "plan_identity"})
                 previous_identity = {
                     key: value for key, value in previous.items() if key not in runtime_fields
                 }

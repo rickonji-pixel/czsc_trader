@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import date
+from hashlib import sha256
 
 from paper_trading_engine.contracts import AdviceDecision, OrderSpec
 from paper_trading_engine.broker import (
@@ -37,6 +38,10 @@ def decision(order: OrderSpec | None = None) -> AdviceDecision:
         execution_reference_price=1.68,
         data_cutoff=date(2026, 9, 1),
         order=order,
+        signal_identity="1" * 64,
+        plan_identity="2" * 64,
+        portfolio_revision=0,
+        state_revision=0,
         orders=orders,
         available_cash=1_000_000,
         fee_rate=0.0005,
@@ -71,16 +76,31 @@ class FakeAdvice:
     def data_identity(self):
         return "2026-09-01"
 
+    def publication_date(self, _strategy_id, _strategy_version):
+        return self.value.signal_date
+
     def get_decision(self, actual_quantity, available_cash, **kwargs):
         self.calls.append((actual_quantity, available_cash, kwargs))
         value = replace(
             self.value,
             actual_quantity=actual_quantity,
             available_cash=available_cash,
+            signal_date=kwargs.get("signal_date", self.value.signal_date),
+            portfolio_revision=kwargs.get(
+                "portfolio_revision", self.value.portfolio_revision
+            ),
+            state_revision=kwargs.get("state_revision", self.value.state_revision),
+            plan_identity=sha256(
+                (
+                    f"{self.value.signal_identity}:{self.value.signal_date}:"
+                    f"{self.value.target_quantity}:{self.value.action}:"
+                    f"{self.value.orders}:{self.value.plan_legs}:"
+                    f"{actual_quantity}:{available_cash}"
+                ).encode("utf-8")
+            ).hexdigest(),
             source_decision_id=self.value.source_decision_id or self.value.decision_id,
         )
-        transform = kwargs.get("decision_transform")
-        return transform(value) if transform else value
+        return value
 
 
 class FakeBroker:

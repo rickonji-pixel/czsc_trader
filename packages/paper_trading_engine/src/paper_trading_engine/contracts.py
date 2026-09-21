@@ -142,6 +142,10 @@ class AdviceDecision:
     execution_reference_price: float
     data_cutoff: date
     order: OrderSpec | None
+    signal_identity: str
+    plan_identity: str
+    portfolio_revision: int
+    state_revision: int
     orders: tuple[OrderSpec, ...] = ()
     available_cash: float = 0.0
     fee_rate: float = 0.0
@@ -301,6 +305,18 @@ class AdviceDecision:
             raise AdviceContractError("data cutoff must equal signal date")
         if not str(value.get("decision_id", "")).strip():
             raise AdviceContractError("decision id is required")
+        signal_identity = str(value.get("signal_identity", ""))
+        plan_identity = str(value.get("plan_identity", ""))
+        if re.fullmatch(r"[0-9a-f]{64}", signal_identity) is None:
+            raise AdviceContractError("signal identity has invalid format")
+        if re.fullmatch(r"[0-9a-f]{64}", plan_identity) is None:
+            raise AdviceContractError("plan identity has invalid format")
+        portfolio_revision = _integer(
+            value.get("portfolio_revision"), "portfolio revision"
+        )
+        state_revision = _integer(value.get("state_revision"), "state revision")
+        if portfolio_revision < 0 or state_revision < 0:
+            raise AdviceContractError("decision revisions must be non-negative")
         runtime_sha256 = str(value.get("runtime_sha256", ""))
         input_identities_value = value.get("input_identity_hashes", {})
         input_identities = _object(input_identities_value, "input identity hashes")
@@ -330,6 +346,10 @@ class AdviceDecision:
             execution_reference_price=execution_reference,
             data_cutoff=data_cutoff,
             order=order,
+            signal_identity=signal_identity,
+            plan_identity=plan_identity,
+            portfolio_revision=portfolio_revision,
+            state_revision=state_revision,
             orders=orders,
             available_cash=available_cash,
             fee_rate=fee_rate,
@@ -337,7 +357,9 @@ class AdviceDecision:
             unallocated_cash=unallocated_cash,
             capital_mode=capital_mode,
             allocation_fraction=allocation_fraction,
-            source_decision_id=str(value.get("decision_id", "")),
+            source_decision_id=str(
+                value.get("source_decision_id") or value.get("decision_id", "")
+            ),
             plan_mode=plan_mode,
             plan_legs=plan_legs,
             runtime_sha256=runtime_sha256,

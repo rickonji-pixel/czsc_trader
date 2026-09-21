@@ -438,13 +438,20 @@ def _preflight_strategy_account(
     """Prove an existing SRT publication and advice contract before account creation."""
     initial_cash = Decimal(args.initial_cash).quantize(Decimal("0.0001"))
     try:
-        decision = SrtAdviceClient(
+        client = SrtAdviceClient(
             repo_root=args.repo_root,
             data_dir=args.data_dir,
-        ).get_decision(
+        )
+        signal_date = client.publication_date(
+            str(identity["strategy_id"]), str(identity["version"])
+        )
+        decision = client.get_decision(
             0,
             float(initial_cash),
             total_assets=float(initial_cash),
+            signal_date=signal_date,
+            portfolio_revision=0,
+            state_revision=0,
             strategy_id=str(identity["strategy_id"]),
             strategy_version=str(identity["version"]),
             account_id="preflight",

@@ -1,34 +1,33 @@
-"""Direct SRT decision adapter for PTE's published local data."""
+"""PTE adapter from SRT execution plans to durable account decisions."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from hashlib import sha256
 import json
 from pathlib import Path
 import time as clock
-from typing import Callable, Mapping
+from typing import Callable
 
 from strategy_runtime import (
-    AccountSnapshot,
-    ChannelCapabilities,
-    DeploymentSpec,
-    ExecutionReceipt,
-    StrategyLoader,
+    DecisionPoint,
+    DecisionWindow,
+    ExecutionPlan,
+    ExecutionState,
+    PortfolioSnapshot,
+    PreparedStrategyData,
+    PublishedDataSource,
+    StrategyInit,
     StrategyRelease,
-    StrategyRunner,
-    StrategyStateSnapshot,
-    load_strategy_runtime_context,
+    StrategyRuntime,
 )
 
-from .errors import AdviceClientError
 from .audit import AuditRecorder
 from .contracts import AdviceContractError, AdviceDecision
+from .errors import AdviceClientError
 
 
 _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
-_CHANNEL_ID = "futu_simulate_cn"
 
 
 def _load_manifest(path: Path) -> dict[str, object]:
@@ -44,9 +43,8 @@ def _load_manifest(path: Path) -> dict[str, object]:
 def _strategy_identity(repo_root: Path, release: StrategyRelease) -> dict[str, str]:
     root = repo_root / "strategies" / release.strategy_family_id
     family = _load_manifest(root / "family.json")
-    lifecycle_path = root / "lifecycle.jsonl"
     qualification = None
-    for line in lifecycle_path.read_text(encoding="utf-8").splitlines():
+    for line in (root / "lifecycle.jsonl").read_text(encoding="utf-8").splitlines():
         event = json.loads(line)
         if event.get("version") == release.version and event.get("release_hash") == release.release_hash:
             qualification = event.get("to_state")
@@ -62,60 +60,78 @@ def _strategy_identity(repo_root: Path, release: StrategyRelease) -> dict[str, s
     }
 
 
-class _PteCaptureChannel:
-    channel_id = _CHANNEL_ID
+def _order_payload(order) -> dict[str, object]:
+    if order.limit_price is None:
+        raise AdviceClientError("PTE requires an executable reference price for every order")
+    return {
+        "side": order.side.value,
+        "quantity": order.quantity,
+        "order_type": order.order_type.value,
+        "limit_price": float(order.limit_price),
+        "time_in_force": "DAY",
+    }
 
-    def __init__(self, identity: Mapping[str, str]) -> None:
-        self.capabilities = ChannelCapabilities(
-            ("LIMIT", "MARKET", "MARKETABLE_LIMIT"), ("OPEN", "11:30_CLOSE")
-        )
-        self.identity = identity
-        self.decision: AdviceDecision | None = None
 
-    def submit(self, request, idempotency_key: str) -> ExecutionReceipt:
-        references = request.reference_prices
-        decision_identity = {
-            "release_hash": request.decision.release_hash,
-            "signal_date": references.signal_at.date().isoformat(),
-            "target_position": request.decision.target_position,
-            "runtime_sha256": request.decision.runtime_sha256,
-            "inputs": dict(sorted(request.decision.input_identity_hashes.items())),
-            "prices": dict(sorted(references.price_identity_hashes.items())),
+def _decision_from_plan(plan: ExecutionPlan, identity: dict[str, str]) -> AdviceDecision:
+    orders = [_order_payload(order) for order in plan.orders]
+    legs = [
+        {
+            "sequence": leg.sequence,
+            "role": leg.role,
+            "checkpoint": leg.checkpoint,
+            "submit_after": leg.submit_after.isoformat(),
+            "submit_before": leg.submit_before.isoformat(),
+            "dependency_sequence": leg.dependency_sequence,
+            "dependency_required_status": leg.dependency_required_status,
+            "order": _order_payload(leg.order),
         }
-        suffix = sha256(
-            json.dumps(
-                decision_identity,
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode("utf-8")
-        ).hexdigest()[:12].upper()
-        source_decision_id = f"SRT-{references.signal_at:%Y%m%d}-{suffix}"
-        payload = request.instruction.order_plan_payload()
-        payload.update(
-            {
-                "decision_id": source_decision_id,
-                "symbol": request.deployment.symbol,
-                "signal_date": references.signal_at.date().isoformat(),
-                "valid_session": references.valid_at.date().isoformat(),
-                "strategy": dict(self.identity),
-                "signal_reference_price": references.signal_reference_price,
-                "execution_reference_price": references.execution_reference_price,
-                "data_cutoff": references.signal_at.date().isoformat(),
-                "runtime_sha256": request.decision.runtime_sha256,
-                "input_identity_hashes": dict(request.decision.input_identity_hashes),
-            }
-        )
-        try:
-            self.decision = AdviceDecision.from_cli_payload(
-                {"status": "PASS", "result": payload}
-            )
-        except AdviceContractError as exc:
-            raise AdviceClientError(f"SRT execution request violates PTE contract: {exc}") from exc
-        return ExecutionReceipt(idempotency_key, True, self.decision.decision_id, "CAPTURED", "captured by PTE adapter")
+        for leg in plan.legs
+    ]
+    source_decision_id = f"SRT-{plan.signal_date:%Y%m%d}-{plan.signal_identity[:12].upper()}"
+    payload = {
+        "contract_version": "advice.v5" if plan.plan_mode != "NONE" or legs else "advice.v4",
+        "decision_id": source_decision_id,
+        "source_decision_id": source_decision_id,
+        "signal_identity": plan.signal_identity,
+        "plan_identity": plan.plan_identity,
+        "portfolio_revision": plan.expected_portfolio_revision,
+        "state_revision": plan.expected_state_revision,
+        "symbol": plan.symbol,
+        "signal_date": plan.signal_date.isoformat(),
+        "valid_session": plan.valid_session.isoformat(),
+        "actual_quantity": plan.actual_quantity,
+        "target_quantity": plan.target_quantity,
+        "cycle_target_quantity": plan.cycle_target_quantity,
+        "delta_quantity": plan.target_quantity - plan.actual_quantity,
+        "action": plan.action,
+        "strategy": identity,
+        "signal_reference_price": float(plan.references.signal_price),
+        "execution_reference_price": float(plan.references.execution_price),
+        "data_cutoff": plan.signal_date.isoformat(),
+        "order": orders[0] if len(orders) == 1 else None,
+        "orders": orders,
+        "available_cash": float(plan.available_cash),
+        "fee_rate": float(plan.fee_rate),
+        "estimated_order_cost": float(plan.estimated_order_cost),
+        "unallocated_cash": float(plan.unallocated_cash),
+        "capital_rule": {
+            "mode": plan.capital_mode,
+            "allocation_fraction": float(plan.allocation_fraction),
+            "target_scope": "entry_cycle",
+        },
+        "plan_mode": plan.plan_mode,
+        "plan_legs": legs,
+        "runtime_sha256": plan.strategy.runtime_sha256,
+        "input_identity_hashes": dict(plan.input_identities),
+    }
+    try:
+        return AdviceDecision.from_cli_payload({"status": "PASS", "result": payload})
+    except AdviceContractError as exc:
+        raise AdviceClientError(f"SRT execution plan violates PTE contract: {exc}") from exc
 
 
 class SrtAdviceClient:
-    """Generate PTE decisions directly from frozen SRT classes and local publications."""
+    """Generate PTE decisions from the caller-neutral SRT API."""
 
     def __init__(
         self,
@@ -128,7 +144,7 @@ class SrtAdviceClient:
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
-        self.data_dir = Path(data_dir).resolve()
+        self.data_source = PublishedDataSource(Path(data_dir).resolve())
         self.symbol = symbol.upper() if symbol else None
         self.asset = asset
         self.audit = audit
@@ -138,53 +154,41 @@ class SrtAdviceClient:
         path = self.repo_root / "strategies" / strategy_id / "versions" / f"{strategy_version}.json"
         return StrategyRelease.from_mapping(_load_manifest(path))
 
-    def _strategy_context(
-        self,
-        strategy_id: str,
-        strategy_version: str,
-        symbol: str,
-        asset: str,
-    ):
-        release = self._load_release(strategy_id, strategy_version)
-        strategy = StrategyLoader().load(release)
-        context = load_strategy_runtime_context(self.data_dir, strategy)
-        if asset != "etf":
-            raise AdviceClientError("PTE currently requires one ETF publication")
-        if context.pricing_data.symbol != symbol:
-            raise AdviceClientError("SRT execution-pricing symbol differs from account")
-        return release, strategy, context
+    def publication_date(self, strategy_id: str, strategy_version: str) -> date:
+        return self.data_source.cutoff_for(f"{strategy_id}-{strategy_version}")
 
-    def runtime_context_for_account(
+    def prepared_data_for_account(
         self,
         *,
         strategy_id: str,
         strategy_version: str,
         symbol: str,
         asset: str,
-    ):
-        """Return the authenticated SRT runtime context for one PTE account."""
-
-        return self._strategy_context(
-            strategy_id,
-            strategy_version,
-            symbol.upper(),
-            asset,
-        )[2]
+    ) -> PreparedStrategyData:
+        if asset != "etf":
+            raise AdviceClientError("PTE currently requires one ETF publication")
+        release = self._load_release(strategy_id, strategy_version)
+        signal_date = self.data_source.cutoff_for(release.release_id)
+        strategy = StrategyRuntime().create(
+            StrategyInit(release, DecisionWindow(signal_date, signal_date))
+        )
+        if strategy.identity.symbol != symbol.upper():
+            raise AdviceClientError("SRT execution-pricing symbol differs from account")
+        return strategy.prepare_data(self.data_source)
 
     def _audit_call(self, started: float, *, error=None, **scope) -> None:
         if self.audit is None or error is None:
             return
-        correlation = f"srt:{scope.get('symbol')}"
         self.audit.record(
             "DECISION_GENERATION_FAILED",
             source="srt_advice_client",
             outcome="FAILURE",
             actor_type="ENGINE",
             actor_id="strategy_runtime",
-            correlation_id=correlation,
+            correlation_id=f"srt:{scope.get('symbol')}",
             details={
                 "service": "strategy_runtime",
-                "operation": "calculate_history_and_submit",
+                "operation": "plan_at",
                 "duration_ms": round((clock.perf_counter() - started) * 1000, 3),
                 "error_type": type(error).__name__,
                 "error": str(error),
@@ -197,6 +201,10 @@ class SrtAdviceClient:
         actual_quantity: int,
         available_cash: float,
         total_assets: float,
+        *,
+        signal_date: date,
+        portfolio_revision: int,
+        state_revision: int,
         cycle_target_quantity: int | None = None,
         strategy_id: str | None = None,
         strategy_version: str | None = None,
@@ -204,7 +212,6 @@ class SrtAdviceClient:
         account_id: str | None = None,
         symbol: str | None = None,
         asset: str | None = None,
-        decision_transform: Callable[[AdviceDecision], AdviceDecision] | None = None,
     ) -> AdviceDecision:
         del baseline
         started = clock.perf_counter()
@@ -221,68 +228,37 @@ class SrtAdviceClient:
                 raise AdviceClientError("SRT advice requires strategy, version, and account")
             if selected_asset != "etf" or not selected_symbol:
                 raise AdviceClientError("SRT advice requires one ETF symbol")
-            release, strategy, context = self._strategy_context(
-                strategy_id,
-                strategy_version,
-                selected_symbol,
-                selected_asset,
+            release = self._load_release(strategy_id, strategy_version)
+            strategy = StrategyRuntime().create(
+                StrategyInit(release, DecisionWindow(signal_date, signal_date))
             )
             if strategy.definition.state_mode != "STATELESS":
-                raise AdviceClientError(
-                    "PTE does not support persisted SRT strategy state yet"
-                )
+                raise AdviceClientError("PTE does not support persisted SRT strategy state yet")
+            if strategy.identity.symbol != selected_symbol:
+                raise AdviceClientError("SRT strategy symbol differs from account")
+            data = strategy.prepare_data(self.data_source)
             identity = _strategy_identity(self.repo_root, release)
             generated_at = self.now()
-            if generated_at.tzinfo is None:
-                generated_at = generated_at.replace(tzinfo=_BEIJING)
-            else:
-                generated_at = generated_at.astimezone(_BEIJING)
-            deployment = DeploymentSpec(
-                f"pte:{account_id}",
-                release.release_id,
-                release.release_hash,
-                selected_symbol,
-                account_id,
-                _CHANNEL_ID,
-                {"cycle_target_quantity": cycle_target_quantity},
+            generated_at = (
+                generated_at.replace(tzinfo=_BEIJING)
+                if generated_at.tzinfo is None
+                else generated_at.astimezone(_BEIJING)
             )
-            account = AccountSnapshot(
-                account_id,
-                float(Decimal(str(available_cash)).quantize(Decimal("0.01"))),
-                float(Decimal(str(total_assets)).quantize(Decimal("0.01"))),
-                int(actual_quantity),
-                0,
-                generated_at,
+            plan = strategy.plan_at(
+                data=data,
+                point=DecisionPoint(signal_date, generated_at),
+                portfolio=PortfolioSnapshot(
+                    account_id,
+                    selected_symbol,
+                    Decimal(str(available_cash)),
+                    Decimal(str(total_assets)),
+                    int(actual_quantity),
+                    portfolio_revision,
+                    generated_at,
+                ),
+                state=ExecutionState(state_revision, generated_at, cycle_target_quantity),
             )
-            channel = _PteCaptureChannel(identity)
-            state = StrategyStateSnapshot(
-                deployment.deployment_id,
-                release.release_hash,
-                0,
-                generated_at,
-                {},
-            )
-
-            class SnapshotAccount:
-                def snapshot(self, _deployment):
-                    return account
-
-            result = StrategyRunner().run_published(
-                strategy=strategy,
-                deployment=deployment,
-                state=state,
-                context=context,
-                account=SnapshotAccount(),
-                channel=channel,
-                calculation_time=generated_at,
-            )
-            if result.decision is None:
-                raise AdviceClientError("SRT returned no strategy decision")
-            if channel.decision is None:
-                raise AdviceClientError("SRT execution channel returned no PTE decision")
-            decision = channel.decision
-            if decision_transform is not None:
-                decision = decision_transform(decision)
+            decision = _decision_from_plan(plan, identity)
         except Exception as exc:
             self._audit_call(started, error=exc, **scope)
             if isinstance(exc, AdviceClientError):

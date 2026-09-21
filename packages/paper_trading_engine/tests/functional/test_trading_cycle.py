@@ -121,7 +121,9 @@ def intraday_setup_decision(strategy: dict[str, str]) -> AdviceDecision:
         target_quantity=1000, cycle_target_quantity=1000, delta_quantity=1000,
         action="BUY", strategy=strategy, signal_reference_price=1.70,
         execution_reference_price=1.70, data_cutoff=date(2026, 9, 1),
-        order=None, orders=(), available_cash=100_000, fee_rate=0.0005,
+        order=None, signal_identity="1" * 64, plan_identity="2" * 64,
+        portfolio_revision=0, state_revision=0, orders=(),
+        available_cash=100_000, fee_rate=0.0005,
         plan_mode="CORE_SETUP",
         plan_legs=(PlanLegSpec(
             0, "CORE_SETUP", "OPEN", time(9, 30), time(9, 35),
@@ -379,6 +381,10 @@ def test_ft_pte10_intraday_plan_waits_for_fill_and_recovers_after_restart(tmp_pa
         execution_reference_price=1.70,
         data_cutoff=date(2026, 9, 2),
         order=None,
+        signal_identity="3" * 64,
+        plan_identity="4" * 64,
+        portfolio_revision=0,
+        state_revision=0,
         orders=(),
         available_cash=90_000,
         fee_rate=0.0005,
@@ -486,7 +492,9 @@ def test_ft_pte11_intraday_plan_blocks_exit_when_entry_is_not_filled(tmp_path):
         target_quantity=1000, cycle_target_quantity=1000, delta_quantity=0,
         action="ROTATE", strategy=strategy, signal_reference_price=1.70,
         execution_reference_price=1.70, data_cutoff=date(2026, 9, 2),
-        order=None, orders=(), available_cash=90_000, fee_rate=0.0005,
+        order=None, signal_identity="5" * 64, plan_identity="6" * 64,
+        portfolio_revision=0, state_revision=0, orders=(),
+        available_cash=90_000, fee_rate=0.0005,
         plan_mode="CORE_EVENT_INTRADAY_ROTATION",
         plan_legs=(
             PlanLegSpec(
@@ -559,6 +567,7 @@ def test_existing_decision_id_is_preserved_when_same_decision_is_recomputed(tmp_
     old_decision = decision()
     old_payload = asdict(old_decision)
     old_payload.pop("source_decision_id")
+    old_payload.pop("plan_identity")
     store.save_account_decision("s001-v1", old_payload)
 
     accounts = AccountEngine(
@@ -607,6 +616,7 @@ def test_operator_can_drive_one_account_decision_with_explicit_result_and_audit(
     assert len(advice.calls) == 2
     advice.value = replace(
         decision(), decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+        signal_identity="7" * 64,
     )
     superseded = coordinator.drive_virtual_account_decision("s001-v1")
     assert superseded["status"] == "DECISION_SUPERSEDED"
@@ -696,6 +706,7 @@ def test_operator_supersession_projects_s003_style_reserved_cash(tmp_path):
 
     advice.value = replace(
         first_decision, decision_id="DEC-TWO", source_decision_id="DEC-TWO",
+        signal_identity="8" * 64,
     )
     result = accounts.drive_account_decision("s001-v1")
 

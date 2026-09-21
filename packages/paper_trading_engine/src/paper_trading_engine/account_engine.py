@@ -79,6 +79,45 @@ class AccountEngine:
             raise AccountDecisionBlockedError("待替代意图预占资金超过账户冻结资金")
         return (Decimal(str(account["cash"])) + release).quantize(Decimal("0.0001"))
 
+    @classmethod
+    def _planning_revision(cls, account, intents) -> int:
+        """Fingerprint all authoritative values used to size a replacement plan."""
+
+        facts = {
+            "cash": str(account["cash"]),
+            "frozen_cash": str(account["frozen_cash"]),
+            "total_assets": str(account["total_assets"]),
+            "quantity": int(account["quantity"]),
+            "cycle_target": account.get("cycle_target"),
+            "active_intents": cls._replacement_intent_snapshot(intents),
+        }
+        encoded = json.dumps(facts, sort_keys=True, separators=(",", ":"))
+        return int(sha256(encoded.encode("utf-8")).hexdigest()[:15], 16)
+
+    @staticmethod
+    def _state_revision(account) -> int:
+        encoded = json.dumps(
+            {"cycle_target": account.get("cycle_target")},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return int(sha256(encoded.encode("utf-8")).hexdigest()[:15], 16)
+
+    @staticmethod
+    def _effective_portfolio_revision(account, available_cash: Decimal) -> int:
+        """Identify the portfolio after replaceable reservations are released."""
+
+        encoded = json.dumps(
+            {
+                "available_cash": str(available_cash),
+                "total_assets": str(account["total_assets"]),
+                "quantity": int(account["quantity"]),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return int(sha256(encoded.encode("utf-8")).hexdigest()[:15], 16)
+
     def __init__(
         self, store: PaperStore, advice, audit: AuditRecorder | None = None,
         now=None,
@@ -99,14 +138,25 @@ class AccountEngine:
     def _assign_decision_id(self, account_id: str, previous_payload, decision):
         source_id = decision.source_decision_id or decision.decision_id
         previous = json.loads(previous_payload) if previous_payload else None
-        if previous:
-            previous_source = previous.get("source_decision_id") or previous.get("decision_id")
-            if previous_source == source_id:
-                return replace(
-                    decision,
-                    decision_id=str(previous["decision_id"]),
-                    source_decision_id=source_id,
+        same_plan = bool(
+            previous
+            and (
+                previous.get("plan_identity") == decision.plan_identity
+                or (
+                    not previous.get("plan_identity")
+                    and (
+                        previous.get("source_decision_id")
+                        or previous.get("decision_id")
+                    ) == source_id
                 )
+            )
+        )
+        if same_plan:
+            return replace(
+                decision,
+                decision_id=str(previous["decision_id"]),
+                source_decision_id=source_id,
+            )
 
         generated_at = self.now()
         if generated_at.tzinfo is None:
@@ -114,7 +164,9 @@ class AccountEngine:
         else:
             generated_at = generated_at.astimezone(self._BEIJING)
         stamp = generated_at.strftime("%Y%m%d-%H%M")
-        suffix = sha256(f"{account_id}\0{source_id}".encode("utf-8")).hexdigest()[:12].upper()
+        suffix = sha256(
+            f"{account_id}\0{decision.plan_identity}".encode("utf-8")
+        ).hexdigest()[:12].upper()
         return replace(
             decision,
             decision_id=f"DEC-{stamp}-{suffix}",
@@ -147,11 +199,25 @@ class AccountEngine:
             row for row in self.store.account_intents(account_id)
             if row["status"] not in TERMINAL_INTENT_STATUSES
         ]
+        published_date = self.store.get_setting("last_data_publish_date")
+        if not published_date and hasattr(self.advice, "publication_date"):
+            published_date = self.advice.publication_date(
+                str(account["strategy_id"]), str(account["strategy_version"])
+            ).isoformat()
+        if not published_date and previous_payload:
+            published_date = json.loads(previous_payload).get("signal_date")
+        if not published_date:
+            raise AccountDecisionBlockedError("PTE尚无可用于决策的数据发布日期")
+        try:
+            signal_date = datetime.strptime(str(published_date), "%Y-%m-%d").date()
+        except ValueError as exc:
+            raise AccountDecisionBlockedError("PTE数据发布日期格式无效") from exc
+        source_revision = self._planning_revision(account, active_intents)
+        state_revision = self._state_revision(account)
         decision_cash = Decimal(str(account["cash"]))
         replacement_snapshot: tuple[tuple[object, ...], ...] | None = None
         if active_intents:
             previous = json.loads(previous_payload) if previous_payload else {}
-            published_date = self.store.get_setting("last_data_publish_date")
             replaceable = (
                 operator_drive
                 and bool(previous.get("decision_id"))
@@ -201,24 +267,24 @@ class AccountEngine:
                 raise ActiveOrderPendingError(message)
             if not operator_drive:
                 return self.status(account_id)
+        portfolio_revision = self._effective_portfolio_revision(account, decision_cash)
         previous_action = (
             json.loads(previous_payload).get("action") if previous_payload else None
         )
-        def transform(value):
-            return self._assign_decision_id(account_id, previous_payload, value)
         decision = self.advice.get_decision(
             int(account["quantity"]), float(decision_cash),
             total_assets=float(account["total_assets"]),
+            signal_date=signal_date,
+            portfolio_revision=portfolio_revision,
+            state_revision=state_revision,
             cycle_target_quantity=account["cycle_target"],
             strategy_id=account["strategy_id"],
             strategy_version=account["strategy_version"],
             account_id=account_id,
             symbol=account["symbol"],
             asset=account["asset_type"],
-            decision_transform=transform,
         )
-        if decision.decision_id == (decision.source_decision_id or decision.decision_id):
-            decision = transform(decision)
+        decision = self._assign_decision_id(account_id, previous_payload, decision)
         expected = (
             account["strategy_id"], account["strategy_version"], account["release_hash"],
         )
@@ -232,6 +298,10 @@ class AccountEngine:
             raise ValueError("advice symbol differs from account")
         if decision.actual_quantity != int(account["quantity"]):
             raise ValueError("advice quantity differs from account")
+        if decision.portfolio_revision != portfolio_revision:
+            raise ValueError("advice portfolio revision differs from account")
+        if decision.state_revision != state_revision:
+            raise ValueError("advice state revision differs from account")
 
         # Re-read the account after the potentially long-running strategy call.
         # Store-level intent creation performs the same gate inside its transaction.
@@ -246,6 +316,24 @@ class AccountEngine:
             )
         if self._draining:
             raise AccountDecisionBlockedError("PTE正在停止，决策未提交")
+        current_intents = [
+            row for row in self.store.account_intents(account_id)
+            if row["status"] not in TERMINAL_INTENT_STATUSES
+        ]
+        if (
+            replacement_snapshot is not None
+            and self._replacement_intent_snapshot(current_intents)
+            != replacement_snapshot
+        ):
+            raise ActiveOrderPendingError("订单已提交或状态已变化，禁止替换账户决策")
+        if self._planning_revision(execution_account, current_intents) != source_revision:
+            raise AccountDecisionBlockedError(
+                "账户资金、持仓或订单状态在策略计算期间发生变化，决策未提交"
+            )
+        if self._state_revision(execution_account) != state_revision:
+            raise AccountDecisionBlockedError(
+                "账户策略状态在策略计算期间发生变化，决策未提交"
+            )
 
         payload = asdict(decision)
         if bool(execution_account["paused"]):

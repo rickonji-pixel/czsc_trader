@@ -140,7 +140,8 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert summary.metrics["strategy"]["reference"] == "S001-v1"
     assert summary.metrics["strategy"]["metrics"] == calculate_metrics(result, 100_000)
     assert METRIC_KEYS < set(summary.metrics["strategy"]["metrics"])
-    assert summary.metrics["strategy"]["metrics"]["closed_trades"] == 6
+    assert signals.decisions.iloc[0]["target_position"] == 1.0
+    assert summary.metrics["strategy"]["metrics"]["closed_trades"] == 7
     assert set(summary.metrics["benchmarks"]) == {"buyhold", "ma5_ma20"}
     for benchmark in summary.metrics["benchmarks"].values():
         assert METRIC_KEYS <= set(benchmark["metrics"])
@@ -162,8 +163,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert calculation_line.endswith("—2026-09-01")
     assert "- 回测窗口：2026-01-05—2026-09-02，共162个交易日" in report
     assert "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 | 闭合交易 |" in report
-    assert "| S001-v1 |" in report and "| 6 |" in report
-    assert "| S001-v1 |" in report
+    assert "| S001-v1 |" in report and "| 7 |" in report
     assert "| BuyHold |" in report
     assert "| MA5/MA20 |" in report
     assert "[MA5/MA20图表](ma_chart.html)" in report

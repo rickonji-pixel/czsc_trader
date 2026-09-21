@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
 import re
 from typing import Any, Mapping
 
@@ -16,8 +16,7 @@ from ..algorithm import StrategyImplementation
 from ..calculation import (
     CalculationScope,
     CalendarWindow,
-    next_session_calculation_scope,
-    next_session_calendar_window,
+    InputRange,
 )
 from ..contracts import TradableWindow
 from ..errors import RuntimeContractError
@@ -27,6 +26,7 @@ from ..models import (
     CutoffRule,
     DecisionContract,
     ExecutionPolicy,
+    HistoryPolicy,
     ImplementationRef,
     InputContract,
     InputRequirement,
@@ -43,6 +43,8 @@ _DAILY = "adjusted_daily"
 _WEEKLY = "adjusted_weekly"
 _EXECUTION = "execution_daily"
 _CALENDAR = "trading_calendar"
+_HISTORY_START = date(2020, 11, 16)
+_CALENDAR_FORWARD_DAYS = 20
 
 _INTRADAY_CONFIG = (
     {"name": "cxt_bi_status_V230101", "freq": "30分钟"},
@@ -300,7 +302,7 @@ def _positions(
     return pd.Series(output, index=scores.index, name="target_position", dtype=float)
 
 
-def calculate_s001_history(
+def _calculate_s001_scores(
     intraday: pd.DataFrame,
     daily: pd.DataFrame,
     weekly: pd.DataFrame,
@@ -327,15 +329,26 @@ def calculate_s001_history(
         mask = regimes.eq(label)
         if mask.any():
             scores.loc[mask] = _score(factors.loc[mask, list(names)], selected)
+    return pd.DataFrame({"factor_score": scores, "regime": regimes})
+
+
+def calculate_s001_history(
+    intraday: pd.DataFrame,
+    daily: pd.DataFrame,
+    weekly: pd.DataFrame,
+    rule: Mapping[str, Any],
+    symbol: str,
+) -> pd.DataFrame:
+    history = _calculate_s001_scores(intraday, daily, weekly, rule, symbol)
     targets = _positions(
-        scores,
+        history["factor_score"],
         enter=float(rule["entry_threshold"]),
         exit_=float(rule["exit_threshold"]),
         confirm_days=int(rule["confirm_days"]),
         min_hold_days=int(rule["min_hold_days"]),
         exit_confirm_days=int(rule["exit_confirm_days"]),
     )
-    return pd.DataFrame({"factor_score": scores, "regime": regimes, "target_position": targets})
+    return history.assign(target_position=targets)
 
 
 class S001Base(StrategyImplementation):
@@ -436,6 +449,11 @@ class S001Base(StrategyImplementation):
             ExecutionPolicy("FROZEN_RULE", execution),
             MonitoringPolicy("FORWARD_OBSERVATION", {"frozen": True}),
             RequiredCapabilities(datasets, order_types),
+            history=HistoryPolicy(
+                "CANONICAL_REPLAY",
+                _HISTORY_START.isoformat(),
+                _HISTORY_START.isoformat(),
+            ),
         )
 
     @classmethod
@@ -451,17 +469,60 @@ class S001Base(StrategyImplementation):
         return self._definition
 
     def calendar_window(self, tradable_window: TradableWindow) -> CalendarWindow:
-        return next_session_calendar_window(self._definition, tradable_window)
+        return CalendarWindow(
+            _HISTORY_START,
+            tradable_window.end + timedelta(days=_CALENDAR_FORWARD_DAYS),
+        )
 
     def derive_calculation_scope(
         self,
         tradable_window: TradableWindow,
         calendar_dates: tuple[date, ...],
     ) -> CalculationScope:
-        return next_session_calculation_scope(
-            self._definition,
+        trading_dates = tuple(
+            item for item in calendar_dates if tradable_window.contains(item)
+        )
+        if (
+            not trading_dates
+            or trading_dates[0] != tradable_window.start
+            or trading_dates[-1] != tradable_window.end
+        ):
+            raise RuntimeContractError("S001 tradable window endpoints must be open sessions")
+        signal_dates: dict[date, date] = {}
+        for trading_date in trading_dates:
+            previous = [item for item in calendar_dates if item < trading_date]
+            if not previous:
+                raise RuntimeContractError(
+                    "S001 trading calendar has no session before the trading date"
+                )
+            signal_dates[trading_date] = previous[-1]
+        last_signal = signal_dates[trading_dates[-1]]
+        calculation_dates = tuple(
+            item for item in calendar_dates if _HISTORY_START <= item <= last_signal
+        )
+        requirements = {
+            item.name: item for item in self._definition.inputs.requirements
+        }
+        ranges = {
+            name: InputRange(
+                calendar_dates[0] if name == _CALENDAR else _HISTORY_START,
+                calendar_dates[-1] if name == _CALENDAR else last_signal,
+                (
+                    calendar_dates[-1]
+                    if name == _CALENDAR
+                    else last_signal
+                    if requirement.cutoff_rule is CutoffRule.SIGNAL_SESSION
+                    else None
+                ),
+            )
+            for name, requirement in requirements.items()
+        }
+        return CalculationScope(
             tradable_window,
-            calendar_dates,
+            trading_dates,
+            signal_dates,
+            calculation_dates,
+            ranges,
         )
 
     def calculate_history(
@@ -469,11 +530,26 @@ class S001Base(StrategyImplementation):
         inputs: Mapping[str, pd.DataFrame],
         sessions: pd.DatetimeIndex,
     ) -> pd.DataFrame:
-        del sessions
-        return calculate_s001_history(
+        sessions = pd.DatetimeIndex(sessions, name="dt").normalize()
+        scores = _calculate_s001_scores(
             inputs[_INTRADAY],
             inputs[_DAILY],
             inputs[_WEEKLY],
             self._rule,
             self._symbol,
         )
+        missing = sessions.difference(scores.index)
+        if not missing.empty:
+            raise RuntimeContractError(
+                "S001 prepared market data does not cover every calculation session"
+            )
+        selected = scores.reindex(sessions).copy()
+        selected["target_position"] = _positions(
+            selected["factor_score"],
+            enter=float(self._rule["entry_threshold"]),
+            exit_=float(self._rule["exit_threshold"]),
+            confirm_days=int(self._rule["confirm_days"]),
+            min_hold_days=int(self._rule["min_hold_days"]),
+            exit_confirm_days=int(self._rule["exit_confirm_days"]),
+        )
+        return selected

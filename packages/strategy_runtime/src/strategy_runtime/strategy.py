@@ -76,7 +76,9 @@ class StrategyInstance:
         self._data_dir = Path(data_dir).resolve()
         self._execution_policy = execution_policy
         self._prepared_data: PreparedStrategyData | None = None
-        self._history_cache: tuple[str, pd.DataFrame, pd.DatetimeIndex] | None = None
+        self._history_cache: dict[
+            tuple[str, str], tuple[pd.DataFrame, pd.DatetimeIndex]
+        ] = {}
 
     @property
     def identity(self) -> StrategyIdentity:
@@ -163,25 +165,36 @@ class StrategyInstance:
             raise RuntimeContractError("strategy data is not prepared; call prepare_data() first")
         return self._prepared_data
 
-    def _history(self, data: PreparedStrategyData) -> tuple[pd.DataFrame, pd.DatetimeIndex]:
+    def _history(
+        self,
+        data: PreparedStrategyData,
+        mode: str,
+    ) -> tuple[pd.DataFrame, pd.DatetimeIndex]:
         frames = {name: result.dataframe for name, result in data._inputs.results.items()}
-        sessions = pd.DatetimeIndex(
-            pd.to_datetime(data.calculation_dates(), errors="raise"), name="dt"
-        ).normalize()
-        cached = self._history_cache
-        if cached is not None and cached[0] == data.dataset_identity:
-            history, sessions = cached[1], cached[2]
+        if mode == "point":
+            dates = data.calculation_dates()
+        elif mode == "window":
+            dates = tuple(dict.fromkeys(data._inputs.signal_dates.values()))
         else:
+            raise RuntimeContractError(f"unsupported calculation mode: {mode}")
+        sessions = pd.DatetimeIndex(
+            pd.to_datetime(dates, errors="raise"), name="dt"
+        ).normalize()
+        cache_key = (data.dataset_identity, mode)
+        cached = self._history_cache.get(cache_key)
+        if cached is None:
             history = self._algorithm.calculate_history(frames, sessions)
-            self._history_cache = (data.dataset_identity, history, sessions)
-        return history, sessions
+            cached = (history, sessions)
+            self._history_cache[cache_key] = cached
+        return cached
 
     def _calculate_signal(
         self,
         data: PreparedStrategyData,
         point: TradingPoint,
+        history_mode: str,
     ) -> StrategySignal:
-        history, sessions = self._history(data)
+        history, _ = self._history(data, history_mode)
         signal_date = data.signal_date_for(point.trading_date)
         signal_session = pd.Timestamp(signal_date).normalize()
         if signal_session not in history.index:
@@ -236,7 +249,7 @@ class StrategyInstance:
         """Return a defensive copy of strategy signal history for diagnostics."""
 
         data = self._prepared()
-        history, _ = self._history(data)
+        history, _ = self._history(data, "window")
         return history.copy()
 
     def inspect_price_history(self) -> pd.DataFrame:
@@ -251,6 +264,23 @@ class StrategyInstance:
         portfolio: PortfolioSnapshot,
         state: ExecutionState,
     ) -> ExecutionPlan:
+        """Calculate one point using the strategy's canonical state history."""
+
+        return self._plan_at(
+            point=point,
+            portfolio=portfolio,
+            state=state,
+            history_mode="point",
+        )
+
+    def _plan_at(
+        self,
+        *,
+        point: TradingPoint,
+        portfolio: PortfolioSnapshot,
+        state: ExecutionState,
+        history_mode: str,
+    ) -> ExecutionPlan:
         data = self._prepared()
         if not self._tradable_window.contains(point.trading_date):
             raise RuntimeContractError("trading point is outside the strategy window")
@@ -259,7 +289,7 @@ class StrategyInstance:
         if portfolio.as_of > point.calculation_time or state.as_of > point.calculation_time:
             raise RuntimeContractError("planning state is newer than calculation time")
 
-        signal = self._calculate_signal(data, point)
+        signal = self._calculate_signal(data, point, history_mode)
         signal_date = data.signal_date_for(point.trading_date)
         if signal.evidence.get("signal_date") != signal_date.isoformat():
             raise RuntimeContractError("strategy signal evidence refers to another date")
@@ -371,10 +401,11 @@ class StrategyInstance:
                 datetime.combine(signal_date, time(20, 31), tzinfo=_SHANGHAI),
             )
             portfolio, state = executor.snapshot(point)
-            plan = self.plan_at(
+            plan = self._plan_at(
                 point=point,
                 portfolio=portfolio,
                 state=state,
+                history_mode="window",
             )
             missing_orders = set(plan.required_capabilities.order_types) - set(
                 executor.capabilities.order_types

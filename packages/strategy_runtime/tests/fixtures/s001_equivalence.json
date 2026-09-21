@@ -1,53 +1,53 @@
 {
   "schema_version": 1,
-  "basis": "S001 pre-StrategyImplementation calculation output and centralized preparation semantics",
+  "basis": "S001 frozen full-history calculation output and strategy-owned canonical replay semantics",
   "input_window": {
-    "start": "2024-01-02",
+    "start": "2020-11-16",
     "end": "2026-06-30",
     "symbol": "588080.SH"
   },
   "v1": {
     "input_rows": {
-      "adjusted_30m": 4800,
-      "adjusted_daily": 387,
-      "adjusted_weekly": 128
+      "adjusted_30m": 10888,
+      "adjusted_daily": 1362,
+      "adjusted_weekly": 287
     },
-    "history_rows": 387,
-    "history_start": "2024-11-22",
+    "history_rows": 1362,
+    "history_start": "2020-11-16",
     "history_end": "2026-06-30",
     "regimes": {
-      "range": 188,
-      "trend": 138,
+      "range": 667,
+      "trend": 634,
       "warmup": 61
     },
     "target_positions": {
-      "0.0": 165,
-      "1.0": 222
+      "0.0": 649,
+      "1.0": 713
     },
-    "entries": 19,
-    "exits": 18,
-    "history_sha256": "25d3e2fd645c6e1dfa0435f75e6d190c8d5a8cfd05f5b6f1ed845684e474b17d"
+    "entries": 68,
+    "exits": 67,
+    "history_sha256": "adede7a151c9cbbeb4ae1e45757b91184314a9c7e7fc94c15b3d28bcf70ffcba"
   },
   "v2": {
     "input_rows": {
-      "adjusted_30m": 4800,
-      "adjusted_daily": 387,
-      "adjusted_weekly": 128
+      "adjusted_30m": 10888,
+      "adjusted_daily": 1362,
+      "adjusted_weekly": 287
     },
-    "history_rows": 387,
-    "history_start": "2024-11-22",
+    "history_rows": 1362,
+    "history_start": "2020-11-16",
     "history_end": "2026-06-30",
     "regimes": {
-      "range": 188,
-      "trend": 138,
+      "range": 667,
+      "trend": 634,
       "warmup": 61
     },
     "target_positions": {
-      "0.0": 175,
-      "1.0": 212
+      "0.0": 660,
+      "1.0": 702
     },
-    "entries": 18,
-    "exits": 17,
-    "history_sha256": "6a1ce86b83fd6067b0026391c8c8de0193d8bb691027b84e9c841c9446b94caa"
+    "entries": 71,
+    "exits": 70,
+    "history_sha256": "660ca0f831fc3003f08c4c93ff149dc55db1c5e5d941191eeacafe2cf0140ae3"
   }
 }

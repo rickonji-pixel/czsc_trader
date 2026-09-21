@@ -133,25 +133,6 @@ def _mutable_weekly_terminal_period(
     return None
 
 
-def _srt_primary_keys(staging: Path) -> dict[str, tuple[str, ...]]:
-    """Read DFLS primary keys from SRT publication manifests in one generation."""
-
-    result: dict[str, tuple[str, ...]] = {}
-    for path in staging.glob("srt_*_publication.json"):
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        inputs = payload.get("inputs") if isinstance(payload, dict) else None
-        if not isinstance(inputs, dict):
-            raise ValueError(f"{path.name}: invalid SRT publication manifest")
-        for value in inputs.values():
-            identity = value.get("identity") if isinstance(value, dict) else None
-            metadata = identity.get("metadata") if isinstance(identity, dict) else None
-            filename = value.get("file") if isinstance(value, dict) else None
-            primary_key = metadata.get("primary_key") if isinstance(metadata, dict) else None
-            if isinstance(filename, str) and isinstance(primary_key, list) and primary_key:
-                result[filename] = tuple(str(item) for item in primary_key)
-    return result
-
-
 def _runtime_data_contract(definition) -> dict[str, object]:
     """Describe the sole SRT-owned input contract and TDR channel needs."""
 
@@ -166,64 +147,6 @@ def _runtime_data_contract(definition) -> dict[str, object]:
         "execution_intraday_frequencies": list(
             execution_intraday_frequencies(definition)
         ),
-    }
-
-
-def _publish_runtime_history(
-    context: RepositoryContext,
-    *,
-    definition,
-    symbol: str,
-    start: date,
-    through: date,
-    staging: Path,
-) -> dict[str, object]:
-    """Ask SRT to publish and validate all historical strategy inputs."""
-
-    from dataflows import Dataflows
-    from strategy_runtime import (
-        publish_history,
-        validate_publication,
-        write_publication,
-    )
-
-    publication = publish_history(
-        definition,
-        Dataflows(),
-        symbol=symbol,
-        start=start,
-        through=through,
-        settings={
-            "env_file": str(context.root / ".env"),
-            "repository_root": str(context.root),
-        },
-    )
-    validate_publication(definition, publication)
-    if not publication.ready:
-        raise ValueError(
-            "SRT historical publication is not ready: "
-            f"status={publication.status.value}, error={publication.error or 'UNKNOWN'}"
-        )
-    if publication.requested_cutoff != through.isoformat():
-        raise ValueError("SRT historical publication cutoff differs from requested cutoff")
-    manifest = write_publication(publication, staging)
-    return {
-        "status": publication.status.value,
-        "release_id": definition.release_id,
-        "release_hash": definition.release_hash,
-        "runtime_sha256": definition.runtime_sha256,
-        "requested_cutoff": publication.requested_cutoff,
-        "manifest": manifest.name,
-        "inputs": {
-            name: {
-                "dataset": result.identity.dataset,
-                "subject": result.identity.symbol,
-                "data_start": result.identity.data_start,
-                "data_cutoff": result.identity.data_cutoff,
-                "content_sha256": result.identity.content_sha256,
-            }
-            for name, result in sorted(publication.input_results.items())
-        },
     }
 
 
@@ -259,7 +182,6 @@ def _commit_generation(
     """Replace one fully-built generation, restoring the previous one on failure."""
     if append_only:
         mutable_week = _mutable_weekly_terminal_period(target, staging, code)
-        srt_primary_keys = _srt_primary_keys(staging)
         for current in target.glob(f"{code}_*.csv"):
             replacement = staging / current.name
             if not replacement.is_file():
@@ -277,7 +199,6 @@ def _commit_generation(
                 _assert_append_only(
                     current,
                     source,
-                    primary_key=srt_primary_keys.get(source.name),
                 )
 
     target.mkdir(parents=True, exist_ok=True)
@@ -311,12 +232,8 @@ def _verify_committed_generation(
     symbol: str,
     asset_type: str,
     dataset: str,
-    release_id: str,
-    definition,
-    data_cutoff: str,
 ) -> None:
     import pandas as pd
-    from strategy_runtime import PublishedDataSource
 
     market = load_market_data(target, symbol, asset_type)
     execution = load_execution_prices(target, symbol, asset_type)
@@ -326,14 +243,9 @@ def _verify_committed_generation(
     )
     if not market_sessions.equals(execution_sessions):
         raise ValueError("committed adjusted and execution daily sessions differ")
-    committed_cutoff = PublishedDataSource(target).verify(definition)
-    if committed_cutoff.isoformat() != data_cutoff:
-        raise ValueError(
-            "committed SRT publication cutoff differs from market data cutoff"
-        )
 
 
-def _publish_strategy_generation(
+def _prepare_strategy_generation(
     context: RepositoryContext,
     *,
     symbol: str,
@@ -367,21 +279,10 @@ def _publish_strategy_generation(
                 symbol, start, through, staging, env_file=context.root / ".env"
             )
 
-        runtime_publication = _publish_runtime_history(
-            context,
-            definition=definition,
-            symbol=symbol,
-            start=start,
-            through=through,
-            staging=staging,
-        )
-
         raw_data_cutoff = summary.get("data_cutoff")
         if not isinstance(raw_data_cutoff, str) or not raw_data_cutoff.strip():
             raise ValueError("market data publication did not declare a data cutoff")
         data_cutoff = raw_data_cutoff
-        if runtime_publication["requested_cutoff"] != data_cutoff:
-            raise ValueError("SRT publication cutoff differs from market data cutoff")
         files = [path for path in staging.iterdir() if path.is_file()]
         current_release = definition.release_id
         previous_marker = target / f"{code}_strategy_generation.json"
@@ -432,11 +333,6 @@ def _publish_strategy_generation(
             for item in previous.get("data_contracts", [])
             if isinstance(item, dict) and item.get("release_id") != current_release
         ]
-        prior_publications = [
-            item
-            for item in previous.get("runtime_publications", [])
-            if isinstance(item, dict) and item.get("release_id") != current_release
-        ]
         generation = {
             "schema_version": 1,
             "generation_id": generation_id,
@@ -446,7 +342,6 @@ def _publish_strategy_generation(
             "data_cutoff": data_cutoff,
             "strategy_releases": list(releases),
             "data_contracts": [*prior_contracts, contract],
-            "runtime_publications": [*prior_publications, runtime_publication],
             "files": dict(sorted(file_hashes.items())),
         }
         generation_path = staging / f"{code}_strategy_generation.json"
@@ -466,14 +361,11 @@ def _publish_strategy_generation(
                 symbol=symbol,
                 asset_type=asset_type,
                 dataset=dataset,
-                release_id=current_release,
-                definition=definition,
-                data_cutoff=data_cutoff,
             ),
         )
     except Exception as exc:
         raise ValidationError(
-            f"{dataset}_data_publication_failed",
+            f"{dataset}_data_preparation_failed",
             str(exc),
             context={"symbol": symbol, "through": through.isoformat()},
         ) from exc
@@ -481,14 +373,13 @@ def _publish_strategy_generation(
         shutil.rmtree(staging, ignore_errors=True)
     return CommandResult(
         "PASS",
-        f"data.publish-{dataset}",
+        f"data.prepare-{dataset}",
         {
             **summary,
             "generation_id": generation_id,
             "strategy_releases": list(releases),
             "data_contracts": [contract],
             "intraday": intraday_summary,
-            "runtime_publication": runtime_publication,
             "dataset": dataset,
             "through": through.isoformat(),
         },
@@ -529,7 +420,7 @@ def update_backtest_data(
         if current_manifest.is_file()
         else _initial_backtest_start(context, code)
     )
-    result = _publish_strategy_generation(
+    result = _prepare_strategy_generation(
         context,
         symbol=request.symbol,
         asset_type=request.asset_type,
@@ -544,8 +435,7 @@ def update_backtest_data(
         result.status,
         "data.update-backtest",
         {**result.result, "strategy": definition.release_id,
-         "data_contract": result.result["data_contracts"][0],
-         "runtime_publication": result.result["runtime_publication"]},
+         "data_contract": result.result["data_contracts"][0]},
         result.artifacts,
     )
 

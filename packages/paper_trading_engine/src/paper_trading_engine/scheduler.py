@@ -1,4 +1,4 @@
-"""Independent cadences for broker reconciliation and SRT publication observation."""
+"""Independent cadences for broker reconciliation and SRT data preparation."""
 
 from __future__ import annotations
 
@@ -14,22 +14,22 @@ class RuntimeScheduler:
     def __init__(
         self,
         engine,
-        publications,
+        prepared_data,
         store,
         *,
         order_interval: float = 5,
         account_interval: float = 60,
-        publication_observe_interval: float = 5,
+        data_observe_interval: float = 5,
         observation_time: str = "20:30",
         audit: AuditRecorder | None = None,
         initial_observation_at: datetime | None = None,
     ) -> None:
         self.engine = engine
-        self.publications = publications
+        self.prepared_data = prepared_data
         self.store = store
         self.order_interval = float(order_interval)
         self.account_interval = float(account_interval)
-        self.publication_observe_interval = float(publication_observe_interval)
+        self.data_observe_interval = float(data_observe_interval)
         self.observation_time = time.fromisoformat(observation_time)
         self.audit = audit or (
             AuditRecorder(store) if hasattr(store, "append_audit_event") else None
@@ -37,7 +37,7 @@ class RuntimeScheduler:
         self._last_order = initial_observation_at
         self._last_account = initial_observation_at
         self._last_heartbeat = initial_observation_at
-        self._last_publication_check: datetime | None = None
+        self._last_data_check: datetime | None = None
         self._daily_thread: Thread | None = None
         self.shutdown_clean = True
         self._failures = self._restore_failures()
@@ -128,45 +128,45 @@ class RuntimeScheduler:
     def _due(last: datetime | None, now: datetime, seconds: float) -> bool:
         return last is None or (now - last).total_seconds() >= seconds
 
-    def _validated_publication_result(
+    def _validated_prepared_data(
         self, result: object,
     ) -> tuple[str, dict[str, str]]:
         """Accept an observation only when every active instrument is authenticated."""
         if not isinstance(result, dict):
-            raise ValueError("data publication result must be an object")
-        cutoff = result.get("data_cutoff")
+            raise ValueError("prepared-data observation must be an object")
+        cutoff = result.get("prepared_through")
         try:
             cutoff = date.fromisoformat(str(cutoff)).isoformat()
         except (TypeError, ValueError) as exc:
-            raise ValueError("data publication result has no valid data_cutoff") from exc
+            raise ValueError("prepared-data observation has no valid cutoff") from exc
         instruments = result.get("instruments")
         if not isinstance(instruments, list) or not instruments:
-            raise ValueError("data publication result has no instrument publications")
-        publications: dict[str, str] = {}
+            raise ValueError("prepared-data observation has no instruments")
+        identities: dict[str, str] = {}
         for item in instruments:
             if not isinstance(item, dict) or not isinstance(item.get("result"), dict):
-                raise ValueError("data publication instrument result is invalid")
+                raise ValueError("prepared-data instrument result is invalid")
             symbol = str(item.get("symbol", "")).upper()
-            publication = item["result"].get("publication_id")
-            item_cutoff = item["result"].get("data_cutoff")
-            if not symbol or not isinstance(publication, str) or not publication:
-                raise ValueError("data publication instrument identity is incomplete")
+            identity = item["result"].get("data_identity")
+            item_cutoff = item["result"].get("prepared_through")
+            if not symbol or not isinstance(identity, str) or not identity:
+                raise ValueError("prepared-data instrument identity is incomplete")
             if item_cutoff != cutoff:
-                raise ValueError(f"{symbol}: instrument cutoff differs from publication")
-            if symbol in publications:
-                raise ValueError(f"duplicate publication instrument: {symbol}")
-            publications[symbol] = publication
+                raise ValueError(f"{symbol}: instrument prepared-through date differs")
+            if symbol in identities:
+                raise ValueError(f"duplicate prepared-data instrument: {symbol}")
+            identities[symbol] = identity
         expected = {
             str(account["symbol"]).upper()
             for account in self.store.strategy_virtual_accounts()
             if account.get("status") != "RETIRED"
         }
-        if set(publications) != expected:
+        if set(identities) != expected:
             raise ValueError(
-                "data publication instruments differ from active accounts: "
-                f"published={sorted(publications)}, expected={sorted(expected)}"
+                "prepared-data instruments differ from active accounts: "
+                f"prepared={sorted(identities)}, expected={sorted(expected)}"
             )
-        return cutoff, publications
+        return cutoff, identities
 
     def tick(self, now: datetime) -> None:
         self.tick_fast(now)
@@ -191,49 +191,49 @@ class RuntimeScheduler:
         if (
             local_now.time().replace(tzinfo=None) >= self.observation_time
             and self._due(
-                self._last_publication_check, now, self.publication_observe_interval
+                self._last_data_check, now, self.data_observe_interval
             )
         ):
-            def observe_publication():
+            def observe_prepared_data():
                 try:
-                    result = self.publications.observe()
-                    cutoff, publications = self._validated_publication_result(result)
+                    result = self.prepared_data.observe()
+                    cutoff, identities = self._validated_prepared_data(result)
                 except Exception as exc:
-                    self.store.set_setting("data_publication_error", str(exc))
+                    self.store.set_setting("data_preparation_error", str(exc))
                     if self.audit is not None:
                         self.audit.record(
-                            "MARKET_DATA_OBSERVATION_FAILED", source="scheduler",
+                            "DATA_PREPARATION_OBSERVATION_FAILED", source="scheduler",
                             outcome="FAILURE", actor_type="SCHEDULER",
                             details={"error_type": type(exc).__name__, "error": str(exc)},
                         )
                     raise
-                publication_json = json.dumps(publications, sort_keys=True)
-                if publication_json == self.store.get_setting("last_data_publication_ids"):
-                    self.store.set_setting("data_publication_error", "")
+                identity_json = json.dumps(identities, sort_keys=True)
+                if identity_json == self.store.get_setting("last_prepared_data_ids"):
+                    self.store.set_setting("data_preparation_error", "")
                     return
-                correlation_id = f"publication:{cutoff}"
-                self.store.set_setting("last_data_publish_date", cutoff)
-                self.store.set_setting("last_data_publication_ids", publication_json)
-                self.store.set_setting("last_data_publication", now.isoformat())
-                self.store.set_setting("data_publication_error", "")
+                correlation_id = f"prepared-data:{cutoff}"
+                self.store.set_setting("last_data_prepare_date", cutoff)
+                self.store.set_setting("last_prepared_data_ids", identity_json)
+                self.store.set_setting("last_data_preparation", now.isoformat())
+                self.store.set_setting("data_preparation_error", "")
                 if self.audit is not None:
                     self.audit.record(
-                        "MARKET_DATA_OBSERVED", source="scheduler", actor_type="SCHEDULER",
+                        "MARKET_DATA_PREPARED", source="scheduler", actor_type="SCHEDULER",
                         correlation_id=correlation_id,
-                        details={"data_cutoff": cutoff, "result": result},
+                        details={"prepared_through": cutoff, "result": result},
                     )
-            self._guard("publication_observation", now, observe_publication)
-            self._last_publication_check = now
-        published_date = self.store.get_setting("last_data_publish_date")
+            self._guard("data_preparation_observation", now, observe_prepared_data)
+            self._last_data_check = now
+        prepared_through = self.store.get_setting("last_data_prepare_date")
         if (
-            published_date is not None
-            and self.store.get_setting("last_account_decision_date") != published_date
+            prepared_through is not None
+            and self.store.get_setting("last_account_decision_date") != prepared_through
         ):
             def refresh_accounts():
                 self.engine.refresh_decisions()
-                self.store.set_setting("last_account_decision_date", published_date)
+                self.store.set_setting("last_account_decision_date", prepared_through)
             self._guard("account_decisions", now, refresh_accounts)
-        elif published_date is not None:
+        elif prepared_through is not None:
             pending = []
             for account in self.store.strategy_virtual_accounts():
                 if account.get("status") == "RETIRED":

@@ -5,6 +5,7 @@ production strategy or registered frozen release.
 """
 
 import pandas as pd
+from dataflows import Dataset
 from strategy_runtime import ExecutionPolicy, StrategyCandidate
 from strategy_runtime.models import (
     CutoffRule,
@@ -48,10 +49,19 @@ class CandidateFixture:
                         1,
                         CutoffRule.SIGNAL_SESSION,
                     ),
-                ) + ((InputRequirement(
-                    "calendar", "calendar.trading_sessions", "SSE", "daily", 0,
-                    CutoffRule.LATEST_AVAILABLE,
-                ),) if payload["parameters"].get("with_calendar") else ())
+                    InputRequirement(
+                        "market", Dataset.ETF_OHLCV.value, "588080.SH", "daily", 1,
+                        CutoffRule.SIGNAL_SESSION,
+                    ),
+                    InputRequirement(
+                        "execution", Dataset.ETF_UNADJUSTED_DAILY.value,
+                        "588080.SH", "daily", 1, CutoffRule.SIGNAL_SESSION,
+                    ),
+                    InputRequirement(
+                        "calendar", Dataset.TRADING_CALENDAR.value, "SSE", "daily", 0,
+                        CutoffRule.LATEST_AVAILABLE,
+                    ),
+                )
             ),
             decision=DecisionContract("TARGET_POSITION", 0.0, 1.0, "NEXT_SESSION"),
             execution=ExecutionPolicy(
@@ -74,7 +84,12 @@ class CandidateFixture:
             ),
             monitoring=MonitoringPolicy("OBSERVE", {}),
             capabilities=RequiredCapabilities(
-                ("etf.share",) + (("calendar.trading_sessions",) if payload["parameters"].get("with_calendar") else ()),
+                (
+                    "etf.share",
+                    Dataset.ETF_OHLCV.value,
+                    Dataset.ETF_UNADJUSTED_DAILY.value,
+                    Dataset.TRADING_CALENDAR.value,
+                ),
                 ("LIMIT", "MARKET"),
             ),
             identity_kind="CANDIDATE" if candidate else "RELEASE",

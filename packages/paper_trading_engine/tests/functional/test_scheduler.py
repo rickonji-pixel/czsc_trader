@@ -8,7 +8,10 @@ from types import SimpleNamespace
 import pytest
 
 from paper_trading_engine.audit import AuditRecorder
-from paper_trading_engine.publication_inbox import PublicationInbox, PublicationInboxError
+from paper_trading_engine.prepared_data_inbox import (
+    PreparedDataInbox,
+    PreparedDataInboxError,
+)
 from paper_trading_engine.scheduler import RuntimeScheduler
 
 
@@ -109,7 +112,7 @@ class Advice:
         self.publications = publications or {"S007-v1": _publication()}
         self.error = error
 
-    def prepared_data_for_account(
+    def prepare_for_account(
         self, *, strategy_id, strategy_version, symbol, asset
     ):
         del symbol, asset
@@ -122,55 +125,48 @@ class Advice:
                 release_hash=publication.release_hash,
             ),
             available_through=date.fromisoformat(publication.requested_cutoff),
-            input_identities={
-                name: result.identity.content_sha256
-                for name, result in publication.input_results.items()
-            },
-            price_identities={
-                "adjusted_daily": "c" * 64,
-                "execution_daily": "d" * 64,
-            },
+            data_identity=next(iter(publication.input_results.values())).identity.content_sha256,
         )
 
 
 def _observed():
     return {
-        "data_cutoff": "2026-09-18",
+        "prepared_through": "2026-09-18",
         "instruments": [
             {
                 "symbol": "588080.SH",
                 "result": {
-                    "data_cutoff": "2026-09-18",
-                    "publication_id": "PUB-TEST",
+                    "prepared_through": "2026-09-18",
+                    "data_identity": "a" * 64,
                 },
             }
         ],
     }
 
 
-def test_publication_inbox_observes_required_release():
+def test_prepared_data_inbox_observes_required_release():
     store = Store()
     store.accounts = [_account()]
-    result = PublicationInbox(store=store, advice=Advice()).observe()
-    assert len(result["publication_ids"]) == 1
-    assert result["instruments"][0]["result"]["publication_id"] == result[
-        "publication_ids"
+    result = PreparedDataInbox(store=store, advice=Advice()).observe()
+    assert len(result["data_identities"]) == 1
+    assert result["instruments"][0]["result"]["data_identity"] == result[
+        "data_identities"
     ][0]
     store.accounts[0]["strategy_version"] = "v2"
-    with pytest.raises(PublicationInboxError, match="publication is unavailable"):
-        PublicationInbox(store=store, advice=Advice()).observe()
+    with pytest.raises(PreparedDataInboxError, match="prepared data is unavailable"):
+        PreparedDataInbox(store=store, advice=Advice()).observe()
 
 
-def test_publication_inbox_rejects_srt_publication_failure():
+def test_prepared_data_inbox_rejects_srt_preparation_failure():
     store = Store()
     store.accounts = [_account()]
-    with pytest.raises(PublicationInboxError, match="publication is unavailable"):
-        PublicationInbox(
+    with pytest.raises(PreparedDataInboxError, match="prepared data is unavailable"):
+        PreparedDataInbox(
             store=store, advice=Advice(error=RuntimeError("authentication failed"))
         ).observe()
 
 
-def test_publication_inbox_rejects_different_release_cutoffs():
+def test_prepared_data_inbox_rejects_different_release_cutoffs():
     store = Store()
     store.accounts = [_account(), _account(account_id="s008-v1", strategy_id="S008")]
     advice = Advice(
@@ -179,8 +175,8 @@ def test_publication_inbox_rejects_different_release_cutoffs():
             "S008-v1": _publication("S008-v1", "2026-09-17"),
         }
     )
-    with pytest.raises(PublicationInboxError, match="different cutoffs"):
-        PublicationInbox(store=store, advice=advice).observe()
+    with pytest.raises(PreparedDataInboxError, match="different prepared-through"):
+        PreparedDataInbox(store=store, advice=advice).observe()
 
 
 def test_scheduler_observes_generation_and_refreshes_once():
@@ -200,11 +196,11 @@ def test_scheduler_observes_generation_and_refreshes_once():
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 29, 59))
     assert inbox.calls == 0
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 0))
-    assert store.values["last_data_publish_date"] == "2026-09-18"
+    assert store.values["last_data_prepare_date"] == "2026-09-18"
     assert engine.calls == ["decisions"]
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
     assert engine.calls == ["decisions"]
-    assert "MARKET_DATA_OBSERVED" in {e["event_type"] for e in store.audit_events}
+    assert "MARKET_DATA_PREPARED" in {e["event_type"] for e in store.audit_events}
 
 
 def test_scheduler_observation_failure_is_visible_and_retried():
@@ -215,30 +211,30 @@ def test_scheduler_observation_failure_is_visible_and_retried():
         def observe(self):
             self.calls += 1
             if self.calls == 1:
-                raise RuntimeError("publication incomplete")
+                raise RuntimeError("data preparation incomplete")
             return _observed()
 
     store, engine, inbox = Store(), Engine(), Inbox()
     store.accounts = [_account()]
     scheduler = RuntimeScheduler(engine, inbox, store, observation_time="00:00")
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 0))
-    assert store.values["data_publication_error"] == "publication incomplete"
-    assert "publication_observation" in store.failures
+    assert store.values["data_preparation_error"] == "data preparation incomplete"
+    assert "data_preparation_observation" in store.failures
     scheduler.tick_daily(datetime(2026, 9, 18, 20, 30, 5))
-    assert store.values["last_data_publish_date"] == "2026-09-18"
+    assert store.values["last_data_prepare_date"] == "2026-09-18"
     assert engine.calls == ["decisions"]
 
 
-def test_scheduler_onboards_from_existing_publication_without_writing():
+def test_scheduler_onboards_from_existing_prepared_data_without_writing():
     class Inbox:
         def observe(self):
             return _observed()
 
     store, engine = Store(), Engine()
     store.values.update(
-        last_data_publish_date="2026-09-18",
+        last_data_prepare_date="2026-09-18",
         last_account_decision_date="2026-09-18",
-        last_data_publication_ids=json.dumps({"588080.SH": "PUB-TEST"}),
+        last_prepared_data_ids=json.dumps({"588080.SH": "a" * 64}),
     )
     store.accounts = [_account(last_decision_payload=None)]
     RuntimeScheduler(engine, Inbox(), store, observation_time="00:00").tick_daily(

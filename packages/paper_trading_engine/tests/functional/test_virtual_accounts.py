@@ -30,9 +30,9 @@ def test_pte_cli_rejects_retired_account_and_scheduler_aliases(tmp_path):
     parser = pte_cli.build_parser()
     current = parser.parse_args([
         "serve", "--repo-root", str(tmp_path),
-        "--publication-observe-interval", "7",
+        "--data-observe-interval", "7",
     ])
-    assert current.publication_observe_interval == 7
+    assert current.data_observe_interval == 7
 
     with pytest.raises(SystemExit):
         parser.parse_args([
@@ -291,12 +291,11 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
                 "close": close,
             }
         )
-    prepared = SimpleNamespace(
-        adjusted_daily=pd.DataFrame(rows),
-        price_identities={"adjusted_daily": "a" * 64},
-    )
     advice = SimpleNamespace(
-        prepared_data_for_account=lambda **_kwargs: prepared
+        price_history_for_account=lambda **_kwargs: (
+            "a" * 64,
+            pd.DataFrame(rows),
+        )
     )
 
     calls = []
@@ -458,7 +457,7 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
         initial_cash="100000",
     )
     monkeypatch.setattr(pte_cli, "_validate_strategy", lambda _args: identity)
-    with pytest.raises(RuntimeError, match="valid SRT publication is required"):
+    with pytest.raises(RuntimeError, match="valid prepared SRT data is required"):
         pte_cli._run_account_command(args)
     empty = PaperStore(args.database)
     assert empty.virtual_accounts() == []
@@ -486,7 +485,7 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
     )
     monkeypatch.setattr(
         pte_cli.SrtAdviceClient,
-        "trading_date",
+        "tradable_date",
         lambda _self, *_args, **_kwargs: date(2026, 9, 16),
     )
     created = pte_cli._run_account_command(args)

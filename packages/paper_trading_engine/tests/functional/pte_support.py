@@ -76,10 +76,10 @@ class FakeAdvice:
     def data_identity(self):
         return "2026-09-01"
 
-    def publication_date(self, _strategy_id, _strategy_version):
+    def prepared_through(self, _strategy_id, _strategy_version):
         return self.value.signal_date
 
-    def trading_date(self, _strategy_id, _strategy_version):
+    def tradable_date(self, _strategy_id, _strategy_version):
         return self.value.valid_session
 
     def get_decision(self, actual_quantity, available_cash, **kwargs):

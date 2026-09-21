@@ -74,8 +74,8 @@ class PteWebApi:
         channel = self.channel_snapshot(FUTU_SIMULATE_CN_CHANNEL_ID)
         failures = channel.get("scheduler_failures", self.store.operation_failures())
         alerts = list(channel.get("alerts", []))
-        if self.store.get_setting("data_publication_error"):
-            alerts.append("DATA_PUBLICATION_FAILED")
+        if self.store.get_setting("data_preparation_error"):
+            alerts.append("DATA_PREPARATION_FAILED")
         if any(row.get("health") == "BLOCKED" for row in self.store.strategy_virtual_accounts()):
             alerts.append("VIRTUAL_ACCOUNT_BLOCKED")
         if self.store.unresolved_account_intents():
@@ -89,9 +89,9 @@ class PteWebApi:
         scheduler_stalled = _is_stale(heartbeat, seconds=45)
         if scheduler_stalled:
             alerts.append("SCHEDULER_STALLED")
-        published = self.store.get_setting("last_data_publish_date")
+        prepared_through = self.store.get_setting("last_data_prepare_date")
         decided = self.store.get_setting("last_account_decision_date")
-        if published and published != decided:
+        if prepared_through and prepared_through != decided:
             alerts.append("DECISION_GENERATION_OVERDUE")
         alerts = list(dict.fromkeys(alerts))
         channel_alerts = channel.get("alerts", [])
@@ -102,9 +102,9 @@ class PteWebApi:
             "watchdog_healthy": not scheduler_stalled,
             "scheduler_heartbeat_at": heartbeat,
             "release": dict(getattr(self.operations, "runtime_identity", {})),
-            "data_cutoff": published,
-            "data_publication_ids": self.store.get_setting("last_data_publication_ids"),
-            "last_publication": self.store.get_setting("last_data_publication"),
+            "data_cutoff": prepared_through,
+            "prepared_data_ids": self.store.get_setting("last_prepared_data_ids"),
+            "last_data_preparation": self.store.get_setting("last_data_preparation"),
             "scheduler_failures": failures,
             "futu_connection": (
                 "UNAVAILABLE"

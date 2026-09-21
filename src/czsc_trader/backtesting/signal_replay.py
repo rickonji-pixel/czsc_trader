@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
-from strategy_runtime import PreparedStrategyData
 
 from .models import StrategySnapshot
 
@@ -17,6 +17,7 @@ class SignalReplay:
     calculation_end: pd.Timestamp
     evaluation_start: pd.Timestamp
     evaluation_end: pd.Timestamp
-    prepared_data: PreparedStrategyData
+    data_dir: Path
+    data_identity: str
     support_data: dict[str, object] | None = None
     chart_data: pd.DataFrame | None = None

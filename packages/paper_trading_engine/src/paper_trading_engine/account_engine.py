@@ -199,17 +199,17 @@ class AccountEngine:
             row for row in self.store.account_intents(account_id)
             if row["status"] not in TERMINAL_INTENT_STATUSES
         ]
-        published_date = self.store.get_setting("last_data_publish_date")
-        if not published_date and hasattr(self.advice, "publication_date"):
-            published_date = self.advice.publication_date(
+        prepared_through = self.store.get_setting("last_data_prepare_date")
+        if not prepared_through and hasattr(self.advice, "prepared_through"):
+            prepared_through = self.advice.prepared_through(
                 str(account["strategy_id"]), str(account["strategy_version"])
             ).isoformat()
-        if not published_date and previous_payload:
-            published_date = json.loads(previous_payload).get("signal_date")
-        if not published_date:
-            raise AccountDecisionBlockedError("PTE尚无可用于决策的数据发布日期")
+        if not prepared_through and previous_payload:
+            prepared_through = json.loads(previous_payload).get("signal_date")
+        if not prepared_through:
+            raise AccountDecisionBlockedError("PTE尚无已准备完成的策略数据")
         try:
-            datetime.strptime(str(published_date), "%Y-%m-%d").date()
+            datetime.strptime(str(prepared_through), "%Y-%m-%d").date()
         except ValueError as exc:
             raise AccountDecisionBlockedError("PTE数据发布日期格式无效") from exc
         source_revision = self._planning_revision(account, active_intents)
@@ -240,7 +240,7 @@ class AccountEngine:
                     ),
                     details={
                         "reason": "manual_decision_with_nonreplaceable_order",
-                        "published_date": published_date,
+                        "prepared_through": prepared_through,
                         "active_intent_ids": [row["intent_id"] for row in active_intents],
                     },
                 )
@@ -250,17 +250,17 @@ class AccountEngine:
                 # update will release, without exposing a transient cash balance.
                 replacement_snapshot = self._replacement_intent_snapshot(active_intents)
                 decision_cash = self._cash_after_replaceable_intents(account, active_intents)
-            if not operator_drive and published_date and published_date != previous.get("signal_date"):
+            if not operator_drive and prepared_through != previous.get("signal_date"):
                 message = "存在未完成订单，新数据决策暂缓生成并等待对账"
                 self.audit.record(
                     "ORDER_SUBMISSION_BLOCKED", source="account_engine", outcome="SKIPPED",
                     account_id=account_id, strategy_id=account["strategy_id"],
                     strategy_version=account["strategy_version"],
                     release_hash=account["release_hash"], symbol=account["symbol"],
-                    correlation_id=f"publication:{published_date}",
+                    correlation_id=f"prepared-data:{prepared_through}",
                     details={
                         "reason": "previous_order_active",
-                        "published_date": published_date,
+                        "prepared_through": prepared_through,
                         "active_intent_ids": [row["intent_id"] for row in active_intents],
                     },
                 )
@@ -271,8 +271,8 @@ class AccountEngine:
         previous_action = (
             json.loads(previous_payload).get("action") if previous_payload else None
         )
-        if hasattr(self.advice, "trading_date"):
-            trading_date = self.advice.trading_date(
+        if hasattr(self.advice, "tradable_date"):
+            trading_date = self.advice.tradable_date(
                 str(account["strategy_id"]), str(account["strategy_version"])
             )
         elif previous_payload:
@@ -349,14 +349,14 @@ class AccountEngine:
         if bool(execution_account["paused"]):
             payload["execution_disposition"] = "SKIPPED_PAUSED"
         try:
-            publications = json.loads(
-                self.store.get_setting("last_data_publication_ids") or "{}"
+            prepared_data = json.loads(
+                self.store.get_setting("last_prepared_data_ids") or "{}"
             )
         except (json.JSONDecodeError, TypeError):
-            publications = {}
-        publication_id = publications.get(str(account["symbol"]).upper())
-        if isinstance(publication_id, str) and publication_id:
-            payload["data_publication_id"] = publication_id
+            prepared_data = {}
+        data_identity = prepared_data.get(str(account["symbol"]).upper())
+        if isinstance(data_identity, str) and data_identity:
+            payload["prepared_data_identity"] = data_identity
         previous = json.loads(previous_payload) if previous_payload else None
         previous_decision_id = previous.get("decision_id") if previous else None
         supersede_previous = bool(

@@ -1,6 +1,5 @@
 """Boundary regressions for the September code review; all state is temporary."""
 
-from datetime import date
 import http.client
 from pathlib import Path
 import shutil
@@ -15,13 +14,11 @@ import pytest
 from czsc_trader.backtesting.metrics import calculate_metrics
 from czsc_trader.strategy_metrics import strategy_comparison_metrics
 from czsc_trader.candidate_evaluation import _observation
-from strategy_runtime.publisher import StrategyDataPublisher, StrategyPublicationError
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.web import create_server
 from strategy_evaluator.benchmark_audit import _metrics
 from strategy_manager import StrategyRegistry
 from strategy_manager.errors import RegistryError
-from dataflows import Dataflows, Dataset
 
 
 def test_static_resource_rejects_parent_absolute_and_encoded_paths():
@@ -198,34 +195,3 @@ else:
     with pytest.raises(RegistryError, match="concurrent change"):
         reopened._atomic_write(destination, "stale", b"first")
     assert destination.read_text() == "second"
-
-
-def calendar_publisher(tmp_path, *, missing=False, fail=False):
-    def provider(request):
-        if fail:
-            raise RuntimeError("calendar unavailable")
-        dates = pd.date_range(request.start, request.end)
-        frame = pd.DataFrame({"Date": dates, "IsOpen": (dates.dayofweek < 5).astype(int)})
-        frame.loc[frame["Date"].between("2026-10-01", "2026-10-07"), "IsOpen"] = 0
-        if missing:
-            frame = frame.iloc[1:]
-        return frame, {}
-    return StrategyDataPublisher(
-        repo_root=tmp_path, data_dir=tmp_path,
-        dataflows=Dataflows({Dataset.TRADING_CALENDAR.value: provider}),
-    )
-
-
-@pytest.mark.parametrize("day, expected", [
-    (date(2026, 9, 19), "2026-09-18"),
-    (date(2026, 10, 5), "2026-09-30"),
-    (date(2026, 10, 8), "2026-10-08"),
-])
-def test_publication_target_uses_calendar_including_weekday_holidays(tmp_path, day, expected):
-    assert calendar_publisher(tmp_path).publication_target(day) == expected
-
-
-@pytest.mark.parametrize("mode", ["missing", "fail"])
-def test_publication_target_fails_closed_on_unavailable_calendar(tmp_path, mode):
-    with pytest.raises(StrategyPublicationError):
-        calendar_publisher(tmp_path, **{mode: True}).publication_target(date(2026, 9, 19))

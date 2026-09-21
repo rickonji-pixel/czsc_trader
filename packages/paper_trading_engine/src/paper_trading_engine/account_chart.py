@@ -70,13 +70,13 @@ class AccountChartService:
         return hashlib.sha256(content).hexdigest()
 
     def _market_data(self, account: dict[str, Any]) -> tuple[str, list[dict[str, object]]]:
-        prepared = self.advice.prepared_data_for_account(
+        price_identity, frame = self.advice.price_history_for_account(
             strategy_id=str(account["strategy_id"]),
             strategy_version=str(account["strategy_version"]),
             symbol=str(account["symbol"]),
             asset=str(account["asset_type"]),
         )
-        frame = prepared.adjusted_daily.rename(
+        frame = frame.rename(
             columns={
                 "dt": "date",
                 "Date": "date",
@@ -107,7 +107,7 @@ class AccountChartService:
         selected = history + forward
         if not selected:
             raise ValueError("no daily market data is available for the account chart")
-        return prepared.price_identities["adjusted_daily"], selected
+        return price_identity, selected
 
     @staticmethod
     def _fact_date(row: dict[str, Any], fields: tuple[str, ...]) -> str | None:

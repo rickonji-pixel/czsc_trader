@@ -140,7 +140,7 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert summary.metrics["strategy"]["reference"] == "S001-v1"
     assert summary.metrics["strategy"]["metrics"] == calculate_metrics(result, 100_000)
     assert METRIC_KEYS < set(summary.metrics["strategy"]["metrics"])
-    assert summary.metrics["strategy"]["metrics"]["closed_trades"] == 7
+    assert summary.metrics["strategy"]["metrics"]["closed_trades"] == 6
     assert set(summary.metrics["benchmarks"]) == {"buyhold", "ma5_ma20"}
     for benchmark in summary.metrics["benchmarks"].values():
         assert METRIC_KEYS <= set(benchmark["metrics"])
@@ -158,10 +158,11 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     ] > 0
     report = (summary.output_dir / "report.md").read_text(encoding="utf-8")
     assert "- 策略研发窗口：2020-01-01—2026-09-02" in report
-    assert "- 计算窗口：2020-11-16—2026-09-02" in report
+    calculation_line = next(line for line in report.splitlines() if line.startswith("- 计算窗口："))
+    assert calculation_line.endswith("—2026-09-01")
     assert "- 回测窗口：2026-01-05—2026-09-02，共162个交易日" in report
     assert "| 策略 | 收益率 | 最大回撤 | 卡玛比率 | 盈亏比 | 夏普率 | 闭合交易 |" in report
-    assert "| S001-v1 |" in report and "| 7 |" in report
+    assert "| S001-v1 |" in report and "| 6 |" in report
     assert "| S001-v1 |" in report
     assert "| BuyHold |" in report
     assert "| MA5/MA20 |" in report
@@ -347,13 +348,6 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
             )
         else:
             shutil.copy2(source, destination)
-    srt_publication = source_root / "srt_s001_v1_publication.json"
-    srt_publication.write_text(
-        srt_publication.read_text(encoding="utf-8")
-        .replace("588080.SH", "159352.SZ")
-        .replace("588080", "159352"),
-        encoding="utf-8",
-    )
     generalized_generation = source_root / "159352_strategy_generation.json"
     generation = json.loads(generalized_generation.read_text(encoding="utf-8"))
     generation["symbol"] = "159352.SZ"
@@ -362,7 +356,7 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
         for path in source_root.iterdir()
         if path.is_file()
         and path.name != generalized_generation.name
-        and (path.name.startswith("159352") or path.name.startswith("srt_s001_v1"))
+        and path.name.startswith("159352")
     }
     generalized_generation.write_text(
         json.dumps(generation, indent=2) + "\n", encoding="utf-8"

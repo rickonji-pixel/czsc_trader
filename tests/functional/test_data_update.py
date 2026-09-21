@@ -81,25 +81,14 @@ def test_generation_commit_rolls_back_when_post_publish_verification_fails(
     assert current.read_text(encoding="utf-8") == "old"
 
 
-def test_committed_generation_is_reloaded_through_market_and_srt_contracts(
+def test_committed_generation_is_reloaded_through_market_contracts(
     functional_repo: Path,
 ) -> None:
-    from strategy_manager import StrategyRegistry
-    from strategy_runtime import StrategyRelease, StrategyRuntime
-
-    version = StrategyRegistry(functional_repo / "strategies").get_version("S001", "v1")
-    definition = StrategyRuntime().describe(
-        StrategyRelease.from_mapping(version.to_dict())
-    )
-
     _verify_committed_generation(
         functional_repo / "data" / "backtest",
         symbol="588080.SH",
         asset_type="etf",
         dataset="backtest",
-        release_id="S001-v1",
-        definition=definition,
-        data_cutoff="2026-09-02",
     )
 
 
@@ -139,7 +128,7 @@ def _context(root: Path) -> RepositoryContext:
     )
 
 
-def test_ft_t01_initial_backtest_publication_inherits_research_data_start(tmp_path: Path) -> None:
+def test_ft_t01_initial_backtest_preparation_inherits_research_data_start(tmp_path: Path) -> None:
     context = _context(tmp_path)
     context.research_data_root.mkdir(parents=True)
     (context.research_data_root / "510500_manifest.json").write_text(
@@ -153,7 +142,7 @@ def test_ft_t01_initial_backtest_publication_inherits_research_data_start(tmp_pa
         _initial_backtest_start(context, "510500")
 
 
-def test_ft_t02_etf_backtest_publication_includes_intraday_data(
+def test_ft_t02_etf_backtest_preparation_includes_intraday_data(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     context = _context(tmp_path)
@@ -174,23 +163,9 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
         (staging / "510500_intraday_manifest.json").write_text("{}", encoding="utf-8")
         return {"manifest": "intraday-manifest"}
 
-    def fake_runtime_history(_context, *, definition, staging, through, **_kwargs):
-        (staging / "srt_s003_v1_publication.json").write_text(
-            json.dumps({"inputs": {}}), encoding="utf-8"
-        )
-        return {
-            "status": "READY",
-            "release_id": definition.release_id,
-            "requested_cutoff": through.isoformat(),
-        }
-
     monkeypatch.setattr("czsc_trader.market_data_prep.prepare_market_data", fake_market_data)
     monkeypatch.setattr(
         "czsc_trader.intraday_data.prepare_intraday_research_data", fake_intraday_data
-    )
-    monkeypatch.setattr(
-        "czsc_trader.application.data_service._publish_runtime_history",
-        fake_runtime_history,
     )
     monkeypatch.setattr(
         "czsc_trader.application.data_service._verify_committed_generation",
@@ -206,11 +181,10 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
     assert result.result["data_contract"]["source"] == "SRT"
     assert result.result["data_contract"]["execution_intraday_frequencies"] == ["5m"]
     assert result.result["intraday"] == {"manifest": "intraday-manifest"}
-    assert result.result["runtime_publication"]["release_id"] == "S003-v1"
     assert (context.backtest_data_root / "510500_intraday_manifest.json").is_file()
 
 
-def test_ft_t03_backtest_publication_uses_srt_inputs_without_legacy_support(
+def test_ft_t03_backtest_preparation_describes_srt_contract_without_data_coupling(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     context = _context(tmp_path)
@@ -224,26 +198,7 @@ def test_ft_t03_backtest_publication_uses_srt_inputs_without_legacy_support(
         (staging / "588080_manifest.json").write_text("{}", encoding="utf-8")
         return {"manifest": "market-manifest", "data_cutoff": _through.isoformat()}
 
-    def fake_runtime_history(_context, *, definition, staging, through, **_kwargs):
-        (staging / "srt_s007_v1_adjusted_daily.csv.gz").write_text(
-            "Date,Close\n2026-09-15,1\n", encoding="utf-8"
-        )
-        (staging / "srt_s007_v1_publication.json").write_text(
-            json.dumps({"inputs": {}}), encoding="utf-8"
-        )
-        assert definition.release_id == "S007-v1"
-        return {
-            "status": "READY",
-            "release_id": "S007-v1",
-            "requested_cutoff": through.isoformat(),
-            "inputs": {"adjusted_daily": {"dataset": "etf.ohlcv"}},
-        }
-
     monkeypatch.setattr("czsc_trader.market_data_prep.prepare_market_data", fake_market_data)
-    monkeypatch.setattr(
-        "czsc_trader.application.data_service._publish_runtime_history",
-        fake_runtime_history,
-    )
     monkeypatch.setattr(
         "czsc_trader.application.data_service._verify_committed_generation",
         lambda *_args, **_kwargs: None,
@@ -256,7 +211,4 @@ def test_ft_t03_backtest_publication_uses_srt_inputs_without_legacy_support(
 
     assert result.result["data_contract"]["source"] == "SRT"
     assert len(result.result["data_contract"]["inputs"]) == 7
-    assert result.result["runtime_publication"]["inputs"] == {
-        "adjusted_daily": {"dataset": "etf.ohlcv"}
-    }
-    assert (context.backtest_data_root / "srt_s007_v1_publication.json").is_file()
+    assert not any(context.backtest_data_root.glob("srt_*"))

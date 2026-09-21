@@ -803,13 +803,13 @@ def _require_database_compatibility(release, database: Path) -> int:
     return database_schema
 
 
-def verify_release_publications(
+def verify_release_prepared_data(
     runtime_root: Path,
     release_id: str,
     *,
     runner: Runner = subprocess.run,
 ) -> dict[str, object]:
-    """Validate every active account publication against the target release."""
+    """Validate prepared data for every active account against the target release."""
     release = load_release(runtime_root, release_id)
     data_dir = release.runtime_root / "shared" / "data"
     database = release.runtime_root / "shared" / "state" / "runtime.db"
@@ -818,17 +818,17 @@ def verify_release_publications(
         "from pathlib import Path\n"
         "from paper_trading_engine.srt_advice_client import SrtAdviceClient\n"
         "root=Path(sys.argv[1]); data=Path(sys.argv[2]); database=Path(sys.argv[3])\n"
-        "assert database.is_file(), 'PTE publication preflight found no runtime database'\n"
+        "assert database.is_file(), 'PTE prepared-data preflight found no runtime database'\n"
         "connection=sqlite3.connect(f'file:{database.resolve().as_posix()}?mode=ro',uri=True)\n"
         "try:\n"
         "    rows=connection.execute(\"SELECT strategy_id,strategy_version,symbol,asset_type FROM virtual_accounts WHERE account_type='STRATEGY' AND status<>'RETIRED'\").fetchall()\n"
         "finally:\n"
         "    connection.close()\n"
-        "assert rows, 'PTE publication preflight found no active strategy accounts'\n"
+        "assert rows, 'PTE prepared-data preflight found no active strategy accounts'\n"
         "client=SrtAdviceClient(repo_root=root,data_dir=data)\n"
         "validated=[]\n"
         "for strategy_id,version,symbol,asset in rows:\n"
-        "    prepared=client.prepared_data_for_account(strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset)\n"
+        "    prepared=client.prepare_for_account(strategy_id=strategy_id,strategy_version=version,symbol=symbol,asset=asset)\n"
         "    validated.append(prepared.strategy.reference_id)\n"
         "print(json.dumps({'accounts':len(rows),'releases':sorted(set(validated))}))\n"
     )
@@ -843,9 +843,9 @@ def verify_release_publications(
     try:
         result = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("PTE publication preflight returned invalid output") from exc
+        raise RuntimeError("PTE prepared-data preflight returned invalid output") from exc
     if not isinstance(result, dict) or not result.get("releases"):
-        raise RuntimeError("PTE publication preflight validated no strategy releases")
+        raise RuntimeError("PTE prepared-data preflight validated no strategy releases")
     return result
 
 
@@ -986,7 +986,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             result = activate_release(args.runtime_root, args.release)
         elif args.action == "verify":
-            result = verify_release_publications(args.runtime_root, args.release)
+            result = verify_release_prepared_data(args.runtime_root, args.release)
         elif args.action == "deploy":
             result = deploy_release(
                 args.runtime_root,

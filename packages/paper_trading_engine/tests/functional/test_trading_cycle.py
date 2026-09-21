@@ -27,7 +27,7 @@ def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_p
         strategy_version="v1", release_hash="b" * 64,
         qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
     )
-    store.set_setting("last_data_publish_date", "2026-09-01")
+    store.set_setting("last_data_prepare_date", "2026-09-01")
     store.set_virtual_health("s001-v1", "BLOCKED", "等待人工处理")
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
     accounts = AccountEngine(store, advice)
@@ -229,7 +229,7 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     accounts.refresh_account("s001-v1")
     assert len(store.account_decisions("s001-v1")) == 1
     assert len(store.pending_account_intents()) == 1
-    store.set_setting("last_data_publish_date", "2026-09-01")
+    store.set_setting("last_data_prepare_date", "2026-09-01")
     driven = accounts.drive_account_decision("s001-v1")
     assert driven.outcome == "DECISION_REUSED"
     assert len(advice.calls) == 2
@@ -267,7 +267,7 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
         cycle_target_quantity=1000,
     ))
     next_accounts = AccountEngine(store, next_advice)
-    store.set_setting("last_data_publish_date", "2026-09-02")
+    store.set_setting("last_data_prepare_date", "2026-09-02")
     with pytest.raises(AccountRefreshBatchError, match="存在未完成订单"):
         next_accounts.refresh_all()
     assert next_advice.calls == []
@@ -600,7 +600,7 @@ def test_operator_can_drive_one_account_decision_with_explicit_result_and_audit(
     coordinator = PteCoordinator(accounts, object())
 
     first = coordinator.drive_virtual_account_decision("s001-v1")
-    store.set_setting("last_data_publish_date", "2026-09-01")
+    store.set_setting("last_data_prepare_date", "2026-09-01")
     repeated = coordinator.drive_virtual_account_decision("s001-v1")
 
     assert first == {

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime, time
 from decimal import Decimal
+from pathlib import Path
 from types import MappingProxyType
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+from dataflows import Dataset
 
 from .contracts import (
+    DataPreparationResult,
     ExecutionCapabilities,
     ExecutionPlan,
     ExecutionState,
@@ -26,9 +29,12 @@ from .contracts import (
     plan_identity_for,
     signal_identity_for,
 )
-from .data import DataPreparationRequest, PreparedStrategyData, StrategyDataSource
+from .data import PreparedStrategyData
 from .errors import RuntimeCompatibilityError, RuntimeContractError
 from .execution_planner import build_execution_plan
+from .models import ExecutionPricingData
+from .preparation import PreparedInputs, prepare_inputs
+from .prepared_store import load_prepared_inputs, save_prepared_inputs
 from .signals import StrategySignal
 
 
@@ -62,12 +68,15 @@ class StrategyInstance:
         algorithm,
         identity: StrategyIdentity,
         tradable_window: TradableWindow,
+        data_dir: Path,
         execution_policy,
     ) -> None:
         self._algorithm = algorithm
         self._identity = identity
         self._tradable_window = tradable_window
+        self._data_dir = Path(data_dir).resolve()
         self._execution_policy = execution_policy
+        self._prepared_data: PreparedStrategyData | None = None
         self._history_cache: tuple[str, pd.DataFrame, pd.DatetimeIndex] | None = None
 
     @property
@@ -86,28 +95,87 @@ class StrategyInstance:
     def execution_policy(self):
         return self._execution_policy
 
-    def prepare_data(self, source: StrategyDataSource) -> PreparedStrategyData:
-        prepared = source.prepare(
-            DataPreparationRequest(
-                self._identity, self.definition, self._tradable_window
+    def _pricing(self, inputs: PreparedInputs) -> ExecutionPricingData:
+        adjusted = [
+            result.dataframe
+            for name, result in inputs.results.items()
+            if str(inputs.requests[name].dataset) == Dataset.ETF_OHLCV.value
+            and inputs.requests[name].frequency == "daily"
+            and inputs.requests[name].symbol == self._identity.symbol
+        ]
+        execution = [
+            result.dataframe
+            for name, result in inputs.results.items()
+            if str(inputs.requests[name].dataset)
+            == Dataset.ETF_UNADJUSTED_DAILY.value
+            and inputs.requests[name].frequency == "daily"
+            and inputs.requests[name].symbol == self._identity.symbol
+        ]
+        if len(adjusted) != 1 or len(execution) != 1:
+            raise RuntimeContractError(
+                "strategy input contract must declare one adjusted and one execution price"
             )
+        return ExecutionPricingData(
+            self._identity.symbol,
+            adjusted[0],
+            execution[0],
         )
-        if (
-            prepared.strategy != self._identity
-            or prepared.tradable_window != self._tradable_window
-        ):
-            raise RuntimeContractError("data source returned data for another strategy instance")
-        return prepared
+
+    def _summary(self, data: PreparedStrategyData) -> DataPreparationResult:
+        return DataPreparationResult(
+            self._identity,
+            self._tradable_window,
+            data.available_through,
+            data.dataset_identity,
+        )
+
+    def prepare_data(self) -> DataPreparationResult:
+        """Prepare and persist all calculation dependencies inside this instance."""
+
+        if self._prepared_data is not None:
+            return self._summary(self._prepared_data)
+        inputs = load_prepared_inputs(
+            self._data_dir,
+            strategy=self._identity,
+            tradable_window=self._tradable_window,
+        )
+        if inputs is None:
+            inputs = prepare_inputs(
+                strategy=self._identity,
+                definition=self.definition,
+                tradable_window=self._tradable_window,
+                data_dir=self._data_dir,
+            )
+            pricing = self._pricing(inputs)
+            prepared = PreparedStrategyData.from_inputs(
+                inputs=inputs,
+                pricing=pricing,
+            )
+            save_prepared_inputs(inputs, self._data_dir)
+        else:
+            prepared = PreparedStrategyData.from_inputs(
+                inputs=inputs,
+                pricing=self._pricing(inputs),
+            )
+        self._prepared_data = prepared
+        return self._summary(prepared)
+
+    def _prepared(self) -> PreparedStrategyData:
+        if self._prepared_data is None:
+            raise RuntimeContractError(
+                "strategy data is not prepared; call prepare_data() first"
+            )
+        return self._prepared_data
 
     def _history(
         self, data: PreparedStrategyData
     ) -> tuple[pd.DataFrame, pd.DatetimeIndex]:
         frames = {
             name: result.dataframe
-            for name, result in data._publication.input_results.items()
+            for name, result in data._inputs.results.items()
         }
         sessions = pd.DatetimeIndex(
-            pd.to_datetime(data._tradable_dates, errors="raise"), name="dt"
+            pd.to_datetime(data.calculation_dates(), errors="raise"), name="dt"
         ).normalize()
         cached = self._history_cache
         if cached is not None and cached[0] == data.dataset_identity:
@@ -175,30 +243,26 @@ class StrategyInstance:
             },
         )
 
-    def inspect_signals(self, data: PreparedStrategyData) -> pd.DataFrame:
+    def inspect_signals(self) -> pd.DataFrame:
         """Return a defensive copy of strategy signal history for diagnostics."""
 
-        if (
-            data.strategy != self._identity
-            or data.tradable_window != self._tradable_window
-        ):
-            raise RuntimeContractError("prepared data belongs to another strategy instance")
+        data = self._prepared()
         history, _ = self._history(data)
         return history.copy()
+
+    def inspect_price_history(self) -> pd.DataFrame:
+        """Return adjusted daily prices without exposing strategy input datasets."""
+
+        return self._prepared().adjusted_daily
 
     def plan_at(
         self,
         *,
-        data: PreparedStrategyData,
         point: TradingPoint,
         portfolio: PortfolioSnapshot,
         state: ExecutionState,
     ) -> ExecutionPlan:
-        if (
-            data.strategy != self._identity
-            or data.tradable_window != self._tradable_window
-        ):
-            raise RuntimeContractError("prepared data belongs to another strategy instance")
+        data = self._prepared()
         if not self._tradable_window.contains(point.trading_date):
             raise RuntimeContractError("trading point is outside the strategy window")
         if portfolio.symbol != self._identity.symbol:
@@ -321,7 +385,8 @@ class StrategyInstance:
             evidence=MappingProxyType(dict(signal.evidence)),
         )
 
-    def run_window(self, *, data: PreparedStrategyData, executor: WindowExecutor):
+    def run_window(self, *, executor: WindowExecutor):
+        data = self._prepared()
         for trading_date in data.trading_dates():
             signal_date = data.signal_date_for(trading_date)
             point = TradingPoint(
@@ -330,7 +395,6 @@ class StrategyInstance:
             )
             portfolio, state = executor.snapshot(point)
             plan = self.plan_at(
-                data=data,
                 point=point,
                 portfolio=portfolio,
                 state=state,

@@ -174,7 +174,7 @@ class InputContract:
 
 @dataclass(frozen=True, slots=True)
 class HistoryPolicy:
-    """Declare how much published history participates in strategy replay."""
+    """Declare how much prepared history participates in strategy replay."""
 
     mode: str = "FULL_PUBLICATION_REPLAY"
     canonical_start: str | None = None
@@ -206,7 +206,7 @@ class HistoryPolicy:
                     "history required_input_start follows canonical_start"
                 )
 
-    def publication_start(self, requested_start: date) -> date:
+    def preparation_start(self, requested_start: date) -> date:
         if self.required_input_start is not None:
             return min(requested_start, date.fromisoformat(self.required_input_start))
         if self.canonical_start is None:

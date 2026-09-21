@@ -3,20 +3,38 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import re
 
 from .contracts import StrategyIdentity, TradableWindow
 from .loader import StrategyLoader
 from .models import ExecutionPolicy, StrategyCandidate, StrategyRelease
-from .publication_store import _definition_symbol
 from .strategy import StrategyInstance
+
+
+def _definition_symbol(definition) -> str:
+    subjects = {
+        str(requirement.subject).upper()
+        for requirement in definition.inputs.requirements
+        if requirement.subject
+        and requirement.dataset.startswith(("etf.", "stock."))
+        and re.fullmatch(r"\d{6}\.(?:SH|SZ)", str(requirement.subject).upper())
+    }
+    if len(subjects) != 1:
+        raise ValueError("strategy must declare exactly one A-share instrument")
+    return next(iter(subjects))
 
 
 @dataclass(frozen=True, slots=True)
 class StrategyInit:
     source: StrategyRelease | StrategyCandidate
     tradable_window: TradableWindow
+    data_dir: Path
     symbol: str | None = None
     execution_policy: ExecutionPolicy | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "data_dir", Path(self.data_dir).resolve())
 
 
 class StrategyRuntime:
@@ -70,5 +88,6 @@ class StrategyRuntime:
             algorithm=algorithm,
             identity=identity,
             tradable_window=request.tradable_window,
+            data_dir=request.data_dir,
             execution_policy=request.execution_policy or definition.execution,
         )

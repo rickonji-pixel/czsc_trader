@@ -10,17 +10,19 @@ import time as clock
 from typing import Callable
 
 from strategy_runtime import (
+    DataPreparationResult,
     ExecutionPlan,
     ExecutionState,
     PortfolioSnapshot,
-    PreparedStrategyData,
-    PublishedDataSource,
     StrategyInit,
+    StrategyInstance,
     StrategyRelease,
     StrategyRuntime,
     TradableWindow,
     TradingPoint,
+    canonical_sha256,
 )
+from dataflows import canonical_frame_sha256
 
 from .audit import AuditRecorder
 from .contracts import AdviceContractError, AdviceDecision
@@ -34,9 +36,9 @@ def _load_manifest(path: Path) -> dict[str, object]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise AdviceClientError(f"cannot read published data manifest {path.name}: {exc}") from exc
+        raise AdviceClientError(f"cannot read prepared-data index {path.name}: {exc}") from exc
     if not isinstance(value, dict):
-        raise AdviceClientError(f"published data manifest {path.name} must be an object")
+        raise AdviceClientError(f"prepared-data index {path.name} must be an object")
     return value
 
 
@@ -144,7 +146,7 @@ class SrtAdviceClient:
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
-        self.data_source = PublishedDataSource(Path(data_dir).resolve())
+        self.data_dir = Path(data_dir).resolve()
         self.symbol = symbol.upper() if symbol else None
         self.asset = asset
         self.audit = audit
@@ -154,30 +156,96 @@ class SrtAdviceClient:
         path = self.repo_root / "strategies" / strategy_id / "versions" / f"{strategy_version}.json"
         return StrategyRelease.from_mapping(_load_manifest(path))
 
-    def publication_date(self, strategy_id: str, strategy_version: str) -> date:
-        return self.data_source.cutoff_for(f"{strategy_id}-{strategy_version}")
+    def _entry(self, release_id: str) -> dict[str, object]:
+        index = _load_manifest(self.data_dir / "prepared-data-index.json")
+        index_hash = index.pop("index_sha256", None)
+        if index_hash != canonical_sha256(index):
+            raise AdviceClientError("prepared-data index was modified")
+        if index.get("schema_version") != 1:
+            raise AdviceClientError("prepared-data index version is unsupported")
+        releases = index.get("releases")
+        if not isinstance(releases, dict) or not isinstance(releases.get(release_id), dict):
+            raise AdviceClientError(f"prepared data is unavailable for {release_id}")
+        entry = dict(releases[release_id])
+        entry["symbol"] = index.get("symbol")
+        entry["signal_date"] = index.get("signal_date")
+        entry["trading_date"] = index.get("trading_date")
+        return entry
 
-    def trading_date(self, strategy_id: str, strategy_version: str) -> date:
-        return self.data_source.trading_date_for(f"{strategy_id}-{strategy_version}")
+    def prepared_through(self, strategy_id: str, strategy_version: str) -> date:
+        entry = self._entry(f"{strategy_id}-{strategy_version}")
+        try:
+            return date.fromisoformat(str(entry["signal_date"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise AdviceClientError("prepared-data signal date is invalid") from exc
 
-    def prepared_data_for_account(
+    def tradable_date(self, strategy_id: str, strategy_version: str) -> date:
+        entry = self._entry(f"{strategy_id}-{strategy_version}")
+        try:
+            return date.fromisoformat(str(entry["trading_date"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise AdviceClientError("prepared-data trading date is invalid") from exc
+
+    def _instance(
+        self, release: StrategyRelease, trading_date: date
+    ) -> tuple[StrategyInstance, DataPreparationResult]:
+        entry = self._entry(release.release_id)
+        if date.fromisoformat(str(entry["trading_date"])) != trading_date:
+            raise AdviceClientError("requested trading date differs from prepared data")
+        if entry.get("release_hash") != release.release_hash:
+            raise AdviceClientError("prepared data belongs to another strategy release")
+        relative = Path(str(entry.get("data_dir", "")))
+        directory = (self.data_dir / relative).resolve()
+        if relative.is_absolute() or not directory.is_relative_to(self.data_dir):
+            raise AdviceClientError("prepared-data directory is unsafe")
+        strategy = StrategyRuntime().create(
+            StrategyInit(
+                release,
+                TradableWindow(trading_date, trading_date),
+                directory,
+                symbol=str(entry["symbol"]).upper(),
+            )
+        )
+        prepared = strategy.prepare_data()
+        if prepared.data_identity != entry.get("data_identity"):
+            raise AdviceClientError("prepared-data identity differs from its index")
+        return strategy, prepared
+
+    def prepare_for_account(
         self,
         *,
         strategy_id: str,
         strategy_version: str,
         symbol: str,
         asset: str,
-    ) -> PreparedStrategyData:
+    ) -> DataPreparationResult:
         if asset != "etf":
-            raise AdviceClientError("PTE currently requires one ETF publication")
+            raise AdviceClientError("PTE currently requires one ETF strategy")
         release = self._load_release(strategy_id, strategy_version)
-        trading_date = self.data_source.trading_date_for(release.release_id)
-        strategy = StrategyRuntime().create(
-            StrategyInit(release, TradableWindow(trading_date, trading_date))
+        trading_date = self.tradable_date(strategy_id, strategy_version)
+        strategy, prepared = self._instance(release, trading_date)
+        if strategy.identity.symbol != symbol.upper():
+            raise AdviceClientError("SRT execution-pricing symbol differs from account")
+        return prepared
+
+    def price_history_for_account(
+        self,
+        *,
+        strategy_id: str,
+        strategy_version: str,
+        symbol: str,
+        asset: str,
+    ) -> tuple[str, object]:
+        if asset != "etf":
+            raise AdviceClientError("PTE currently requires one ETF strategy")
+        release = self._load_release(strategy_id, strategy_version)
+        strategy, _ = self._instance(
+            release, self.tradable_date(strategy_id, strategy_version)
         )
         if strategy.identity.symbol != symbol.upper():
             raise AdviceClientError("SRT execution-pricing symbol differs from account")
-        return strategy.prepare_data(self.data_source)
+        frame = strategy.inspect_price_history()
+        return canonical_frame_sha256(frame), frame
 
     def _audit_call(self, started: float, *, error=None, **scope) -> None:
         if self.audit is None or error is None:
@@ -232,14 +300,11 @@ class SrtAdviceClient:
             if selected_asset != "etf" or not selected_symbol:
                 raise AdviceClientError("SRT advice requires one ETF symbol")
             release = self._load_release(strategy_id, strategy_version)
-            strategy = StrategyRuntime().create(
-                StrategyInit(release, TradableWindow(trading_date, trading_date))
-            )
+            strategy, _ = self._instance(release, trading_date)
             if strategy.definition.state_mode != "STATELESS":
                 raise AdviceClientError("PTE does not support persisted SRT strategy state yet")
             if strategy.identity.symbol != selected_symbol:
                 raise AdviceClientError("SRT strategy symbol differs from account")
-            data = strategy.prepare_data(self.data_source)
             identity = _strategy_identity(self.repo_root, release)
             generated_at = self.now()
             generated_at = (
@@ -248,7 +313,6 @@ class SrtAdviceClient:
                 else generated_at.astimezone(_BEIJING)
             )
             plan = strategy.plan_at(
-                data=data,
                 point=TradingPoint(trading_date, generated_at),
                 portfolio=PortfolioSnapshot(
                     account_id,

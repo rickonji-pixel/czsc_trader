@@ -20,7 +20,7 @@ from uuid import uuid4
 
 from .audit import AuditRecorder
 from .srt_advice_client import SrtAdviceClient
-from .publication_inbox import PublicationInbox
+from .prepared_data_inbox import PreparedDataInbox
 from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .futu_execution import FutuExecution
@@ -113,9 +113,9 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", default=8080, type=int)
     serve.add_argument("--order-interval", default=5.0, type=float)
     serve.add_argument("--account-interval", default=60.0, type=float)
-    serve.add_argument("--publication-observe-interval", default=5.0, type=float)
+    serve.add_argument("--data-observe-interval", default=5.0, type=float)
     serve.add_argument(
-        "--publication-observe-time", default="20:30",
+        "--data-observe-time", default="20:30",
     )
     account = actions.add_parser("account")
     account_actions = account.add_subparsers(dest="account_action", required=True)
@@ -435,14 +435,14 @@ def _preflight_strategy_account(
     args: argparse.Namespace,
     identity: dict[str, object],
 ) -> None:
-    """Prove an existing SRT publication and advice contract before account creation."""
+    """Prove prepared SRT data and the advice contract before account creation."""
     initial_cash = Decimal(args.initial_cash).quantize(Decimal("0.0001"))
     try:
         client = SrtAdviceClient(
             repo_root=args.repo_root,
             data_dir=args.data_dir,
         )
-        trading_date = client.trading_date(
+        trading_date = client.tradable_date(
             str(identity["strategy_id"]), str(identity["version"])
         )
         decision = client.get_decision(
@@ -460,7 +460,7 @@ def _preflight_strategy_account(
         )
     except Exception as exc:
         raise RuntimeError(
-            f"{args.symbol}: a valid SRT publication is required before account creation: {exc}"
+            f"{args.symbol}: valid prepared SRT data is required before account creation: {exc}"
         ) from exc
     expected_strategy = (
         identity["strategy_id"], identity["version"], identity["release_hash"],
@@ -811,12 +811,12 @@ def main(
         initial_observation_at = shanghai_now()
         scheduler = RuntimeScheduler(
             engine,
-            PublicationInbox(store=engine.store, advice=engine.virtual.advice),
+            PreparedDataInbox(store=engine.store, advice=engine.virtual.advice),
             engine.store,
             order_interval=args.order_interval,
             account_interval=args.account_interval,
-            publication_observe_interval=args.publication_observe_interval,
-            observation_time=args.publication_observe_time,
+            data_observe_interval=args.data_observe_interval,
+            observation_time=args.data_observe_time,
             audit=audit,
             initial_observation_at=initial_observation_at,
         )

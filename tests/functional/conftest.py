@@ -11,15 +11,7 @@ from strategy_runtime import implementation_identity
 
 import pandas as pd
 import pytest
-from dataflows import DataIdentity, DataRequest, DataResult, DataStatus
-from strategy_manager import StrategyRegistry
-from strategy_runtime import (
-    PublicationStatus,
-    PublishedStrategyData,
-    StrategyRelease,
-    StrategyRuntime,
-    write_publication,
-)
+from dataflows import Dataflows
 from czsc_trader.generation_integrity import file_sha256
 
 
@@ -83,44 +75,6 @@ def _publish_s001_fixture(root: Path) -> None:
     frames["trading_calendar"] = pd.DataFrame(
         {"Date": dates, "IsOpen": dates.weekday < 5}
     )
-    stored = StrategyRegistry(root / "strategies").get_version("S001", "v1")
-    definition = StrategyRuntime().describe(
-        StrategyRelease.from_mapping(stored.to_dict())
-    )
-    requirements = {item.name: item for item in definition.inputs.requirements}
-    requests = {}
-    results = {}
-    for name, frame in frames.items():
-        requirement = requirements[name]
-        request_end = calendar_end.date() if name == "trading_calendar" else cutoff
-        required = None if name == "adjusted_weekly" else request_end.isoformat()
-        request = DataRequest(
-            requirement.dataset,
-            requirement.subject,
-            pd.Timestamp(frame["Date"].min()).date().isoformat(),
-            request_end.isoformat(),
-            required,
-            requirement.frequency,
-        )
-        identity = DataIdentity(
-            requirement.dataset,
-            "fixture",
-            requirement.subject,
-            pd.Timestamp(frame["Date"].min()).isoformat(),
-            pd.Timestamp(frame["Date"].max()).isoformat(),
-            "a" * 64,
-        )
-        requests[name] = request
-        results[name] = DataResult(DataStatus.READY, frame, identity)
-    publication = PublishedStrategyData(
-        definition.release_id,
-        definition.release_hash,
-        PublicationStatus.READY,
-        cutoff.isoformat(),
-        requests,
-        results,
-    )
-    write_publication(publication, data_root)
     files = {
         path.name: file_sha256(path)
         for path in data_root.iterdir()
@@ -148,7 +102,7 @@ def _publish_s001_fixture(root: Path) -> None:
 
 
 @pytest.fixture
-def functional_repo(tmp_path: Path) -> Path:
+def functional_repo(tmp_path: Path, monkeypatch) -> Path:
     root = tmp_path / "repo"
     (root / "src" / "czsc_trader").mkdir(parents=True)
     (root / "pyproject.toml").write_text(
@@ -164,6 +118,51 @@ def functional_repo(tmp_path: Path) -> Path:
     for source in (REPO_ROOT / "data" / "backtest").glob("s007_v1_causal_feature_*"):
         shutil.copy2(source, root / "data" / "backtest" / source.name)
     _publish_s001_fixture(root)
+    frames = {
+        ("etf.ohlcv", "588080.SH", "30m"): _frame(
+            root / "data" / "backtest", "588080_30m_*.csv", "datetime"
+        ),
+        ("etf.ohlcv", "588080.SH", "daily"): _frame(
+            root / "data" / "backtest", "588080_daily_*.csv", "date"
+        ),
+        ("etf.ohlcv", "588080.SH", "weekly"): _frame(
+            root / "data" / "backtest", "588080_weekly_*.csv", "date"
+        ),
+        ("etf.unadjusted_daily", "588080.SH", "daily"): _frame(
+            root / "data" / "backtest", "588080_execution_daily_*.csv", "date"
+        ),
+    }
+    calendar_end = pd.Timestamp(frames[("etf.ohlcv", "588080.SH", "daily")]["Date"].max()) + pd.Timedelta(days=20)
+    dates = pd.date_range(
+        frames[("etf.ohlcv", "588080.SH", "daily")]["Date"].min(), calendar_end
+    )
+    observed_sessions = pd.DatetimeIndex(
+        pd.to_datetime(frames[("etf.ohlcv", "588080.SH", "daily")]["Date"])
+    ).normalize()
+    frames[("calendar.trading_sessions", "SSE", "daily")] = pd.DataFrame(
+        {"Date": dates, "IsOpen": dates.normalize().isin(observed_sessions).astype(int)}
+    )
+
+    def fetch(request):
+        key = (str(request.dataset), request.symbol, request.frequency)
+        if key not in frames and str(request.dataset).startswith("etf."):
+            key = (str(request.dataset), "588080.SH", request.frequency)
+        frame = frames[key].copy()
+        column = "Date"
+        values = pd.to_datetime(frame[column])
+        request_end = pd.Timestamp(request.end)
+        if len(str(request.end)) == 10:
+            request_end += pd.Timedelta(days=1) - pd.Timedelta(nanoseconds=1)
+        frame = frame.loc[
+            values.between(pd.Timestamp(request.start), request_end)
+        ].reset_index(drop=True)
+        metadata = {"vendor": "functional-fixture"}
+        if str(request.dataset) == "etf.unadjusted_daily":
+            metadata["adjustment"] = "none"
+        return frame, metadata
+
+    flows = Dataflows({key[0]: fetch for key in frames})
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: flows)
     for relative in (
         Path("S001/0824_EX04/artifacts/frozen_challenger.json"),
         Path("S001/0901_EX20/artifacts/frozen_challenger.json"),

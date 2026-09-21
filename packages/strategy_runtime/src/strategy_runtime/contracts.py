@@ -78,6 +78,24 @@ class StrategyIdentity:
 
 
 @dataclass(frozen=True, slots=True)
+class DataPreparationResult:
+    """Opaque outcome of preparing one instance's calculation data."""
+
+    strategy: StrategyIdentity
+    tradable_window: TradableWindow
+    available_through: date
+    data_identity: str
+
+    def __post_init__(self) -> None:
+        if self.available_through >= self.tradable_window.end:
+            raise RuntimeContractError(
+                "prepared data cutoff must precede the final trading session"
+            )
+        if _SHA256.fullmatch(self.data_identity) is None:
+            raise RuntimeContractError("prepared data identity must be lowercase SHA-256")
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionState:
     """Caller-owned state carried between otherwise independent plans."""
 

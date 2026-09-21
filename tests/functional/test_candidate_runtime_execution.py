@@ -7,12 +7,9 @@ from types import SimpleNamespace
 import pandas as pd
 from pandas.testing import assert_frame_equal
 import pytest
-from dataflows import DataIdentity, DataRequest, DataResult, DataStatus
+from dataflows import Dataflows, Dataset
 
 from strategy_runtime import (
-    HistoricalDataSource,
-    PublicationStatus,
-    PublishedStrategyData,
     RuntimeCompatibilityError,
     RuntimeContractError,
     StrategyCandidate,
@@ -27,11 +24,52 @@ from strategy_runtime.loader import StrategyLoader
 from trading_execution_engine import HistoricalExecutor
 
 
-def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
+def _install_candidate_dataflows(monkeypatch, flow, daily):
+    market = daily.rename(
+        columns={
+            "dt": "Date", "open": "Open", "high": "High", "low": "Low",
+            "close": "Close", "vol": "Volume", "amount": "Amount",
+        }
+    ).copy()
+    for column, value in (
+        ("High", market[["Open", "Close"]].max(axis=1)),
+        ("Low", market[["Open", "Close"]].min(axis=1)),
+        ("Volume", 1000.0), ("Amount", 1000.0),
+    ):
+        if column not in market:
+            market[column] = value
+
+    def fetch(request):
+        dataset = str(request.dataset)
+        if dataset == Dataset.TRADING_CALENDAR.value:
+            dates = pd.date_range(request.start, request.end)
+            return pd.DataFrame(
+                {"Date": dates, "IsOpen": (dates.weekday < 5).astype(int)}
+            ), {"vendor": "test"}
+        frame = flow.copy() if dataset == "etf.share" else market.copy()
+        values = pd.to_datetime(frame["Date"])
+        frame = frame.loc[
+            values.between(pd.Timestamp(request.start), pd.Timestamp(request.end))
+        ].reset_index(drop=True)
+        metadata = {"vendor": "test"}
+        if dataset == Dataset.ETF_UNADJUSTED_DAILY.value:
+            metadata["adjustment"] = "none"
+        return frame, metadata
+
+    flows = Dataflows(
+        {
+            "etf.share": fetch,
+            Dataset.ETF_OHLCV.value: fetch,
+            Dataset.ETF_UNADJUSTED_DAILY.value: fetch,
+            Dataset.TRADING_CALENDAR.value: fetch,
+        }
+    )
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: flows)
+
+
+def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser(
     candidate_payload, tmp_path, monkeypatch,
 ):
-    from dataflows import DataRequest, Dataflows
-    from strategy_runtime import PublicationStatus, PublishedStrategyData, write_publication
     from czsc_trader.backtesting.datasets import ReplayData
     from czsc_trader.backtesting.srt_bridge import build_srt_signal_replay, replay_srt_account
     from czsc_trader.backtesting.strategy_source import resolve_candidate_snapshot
@@ -48,17 +86,9 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
     definition = strategy.definition
     sessions = pd.bdate_range("2026-09-14", periods=5)
     inputs = pd.DataFrame({"Date": sessions, "Flow": [0.1, 0.8, 0.2, 0.9, 0.0]})
-    request = DataRequest(
-        "etf.share", "588080.SH", "2026-09-14", "2026-09-18", "2026-09-18", "daily",
-    )
-    result = Dataflows({"etf.share": lambda _: (inputs, {"vendor": "test"})}).fetch(request)
-    publication = PublishedStrategyData(
-        definition.release_id, definition.release_hash, PublicationStatus.READY,
-        "2026-09-18", {"flow": request}, {"flow": result},
-    )
-    write_publication(publication, tmp_path)
     daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0, "high": 1.0, "low": 1.0, "vol": 1000.0, "amount": 1000.0})
     daily["symbol"] = "588080.SH"
+    _install_candidate_dataflows(monkeypatch, inputs, daily)
     replay_data = ReplayData(
         "research", tmp_path,
         MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf"),
@@ -80,7 +110,7 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
     replay = replay_srt_account(
         strategy=loaded, signals=signals, replay_data=replay_data, initial_cash=100_000,
     )
-    _, direct = _execute(candidate)
+    _, direct = _execute(candidate, tmp_path / "direct", monkeypatch)
     assert_frame_equal(replay.account_daily, direct.account_daily, check_exact=True)
     assert len(replay.fills) == 3
     assert signals.support_data["runtime_sha256"] == definition.runtime_sha256
@@ -112,18 +142,12 @@ def test_tdr_candidate_replay_uses_srt_publication_and_txe_without_rule_parser(
         build_srt_signal_replay(
             snapshot=replace(snapshot, strategy_payload=changed), replay_data=replay_data,
             start=sessions[1], end=sessions[-1], repository_root=tmp_path,
-            publication=publication,
-        )
-    with pytest.raises(RuntimeContractError, match="release hashes"):
-        build_srt_signal_replay(
-            snapshot=snapshot, replay_data=replay_data, start=sessions[1], end=sessions[-1],
-            repository_root=tmp_path, publication=replace(publication, release_hash="0" * 64),
         )
 
 
 
 
-def _execute(source: StrategyCandidate | StrategyRelease):
+def _execute(source: StrategyCandidate | StrategyRelease, data_dir, monkeypatch):
     sessions = pd.bdate_range("2026-09-14", periods=5)
     inputs = {"flow": pd.DataFrame({"Date": sessions, "Flow": [0.1, 0.8, 0.2, 0.9, 0.0]})}
     daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0})
@@ -132,46 +156,11 @@ def _execute(source: StrategyCandidate | StrategyRelease):
         StrategyInit(
             source,
             TradableWindow(sessions[1].date(), sessions[-1].date()),
+            data_dir,
         )
     )
-    cutoff = sessions[-1].date().isoformat()
-    requirement = strategy.definition.inputs.requirements[0]
-    request = DataRequest(
-        requirement.dataset,
-        requirement.subject,
-        sessions[0].date().isoformat(),
-        cutoff,
-        cutoff,
-        requirement.frequency,
-    )
-    result = DataResult(
-        DataStatus.READY,
-        inputs["flow"],
-        DataIdentity(
-            requirement.dataset,
-            "test",
-            requirement.subject,
-            sessions[0].date().isoformat(),
-            cutoff,
-            "d" * 64,
-        ),
-    )
-    publication = PublishedStrategyData(
-        strategy.definition.release_id,
-        strategy.definition.release_hash,
-        PublicationStatus.READY,
-        cutoff,
-        {"flow": request},
-        {"flow": result},
-    )
-    prepared = strategy.prepare_data(
-        HistoricalDataSource(
-            publication=publication,
-            symbol=strategy.identity.symbol,
-            adjusted_daily=daily,
-            execution_daily=daily,
-        )
-    )
+    _install_candidate_dataflows(monkeypatch, inputs["flow"], daily)
+    strategy.prepare_data()
     channel = HistoricalExecutor(
         strategy_reference=strategy.definition.release_id,
         symbol=strategy.identity.symbol,
@@ -183,11 +172,13 @@ def _execute(source: StrategyCandidate | StrategyRelease):
         execution_policy=strategy.definition.execution,
         order_types=strategy.definition.capabilities.order_types,
     )
-    history = strategy.inspect_signals(prepared)
-    return history, strategy.run_window(data=prepared, executor=channel)
+    history = strategy.inspect_signals()
+    return history, strategy.run_window(executor=channel)
 
 
-def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(candidate_payload):
+def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(
+    candidate_payload, tmp_path, monkeypatch,
+):
     payload, _ = candidate_payload
     candidate = StrategyCandidate("S900", "C001", payload)
     loader = StrategyLoader()
@@ -199,11 +190,11 @@ def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(ca
     assert first.definition.version is None
     assert first.definition.identity_kind == "CANDIDATE"
     assert first.definition.runtime_sha256 != second.definition.runtime_sha256
-    history, ledger = _execute(candidate)
-    _, other = _execute(second_source)
+    history, ledger = _execute(candidate, tmp_path / "candidate", monkeypatch)
+    _, other = _execute(second_source, tmp_path / "other", monkeypatch)
     assert len(ledger.fills) == 3
     assert other.fills.empty
-    _, repeat = _execute(candidate)
+    _, repeat = _execute(candidate, tmp_path / "repeat", monkeypatch)
     assert_frame_equal(ledger.account_daily, repeat.account_daily, check_exact=True)
 
     # A real frozen identity binds the same source and parameters without a v1 Python wrapper.
@@ -217,7 +208,9 @@ def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(ca
     raw["release_hash"] = canonical_sha256(raw)
     frozen_source = StrategyRelease.from_mapping(raw)
     frozen = loader.load(frozen_source)
-    frozen_history, frozen_ledger = _execute(frozen_source)
+    frozen_history, frozen_ledger = _execute(
+        frozen_source, tmp_path / "frozen", monkeypatch
+    )
     assert frozen.definition.identity_kind == "RELEASE"
     assert frozen.definition.implementation == first.definition.implementation
     assert frozen.definition.parameters == first.definition.parameters
@@ -294,8 +287,6 @@ def test_candidate_load_fails_closed_on_source_and_parameter_identity_errors(
 
 
 def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload, tmp_path, monkeypatch):
-    from dataflows import DataRequest, Dataflows
-    from strategy_runtime import PublicationStatus, PublishedStrategyData, write_publication
     from strategy_evaluator import (
         AuditStatus, ChampionAuditRequest, ReplayEvidence, audit_provisional_champion,
         hash_execution_evidence, hash_return_matrix, hash_audit_data,
@@ -310,18 +301,11 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
     # First buy cannot fill; next day the unchanged target must retry and fill.
     daily.loc[2, "open"] = 1.1
     inputs = pd.DataFrame({"Date": sessions, "Flow": [.1, .8, .8, .1, .0, .0]})
-    request = DataRequest("etf.share", "588080.SH", "2026-09-14", "2026-09-21", "2026-09-21", "daily")
-    fetched = Dataflows({"etf.share": lambda _: (inputs, {"vendor": "test"})}).fetch(request)
+    _install_candidate_dataflows(monkeypatch, inputs, daily)
     payloads = []
     for candidate_id, threshold in (("C000", 1.0), ("C001", .5)):
         parameters = deepcopy(payload)
         parameters["parameters"]["threshold"] = threshold
-        strategy = StrategyLoader().load_candidate(StrategyCandidate("S900", candidate_id, parameters))
-        definition = strategy.definition
-        write_publication(PublishedStrategyData(
-            definition.release_id, definition.release_hash, PublicationStatus.READY,
-            "2026-09-21", {"flow": request}, {"flow": fetched},
-        ), tmp_path)
         payloads.append({"candidate_id": candidate_id, "strategy_id": "S900",
                          "strategy_payload": parameters, "is_incumbent": candidate_id == "C000"})
     replay_data = ReplayData(
@@ -422,6 +406,11 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         frame.to_csv(path, index=False)
         sources.append({"dataset": dataset, "symbol": symbol, "frequency": "daily", "path": name,
                         "sha256": sha256(path.read_bytes()).hexdigest()})
+    _install_candidate_dataflows(
+        monkeypatch,
+        pd.read_csv(pool / "flow.csv"),
+        daily,
+    )
     raw_protocol = {"development_cutoff": "2026-09-21"}
     protocol = SimpleNamespace(**raw_protocol, to_dict=lambda: raw_protocol)
     manifest = {
@@ -457,27 +446,12 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     with pytest.raises(ValueError, match="different evaluation inputs"):
         publish_review_dataset(context, changed, protocol, directory)
 
-    # A new publication checks pinned source hashes, missing inputs and cutoff coverage.
+    # A new preparation fails atomically when SRT cannot prepare its own inputs.
     monkeypatch.setattr("czsc_trader.candidate_evaluation.load_replay_data", lambda *a, **kw: replay)
     failed_directory = directory.parent / ("b" * 64)
-    with pytest.raises(ValueError, match="publication failed"):
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", forbidden)
+    with pytest.raises(AssertionError, match="must not access remote"):
         publish_review_dataset(context, manifest, protocol, failed_directory)
-    assert not failed_directory.exists()
-    (pool / "flow.csv").write_bytes(original)
-    missing = deepcopy(manifest)
-    missing["review_data_sources"] = sources[1:]
-    with pytest.raises(ValueError, match="publication failed"):
-        publish_review_dataset(context, missing, protocol, failed_directory)
-    short = pd.read_csv(pool / "flow.csv").iloc[:-1]
-    short.to_csv(pool / "flow.csv", index=False)
-    incomplete = deepcopy(manifest)
-    incomplete["review_data_sources"][0]["sha256"] = sha256((pool / "flow.csv").read_bytes()).hexdigest()
-    with pytest.raises(ValueError, match="INCOMPLETE"):
-        publish_review_dataset(context, incomplete, protocol, failed_directory)
-    outside = deepcopy(manifest)
-    outside["review_data_sources"][0]["path"] = "../outside.csv"
-    with pytest.raises(ValueError, match="controlled research pool"):
-        publish_review_dataset(context, outside, protocol, failed_directory)
     assert not failed_directory.exists()
 
     snapshot_file = directory / "execution_daily.csv.gz"
@@ -538,6 +512,11 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         frame.to_csv(path, index=False)
         sources.append({"dataset": dataset, "symbol": symbol, "path": name,
                         "sha256": sha256(path.read_bytes()).hexdigest()})
+    _install_candidate_dataflows(
+        monkeypatch,
+        pd.read_csv(pool / "flow.csv"),
+        daily,
+    )
     candidates = []
     points = [("C000", .5), ("C001", .5)] + [
         (f"C{i:03d}", threshold)

@@ -11,15 +11,12 @@ import numpy as np
 import pandas as pd
 from strategy_runtime import (
     TradableWindow,
-    HistoricalDataSource,
     ExecutionPolicy,
-    PublishedStrategyData,
     StrategyInit,
     StrategyRelease,
     StrategyRuntime,
     StrategyCandidate,
     RuntimeContractError,
-    read_publication,
     canonical_sha256,
 )
 
@@ -143,6 +140,28 @@ def execution_intraday_frequencies(strategy) -> tuple[str, ...]:
     return ("5m",) if "11:30_CLOSE" in checkpoints else ()
 
 
+def srt_data_directory(
+    root: Path,
+    snapshot: StrategySnapshot,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    symbol: str,
+) -> Path:
+    """Return the caller-owned isolation space for one SRT instance."""
+
+    key = canonical_sha256(
+        {
+            "identity_kind": snapshot.identity.kind,
+            "reference": snapshot.identity.reference,
+            "source_hash": snapshot.source_hash,
+            "symbol": symbol.upper(),
+            "start": start.normalize().date().isoformat(),
+            "end": end.normalize().date().isoformat(),
+        }
+    )
+    return Path(root).resolve() / "srt-data" / key
+
+
 def build_srt_signal_replay(
     *,
     snapshot: StrategySnapshot,
@@ -150,7 +169,6 @@ def build_srt_signal_replay(
     start: pd.Timestamp,
     end: pd.Timestamp,
     repository_root: Path,
-    publication: PublishedStrategyData | None = None,
 ) -> tuple[object, SignalReplay]:
     """Calculate one complete historical decision series inside its SRT class."""
 
@@ -193,23 +211,23 @@ def build_srt_signal_replay(
     evaluation = sessions[(sessions >= start.normalize()) & (sessions <= end.normalize())]
     if evaluation.empty:
         raise ValueError("backtest interval contains no trading sessions")
-    if publication is None:
-        publication = read_publication(replay_data.root, definition.release_id)
-    if not publication.ready:
-        raise RuntimeContractError("historical calculation requires a READY publication")
-    if replay_data.dataset == "research" and pd.Timestamp(publication.requested_cutoff).date() != replay_data.cutoff:
-        raise RuntimeContractError("research publication cutoff differs from the controlled research dataset")
-    if pd.Timestamp(publication.requested_cutoff) < evaluation[-1]:
-        raise ValueError(
-            "SRT historical publication ends before the requested backtest interval"
-        )
     first_location = int(sessions.get_loc(evaluation[0]))
-    visible = sessions[max(0, first_location - 1) : int(sessions.get_loc(evaluation[-1])) + 1]
+    visible = sessions[
+        max(0, first_location - 1) : int(sessions.get_loc(evaluation[-1]))
+    ]
     next_sessions = pd.Series(sessions[1:], index=sessions[:-1])
+    data_dir = srt_data_directory(
+        replay_data.root,
+        snapshot,
+        evaluation[0],
+        evaluation[-1],
+        replay_data.adjusted.symbol,
+    )
     strategy = runtime.create(
         StrategyInit(
             source,
             TradableWindow(evaluation[0].date(), evaluation[-1].date()),
+            data_dir,
             symbol=(
                 replay_data.adjusted.symbol
                 if snapshot.identity.kind == "REGISTERED"
@@ -217,15 +235,8 @@ def build_srt_signal_replay(
             ),
         )
     )
-    prepared_data = strategy.prepare_data(
-        HistoricalDataSource(
-            publication=publication,
-            symbol=replay_data.adjusted.symbol,
-            adjusted_daily=replay_data.adjusted.daily,
-            execution_daily=replay_data.execution_daily,
-        )
-    )
-    history = strategy.inspect_signals(prepared_data)
+    prepared = strategy.prepare_data()
+    history = strategy.inspect_signals()
     _validate_historical_decisions(history, visible)
     rows: list[dict[str, object]] = []
     output_kind = strategy.definition.decision.output_kind
@@ -248,7 +259,7 @@ def build_srt_signal_replay(
                 }
             )
         chart_data = (
-            history.reindex(evaluation)
+            history.reindex(visible)
             .reset_index(names="date")
             .rename(columns={"moneyflow_breadth": "factor_score"})
         )
@@ -316,7 +327,8 @@ def build_srt_signal_replay(
         calculation_end=pd.Timestamp(calculations.max()),
         evaluation_start=evaluation[0],
         evaluation_end=evaluation[-1],
-        prepared_data=prepared_data,
+        data_dir=data_dir,
+        data_identity=prepared.data_identity,
         support_data={
             "mode": "srt_input_contract",
             "release_id": definition.release_id,
@@ -326,16 +338,8 @@ def build_srt_signal_replay(
                 "settings": _plain_json(execution.settings),
             },
             **target_order_types,
-            "requested_cutoff": publication.requested_cutoff,
-            "publication_sha256": sha256(
-                json.dumps(
-                    {
-                        name: result.identity.content_sha256
-                        for name, result in sorted(publication.input_results.items())
-                    },
-                    sort_keys=True,
-                ).encode()
-            ).hexdigest(),
+            "available_through": prepared.available_through.isoformat(),
+            "prepared_data_identity": prepared.data_identity,
         },
         chart_data=chart_data,
     )
@@ -370,6 +374,7 @@ def replay_srt_account(
         StrategyInit(
             signals.strategy_source,
             strategy.tradable_window,
+            signals.data_dir,
             symbol=(
                 replay_data.adjusted.symbol
                 if signals.snapshot.identity.kind == "REGISTERED"
@@ -378,6 +383,7 @@ def replay_srt_account(
             execution_policy=effective_policy,
         )
     )
+    strategy.prepare_data()
     channel = HistoricalExecutor(
         strategy_reference=signals.snapshot.identity.reference,
         symbol=replay_data.adjusted.symbol,
@@ -391,7 +397,7 @@ def replay_srt_account(
         order_types=definition.capabilities.order_types,
         checkpoints=definition.capabilities.checkpoints,
     )
-    ledger = strategy.run_window(data=signals.prepared_data, executor=channel)
+    ledger = strategy.run_window(executor=channel)
     return BacktestResult(
         identity=signals.snapshot.identity,
         decisions=ledger.decisions,

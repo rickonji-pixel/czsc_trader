@@ -1,35 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
 import json
 from pathlib import Path
 
 import pytest
 
 from strategy_runtime import (
-    AccountSnapshot,
-    DeploymentSpec,
     ExecutionPolicy,
-    ReferencePriceSnapshot,
     RuntimeCompatibilityError,
-    StrategyDecision,
-    StrategyLoader,
     StrategyRelease,
 )
+from strategy_runtime.loader import StrategyLoader
 from strategy_runtime.execution_planner import build_execution_plan
-
-
-def _references(signal_price: float, execution_price: float) -> ReferencePriceSnapshot:
-    return ReferencePriceSnapshot(
-        "588080.SH",
-        datetime.fromisoformat("2026-09-17T15:00:00+08:00"),
-        datetime.fromisoformat("2026-09-18T09:30:00+08:00"),
-        signal_price,
-        execution_price,
-        "ADJUSTED_CLOSE",
-        "UNADJUSTED_CLOSE",
-        {"adjusted_daily": "c" * 64, "execution_daily": "d" * 64},
-    )
 
 
 def test_schema_v2_release_hash_covers_executable_identity_not_governance() -> None:
@@ -84,9 +66,6 @@ def test_schema_v3_release_hash_accepts_sgc_governance_projection() -> None:
     assert release.release_hash == payload["release_hash"]
 
 
-NOW = datetime.fromisoformat("2026-09-17T10:00:00+08:00")
-
-
 def test_every_active_frozen_release_has_a_matching_source_binding() -> None:
     root = Path(__file__).resolve().parents[4]
     for strategy_id, version in (
@@ -138,32 +117,6 @@ def test_symbol_binding_is_explicit_and_fails_closed() -> None:
 
 
 def test_target_execution_plan_honors_frozen_limit_exit() -> None:
-    release_hash = "a" * 64
-    deployment = DeploymentSpec(
-        "pte:test",
-        "S007-v1",
-        release_hash,
-        "588080.SH",
-        "test",
-        "futu_simulate_cn",
-        {"cycle_target_quantity": 1000},
-    )
-    account = AccountSnapshot("test", 100.0, 1600.0, 1000, 0, NOW)
-    decision = StrategyDecision(
-        "DEC-TEST",
-        deployment.deployment_id,
-        deployment.release_id,
-        release_hash,
-        "b" * 64,
-        NOW,
-        datetime.fromisoformat("2026-09-18T09:30:00+08:00"),
-        0.0,
-        0,
-        0,
-        {"market": "c" * 64},
-        {},
-        {},
-    )
     policy = ExecutionPolicy(
         "FROZEN_RULE",
         {
@@ -185,11 +138,13 @@ def test_target_execution_plan_honors_frozen_limit_exit() -> None:
     )
 
     plan = build_execution_plan(
-        deployment=deployment,
-        account=account,
-        decision=decision,
+        deployment_settings={"cycle_target_quantity": 1000},
+        available_cash=100.0,
+        position_quantity=1000,
+        target_position=0.0,
         policy=policy,
-        reference_prices=_references(1.6, 1.5),
+        signal_reference_price=1.6,
+        execution_reference_price=1.5,
     )
 
     assert plan["action"] == "SELL"
@@ -198,32 +153,6 @@ def test_target_execution_plan_honors_frozen_limit_exit() -> None:
 
 
 def test_target_execution_plan_preserves_audited_marketable_exit_semantics() -> None:
-    release_hash = "a" * 64
-    deployment = DeploymentSpec(
-        "pte:test",
-        "S007-v1",
-        release_hash,
-        "588080.SH",
-        "test",
-        "futu_simulate_cn",
-        {"cycle_target_quantity": 1000},
-    )
-    account = AccountSnapshot("test", 100.0, 1600.0, 1000, 0, NOW)
-    decision = StrategyDecision(
-        "DEC-TEST-MARKET-EXIT",
-        deployment.deployment_id,
-        deployment.release_id,
-        release_hash,
-        "b" * 64,
-        NOW,
-        datetime.fromisoformat("2026-09-18T09:30:00+08:00"),
-        0.0,
-        0,
-        0,
-        {"market": "c" * 64},
-        {},
-        {},
-    )
     policy = ExecutionPolicy(
         "FROZEN_RULE",
         {
@@ -246,11 +175,13 @@ def test_target_execution_plan_preserves_audited_marketable_exit_semantics() -> 
     )
 
     plan = build_execution_plan(
-        deployment=deployment,
-        account=account,
-        decision=decision,
+        deployment_settings={"cycle_target_quantity": 1000},
+        available_cash=100.0,
+        position_quantity=1000,
+        target_position=0.0,
         policy=policy,
-        reference_prices=_references(1.5, 1.5),
+        signal_reference_price=1.5,
+        execution_reference_price=1.5,
     )
 
     assert plan["action"] == "SELL"

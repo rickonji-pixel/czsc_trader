@@ -85,10 +85,12 @@ def test_committed_generation_is_reloaded_through_market_and_srt_contracts(
     functional_repo: Path,
 ) -> None:
     from strategy_manager import StrategyRegistry
-    from strategy_runtime import StrategyLoader, StrategyRelease
+    from strategy_runtime import StrategyRelease, StrategyRuntime
 
     version = StrategyRegistry(functional_repo / "strategies").get_version("S001", "v1")
-    strategy = StrategyLoader().load(StrategyRelease.from_mapping(version.to_dict()))
+    definition = StrategyRuntime().describe(
+        StrategyRelease.from_mapping(version.to_dict())
+    )
 
     _verify_committed_generation(
         functional_repo / "data" / "backtest",
@@ -96,7 +98,7 @@ def test_committed_generation_is_reloaded_through_market_and_srt_contracts(
         asset_type="etf",
         dataset="backtest",
         release_id="S001-v1",
-        strategy=strategy,
+        definition=definition,
         data_cutoff="2026-09-02",
     )
 
@@ -172,13 +174,13 @@ def test_ft_t02_etf_backtest_publication_includes_intraday_data(
         (staging / "510500_intraday_manifest.json").write_text("{}", encoding="utf-8")
         return {"manifest": "intraday-manifest"}
 
-    def fake_runtime_history(_context, *, strategy, staging, through, **_kwargs):
+    def fake_runtime_history(_context, *, definition, staging, through, **_kwargs):
         (staging / "srt_s003_v1_publication.json").write_text(
             json.dumps({"inputs": {}}), encoding="utf-8"
         )
         return {
             "status": "READY",
-            "release_id": strategy.definition.release_id,
+            "release_id": definition.release_id,
             "requested_cutoff": through.isoformat(),
         }
 
@@ -222,14 +224,14 @@ def test_ft_t03_backtest_publication_uses_srt_inputs_without_legacy_support(
         (staging / "588080_manifest.json").write_text("{}", encoding="utf-8")
         return {"manifest": "market-manifest", "data_cutoff": _through.isoformat()}
 
-    def fake_runtime_history(_context, *, strategy, staging, through, **_kwargs):
+    def fake_runtime_history(_context, *, definition, staging, through, **_kwargs):
         (staging / "srt_s007_v1_adjusted_daily.csv.gz").write_text(
             "Date,Close\n2026-09-15,1\n", encoding="utf-8"
         )
         (staging / "srt_s007_v1_publication.json").write_text(
             json.dumps({"inputs": {}}), encoding="utf-8"
         )
-        assert strategy.definition.release_id == "S007-v1"
+        assert definition.release_id == "S007-v1"
         return {
             "status": "READY",
             "release_id": "S007-v1",

@@ -25,6 +25,21 @@ class StrategyRuntime:
     def __init__(self) -> None:
         self._loader = StrategyLoader()
 
+    def _load(
+        self,
+        source: StrategyRelease | StrategyCandidate,
+        symbol: str | None,
+    ):
+        if isinstance(source, StrategyRelease):
+            return (
+                self._loader.load_for_symbol(source, symbol)
+                if symbol is not None
+                else self._loader.load(source)
+            )
+        if symbol is not None:
+            raise ValueError("candidate strategy does not support symbol rebinding")
+        return self._loader.load_candidate(source)
+
     def describe(
         self,
         source: StrategyRelease | StrategyCandidate,
@@ -33,30 +48,10 @@ class StrategyRuntime:
     ):
         """Return the validated frozen definition without creating an instance."""
 
-        if isinstance(source, StrategyRelease):
-            algorithm = (
-                self._loader.load_for_symbol(source, symbol)
-                if symbol is not None
-                else self._loader.load(source)
-            )
-        else:
-            if symbol is not None:
-                raise ValueError("candidate strategy does not support symbol rebinding")
-            algorithm = self._loader.load_candidate(source)
-        return algorithm.definition
+        return self._load(source, symbol).definition
 
     def create(self, request: StrategyInit) -> StrategyInstance:
-        source = request.source
-        if isinstance(source, StrategyRelease):
-            algorithm = (
-                self._loader.load_for_symbol(source, request.symbol)
-                if request.symbol is not None
-                else self._loader.load(source)
-            )
-        else:
-            if request.symbol is not None:
-                raise ValueError("candidate strategy does not support symbol rebinding")
-            algorithm = self._loader.load_candidate(source)
+        algorithm = self._load(request.source, request.symbol)
         definition = algorithm.definition
         if (
             request.execution_policy is not None
@@ -74,6 +69,6 @@ class StrategyRuntime:
         return StrategyInstance(
             algorithm=algorithm,
             identity=identity,
-            window=request.tradable_window,
+            tradable_window=request.tradable_window,
             execution_policy=request.execution_policy or definition.execution,
         )

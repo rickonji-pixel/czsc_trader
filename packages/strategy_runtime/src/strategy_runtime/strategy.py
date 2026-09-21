@@ -61,12 +61,12 @@ class StrategyInstance:
         *,
         algorithm,
         identity: StrategyIdentity,
-        window: TradableWindow,
+        tradable_window: TradableWindow,
         execution_policy,
     ) -> None:
         self._algorithm = algorithm
         self._identity = identity
-        self._window = window
+        self._tradable_window = tradable_window
         self._execution_policy = execution_policy
         self._history_cache: tuple[str, pd.DataFrame, pd.DatetimeIndex] | None = None
 
@@ -75,8 +75,8 @@ class StrategyInstance:
         return self._identity
 
     @property
-    def window(self) -> TradableWindow:
-        return self._window
+    def tradable_window(self) -> TradableWindow:
+        return self._tradable_window
 
     @property
     def definition(self):
@@ -88,9 +88,14 @@ class StrategyInstance:
 
     def prepare_data(self, source: StrategyDataSource) -> PreparedStrategyData:
         prepared = source.prepare(
-            DataPreparationRequest(self._identity, self.definition, self._window)
+            DataPreparationRequest(
+                self._identity, self.definition, self._tradable_window
+            )
         )
-        if prepared.strategy != self._identity or prepared.window != self._window:
+        if (
+            prepared.strategy != self._identity
+            or prepared.tradable_window != self._tradable_window
+        ):
             raise RuntimeContractError("data source returned data for another strategy instance")
         return prepared
 
@@ -173,7 +178,10 @@ class StrategyInstance:
     def inspect_signals(self, data: PreparedStrategyData) -> pd.DataFrame:
         """Return a defensive copy of strategy signal history for diagnostics."""
 
-        if data.strategy != self._identity or data.window != self._window:
+        if (
+            data.strategy != self._identity
+            or data.tradable_window != self._tradable_window
+        ):
             raise RuntimeContractError("prepared data belongs to another strategy instance")
         history, _ = self._history(data)
         return history.copy()
@@ -186,9 +194,12 @@ class StrategyInstance:
         portfolio: PortfolioSnapshot,
         state: ExecutionState,
     ) -> ExecutionPlan:
-        if data.strategy != self._identity or data.window != self._window:
+        if (
+            data.strategy != self._identity
+            or data.tradable_window != self._tradable_window
+        ):
             raise RuntimeContractError("prepared data belongs to another strategy instance")
-        if not self._window.contains(point.trading_date):
+        if not self._tradable_window.contains(point.trading_date):
             raise RuntimeContractError("trading point is outside the strategy window")
         if portfolio.symbol != self._identity.symbol:
             raise RuntimeContractError("portfolio symbol differs from strategy")

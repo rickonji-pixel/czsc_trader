@@ -10,14 +10,12 @@ from dataflows import DataIdentity, DataRequest, DataResult, DataStatus, Dataset
 from strategy_runtime import (
     PublicationStatus,
     PublishedStrategyData,
-    CutoffRule,
-    InputContract,
-    InputRequirement,
+    PublishedDataSource,
     RuntimeContractError,
-    load_strategy_runtime_context,
     read_publication,
     write_publication,
 )
+from strategy_runtime.models import CutoffRule, InputContract, InputRequirement
 
 
 def publication() -> PublishedStrategyData:
@@ -79,7 +77,7 @@ def publication() -> PublishedStrategyData:
     )
 
 
-def strategy(value: PublishedStrategyData):
+def definition(value: PublishedStrategyData):
     requirements = (
         InputRequirement(
             "adjusted_daily",
@@ -98,12 +96,11 @@ def strategy(value: PublishedStrategyData):
             CutoffRule.SIGNAL_SESSION,
         ),
     )
-    definition = SimpleNamespace(
+    return SimpleNamespace(
         release_id=value.release_id,
         release_hash=value.release_hash,
         inputs=InputContract(requirements),
     )
-    return SimpleNamespace(definition=definition)
 
 
 def write_generation(tmp_path, value: PublishedStrategyData, *, schema_version: int = 2):
@@ -165,29 +162,27 @@ def test_publication_store_recomputes_stored_content_identity(tmp_path):
 
 
 @pytest.mark.parametrize("schema_version", [1, 2])
-def test_load_strategy_runtime_context_authenticates_bound_generation(
+def test_published_data_source_authenticates_bound_generation(
     tmp_path, schema_version
 ):
     expected = publication()
     write_generation(tmp_path, expected, schema_version=schema_version)
 
-    actual = load_strategy_runtime_context(tmp_path, strategy(expected))
+    actual = PublishedDataSource(tmp_path).verify(definition(expected))
 
-    assert actual.strategy_data.release_id == "S007-v1"
-    assert actual.strategy_data.requested_cutoff == "2026-09-16"
-    assert actual.pricing_data.symbol == "588080.SH"
+    assert actual.isoformat() == "2026-09-16"
 
 
-def test_load_strategy_runtime_context_rejects_modified_generation_file(tmp_path):
+def test_published_data_source_rejects_modified_generation_file(tmp_path):
     expected = publication()
     write_generation(tmp_path, expected)
     (tmp_path / "srt_s007_v1_adjusted_daily.csv.gz").write_bytes(b"modified")
 
     with pytest.raises(RuntimeContractError, match="generation file was modified"):
-        load_strategy_runtime_context(tmp_path, strategy(expected))
+        PublishedDataSource(tmp_path).verify(definition(expected))
 
 
-def test_load_strategy_runtime_context_requires_release_binding(tmp_path):
+def test_published_data_source_requires_release_binding(tmp_path):
     expected = publication()
     write_generation(tmp_path, expected)
     marker = tmp_path / "588080_strategy_generation.json"
@@ -196,4 +191,4 @@ def test_load_strategy_runtime_context_requires_release_binding(tmp_path):
     marker.write_text(json.dumps(generation), encoding="utf-8")
 
     with pytest.raises(RuntimeContractError, match="does not contain"):
-        load_strategy_runtime_context(tmp_path, strategy(expected))
+        PublishedDataSource(tmp_path).verify(definition(expected))

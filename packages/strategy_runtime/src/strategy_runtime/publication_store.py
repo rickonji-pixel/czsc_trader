@@ -20,13 +20,7 @@ from dataflows import (
 )
 
 from .errors import RuntimeContractError
-from .models import (
-    ExecutionPricingData,
-    PublicationStatus,
-    PublishedStrategyData,
-    StrategyRuntimeContext,
-)
-from .protocols import ExecutableStrategy
+from .models import PublicationStatus, PublishedStrategyData
 
 
 _SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]+")
@@ -61,21 +55,6 @@ def publication_manifest_name(release_id: str) -> str:
     if _SAFE_NAME.fullmatch(safe) is None:
         raise RuntimeContractError("release ID cannot form a safe publication filename")
     return f"srt_{safe}_publication.json"
-
-
-def _strategy_symbol(strategy: ExecutableStrategy) -> str:
-    subjects = {
-        str(requirement.subject).upper()
-        for requirement in strategy.definition.inputs.requirements
-        if requirement.subject
-        and requirement.dataset.startswith(("etf.", "stock."))
-        and re.fullmatch(r"\d{6}\.(?:SH|SZ)", str(requirement.subject).upper())
-    }
-    if len(subjects) != 1:
-        raise RuntimeContractError(
-            "strategy publication must declare exactly one A-share instrument"
-        )
-    return next(iter(subjects))
 
 
 def _definition_symbol(definition) -> str:
@@ -288,36 +267,4 @@ def read_publication(directory: Path, release_id: str) -> PublishedStrategyData:
         requested_cutoff=str(manifest.get("requested_cutoff")),
         input_requests=requests,
         input_results=results,
-    )
-
-
-def load_strategy_runtime_context(
-    directory: Path,
-    strategy: ExecutableStrategy,
-) -> StrategyRuntimeContext:
-    """Load one authenticated strategy publication and its execution prices."""
-
-    generation = _read_bound_generation(
-        directory,
-        release_id=strategy.definition.release_id,
-        symbol=_strategy_symbol(strategy),
-    )
-    publication = read_publication(directory, strategy.definition.release_id)
-    from .runner import StrategyRunner
-
-    StrategyRunner.validate_publication(strategy, publication)
-    if publication.requested_cutoff != generation["data_cutoff"]:
-        raise RuntimeContractError(
-            "strategy publication cutoff differs from its SRT generation"
-        )
-    try:
-        adjusted = publication.input_results["adjusted_daily"].dataframe
-        execution = publication.input_results["execution_daily"].dataframe
-    except KeyError as exc:
-        raise RuntimeContractError(
-            "SRT generation has no complete execution-pricing publication"
-        ) from exc
-    return StrategyRuntimeContext(
-        publication,
-        ExecutionPricingData(_strategy_symbol(strategy), adjusted, execution),
     )

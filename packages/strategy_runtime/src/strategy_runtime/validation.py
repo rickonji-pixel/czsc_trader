@@ -6,7 +6,7 @@ import pandas as pd
 from dataflows import Dataset
 
 from .errors import RuntimeContractError
-from .models import CutoffRule, PublishedStrategyData, RuntimeDefinition, StrategyDecision
+from .models import CutoffRule, PublishedStrategyData, RuntimeDefinition
 
 
 def validate_history_depth(
@@ -126,34 +126,3 @@ def validate_publication(
                     f"published input exceeds maximum staleness for input {name}"
                 )
             validate_history_depth(name, requirement.lookback_sessions, data_result.dataframe)
-
-
-def validate_decision(
-    definition: RuntimeDefinition,
-    *,
-    expected_release_id: str,
-    expected_release_hash: str,
-    expected_runtime_sha256: str,
-    expected_account_revision: int,
-    expected_state_revision: int,
-    expected_input_identities: dict[str, str],
-    decision: StrategyDecision,
-) -> None:
-    if decision.release_id != expected_release_id:
-        raise RuntimeContractError("decision release ID differs from strategy")
-    if decision.release_hash != expected_release_hash:
-        raise RuntimeContractError("decision release hash differs from strategy")
-    if decision.runtime_sha256 != expected_runtime_sha256:
-        raise RuntimeContractError("decision runtime identity differs from strategy")
-    if decision.account_revision != expected_account_revision:
-        raise RuntimeContractError("decision account revision differs from snapshot")
-    if decision.state_revision != expected_state_revision:
-        raise RuntimeContractError("decision state revision differs from snapshot")
-    if not (
-        definition.decision.minimum_target
-        <= decision.target_position
-        <= definition.decision.maximum_target
-    ):
-        raise RuntimeContractError("decision target_position exceeds declared bounds")
-    if dict(decision.input_identity_hashes) != expected_input_identities:
-        raise RuntimeContractError("decision input identities differ from prepared data")

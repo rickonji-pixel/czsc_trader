@@ -11,7 +11,7 @@ import sys
 from .errors import RuntimeCompatibilityError
 from .implementation_identity import implementation_sha256, load_runtime_binding
 from .models import ImplementationRef, StrategyCandidate, StrategyRelease, canonical_sha256
-from .protocols import ExecutableStrategy
+from .algorithm import StrategyAlgorithm
 
 
 # Capture frozen source closures before any strategy is imported. Re-reading a
@@ -139,7 +139,7 @@ class StrategyLoader:
         return ref.module, ref.qualname, factory
 
     @staticmethod
-    def _validate_declared_content(payload: Mapping, strategy: ExecutableStrategy) -> None:
+    def _validate_declared_content(payload: Mapping, strategy: StrategyAlgorithm) -> None:
         descriptor = payload["runtime"]
         definition = strategy.definition
         if definition.schema_version != 2:
@@ -158,7 +158,7 @@ class StrategyLoader:
                 "runtime parameters differ from the supplied parameter set"
             )
 
-    def load_candidate(self, candidate: StrategyCandidate) -> ExecutableStrategy:
+    def load_candidate(self, candidate: StrategyCandidate) -> StrategyAlgorithm:
         """Run a parameterized candidate before submission without creating a frozen version."""
         if not isinstance(candidate, StrategyCandidate):
             raise RuntimeCompatibilityError("candidate loading requires a StrategyCandidate")
@@ -169,8 +169,8 @@ class StrategyLoader:
                 f"candidate implementation has no from_candidate factory: {class_name}"
             )
         strategy = create(candidate)
-        if not isinstance(strategy, ExecutableStrategy):
-            raise RuntimeCompatibilityError("candidate does not implement ExecutableStrategy")
+        if not isinstance(strategy, StrategyAlgorithm):
+            raise RuntimeCompatibilityError("candidate does not implement StrategyAlgorithm")
         definition = strategy.definition
         if (
             definition.identity_kind != "CANDIDATE"
@@ -187,13 +187,13 @@ class StrategyLoader:
     def _validate(
         self,
         release: StrategyRelease,
-        strategy: ExecutableStrategy,
+        strategy: StrategyAlgorithm,
         module_name: str,
         class_name: str,
-    ) -> ExecutableStrategy:
-        if not isinstance(strategy, ExecutableStrategy):
+    ) -> StrategyAlgorithm:
+        if not isinstance(strategy, StrategyAlgorithm):
             raise RuntimeCompatibilityError(
-                f"loaded object does not implement ExecutableStrategy: {class_name}"
+                f"loaded object does not implement StrategyAlgorithm: {class_name}"
             )
         definition = strategy.definition
         if (
@@ -233,7 +233,7 @@ class StrategyLoader:
             )
         return strategy
 
-    def load(self, release: StrategyRelease) -> ExecutableStrategy:
+    def load(self, release: StrategyRelease) -> StrategyAlgorithm:
         module_name, class_name, factory = self._load_factory(release)
         from_release = getattr(factory, "from_release", None)
         if not callable(from_release):
@@ -243,7 +243,7 @@ class StrategyLoader:
         strategy = from_release(release)
         return self._validate(release, strategy, module_name, class_name)
 
-    def load_for_symbol(self, release: StrategyRelease, symbol: str) -> ExecutableStrategy:
+    def load_for_symbol(self, release: StrategyRelease, symbol: str) -> StrategyAlgorithm:
         """Bind a formula-compatible release to one explicit deployment symbol.
 
         A strategy must opt in by implementing ``from_release_for_symbol``.

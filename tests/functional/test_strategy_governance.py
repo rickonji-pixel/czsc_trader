@@ -302,7 +302,8 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         functional_repo / "strategies"
     ).validate_all()["credentials"]
     payload, package = candidate_payload
-    from strategy_runtime import StrategyCandidate, StrategyLoader
+    from strategy_runtime import StrategyCandidate
+    from strategy_runtime.loader import StrategyLoader
     from czsc_trader.application.runtime_acceptance import _runtime_report
     loaded = StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", payload))
     readiness = _runtime_report(loaded.definition)
@@ -579,7 +580,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         artifact_hashes={"adjudication_report": report.report_hash, "review_dataset": "d" * 64},
     )
     # A release factory must preserve reviewed contracts, not only its parameters.
-    from strategy_runtime import MonitoringPolicy
+    from strategy_runtime.models import MonitoringPolicy
     from czsc_trader.application.errors import ValidationError
     from czsc_trader.application.freeze_review_service import freeze_review_candidate
     original_factory = type(loaded).from_release
@@ -709,12 +710,10 @@ def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
         credential_content={"research_intent": "验证TDR独立复核"},
     )
     payload, _ = candidate_payload
-    from strategy_runtime import StrategyCandidate, StrategyLoader
+    from strategy_runtime import StrategyCandidate, StrategyRuntime
     from czsc_trader.application.runtime_acceptance import _runtime_report
     readiness = _runtime_report(
-        StrategyLoader().load_candidate(
-            StrategyCandidate("S901", "C001", payload)
-        ).definition
+        StrategyRuntime().describe(StrategyCandidate("S901", "C001", payload))
     )
     requirements = readiness["input_contract"]["requirements"]
     policy = readiness["execution_policy"]

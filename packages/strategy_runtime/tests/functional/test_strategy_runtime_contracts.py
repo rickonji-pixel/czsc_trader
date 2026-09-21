@@ -7,21 +7,23 @@ import pytest
 
 from dataflows import DataError, DataIdentity, DataRequest, DataResult, DataStatus
 from strategy_runtime import (
+    ExecutionPolicy,
+    PublicationStatus,
+    PublishedStrategyData,
+    RuntimeContractError,
+)
+from strategy_runtime.models import (
     AccountSnapshot,
     CalculationRequest,
     CutoffRule,
     DecisionContract,
     DeploymentSpec,
-    ExecutionPolicy,
     ImplementationRef,
     InputContract,
     InputRequirement,
     MonitoringPolicy,
     ParameterSet,
-    PublicationStatus,
-    PublishedStrategyData,
     RequiredCapabilities,
-    RuntimeContractError,
     RuntimeDefinition,
     StrategyStateSnapshot,
 )

@@ -18,6 +18,23 @@ from strategy_runtime import (
 )
 
 
+def test_legacy_runner_surface_is_not_public() -> None:
+    import strategy_runtime
+
+    for name in (
+        "AccountSnapshot",
+        "CalculationRequest",
+        "DeploymentSpec",
+        "ExecutionChannel",
+        "StrategyDecision",
+        "StrategyLoader",
+        "StrategyRunner",
+        "StrategyRuntimeContext",
+        "load_strategy_runtime_context",
+    ):
+        assert not hasattr(strategy_runtime, name)
+
+
 ROOT = Path(__file__).resolve().parents[4]
 ZONE = ZoneInfo("Asia/Shanghai")
 
@@ -32,7 +49,6 @@ def _release(strategy_id: str, version: str) -> StrategyRelease:
 
 
 def test_public_runtime_prepares_and_plans_without_an_execution_channel() -> None:
-    signal_date = date(2026, 9, 18)
     trading_date = date(2026, 9, 21)
     strategy = StrategyRuntime().create(
         StrategyInit(

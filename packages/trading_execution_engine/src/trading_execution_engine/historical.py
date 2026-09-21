@@ -1,4 +1,4 @@
-"""SRT execution channel with deterministic historical fills and an isolated ledger."""
+"""Deterministic historical executor for channel-neutral SRT plans."""
 
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ def _prices(frame: pd.DataFrame, name: str, columns: tuple[str, ...]) -> pd.Data
 
 
 class HistoricalExecutor:
-    """Execute SRT requests for search, replay and review without host dependencies.
+    """Execute SRT plans for search, replay and review without host dependencies.
 
     Create one executor per trial/account. Input frames are copied on admission;
     immutable source data can therefore be shared by independent trials.
@@ -126,7 +126,7 @@ class HistoricalExecutor:
             pd.Timestamp(evaluation_start).normalize() : pd.Timestamp(evaluation_end).normalize()
         ]
         if self._evaluation.empty:
-            raise RuntimeContractError("backtest channel evaluation interval is empty")
+            raise RuntimeContractError("historical executor evaluation interval is empty")
 
         self._cash = self._initial_cash
         self._quantity = 0
@@ -244,9 +244,6 @@ class HistoricalExecutor:
         return outcome
 
     def finish(self) -> ExecutionResult:
-        return self.finalize()
-
-    def finalize(self) -> ExecutionResult:
         """Close the deterministic ledger exactly once."""
 
         if self._result is not None:
@@ -258,7 +255,7 @@ class HistoricalExecutor:
                 missing = expected.difference(submitted)
                 unexpected = submitted.difference(expected)
                 raise RuntimeContractError(
-                    "backtest channel has incomplete target-position requests: "
+                    "historical executor has incomplete target-position plans: "
                     f"missing={[item.date().isoformat() for item in missing]}, "
                     f"unexpected={[item.date().isoformat() for item in unexpected]}"
                 )

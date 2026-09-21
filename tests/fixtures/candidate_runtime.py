@@ -5,10 +5,10 @@ production strategy or registered frozen release.
 """
 
 import pandas as pd
-from strategy_runtime import (
+from strategy_runtime import ExecutionPolicy, StrategyCandidate
+from strategy_runtime.models import (
     CutoffRule,
     DecisionContract,
-    ExecutionPolicy,
     ImplementationRef,
     InputContract,
     InputRequirement,
@@ -16,9 +16,8 @@ from strategy_runtime import (
     ParameterSet,
     RequiredCapabilities,
     RuntimeDefinition,
-    StrategyCandidate,
-    StrategyDecision,
 )
+from strategy_runtime.models import StrategyDecision
 
 
 class CandidateFixture:

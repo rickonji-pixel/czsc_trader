@@ -8,22 +8,21 @@ import pytest
 from dataflows import DataIdentity, DataResult, DataStatus, Dataset
 from strategy_manager import StrategyRegistry
 from strategy_runtime import (
-    DeploymentSpec,
     RuntimeContractError,
-    StrategyLoader,
     StrategyRelease,
-    StrategyRunner,
+    StrategyRuntime,
     publish_history,
+    validate_publication,
 )
 
 
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def _strategy(release_id: str):
+def _definition(release_id: str):
     strategy_id, version = release_id.split("-", 1)
     stored = StrategyRegistry(ROOT / "strategies").get_version(strategy_id, version)
-    return StrategyLoader().load(StrategyRelease.from_mapping(stored.to_dict()))
+    return StrategyRuntime().describe(StrategyRelease.from_mapping(stored.to_dict()))
 
 
 class RecordingDataflows:
@@ -66,19 +65,6 @@ class RecordingDataflows:
         return DataResult(DataStatus.READY, frame, identity)
 
 
-def _deployment(strategy, symbol: str) -> DeploymentSpec:
-    definition = strategy.definition
-    return DeploymentSpec(
-        "history",
-        definition.release_id,
-        definition.release_hash,
-        symbol,
-        "backtest-data",
-        "backtest",
-        {"repository_root": str(ROOT)},
-    )
-
-
 @pytest.mark.parametrize(
     ("release_id", "symbol"),
     (("S001-v1", "588080.SH"), ("S001-v2", "588080.SH"), ("S002-v1", "510500.SH")),
@@ -87,36 +73,38 @@ def test_price_strategies_publish_every_declared_history_input(
     release_id: str,
     symbol: str,
 ) -> None:
-    strategy = _strategy(release_id)
+    definition = _definition(release_id)
     publication = publish_history(
-        strategy,
+        definition,
         RecordingDataflows(),
-        _deployment(strategy, symbol),
+        symbol=symbol,
         start=date(2020, 1, 1),
         through=date(2026, 9, 15),
+        settings={"repository_root": str(ROOT)},
     )
 
-    StrategyRunner.validate_publication(strategy, publication)
+    validate_publication(definition, publication)
     assert set(publication.input_results) == {
-        item.name for item in strategy.definition.inputs.requirements
+        item.name for item in definition.inputs.requirements
     }
 
 
 def test_s007_history_uses_only_declared_market_inputs() -> None:
-    strategy = _strategy("S007-v1")
+    definition = _definition("S007-v1")
     dataflows = RecordingDataflows()
 
     publication = publish_history(
-        strategy,
+        definition,
         dataflows,
-        _deployment(strategy, "588080.SH"),
+        symbol="588080.SH",
         start=date(2020, 1, 1),
         through=date(2026, 9, 15),
+        settings={"repository_root": str(ROOT)},
     )
 
-    StrategyRunner.validate_publication(strategy, publication)
+    validate_publication(definition, publication)
     assert set(publication.input_results) == {
-        item.name for item in strategy.definition.inputs.requirements
+        item.name for item in definition.inputs.requirements
     }
     assert "strategy_evidence" not in publication.input_results
     share_request = publication.input_requests["etf_share_size"]
@@ -125,43 +113,46 @@ def test_s007_history_uses_only_declared_market_inputs() -> None:
 
     with pytest.raises(RuntimeContractError, match="symbol differs"):
         publish_history(
-            strategy,
+            definition,
             dataflows,
-            _deployment(strategy, "510500.SH"),
+            symbol="510500.SH",
             start=date(2020, 1, 1),
             through=date(2026, 9, 15),
+            settings={"repository_root": str(ROOT)},
         )
 
 
 def test_s007_history_policy_extends_a_short_research_window() -> None:
-    strategy = _strategy("S007-v1")
+    definition = _definition("S007-v1")
     publication = publish_history(
-        strategy,
+        definition,
         RecordingDataflows(),
-        _deployment(strategy, "588080.SH"),
+        symbol="588080.SH",
         start=date(2026, 6, 15),
         through=date(2026, 9, 17),
+        settings={"repository_root": str(ROOT)},
     )
 
-    assert strategy.definition.history.mode == "CANONICAL_REPLAY"
-    assert strategy.definition.history.canonical_start == "2021-01-04"
-    assert strategy.definition.history.required_input_start == "2020-12-01"
+    assert definition.history.mode == "CANONICAL_REPLAY"
+    assert definition.history.canonical_start == "2021-01-04"
+    assert definition.history.required_input_start == "2020-12-01"
     assert publication.input_requests["adjusted_daily"].start == "2020-12-01"
 
 
 def test_s003_history_expands_cross_sectional_requests_from_contract() -> None:
-    strategy = _strategy("S003-v1")
+    definition = _definition("S003-v1")
     dataflows = RecordingDataflows()
 
     publication = publish_history(
-        strategy,
+        definition,
         dataflows,
-        _deployment(strategy, "510500.SH"),
+        symbol="510500.SH",
         start=date(2021, 1, 1),
         through=date(2021, 3, 31),
+        settings={"repository_root": str(ROOT)},
     )
 
-    StrategyRunner.validate_publication(strategy, publication)
+    validate_publication(definition, publication)
     weights = publication.input_requests["constituent_weights"]
     moneyflow = publication.input_requests["constituent_moneyflow"]
     assert weights.start == "2019-12-28"

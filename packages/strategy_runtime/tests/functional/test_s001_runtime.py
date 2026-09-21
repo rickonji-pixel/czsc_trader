@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from strategy_runtime import StrategyLoader, StrategyRelease
+from strategy_runtime import StrategyRelease
+from strategy_runtime.loader import StrategyLoader
 
 
 ROOT = Path(__file__).resolve().parents[4]

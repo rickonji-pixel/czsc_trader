@@ -16,8 +16,8 @@ from strategy_manager import StrategyRegistry
 from strategy_runtime import (
     PublicationStatus,
     PublishedStrategyData,
-    StrategyLoader,
     StrategyRelease,
+    StrategyRuntime,
     write_publication,
 )
 from czsc_trader.generation_integrity import file_sha256
@@ -84,8 +84,10 @@ def _publish_s001_fixture(root: Path) -> None:
         {"Date": dates, "IsOpen": dates.weekday < 5}
     )
     stored = StrategyRegistry(root / "strategies").get_version("S001", "v1")
-    strategy = StrategyLoader().load(StrategyRelease.from_mapping(stored.to_dict()))
-    requirements = {item.name: item for item in strategy.definition.inputs.requirements}
+    definition = StrategyRuntime().describe(
+        StrategyRelease.from_mapping(stored.to_dict())
+    )
+    requirements = {item.name: item for item in definition.inputs.requirements}
     requests = {}
     results = {}
     for name, frame in frames.items():
@@ -111,8 +113,8 @@ def _publish_s001_fixture(root: Path) -> None:
         requests[name] = request
         results[name] = DataResult(DataStatus.READY, frame, identity)
     publication = PublishedStrategyData(
-        strategy.definition.release_id,
-        strategy.definition.release_hash,
+        definition.release_id,
+        definition.release_hash,
         PublicationStatus.READY,
         cutoff.isoformat(),
         requests,

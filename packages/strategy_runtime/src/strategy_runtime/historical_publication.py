@@ -11,23 +11,22 @@ from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
 from .errors import RuntimeContractError
 from .models import (
     CutoffRule,
-    DeploymentSpec,
     PublicationStatus,
     PublishedStrategyData,
+    RuntimeDefinition,
 )
-from .protocols import ExecutableStrategy
 
 
 def _request_options(
-    definition,
-    deployment: DeploymentSpec,
+    definition: RuntimeDefinition,
+    settings: Mapping[str, object],
     requirement,
     base: Mapping[str, object],
 ) -> dict[str, object]:
     options = dict(base)
     if requirement.dataset != Dataset.STRATEGY_FEATURE_EVIDENCE.value:
         return options
-    repository_root = deployment.settings.get("repository_root")
+    repository_root = settings.get("repository_root")
     rule = definition.parameters.values.get("rule")
     data_source = rule.get("data_source") if isinstance(rule, Mapping) else None
     if (
@@ -58,18 +57,18 @@ def _publication_status(results: Mapping[str, DataResult]) -> PublicationStatus:
     return PublicationStatus.INCOMPLETE
 
 
-def _declared_symbol(strategy: ExecutableStrategy) -> str | None:
-    """Read the effective deployment symbol from the runtime input contract."""
+def _declared_symbol(definition: RuntimeDefinition) -> str | None:
+    """Read the effective symbol from the runtime input contract."""
 
     input_subjects = {
         item.subject.upper()
-        for item in strategy.definition.inputs.requirements
+        for item in definition.inputs.requirements
         if item.subject and item.dataset.startswith("etf.")
     }
     if len(input_subjects) == 1:
         return next(iter(input_subjects))
 
-    payload = strategy.definition.parameters.values
+    payload = definition.parameters.values
     rule = payload.get("rule")
     if isinstance(rule, Mapping):
         execution = rule.get("execution")
@@ -92,29 +91,29 @@ def _open_sessions(calendar: pd.DataFrame, start: date, through: date) -> pd.Dat
 
 
 def publish_history(
-    strategy: ExecutableStrategy,
+    definition: RuntimeDefinition,
     dataflows: Dataflows,
-    deployment: DeploymentSpec,
     *,
+    symbol: str,
     start: date,
     through: date,
+    settings: Mapping[str, object] | None = None,
 ) -> PublishedStrategyData:
     """Publish one bounded history strictly from the SRT input contract."""
 
     if start > through:
         raise RuntimeContractError("historical publication start follows cutoff")
-    definition = strategy.definition
+    normalized_symbol = symbol.strip().upper()
+    if not normalized_symbol:
+        raise RuntimeContractError("historical publication symbol must be non-empty")
+    preparation_settings = {} if settings is None else dict(settings)
     publication_start = definition.history.publication_start(start)
-    if definition.release_id != deployment.release_id:
-        raise RuntimeContractError("historical deployment release ID differs from strategy")
-    if definition.release_hash != deployment.release_hash:
-        raise RuntimeContractError("historical deployment release hash differs from strategy")
-    declared_symbol = _declared_symbol(strategy)
-    if declared_symbol is not None and deployment.symbol.upper() != declared_symbol:
-        raise RuntimeContractError("historical deployment symbol differs from frozen strategy")
+    declared_symbol = _declared_symbol(definition)
+    if declared_symbol is not None and normalized_symbol != declared_symbol:
+        raise RuntimeContractError("historical publication symbol differs from strategy")
 
     options: dict[str, object] = {}
-    env_file = deployment.settings.get("env_file")
+    env_file = preparation_settings.get("env_file")
     if env_file is not None:
         options["env_file"] = str(env_file)
 
@@ -175,7 +174,9 @@ def publish_history(
                 request_end.isoformat(),
                 required_cutoff,
                 requirement.frequency,
-                _request_options(definition, deployment, requirement, request_options),
+                _request_options(
+                    definition, preparation_settings, requirement, request_options
+                ),
             )
             requests[name] = request
             results[name] = dataflows.fetch(request)
@@ -190,7 +191,7 @@ def publish_history(
                 through.isoformat(),
                 None,
                 requirement.frequency,
-                _request_options(definition, deployment, requirement, options),
+                _request_options(definition, preparation_settings, requirement, options),
             )
             requests[name] = request
             results[name] = DataResult(DataStatus.INCOMPLETE, error=calendar_result.error)

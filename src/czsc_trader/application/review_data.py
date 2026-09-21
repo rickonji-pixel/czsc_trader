@@ -12,8 +12,11 @@ from pathlib import Path
 import pandas as pd
 from dataflows import Dataflows
 from strategy_runtime import (
-    DeploymentSpec, StrategyRunner, canonical_sha256, publish_history,
-    read_publication, write_publication,
+    canonical_sha256,
+    publish_history,
+    read_publication,
+    validate_publication,
+    write_publication,
 )
 
 from czsc_trader.backtesting.datasets import ReplayData, _fingerprint
@@ -162,7 +165,7 @@ def publish_review_dataset(context, manifest: dict, protocol, directory: Path) -
         family_id=manifest["strategy_id"],
     )
     strategies = [_snapshot(run, item)[1] for item in manifest["candidates"]]
-    if not strategies or len({s.definition.release_id for s in strategies}) != len(strategies):
+    if not strategies or len({s.release_id for s in strategies}) != len(strategies):
         raise ValueError("review requires non-empty, unique runtime identities")
     replay = prepare_evaluation_workspace(
         run, protocol, include_five_minute=any(execution_intraday_frequencies(s) for s in strategies),
@@ -172,21 +175,22 @@ def publish_review_dataset(context, manifest: dict, protocol, directory: Path) -
     # Retain failed staging for diagnosis; only the final atomic rename publishes READY.
     staging = create_temporary_directory(context.root, "review-data", repository_root=context.root)
     runtimes = {}
-    for strategy in strategies:
-        definition = strategy.definition
-        deployment = DeploymentSpec(
-            "review", definition.release_id, definition.release_hash, run.symbol,
-            "review", "review", {"repository_root": str(context.root)},
-        )
+    for definition in strategies:
         publication = publish_history(
-            strategy, dataflows, deployment,
-            start=pd.to_datetime(replay.adjusted.daily["dt"]).min().date(), through=replay.cutoff,
+            definition,
+            dataflows,
+            symbol=run.symbol,
+            start=pd.to_datetime(replay.adjusted.daily["dt"]).min().date(),
+            through=replay.cutoff,
+            settings={"repository_root": str(context.root)},
         )
         if not publication.ready:
             raise ValueError(f"review publication failed for {definition.release_id}: {publication.error}")
-        StrategyRunner.validate_publication(strategy, publication)
+        validate_publication(definition, publication)
         write_publication(publication, staging)
-        StrategyRunner.validate_publication(strategy, read_publication(staging, definition.release_id))
+        validate_publication(
+            definition, read_publication(staging, definition.release_id)
+        )
         runtimes[definition.release_id] = definition.runtime_sha256
     frames = {
         "adjusted_daily": replay.adjusted.daily, "adjusted_intraday": replay.adjusted.intraday,

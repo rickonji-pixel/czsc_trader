@@ -139,7 +139,8 @@ def test_frozen_loader_rejects_changed_code_even_with_updated_binding(tmp_path):
 import json, sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
-from strategy_runtime import StrategyLoader, StrategyRelease, RuntimeCompatibilityError
+from strategy_runtime import StrategyRelease, RuntimeCompatibilityError
+from strategy_runtime.loader import StrategyLoader
 from strategy_runtime.implementation_identity import implementation_sha256
 package = Path(sys.argv[1]) / "strategy_runtime"
 release = StrategyRelease.from_mapping(json.loads(Path(sys.argv[2]).read_text(encoding="utf-8")))

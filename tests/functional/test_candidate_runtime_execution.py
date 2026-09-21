@@ -17,13 +17,13 @@ from strategy_runtime import (
     RuntimeContractError,
     StrategyCandidate,
     StrategyInit,
-    StrategyLoader,
     StrategyRelease,
     StrategyRuntime,
     TradableWindow,
     canonical_sha256,
 )
 from strategy_runtime import implementation_identity
+from strategy_runtime.loader import StrategyLoader
 from trading_execution_engine import HistoricalExecutor
 
 

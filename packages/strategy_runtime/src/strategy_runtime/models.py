@@ -244,6 +244,23 @@ class ExecutionPolicy:
         object.__setattr__(self, "settings", _json_mapping(self.settings, "execution settings"))
         canonical_sha256(self.settings)
 
+    def order_type_for(self, side: str) -> str:
+        """Return the effective channel-neutral order type for one side."""
+
+        if self.policy_type != "FROZEN_RULE":
+            raise RuntimeContractError(
+                "order_type_for is only defined for target-position policies"
+            )
+        normalized = side.upper()
+        if normalized == "BUY":
+            return str(dict(self.settings["entry"])["order_type"])
+        if normalized != "SELL":
+            raise RuntimeContractError(f"unsupported target order side: {side}")
+        virtual_fill = dict(self.settings.get("virtual_fill", {}))
+        if str(virtual_fill.get("sell", "")).lower() == "marketable_limit_at_open":
+            return "MARKET"
+        return str(dict(self.settings["exit"])["order_type"])
+
 
 @dataclass(frozen=True, slots=True)
 class MonitoringPolicy:

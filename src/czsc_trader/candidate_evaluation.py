@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from strategy_evaluator import EvaluationProtocol, MetricObservation, MetricStatus
-from strategy_runtime import StrategyCandidate, StrategyLoader, canonical_sha256
+from strategy_runtime import StrategyCandidate, StrategyRuntime, canonical_sha256
 
 from .backtesting.datasets import load_replay_data
 from .backtesting.models import StrategyIdentity, StrategySnapshot
@@ -123,7 +123,7 @@ def _snapshot(context: CandidateEvaluationContext, item: dict[str, object]):
         family = str(item.get("strategy_id", context.family_id))
         candidate_id = reference.removeprefix(family + "-") if family else reference
         candidate = StrategyCandidate(family, candidate_id, payload)
-        strategy = StrategyLoader().load_candidate(candidate)
+        strategy = StrategyRuntime().describe(candidate)
         identity = StrategyIdentity("CANDIDATE", candidate.reference_id, "evaluation")
         source_hash = candidate.runtime_identity_sha256
     return StrategySnapshot(identity, source_hash, canonical_sha256(payload), payload), strategy

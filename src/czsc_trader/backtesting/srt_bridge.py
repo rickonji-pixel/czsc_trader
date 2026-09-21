@@ -19,7 +19,6 @@ from strategy_runtime import (
     StrategyRuntime,
     StrategyCandidate,
     RuntimeContractError,
-    effective_target_order_type,
     read_publication,
     canonical_sha256,
 )
@@ -306,8 +305,8 @@ def build_srt_signal_replay(
     }
     if execution.policy_type == "FROZEN_RULE":
         target_order_types = {
-            "entry_order_type": effective_target_order_type(execution.settings, "BUY"),
-            "exit_order_type": effective_target_order_type(execution.settings, "SELL"),
+            "entry_order_type": execution.order_type_for("BUY"),
+            "exit_order_type": execution.order_type_for("SELL"),
         }
     replay = SignalReplay(
         snapshot=snapshot,
@@ -370,7 +369,7 @@ def replay_srt_account(
     strategy = StrategyRuntime().create(
         StrategyInit(
             signals.strategy_source,
-            strategy.window,
+            strategy.tradable_window,
             symbol=(
                 replay_data.adjusted.symbol
                 if signals.snapshot.identity.kind == "REGISTERED"

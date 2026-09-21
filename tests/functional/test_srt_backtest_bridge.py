@@ -145,7 +145,7 @@ def test_txe_historical_executor_refuses_to_finish_with_missing_session_plan() -
         order_types=("LIMIT",),
     )
 
-    with pytest.raises(RuntimeContractError, match="incomplete target-position requests"):
+    with pytest.raises(RuntimeContractError, match="incomplete target-position plans"):
         channel.finish()
 
 

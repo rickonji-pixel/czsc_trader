@@ -16,7 +16,7 @@ from dataflows import DataRequest, DataStatus, Dataflows, Dataset
 from .loader import StrategyLoader
 from .models import DeploymentSpec, StrategyRelease
 from .publication_store import write_publication
-from .runner import StrategyRunner
+from .validation import validate_publication
 
 
 class StrategyPublicationError(RuntimeError):
@@ -355,7 +355,7 @@ class StrategyDataPublisher:
                         timezone(timedelta(hours=8), "Asia/Shanghai"),
                     ),
                 )
-                StrategyRunner.validate_publication(strategy, publication)
+                validate_publication(strategy.definition, publication)
                 if not publication.ready:
                     raise StrategyPublicationError(
                         f"{release.release_id}: publication is {publication.status.value}: "

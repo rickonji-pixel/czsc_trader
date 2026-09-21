@@ -25,7 +25,7 @@ from .validation import validate_publication
 class DataPreparationRequest:
     strategy: StrategyIdentity
     definition: RuntimeDefinition
-    window: TradableWindow
+    tradable_window: TradableWindow
 
     def __post_init__(self) -> None:
         if self.strategy.reference_id != self.definition.release_id:
@@ -39,7 +39,7 @@ class PreparedStrategyData:
     """Immutable-by-contract data admitted for one strategy tradable window."""
 
     strategy: StrategyIdentity
-    window: TradableWindow
+    tradable_window: TradableWindow
     available_through: date
     dataset_identity: str
     input_identities: Mapping[str, str]
@@ -57,7 +57,10 @@ class PreparedStrategyData:
             raise RuntimeContractError("prepared data symbol differs from strategy")
         if not self._tradable_dates or tuple(sorted(set(self._tradable_dates))) != self._tradable_dates:
             raise RuntimeContractError("prepared tradable dates must be unique and ordered")
-        if self.window.start not in self._tradable_dates or self.window.end not in self._tradable_dates:
+        if (
+            self.tradable_window.start not in self._tradable_dates
+            or self.tradable_window.end not in self._tradable_dates
+        ):
             raise RuntimeContractError("prepared data does not cover the tradable window")
         inputs = MappingProxyType(dict(sorted(self.input_identities.items())))
         prices = MappingProxyType(dict(sorted(self.price_identities.items())))
@@ -67,9 +70,9 @@ class PreparedStrategyData:
             {
                 "strategy": self.strategy.reference_id,
                 "release_hash": self.strategy.release_hash,
-                "window": {
-                    "start": self.window.start.isoformat(),
-                    "end": self.window.end.isoformat(),
+                "tradable_window": {
+                    "start": self.tradable_window.start.isoformat(),
+                    "end": self.tradable_window.end.isoformat(),
                 },
                 "available_through": self.available_through.isoformat(),
                 "tradable_dates": [value.isoformat() for value in self._tradable_dates],
@@ -85,7 +88,7 @@ class PreparedStrategyData:
         cls,
         *,
         strategy: StrategyIdentity,
-        window: TradableWindow,
+        tradable_window: TradableWindow,
         publication: PublishedStrategyData,
         pricing: ExecutionPricingData,
         tradable_dates: tuple[date, ...] | None = None,
@@ -117,9 +120,9 @@ class PreparedStrategyData:
             {
                 "strategy": strategy.reference_id,
                 "release_hash": strategy.release_hash,
-                "window": {
-                    "start": window.start.isoformat(),
-                    "end": window.end.isoformat(),
+                "tradable_window": {
+                    "start": tradable_window.start.isoformat(),
+                    "end": tradable_window.end.isoformat(),
                 },
                 "available_through": available_through.isoformat(),
                 "tradable_dates": [value.isoformat() for value in tradable_dates],
@@ -129,7 +132,7 @@ class PreparedStrategyData:
         )
         return cls(
             strategy,
-            window,
+            tradable_window,
             available_through,
             identity,
             input_identities,
@@ -160,11 +163,11 @@ class PreparedStrategyData:
         return tuple(
             value
             for value in self._calendar_dates()
-            if self.window.contains(value)
+            if self.tradable_window.contains(value)
         )
 
     def signal_date_for(self, trading_date: date) -> date:
-        if not self.window.contains(trading_date):
+        if not self.tradable_window.contains(trading_date):
             raise RuntimeContractError("trading date is outside the strategy window")
         previous = [value for value in self._calendar_dates() if value < trading_date]
         if not previous:
@@ -211,21 +214,17 @@ class PublishedDataSource:
             raise RuntimeContractError("strategy publication has no next trading session")
         return future[0]
 
-    def prepare(self, request: DataPreparationRequest) -> PreparedStrategyData:
-        if request.window.start != request.window.end:
-            raise RuntimeContractError(
-                "published data source supports one trading session per preparation"
-            )
-        symbol = _definition_symbol(request.definition)
-        if symbol != request.strategy.symbol:
-            raise RuntimeContractError("published data request symbol differs from strategy")
+    def _verified_publication(
+        self, definition: RuntimeDefinition
+    ) -> tuple[PublishedStrategyData, pd.DataFrame, pd.DataFrame]:
+        symbol = _definition_symbol(definition)
         generation = _read_bound_generation(
             self._directory,
-            release_id=request.definition.release_id,
+            release_id=definition.release_id,
             symbol=symbol,
         )
-        publication = read_publication(self._directory, request.definition.release_id)
-        validate_publication(request.definition, publication)
+        publication = read_publication(self._directory, definition.release_id)
+        validate_publication(definition, publication)
         if publication.requested_cutoff != generation["data_cutoff"]:
             raise RuntimeContractError(
                 "strategy publication cutoff differs from its SRT generation"
@@ -237,13 +236,30 @@ class PublishedDataSource:
             raise RuntimeContractError(
                 "SRT publication has no complete execution-pricing data"
             ) from exc
+        return publication, adjusted, execution
+
+    def verify(self, definition: RuntimeDefinition) -> date:
+        """Verify one stored generation and return its authenticated cutoff."""
+
+        publication, _, _ = self._verified_publication(definition)
+        return date.fromisoformat(publication.requested_cutoff)
+
+    def prepare(self, request: DataPreparationRequest) -> PreparedStrategyData:
+        if request.tradable_window.start != request.tradable_window.end:
+            raise RuntimeContractError(
+                "published data source supports one trading session per preparation"
+            )
+        symbol = _definition_symbol(request.definition)
+        if symbol != request.strategy.symbol:
+            raise RuntimeContractError("published data request symbol differs from strategy")
+        publication, adjusted, execution = self._verified_publication(request.definition)
         prepared = PreparedStrategyData.from_publication(
             strategy=request.strategy,
-            window=request.window,
+            tradable_window=request.tradable_window,
             publication=publication,
             pricing=ExecutionPricingData(symbol, adjusted, execution),
         )
-        if prepared.signal_date_for(request.window.start) != date.fromisoformat(
+        if prepared.signal_date_for(request.tradable_window.start) != date.fromisoformat(
             publication.requested_cutoff
         ):
             raise RuntimeContractError(
@@ -276,7 +292,7 @@ class HistoricalDataSource:
             raise RuntimeContractError("historical pricing belongs to another symbol")
         prepared = PreparedStrategyData.from_publication(
             strategy=request.strategy,
-            window=request.window,
+            tradable_window=request.tradable_window,
             publication=self._publication,
             pricing=self._pricing,
             tradable_dates=tuple(
@@ -288,7 +304,7 @@ class HistoricalDataSource:
             ),
         )
         cutoff = date.fromisoformat(self._publication.requested_cutoff)
-        last_signal = prepared.signal_date_for(request.window.end)
+        last_signal = prepared.signal_date_for(request.tradable_window.end)
         if cutoff < last_signal:
             raise RuntimeContractError("historical publication ends before the signal window")
         return prepared

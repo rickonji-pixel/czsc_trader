@@ -152,26 +152,27 @@ def _srt_primary_keys(staging: Path) -> dict[str, tuple[str, ...]]:
     return result
 
 
-def _runtime_data_contract(strategy) -> dict[str, object]:
+def _runtime_data_contract(definition) -> dict[str, object]:
     """Describe the sole SRT-owned input contract and TDR channel needs."""
 
     from czsc_trader.backtesting.srt_bridge import execution_intraday_frequencies
 
-    definition = strategy.definition
     return {
         "source": "SRT",
         "release_id": definition.release_id,
         "runtime_sha256": definition.runtime_sha256,
         "history": asdict(definition.history),
         "inputs": [asdict(item) for item in definition.inputs.requirements],
-        "execution_intraday_frequencies": list(execution_intraday_frequencies(strategy)),
+        "execution_intraday_frequencies": list(
+            execution_intraday_frequencies(definition)
+        ),
     }
 
 
 def _publish_runtime_history(
     context: RepositoryContext,
     *,
-    strategy,
+    definition,
     symbol: str,
     start: date,
     through: date,
@@ -181,33 +182,23 @@ def _publish_runtime_history(
 
     from dataflows import Dataflows
     from strategy_runtime import (
-        DeploymentSpec,
-        StrategyRunner,
         publish_history,
+        validate_publication,
         write_publication,
     )
 
-    definition = strategy.definition
-    deployment = DeploymentSpec(
-        "backtest-data-publication",
-        definition.release_id,
-        definition.release_hash,
-        symbol.upper(),
-        "backtest-data",
-        "backtest",
-        {
+    publication = publish_history(
+        definition,
+        Dataflows(),
+        symbol=symbol,
+        start=start,
+        through=through,
+        settings={
             "env_file": str(context.root / ".env"),
             "repository_root": str(context.root),
         },
     )
-    publication = publish_history(
-        strategy,
-        Dataflows(),
-        deployment,
-        start=start,
-        through=through,
-    )
-    StrategyRunner.validate_publication(strategy, publication)
+    validate_publication(definition, publication)
     if not publication.ready:
         raise ValueError(
             "SRT historical publication is not ready: "
@@ -321,11 +312,11 @@ def _verify_committed_generation(
     asset_type: str,
     dataset: str,
     release_id: str,
-    strategy,
+    definition,
     data_cutoff: str,
 ) -> None:
     import pandas as pd
-    from strategy_runtime import load_strategy_runtime_context
+    from strategy_runtime import PublishedDataSource
 
     market = load_market_data(target, symbol, asset_type)
     execution = load_execution_prices(target, symbol, asset_type)
@@ -335,8 +326,8 @@ def _verify_committed_generation(
     )
     if not market_sessions.equals(execution_sessions):
         raise ValueError("committed adjusted and execution daily sessions differ")
-    committed = load_strategy_runtime_context(target, strategy)
-    if committed.strategy_data.requested_cutoff != data_cutoff:
+    committed_cutoff = PublishedDataSource(target).verify(definition)
+    if committed_cutoff.isoformat() != data_cutoff:
         raise ValueError(
             "committed SRT publication cutoff differs from market data cutoff"
         )
@@ -349,7 +340,7 @@ def _publish_strategy_generation(
     asset_type: str,
     start: date,
     through: date,
-    strategy,
+    definition,
     target: Path,
     dataset: str,
     append_only: bool,
@@ -367,7 +358,7 @@ def _publish_strategy_generation(
         summary = prepare_market_data(
             symbol, asset_type, start, through, staging, env_file=context.root / ".env"
         )
-        contract = _runtime_data_contract(strategy)
+        contract = _runtime_data_contract(definition)
         intraday_summary: dict[str, object] | None = None
         if contract["execution_intraday_frequencies"]:
             from czsc_trader.intraday_data import prepare_intraday_research_data
@@ -378,7 +369,7 @@ def _publish_strategy_generation(
 
         runtime_publication = _publish_runtime_history(
             context,
-            strategy=strategy,
+            definition=definition,
             symbol=symbol,
             start=start,
             through=through,
@@ -392,7 +383,7 @@ def _publish_strategy_generation(
         if runtime_publication["requested_cutoff"] != data_cutoff:
             raise ValueError("SRT publication cutoff differs from market data cutoff")
         files = [path for path in staging.iterdir() if path.is_file()]
-        current_release = strategy.definition.release_id
+        current_release = definition.release_id
         previous_marker = target / f"{code}_strategy_generation.json"
         if previous_marker.is_file():
             validate_strategy_generation(
@@ -476,7 +467,7 @@ def _publish_strategy_generation(
                 asset_type=asset_type,
                 dataset=dataset,
                 release_id=current_release,
-                strategy=strategy,
+                definition=definition,
                 data_cutoff=data_cutoff,
             ),
         )
@@ -511,7 +502,7 @@ def update_backtest_data(
 ) -> CommandResult:
     """Publish a strategy-aware, append-compatible backtest generation."""
     from strategy_manager import StrategyRegistry
-    from strategy_runtime import StrategyLoader, StrategyRelease
+    from strategy_runtime import StrategyRelease, StrategyRuntime
 
     code = request.symbol.split(".", 1)[0]
     try:
@@ -519,8 +510,8 @@ def update_backtest_data(
             request.strategy_id, request.strategy_version
         )
         release = StrategyRelease.from_mapping(version.to_dict())
-        strategy = StrategyLoader().load_for_symbol(release, request.symbol)
-        contract = _runtime_data_contract(strategy)
+        definition = StrategyRuntime().describe(release, symbol=request.symbol)
+        contract = _runtime_data_contract(definition)
         if contract["execution_intraday_frequencies"] and request.asset_type != "etf":
             raise ValueError("strategy requires ETF intraday data")
     except Exception as exc:
@@ -544,7 +535,7 @@ def update_backtest_data(
         asset_type=request.asset_type,
         start=start,
         through=request.through,
-        strategy=strategy,
+        definition=definition,
         target=context.backtest_data_root,
         dataset="backtest",
         append_only=True,
@@ -552,7 +543,7 @@ def update_backtest_data(
     return CommandResult(
         result.status,
         "data.update-backtest",
-        {**result.result, "strategy": strategy.definition.release_id,
+        {**result.result, "strategy": definition.release_id,
          "data_contract": result.result["data_contracts"][0],
          "runtime_publication": result.result["runtime_publication"]},
         result.artifacts,

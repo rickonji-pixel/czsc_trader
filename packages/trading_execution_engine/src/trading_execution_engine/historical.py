@@ -142,8 +142,6 @@ class HistoricalExecutor:
         self._open_trade: dict[str, object] | None = None
         self._result: ExecutionResult | None = None
 
-        if execution_policy.policy_type == "INTRADAY_OVERLAY":
-            self._bootstrap_overlay_core()
         self._opening_cash = self._cash
         self._opening_quantity = self._quantity
 
@@ -287,7 +285,7 @@ class HistoricalExecutor:
             "status",
         ]
         if self._policy.policy_type == "INTRADAY_OVERLAY":
-            order_columns.append("checkpoint")
+            order_columns.extend(("checkpoint", "role"))
         self._result = ExecutionResult(
             decisions=pd.DataFrame(self._decision_rows),
             orders=_frame(self._order_rows, order_columns),
@@ -323,22 +321,6 @@ class HistoricalExecutor:
             ),
         )
         return self._result
-
-    def _bootstrap_overlay_core(self) -> None:
-        settings = dict(self._effective_policy.settings)
-        prior = self._daily.loc[self._daily.index < self._evaluation.index[0]]
-        if prior.empty:
-            raise RuntimeContractError("intraday overlay backtest requires one pre-window session")
-        price = float(prior.iloc[-1]["close"])
-        lot = int(settings["lot_size"])
-        fee = float(settings["one_way_cost"])
-        budget = self._initial_cash * float(settings["core_fraction"])
-        quantity = int(budget / (price * (1.0 + fee)) // lot * lot)
-        if quantity <= 0:
-            raise RuntimeContractError("initial cash cannot establish one overlay core lot")
-        self._quantity = quantity
-        self._cycle_target = quantity
-        self._cash -= quantity * price * (1.0 + fee)
 
     @staticmethod
     def _decision_id(plan: ExecutionPlan) -> str:
@@ -515,10 +497,13 @@ class HistoricalExecutor:
         signal_date: pd.Timestamp,
         execution_date: pd.Timestamp,
     ) -> None:
-        if plan.plan_mode != "CORE_EVENT_INTRADAY_ROTATION":
-            raise RuntimeContractError(
-                "historical overlay account must enter the window with a sellable core"
-            )
+        if plan.plan_mode not in {"CORE_SETUP", "CORE_EVENT_INTRADAY_ROTATION"}:
+            raise RuntimeContractError(f"unsupported historical overlay plan: {plan.plan_mode}")
+        core_setup = plan.plan_mode == "CORE_SETUP"
+        if core_setup and (self._quantity != 0 or self._cycle_target is not None):
+            raise RuntimeContractError("historical overlay core setup requires an empty account")
+        if not core_setup and self._cycle_target is None:
+            raise RuntimeContractError("historical overlay rotation requires a sellable core")
         five = self._five_minute
         if five is None:
             raise RuntimeContractError("intraday overlay requires 5m execution data")
@@ -585,6 +570,7 @@ class HistoricalExecutor:
                     "limit_price": limit_price,
                     "status": status,
                     "checkpoint": checkpoint,
+                    "role": leg.role,
                 }
             )
             if not can_fill:
@@ -619,7 +605,7 @@ class HistoricalExecutor:
                     "trigger": checkpoint,
                 }
             )
-        if entry_price and exit_price and trade_quantity:
+        if not core_setup and entry_price and exit_price and trade_quantity:
             self._trade_rows.append(
                 {
                     "cycle_id": cycle_id,
@@ -633,7 +619,11 @@ class HistoricalExecutor:
                     - 1.0,
                 }
             )
-        if self._quantity != self._cycle_target:
+        if core_setup:
+            self._cycle_target = plan.cycle_target_quantity if self._quantity else None
+            if self._quantity and self._quantity != self._cycle_target:
+                raise RuntimeContractError("intraday overlay core setup quantity is inconsistent")
+        elif self._quantity != self._cycle_target:
             raise RuntimeContractError("intraday overlay did not restore its sellable core")
         self._state_by_date[execution_date] = {
             "signal_date": signal_date,
@@ -655,6 +645,7 @@ class HistoricalExecutor:
             "signal_date": signal_date,
             "valid_session": execution_date,
             "target_position": plan.target_position,
+            "plan_mode": plan.plan_mode,
         }
         for key, value in plan.evidence.items():
             if key not in row:

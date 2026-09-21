@@ -206,13 +206,34 @@ def _audit_intraday_overlay(
         sides = [str(item["side"]) for item in linked]
         checkpoints = [str(item.get("checkpoint")) for item in linked]
         quantities = [int(item["quantity"]) for item in linked]
-        if (
-            sides != ["BUY", "SELL"]
-            or checkpoints != ["OPEN", "11:30_CLOSE"]
-            or len(set(quantities)) != 1
-            or str(decision.get("action")) != "INTRADAY_LONG_OVERLAY"
-        ):
+        plan_mode = str(decision.get("plan_mode"))
+        if plan_mode == "CORE_SETUP":
+            valid = (
+                sides == ["BUY"]
+                and checkpoints == ["OPEN"]
+                and str(linked[0].get("role")) == "CORE_SETUP"
+            )
+        else:
+            valid = (
+                plan_mode == "CORE_EVENT_INTRADAY_ROTATION"
+                and sides == ["BUY", "SELL"]
+                and checkpoints == ["OPEN", "11:30_CLOSE"]
+                and len(set(quantities)) == 1
+                and str(decision.get("action")) == "INTRADAY_LONG_OVERLAY"
+            )
+        if not valid:
             reasons.append("INVALID_INTRADAY_ORDER_PAIR")
+    core_decisions = [
+        decision_id
+        for decision_id, decision in decisions.items()
+        if str(decision.get("plan_mode")) == "CORE_SETUP"
+    ]
+    first_session = str(evidence.evaluation_sessions[0]) if evidence.evaluation_sessions else ""
+    if (
+        len(core_decisions) != 1
+        or str(decisions[core_decisions[0]].get("valid_session"))[:10] != first_session
+    ):
+        reasons.append("INVALID_CORE_SETUP_COVERAGE")
     checks.append("INTRADAY_ORDER_CONTRACT")
 
     bars_by_time = {str(row["time"])[0:16]: row for row in evidence.execution_intraday}
@@ -256,62 +277,72 @@ def _audit_intraday_overlay(
             or abs(float(fill["fees"]) - quantity * expected_price * fee_rate) > tolerance
         ):
             reasons.append("INTRADAY_FILL_MISMATCH")
+        decision = decisions.get(str(order["decision_id"]), {})
+        if str(decision.get("plan_mode")) == "CORE_SETUP":
+            expected_quantity = int(
+                evidence.initial_cash
+                * core_fraction
+                / (float(order["limit_price"]) * (1 + fee_rate))
+                // lot_size
+                * lot_size
+            )
+            if quantity != expected_quantity:
+                reasons.append("INVALID_CORE_SETUP_QUANTITY")
     checks.append("INTRADAY_CHECKPOINT_PRICES")
 
-    daily_rows = sorted(evidence.execution_daily, key=lambda row: str(row["date"]))
     account_rows = list(evidence.account_daily)
     if not account_rows:
         reasons.append("EMPTY_ACCOUNT_LEDGER")
     else:
-        first_day = str(account_rows[0]["date"])[:10]
-        prior_rows = [row for row in daily_rows if str(row["date"])[:10] < first_day]
-        if not prior_rows:
-            reasons.append("MISSING_SELLABLE_CORE_CONTEXT")
-        else:
-            core_price = float(prior_rows[-1]["close"])
-            quantity = int(
-                evidence.initial_cash * core_fraction / (core_price * (1 + fee_rate))
-                // lot_size * lot_size
-            )
-            cash = evidence.initial_cash - quantity * core_price * (1 + fee_rate)
-            fills_by_day: dict[str, list[Mapping[str, Any]]] = {}
-            for fill in evidence.fills:
-                fills_by_day.setdefault(str(fill["fill_time"])[:10], []).append(fill)
-            previous_day = ""
-            core_quantity = quantity
-            for row in account_rows:
-                day = str(row["date"])[:10]
-                if day <= previous_day:
-                    reasons.append("INVALID_ACCOUNT_INDEX")
-                previous_day = day
-                if (
-                    abs(float(row["cash_before"]) - cash) > tolerance
-                    or int(row["quantity_before"]) != quantity
-                ):
-                    reasons.append("ACCOUNT_OPENING_STATE_MISMATCH")
-                for fill in sorted(fills_by_day.get(day, []), key=lambda item: str(item["fill_time"])):
-                    gross = int(fill["quantity"]) * float(fill["price"])
-                    fees = float(fill["fees"])
-                    if str(fill["side"]) == "BUY":
-                        cash -= gross + fees
-                        quantity += int(fill["quantity"])
-                    else:
-                        cash += gross - fees
-                        quantity -= int(fill["quantity"])
-                expected_equity = cash + quantity * float(row["close"])
-                if (
-                    abs(float(row["cash"]) - cash) > tolerance
-                    or int(row["quantity"]) != quantity
-                    or quantity != core_quantity
-                    or cash < -tolerance
-                    or abs(float(row["equity"]) - expected_equity) > tolerance
-                ):
-                    reasons.append("INTRADAY_ACCOUNT_LEDGER_MISMATCH")
+        cash = evidence.initial_cash
+        quantity = 0
+        core_quantity: int | None = None
+        fills_by_day: dict[str, list[Mapping[str, Any]]] = {}
+        for fill in evidence.fills:
+            fills_by_day.setdefault(str(fill["fill_time"])[:10], []).append(fill)
+        previous_day = ""
+        for row in account_rows:
+            day = str(row["date"])[:10]
+            if day <= previous_day:
+                reasons.append("INVALID_ACCOUNT_INDEX")
+            previous_day = day
+            if (
+                abs(float(row["cash_before"]) - cash) > tolerance
+                or int(row["quantity_before"]) != quantity
+            ):
+                reasons.append("ACCOUNT_OPENING_STATE_MISMATCH")
+            for fill in sorted(fills_by_day.get(day, []), key=lambda item: str(item["fill_time"])):
+                fill_quantity = int(fill["quantity"])
+                gross = fill_quantity * float(fill["price"])
+                fees = float(fill["fees"])
+                if str(fill["side"]) == "BUY":
+                    cash -= gross + fees
+                    quantity += fill_quantity
+                else:
+                    cash += gross - fees
+                    quantity -= fill_quantity
+                decision = decisions.get(str(fill["decision_id"]), {})
+                if str(decision.get("plan_mode")) == "CORE_SETUP":
+                    if core_quantity is not None or str(fill["side"]) != "BUY":
+                        reasons.append("INVALID_CORE_SETUP_FILL")
+                    core_quantity = fill_quantity
+            expected_equity = cash + quantity * float(row["close"])
+            if (
+                abs(float(row["cash"]) - cash) > tolerance
+                or int(row["quantity"]) != quantity
+                or core_quantity is None
+                or quantity != core_quantity
+                or cash < -tolerance
+                or abs(float(row["equity"]) - expected_equity) > tolerance
+            ):
+                reasons.append("INTRADAY_ACCOUNT_LEDGER_MISMATCH")
     checks.append("T_PLUS_ONE_CORE_ROTATION_LEDGER")
 
     cycles: dict[str, list[Mapping[str, Any]]] = {}
     for fill in evidence.fills:
-        cycles.setdefault(str(fill["cycle_id"]), []).append(fill)
+        decision = decisions.get(str(fill["decision_id"]), {})
+        if str(decision.get("plan_mode")) != "CORE_SETUP":
+            cycles.setdefault(str(fill["cycle_id"]), []).append(fill)
     trades = {str(row["cycle_id"]): row for row in evidence.trades}
     if set(cycles) != set(trades):
         reasons.append("TRADE_PAIRING_MISMATCH")

@@ -263,6 +263,7 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
         [
             {"dt": pd.Timestamp("2026-09-16"), "open": 10.0, "close": 10.0},
             {"dt": pd.Timestamp("2026-09-17"), "open": 10.0, "close": 10.1},
+            {"dt": pd.Timestamp("2026-09-18"), "open": 10.0, "close": 10.2},
         ]
     )
     five = pd.DataFrame(
@@ -276,6 +277,20 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
             },
             {
                 "dt": pd.Timestamp("2026-09-17 11:30"),
+                "open": 10.1,
+                "high": 10.3,
+                "low": 10.0,
+                "close": 10.2,
+            },
+            {
+                "dt": pd.Timestamp("2026-09-18 09:35"),
+                "open": 10.0,
+                "high": 10.1,
+                "low": 9.9,
+                "close": 10.0,
+            },
+            {
+                "dt": pd.Timestamp("2026-09-18 11:30"),
                 "open": 10.1,
                 "high": 10.3,
                 "low": 10.0,
@@ -307,7 +322,7 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
         execution_daily=replay_data.execution_daily,
         execution_intraday=replay_data.execution_intraday,
         evaluation_start=pd.Timestamp("2026-09-17"),
-        evaluation_end=pd.Timestamp("2026-09-17"),
+        evaluation_end=pd.Timestamp("2026-09-18"),
         initial_cash=100_000,
         execution_policy=policy,
         order_types=("LIMIT", "MARKET"),
@@ -318,10 +333,10 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
     generated_at = datetime.fromisoformat("2026-09-16T20:30:00").replace(tzinfo=zone)
     point = TradingPoint(pd.Timestamp("2026-09-17").date(), generated_at)
     portfolio, state = channel.snapshot(point)
-    assert portfolio.position_quantity == 4_900
-    buy = PlannedOrder(OrderSide.BUY, 4_600, OrderType.LIMIT, Decimal("10.0"))
-    sell = PlannedOrder(OrderSide.SELL, 4_600, OrderType.MARKET, Decimal("10.2"))
-    plan = _execution_plan(
+    assert portfolio.position_quantity == 0
+    assert portfolio.available_cash == Decimal("100000.0")
+    core = PlannedOrder(OrderSide.BUY, 4_900, OrderType.LIMIT, Decimal("10.0"))
+    core_plan = _execution_plan(
         reference="S003-v1",
         symbol="510500.SH",
         signal_date="2026-09-16",
@@ -329,8 +344,33 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
         generated_at=generated_at,
         portfolio=portfolio,
         state=state,
+        target_position=0.5,
+        target_quantity=4_900,
+        cycle_target_quantity=4_900,
+        plan_mode="CORE_SETUP",
+        fee_rate=float(channel.effective_policy.settings["one_way_cost"]),
+        legs=(PlanLeg(0, "CORE_SETUP", "OPEN", time(9, 30), time(9, 35), core),),
+    )
+    core_outcome = channel.execute(core_plan)
+    assert core_outcome.status == "SETTLED"
+    assert core_outcome.portfolio.position_quantity == 4_900
+    assert core_outcome.state.cycle_target_quantity == 4_900
+
+    generated_at = datetime.fromisoformat("2026-09-17T20:30:00").replace(tzinfo=zone)
+    point = TradingPoint(pd.Timestamp("2026-09-18").date(), generated_at)
+    portfolio, state = channel.snapshot(point)
+    buy = PlannedOrder(OrderSide.BUY, 4_600, OrderType.LIMIT, Decimal("10.0"))
+    sell = PlannedOrder(OrderSide.SELL, 4_600, OrderType.MARKET, Decimal("10.2"))
+    plan = _execution_plan(
+        reference="S003-v1",
+        symbol="510500.SH",
+        signal_date="2026-09-17",
+        valid_date="2026-09-18",
+        generated_at=generated_at,
+        portfolio=portfolio,
+        state=state,
         target_position=1.0,
-        target_quantity=9_500,
+        target_quantity=4_900,
         cycle_target_quantity=4_900,
         plan_mode="CORE_EVENT_INTRADAY_ROTATION",
         fee_rate=float(channel.effective_policy.settings["one_way_cost"]),
@@ -352,16 +392,32 @@ def test_txe_historical_executor_executes_intraday_overlay_plan(fee_override) ->
     assert outcome.status == "SETTLED"
 
     result = channel.finish()
-    assert result.orders["side"].tolist() == ["BUY", "SELL"]
-    assert result.orders["order_type"].tolist() == ["LIMIT", "MARKET"]
-    assert result.fills["price"].tolist() == [10.0, 10.2]
-    assert result.account_daily["quantity"].tolist() == [4_900]
+    assert result.decisions["plan_mode"].tolist() == [
+        "CORE_SETUP",
+        "CORE_EVENT_INTRADAY_ROTATION",
+    ]
+    assert result.orders["side"].tolist() == ["BUY", "BUY", "SELL"]
+    assert result.orders["role"].tolist() == [
+        "CORE_SETUP",
+        "OPEN_ROTATION_BUY",
+        "MIDDAY_ROTATION_SELL",
+    ]
+    assert result.orders["order_type"].tolist() == ["LIMIT", "LIMIT", "MARKET"]
+    assert result.fills["price"].tolist() == [10.0, 10.0, 10.2]
+    assert result.account_daily["quantity"].tolist() == [4_900, 4_900]
     assert result.trades["status"].tolist() == ["CLOSED"]
     rate = 0.00012 if fee_override is None else fee_override
     assert channel.effective_policy.settings["one_way_cost"] == rate
     assert policy.settings["one_way_cost"] == 0.00012
-    assert result.account_daily.iloc[0]["cash_before"] == pytest.approx(100_000 - 49_000 * (1 + rate))
+    assert result.account_daily.iloc[0]["cash_before"] == pytest.approx(100_000)
+    assert result.account_daily.iloc[0]["quantity_before"] == 0
+    assert result.account_daily.iloc[1]["cash_before"] == pytest.approx(
+        100_000 - 49_000 * (1 + rate)
+    )
+    assert result.account_daily.iloc[1]["quantity_before"] == 4_900
     # Event sizing reserves cash against its limit price; it need not equal the core lot.
-    assert result.fills["quantity"].tolist() == [4_600, 4_600]
-    assert result.fills["fees"].tolist() == pytest.approx([46_000 * rate, 46_920 * rate])
+    assert result.fills["quantity"].tolist() == [4_900, 4_600, 4_600]
+    assert result.fills["fees"].tolist() == pytest.approx(
+        [49_000 * rate, 46_000 * rate, 46_920 * rate]
+    )
     assert result.account_daily.iloc[-1]["cash"] == pytest.approx(100_000 - 49_000 * (1 + rate) - 46_000 * (1 + rate) + 46_920 * (1 - rate))

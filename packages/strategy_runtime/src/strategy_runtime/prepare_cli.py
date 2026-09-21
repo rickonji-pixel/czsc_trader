@@ -12,6 +12,8 @@ import re
 from typing import Sequence
 from uuid import uuid4
 
+from dotenv import load_dotenv
+
 from .models import StrategyRelease, canonical_sha256
 from .runtime import StrategyInit, StrategyRuntime
 from .contracts import TradableWindow
@@ -123,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    load_dotenv(Path(args.repo_root).resolve() / ".env", override=False)
     try:
         result = prepare_runtime_data(
             repo_root=args.repo_root,

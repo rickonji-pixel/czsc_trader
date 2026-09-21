@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 
-from czsc_trader.cli.main import build_parser, main
+from czsc_trader.cli.main import _context, build_parser, main
 
 
 EXPECTED_ACTIONS = {
@@ -33,6 +34,23 @@ EXPECTED_ACTIONS = {
     "catalog": {"validate", "list", "show"},
     "template": {"validate", "list", "show", "instantiate"},
 }
+
+
+def test_repository_context_loads_dotenv_without_overriding_process_environment(
+    functional_repo: Path, monkeypatch,
+) -> None:
+    (functional_repo / ".env").write_text(
+        "TUSHARE_TOKEN=repository-token\nSRT_TEST_SETTING=repository-value\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TUSHARE_TOKEN", "process-token")
+    monkeypatch.delenv("SRT_TEST_SETTING", raising=False)
+
+    context = _context(argparse.Namespace(repo_root=functional_repo))
+
+    assert context.root == functional_repo.resolve()
+    assert os.environ["TUSHARE_TOKEN"] == "process-token"
+    assert os.environ["SRT_TEST_SETTING"] == "repository-value"
 
 
 def _subparsers(parser: argparse.ArgumentParser) -> argparse._SubParsersAction:

@@ -9,6 +9,8 @@ from pathlib import Path
 import sys
 import traceback
 
+from dotenv import load_dotenv
+
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.errors import CommandError, InternalError, UsageError
 from .output import write_error, write_result
@@ -32,6 +34,7 @@ def _add_repository_root(parser: argparse.ArgumentParser) -> None:
 
 def _context(args: argparse.Namespace) -> RepositoryContext:
     context = RepositoryContext.discover(Path.cwd(), explicit_root=args.repo_root)
+    load_dotenv(context.root / ".env", override=False)
     data_dir = getattr(args, "data_dir", None)
     if data_dir is not None:
         resolved = data_dir.resolve() if data_dir.is_absolute() else (context.root / data_dir).resolve()

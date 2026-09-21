@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -19,6 +20,7 @@ from strategy_runtime import (
     TradableWindow,
     TradingPoint,
 )
+from strategy_runtime.prepare_cli import main as prepare_main
 
 
 def test_legacy_runner_surface_is_not_public() -> None:
@@ -74,6 +76,42 @@ def test_legacy_runtime_models_are_removed() -> None:
 
 ROOT = Path(__file__).resolve().parents[4]
 ZONE = ZoneInfo("Asia/Shanghai")
+
+
+def test_prepare_cli_loads_repository_dotenv_without_overriding_process_environment(
+    tmp_path, monkeypatch, capsys,
+) -> None:
+    (tmp_path / ".env").write_text(
+        "TUSHARE_TOKEN=repository-token\nSRT_TEST_SETTING=repository-value\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TUSHARE_TOKEN", "process-token")
+    monkeypatch.delenv("SRT_TEST_SETTING", raising=False)
+    observed: dict[str, str] = {}
+
+    def prepare(**kwargs):
+        observed["repo_root"] = str(kwargs["repo_root"])
+        observed["token"] = os.environ["TUSHARE_TOKEN"]
+        observed["setting"] = os.environ["SRT_TEST_SETTING"]
+        return {"prepared": True}
+
+    monkeypatch.setattr("strategy_runtime.prepare_cli.prepare_runtime_data", prepare)
+
+    exit_code = prepare_main([
+        "--repo-root", str(tmp_path),
+        "--data-dir", str(tmp_path / "data"),
+        "--symbol", "510500.SH",
+        "--release", "S002-v1",
+        "--trading-date", "2026-01-05",
+    ])
+
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "PASS"
+    assert observed == {
+        "repo_root": str(tmp_path),
+        "token": "process-token",
+        "setting": "repository-value",
+    }
 
 
 def _release(strategy_id: str, version: str) -> StrategyRelease:

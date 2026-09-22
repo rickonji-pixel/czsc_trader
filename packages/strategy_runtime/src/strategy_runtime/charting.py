@@ -11,8 +11,9 @@ from pathlib import Path, PurePosixPath
 import sys
 from typing import Any, Mapping
 
+from .deployment import load_strategy_deployment
 from .errors import RuntimeCompatibilityError, RuntimeContractError
-from .implementation_identity import implementation_sha256, load_runtime_binding
+from .implementation_identity import implementation_sha256
 
 
 CHART_CONTEXT_VERSION = "strategy_chart.v1"
@@ -164,6 +165,9 @@ def _paths(values: object, field: str) -> tuple[str, ...]:
 class ChartRuntime:
     """Load and invoke the chart implementation locked by an SRT binding."""
 
+    def __init__(self, strategy_root: Path | None = None) -> None:
+        self.strategy_root = None if strategy_root is None else Path(strategy_root).resolve()
+
     @staticmethod
     def _implementation(
         descriptor: object,
@@ -205,7 +209,12 @@ class ChartRuntime:
             root_text = str(root)
             if root_text not in strategy_runtime.__path__:
                 strategy_runtime.__path__.insert(0, root_text)
-            charts = import_module("strategy_runtime.charts")
+            previous_bytecode = sys.dont_write_bytecode
+            sys.dont_write_bytecode = True
+            try:
+                charts = import_module("strategy_runtime.charts")
+            finally:
+                sys.dont_write_bytecode = previous_bytecode
             charts_root = str(root / "charts")
             if charts_root not in charts.__path__:
                 charts.__path__.insert(0, charts_root)
@@ -271,11 +280,14 @@ class ChartRuntime:
         expected_identity_hash: str | None = None,
     ) -> str:
         if descriptor is None:
-            binding = load_runtime_binding(reference_id)
-            descriptor = binding.get("charts")
-            expected_identity_hash = expected_identity_hash or str(
-                binding.get("release_hash", "")
-            )
+            if self.strategy_root is None:
+                raise RuntimeCompatibilityError(
+                    f"strategy deployment root is required for {reference_id}"
+                )
+            deployment = load_strategy_deployment(self.strategy_root, reference_id)
+            descriptor = deployment.binding.get("charts")
+            source_root = deployment.source_root
+            expected_identity_hash = expected_identity_hash or deployment.release_hash
         elif source_root is None or expected_identity_hash is None:
             raise RuntimeCompatibilityError(
                 "candidate chart rendering requires its source root and identity hash"

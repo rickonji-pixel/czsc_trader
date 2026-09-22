@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from importlib.resources import files
 from pathlib import Path
+import sys
 
 import pandas as pd
 from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
@@ -71,6 +72,12 @@ def _request_options(
     package = data_source.get("package")
     if package is None:
         root = Path.cwd().resolve()
+    elif package == "strategy_runtime":
+        module = sys.modules.get(definition.implementation.module)
+        module_file = getattr(module, "__file__", None)
+        if module_file is None:
+            raise RuntimeContractError("strategy implementation source is unavailable")
+        root = Path(module_file).resolve().parent.parent
     elif isinstance(package, str) and package:
         root = Path(str(files(package))).resolve()
     else:

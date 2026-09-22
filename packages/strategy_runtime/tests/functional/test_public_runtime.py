@@ -175,7 +175,7 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
 ) -> None:
     monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
     trading_date = date(2026, 9, 3)
-    strategy = StrategyRuntime().create(
+    strategy = StrategyRuntime(ROOT / "strategies").create(
         StrategyInit(
             _release("S002", "v1"),
             TradableWindow(trading_date, trading_date),
@@ -233,7 +233,7 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
         lambda: (_ for _ in ()).throw(AssertionError("cache must be self-contained")),
     )
     cached = (
-        StrategyRuntime()
+        StrategyRuntime(ROOT / "strategies")
         .create(
             StrategyInit(
                 _release("S002", "v1"),
@@ -247,13 +247,13 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
 
     second_window = TradableWindow(date(2026, 9, 2), date(2026, 9, 2))
     monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
-    StrategyRuntime().create(
+    StrategyRuntime(ROOT / "strategies").create(
         StrategyInit(_release("S002", "v1"), second_window, tmp_path)
     ).prepare_data()
     assert _prepared_manifest(tmp_path, second_window).is_file()
 
     with pytest.raises(RuntimeContractError, match="another strategy"):
-        StrategyRuntime().create(
+        StrategyRuntime(ROOT / "strategies").create(
             StrategyInit(_release("S001", "v1"), second_window, tmp_path)
         ).prepare_data()
 
@@ -261,7 +261,7 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
     input_file = manifest_path.parent / next(iter(manifest["inputs"].values()))["file"]
     input_file.write_bytes(input_file.read_bytes() + b"changed")
     with pytest.raises(RuntimeContractError, match="file was modified"):
-        StrategyRuntime().create(
+        StrategyRuntime(ROOT / "strategies").create(
             StrategyInit(
                 _release("S002", "v1"),
                 TradableWindow(trading_date, trading_date),
@@ -275,7 +275,7 @@ def test_failed_preparation_is_not_exposed_as_prepared_data(tmp_path, monkeypatc
         "strategy_runtime.preparation.Dataflows",
         lambda: (_ for _ in ()).throw(RuntimeError("DFLS unavailable")),
     )
-    strategy = StrategyRuntime().create(
+    strategy = StrategyRuntime(ROOT / "strategies").create(
         StrategyInit(
             _release("S002", "v1"),
             TradableWindow(date(2026, 9, 3), date(2026, 9, 3)),

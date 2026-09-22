@@ -26,6 +26,7 @@ from .errors import (
     RuntimeExecutionError,
     StrategyRuntimeError,
 )
+from .deployment import StrategyDeployment, deployment_inventory, load_strategy_deployment
 from .models import (
     ExecutionPolicy,
     RuntimeDefinition,
@@ -61,6 +62,7 @@ __all__ = [
     "RuntimeDefinition",
     "RuntimeExecutionError",
     "StrategyCandidate",
+    "StrategyDeployment",
     "StrategyIdentity",
     "StrategyInit",
     "StrategyImplementation",
@@ -72,5 +74,7 @@ __all__ = [
     "TradingPoint",
     "WindowExecutor",
     "canonical_sha256",
+    "deployment_inventory",
+    "load_strategy_deployment",
     "validate_chart_context",
 ]

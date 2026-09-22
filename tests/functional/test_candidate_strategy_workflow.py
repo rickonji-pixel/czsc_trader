@@ -200,70 +200,11 @@ def test_candidate_review_imports_and_seals_researcher_package(
 
 def _release_package(repo: Path, reference: str) -> None:
     strategy_id, version = reference.rsplit("-", 1)
-    release = json.loads(
-        (repo / "strategies" / strategy_id / "versions" / f"{version}.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    source_binding = json.loads(
-        (ROOT / "packages" / "strategy_runtime" / "src" / "strategy_runtime" / "bindings" / f"{reference}.json").read_text(
-            encoding="utf-8"
-        )
-    )
     destination = repo / "strategies" / strategy_id / "releases" / version
-    runtime = destination / "runtime" / "strategy_runtime"
-    installed = ROOT / "packages" / "strategy_runtime" / "src" / "strategy_runtime"
-    for name in source_binding["source_files"]:
-        target = runtime / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(installed / name, target)
-    (runtime / "charts").mkdir(parents=True, exist_ok=True)
-    (runtime / "charts" / "__init__.py").write_text("", encoding="utf-8")
-    (runtime / "charts" / "legacy_fixture.py").write_text(
-        "class LegacyCharts:\n"
-        "    @staticmethod\n"
-        "    def render_backtest(context): return 'backtest'\n"
-        "    @staticmethod\n"
-        "    def render_forward_observation(context): return 'forward'\n",
-        encoding="utf-8",
-    )
-    chart_files = ("charts/legacy_fixture.py",)
-    install_files = [
-        *source_binding["source_files"],
-        "charts/__init__.py",
-        "charts/legacy_fixture.py",
-    ]
-    binding = {
-        **source_binding,
-        "install_files": install_files,
-        "charts": {
-            "module": "strategy_runtime.charts.legacy_fixture",
-            "qualname": "LegacyCharts",
-            "contract_version": 1,
-            "source_files": list(chart_files),
-            "source_sha256": implementation_sha256(chart_files, source_root=runtime),
-        },
-    }
-    _write_json(destination / "runtime_binding.json", binding)
-    files = {
-        path.relative_to(destination).as_posix(): _hash(path)
-        for path in sorted(destination.rglob("*"))
-        if path.is_file()
-    }
-    payload = {
-        "schema_version": 1,
-        "strategy_version_id": reference,
-        "strategy_version_hash": release["release_hash"],
-        "source_candidate_id": str(release["source_candidate"]),
-        "candidate_package_hash": "a" * 64,
-        "runtime_root": "runtime/strategy_runtime",
-        "runtime_binding": "runtime_binding.json",
-        "files": files,
-    }
-    _write_json(
-        destination / "release_manifest.json",
-        {**payload, "package_hash": canonical_sha256(payload)},
-    )
+    source = ROOT / "strategies" / strategy_id / "releases" / version
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(source, destination)
 
 
 def test_strategy_commands_cover_only_installed_srt_versions(tmp_path: Path) -> None:
@@ -271,7 +212,7 @@ def test_strategy_commands_cover_only_installed_srt_versions(tmp_path: Path) -> 
     (repo / "src" / "czsc_trader").mkdir(parents=True)
     (repo / "pyproject.toml").write_text("[project]\nname='fixture'\nversion='0.1'\n", encoding="utf-8")
     shutil.copytree(ROOT / "strategies", repo / "strategies")
-    (repo / "packages" / "strategy_runtime" / "src" / "strategy_runtime" / "bindings").mkdir(parents=True)
+    shutil.rmtree(repo / "strategies" / "deployments")
     _release_package(repo, "S007-v1")
     context = RepositoryContext.discover(repo)
 
@@ -289,6 +230,9 @@ def test_strategy_commands_cover_only_installed_srt_versions(tmp_path: Path) -> 
     assert [item["strategy_version_id"] for item in listed.result["strategies"]] == ["S007-v1"]
     assert info.result["strategy_version_id"] == "S007-v1"
     assert info.result["chart_contract"] is True
+    assert not list(
+        (repo / "strategies" / "S007" / "releases" / "v1").rglob("__pycache__")
+    )
 
 
 def test_investment_director_cli_uses_candidate_and_srt_namespaces() -> None:

@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import shutil
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -10,9 +11,8 @@ import pytest
 from paper_trading_engine.release_cli import (
     PTE_LOCAL_PROJECTS,
     PTE_SOURCE_DISTRIBUTIONS,
-    SRT_REQUIRED_RESOURCES,
     _run,
-    _verify_strategy_runtime_wheel_resources,
+    _verify_strategy_runtime_wheel_boundary,
     build_release,
     load_built_release,
     publish_release,
@@ -20,6 +20,9 @@ from paper_trading_engine.release_cli import (
 )
 from paper_trading_engine.runtime_release import load_release
 from czsc_trader.application.context import RepositoryContext
+
+
+ROOT = Path(__file__).resolve().parents[4]
 
 
 def _git(repo: Path, *arguments: str) -> None:
@@ -32,6 +35,7 @@ def _git(repo: Path, *arguments: str) -> None:
 def _create_tagged_release_repo(repo: Path, release_id: str = "v0.4.1") -> None:
     repo.mkdir()
     (repo / ".gitignore").write_text("build/\npackages/*/build/\n", encoding="utf-8")
+    shutil.copy2(ROOT / ".gitattributes", repo / ".gitattributes")
     (repo / "pyproject.toml").write_text("[project]\nname='root'\n", encoding="utf-8")
     (repo / "src" / "czsc_trader").mkdir(parents=True)
     (repo / "src" / "czsc_trader" / "__init__.py").write_text("", encoding="utf-8")
@@ -50,20 +54,7 @@ def _create_tagged_release_repo(repo: Path, release_id: str = "v0.4.1") -> None:
     )
     build_support.mkdir()
     (build_support / "sitecustomize.py").write_text("", encoding="utf-8")
-    strategies = repo / "strategies"
-    strategies.mkdir()
-    (strategies / "registry.json").write_text(
-        '{"schema_version":1,"strategies":[]}', encoding="utf-8",
-    )
-    version = strategies / "S007" / "versions" / "v1.json"
-    version.parent.mkdir(parents=True)
-    version.write_text(
-        '{"strategy_payload":{"rule":{"data_source":'
-        '{"path":"experiments/S007/source.csv.gz","sha256":"'
-        + "a" * 64
-        + '"}}}}',
-        encoding="utf-8",
-    )
+    shutil.copytree(ROOT / "strategies", repo / "strategies")
     evidence = repo / "experiments" / "S007" / "source.csv.gz"
     evidence.parent.mkdir(parents=True)
     evidence.write_bytes(b"research-only")
@@ -117,12 +108,7 @@ class FakeReleaseRunner:
             wheel = destination / name
             if name.startswith("czsc_strategy_runtime-"):
                 with ZipFile(wheel, "w") as archive:
-                    archive.writestr(
-                        "strategy_runtime/resources/s003_v1_seed.csv.gz", b"s003",
-                    )
-                    archive.writestr(
-                        "strategy_runtime/resources/s007_v1_seed.csv.gz", b"s007",
-                    )
+                    archive.writestr("strategy_runtime/__init__.py", b"")
             else:
                 wheel.write_bytes(b"wheel")
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
@@ -174,13 +160,13 @@ def test_release_command_preserves_status_with_non_utf8_windows_output(tmp_path)
     assert completed.stdout == "\ufffd"
 
 
-def test_build_rejects_strategy_runtime_wheel_without_all_resources(tmp_path):
+def test_build_rejects_strategy_runtime_wheel_with_governed_assets(tmp_path):
     wheel = tmp_path / "czsc_strategy_runtime-0.1.0-py3-none-any.whl"
     with ZipFile(wheel, "w") as archive:
-        archive.writestr(SRT_REQUIRED_RESOURCES[0], b"s003")
+        archive.writestr("strategy_runtime/strategies/s003_v1.py", b"strategy")
 
-    with pytest.raises(RuntimeError, match="resources are incomplete"):
-        _verify_strategy_runtime_wheel_resources(tmp_path)
+    with pytest.raises(RuntimeError, match="governed strategy assets"):
+        _verify_strategy_runtime_wheel_boundary(tmp_path)
 
 
 def test_release_verifies_configuration_and_bindings_without_preparing_data(

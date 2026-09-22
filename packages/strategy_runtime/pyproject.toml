@@ -24,9 +24,6 @@ test = ["pytest>=8.0", "ruff>=0.12"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-strategy_runtime = ["bindings/*.json", "resources/*.csv.gz"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests/functional"]
 addopts = "--tb=short -p no:cacheprovider"

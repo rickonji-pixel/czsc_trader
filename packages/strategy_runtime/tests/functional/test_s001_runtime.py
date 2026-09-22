@@ -138,7 +138,7 @@ def test_s001_frozen_versions_load_their_bound_runtime(version: str) -> None:
         (ROOT / f"strategies/S001/versions/{version}.json").read_text(encoding="utf-8")
     )
     release = StrategyRelease.from_mapping(raw)
-    strategy = StrategyLoader().load(release)
+    strategy = StrategyLoader(ROOT / "strategies").load(release)
 
     assert isinstance(strategy, StrategyImplementation)
     assert strategy.definition.release_id == f"S001-{version}"
@@ -150,7 +150,7 @@ def test_s001_frozen_versions_derive_their_calculation_scope(version: str) -> No
     raw = json.loads(
         (ROOT / f"strategies/S001/versions/{version}.json").read_text(encoding="utf-8")
     )
-    strategy = StrategyLoader().load(StrategyRelease.from_mapping(raw))
+    strategy = StrategyLoader(ROOT / "strategies").load(StrategyRelease.from_mapping(raw))
     window = TradableWindow(date(2026, 1, 5), date(2026, 1, 9))
 
     calendar_window = strategy.calendar_window(window)
@@ -186,7 +186,7 @@ def test_s001_refactor_preserves_frozen_signal_history(version: str) -> None:
     raw = json.loads(
         (ROOT / f"strategies/S001/versions/{version}.json").read_text(encoding="utf-8")
     )
-    strategy = StrategyLoader().load(StrategyRelease.from_mapping(raw))
+    strategy = StrategyLoader(ROOT / "strategies").load(StrategyRelease.from_mapping(raw))
     inputs = _calculation_inputs()
     sessions = pd.DatetimeIndex(inputs["adjusted_daily"]["Date"])
     expected = s001_common.calculate_s001_history(
@@ -228,7 +228,7 @@ def test_s001_single_session_preparation_reproduces_the_canonical_signal_and_pla
         lambda: _flows(requests),
     )
     trading_date = date(2026, 1, 30)
-    instance = StrategyRuntime().create(
+    instance = StrategyRuntime(ROOT / "strategies").create(
         StrategyInit(
             release,
             TradableWindow(trading_date, trading_date),
@@ -302,7 +302,7 @@ def test_s001_point_and_window_calculations_apply_their_distinct_state_boundarie
         "strategy_runtime.preparation.Dataflows",
         lambda: _flows(requests),
     )
-    instance = StrategyRuntime().create(
+    instance = StrategyRuntime(ROOT / "strategies").create(
         StrategyInit(
             StrategyRelease.from_mapping(raw),
             TradableWindow(trading_date, trading_date),

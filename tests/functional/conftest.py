@@ -7,7 +7,6 @@ import sys
 
 import strategy_runtime
 import strategy_runtime.charts
-import strategy_runtime.strategies
 from strategy_runtime import implementation_identity
 
 import pandas as pd
@@ -22,15 +21,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def candidate_payload(tmp_path, monkeypatch):
     package_path = list(strategy_runtime.__path__)
     chart_path = list(strategy_runtime.charts.__path__)
-    strategy_path = list(strategy_runtime.strategies.__path__)
     package = tmp_path / "runtime" / "strategy_runtime"
     strategies = package / "strategies"
     strategies.mkdir(parents=True)
     source = Path(__file__).parents[1] / "fixtures" / "candidate_runtime.py"
     shutil.copyfile(source, strategies / "candidate_fixture.py")
     module_name = "strategy_runtime.strategies.candidate_fixture"
-    monkeypatch.setattr(strategy_runtime.strategies, "__path__", [str(strategies)])
-    monkeypatch.setattr(implementation_identity, "files", lambda _: package)
     importlib.invalidate_caches()
     payload = {
         "runtime": {
@@ -40,15 +36,16 @@ def candidate_payload(tmp_path, monkeypatch):
             "source_files": ["strategies/candidate_fixture.py"],
             "source_sha256": implementation_identity.implementation_sha256(
                 ("strategies/candidate_fixture.py",),
+                source_root=package,
             ),
         },
         "parameters": {"threshold": 0.5},
     }
     yield payload, package
     sys.modules.pop(module_name, None)
+    sys.modules.pop("strategy_runtime.strategies", None)
     strategy_runtime.__path__[:] = package_path
     strategy_runtime.charts.__path__[:] = chart_path
-    strategy_runtime.strategies.__path__[:] = strategy_path
 
 
 def _frame(root: Path, pattern: str, date_column: str) -> pd.DataFrame:

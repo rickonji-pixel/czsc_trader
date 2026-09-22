@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, replace
+import json
 from pathlib import Path
 
 from strategy_manager import CandidateSnapshot, StrategyVersion, canonical_sha256
@@ -74,8 +75,20 @@ def validate_runtime_readiness(
     version: StrategyVersion, *, source_root: Path | None = None,
 ) -> dict[str, object]:
     """Load the exact prospective release without changing SM state."""
+    binding = None
+    if source_root is not None:
+        binding_path = Path(source_root).resolve().parent.parent / "runtime_binding.json"
+        if binding_path.is_file():
+            value = json.loads(binding_path.read_text(encoding="utf-8"))
+            if not isinstance(value, dict):
+                raise ValueError("strategy version runtime binding must be an object")
+            binding = value
     return _runtime_report(
-        StrategyRuntime().describe(prospective_release(version), source_root=source_root)
+        StrategyRuntime().describe(
+            prospective_release(version),
+            source_root=source_root,
+            runtime_binding=binding,
+        )
     )
 
 

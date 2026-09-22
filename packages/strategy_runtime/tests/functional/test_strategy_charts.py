@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from strategy_runtime import CHART_CONTEXT_VERSION, ChartRuntime
-from strategy_runtime.implementation_identity import load_runtime_binding
+from strategy_runtime import load_strategy_deployment
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -53,7 +53,7 @@ def _rows(strategy_id: str) -> list[dict]:
 
 def _context(reference: str, mode: str) -> dict:
     strategy_id = reference.partition("-")[0]
-    binding = load_runtime_binding(reference)
+    binding = load_strategy_deployment(ROOT / "strategies", reference).binding
     rows = _rows(strategy_id)
     context = {
         "contract_version": CHART_CONTEXT_VERSION,
@@ -111,7 +111,7 @@ def _context(reference: str, mode: str) -> dict:
     "reference", ["S001-v1", "S001-v2", "S002-v1", "S003-v1", "S007-v1"]
 )
 def test_frozen_strategy_owns_both_chart_modes(reference: str) -> None:
-    runtime = ChartRuntime()
+    runtime = ChartRuntime(ROOT / "strategies")
 
     backtest = runtime.render_backtest(reference, _context(reference, "BACKTEST"))
     forward = runtime.render_forward_observation(
@@ -130,7 +130,7 @@ def test_chart_runtime_rejects_release_hash_drift() -> None:
     context["strategy"]["identity_hash"] = "0" * 64
 
     with pytest.raises(ValueError, match="identity hash differs"):
-        ChartRuntime().render_backtest("S007-v1", context)
+        ChartRuntime(ROOT / "strategies").render_backtest("S007-v1", context)
 
 
 @pytest.mark.parametrize(
@@ -140,7 +140,7 @@ def test_forward_chart_renders_before_first_strategy_decision(reference: str) ->
     context = _context(reference, "FORWARD_OBSERVATION")
     context["strategy_output"]["decisions"] = []
 
-    html = ChartRuntime().render_forward_observation(reference, context)
+    html = ChartRuntime(ROOT / "strategies").render_forward_observation(reference, context)
 
     assert html.startswith("<!doctype html>")
     assert "策略决策</span><strong>0</strong>" in html

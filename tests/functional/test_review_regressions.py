@@ -129,30 +129,32 @@ def test_metrics_include_initial_capital(values, expected):
 def test_frozen_loader_rejects_changed_code_even_with_updated_binding(tmp_path):
     root = Path(__file__).resolve().parents[2]
     shutil.copytree(
-        root / "packages/strategy_runtime/src/strategy_runtime", tmp_path / "strategy_runtime",
+        root / "strategies", tmp_path / "strategies",
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     script = r'''
 import json, sys
 from pathlib import Path
-sys.path.insert(0, sys.argv[1])
 from strategy_runtime import StrategyRelease, RuntimeCompatibilityError
 from strategy_runtime.loader import StrategyLoader
 from strategy_runtime.implementation_identity import implementation_sha256
-package = Path(sys.argv[1]) / "strategy_runtime"
+strategy_root = Path(sys.argv[1]) / "strategies"
+package = strategy_root / "S007/releases/v1/runtime/strategy_runtime"
 release = StrategyRelease.from_mapping(json.loads(Path(sys.argv[2]).read_text(encoding="utf-8")))
 if sys.argv[3] == "loaded":
-    StrategyLoader().load(release)
+    StrategyLoader(strategy_root).load(release)
 source = package / "strategies/s007_v1.py"
 source.write_text(source.read_text(encoding="utf-8") + "\n# changed after startup\n", encoding="utf-8")
-binding_path = package / "bindings/S007-v1.json"
+binding_path = package.parent.parent / "runtime_binding.json"
 binding = json.loads(binding_path.read_text(encoding="utf-8"))
-binding["implementation_sha256"] = implementation_sha256(tuple(binding["source_files"]))
+binding["implementation_sha256"] = implementation_sha256(
+    tuple(binding["source_files"]), source_root=package,
+)
 binding_path.write_text(json.dumps(binding), encoding="utf-8")
 try:
-    StrategyLoader().load(release)
+    StrategyLoader(strategy_root).load(release)
 except RuntimeCompatibilityError as exc:
-    assert "fresh process" in str(exc), str(exc)
+    assert "file differs" in str(exc), str(exc)
 else:
     raise AssertionError("changed runtime was accepted")
 '''

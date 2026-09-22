@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
-from strategy_runtime.implementation_identity import load_runtime_binding
+from strategy_runtime import load_strategy_deployment
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _observation_payload() -> dict[str, object]:
@@ -26,7 +30,9 @@ def _observation_payload() -> dict[str, object]:
         "strategy_id": "S001",
         "strategy_version": "v2",
         "reference_id": "S001-v2",
-        "identity_hash": load_runtime_binding("S001-v2")["release_hash"],
+        "identity_hash": load_strategy_deployment(
+            ROOT / "strategies", "S001-v2"
+        ).release_hash,
         "symbol": "588080.SH",
         "configuration": {
             "rule": {"entry_threshold": 0.175, "exit_threshold": 0.025}
@@ -109,7 +115,9 @@ def _observation_payload() -> dict[str, object]:
 def test_ft_t05_observation_chart_is_owned_by_frozen_srt() -> None:
     from czsc_trader.observation_chart import render_forward_chart_html
 
-    html = render_forward_chart_html(_observation_payload())
+    html = render_forward_chart_html(
+        _observation_payload(), strategy_root=ROOT / "strategies"
+    )
 
     assert html.lstrip().startswith("<!doctype html>")
     assert "PTE · 前瞻观察" in html

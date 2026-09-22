@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -17,6 +18,14 @@ from typing import Any, Callable, Mapping, Sequence
 from urllib.request import urlopen
 from uuid import uuid4
 from zipfile import BadZipFile, ZipFile
+
+from strategy_runtime import (
+    ChartRuntime,
+    StrategyRelease,
+    StrategyRuntime,
+    deployment_inventory,
+    load_strategy_deployment,
+)
 
 from .runtime_release import (
     MANIFEST_NAME,
@@ -55,12 +64,6 @@ PTE_SOURCE_DISTRIBUTIONS = ("futu-api",)
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 SourceDistributionFetcher = Callable[[str, str, Path], Path]
 BUILD_MANIFEST_NAME = "build-manifest.json"
-SRT_REQUIRED_RESOURCES = (
-    "strategy_runtime/resources/s003_v1_seed.csv.gz",
-    "strategy_runtime/resources/s007_v1_seed.csv.gz",
-)
-
-
 def _run(
     command: Sequence[str], *, cwd: Path, runner: Runner = subprocess.run,
     env: Mapping[str, str] | None = None,
@@ -167,24 +170,51 @@ def _wheel_path(artifacts: Path, distribution: str) -> Path:
     return matches[0]
 
 
-def _verify_strategy_runtime_wheel_resources(artifacts: Path) -> None:
+def _verify_strategy_runtime_wheel_boundary(artifacts: Path) -> None:
     wheel = _wheel_path(artifacts, "czsc-strategy-runtime")
     try:
         with ZipFile(wheel) as archive:
             members = set(archive.namelist())
-            missing = [name for name in SRT_REQUIRED_RESOURCES if name not in members]
-            empty = [
+            forbidden = sorted(
                 name
-                for name in SRT_REQUIRED_RESOURCES
-                if name in members and archive.getinfo(name).file_size == 0
-            ]
+                for name in members
+                if name.startswith(
+                    (
+                        "strategy_runtime/strategies/",
+                        "strategy_runtime/bindings/",
+                        "strategy_runtime/resources/",
+                    )
+                )
+                or re.fullmatch(r"strategy_runtime/charts/s\d+\.py", name)
+            )
     except (BadZipFile, OSError) as exc:
         raise RuntimeError(f"cannot inspect strategy runtime wheel: {wheel.name}") from exc
-    if missing or empty:
+    if forbidden:
         raise RuntimeError(
-            "strategy runtime wheel resources are incomplete: "
-            f"missing={missing}, empty={empty}"
+            f"strategy runtime wheel contains governed strategy assets: {forbidden}"
         )
+
+
+def _verify_strategy_snapshot(strategy_root: Path) -> dict[str, str]:
+    inventory = deployment_inventory(strategy_root)
+    runtime = StrategyRuntime(strategy_root)
+    charts = ChartRuntime()
+    for reference in inventory:
+        family, version = reference.split("-", 1)
+        path = strategy_root / family / "versions" / f"{version}.json"
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"cannot read deployed strategy version: {reference}") from exc
+        release = StrategyRelease.from_mapping(payload)
+        runtime.describe(release)
+        deployment = load_strategy_deployment(strategy_root, reference)
+        charts.validate_descriptor(
+            deployment.binding.get("charts"),
+            source_root=deployment.source_root,
+            install_files=deployment.install_files,
+        )
+    return inventory
 
 
 def _constraint_pin(constraints: Path, distribution: str) -> str:
@@ -311,6 +341,7 @@ def _write_build_manifest(
             for path in sorted((release_root / "artifacts").glob("*.whl"))
         },
         "strategy_snapshot_sha256": tree_sha256(release_root / "strategies"),
+        "strategy_releases": _verify_strategy_snapshot(release_root / "strategies"),
         "files": {
             "build-constraints.txt": file_sha256(
                 release_root / "build-constraints.txt"
@@ -364,6 +395,8 @@ def load_built_release(build_root: Path, release_id: str) -> BuiltRelease:
         or tree_sha256(strategies) != manifest.get("strategy_snapshot_sha256")
     ):
         raise RuntimeError("PTE build strategy snapshot differs from manifest")
+    if _verify_strategy_snapshot(strategies) != manifest.get("strategy_releases"):
+        raise RuntimeError("PTE build strategy release inventory differs from manifest")
     files = manifest.get("files")
     if not isinstance(files, dict) or not files:
         raise RuntimeError("PTE build manifest has no file inventory")
@@ -384,10 +417,10 @@ def _verify_installed_environment(
     release_root: Path, *, repo_root: Path, runner: Runner,
 ) -> None:
     script = (
-        "import importlib.metadata as m,json\n"
+        "import importlib.metadata as m,json,sys\n"
+        "from pathlib import Path\n"
         "import paper_trading_engine.cli\n"
-        "from czsc_trader.application.strategy_service import show_strategy_deployments\n"
-        "from czsc_trader.observation_chart import render_forward_chart_html\n"
+        "from strategy_runtime import StrategyRelease,StrategyRuntime,deployment_inventory\n"
         "expected=('paper-trading-engine','czsc-trader-research','czsc-strategy-runtime',"
         "'czsc-strategy-manager','czsc-dataflows')\n"
         "forbidden=('vectorbt','optuna','tsfresh','czsc-strategy-evaluator',"
@@ -405,9 +438,16 @@ def _verify_installed_environment(
         "    present.append(name)\n"
         "assert not editable, f'editable PTE packages: {editable}'\n"
         "assert not present, f'RSCH-only packages installed in PTE: {present}'\n"
+        "root=Path(sys.argv[1]); strategies=root/'strategies'\n"
+        "inventory=deployment_inventory(strategies)\n"
+        "runtime=StrategyRuntime(strategies)\n"
+        "for reference in inventory:\n"
+        "    family,version=reference.split('-',1)\n"
+        "    payload=json.loads((strategies/family/'versions'/f'{version}.json').read_text(encoding='utf-8'))\n"
+        "    runtime.describe(StrategyRelease.from_mapping(payload))\n"
     )
     _run(
-        [str(_python_in(release_root / ".venv")), "-c", script],
+        [str(_python_in(release_root / ".venv")), "-c", script, str(release_root)],
         cwd=repo_root,
         runner=runner,
     )
@@ -436,6 +476,7 @@ def _write_manifest(
         },
         "artifacts": artifacts,
         "strategy_snapshot_sha256": tree_sha256(release_root / "strategies"),
+        "strategy_releases": _verify_strategy_snapshot(release_root / "strategies"),
         "runtime_files": dict(sorted(runtime_files.items())),
     }
     (release_root / MANIFEST_NAME).write_text(
@@ -597,7 +638,7 @@ def build_release(
                 cwd=source_root, env=build_env,
                 runner=runner,
             )
-        _verify_strategy_runtime_wheel_resources(artifacts)
+        _verify_strategy_runtime_wheel_boundary(artifacts)
         source_archives = staging / ".source-archives"
         for distribution in PTE_SOURCE_DISTRIBUTIONS:
             version = _constraint_pin(constraints, distribution)

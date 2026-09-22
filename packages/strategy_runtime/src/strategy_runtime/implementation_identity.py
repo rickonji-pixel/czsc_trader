@@ -2,18 +2,35 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from hashlib import sha256
-from importlib.resources import files
-import json
 from pathlib import Path, PurePosixPath
+from collections.abc import Iterator
 
 from .errors import RuntimeCompatibilityError
+
+
+_SOURCE_ROOT: ContextVar[Path | None] = ContextVar("srt_source_root", default=None)
+
+
+@contextmanager
+def strategy_source_root(source_root: Path | None) -> Iterator[None]:
+    """Bind implicit implementation hashes to the release package being loaded."""
+
+    token = _SOURCE_ROOT.set(None if source_root is None else Path(source_root).resolve())
+    try:
+        yield
+    finally:
+        _SOURCE_ROOT.reset(token)
 
 
 def implementation_sha256(
     source_files: tuple[str, ...], *, source_root: Path | None = None,
 ) -> str:
-    root = Path(source_root).resolve() if source_root is not None else files("strategy_runtime")
+    root = Path(source_root).resolve() if source_root is not None else _SOURCE_ROOT.get()
+    if root is None:
+        raise RuntimeCompatibilityError("strategy source root is required")
     digest = sha256()
     for name in sorted(source_files):
         relative = PurePosixPath(name)
@@ -27,25 +44,3 @@ def implementation_sha256(
         digest.update(resource.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
-
-
-def load_runtime_binding(release_id: str) -> dict[str, object]:
-    resource = files("strategy_runtime").joinpath("bindings", f"{release_id}.json")
-    try:
-        payload = json.loads(resource.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeCompatibilityError(
-            f"runtime binding is unavailable for frozen release {release_id}"
-        ) from exc
-    if not isinstance(payload, dict) or payload.get("release_id") != release_id:
-        raise RuntimeCompatibilityError("runtime binding identity is invalid")
-    source_files = payload.get("source_files")
-    expected = payload.get("implementation_sha256")
-    if (
-        not isinstance(source_files, list)
-        or not source_files
-        or not all(isinstance(item, str) for item in source_files)
-        or not isinstance(expected, str)
-    ):
-        raise RuntimeCompatibilityError("runtime binding fields are invalid")
-    return payload

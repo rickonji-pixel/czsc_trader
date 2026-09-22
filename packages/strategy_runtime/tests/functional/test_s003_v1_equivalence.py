@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[4]
 BASELINE_PATH = ROOT / "packages/strategy_runtime/tests/fixtures/s003_v1_equivalence.json"
 SEED_PATH = (
     ROOT
-    / "packages/strategy_runtime/src/strategy_runtime/resources/s003_v1_seed.csv.gz"
+    / "strategies/S003/releases/v1/runtime/strategy_runtime/resources/s003_v1_seed.csv.gz"
 )
 HISTORICAL_WINDOW = TradableWindow(date(2026, 9, 1), date(2026, 9, 8))
 FORWARD_WINDOW = TradableWindow(date(2026, 9, 21), date(2026, 9, 21))
@@ -129,8 +129,8 @@ def test_frozen_s003_evidence_is_immutable() -> None:
 def test_runtime_definition_preserves_frozen_s003_contract() -> None:
     baseline = _baseline()
     _raw, release = _release()
-    strategy = StrategyLoader().load(release)
-    definition = StrategyRuntime().describe(release)
+    strategy = StrategyLoader(ROOT / "strategies").load(release)
+    definition = StrategyRuntime(ROOT / "strategies").describe(release)
 
     assert isinstance(strategy, StrategyImplementation)
     assert definition.release_id == baseline["strategy_reference"]
@@ -146,7 +146,7 @@ def test_runtime_definition_preserves_frozen_s003_contract() -> None:
 
 def test_s003_derives_historical_and_forward_preparation_scopes() -> None:
     _raw, release = _release()
-    strategy = StrategyLoader().load(release)
+    strategy = StrategyLoader(ROOT / "strategies").load(release)
     calendar_dates = tuple(pd.bdate_range("2026-01-01", "2026-09-30").date)
 
     historical = strategy.derive_calculation_scope(HISTORICAL_WINDOW, calendar_dates)
@@ -176,7 +176,7 @@ def test_s003_derives_historical_and_forward_preparation_scopes() -> None:
 def test_s003_seed_is_compact_and_matches_every_frozen_decision() -> None:
     baseline = _baseline()
     raw, release = _release()
-    strategy = StrategyLoader().load(release)
+    strategy = StrategyLoader(ROOT / "strategies").load(release)
     seed = pd.read_csv(SEED_PATH)
     seed_identity = baseline["runtime_seed"]
     assert _file_sha256(SEED_PATH) == seed_identity["sha256"]
@@ -216,7 +216,7 @@ def test_s003_seed_is_compact_and_matches_every_frozen_decision() -> None:
 
 def test_s003_appends_one_session_from_seed_snapshot() -> None:
     _raw, release = _release()
-    strategy = StrategyLoader().load(release)
+    strategy = StrategyLoader(ROOT / "strategies").load(release)
     seed = pd.read_csv(SEED_PATH).tail(61).reset_index(drop=True)
     members = json.loads(seed.loc[seed.index[-1], "ConstituentsJson"])
     session = pd.Timestamp("2026-09-09")
@@ -245,7 +245,7 @@ def test_s003_appends_one_session_from_seed_snapshot() -> None:
 
 def test_s003_rejects_increment_below_frozen_coverage_gate() -> None:
     _raw, release = _release()
-    strategy = StrategyLoader().load(release)
+    strategy = StrategyLoader(ROOT / "strategies").load(release)
     seed = pd.read_csv(SEED_PATH).tail(61).reset_index(drop=True)
     members = json.loads(seed.loc[seed.index[-1], "ConstituentsJson"])
     session = pd.Timestamp("2026-09-09")
@@ -315,7 +315,7 @@ def test_historical_prepare_uses_seed_without_incremental_publications(
     )
     monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: flows)
     _raw, release = _release()
-    instance = StrategyRuntime().create(
+    instance = StrategyRuntime(ROOT / "strategies").create(
         StrategyInit(release, HISTORICAL_WINDOW, tmp_path)
     )
 

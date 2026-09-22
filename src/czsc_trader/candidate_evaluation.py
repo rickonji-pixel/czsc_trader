@@ -137,7 +137,8 @@ def _snapshot(context: CandidateEvaluationContext, item: dict[str, object]):
     if not isinstance(payload, dict):
         raise ValueError(f"candidate {item['candidate_id']} has no complete strategy_payload")
     reference = str(item["candidate_id"])
-    if item.get("is_incumbent") and "-v" in reference:
+    registered = bool(item.get("is_incumbent") and "-v" in reference)
+    if registered:
         release, strategy = load_srt_strategy(context.repository.root, reference, deployment_symbol=context.symbol)
         if canonical_sha256(payload) != canonical_sha256(release.payload):
             raise ValueError("incumbent manifest payload differs from the frozen release")
@@ -155,8 +156,8 @@ def _snapshot(context: CandidateEvaluationContext, item: dict[str, object]):
         source_hash = candidate.runtime_identity_sha256
     return StrategySnapshot(
         identity, source_hash, canonical_sha256(payload), payload,
-        runtime_root=runtime_root if not item.get("is_incumbent") else None,
-        chart_descriptor=chart_descriptor if not item.get("is_incumbent") else None,
+        runtime_root=runtime_root if not registered else None,
+        chart_descriptor=chart_descriptor if not registered else None,
     ), strategy
 
 

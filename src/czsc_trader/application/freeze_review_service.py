@@ -1101,8 +1101,42 @@ def evaluate_freeze_review(
         _assert_submitted_inputs(submission, experiment, protocol, manifest)
         source_experiment = experiment
         review_directory = _review_directory(context, credential, submission)
+        candidate_ids = {
+            str(item["candidate_id"])
+            for item in manifest.get("candidates", [])
+            if isinstance(item, dict) and item.get("candidate_id") is not None
+        }
+        runtime_roots = (
+            {
+                reference: runtime_root
+                for candidate_id in candidate_ids
+                for reference in (
+                    candidate_id,
+                    f"{snapshot.strategy_id}-{candidate_id}",
+                )
+            }
+            if runtime_root is not None
+            else None
+        )
+        chart_descriptors = (
+            {
+                reference: chart_descriptor
+                for candidate_id in candidate_ids
+                for reference in (
+                    candidate_id,
+                    f"{snapshot.strategy_id}-{candidate_id}",
+                )
+            }
+            if chart_descriptor is not None
+            else None
+        )
         dataset = publish_review_dataset(
-            context, {**manifest, "strategy_id": snapshot.strategy_id}, protocol, review_directory,
+            context,
+            {**manifest, "strategy_id": snapshot.strategy_id},
+            protocol,
+            review_directory,
+            candidate_runtime_roots=runtime_roots,
+            candidate_chart_descriptors=chart_descriptors,
         )
         experiment = _review_experiment(
             review_directory, snapshot, source_experiment, protocol, manifest,
@@ -1120,18 +1154,8 @@ def evaluate_freeze_review(
             external_replays=_external_replays(experiment, snapshot),
             review_data_root=review_directory,
             review_data_hash=dataset["snapshot_hash"],
-            candidate_runtime_roots={
-                snapshot.candidate_id: runtime_root,
-                f"{snapshot.strategy_id}-{snapshot.candidate_id}": runtime_root,
-            }
-            if runtime_root is not None
-            else None,
-            candidate_chart_descriptors={
-                snapshot.candidate_id: chart_descriptor,
-                f"{snapshot.strategy_id}-{snapshot.candidate_id}": chart_descriptor,
-            }
-            if chart_descriptor is not None
-            else None,
+            candidate_runtime_roots=runtime_roots,
+            candidate_chart_descriptors=chart_descriptors,
         )
         machine = evaluation.result.get("machine_evaluation")
         if not isinstance(machine, dict):

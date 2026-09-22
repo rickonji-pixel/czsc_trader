@@ -121,7 +121,10 @@ def _chart_observation(args: argparse.Namespace) -> RawCommandOutput:
     render = payload.get("render")
     if not isinstance(render, dict) or render.get("plotly_runtime") != args.plotly_runtime:
         raise ValueError("chart context and CLI plotly runtime differ")
-    return RawCommandOutput(render_forward_chart_html(payload))
+    context = _context(args)
+    return RawCommandOutput(
+        render_forward_chart_html(payload, strategy_root=context.strategy_root)
+    )
 
 
 def _news_extract(args: argparse.Namespace):

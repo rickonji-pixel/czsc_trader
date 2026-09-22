@@ -16,6 +16,9 @@ from strategy_runtime.execution_planner import build_execution_plan
 from strategy_runtime.strategy import _capital_terms
 
 
+ROOT = Path(__file__).resolve().parents[4]
+
+
 def test_schema_v2_release_hash_covers_executable_identity_not_governance() -> None:
     from strategy_runtime import StrategyRelease, canonical_sha256
 
@@ -82,17 +85,22 @@ def test_every_active_frozen_release_has_a_matching_source_binding() -> None:
                 encoding="utf-8"
             )
         )
-        strategy = StrategyLoader().load(StrategyRelease.from_mapping(payload))
+        strategy = StrategyLoader(ROOT / "strategies").load(
+            StrategyRelease.from_mapping(payload)
+        )
         assert strategy.definition.implementation.source_sha256
 
 
 def test_loader_rejects_source_that_differs_from_frozen_binding(monkeypatch) -> None:
     root = Path(__file__).resolve().parents[4]
     payload = json.loads((root / "strategies/S007/versions/v1.json").read_text(encoding="utf-8"))
-    monkeypatch.setattr("strategy_runtime.loader.implementation_sha256", lambda _files: "0" * 64)
+    monkeypatch.setattr(
+        "strategy_runtime.loader.implementation_sha256",
+        lambda _files, **_kwargs: "0" * 64,
+    )
 
     with pytest.raises(RuntimeCompatibilityError, match="differs from runtime binding"):
-        StrategyLoader().load(StrategyRelease.from_mapping(payload))
+        StrategyLoader(ROOT / "strategies").load(StrategyRelease.from_mapping(payload))
 
 
 def test_symbol_binding_is_explicit_and_fails_closed() -> None:
@@ -101,7 +109,7 @@ def test_symbol_binding_is_explicit_and_fails_closed() -> None:
     s001_payload = json.loads(
         (root / "strategies/S001/versions/v2.json").read_text(encoding="utf-8")
     )
-    bound = StrategyLoader().load_for_symbol(
+    bound = StrategyLoader(ROOT / "strategies").load_for_symbol(
         StrategyRelease.from_mapping(s001_payload), "159352.SZ"
     )
     etf_subjects = {
@@ -115,7 +123,9 @@ def test_symbol_binding_is_explicit_and_fails_closed() -> None:
         (root / "strategies/S007/versions/v1.json").read_text(encoding="utf-8")
     )
     with pytest.raises(RuntimeCompatibilityError, match="does not support"):
-        StrategyLoader().load_for_symbol(StrategyRelease.from_mapping(s007_payload), "588300.SH")
+        StrategyLoader(ROOT / "strategies").load_for_symbol(
+            StrategyRelease.from_mapping(s007_payload), "588300.SH"
+        )
 
 
 def test_target_execution_plan_honors_frozen_limit_exit() -> None:

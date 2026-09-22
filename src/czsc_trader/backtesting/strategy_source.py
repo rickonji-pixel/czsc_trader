@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from strategy_manager import StrategyRegistry, canonical_sha256
-from strategy_runtime import StrategyCandidate, StrategyRuntime
+from strategy_runtime import StrategyCandidate, StrategyRuntime, load_strategy_deployment
 
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.identity import canonical_json_sha256
@@ -44,6 +44,7 @@ def resolve_registered_strategy(
         else None
     )
     strategy_payload = dict(release.strategy_payload)
+    deployment = load_strategy_deployment(context.strategy_root, release.release_id)
     return StrategySnapshot(
         identity=StrategyIdentity(
             "REGISTERED", release.release_id, str(context.strategy_root)
@@ -53,6 +54,8 @@ def resolve_registered_strategy(
         strategy_payload=strategy_payload,
         research_start=None if research_window is None else research_window[0],
         research_end=None if research_window is None else research_window[1],
+        runtime_root=deployment.source_root,
+        chart_descriptor=dict(deployment.binding["charts"]),
     )
 
 

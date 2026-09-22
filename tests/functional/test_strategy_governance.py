@@ -308,7 +308,9 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     from strategy_runtime import StrategyCandidate
     from strategy_runtime.loader import StrategyLoader
     from czsc_trader.application.runtime_acceptance import _runtime_report
-    loaded = StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", payload))
+    loaded = StrategyLoader().load_candidate(
+        StrategyCandidate("S900", "C001", payload, package)
+    )
     readiness = _runtime_report(loaded.definition)
     requirements = readiness["input_contract"]["requirements"]
     execution_policy = readiness["execution_policy"]
@@ -466,6 +468,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
             mandate_path=mandate,
             actor="tester",
             reason="missing implementation",
+            runtime_root=package,
         )
     assert rejected.value.code == "freeze_review_open_failed"
     registry = StrategyRegistry(functional_repo / "strategies")
@@ -479,6 +482,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         mandate_path=mandate,
         actor="tester",
         reason="批准候选进入冻结流程",
+        runtime_root=package,
     )
     opened_replay = open_freeze_review(
         RepositoryContext.discover(functional_repo),
@@ -487,24 +491,25 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         mandate_path=mandate,
         actor="tester",
         reason="批准候选进入冻结流程",
+        runtime_root=package,
     )
     registry = StrategyRegistry(functional_repo / "strategies")
     credential = registry.get_governance_credential("S900", "SGC-S900-001")
     submission = credential.seals[-1]
     stored_snapshot = CandidateSnapshot.from_dict(submission.content["candidate_snapshot"])
     stored_mandate = EvaluationMandate.from_dict(submission.content["evaluation_mandate"])
-    runtime = _candidate_runtime(stored_snapshot)
+    runtime = _candidate_runtime(stored_snapshot, package)
     assert runtime["identity_kind"] == "CANDIDATE"
     assert runtime["release_id"] == "S900-C001"
     assert registry.versions("S900") == ()
     assert submission.content["candidate_runtime"] == runtime
-    assert _submitted_runtime(submission, stored_snapshot) == runtime
+    assert _submitted_runtime(submission, stored_snapshot, package) == runtime
     source = package / "strategies" / "candidate_fixture.py"
     original_source = source.read_bytes()
     source.write_bytes(original_source + b"\n# changed after submission\n")
     from strategy_runtime import RuntimeCompatibilityError
     with pytest.raises(RuntimeCompatibilityError, match="source hash"):
-        _submitted_runtime(submission, stored_snapshot)
+        _submitted_runtime(submission, stored_snapshot, package)
     source.write_bytes(original_source)
     file_audits = {
         "objective_recalculation": "formal_metrics.csv",
@@ -587,6 +592,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
             freeze_review_candidate(
                 RepositoryContext.discover(functional_repo), "S900", "SGC-S900-001",
                 actor="tester", reason="approve", change_summary="first",
+                runtime_root=package,
             )
     assert registry.versions("S900") == ()
     assert registry.get_governance_credential("S900", "SGC-S900-001").stage is GovernanceStage.TDR_ADJUDICATED
@@ -597,6 +603,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         change_summary="首个冻结版本",
         actor="tester",
         reason="批准低成本模拟观察",
+        runtime_root=package,
     )
     replay = freeze_review_candidate(
         RepositoryContext.discover(functional_repo),
@@ -605,6 +612,7 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         change_summary="首个冻结版本",
         actor="tester",
         reason="批准低成本模拟观察",
+        runtime_root=package,
     )
 
     assert created["result"]["family"]["strategy_id"] == "S900"
@@ -672,11 +680,13 @@ def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
         credential_id="SGC-S901-001",
         credential_content={"research_intent": "验证TDR独立复核"},
     )
-    payload, _ = candidate_payload
+    payload, package = candidate_payload
     from strategy_runtime import StrategyCandidate, StrategyRuntime
     from czsc_trader.application.runtime_acceptance import _runtime_report
     readiness = _runtime_report(
-        StrategyRuntime().describe(StrategyCandidate("S901", "C001", payload))
+        StrategyRuntime().describe(
+            StrategyCandidate("S901", "C001", payload, package)
+        )
     )
     requirements = readiness["input_contract"]["requirements"]
     policy = readiness["execution_policy"]
@@ -695,7 +705,7 @@ def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
         "research_claims": {"annual_return": 100_000.0, "maximum_drawdown": -0.18},
     }
     snapshot = CandidateSnapshot.from_dict(_hashed(snapshot_raw, "candidate_hash"))
-    candidate_runtime = validate_candidate_readiness(snapshot)
+    candidate_runtime = validate_candidate_readiness(snapshot, source_root=package)
     audits = [
         "objective_recalculation",
         "frequency_recalculation",
@@ -829,7 +839,7 @@ def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
     # Orchestration test stubs data ingestion and numerical assessment; it asserts
     # isolated destinations and sealed input propagation, not statistical validity.
     monkeypatch.setattr("czsc_trader.application.freeze_review_service.publish_review_dataset",
-                        lambda *args: {"snapshot_hash": "d" * 64})
+                        lambda *args, **kwargs: {"snapshot_hash": "d" * 64})
     monkeypatch.setattr("czsc_trader.application.freeze_review_service.verify_review_dataset",
                         lambda *args: {"snapshot_hash": "d" * 64})
     calls = []
@@ -909,11 +919,17 @@ def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
     changed["init_cash"] *= 2
     _write_json(experiment / "candidate_manifest.json", changed)
     with pytest.raises(ValidationError, match="submission seal"):
-        evaluate_freeze_review(context, "S901", "SGC-S901-001")
+        evaluate_freeze_review(
+            context, "S901", "SGC-S901-001", runtime_root=package,
+        )
     assert not calls
     _write_json(experiment / "candidate_manifest.json", manifest)
-    result = evaluate_freeze_review(context, "S901", "SGC-S901-001")
-    replay = evaluate_freeze_review(context, "S901", "SGC-S901-001")
+    result = evaluate_freeze_review(
+        context, "S901", "SGC-S901-001", runtime_root=package,
+    )
+    replay = evaluate_freeze_review(
+        context, "S901", "SGC-S901-001", runtime_root=package,
+    )
     assert {path.name: _hash_file(path) for path in artifacts.iterdir()} == source_hashes
 
     assert len(calls) == 1
@@ -945,5 +961,6 @@ def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
             actor="tester",
             reason="test gate 3",
             change_summary="test",
+            runtime_root=package,
         )
     assert registry.versions("S901") == ()

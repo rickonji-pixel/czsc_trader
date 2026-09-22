@@ -21,7 +21,7 @@ def _release() -> tuple[StrategyRelease, dict[str, object]]:
 def test_loader_discovers_s002_without_a_central_release_switch() -> None:
     release, _ = _release()
 
-    strategy = StrategyLoader().load(release)
+    strategy = StrategyLoader(ROOT / "strategies").load(release)
 
     assert strategy.definition.release_id == "S002-v1"
     assert strategy.definition.implementation.module.endswith("strategies.s002_v1")
@@ -40,8 +40,8 @@ def test_loader_fails_clearly_when_implementation_is_missing() -> None:
     raw["release_hash"] = canonical_sha256(raw)
     release = StrategyRelease.from_mapping(raw)
 
-    with pytest.raises(RuntimeCompatibilityError, match="runtime binding is unavailable"):
-        StrategyLoader().load(release)
+    with pytest.raises(RuntimeCompatibilityError, match="deployment file"):
+        StrategyLoader(ROOT / "strategies").load(release)
 
 
 def test_strategy_release_rejects_payload_with_a_borrowed_hash() -> None:

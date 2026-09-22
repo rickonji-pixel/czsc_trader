@@ -64,7 +64,7 @@ def prepare_runtime_data(
     selected = sorted(set(releases))
     if not selected:
         raise ValueError("at least one frozen strategy release is required")
-    runtime = StrategyRuntime()
+    runtime = StrategyRuntime(Path(repo_root).resolve() / "strategies")
     entries: dict[str, object] = {}
     prepared_dates: set[str] = set()
     for strategy_id, version in selected:

@@ -91,7 +91,9 @@ def load_srt_strategy(
     """Load a frozen runtime, optionally bound to an explicit backtest symbol."""
 
     release = _load_release(repository_root, reference)
-    definition = StrategyRuntime().describe(release, symbol=deployment_symbol)
+    definition = StrategyRuntime(Path(repository_root) / "strategies").describe(
+        release, symbol=deployment_symbol,
+    )
     return release, definition
 
 
@@ -116,7 +118,7 @@ def describe_snapshot_strategy(
             raise RuntimeContractError("candidate release hashes differ from the snapshot")
         if snapshot.content_hash != canonical_sha256(snapshot.strategy_payload):
             raise RuntimeContractError("candidate snapshot content hash differs")
-        definition = StrategyRuntime().describe(source)
+        definition = StrategyRuntime(Path(repository_root) / "strategies").describe(source)
     elif snapshot.identity.kind == "REGISTERED":
         source = _load_release(repository_root, snapshot.identity.reference)
         if (
@@ -125,7 +127,9 @@ def describe_snapshot_strategy(
             != canonical_sha256(source.payload)
         ):
             raise RuntimeContractError("registered snapshot differs from its frozen release")
-        definition = StrategyRuntime().describe(source, symbol=deployment_symbol)
+        definition = StrategyRuntime(Path(repository_root) / "strategies").describe(
+            source, symbol=deployment_symbol,
+        )
     else:
         raise RuntimeContractError(
             f"unsupported strategy identity: {snapshot.identity.kind}"
@@ -223,7 +227,7 @@ def build_srt_signal_replay(
         snapshot,
         deployment_symbol=execution_data.symbol,
     )
-    runtime = StrategyRuntime()
+    runtime = StrategyRuntime(Path(repository_root) / "strategies")
     if end.normalize() > pd.Timestamp(execution_data.cutoff):
         raise RuntimeContractError("backtest window exceeds the published cutoff")
     sessions = pd.DatetimeIndex(
@@ -390,7 +394,8 @@ def replay_srt_account(
         else:
             settings["one_way_cost"] = float(fee_rate_override)
         effective_policy = ExecutionPolicy(effective_policy.policy_type, settings)
-    strategy = StrategyRuntime().create(
+    strategy_root = Path(signals.snapshot.identity.source)
+    strategy = StrategyRuntime(strategy_root).create(
         StrategyInit(
             signals.strategy_source,
             strategy.tradable_window,

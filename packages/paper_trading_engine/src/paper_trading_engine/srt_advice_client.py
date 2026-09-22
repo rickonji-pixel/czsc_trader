@@ -264,7 +264,7 @@ class SrtAdviceClient:
         directory = (account_root / relative).resolve()
         if relative.is_absolute() or not directory.is_relative_to(account_root):
             raise AdviceClientError("prepared-data directory is unsafe")
-        strategy = StrategyRuntime().create(
+        strategy = StrategyRuntime(self.repo_root / "strategies").create(
             StrategyInit(
                 release,
                 TradableWindow(trading_date, trading_date),
@@ -425,7 +425,7 @@ class SrtAdviceClient:
             release=release,
             symbol=symbol,
         ) or self._new_space(root, account_id)
-        strategy = StrategyRuntime().create(
+        strategy = StrategyRuntime(self.repo_root / "strategies").create(
             StrategyInit(
                 release,
                 TradableWindow(trading_date, trading_date),
@@ -489,7 +489,9 @@ class SrtAdviceClient:
         if asset != "etf":
             raise AdviceClientError("PTE currently requires one ETF strategy")
         release = self._load_release(strategy_id, strategy_version)
-        StrategyRuntime().describe(release, symbol=symbol.upper())
+        StrategyRuntime(self.repo_root / "strategies").describe(
+            release, symbol=symbol.upper(),
+        )
         return _strategy_identity(self.repo_root, release)
 
     def _audit_call(self, started: float, *, error=None, **scope) -> None:

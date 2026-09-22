@@ -104,7 +104,7 @@ def _prepared_instance(tmp_path, monkeypatch):
     requests: list[object] = []
     flows = _flows(requests)
     monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: flows)
-    instance = StrategyRuntime().create(
+    instance = StrategyRuntime(ROOT / "strategies").create(
         StrategyInit(_release(), WINDOW, tmp_path)
     )
     instance.prepare_data()
@@ -244,7 +244,7 @@ def test_frozen_formal_execution_evidence_is_immutable() -> None:
 
 def test_runtime_definition_preserves_frozen_calculation_contract() -> None:
     baseline = _baseline()
-    definition = StrategyRuntime().describe(_release())
+    definition = StrategyRuntime(ROOT / "strategies").describe(_release())
 
     assert definition.release_id == baseline["strategy_reference"]
     assert definition.release_hash == baseline["release_hash"]

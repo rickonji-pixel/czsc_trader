@@ -105,7 +105,7 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
     monkeypatch.delitem(sys.modules, chart_module, raising=False)
     # Use an existing family presenter; strategy calculation remains the test SRT.
     payload["rule"] = {"entry_threshold": .5, "exit_threshold": .5}
-    candidate = StrategyCandidate("S001", "C001", payload)
+    candidate = StrategyCandidate("S001", "C001", payload, package)
     strategy = StrategyLoader().load_candidate(candidate)
     definition = strategy.definition
     sessions = pd.bdate_range("2026-09-14", periods=5)
@@ -190,7 +190,14 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
 
 
 
-def _execute(source: StrategyCandidate | StrategyRelease, data_dir, monkeypatch):
+def _execute(
+    source: StrategyCandidate | StrategyRelease,
+    data_dir,
+    monkeypatch,
+    *,
+    source_root=None,
+    runtime_binding=None,
+):
     sessions = pd.bdate_range("2026-09-14", periods=5)
     inputs = {"flow": pd.DataFrame({"Date": sessions, "Flow": [0.1, 0.8, 0.2, 0.9, 0.0]})}
     daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0})
@@ -200,6 +207,8 @@ def _execute(source: StrategyCandidate | StrategyRelease, data_dir, monkeypatch)
             source,
             TradableWindow(sessions[1].date(), sessions[-1].date()),
             data_dir,
+            source_root=source_root,
+            runtime_binding=runtime_binding,
         )
     )
     _install_candidate_dataflows(monkeypatch, inputs["flow"], daily)
@@ -222,13 +231,13 @@ def _execute(source: StrategyCandidate | StrategyRelease, data_dir, monkeypatch)
 def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(
     candidate_payload, tmp_path, monkeypatch,
 ):
-    payload, _ = candidate_payload
-    candidate = StrategyCandidate("S900", "C001", payload)
+    payload, package = candidate_payload
+    candidate = StrategyCandidate("S900", "C001", payload, package)
     loader = StrategyLoader()
     first = loader.load_candidate(candidate)
     changed = deepcopy(payload)
     changed["parameters"]["threshold"] = 1.0
-    second_source = StrategyCandidate("S900", "C001", changed)
+    second_source = StrategyCandidate("S900", "C001", changed, package)
     second = loader.load_candidate(second_source)
     assert first.definition.version is None
     assert first.definition.identity_kind == "CANDIDATE"
@@ -250,9 +259,21 @@ def test_parameter_search_and_release_use_one_implementation_and_isolated_txe(
     }
     raw["release_hash"] = canonical_sha256(raw)
     frozen_source = StrategyRelease.from_mapping(raw)
-    frozen = loader.load(frozen_source)
+    runtime_binding = {
+        "release_id": frozen_source.release_id,
+        "release_hash": frozen_source.release_hash,
+        "source_files": payload["runtime"]["source_files"],
+        "implementation_sha256": payload["runtime"]["source_sha256"],
+    }
+    frozen = loader.load(
+        frozen_source, source_root=package, runtime_binding=runtime_binding,
+    )
     frozen_history, frozen_ledger = _execute(
-        frozen_source, tmp_path / "frozen", monkeypatch
+        frozen_source,
+        tmp_path / "frozen",
+        monkeypatch,
+        source_root=package,
+        runtime_binding=runtime_binding,
     )
     assert frozen.definition.identity_kind == "RELEASE"
     assert frozen.definition.implementation == first.definition.implementation
@@ -276,7 +297,7 @@ def test_candidate_load_fails_closed_on_source_and_parameter_identity_errors(
 ):
     payload, package = candidate_payload
     loader = StrategyLoader()
-    original = StrategyCandidate("S900", "C001", payload)
+    original = StrategyCandidate("S900", "C001", payload, package)
     valid = loader.load_candidate(original)
     daily = pd.DataFrame({"dt": pd.to_datetime(["2026-09-17"]), "open": [1.0], "close": [1.0]})
     execution = dict(
@@ -307,16 +328,20 @@ def test_candidate_load_fails_closed_on_source_and_parameter_identity_errors(
     create = factory.from_candidate
     monkeypatch.setattr(factory, "from_candidate", lambda _: valid)
     with pytest.raises(RuntimeCompatibilityError, match="candidate identity"):
-        loader.load_candidate(StrategyCandidate("S900", "C001", bad_parameters))
+        loader.load_candidate(
+            StrategyCandidate("S900", "C001", bad_parameters, package)
+        )
     monkeypatch.setattr(factory, "from_candidate", create)
     wrong_closure = deepcopy(payload)
     wrong_closure["runtime"]["source_files"] = ["../secrets.py"]
     with pytest.raises(RuntimeCompatibilityError, match="unsafe path"):
-        loader.load_candidate(StrategyCandidate("S900", "C001", wrong_closure))
+        loader.load_candidate(
+            StrategyCandidate("S900", "C001", wrong_closure, package)
+        )
     missing = deepcopy(payload)
     missing["runtime"].pop("source_files")
     with pytest.raises(RuntimeCompatibilityError, match="incomplete"):
-        loader.load_candidate(StrategyCandidate("S900", "C001", missing))
+        loader.load_candidate(StrategyCandidate("S900", "C001", missing, package))
     path = package / "strategies/candidate_fixture.py"
     path.write_bytes(path.read_bytes() + b"\n# changed after submission\n")
     with pytest.raises(RuntimeCompatibilityError, match="source hash differs"):
@@ -324,9 +349,10 @@ def test_candidate_load_fails_closed_on_source_and_parameter_identity_errors(
     changed = deepcopy(payload)
     changed["runtime"]["source_sha256"] = implementation_identity.implementation_sha256(
         ("strategies/candidate_fixture.py",),
+        source_root=package,
     )
     with pytest.raises(RuntimeCompatibilityError, match="fresh process"):
-        loader.load_candidate(StrategyCandidate("S900", "C001", changed))
+        loader.load_candidate(StrategyCandidate("S900", "C001", changed, package))
 
 
 def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload, tmp_path, monkeypatch):
@@ -338,7 +364,7 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
     from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
     from czsc_trader.application.evaluation_evidence import build_champion_audit_request
 
-    payload, _ = candidate_payload
+    payload, package = candidate_payload
     sessions = pd.bdate_range("2026-09-14", periods=6)
     daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0})
     # First buy cannot fill; next day the unchanged target must retry and fill.
@@ -371,6 +397,7 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
         SimpleNamespace(root=tmp_path), "588080.SH", "etf",
         (("full", (sessions[1], sessions[-1])),), .001, 100_000, frequency_window_days=3,
         family_id="S900",
+        candidate_runtime_roots={"C000": package, "C001": package},
     )
     protocol = SimpleNamespace(development_cutoff="2026-09-21", incumbent_id="C000",
                                experiment_id="TEST", execution_policy_hash="e" * 64, standard_version="opc-v3")
@@ -429,7 +456,7 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
     from czsc_trader.data import MarketData
 
-    payload, _ = candidate_payload
+    payload, package = candidate_payload
     payload["parameters"]["with_calendar"] = True
     sessions = pd.bdate_range("2026-09-14", periods=6)
     daily = pd.DataFrame({"dt": sessions, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0})
@@ -477,7 +504,13 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         "review_data_sources": sources,
     }
     directory = tmp_path / "data" / "review" / "SGC-TEST" / ("a" * 64)
-    published = publish_review_dataset(context, manifest, protocol, directory)
+    published = publish_review_dataset(
+        context,
+        manifest,
+        protocol,
+        directory,
+        candidate_runtime_roots={"C001": package},
+    )
     restored = load_review_dataset(directory, published["snapshot_hash"])
     assert_frame_equal(restored.execution_daily, daily)
     assert_frame_equal(restored.adjusted_daily, daily)
@@ -486,6 +519,7 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         context, "588080.SH", "etf", (("full", (sessions[1], sessions[-1])),),
         .001, 100_000, family_id="S900", review_data_root=directory,
         review_data_hash=published["snapshot_hash"],
+        candidate_runtime_roots={"C001": package},
     )
     rows = evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL")
     assert rows[0].closed_trades == 1
@@ -496,14 +530,26 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     monkeypatch.setattr(
         "czsc_trader.candidate_evaluation.prepare_backtest_execution_data", forbidden
     )
-    assert publish_review_dataset(context, manifest, protocol, directory) == published
+    assert publish_review_dataset(
+        context,
+        manifest,
+        protocol,
+        directory,
+        candidate_runtime_roots={"C001": package},
+    ) == published
     assert evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL") == rows
     with pytest.raises(ValueError, match="sealed snapshot"):
         load_review_dataset(directory, "0" * 64)
     changed = deepcopy(manifest)
     changed["candidates"][0]["strategy_payload"]["parameters"]["threshold"] = .7
     with pytest.raises(ValueError, match="different evaluation inputs"):
-        publish_review_dataset(context, changed, protocol, directory)
+        publish_review_dataset(
+            context,
+            changed,
+            protocol,
+            directory,
+            candidate_runtime_roots={"C001": package},
+        )
 
     # A new preparation fails atomically when SRT cannot prepare its own inputs.
     monkeypatch.setattr(
@@ -513,7 +559,13 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     failed_directory = directory.parent / ("b" * 64)
     monkeypatch.setattr("strategy_runtime.preparation.Dataflows", forbidden)
     with pytest.raises(AssertionError, match="must not access remote"):
-        publish_review_dataset(context, manifest, protocol, failed_directory)
+        publish_review_dataset(
+            context,
+            manifest,
+            protocol,
+            failed_directory,
+            candidate_runtime_roots={"C001": package},
+        )
     assert not failed_directory.exists()
 
     snapshot_file = directory / "execution_daily.csv.gz"
@@ -537,7 +589,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     from czsc_trader.data import MarketData
     from strategy_evaluator import EvaluationProtocol
 
-    payload, _ = candidate_payload
+    payload, package = candidate_payload
     sessions = pd.bdate_range("2026-01-05", periods=132)
     changes = np.array([.02 if i % 2 else -.02 for i in range(len(sessions))])
     changes[::14] = .015
@@ -598,7 +650,9 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         params["parameters"] = {"threshold": threshold, "with_calendar": True, "entry_premium": .01}
         if identity == "C000":
             params["parameters"]["invert"] = True
-        strategy = StrategyLoader().load_candidate(StrategyCandidate("S900", identity, params))
+        strategy = StrategyLoader().load_candidate(
+            StrategyCandidate("S900", identity, params, package)
+        )
         candidates.append({"candidate_id": identity, "strategy_id": "S900", "strategy_payload": params,
                            "strategy_hash": canonical_sha256(params),
                            "execution_policy_hash": _runtime_report(strategy.definition)["execution_policy_sha256"],
@@ -630,7 +684,13 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     (experiment / "evaluation_protocol.json").write_text(json.dumps(protocol.to_dict()), encoding="utf-8")
     (experiment / "candidate_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     directory = tmp_path / "data" / "review" / "fixture"
-    published = publish_review_dataset(context, manifest, protocol, directory)
+    published = publish_review_dataset(
+        context,
+        manifest,
+        protocol,
+        directory,
+        candidate_runtime_roots={item["candidate_id"]: package for item in candidates},
+    )
     def forbidden(*args, **kwargs):
         raise AssertionError("review computation must not read the mutable research pool")
     monkeypatch.setattr(
@@ -639,6 +699,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     result = evaluate_experiment(
         context, "REVIEW", allow_artifact_reuse=False, use_cached_result=False,
         review_data_root=directory, review_data_hash=published["snapshot_hash"],
+        candidate_runtime_roots={item["candidate_id"]: package for item in candidates},
     )
     assert result.result["formal_evaluation_contract"]["review_data_hash"] == published["snapshot_hash"]
     assert result.result["formal_evaluation_contract"]["execution_engine"] == "TXE-v1"
@@ -664,7 +725,11 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     candidate = candidates[1]
     metrics = pd.read_csv(experiment / "artifacts" / "formal_metrics.csv")
     claimed_return = float(metrics.loc[metrics.candidate_id == "C001", "net_cagr"].iloc[0])
-    ready = _runtime_report(StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", candidate["strategy_payload"])).definition)
+    ready = _runtime_report(
+        StrategyLoader().load_candidate(
+            StrategyCandidate("S900", "C001", candidate["strategy_payload"], package)
+        ).definition
+    )
     snapshot = _hashed({
         "schema_version": 1, "strategy_id": "S900", "candidate_id": "C001",
         "source_experiment": "experiments/S900/REVIEW", "strategy_payload": candidate["strategy_payload"],
@@ -687,39 +752,56 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     open_freeze_review(
         context, credential_id="SGC-S900-001", candidate_path=_write_json(tmp_path / "candidate.json", snapshot),
         mandate_path=_write_json(tmp_path / "mandate.json", mandate.to_dict()), actor="tester", reason="test gate 2",
+        runtime_root=package,
     )
     monkeypatch.setattr(
         "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
         lambda **kw: execution_data,
     )
-    reviewed = evaluate_freeze_review(context, "S900", "SGC-S900-001")
+    reviewed = evaluate_freeze_review(
+        context, "S900", "SGC-S900-001", runtime_root=package,
+    )
     report = reviewed.result["adjudication_report"]
     assert {path.name: sha256(path.read_bytes()).hexdigest() for path in (experiment / "artifacts").iterdir()} == source_before
     registry = StrategyRegistry(context.strategy_root)
     assert registry.versions("S900") == ()
     assert report["blocking_findings"] == []
     assert all(audit["status"] == "PASS" for audit in report["audit_results"].values())
-    assert evaluate_freeze_review(context, "S900", "SGC-S900-001").result["idempotent_replay"] is True
+    assert evaluate_freeze_review(
+        context, "S900", "SGC-S900-001", runtime_root=package,
+    ).result["idempotent_replay"] is True
     # A cached eligible report cannot conceal later evidence damage.
     review_metrics = context.root / reviewed.artifacts["source_experiment"] / "artifacts" / "formal_metrics.csv"
     original_metrics = review_metrics.read_bytes()
     try:
         review_metrics.write_bytes(original_metrics + b"\n")
         with pytest.raises(ValidationError, match="evidence changed after review"):
-            evaluate_freeze_review(context, "S900", "SGC-S900-001")
+            evaluate_freeze_review(
+                context, "S900", "SGC-S900-001", runtime_root=package,
+            )
         with pytest.raises(ValidationError, match="evidence changed after review"):
-            freeze_review_candidate(context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test")
+            freeze_review_candidate(
+                context,
+                "S900",
+                "SGC-S900-001",
+                actor="tester",
+                reason="test gate 3",
+                change_summary="test",
+                runtime_root=package,
+            )
         assert registry.versions("S900") == ()
         assert registry.get_governance_credential("S900", "SGC-S900-001").stage.value == "TDR_ADJUDICATED"
     finally:
         review_metrics.write_bytes(original_metrics)
     frozen = freeze_review_candidate(
         context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test",
+        runtime_root=package,
     )
     assert frozen.result["version"]["release_id"] == "S900-v1"
     assert frozen.result["pte_deployment"] == "NOT_REQUESTED"
     repeated = freeze_review_candidate(
         context, "S900", "SGC-S900-001", actor="tester", reason="test gate 3", change_summary="test",
+        runtime_root=package,
     )
     assert repeated.result["idempotent_replay"] is True
     assert len(registry.versions("S900")) == 1
@@ -728,14 +810,24 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         "RESEARCH_INITIATED", "CANDIDATE_SUBMITTED", "TDR_ADJUDICATED", "FREEZE_APPROVED", "VERSION_FROZEN",
     ]
     release = StrategyRelease.from_mapping(registry.get_version("S900", "v1").to_dict())
-    frozen_strategy = StrategyLoader().load(release)
+    release_binding = {
+        "release_id": release.release_id,
+        "release_hash": release.release_hash,
+        "source_files": candidate["strategy_payload"]["runtime"]["source_files"],
+        "implementation_sha256": candidate["strategy_payload"]["runtime"]["source_sha256"],
+    }
+    frozen_strategy = StrategyLoader().load(
+        release, source_root=package, runtime_binding=release_binding,
+    )
     frozen_runtime = _runtime_report(frozen_strategy.definition)
     for field in (
         "input_contract", "execution_policy", "implementation", "parameters_sha256",
         "decision_contract", "state_mode", "capabilities_sha256", "monitoring_sha256",
     ):
         assert frozen_runtime[field] == ready[field]
-    candidate_strategy = StrategyLoader().load_candidate(StrategyCandidate("S900", "C001", candidate["strategy_payload"]))
+    candidate_strategy = StrategyLoader().load_candidate(
+        StrategyCandidate("S900", "C001", candidate["strategy_payload"], package)
+    )
     history_inputs = {"flow": pd.DataFrame({"Date": sessions, "Flow": flow_values})}
     assert_frame_equal(
         candidate_strategy.calculate_history(history_inputs, sessions),

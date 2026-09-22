@@ -8,8 +8,6 @@ from typing import Any
 import pandas as pd
 from strategy_runtime import CHART_CONTEXT_VERSION
 
-from czsc_trader.charting import _normalize_daily
-
 from .execution_data import BacktestExecutionData
 from .result import BacktestResult
 from .signal_replay import SignalReplay
@@ -19,6 +17,14 @@ def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:
     if frame.empty:
         return []
     return json.loads(frame.to_json(orient="records", date_format="iso"))
+
+
+def _normalize_daily(daily: pd.DataFrame) -> pd.DataFrame:
+    frame = daily.copy()
+    if "dt" in frame.columns:
+        frame = frame.set_index("dt")
+    frame.index = pd.DatetimeIndex(pd.to_datetime(frame.index), name="dt")
+    return frame.sort_index()
 
 
 def build_backtest_chart_context(

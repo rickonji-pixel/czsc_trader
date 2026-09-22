@@ -28,7 +28,7 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE和WDG关键业务能力的同
 
 - 仓库内临时产物统一写入根目录`.tmp/`，该目录整体由Git忽略；
 - Pytest每个进程使用`.tmp/pytest/run-<随机ID>`，结束时清理；Ruff缓存写入
-  `.tmp/ruff/cache`；
+  `.tmp/ruff/cache`；完整回归日志写入`.tmp/test-regression/run-<随机ID>`；
 - TDR发布前暂存目录通过`czsc_trader.temp_workspace`创建，并按`backtest`、
   `market-data`、`backtest-update`、`intraday-data`和`evaluation`分区；
 - 禁止新建`.pytest-*`、`.test-tmp`、包内`.pytest_cache`，也禁止把暂存目录放进
@@ -130,7 +130,17 @@ TDR、DFLS、FSC、STC、SM、SE、SRT、TXE、PTE和WDG关键业务能力的同
 | 已验收后的纯文档提交、合并或推送 | 检查文档、链接和差异；实现未变化时复用已验收测试结果 |
 | 服务或外部渠道变更交付 | 完整离线回归后，再执行明确授权的在线验证 |
 
-完整离线回归：
+完整离线回归默认使用仓库级并行入口：
+
+```powershell
+.\scripts\test-all.ps1
+```
+
+脚本固定运行TDR、PTE和其余子包三条通道，各通道使用独立Pytest工作区和Python字节码缓存；
+PTE通道同时运行控制台Node测试。所有通道结束后统一运行Ruff、输出每条通道的耗时和退出码，
+并把完整日志写入`.tmp/test-regression/`。任一通道、Node测试或Ruff失败时，脚本整体返回失败。
+
+需要定位失败模块时，使用以下串行命令单独复现：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests -q
@@ -290,4 +300,7 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 - SRT：48项通过，23.44秒；TXE：2项通过；
 - PTE：80项通过，78.46秒；PTE控制台：3项通过；
 - Ruff：通过；
+- 默认并行回归入口连续两轮通过，总耗时分别为140.65秒和137.68秒；相对215.89秒串行基线
+  缩短约35%至36%；
+- 增加父进程精确清理后再次通过，耗时145.83秒；本轮Pytest工作区和Python字节码缓存均已清除；
 - 未执行在线Tushare、Futu OpenD、Windows服务或PTE生产环境检查，这些仍属于独立授权的交付验收。

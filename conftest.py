@@ -12,8 +12,9 @@ import pytest
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parent
 _EXPECTED_VENV = (_REPOSITORY_ROOT / ".venv").resolve()
-_PYTEST_RUN = _REPOSITORY_ROOT / ".tmp" / "pytest" / f"run-{uuid4().hex}"
-_PYTHON_CACHE_ROOT = _REPOSITORY_ROOT / ".tmp" / "pycache"
+_RUN_ID = os.environ.get("CZSC_PYTEST_RUN_ID") or uuid4().hex
+_PYTEST_RUN = _REPOSITORY_ROOT / ".tmp" / "pytest" / f"run-{_RUN_ID}"
+_PYTHON_CACHE_ROOT = _REPOSITORY_ROOT / ".tmp" / "pycache" / f"run-{_RUN_ID}"
 
 if Path(sys.prefix).resolve() != _EXPECTED_VENV:
     raise pytest.UsageError(
@@ -49,4 +50,5 @@ def pytest_sessionfinish() -> None:
     """Remove the process workspace and pytest's root bootstrap bytecode."""
 
     shutil.rmtree(_PYTEST_RUN, ignore_errors=True)
+    shutil.rmtree(_PYTHON_CACHE_ROOT, ignore_errors=True)
     shutil.rmtree(_REPOSITORY_ROOT / "__pycache__", ignore_errors=True)

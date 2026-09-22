@@ -369,6 +369,8 @@ Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
 最近一次仓库级治理完成于2026-09-22：42个测试文件共收集252个Python测试项和3个Node
 测试项，完整离线回归及Ruff均通过。治理记录、模块耗时、保留理由和未覆盖在线检查统一维护在
 [测试用例治理](TEST_GOVERNANCE.md)的“最近一次治理记录”章节；后续治理以该记录为比较基线。
+完整离线回归默认运行`.\scripts\test-all.ps1`，三条模块通道全部结束后统一汇总退出码并运行
+Ruff；通道日志位于`.tmp/test-regression/`。单模块失败定位命令继续以测试治理文档为准。
 
 仓库内临时文件统一进入根目录`.tmp/`并按用途分区。业务代码通过
 `czsc_trader.temp_workspace`创建临时目录；测试与Ruff分别使用`.tmp/pytest`和

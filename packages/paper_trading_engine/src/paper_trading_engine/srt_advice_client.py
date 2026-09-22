@@ -41,6 +41,7 @@ from .errors import AdviceClientError
 
 _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 _ACCOUNT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+_PREPARED_STORAGE_REVISION = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -362,6 +363,8 @@ class SrtAdviceClient:
         if not (root / "current.json").is_file():
             return None
         index = self._account_index(account_id)
+        if index.get("prepared_storage_revision") != _PREPARED_STORAGE_REVISION:
+            return None
         releases = index["releases"]
         entry = releases.get(release.release_id)
         if (
@@ -471,6 +474,7 @@ class SrtAdviceClient:
             root,
             {
                 "schema_version": 2,
+                "prepared_storage_revision": _PREPARED_STORAGE_REVISION,
                 "account_id": account_id,
                 "symbol": symbol.upper(),
                 "signal_date": signal_date.isoformat(),

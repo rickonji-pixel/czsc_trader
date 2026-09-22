@@ -366,6 +366,10 @@ Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
 配置。历史实验只保证档案校验和人工查看，不承诺旧脚本回放。完整命令及版本验收边界见
 [测试用例治理](TEST_GOVERNANCE.md)；任何生产部署仍需独立授权。
 
+最近一次仓库级治理完成于2026-09-22：42个测试文件共收集252个Python测试项和3个Node
+测试项，完整离线回归及Ruff均通过。治理记录、模块耗时、保留理由和未覆盖在线检查统一维护在
+[测试用例治理](TEST_GOVERNANCE.md)的“最近一次治理记录”章节；后续治理以该记录为比较基线。
+
 仓库内临时文件统一进入根目录`.tmp/`并按用途分区。业务代码通过
 `czsc_trader.temp_workspace`创建临时目录；测试与Ruff分别使用`.tmp/pytest`和
 `.tmp/ruff`。禁止在根目录、`data/`、`outputs/`、`experiments/`或各包目录新增临时
@@ -389,7 +393,6 @@ Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
   `packages/strategy_template_catalog/README.md`、`packages/strategy_manager/README.md`、
   `packages/strategy_evaluator/README.md`、`packages/strategy_runtime/README.md`、
   `packages/trading_execution_engine/README.md`、`packages/paper_trading_engine/README.md`
-- 当前模块边界记录：`docs/ARCHITECTURE_BOUNDARY_DEBT.md`
 - 研究批次目标、当前结论与工作流：`research/README.md`
 - 已批准设计与实施计划：`docs/superpowers/specs/`、`docs/superpowers/plans/`
 

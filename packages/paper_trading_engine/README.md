@@ -168,4 +168,5 @@ node --test-isolation=none --test packages\paper_trading_engine\tests\functional
 ```
 
 长期测试保持少量完整功能场景。开发中的聚焦TDD用例在行为并入功能场景后删除，避免按
-内部实现细节扩张测试数量。
+内部实现细节扩张测试数量。PTE与SRT的集成测试通过账户级准备和决策公开契约验证当前
+`current.json`格式；已退出运行路径的旧发布清单不构成兼容目标。

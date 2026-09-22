@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
-from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -175,6 +174,17 @@ class SrtAdviceClient:
         return root
 
     def _entry(self, account_id: str, release_id: str) -> dict[str, object]:
+        index = self._account_index(account_id)
+        releases = index.get("releases")
+        if not isinstance(releases, dict) or not isinstance(releases.get(release_id), dict):
+            raise AdviceClientError(f"prepared data is unavailable for {release_id}")
+        entry = dict(releases[release_id])
+        entry["symbol"] = index.get("symbol")
+        entry["signal_date"] = index.get("signal_date")
+        entry["trading_date"] = index.get("trading_date")
+        return entry
+
+    def _account_index(self, account_id: str) -> dict[str, object]:
         index = _load_manifest(self._account_root(account_id) / "current.json")
         index_hash = index.pop("index_sha256", None)
         if index_hash != canonical_sha256(index):
@@ -184,13 +194,9 @@ class SrtAdviceClient:
         if index.get("account_id") != account_id:
             raise AdviceClientError("prepared data belongs to another account")
         releases = index.get("releases")
-        if not isinstance(releases, dict) or not isinstance(releases.get(release_id), dict):
-            raise AdviceClientError(f"prepared data is unavailable for {release_id}")
-        entry = dict(releases[release_id])
-        entry["symbol"] = index.get("symbol")
-        entry["signal_date"] = index.get("signal_date")
-        entry["trading_date"] = index.get("trading_date")
-        return entry
+        if not isinstance(releases, dict):
+            raise AdviceClientError("prepared-data releases are invalid")
+        return index
 
     def prepared_through(
         self, account_id: str, strategy_id: str, strategy_version: str
@@ -300,14 +306,50 @@ class SrtAdviceClient:
             raise AdviceClientError("SSE calendar has no completed trading session")
         return max(candidates)
 
-    @staticmethod
-    def _instance_directory(
-        root: Path, release: StrategyRelease, trading_date: date
-    ) -> Path:
-        digest = sha256(
-            f"{release.release_id}\0{release.release_hash}\0{trading_date.isoformat()}".encode()
-        ).hexdigest()
-        return root / "instances" / digest
+    def _active_space(
+        self,
+        root: Path,
+        *,
+        account_id: str,
+        release: StrategyRelease,
+        symbol: str,
+    ) -> Path | None:
+        if not (root / "current.json").is_file():
+            return None
+        index = self._account_index(account_id)
+        releases = index["releases"]
+        entry = releases.get(release.release_id)
+        if (
+            index.get("symbol") != symbol.upper()
+            or not isinstance(entry, dict)
+            or entry.get("release_hash") != release.release_hash
+        ):
+            return None
+        relative = Path(str(entry.get("data_dir", "")))
+        directory = (root / relative).resolve()
+        spaces_root = (root / "spaces").resolve()
+        if relative.is_absolute() or not directory.is_relative_to(root):
+            raise AdviceClientError("prepared-data directory is unsafe")
+        if directory.parent != spaces_root:
+            return None
+        if not directory.name.startswith(f"{account_id}_"):
+            raise AdviceClientError("account strategy-space name is invalid")
+        if not directory.is_dir():
+            raise AdviceClientError("active account strategy-space is unavailable")
+        return directory
+
+    def _new_space(self, root: Path, account_id: str) -> Path:
+        moment = self.now()
+        moment = (
+            moment.replace(tzinfo=_BEIJING)
+            if moment.tzinfo is None
+            else moment.astimezone(_BEIJING)
+        )
+        timestamp = moment.strftime("%Y%m%dT%H%M%S%f")
+        directory = root / "spaces" / f"{account_id}_{timestamp}"
+        if directory.exists():
+            raise AdviceClientError("account strategy-space name already exists")
+        return directory
 
     @staticmethod
     def _write_index(root: Path, index: dict[str, object]) -> None:
@@ -353,7 +395,12 @@ class SrtAdviceClient:
             return None
         root = self._account_root(account_id)
         root.mkdir(parents=True, exist_ok=True)
-        directory = self._instance_directory(root, release, trading_date)
+        directory = self._active_space(
+            root,
+            account_id=account_id,
+            release=release,
+            symbol=symbol,
+        ) or self._new_space(root, account_id)
         strategy = StrategyRuntime().create(
             StrategyInit(
                 release,
@@ -367,6 +414,8 @@ class SrtAdviceClient:
             raise AdviceClientError(
                 f"SRT prepared through {prepared.available_through}, expected {signal_date}"
             )
+        if strategy.identity.symbol != symbol.upper():
+            raise AdviceClientError("SRT execution-pricing symbol differs from account")
         self._write_index(
             root,
             {
@@ -384,8 +433,6 @@ class SrtAdviceClient:
                 },
             },
         )
-        if strategy.identity.symbol != symbol.upper():
-            raise AdviceClientError("SRT execution-pricing symbol differs from account")
         return prepared
 
     def verify_account_data(

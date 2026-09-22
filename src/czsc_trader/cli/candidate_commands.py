@@ -4,15 +4,16 @@ import argparse
 from pathlib import Path
 from typing import Callable
 
-from czsc_trader.application.candidate_service import (
-    evaluate_candidate,
-    freeze_candidate,
-    review_candidate,
-)
 from czsc_trader.application.context import RepositoryContext
 
 
 def run_candidate_command(args: argparse.Namespace, context: RepositoryContext):
+    from czsc_trader.application.candidate_service import (
+        evaluate_candidate,
+        freeze_candidate,
+        review_candidate,
+    )
+
     if args.candidate_action == "review":
         return review_candidate(context, args.package, args.mandate)
     if args.candidate_action == "evaluate":

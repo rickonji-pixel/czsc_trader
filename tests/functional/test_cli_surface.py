@@ -88,6 +88,33 @@ def test_ft_t08_installed_cli_exposes_supported_command_surface() -> None:
     assert "--repo-root" not in run_options
 
 
+def test_ft_t08_strategy_cli_does_not_require_research_evaluator() -> None:
+    code = """
+import importlib.abc
+import sys
+
+class BlockStrategyEvaluator(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "strategy_evaluator" or fullname.startswith("strategy_evaluator."):
+            raise ModuleNotFoundError("blocked research-only dependency")
+        return None
+
+sys.meta_path.insert(0, BlockStrategyEvaluator())
+from czsc_trader.cli.main import build_parser
+parsed = build_parser().parse_args(["strategy", "list"])
+assert parsed.command_name == "strategy.list"
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
 def test_ft_t08_candidate_and_srt_commands_parse() -> None:
     parser = build_parser()
     documented_commands = (

@@ -171,6 +171,8 @@ class MetricObservation(Record):
     frequency_window_days: int | None = None
     rolling_closed_trades_median: float | None = None
     rolling_closed_trades_p10: float | None = None
+    win_loss_ratio: float | None = None
+    win_loss_ratio_status: MetricStatus = MetricStatus.UNAVAILABLE
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> MetricObservation:
@@ -185,6 +187,8 @@ class MetricObservation(Record):
                 "frequency_window_days",
                 "rolling_closed_trades_median",
                 "rolling_closed_trades_p10",
+                "win_loss_ratio",
+                "win_loss_ratio_status",
             },
         )
         return cls(
@@ -197,6 +201,12 @@ class MetricObservation(Record):
             None if data.get("frequency_window_days") is None else int(data["frequency_window_days"]),
             None if data.get("rolling_closed_trades_median") is None else float(data["rolling_closed_trades_median"]),
             None if data.get("rolling_closed_trades_p10") is None else float(data["rolling_closed_trades_p10"]),
+            None if data.get("win_loss_ratio") is None else float(data["win_loss_ratio"]),
+            _enum(
+                MetricStatus,
+                data.get("win_loss_ratio_status", MetricStatus.UNAVAILABLE.value),
+                "win_loss_ratio_status",
+            ),
         )
 
 

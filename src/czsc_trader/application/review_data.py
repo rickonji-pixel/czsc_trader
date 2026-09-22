@@ -117,10 +117,9 @@ def publish_review_dataset(
 
     recipe_hash = canonical_sha256({"manifest": manifest, "protocol": protocol.to_dict()})
     if directory.exists():
-        existing = verify_review_dataset(directory)
-        if existing["recipe_hash"] != recipe_hash:
-            raise ValueError("review dataset already exists for different evaluation inputs")
-        return existing
+        raise ValueError(
+            "unsealed review dataset already exists; remove it before recomputing"
+        )
     periods = tuple((name, (pd.Timestamp(window["start"]), pd.Timestamp(window["end"])))
                     for name, window in manifest["windows"].items())
     run = CandidateEvaluationContext(

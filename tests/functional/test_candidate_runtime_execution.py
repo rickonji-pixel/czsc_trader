@@ -528,19 +528,20 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     monkeypatch.setattr(
         "czsc_trader.candidate_evaluation.prepare_backtest_execution_data", forbidden
     )
-    assert publish_review_dataset(
-        context,
-        manifest,
-        protocol,
-        directory,
-        candidate_runtime_roots={"C001": package},
-    ) == published
+    with pytest.raises(ValueError, match="unsealed review dataset already exists"):
+        publish_review_dataset(
+            context,
+            manifest,
+            protocol,
+            directory,
+            candidate_runtime_roots={"C001": package},
+        )
     assert evaluate_candidate_payloads(run, protocol, tuple(manifest["candidates"]), ("C001",), "FORMAL") == rows
     with pytest.raises(ValueError, match="sealed snapshot"):
         load_review_dataset(directory, "0" * 64)
     changed = deepcopy(manifest)
     changed["candidates"][0]["strategy_payload"]["parameters"]["threshold"] = .7
-    with pytest.raises(ValueError, match="different evaluation inputs"):
+    with pytest.raises(ValueError, match="unsealed review dataset already exists"):
         publish_review_dataset(
             context,
             changed,

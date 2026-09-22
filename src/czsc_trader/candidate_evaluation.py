@@ -219,6 +219,7 @@ def _observation(context, candidate_id, window, tier, scenario, result, executio
     returns = closed["net_return"].astype(float)
     wins, losses = returns[returns > 0], returns[returns < 0]
     pf = None
+    win_loss_ratio = None
     if closed.empty:
         status = MetricStatus.NO_CLOSED_TRADES
     elif wins.empty:
@@ -227,6 +228,7 @@ def _observation(context, candidate_id, window, tier, scenario, result, executio
         status = MetricStatus.NO_LOSSES
     else:
         pf = float(wins.sum() / abs(losses.sum()))
+        win_loss_ratio = float(wins.mean() / abs(losses.mean()))
         status = MetricStatus.LOW_SAMPLE if len(closed) < 10 else MetricStatus.VALID
     fills = result.fills
     turnover = float((fills["quantity"] * fills["price"]).sum() / context.init_cash) if not fills.empty else 0.0
@@ -257,6 +259,7 @@ def _observation(context, candidate_id, window, tier, scenario, result, executio
         pf, status, len(closed), turnover, cost,
         (("net_cagr", cagr), ("total_return", total), (f"{window}_return", total)),
         count_days, median, p10,
+        win_loss_ratio, status,
     )
 
 

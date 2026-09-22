@@ -31,6 +31,7 @@ from .research_registration import (
     rollback_research_promotion,
 )
 from .runtime_acceptance import prospective_release
+from .strategy_runtime_service import validate_release_package
 
 
 def _read_object(path: Path) -> dict[str, Any]:
@@ -302,11 +303,13 @@ def _build_release_package(
         / release.version
     )
     if destination.exists():
-        manifest = _read_object(destination / "release_manifest.json")
+        manifest, _binding, _runtime_root = validate_release_package(
+            context,
+            strategy_version_id,
+            expected_release=release,
+        )
         if (
-            manifest.get("strategy_version_id") != strategy_version_id
-            or manifest.get("strategy_version_hash") != release.release_hash
-            or manifest.get("candidate_package_hash") != package.package_hash
+            manifest.get("candidate_package_hash") != package.package_hash
         ):
             raise ValueError("strategy version package already exists with different content")
         return destination, strategy_version_id, False

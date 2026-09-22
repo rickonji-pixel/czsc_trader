@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 
+import pandas as pd
 from strategy_evaluator import AuditStatus, audit_benchmark_replay, audit_replay
 
 from czsc_trader.reporting.publication import publish_run_directory
@@ -53,6 +54,30 @@ def _write_json(path: Path, value: object) -> None:
     )
 
 
+def _validate_execution_window(
+    request: BacktestRequestV2,
+    execution_data: BacktestExecutionData,
+) -> None:
+    if request.start > request.end:
+        raise ValueError("backtest start must not follow end")
+    sessions = pd.DatetimeIndex(
+        pd.to_datetime(execution_data.evaluation_sessions, errors="raise"),
+        name="dt",
+    ).normalize()
+    if sessions.empty or sessions.has_duplicates or not sessions.is_monotonic_increasing:
+        raise ValueError("execution data evaluation sessions must be non-empty, unique and increasing")
+    daily_sessions = pd.DatetimeIndex(
+        pd.to_datetime(execution_data.execution_daily["dt"], errors="raise"),
+        name="dt",
+    ).normalize()
+    requested = daily_sessions[
+        (daily_sessions >= pd.Timestamp(request.start))
+        & (daily_sessions <= pd.Timestamp(request.end))
+    ]
+    if requested.has_duplicates or not sessions.equals(requested):
+        raise ValueError("request window differs from execution data evaluation sessions")
+
+
 def run_backtest_v2(
     *,
     snapshot: StrategySnapshot,
@@ -86,6 +111,7 @@ def run_backtest_v2(
         raise ValueError("request symbol differs from TDR execution data")
     if execution_data.asset_type != request.asset_type:
         raise ValueError("request asset type differs from TDR execution data")
+    _validate_execution_window(request, execution_data)
     strategy, signals = build_srt_signal_replay(
         snapshot=snapshot,
         execution_data=execution_data,

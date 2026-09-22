@@ -149,15 +149,26 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     bad_metrics = audit_replay(replace(evidence, metrics={**evidence.metrics, "return": 9}))
     assert "METRIC_MISMATCH" in bad_metrics.reason_codes
 
+    request = BacktestRequestV2(
+        symbol="588080.SH",
+        asset_type="etf",
+        start=pd.Timestamp("2026-01-01").date(),
+        end=pd.Timestamp("2026-09-02").date(),
+        initial_cash=100_000,
+    )
+    with pytest.raises(ValueError, match="request window differs"):
+        run_backtest_v2(
+            snapshot=snapshot,
+            request=replace(request, start=execution_data.evaluation_sessions[1].date()),
+            srt_data_root=functional_repo / "data" / "backtest",
+            outputs_root=functional_repo / "outputs",
+            run_date=pd.Timestamp("2026-09-04").date(),
+            repository_root=functional_repo,
+            execution_data=execution_data,
+        )
     summary = run_backtest_v2(
         snapshot=snapshot,
-        request=BacktestRequestV2(
-            symbol="588080.SH",
-            asset_type="etf",
-            start=pd.Timestamp("2026-01-01").date(),
-            end=pd.Timestamp("2026-09-02").date(),
-            initial_cash=100_000,
-        ),
+        request=request,
         srt_data_root=functional_repo / "data" / "backtest",
         outputs_root=functional_repo / "outputs",
         run_date=pd.Timestamp("2026-09-04").date(),

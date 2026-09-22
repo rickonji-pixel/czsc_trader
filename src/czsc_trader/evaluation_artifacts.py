@@ -77,6 +77,8 @@ def _observation(row: dict[str, str], candidate_id: str) -> MetricObservation:
         "candidate_id": candidate_id,
         "calmar": _optional_float(row["calmar"]),
         "profit_factor": _optional_float(row["profit_factor"]),
+        "win_loss_ratio": _optional_float(row.get("win_loss_ratio", "")),
+        "win_loss_ratio_status": row.get("win_loss_ratio_status", "UNAVAILABLE"),
         "turnover": _optional_float(row.get("turnover", "")),
         "cost_drag": _optional_float(row.get("cost_drag", "")),
         "objective_values": objectives,

@@ -505,8 +505,8 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         },
     )
     (artifacts / "formal_metrics.csv").write_text(
-        "candidate_id,window_id,scenario_id,net_cagr,max_drawdown,calmar,profit_factor,profit_factor_status,total_return,closed_trades\n"
-        "C001,full,standard,0.20,-0.18,1.11,1.30,VALID,0.42,35\n",
+        "candidate_id,window_id,scenario_id,net_cagr,max_drawdown,calmar,profit_factor,profit_factor_status,win_loss_ratio,win_loss_ratio_status,total_return,closed_trades\n"
+        "C001,full,standard,0.20,-0.18,1.11,1.30,VALID,1.50,VALID,0.42,35\n",
         encoding="utf-8",
     )
     _write_json(artifacts / "evaluation_result.json", {"verified": True})
@@ -712,6 +712,10 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
         "VERSION_FROZEN",
     ]
     assert completed.seals[-1].content["release_id"] == "S900-v1"
+    assert completed.seals[1].content["actor_identity_assurance"] == "UNVERIFIED"
+    assert completed.seals[3].content["human_decision"]["actor_identity_assurance"] == "UNVERIFIED"
+    assert registry.evidence("S900")[0].win_loss_ratio == 1.5
+    assert registry.evidence("S900")[0].win_loss_ratio_status == "VALID"
     assert not (functional_repo / "strategies" / "S900" / "reviews").exists()
     assert registry.validate_all()["credentials"] == initial_credential_count + 1
     assert [event.event_type for event in registry.lifecycle_events("S900")] == [
@@ -873,8 +877,8 @@ def test_ft_t06_tdr_recomputes_every_required_audit_and_rejects_false_claim(
         },
     )
     (artifacts / "formal_metrics.csv").write_text(
-        "candidate_id,window_id,scenario_id,net_cagr,max_drawdown,calmar,profit_factor,profit_factor_status,total_return,closed_trades,frequency_window_days,rolling_closed_trades_median,rolling_closed_trades_p10\n"
-        "C001,full,standard,0.20,-0.18,1.11,1.30,VALID,0.42,35,60,7,3\n",
+        "candidate_id,window_id,scenario_id,net_cagr,max_drawdown,calmar,profit_factor,profit_factor_status,win_loss_ratio,win_loss_ratio_status,total_return,closed_trades,frequency_window_days,rolling_closed_trades_median,rolling_closed_trades_p10\n"
+        "C001,full,standard,0.20,-0.18,1.11,1.30,VALID,1.50,VALID,0.42,35,60,7,3\n",
         encoding="utf-8",
     )
     (artifacts / "parameter_neighborhood.csv").write_text(

@@ -70,6 +70,7 @@ COMPLETE_AUDITS = frozenset(
     }
 )
 KNOWN_AUDITS = COMPLETE_AUDITS
+ACTOR_IDENTITY_ASSURANCE = "UNVERIFIED"
 
 AUDIT_REQUIREMENT_KEYS = frozenset(
     {
@@ -91,6 +92,7 @@ METRIC_ALIASES = {
     "calmar_ratio": "calmar",
     "calmar": "calmar",
     "profit_factor": "profit_factor",
+    "win_loss_ratio": "win_loss_ratio",
     "closed_trades": "closed_trades",
     "turnover": "turnover",
     "cost_drag": "cost_drag",
@@ -517,6 +519,7 @@ def open_freeze_review(
             "candidate_runtime": runtime,
             "evaluation_inputs": evaluation_inputs,
             "reason": reason.strip(),
+            "actor_identity_assurance": ACTOR_IDENTITY_ASSURANCE,
         }
         if candidate_package is not None:
             submission_content["candidate_package"] = dict(candidate_package)
@@ -542,6 +545,7 @@ def open_freeze_review(
             and last.content.get("candidate_runtime") == runtime
             and last.content.get("evaluation_inputs") == evaluation_inputs
             and last.content.get("reason") == reason.strip()
+            and last.content.get("actor_identity_assurance") == ACTOR_IDENTITY_ASSURANCE
             and last.content.get("candidate_package") == candidate_package
             and last.artifact_hashes == submission_artifacts
         )
@@ -684,6 +688,9 @@ def _formal_metric(experiment: Path, candidate_id: str) -> dict[str, str]:
     )
     if match is None:
         raise ValueError("candidate has no formal full-window metric")
+    required = {"win_loss_ratio", "win_loss_ratio_status"}
+    if not required.issubset(match):
+        raise ValueError("formal metric has no win/loss ratio evidence")
     return match
 
 
@@ -1430,6 +1437,7 @@ def freeze_review_candidate(
                 "candidate_hash": snapshot.candidate_hash,
                 "decision": "APPROVE_FREEZE",
                 "actor": actor,
+                "actor_identity_assurance": ACTOR_IDENTITY_ASSURANCE,
                 "reason": reason,
                 "decided_at": _now(),
             }
@@ -1479,9 +1487,9 @@ def freeze_review_candidate(
             "maximum_drawdown": _number(metric["max_drawdown"]),
             "calmar_ratio": _number(metric["calmar"]),
             "win_loss_ratio": None
-            if metric.get("profit_factor") in {None, "", "None"}
-            else _number(metric["profit_factor"]),
-            "win_loss_ratio_status": str(metric.get("profit_factor_status", "UNAVAILABLE")),
+            if metric.get("win_loss_ratio") in {None, "", "None"}
+            else _number(metric["win_loss_ratio"]),
+            "win_loss_ratio_status": str(metric.get("win_loss_ratio_status", "UNAVAILABLE")),
             "total_return": _number(metric["total_return"]),
             "sharpe_ratio": None,
             "closed_trades": int(metric["closed_trades"]),

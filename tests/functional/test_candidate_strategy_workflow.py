@@ -6,7 +6,7 @@ from pathlib import Path
 import shutil
 
 import pytest
-from strategy_manager import canonical_sha256
+from strategy_manager import StrategyRegistry, canonical_sha256
 from strategy_runtime.implementation_identity import implementation_sha256
 
 from czsc_trader.application import candidate_service
@@ -16,10 +16,12 @@ from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.errors import ValidationError
 from czsc_trader.application.results import CommandResult
 from czsc_trader.application.research_governance_service import create_research_batch
+from czsc_trader.application.runtime_acceptance import prospective_release
 from czsc_trader.application.strategy_runtime_service import (
     deploy_strategy,
     list_installed_strategies,
     strategy_info,
+    validate_release_package,
 )
 from czsc_trader.cli.main import build_parser
 
@@ -247,6 +249,15 @@ def test_strategy_commands_cover_only_installed_srt_versions(tmp_path: Path) -> 
     assert list_installed_strategies(context).result["strategies"] == []
     untracked = repo / "strategies" / "S007" / "releases" / "v1" / "untracked.py"
     untracked.write_text("raise RuntimeError('must not be deployed')\n", encoding="utf-8")
+    expected_release = prospective_release(
+        StrategyRegistry(context.strategy_root).get_version("S007", "v1")
+    )
+    with pytest.raises(ValueError, match="untracked or missing files"):
+        validate_release_package(
+            context,
+            "S007-v1",
+            expected_release=expected_release,
+        )
     with pytest.raises(ValidationError, match="untracked or missing files"):
         deploy_strategy(context, "S007-v1")
     untracked.unlink()

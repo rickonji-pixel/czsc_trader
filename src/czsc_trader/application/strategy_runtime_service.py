@@ -69,8 +69,11 @@ def _version_parts(reference: str) -> tuple[str, str]:
     return strategy_id, version
 
 
-def _release_package(
-    context: RepositoryContext, reference: str,
+def validate_release_package(
+    context: RepositoryContext,
+    reference: str,
+    *,
+    expected_release=None,
 ) -> tuple[dict[str, Any], dict[str, Any], Path]:
     strategy_id, version = _version_parts(reference)
     root = context.strategy_root / strategy_id / "releases" / version
@@ -129,12 +132,20 @@ def _release_package(
         raise ValueError("strategy version runtime binding repeats install files")
     validate_chart_contract(runtime_root, binding.get("charts"), normalized_install_files)
     validate_observation_descriptor(binding.get("observation"))
-    registry = StrategyRegistry(context.strategy_root)
-    stored = registry.get_version(strategy_id, version)
-    if stored.release_hash != manifest["strategy_version_hash"]:
-        raise ValueError("strategy version package differs from frozen registry identity")
+    release = expected_release
+    if release is None:
+        registry = StrategyRegistry(context.strategy_root)
+        stored = registry.get_version(strategy_id, version)
+        if stored.release_hash != manifest["strategy_version_hash"]:
+            raise ValueError("strategy version package differs from frozen registry identity")
+        release = prospective_release(stored)
+    elif (
+        release.release_id != reference
+        or release.release_hash != manifest["strategy_version_hash"]
+    ):
+        raise ValueError("strategy version package differs from expected release identity")
     StrategyRuntime().describe(
-        prospective_release(stored),
+        release,
         source_root=runtime_root,
         runtime_binding=binding,
     )
@@ -161,7 +172,7 @@ def deploy_strategy(context: RepositoryContext, reference: str) -> CommandResult
     created_receipt = False
     receipt_path: Path | None = None
     try:
-        manifest, binding, source_root = _release_package(context, reference)
+        manifest, binding, source_root = validate_release_package(context, reference)
         registry = StrategyRegistry(context.strategy_root)
         strategy_id, version = _version_parts(reference)
         release = prospective_release(registry.get_version(strategy_id, version))

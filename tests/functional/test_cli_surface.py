@@ -21,7 +21,6 @@ EXPECTED_ACTIONS = {
     },
     "backtest": {"run"},
     "archive": {"validate"},
-    "chart": {"observation"},
     "news": {"extract"},
     "catalog": {"validate", "list", "show"},
     "template": {"validate", "list", "show", "instantiate"},

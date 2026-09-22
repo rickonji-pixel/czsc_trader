@@ -72,39 +72,28 @@ SRT以`StrategyInstance`为运行边界，根据交易窗口自主推导和准�
 
 ## 文档索引
 
-项目按研究和开发运维两个角色维护长期入口：
+### 策略研究员必看
 
-| 角色 | 首要入口 | 主要内容 |
-| --- | --- | --- |
-| 策略研究 | [策略研究交接](research/README.md) | S001—S008批次状态、研究工作流、研究命令、数据污染和冻结规则 |
-| 开发运维 | [开发运维交接](docs/DEVELOPMENT_HANDOFF.md) | 架构契约、环境恢复、开发规则、PTE发布运维和测试边界 |
+- [策略研究交接](research/README.md)：策略研究领域的唯一总入口，包含S001—S008批次状态、
+  研究工作流、研究命令、数据与证据边界以及冻结规则。
 
-### 专项与历史资料
+查阅或归档正式实验时，继续阅读[实验档案说明](experiments/README.md)。
 
-| 使用场景 | 文档 | 主要内容 |
-| --- | --- | --- |
-| 查阅或归档正式实验 | [实验档案说明](experiments/README.md) | 实验命名、目录结构、产物契约和不可变规则 |
-| 查看已确认运行事故 | [事故复盘索引](docs/incidents/README.md) | 事故时间线、影响、修复证据和防复发措施 |
-| 维护测试体系 | [测试用例治理](docs/TEST_GOVERNANCE.md) | 测试分层、边界覆盖和周期性治理 |
+### 平台开发者必看
 
-### 包级技术文档
-
+- [策略研究交接](research/README.md)：理解平台所服务的研究流程、策略状态和证据边界。
+- [开发运维交接](docs/DEVELOPMENT_HANDOFF.md)：掌握架构契约、环境恢复、开发规则和PTE发布运维。
+- [测试用例治理](docs/TEST_GOVERNANCE.md)：遵循测试分层、边界覆盖和周期性治理规则。
 - [DFLS技术说明](packages/dataflows/README.md)：数据包接口和使用方式。
 - [FSC技术说明](packages/factor_signal_catalog/README.md)：因子与信号定义目录及查询方式。
 - [STC技术说明](packages/strategy_template_catalog/README.md)：策略函数模板、实例化契约及边界。
 - [SM技术说明](packages/strategy_manager/README.md)：策略身份、治理凭据、冻结版本和证据账本。
 - [SE技术说明](packages/strategy_evaluator/README.md)：候选评估与统计审计接口。
 - [SRT技术说明](packages/strategy_runtime/README.md)：候选与冻结策略的数据、决策与执行边界。
-- [TXE技术说明](packages/trading_execution_engine/README.md)：统一成交与账户
-  计算口径及其边界。
-- [PTE技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、
-  接口、运行边界和包级开发信息。
-- [模块边界记录](docs/ARCHITECTURE_BOUNDARY_DEBT.md)：SRT、TDR、TXE、PTE与DFLS的当前职责边界。
+- [TXE技术说明](packages/trading_execution_engine/README.md)：统一成交与账户计算口径及其边界。
+- [PTE技术说明](packages/paper_trading_engine/README.md)：模拟交易引擎的配置、接口、运行边界和包级开发信息。
 
-### 历史设计资料
+排查已确认运行事故时，查阅[事故复盘索引](docs/incidents/README.md)。`docs/superpowers/specs/`
+和`docs/superpowers/plans/`用于审计历史设计及实施过程，不代表当前操作入口。
 
-- [`docs/superpowers/specs/`](docs/superpowers/specs/)：已批准设计说明。
-- [`docs/superpowers/plans/`](docs/superpowers/plans/)：对应实施计划和历史执行路径。
-
-历史设计资料用于审计设计演进，不代表当前操作入口。继续策略研究时从策略研究交接进入；
-安装环境、修改代码、运行测试或维护PTE时以开发运维交接为准。
+以上重要文档必须在每次版本发布时根据实际变更及时更新，确保文档描述与发布版本一致。

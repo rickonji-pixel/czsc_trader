@@ -35,6 +35,7 @@ from paper_trading_engine.windows_service import (
 )
 from paper_trading_engine.web_api import PteWebApi
 from strategy_runtime.deployment import deployment_inventory
+from strategy_runtime.errors import RuntimeCompatibilityError
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -79,6 +80,36 @@ def create_release(runtime_root, release_id, marker):
         json.dumps(manifest), encoding="utf-8",
     )
     return release
+
+
+def test_load_release_accepts_pre_deployment_inventory_snapshot(tmp_path):
+    runtime_root = (tmp_path / "runtime").resolve()
+    release = create_release(runtime_root, "v0.4.1", "a")
+    strategies = release / "strategies"
+    shutil.rmtree(strategies / "deployments")
+    manifest_path = release / "release-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop("strategy_releases")
+    manifest["strategy_snapshot_sha256"] = tree_sha256(strategies)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    loaded = load_release(runtime_root, "v0.4.1")
+
+    assert loaded.release_id == "v0.4.1"
+
+
+def test_load_release_requires_declared_deployment_inventory(tmp_path):
+    runtime_root = (tmp_path / "runtime").resolve()
+    release = create_release(runtime_root, "v0.4.1", "a")
+    strategies = release / "strategies"
+    shutil.rmtree(strategies / "deployments")
+    manifest_path = release / "release-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["strategy_snapshot_sha256"] = tree_sha256(strategies)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RuntimeCompatibilityError, match="deployment directory"):
+        load_release(runtime_root, "v0.4.1")
 
 
 def test_ft_pte06_watchdog_service_config_port_and_recovery(tmp_path):

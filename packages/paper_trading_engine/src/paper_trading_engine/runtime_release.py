@@ -145,7 +145,11 @@ def load_release(runtime_root: Path, release_id: str) -> RuntimeRelease:
     strategies = release_root / "strategies"
     if not strategies.is_dir() or tree_sha256(strategies) != expected_strategy_hash:
         raise RuntimeError("PTE release strategy snapshot differs from manifest")
-    if deployment_inventory(strategies) != manifest.get("strategy_releases"):
+    expected_strategy_releases = manifest.get("strategy_releases")
+    if (
+        expected_strategy_releases is not None
+        and deployment_inventory(strategies) != expected_strategy_releases
+    ):
         raise RuntimeError("PTE release strategy inventory differs from manifest")
     runtime_files = manifest.get("runtime_files")
     if not isinstance(runtime_files, dict):

@@ -4,16 +4,15 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import date
-from importlib import import_module, invalidate_caches
 import json
 import math
 from pathlib import Path, PurePosixPath
-import sys
 from typing import Any, Mapping
 
 from .deployment import load_strategy_deployment
 from .errors import RuntimeCompatibilityError, RuntimeContractError
 from .implementation_identity import implementation_sha256
+from .isolated_import import load_closure_module
 
 
 CHART_CONTEXT_VERSION = "strategy_chart.v1"
@@ -195,48 +194,24 @@ class ChartRuntime:
         if root is not None:
             if root.name != "strategy_runtime" or not (root / "charts").is_dir():
                 raise RuntimeCompatibilityError("chart source root is not an SRT package")
-            import strategy_runtime
-
-            root_text = str(root)
-            if root_text not in strategy_runtime.__path__:
-                strategy_runtime.__path__.insert(0, root_text)
-            previous_bytecode = sys.dont_write_bytecode
-            sys.dont_write_bytecode = True
-            try:
-                charts = import_module("strategy_runtime.charts")
-            finally:
-                sys.dont_write_bytecode = previous_bytecode
-            charts_root = str(root / "charts")
-            if charts_root not in charts.__path__:
-                charts.__path__.insert(0, charts_root)
-            invalidate_caches()
         actual = implementation_sha256(source_files, source_root=root)
         if descriptor["source_sha256"] != actual:
             raise RuntimeCompatibilityError("chart source hash differs from its binding")
 
-        module = sys.modules.get(module_name)
-        already_loaded = module is not None
-        if module is not None and getattr(module, "__srt_chart_source_sha256__", None) != actual:
-            raise RuntimeCompatibilityError(
-                "chart module was already imported from a different source closure"
-            )
-        previous_bytecode = sys.dont_write_bytecode
-        sys.dont_write_bytecode = True
         try:
-            try:
-                module = import_module(module_name)
-                factory = getattr(module, qualname)
-            except (ImportError, AttributeError) as exc:
-                raise RuntimeCompatibilityError(
-                    f"chart implementation is unavailable: {module_name}.{qualname}"
-                ) from exc
-        finally:
-            sys.dont_write_bytecode = previous_bytecode
-        if not already_loaded and root is not None:
-            module_file = getattr(module, "__file__", None)
-            expected_file = (root / implementation_file).resolve()
-            if module_file is None or Path(module_file).resolve() != expected_file:
-                raise RuntimeCompatibilityError("chart implementation loaded from another package")
+            module = load_closure_module(
+                module_name,
+                source_root=root,
+                source_files=source_files,
+                source_sha256=actual,
+                marker="srt_chart_source",
+            )
+            factory = getattr(module, qualname)
+        except (ImportError, AttributeError) as exc:
+            raise RuntimeCompatibilityError(
+                f"chart implementation is unavailable: {module_name}.{qualname}"
+            ) from exc
+        factory.__module__ = module_name
         if factory.__module__ != module_name or factory.__qualname__ != qualname:
             raise RuntimeCompatibilityError("chart factory is an alias for another implementation")
         try:
@@ -245,7 +220,6 @@ class ChartRuntime:
             raise RuntimeCompatibilityError("chart implementation must have a no-argument factory") from exc
         if not callable(getattr(implementation, "render_backtest", None)):
             raise RuntimeCompatibilityError("chart implementation has no render_backtest")
-        module.__srt_chart_source_sha256__ = actual
         return implementation
 
     def validate_descriptor(

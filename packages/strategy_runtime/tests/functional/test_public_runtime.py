@@ -219,6 +219,11 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
     manifest_path = _prepared_manifest(tmp_path, window)
     assert (tmp_path / "strategy-space.json").is_file()
     assert manifest_path.is_file()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert all(
+        value["identity"]["content_sha256"] == value["content_sha256"]
+        for value in manifest["inputs"].values()
+    )
     assert plan.strategy.reference_id == "S002-v1"
     assert plan.expected_portfolio_revision == 7
     assert plan.expected_state_revision == 3
@@ -227,6 +232,22 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
     assert plan.trading_date == trading_date
     assert {order.order_type.value for order in plan.orders} <= {"LIMIT", "MARKET"}
     assert {leg.order.order_type.value for leg in plan.legs} <= {"LIMIT", "MARKET"}
+
+    before_close = datetime(2026, 9, 2, 14, 59, tzinfo=ZONE)
+    with pytest.raises(RuntimeContractError, match="precedes the signal-session close"):
+        strategy.plan_at(
+            point=TradingPoint(trading_date, before_close),
+            portfolio=PortfolioSnapshot(
+                "s002-v1",
+                "510500.SH",
+                Decimal("50000"),
+                Decimal("100000"),
+                5900,
+                7,
+                before_close,
+            ),
+            state=ExecutionState(3, before_close, 5900),
+        )
 
     monkeypatch.setattr(
         "strategy_runtime.preparation.Dataflows",
@@ -257,7 +278,6 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
             StrategyInit(_release("S001", "v1"), second_window, tmp_path)
         ).prepare_data()
 
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     input_file = manifest_path.parent / next(iter(manifest["inputs"].values()))["file"]
     input_file.write_bytes(input_file.read_bytes() + b"changed")
     with pytest.raises(RuntimeContractError, match="file was modified"):

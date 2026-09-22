@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import json
+import inspect
 from decimal import Decimal
 from pathlib import Path
+import sys
 
 import pytest
 
 from strategy_runtime import (
     ExecutionPolicy,
     RuntimeCompatibilityError,
+    RuntimeContractError,
     StrategyRelease,
 )
 from strategy_runtime.loader import StrategyLoader
@@ -103,6 +106,24 @@ def test_loader_rejects_source_that_differs_from_frozen_binding(monkeypatch) -> 
         StrategyLoader(ROOT / "strategies").load(StrategyRelease.from_mapping(payload))
 
 
+def test_loader_executes_helpers_from_the_authenticated_release_closure() -> None:
+    payload = json.loads(
+        (ROOT / "strategies/S007/versions/v1.json").read_text(encoding="utf-8")
+    )
+    strategy = StrategyLoader(ROOT / "strategies").load(
+        StrategyRelease.from_mapping(payload)
+    )
+    module = sys.modules[strategy.__class__.__module__]
+    release_root = ROOT / "strategies/S007/releases/v1/runtime/strategy_runtime"
+
+    assert Path(inspect.getsourcefile(module.next_session_calculation_scope)).resolve() == (
+        release_root / "calculation.py"
+    ).resolve()
+    assert Path(inspect.getsourcefile(module.effective_target_order_type)).resolve() == (
+        release_root / "execution_rules.py"
+    ).resolve()
+
+
 def test_symbol_binding_is_explicit_and_fails_closed() -> None:
     root = Path(__file__).resolve().parents[4]
 
@@ -162,6 +183,39 @@ def test_target_execution_plan_honors_frozen_limit_exit() -> None:
     assert plan["action"] == "SELL"
     assert plan["orders"][0]["order_type"] == "LIMIT"
     assert plan["orders"][0]["limit_price"] < 1.5
+
+
+def test_frozen_rule_rejects_fractional_target_positions() -> None:
+    policy = ExecutionPolicy(
+        "FROZEN_RULE",
+        {
+            "capital": {
+                "allocation_fraction": 1.0,
+                "fee_rate": 0.001,
+                "mode": "full_available_cash",
+                "target_scope": "entry_cycle",
+            },
+            "entry": {"limit_parameter": 0.2, "order_type": "LIMIT"},
+            "exit": {"limit_ratio": 0.2, "order_type": "LIMIT"},
+            "instrument": {
+                "lot_size": 100,
+                "maximum_order_quantity": 1000000,
+                "price_limit_ratio": 0.2,
+                "price_tick": 0.001,
+            },
+        },
+    )
+
+    with pytest.raises(RuntimeContractError, match="binary target position"):
+        build_execution_plan(
+            deployment_settings={},
+            available_cash=10000.0,
+            position_quantity=0,
+            target_position=0.5,
+            policy=policy,
+            signal_reference_price=1.5,
+            execution_reference_price=1.5,
+        )
 
 
 def test_intraday_overlay_capital_terms_are_explicit_for_each_plan_mode() -> None:

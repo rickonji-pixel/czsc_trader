@@ -16,7 +16,7 @@ from dataflows import DataIdentity, DataRequest, DataResult, DataStatus, canonic
 from .contracts import StrategyIdentity, TradableWindow
 from .errors import RuntimeContractError
 from .models import canonical_sha256
-from .preparation import PreparedInputs
+from .preparation import PreparedInputs, prepared_inputs_identity
 
 
 _MANIFEST = "prepared-data.json"
@@ -171,6 +171,10 @@ def load_prepared_inputs(
         identity = raw.get("identity")
         if not isinstance(request, dict) or not isinstance(identity, dict):
             raise RuntimeContractError(f"prepared input contract is invalid: {name}")
+        if identity.get("content_sha256") != raw.get("content_sha256"):
+            raise RuntimeContractError(
+                f"prepared input identity differs from stored content: {name}"
+            )
         requests[name] = DataRequest(**request)
         results[name] = DataResult(
             DataStatus.READY,
@@ -191,20 +195,26 @@ def load_prepared_inputs(
         }
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise RuntimeContractError("prepared data dates are invalid") from exc
-    prepared = PreparedInputs(
+    actual_identity = prepared_inputs_identity(
+        strategy=strategy,
+        tradable_window=tradable_window,
+        available_through=available_through,
+        signal_dates=signal_dates,
+        results=results,
+    )
+    if actual_identity != manifest.get("data_identity"):
+        raise RuntimeContractError("prepared data identity differs")
+    return PreparedInputs(
         strategy,
         tradable_window,
         available_through,
-        str(manifest.get("data_identity", "")),
+        actual_identity,
         requests,
         results,
         calendar_dates,
         signal_dates,
         calculation_dates,
     )
-    if prepared.data_identity != manifest.get("data_identity"):
-        raise RuntimeContractError("prepared data identity differs")
-    return prepared
 
 
 def save_prepared_inputs(
@@ -239,16 +249,26 @@ def save_prepared_inputs(
                 compression={"method": "gzip", "compresslevel": 6, "mtime": 0},
             )
             stored = pd.read_csv(staged)
+            stored_sha256 = canonical_frame_sha256(stored)
+            stored_identity = DataIdentity(
+                dataset=result.identity.dataset,
+                source=result.identity.source,
+                symbol=result.identity.symbol,
+                data_start=result.identity.data_start,
+                data_cutoff=result.identity.data_cutoff,
+                content_sha256=stored_sha256,
+                metadata=result.identity.metadata,
+            )
             stored_results[name] = DataResult(
                 DataStatus.READY,
                 stored,
-                result.identity,
+                stored_identity,
                 warnings=result.warnings,
             )
             inputs[name] = {
                 "file": filename,
                 "file_sha256": _file_sha256(staged),
-                "content_sha256": canonical_frame_sha256(stored),
+                "content_sha256": stored_sha256,
                 "request": {
                     "dataset": str(request.dataset),
                     "symbol": request.symbol,
@@ -264,15 +284,22 @@ def save_prepared_inputs(
                     "symbol": result.identity.symbol,
                     "data_start": result.identity.data_start,
                     "data_cutoff": result.identity.data_cutoff,
-                    "content_sha256": result.identity.content_sha256,
+                    "content_sha256": stored_sha256,
                     "metadata": _json_value(result.identity.metadata),
                 },
             }
+        stored_data_identity = prepared_inputs_identity(
+            strategy=prepared.strategy,
+            tradable_window=prepared.tradable_window,
+            available_through=prepared.available_through,
+            signal_dates=prepared.signal_dates,
+            results=stored_results,
+        )
         manifest = {
             "schema_version": 2,
             **_manifest_identity(prepared.strategy, prepared.tradable_window),
             "available_through": prepared.available_through.isoformat(),
-            "data_identity": prepared.data_identity,
+            "data_identity": stored_data_identity,
             "calendar_dates": [item.isoformat() for item in prepared.calendar_dates],
             "signal_dates": {
                 key.isoformat(): value.isoformat()
@@ -303,7 +330,7 @@ def save_prepared_inputs(
         prepared.strategy,
         prepared.tradable_window,
         prepared.available_through,
-        prepared.data_identity,
+        stored_data_identity,
         prepared.requests,
         stored_results,
         prepared.calendar_dates,

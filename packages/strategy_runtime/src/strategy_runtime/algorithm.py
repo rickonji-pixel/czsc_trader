@@ -48,3 +48,12 @@ class StrategyImplementation(ABC):
         """Calculate the channel-neutral strategy history for prepared inputs."""
 
         raise NotImplementedError
+
+    def calculate_window_history(
+        self,
+        inputs: Mapping[str, pd.DataFrame],
+        sessions: pd.DatetimeIndex,
+    ) -> pd.DataFrame:
+        """Calculate an evaluation window with strategy state reset at its left edge."""
+
+        return self.calculate_history(inputs, sessions)

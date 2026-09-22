@@ -9,6 +9,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
 from dataflows import Dataflows, Dataset
 
 from strategy_runtime import (
@@ -17,6 +18,7 @@ from strategy_runtime import (
     ExecutionState,
     OrderType,
     PortfolioSnapshot,
+    RuntimeContractError,
     StrategyInit,
     StrategyRelease,
     StrategyRuntime,
@@ -309,6 +311,48 @@ def test_s002_signal_and_state_machine_match_the_legacy_behavior(
         columns=["date", "entry_transition", "held_sessions", "action", "target_position"],
     )
     pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
+
+
+def test_s002_window_starts_with_empty_position_state(tmp_path, monkeypatch) -> None:
+    requests: list[object] = []
+    monkeypatch.setattr(
+        "strategy_runtime.preparation.Dataflows", lambda: _flows(requests)
+    )
+    window = TradableWindow(date(2025, 3, 5), date(2025, 3, 6))
+    instance = StrategyRuntime(ROOT / "strategies").create(
+        StrategyInit(_release(), window, tmp_path)
+    )
+    instance.prepare_data()
+
+    window_history = instance.inspect_signals()
+    frames = {
+        name: result.dataframe
+        for name, result in instance._prepared_data._inputs.results.items()
+    }
+    full_history = instance._algorithm.calculate_history(
+        frames, pd.DatetimeIndex(instance._prepared_data.calculation_dates())
+    )
+
+    assert full_history.loc[pd.Timestamp("2025-03-04"), "action"] == "HOLD_POSITION"
+    assert full_history.loc[pd.Timestamp("2025-03-04"), "held_sessions"] == 1
+    assert window_history.loc[pd.Timestamp("2025-03-04"), "action"] == "ENTER"
+    assert window_history.loc[pd.Timestamp("2025-03-04"), "held_sessions"] == 0
+
+
+def test_srt_rejects_incomplete_window_history(tmp_path, monkeypatch) -> None:
+    instance, _ = _prepared_instance(tmp_path, monkeypatch)
+    original = instance._algorithm.calculate_window_history
+
+    def incomplete(inputs, sessions):
+        return original(inputs, sessions).iloc[:-1]
+
+    monkeypatch.setattr(instance._algorithm, "calculate_window_history", incomplete)
+
+    with pytest.raises(
+        RuntimeContractError,
+        match="history differs from requested evaluation sessions",
+    ):
+        instance.inspect_signals()
 
 
 def test_single_window_plans_equal_continuous_window_replay(tmp_path, monkeypatch) -> None:

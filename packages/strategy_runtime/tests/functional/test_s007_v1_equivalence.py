@@ -5,6 +5,7 @@ from datetime import date
 from hashlib import sha256
 import json
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
@@ -19,7 +20,6 @@ from strategy_runtime import (
     TradableWindow,
 )
 from strategy_runtime.loader import StrategyLoader
-from strategy_runtime.strategies.s007_v1 import resolve_s007_feature_panel
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -226,7 +226,9 @@ def test_s007_window_calculation_keeps_canonical_state_history() -> None:
 
 
 def test_s007_appends_incremental_features_after_frozen_seed() -> None:
-    raw, _release_record = _release()
+    raw, release = _release()
+    strategy = StrategyLoader(ROOT / "strategies").load(release)
+    implementation = sys.modules[strategy.__class__.__module__]
     features = _features(raw)
     sessions = pd.bdate_range("2026-08-05", "2026-09-03")
     offsets = np.arange(len(sessions), dtype=float)
@@ -262,7 +264,9 @@ def test_s007_appends_incremental_features_after_frozen_seed() -> None:
         ),
     }
 
-    panel = resolve_s007_feature_panel(inputs, raw["strategy_payload"]["rule"]["score"])
+    panel = implementation.resolve_s007_feature_panel(
+        inputs, raw["strategy_payload"]["rule"]["score"]
+    )
     incremental = panel.loc[pd.Timestamp("2026-09-03"), features]
 
     assert incremental.notna().all()

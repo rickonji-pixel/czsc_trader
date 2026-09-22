@@ -92,14 +92,12 @@ def _target_history(states: pd.Series, entry_state: str, holding_sessions: int) 
     return pd.DataFrame(rows).set_index("date")
 
 
-def _calculate_target_history(
+def _calculate_signal_states(
     daily: pd.DataFrame,
     *,
     symbol: str,
     signal: Mapping[str, Any],
-    portfolio: Mapping[str, Any],
-) -> pd.DataFrame:
-    """Calculate the complete S002 target-position history from published daily bars."""
+) -> pd.Series:
     frame = daily.rename(
         columns={
             "Date": "dt",
@@ -133,6 +131,19 @@ def _calculate_target_history(
         output[output_key].map(_primary_value).astype("string").to_numpy(),
         index=sessions,
     )
+    return states
+
+
+def _calculate_target_history(
+    daily: pd.DataFrame,
+    *,
+    symbol: str,
+    signal: Mapping[str, Any],
+    portfolio: Mapping[str, Any],
+) -> pd.DataFrame:
+    """Calculate the complete S002 target-position history from published daily bars."""
+
+    states = _calculate_signal_states(daily, symbol=symbol, signal=signal)
     history = _target_history(
         states,
         str(signal.get("entry_state", "")),
@@ -277,3 +288,29 @@ class S002V1(StrategyImplementation):
             signal=self._signal,
             portfolio=self._portfolio,
         )
+
+    def calculate_window_history(
+        self,
+        inputs: Mapping[str, pd.DataFrame],
+        sessions: pd.DatetimeIndex,
+    ) -> pd.DataFrame:
+        states = _calculate_signal_states(
+            inputs[_INPUT_DAILY], symbol=self._symbol, signal=self._signal,
+        )
+        requested = pd.DatetimeIndex(sessions).tz_localize(None).normalize()
+        missing = requested.difference(states.index)
+        if not missing.empty:
+            raise RuntimeContractError(
+                "S002-v1 prepared history misses evaluation sessions"
+            )
+        history = _target_history(
+            states.reindex(requested),
+            str(self._signal.get("entry_state", "")),
+            int(self._portfolio.get("holding_sessions", 0)),
+        )
+        history["factor_score"] = (
+            history["signal_state"]
+            .eq(str(self._signal.get("entry_state", "")))
+            .astype(float)
+        )
+        return history

@@ -65,6 +65,10 @@ def _target_plan(
     cash = Decimal(str(request.available_cash))
     lot = int(instrument["lot_size"])
     tick = float(instrument["price_tick"])
+    if request.target_position not in (0.0, 1.0):
+        raise RuntimeContractError(
+            "FROZEN_RULE requires a binary target position"
+        )
     target_position = int(request.target_position)
     execution_reference_price = request.execution_reference_price
     orders: list[dict[str, object]] = []

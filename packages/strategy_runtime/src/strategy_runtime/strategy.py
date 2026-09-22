@@ -202,7 +202,32 @@ class StrategyInstance:
         cache_key = (data.dataset_identity, mode)
         cached = self._history_cache.get(cache_key)
         if cached is None:
-            history = self._algorithm.calculate_history(frames, sessions)
+            history = (
+                self._algorithm.calculate_window_history(frames, sessions)
+                if mode == "window"
+                else self._algorithm.calculate_history(frames, sessions)
+            )
+            if not isinstance(history, pd.DataFrame) or not isinstance(
+                history.index, pd.DatetimeIndex
+            ):
+                raise RuntimeContractError(
+                    "strategy history must use a DatetimeIndex"
+                )
+            actual_sessions = pd.DatetimeIndex(history.index).tz_localize(None).normalize()
+            if actual_sessions.has_duplicates or not actual_sessions.is_monotonic_increasing:
+                raise RuntimeContractError(
+                    "strategy history sessions must be unique and ordered"
+                )
+            if mode == "window" and not actual_sessions.equals(sessions):
+                raise RuntimeContractError(
+                    "strategy window history differs from requested evaluation sessions"
+                )
+            if mode == "point" and not sessions.difference(actual_sessions).empty:
+                raise RuntimeContractError(
+                    "strategy point history omits required calculation sessions"
+                )
+            history = history.copy()
+            history.index = actual_sessions
             cached = (history, sessions)
             self._history_cache[cache_key] = cached
         return cached
@@ -308,8 +333,15 @@ class StrategyInstance:
         if portfolio.as_of > point.calculation_time or state.as_of > point.calculation_time:
             raise RuntimeContractError("planning state is newer than calculation time")
 
-        signal = self._calculate_signal(data, point, history_mode)
         signal_date = data.signal_date_for(point.trading_date)
+        signal_available_at = datetime.combine(
+            signal_date, time(15, 0), tzinfo=_SHANGHAI,
+        )
+        if point.calculation_time.astimezone(_SHANGHAI) < signal_available_at:
+            raise RuntimeContractError(
+                "calculation time precedes the signal-session close"
+            )
+        signal = self._calculate_signal(data, point, history_mode)
         if signal.evidence.get("signal_date") != signal_date.isoformat():
             raise RuntimeContractError("strategy signal evidence refers to another date")
         references = data.price_reference(signal_date, point.trading_date)

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
 from pathlib import Path
+import sys
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -22,12 +23,15 @@ from strategy_runtime import (
     canonical_sha256,
 )
 from strategy_runtime.loader import StrategyLoader
-from strategy_runtime.strategies import s001_common
 
 
 ROOT = Path(__file__).resolve().parents[4]
 BASELINE_PATH = ROOT / "packages/strategy_runtime/tests/fixtures/s001_equivalence.json"
 ZONE = ZoneInfo("Asia/Shanghai")
+
+
+def _common_module(strategy: StrategyImplementation):
+    return sys.modules[strategy.__class__.__mro__[1].__module__]
 
 
 def _baseline() -> dict[str, object]:
@@ -187,6 +191,7 @@ def test_s001_refactor_preserves_frozen_signal_history(version: str) -> None:
         (ROOT / f"strategies/S001/versions/{version}.json").read_text(encoding="utf-8")
     )
     strategy = StrategyLoader(ROOT / "strategies").load(StrategyRelease.from_mapping(raw))
+    s001_common = _common_module(strategy)
     inputs = _calculation_inputs()
     sessions = pd.DatetimeIndex(inputs["adjusted_daily"]["Date"])
     expected = s001_common.calculate_s001_history(
@@ -238,6 +243,7 @@ def test_s001_single_session_preparation_reproduces_the_canonical_signal_and_pla
 
     prepared = instance.prepare_data()
     history = instance.inspect_signals()
+    s001_common = _common_module(instance._algorithm)
     full_inputs = _calculation_inputs()
     canonical = s001_common.calculate_s001_history(
         full_inputs["adjusted_30m"],

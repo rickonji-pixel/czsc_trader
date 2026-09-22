@@ -10,7 +10,14 @@ from pathlib import Path
 import sys
 
 import pandas as pd
-from dataflows import DataRequest, DataResult, DataStatus, Dataflows, Dataset
+from dataflows import (
+    DataRequest,
+    DataResult,
+    DataStatus,
+    Dataflows,
+    Dataset,
+    canonical_frame_sha256,
+)
 
 from .algorithm import StrategyImplementation
 from .contracts import StrategyIdentity, TradableWindow
@@ -105,9 +112,47 @@ def _open_dates(frame: pd.DataFrame) -> tuple[date, ...]:
 
 def _ready(result: DataResult, name: str) -> DataResult:
     if result.status is DataStatus.READY and result.identity is not None:
+        if canonical_frame_sha256(result.dataframe) != result.identity.content_sha256:
+            raise RuntimeContractError(
+                f"prepared input identity differs from dataframe content: {name}"
+            )
         return result
     detail = result.error.message if result.error else result.status.value
     raise RuntimeExecutionError(f"data preparation failed for {name}: {detail}")
+
+
+def prepared_inputs_identity(
+    *,
+    strategy: StrategyIdentity,
+    tradable_window: TradableWindow,
+    available_through: date,
+    signal_dates: Mapping[date, date],
+    results: Mapping[str, DataResult],
+) -> str:
+    identities = {
+        name: result.identity.content_sha256
+        for name, result in sorted(results.items())
+        if result.identity is not None
+    }
+    if len(identities) != len(results):
+        raise RuntimeContractError("prepared inputs contain an unauthenticated result")
+    return canonical_sha256(
+        {
+            "strategy": strategy.reference_id,
+            "release_hash": strategy.release_hash,
+            "runtime_sha256": strategy.runtime_sha256,
+            "tradable_window": {
+                "start": tradable_window.start.isoformat(),
+                "end": tradable_window.end.isoformat(),
+            },
+            "available_through": available_through.isoformat(),
+            "signal_dates": {
+                key.isoformat(): value.isoformat()
+                for key, value in signal_dates.items()
+            },
+            "inputs": identities,
+        }
+    )
 
 
 def prepare_inputs(
@@ -204,26 +249,12 @@ def prepare_inputs(
         requests[name] = request
         results[name] = result
 
-    input_identities = {
-        name: result.identity.content_sha256
-        for name, result in sorted(results.items())
-    }
-    data_identity = canonical_sha256(
-        {
-            "strategy": strategy.reference_id,
-            "release_hash": strategy.release_hash,
-            "runtime_sha256": strategy.runtime_sha256,
-            "tradable_window": {
-                "start": tradable_window.start.isoformat(),
-                "end": tradable_window.end.isoformat(),
-            },
-            "available_through": scope.available_through.isoformat(),
-            "signal_dates": {
-                key.isoformat(): value.isoformat()
-                for key, value in scope.signal_dates.items()
-            },
-            "inputs": input_identities,
-        }
+    data_identity = prepared_inputs_identity(
+        strategy=strategy,
+        tradable_window=tradable_window,
+        available_through=scope.available_through,
+        signal_dates=scope.signal_dates,
+        results=results,
     )
     return PreparedInputs(
         strategy,

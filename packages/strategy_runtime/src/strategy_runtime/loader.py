@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from importlib import import_module
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
-import sys
 
 from .deployment import load_strategy_deployment
 from .errors import RuntimeCompatibilityError
 from .implementation_identity import implementation_sha256, strategy_source_root
+from .isolated_import import load_closure_module
 from .models import ImplementationRef, StrategyCandidate, StrategyRelease, canonical_sha256
 from .algorithm import StrategyImplementation
 
@@ -100,36 +99,23 @@ class StrategyLoader:
             raise RuntimeCompatibilityError(
                 f"frozen implementation differs from runtime binding: {release.release_id}"
             )
-        previous_bytecode = sys.dont_write_bytecode
-        sys.dont_write_bytecode = True
         try:
-            import strategy_runtime
-
-            root_text = str(root)
-            if root_text not in strategy_runtime.__path__:
-                strategy_runtime.__path__.insert(0, root_text)
-            strategies = import_module("strategy_runtime.strategies")
-            strategies_root = str(root / "strategies")
-            if strategies_root not in strategies.__path__:
-                strategies.__path__ = [strategies_root, *list(strategies.__path__)]
-            try:
-                with strategy_source_root(root):
-                    module = import_module(module_name)
-                    factory = getattr(module, class_name)
-            except (ImportError, AttributeError) as exc:
-                raise RuntimeCompatibilityError(
-                    f"strategy implementation is unavailable: {module_name}.{class_name}"
-                ) from exc
-        finally:
-            sys.dont_write_bytecode = previous_bytecode
-        loaded_hash = getattr(module, "__srt_source_sha256__", None)
-        if loaded_hash not in (None, actual):
+            with strategy_source_root(root):
+                module = load_closure_module(
+                    module_name,
+                    source_root=root,
+                    source_files=tuple(binding["source_files"]),
+                    source_sha256=actual,
+                    marker="srt_source",
+                )
+                factory = getattr(module, class_name)
+        except (ImportError, AttributeError) as exc:
             raise RuntimeCompatibilityError(
-                "frozen implementation was already imported from another source closure"
-            )
+                f"strategy implementation is unavailable: {module_name}.{class_name}"
+            ) from exc
+        factory.__module__ = module_name
         if implementation_sha256(tuple(binding["source_files"]), source_root=root) != actual:
             raise RuntimeCompatibilityError("implementation source changed while loading")
-        module.__srt_source_sha256__ = actual
         return module_name, class_name, factory, root, binding
 
     @staticmethod
@@ -178,51 +164,32 @@ class StrategyLoader:
                 raise RuntimeCompatibilityError(
                     "candidate source root must be a strategy_runtime package directory"
                 )
-            import strategy_runtime
-
-            previous_bytecode = sys.dont_write_bytecode
-            sys.dont_write_bytecode = True
-            try:
-                package_path = str(root)
-                if package_path not in strategy_runtime.__path__:
-                    strategy_runtime.__path__.insert(0, package_path)
-                strategies = import_module("strategy_runtime.strategies")
-                strategies_path = str(root / "strategies")
-                if strategies_path not in strategies.__path__:
-                    strategies.__path__ = [strategies_path, *list(strategies.__path__)]
-            finally:
-                sys.dont_write_bytecode = previous_bytecode
         actual = implementation_sha256(tuple(source_files), source_root=root)
         if actual != ref.source_sha256:
             raise RuntimeCompatibilityError(
                 "declared implementation source hash differs from local code"
             )
-        module = sys.modules.get(ref.module)
-        if module is not None and getattr(module, "__srt_source_sha256__", None) != actual:
-            raise RuntimeCompatibilityError(
-                "declared implementation was already imported with an unverified or different "
-                "source closure; use a fresh process"
-            )
-        previous_bytecode = sys.dont_write_bytecode
-        sys.dont_write_bytecode = True
         try:
-            try:
-                with strategy_source_root(root):
-                    module = import_module(ref.module)
-                    factory = getattr(module, ref.qualname)
-            except (ImportError, AttributeError) as exc:
-                raise RuntimeCompatibilityError(
-                    f"declared strategy is unavailable: {ref.module}.{ref.qualname}"
-                ) from exc
-        finally:
-            sys.dont_write_bytecode = previous_bytecode
+            with strategy_source_root(root):
+                module = load_closure_module(
+                    ref.module,
+                    source_root=root,
+                    source_files=tuple(source_files),
+                    source_sha256=actual,
+                    marker="srt_source",
+                )
+                factory = getattr(module, ref.qualname)
+        except (ImportError, AttributeError) as exc:
+            raise RuntimeCompatibilityError(
+                f"declared strategy is unavailable: {ref.module}.{ref.qualname}"
+            ) from exc
+        factory.__module__ = ref.module
         if factory.__module__ != ref.module or factory.__qualname__ != ref.qualname:
             raise RuntimeCompatibilityError(
                 "declared factory is an alias for another implementation"
             )
         if implementation_sha256(tuple(source_files), source_root=root) != actual:
             raise RuntimeCompatibilityError("implementation source changed while loading")
-        module.__srt_source_sha256__ = actual
         return ref.module, ref.qualname, factory
 
     @staticmethod

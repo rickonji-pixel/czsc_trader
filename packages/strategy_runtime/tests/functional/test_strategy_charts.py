@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 
@@ -120,3 +121,16 @@ def test_chart_runtime_rejects_release_hash_drift() -> None:
 
     with pytest.raises(ValueError, match="identity hash differs"):
         ChartRuntime(ROOT / "strategies").render_backtest("S007-v1", context)
+
+
+def test_chart_runtime_executes_common_code_from_the_authenticated_release() -> None:
+    deployment = load_strategy_deployment(ROOT / "strategies", "S007-v1")
+    implementation = ChartRuntime._implementation(
+        deployment.binding["charts"],
+        source_root=deployment.source_root,
+        install_files=tuple(deployment.binding["install_files"]),
+    )
+
+    assert Path(inspect.getsourcefile(implementation.__class__.__mro__[1])).resolve() == (
+        deployment.source_root / "charts/common.py"
+    ).resolve()

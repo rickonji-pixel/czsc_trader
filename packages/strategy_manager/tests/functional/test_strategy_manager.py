@@ -385,6 +385,15 @@ def test_ft_sm04c_failed_freeze_commit_leaves_no_partial_version(
 ) -> None:
     registry, candidate = _ready_registry(tmp_path)
     original = registry._atomic_write
+    original_replace = Path.replace
+    rollback_attempts = 0
+
+    def transient_rollback_lock(source: Path, target: Path) -> Path:
+        nonlocal rollback_attempts
+        if source.suffix == ".rollback" and rollback_attempts == 0:
+            rollback_attempts += 1
+            raise PermissionError("injected transient rollback lock")
+        return original_replace(source, target)
 
     def fail_runtime_write(path: Path, text: str, expected: bytes | None = None) -> None:
         if path.name == "runtime_acceptance.json":
@@ -392,6 +401,7 @@ def test_ft_sm04c_failed_freeze_commit_leaves_no_partial_version(
         original(path, text, expected)
 
     monkeypatch.setattr(registry, "_atomic_write", fail_runtime_write)
+    monkeypatch.setattr(Path, "replace", transient_rollback_lock)
     with pytest.raises(OSError, match="injected"):
         registry._legacy_create_frozen_version(
             "S008",
@@ -415,6 +425,7 @@ def test_ft_sm04c_failed_freeze_commit_leaves_no_partial_version(
     review_dir = tmp_path / "S008" / "reviews" / "FR-S008-C001-001"
     assert not (review_dir / "human_decision.json").exists()
     assert not (review_dir / "runtime_acceptance.json").exists()
+    assert rollback_attempts == 1
 
 
 def test_ft_sm05_legacy_governance_event_is_idempotent(tmp_path: Path) -> None:

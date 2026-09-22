@@ -7,6 +7,7 @@ import uuid
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from time import sleep
 from typing import Any
 
 from .errors import (
@@ -43,6 +44,17 @@ from .write_lock import RegistryWriteLock, registry_write
 
 def _now() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _replace_file(source: Path, target: Path) -> None:
+    for attempt in range(5):
+        try:
+            source.replace(target)
+            return
+        except PermissionError:
+            if attempt == 4:
+                raise
+            sleep(0.02 * (attempt + 1))
 
 
 def _normalized_name(value: str) -> str:
@@ -92,7 +104,7 @@ class StrategyRegistry:
         temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         try:
             temporary.write_text(text, encoding="utf-8", newline="\n")
-            temporary.replace(path)
+            _replace_file(temporary, path)
         finally:
             temporary.unlink(missing_ok=True)
 
@@ -123,7 +135,7 @@ class StrategyRegistry:
                 else:
                     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.rollback")
                     temporary.write_bytes(previous)
-                    temporary.replace(path)
+                    _replace_file(temporary, path)
             except OSError as exc:
                 failures.append(f"{path}: {exc}")
         if failures:

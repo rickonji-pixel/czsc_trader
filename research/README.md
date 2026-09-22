@@ -5,8 +5,9 @@
 > `research/<策略ID>/HANDOFF.md`；不可变事实读取`experiments/`；正式身份与冻结版本读取
 > `strategies/`。
 
-开发环境、系统架构、测试规则和PTE运维见[开发运维交接](../docs/DEVELOPMENT_HANDOFF.md)。本文同时
-维护研究所需的目录查询、数据、回测、治理和档案校验入口。
+开发环境、系统架构、测试规则和PTE运维见[开发运维交接](../docs/DEVELOPMENT_HANDOFF.md)；候选
+交付结构见[策略候选包](../docs/CANDIDATE_PACKAGE.md)。本文同时维护研究所需的目录查询、数据、
+回测、治理和档案校验入口。
 
 ## 研究批次与目标治理
 
@@ -28,7 +29,7 @@
 
 ```text
 SXX 策略族 → SGC研究批次 → SXX-CXXX 研究候选 → SXX-vN 冻结版本
-                                                        → 独立授权PTE部署
+                                                        → SRT部署 → 独立授权PTE账户
 ```
 
 同一批次可以形成多个候选，但只能按冻结时的完整证据创建不可变版本。冻结版本进入模拟盘后
@@ -299,10 +300,14 @@ TDR组织的完整体检覆盖证据身份与完整性、正式PK、回放一致
 首个候选没有在位策略时，以相同标的、资金、起止日和执行口径的BuyHold作为明确对手。
 PK只授予体检资格，不能直接形成冻结版本。
 
-### 7. 三道人工闸门、冻结与前瞻观察
+### 7. 角色协同、冻结与前瞻观察
 
-研究工作流只在三个需要人工授权的节点介入：创建新研究批次；批准候选进入冻结评审并锁定最终
-EvaluationMandate；阅读裁判报告后批准正式冻结。冻结、SRT部署和PTE账户启用是独立动作。
+策略研究员负责创建研究批次、完成不可变实验，并在`research/SXXX/candidates/`手工组装包含
+策略代码、binding、回测图代码和前瞻观察语义的完整候选提交包。投资总监负责使用平台工具
+审查候选与最终EvaluationMandate、执行体检、阅读裁判报告、决定冻结并把冻结版本部署到SRT。
+冻结、SRT部署和PTE账户启用是独立动作；平台当前沿用EvaluationMandate的`finalized_by`作为
+操作者声明，但尚不做身份识别或鉴权，相关治理印章明确标记
+`actor_identity_assurance=UNVERIFIED`。
 
 正式冻结前重新核对封存数据、证据与运行时身份；重复评估也不能以缓存掩盖证据变化。
 本轮架构升级保留历史研究档案供人工查看，不承诺旧研究脚本或旧数据制品兼容；已有五个冻结
@@ -310,25 +315,26 @@ EvaluationMandate；阅读裁判报告后批准正式冻结。冻结、SRT部署
 并以冻结证据和完整等价测试证明决策及执行行为不变；新候选统一走候选SRT链路。
 
 ```powershell
-# 节点一：创建研究批次
+# 策略研究员：创建研究批次
 .\.venv\Scripts\czsc-trader.exe research create `
   --input research-intent.json --actor tomxiao --reason "批准研究立项"
 
 # 同一策略族启动下一研究批次时，在输入JSON中保留相同name/scope，
 # 并显式增加新的credential_id，例如SGC-S007-002。
 
-# 节点二：验证并锁定完整候选包和最终评价合同
+# 投资总监：受理并锁定完整候选包和最终评价合同，再执行平台体检
 .\.venv\Scripts\czsc-trader.exe candidate review `
   --package research/SXXX/candidates/SXXX-Cnnn `
   --mandate research/SXXX/mandates/SXXX-Cnnn.json
 .\.venv\Scripts\czsc-trader.exe candidate evaluate SXXX-Cnnn
 
-# 节点三：人工批准正式冻结；该命令不会创建PTE账户
+# 投资总监：阅读体检结果后决定正式冻结；该命令不会部署SRT或创建PTE账户
 .\.venv\Scripts\czsc-trader.exe candidate freeze SXXX-Cnnn `
   --change-summary "首个冻结版本"
 
-# 将已冻结策略版本部署到SRT
+# 投资总监：将已冻结策略版本部署到SRT
 .\.venv\Scripts\czsc-trader.exe strategy deploy SXXX-v1
+.\.venv\Scripts\czsc-trader.exe strategy list SXXX
 .\.venv\Scripts\czsc-trader.exe strategy info SXXX-v1
 ```
 
@@ -341,12 +347,15 @@ EvaluationMandate；阅读裁判报告后批准正式冻结。冻结、SRT部署
 | `research intent update` | 更新研究意图或研究状态 | 更新`research/registrations/SXXX/family.json`和`lifecycle.jsonl` |
 
 上述产物都属于策略研究区，不进入`strategies/`。`candidate review`成功受理完整候选包时，
-平台才把该批次必要的策略身份和凭据导入策略治理区；体检失败会回滚本次导入。
+平台才把该批次必要的策略身份、凭据和原始提交内容导入策略治理区；体检失败会回滚本次导入。
+`candidate freeze`把同一策略实现固化为治理区内的冻结发布包，`strategy deploy`写入经校验的
+SRT部署凭据。策略实现始终保存在独立治理区，不复制到`packages/strategy_runtime/`。
 
 冻结成功后，StrategyVersion进入`PAPER_READY`，但没有自动进入模拟盘。只有再次取得独立授权，
 才在PTE创建虚拟账户。PTE记录部署后新增的信号、决策、订单、成交、账本和绩效。模拟盘用于
 生成独立数据、验证执行和继续证伪，不能自动证明Alpha，也不能自动晋升实盘。监测触发人工
-复核；暂停只阻止新单，不自动处理已有订单和持仓。
+复核；暂停只阻止新单，不自动处理已有订单和持仓。PTE不读取未冻结候选包；它只消费已部署
+冻结版本随决策输出的结构化观察事实，独立获取行情并异步生成统一前瞻观察图。
 
 ## S007最佳实践与经验教训
 

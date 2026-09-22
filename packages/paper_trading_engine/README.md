@@ -14,8 +14,10 @@ PTE负责：
 - SQLite追加式审计、控制台和账户前瞻观察图；
 - 向SM导出人工确认所需的模拟盘里程碑证据。
 
-PTE不负责准备行情或策略支持数据，也不负责策略计算、价格调整、目标仓位或委托数量计算，
-这些事实由SRT提供。PTE只为每个运行环境提供隔离的数据根目录，并消费已经准备完成的实例。
+PTE不负责准备策略计算所需的行情或支持数据，也不负责策略计算、价格调整、目标仓位或委托
+数量计算，这些事实由SRT提供。账户前瞻观察图使用独立展示链路：PTE自行通过DFLS读取复权
+日线，只用于图表背景，不复用或解析SRT私有准备数据。PTE为每个运行环境提供隔离的数据根目录，
+并消费已经准备完成的实例。
 PTE不导入TDR、SM或SE，也不创建或探测Futu行情连接。内部OHLC模拟成交渠道已经
 移除；只有Futu累计成交回报能够改变账户现金和持仓。
 
@@ -57,9 +59,11 @@ FutuSimulateCnChannel 1 ─── 1 Futu SIMULATE/CN account
   可选成交依赖；PTE持久化全部环节后才接受该决策，并可在重启后恢复。当前日内轮换只在
   开盘买入`FILLED_ALL`后放行11:30卖出；买单未完整成交或错过时点时撤单、阻断后续环节
   并保留执行缺口。订单价格由SRT冻结执行策略给出，Futu自动调价始终关闭；
-- `strategy_chart.v1`：PTE独立读取复权日线，并通过stdin传入策略身份、有限行情、策略输出
-  和账户执行事实；SRT内的冻结策略图表实现返回HTML。图表行情不依赖策略数据准备或
-  `StrategyInstance`；PTE使用外置Plotly运行库并长期缓存，图表事实变化时才加载新HTML；
+- `strategy_observation.v1`：已部署冻结版本声明展示无关的观察序列、字段和阈值，SRT随每笔
+  决策输出物化后的观察事实；
+- `pte_forward_chart.v1`：PTE把独立DFLS行情、SRT观察事实和账户订单/成交/持仓事实组装为
+  统一上下文，并由PTE自己的HTML/CSS/JavaScript渲染器生成前瞻观察图。PTE不加载候选包或
+  策略专属前瞻图代码；
 - PTE只接受冻结且资格为`PAPER_READY`的策略发布。
 - PTE在每个交易日20:30后按账户创建隔离的`StrategyInstance`并显式调用
   `prepare_data()`；实例自行推导并准备策略依赖。准备成功后原子更新
@@ -98,7 +102,8 @@ PTE日常运行状态不进入SM。只有人工复核后的里程碑通过自包
 - `futu_gateway.py`与`futu_execution.py`：Futu交易适配与执行；
 - `store.py`与`audit.py`：SQLite状态及四类追加式审计事件；
 - `web.py`：localhost控制台和HTTP控制接口；
-- `account_chart.py`：账户前瞻观察图缓存；
+- `account_chart.py`：账户前瞻观察图异步刷新、DFLS读取、缓存和错误审计；
+- `forward_chart.py`及控制台静态资源：PTE统一前瞻图HTML骨架、交互和视觉实现；
 - `watchdog.py`与`windows_service.py`：无业务逻辑的进程保活层。
 
 开发模式默认把运行数据库、行情副本、图表缓存和日志写入`state/paper_trading/`。生产模式
@@ -147,6 +152,11 @@ Futu渠道页只把Futu总资产、可用现金、已分配额度和未分配额
 OpenD暂时不可用可以启动为明确的`UNAVAILABLE`降级状态，内部数据库、账本或对账异常则必须
 中止相应流程并告警。
 
+前瞻观察图状态查询只读取缓存并至多提交一个账户级刷新任务，立即返回`BUILDING`、
+`REFRESHING`、`READY`、`EMPTY`或`UNAVAILABLE`。DFLS读取和HTML渲染均在独立守护线程执行，
+其中DFLS读取还具有有限超时；图表失败写入审计和缓存错误，但不占用Web请求线程或PTE主调度
+线程。缓存指纹由图表事实和渲染版本共同决定，事实不变时复用现有HTML。
+
 需要额外历史时点信息的策略，由其 `StrategyImplementation` 声明输入并推导范围，由
 `StrategyInstance.prepare_data()`统一准备。任一输入缺失、截止日不足或哈希不符时PTE都不生成
 该账户决策。PTE不识别S003、S007等策略专属数据结构。
@@ -155,6 +165,8 @@ OpenD暂时不可用可以启动为明确的`UNAVAILABLE`降级状态，内部�
 构建产物写入 `../../.build/pte/`，pip、uv-build 和临时目录分别位于
 `../../.tmp/pte-release/pip/`、`../../.tmp/pte-release/uv-build/` 和
 `../../.tmp/pte-release/temp/`，避免依赖用户级缓存权限。
+构建会把策略治理区中的冻结发布包和SRT部署凭据作为不可变`strategies/`快照纳入版本，并在
+生成manifest前验证每个已部署版本的运行时、回测图与观察契约。
 `pte-release`是发布脚本使用的内部入口，不作为日常人工发布命令。
 
 ## 包级开发

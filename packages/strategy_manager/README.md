@@ -35,12 +35,16 @@ SE 负责确定性数值评估，SRT 负责执行候选或冻结策略；SM 只�
 
 - `family.json`：策略族定义；
 - `credentials/<credential_id>.jsonl`：追加式 SGC 记录；
+- `candidates/<candidate_id>/package/`：`candidate review`受理后封存的原始候选提交包；
 - `versions/vN.json`：冻结版本；
+- `releases/vN/`：冻结版本对应的不可变策略运行时、binding和发布清单；
 - `freeze_approvals.jsonl`：冻结批准记录；
 - `lifecycle.jsonl`：生命周期事件；
 - `evidence.jsonl`及`evidence/`：阶段性绩效记录和自包含证据制品。
 
-这些文件属于治理账本。人工编辑会破坏哈希或状态链，应通过 SM 接口修改。
+根目录`strategies/deployments/`保存`strategy deploy`生成的SRT部署凭据。以上内容共同组成独立
+策略治理区；人工编辑会破坏哈希或状态链，只能由候选治理和SRT部署平台入口修改。SRT通过部署
+凭据从治理区加载冻结发布包，策略源码不会安装到`packages/strategy_runtime/`。
 
 ## 包级验证
 

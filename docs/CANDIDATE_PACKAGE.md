@@ -36,7 +36,10 @@ SXXX-Cnnn/
          └─ ...
 ```
 
-`runtime/strategy_runtime/`中的相对路径就是冻结后安装到SRT子包的目标路径。
+`runtime/strategy_runtime/`使用可独立加载的Python包形态保存源码闭包。冻结后，平台把它原样
+复制到`strategies/SXXX/releases/vN/runtime/strategy_runtime/`；`strategy deploy`只在
+`strategies/deployments/`创建经过校验的部署凭据。策略源码不会写入
+`packages/strategy_runtime/`，SRT始终是策略无关的运行引擎，并从策略治理区加载已部署版本。
 
 ## candidate_submission.json
 
@@ -111,6 +114,19 @@ SXXX-Cnnn/
       "charts/sxxx_cnnn.py"
     ],
     "source_sha256": "<sha256>"
+  },
+  "observation": {
+    "contract_version": "strategy_observation.v1",
+    "series": [
+      {
+        "key": "score",
+        "label": "策略分数",
+        "value_field": "score",
+        "guides": [
+          {"key": "entry_threshold", "label": "入场阈值", "value": 0.5}
+        ]
+      }
+    ]
   }
 }
 ```
@@ -123,16 +139,20 @@ SXXX-Cnnn/
 ```python
 class SXXXCharts:
     def render_backtest(self, context): ...
-    def render_forward_observation(self, context): ...
 ```
 
-两个方法分别生成TDR回测图和PTE前瞻观察图。图表代码只能读取平台传入的context，不得直接
-读取TDR输出目录、PTE数据库、券商接口或SRT私有准备目录。
+该方法生成TDR回测图。图表代码只能读取平台传入的context，不得直接读取TDR输出目录、PTE
+数据库、券商接口或SRT私有准备目录。
 
-两个方法统一接收`strategy_chart.v1`上下文。平台负责提供策略身份、窗口、独立行情、策略输出、
-执行账本和渲染选项；策略图表代码负责把这些事实解释为本策略的分面、阈值、信号和状态语义。
-两个方法必须返回完整HTML文档。候选审查会校验图表源码闭包和哈希；缺少契约、身份不一致或
-渲染失败都会直接阻断审查或运行，不存在平台旧图回退路径。
+该方法接收`strategy_chart.v1`上下文。平台负责提供策略身份、窗口、独立行情、策略输出、
+执行账本和渲染选项；策略图表代码负责把这些事实解释为本策略的分面、阈值、信号和状态语义，
+并返回完整HTML文档。候选审查会校验图表源码闭包和哈希；缺少契约、身份不一致或渲染失败
+都会直接阻断审查或回测，不存在平台旧图回退路径。
+
+`observation`只声明策略决策中可观察序列、字段和阈值的展示无关语义。SRT在生成冻结策略决策
+时把它物化为`strategy_observation.v1`事实；PTE只消费已部署冻结版本的决策事实，独立调用DFLS
+获取行情，并在PTE后台线程中生成`pte_forward_chart.v1`前瞻观察图。PTE不读取未冻结候选包，
+候选包也不提供前瞻图HTML、JavaScript或Plotly实现。
 
 ## 投资总监操作
 
@@ -153,5 +173,7 @@ class SXXXCharts:
 .\.venv\Scripts\czsc-trader.exe strategy info SXXX-vN
 ```
 
-`candidate freeze`只生成不可变策略版本包。`strategy deploy`成功后，该版本才进入SRT，并能被
-`strategy list`和`strategy info`查询。
+`candidate freeze`只在策略治理区生成不可变策略版本包。`strategy deploy`完整校验版本包、
+运行时、回测图和前瞻观察语义后写入SRT部署凭据；此后SRT才能从治理区加载该版本，且该版本
+才能被`strategy list`和`strategy info`查询。以上`strategy`命令只覆盖SRT部署状态，不承担
+候选包管理或PTE账户部署。

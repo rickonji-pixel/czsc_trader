@@ -22,11 +22,13 @@
 后续开发、文档和讨论统一使用以上名称。DFLS、FSC、STC、SM、SE、SRT、TXE和PTE
 均为仓库内独立包，只通过明确契约协作。研究脚本可以直接使用Optuna、特征提取库及其他研究
 依赖；仓库不再维护通用Search和Feature Mining运行模块。`news_events`仍是TDR内的受控抽取
-能力。正式策略结论必须通过TDR三道人工闸门进入生命周期。
+能力。策略研究员交付候选包，投资总监通过TDR平台入口完成候选审查、体检、冻结和SRT部署。
 
 ## 当前交付状态
 
-- 主开发分支：`master`；开始工作前现场确认分支和远端同步状态。
+- 默认集成分支：`master`；开始工作前现场确认分支和远端同步状态。截至2026-09-23，策略治理
+  与运行时边界重构位于`codex/strategy-governance-runtime-boundary`，相对`master`领先11个
+  提交，当前提交为`07b182e`，尚未合并、打tag或发布。
 - Python：3.12。
 - 正式策略：`S001-v1`、`S001-v2`、`S002-v1`、`S003-v1`和`S007-v1`均为
   `PAPER_READY`。S002使用`czsc_event_hold`事件持有型运行时，S003使用成分资金流宽度
@@ -37,16 +39,17 @@
 - 新候选冻结必须绑定不可变候选快照、最终EvaluationMandate、TDR裁判报告、人工冻结决议和
   SRT运行时验收；任一身份或哈希不一致时拒绝冻结。历史五个版本以
   `LEGACY_GOVERNANCE_ACCEPTED`事件保留当时治理事实。
-- SRT/PTE机器契约：普通决策为`advice.v4`，原子时点计划为`advice.v5`，统一图表上下文为
-  `strategy_chart.v1`。TDR与PTE只提供事实，回测图和前瞻观察图均由冻结在SRT的策略图表
-  实现生成；未声明图表契约或渲染失败时直接报错。
+- SRT/PTE机器契约：普通决策为`advice.v4`，原子时点计划为`advice.v5`。TDR回测图由冻结
+  发布包中的策略图表实现消费`strategy_chart.v1`并生成；PTE消费SRT输出的
+  `strategy_observation.v1`事实，独立获取DFLS行情并按`pte_forward_chart.v1`异步生成统一
+  前瞻观察图。PTE不读取未冻结候选包或策略专属前瞻图代码。
 - PTE控制台：<http://127.0.0.1:8080>。
 - WDG Windows服务：`CZSC-PTE-Watchdog`。
 - 当前唯一交易渠道：Futu中国市场模拟交易。
-- 仓库最新发布版本为`v0.5.10`；截至2026-09-22只读核验，PTE生产环境运行`v0.5.10`
-  （提交`c2ae818`，状态`RUNNING`）。当前SRT重构仍位于开发分支，尚未合并或发布。PTE采用
-  附注tag构建和独立生产环境发布，生产版本目录
-  不可变，账户、SRT准备数据、配置和日志集中在共享运行目录。
+- 仓库当前最新tag为`v0.5.14`（提交`2ede571`）。上述开发分支变更不属于任何已发布tag；
+  PTE生产活动版本与运行状态必须在每次运维前通过健康接口和发布清单重新只读核验，本文不把
+  历史检查结果作为当前事实。PTE采用附注tag构建和独立生产环境发布，生产版本目录不可变，
+  账户、SRT准备数据、配置和日志集中在共享运行目录。
 
 每次接手先执行：
 
@@ -61,27 +64,30 @@ git rev-list --left-right --count origin/master...master
 ```text
 Tushare → DFLS（获取、校验、按供应商与标的修复）
                     ↓ DataResult
-研究脚本 → 候选SRT + 候选快照 + 最终评价目标 → TDR
+策略研究员 → 候选实现 + binding + 回测图代码 + 观察语义 → 候选提交包
+投资总监 → candidate review/evaluate → TDR
     TDR → SRT → DFLS → data/review（不可变审核快照）
         → SRT + TXE → 独立复算账本 → SE数值审计 → SGC裁判印章
-        → 人工批准 → SM冻结版本（同一SRT实现及参数）
+        → 投资总监决定冻结 → SM冻结发布包（同一实现及参数）
 
-候选/冻结版本 → StrategyRuntime.create → StrategyInstance
+候选包/治理区冻结发布包 → StrategyRuntime.create → StrategyInstance
                                       ├─ prepare_data → DFLS
                                       └─ run_window → TXE HistoricalExecutor → 历史执行账本
 
-SM冻结版本 → srt-prepare → 隔离的StrategyInstance数据目录
-                              ↓
-                PTE → plan_at → PTE Futu渠道 → Futu模拟账户
+投资总监 → strategy deploy → strategies/deployments/部署凭据 → SRT加载冻结发布包
+                                                                  ↓
+                PTE → prepare_data/plan_at → PTE Futu渠道 → Futu模拟账户
+                 └→ 独立DFLS行情 + SRT观察事实 → 异步前瞻观察图
                  ↑
             WDG进程托管
 ```
 
 ### 模块边界
 
-- **TDR**位于`src/czsc_trader/`。它在人工批准研究立项、候选送审和正式冻结三个节点介入，
-  负责核实研究主张、组织完整体检、签发裁判报告并维护策略生命周期。实验脚本可自由使用
-  新数据与算法库；只有提交冻结流程的结论才进入TDR强约束。TDR维护正式
+- **TDR**位于`src/czsc_trader/`。它向投资总监提供候选审查、体检和冻结入口，负责核实
+  研究主张、组织完整体检、签发裁判报告并维护策略生命周期。实验脚本可自由使用新数据与
+  算法库；只有提交冻结流程的结论才进入TDR强约束。平台当前不识别或鉴权投资总监身份，
+  治理印章中的操作者身份保证级别记录为`UNVERIFIED`。TDR维护正式
   工作流编排、报告和图表；历史渠道、成交、费用与账户账本统一由TXE的`HistoricalExecutor`维护，
   不再保留`BacktestChannel`包装层。
 - **FSC**位于`packages/factor_signal_catalog/`，定义数据位于`catalog/`。它记录项目级信息族、
@@ -98,7 +104,9 @@ SM冻结版本 → srt-prepare → 隔离的StrategyInstance数据目录
 - **SE**位于`packages/strategy_evaluator/`。它接收TDR提供的结构化事实，执行筛劣、Pareto
   排名、PBO、DSR、Bootstrap、参数邻域和成本压力等确定性数值计算；它不读取仓库、不理解
   金融语义，也不签发TDR裁决或改变SM、PTE状态。
-- **SRT**位于`packages/strategy_runtime/`。`StrategyRuntime`校验候选或冻结版本并创建
+- **SRT**位于`packages/strategy_runtime/`。包内只保存策略无关运行框架；候选实现来自候选包，
+  冻结实现及其源码闭包保存在`strategies/SXX/releases/vN/`，部署凭据保存在
+  `strategies/deployments/`。`StrategyRuntime`校验候选或已部署冻结版本并创建
   `StrategyInstance`；实例根据交易窗口自主推导信号日、历史范围和全部数据依赖，通过DFLS
   准备并认证数据，再计算目标仓位、参考价与渠道无关的`ExecutionPlan`。源码闭包、候选或冻结
   身份和参数共同形成运行身份。调用方只提供隔离可写的数据目录，不理解或传递策略数据集。
@@ -107,10 +115,11 @@ SM冻结版本 → srt-prepare → 隔离的StrategyInstance数据目录
   滑点、费用、现金、持仓与净值计算；`HistoricalExecutor`实现SRT的`WindowExecutor`协议，
   由`StrategyInstance.run_window(...)`逐日驱动并管理隔离的历史账本。它不生成信号、不获取
   策略数据、不管理策略生命周期或真实券商状态。
-- **PTE**位于`packages/paper_trading_engine/`。外部任务先通过`srt-prepare`为活跃冻结版本准备
-  隔离实例数据；PTE观察准备结果，通过SRT公共接口恢复实例并调用`plan_at(...)`，管理账户分账、
-  决策、订单意图、Futu回报、调度、SQLite审计和控制台。PTE不解析SRT私有数据清单，也不导入
-  TDR、SM或SE。
+- **PTE**位于`packages/paper_trading_engine/`。日调度为每个账户创建隔离
+  `StrategyInstance`，调用`prepare_data()`后再调用`plan_at(...)`，管理账户分账、决策、订单
+  意图、Futu回报、调度、SQLite审计和控制台。前瞻图服务在独立守护线程读取DFLS行情、组装
+  决策及账户事实、渲染并缓存HTML，Web请求和PTE主调度线程不等待这些工作。PTE不解析SRT
+  私有数据清单，也不导入TDR、SM或SE。
 - **WDG**位于PTE包内。它只负责PTE子进程生命周期和HTTP探活，不包含交易业务逻辑。
 - **DFLS**负责单项数据请求的获取、规范化、统一校验、按“供应商＋标的”修复和失败阻断。
   SRT只处理`DataResult`；多输入策略的范围推导、组合认证和实例级数据身份由SRT负责。
@@ -151,14 +160,16 @@ SM冻结版本 → srt-prepare → 隔离的StrategyInstance数据目录
    事件。历史版本继续保留原release hash，并以唯一的`LEGACY_GOVERNANCE_ACCEPTED`事件证明
    已完成治理迁移。
 
-### 三道治理闸门
+### 研究员与投资总监的治理协同
 
-1. `research create`创建新StrategyFamily及首条SGC；同一策略族启动后续研究批次时，输入中
-   必须显式给出新的`credential_id`，原SGC保持不可变。
-2. `candidate review/evaluate`锁定候选包和最终EvaluationMandate。TDR禁用缓存复用，
+1. 策略研究员通过`research create`创建研究身份和首条预注册SGC，并在研究区完成实验、策略
+   实现、binding、回测图代码、观察语义及候选提交包；同一策略族启动后续批次时必须显式给出
+   新的`credential_id`，原SGC保持不可变。
+2. 投资总监通过`candidate review/evaluate`锁定候选包和最终EvaluationMandate。TDR禁用缓存复用，
    按截止日完整数据、候选真实执行规则和`TXE-v1`语义独立复算，并阻断任何缺项或口径漂移。
-3. `candidate freeze`在人工批准后重新校验证据文件、SRT输入与执行契约及整条SGC，再原子创建
-   StrategyVersion。`strategy deploy`将冻结版本安装到SRT；PTE账户启用需要单独授权。
+3. 投资总监阅读体检结果后决定是否执行`candidate freeze`；平台重新校验证据文件、SRT输入、
+   执行契约及整条SGC，再原子创建StrategyVersion和治理区冻结发布包。
+4. 投资总监执行`strategy deploy`，平台验证发布包并写入SRT部署凭据；PTE账户启用需要单独授权。
 
 送审前必须完成候选SRT，声明模块、类、源码闭包及其哈希、参数和完整输入契约；研究者宜在
 搜索前完成实现，以复用同一SRT与TXE。旧`rule`字典不能绕过候选运行身份校验。
@@ -246,8 +257,10 @@ $Tag = Read-Host '请输入附注tag'
 Invoke-RestMethod http://127.0.0.1:8080/api/system/status
 ```
 
-发布脚本拒绝轻量tag、提交不匹配、策略快照漂移、制品损坏和不完整的既有版本。生产目录只
-保留`host/`、`releases/`和`shared/`；构建过程与缓存不写入生产目录。
+发布构建会把`strategies/`中的冻结发布包和部署凭据完整复制到PTE版本快照，并逐个调用SRT
+校验运行时、源码闭包、图表及观察契约。发布脚本拒绝轻量tag、提交不匹配、策略快照漂移、
+制品损坏和不完整的既有版本。生产目录只保留`host/`、`releases/`和`shared/`；构建过程与缓存
+不写入生产目录。
 
 ### 活动版本与账户操作
 
@@ -293,9 +306,10 @@ Content-Type: application/json
 `DECISION_SUPERSEDED`或`DECISION_AND_INTENTS_SUPERSEDED`。只有尚未提交渠道且没有
 `channel_order_id`的订单意图可以随旧决策失效；已有渠道订单或结果未知时返回冲突。
 
-冻结策略不会自动进入PTE；创建账户是独立授权动作。暂停只阻止新单，已有订单继续对账。
-PTE没有策略数据准备业务入口；生产定时任务显式调用`srt-prepare`，SRT实例负责实际准备和认证，
-PTE只观察准备结果、恢复实例并维护生产存储空间。准备异常必须先于账户决策明确暴露。
+冻结策略不会自动进入SRT或PTE；投资总监先通过`strategy deploy`写入SRT部署凭据，创建PTE账户
+仍是独立授权动作。暂停只阻止新单，已有订单继续对账。PTE日调度为每个账户创建隔离的SRT
+实例并调用`prepare_data()`，准备成功后才执行账户决策；`srt-prepare`只用于人工诊断或独立准备。
+准备异常必须先于账户决策明确暴露。
 需要把模拟盘里程碑写回策略生命周期时，先导出自包含证据，再由TDR登记：
 
 ```powershell
@@ -362,13 +376,14 @@ Get-Content (Join-Path $PteRoot 'shared\logs\pte.log') -Tail 100
 用例准入、收敛与删除条件、分级回归命令、月度及触发式审查流程统一见
 [测试用例治理](TEST_GOVERNANCE.md)。该文档是后续周期性治理的唯一操作规范。
 
-治理和执行链路由根目录及各独立包的长期功能场景验收：TDR覆盖三道闸门、证据漂移与失败
-语义，SRT/TXE覆盖候选和冻结版本的同路径执行，PTE覆盖准备结果、账户、订单、账本与服务
+治理和执行链路由根目录及各独立包的长期功能场景验收：TDR覆盖候选审查、体检、冻结、证据
+漂移与失败语义，SRT/TXE覆盖候选和冻结版本的同路径执行，PTE覆盖准备结果、账户、订单、账本与服务
 配置。历史实验只保证档案校验和人工查看，不承诺旧脚本回放。完整命令及版本验收边界见
 [测试用例治理](TEST_GOVERNANCE.md)；任何生产部署仍需独立授权。
 
-最近一次仓库级治理完成于2026-09-22：42个测试文件共收集252个Python测试项和3个Node
-测试项，完整离线回归及Ruff均通过。治理记录、模块耗时、保留理由和未覆盖在线检查统一维护在
+最近一次仓库级全量回归完成于2026-09-22 23:57：272个Python测试项和3个Node测试项全部
+通过，Ruff通过；三条并行通道汇总耗时141.07秒。验证后同一工作树提交为`07b182e`。分项结果、
+治理记录、保留理由和未覆盖在线检查统一维护在
 [测试用例治理](TEST_GOVERNANCE.md)的“最近一次治理记录”章节；后续治理以该记录为比较基线。
 完整离线回归默认运行`.\scripts\test-all.ps1`，三条模块通道全部结束后统一汇总退出码并运行
 Ruff；通道日志位于`.tmp/test-regression/`。单模块失败定位命令继续以测试治理文档为准。

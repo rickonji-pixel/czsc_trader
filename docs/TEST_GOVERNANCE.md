@@ -258,7 +258,7 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 
 重大版本验收采用三层证据，日常小改按风险运行受影响范围：
 
-- **离线功能回归**：根目录`tests/functional/`覆盖TDR三道闸门、证据漂移、回测与失败语义；
+- **离线功能回归**：根目录`tests/functional/`覆盖TDR候选审查、体检、冻结、证据漂移、回测与失败语义；
   各包`tests/functional/`覆盖模块契约、候选与冻结SRT、TXE账本、PTE发布代次和服务配置。
 - **档案完整性**：运行`czsc-trader archive validate --all`，验证历史实验的受管文件、结构和
   哈希。该检查只保证档案可审计及人工查看，不承诺旧实验脚本可在当前架构回放。
@@ -304,3 +304,17 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
   缩短约35%至36%；
 - 增加父进程精确清理后再次通过，耗时145.83秒；本轮Pytest工作区和Python字节码缓存均已清除；
 - 未执行在线Tushare、Futu OpenD、Windows服务或PTE生产环境检查，这些仍属于独立授权的交付验收。
+
+### 2026-09-22重构后全量回归
+
+策略治理区迁移、研究注册回填、PTE前瞻图职责调整以及TDR/SRT/PTE审查修复完成后，标准入口
+`.\scripts\test-all.ps1`于23:57再次通过。该轮是当前开发分支的最新仓库级基线：
+
+- TDR：60项通过；
+- DFLS：31项通过；FSC：2项通过；STC：3项通过；SM：13项通过；SE：6项通过；
+- SRT：62项通过；TXE：2项通过；
+- PTE：93项通过；PTE控制台：3项通过；
+- Python合计272项，Node合计3项，Ruff通过；三条并行通道汇总耗时141.07秒；
+- 回归日志位于`.tmp/test-regression/run-5c5dc461fb26494dba3cf2725b334332/`，该目录是本地临时
+  证据，不随Git分发；回归后的同一工作树提交为`07b182e`；
+- 未执行在线Tushare、Futu OpenD、Windows服务或PTE生产环境检查。

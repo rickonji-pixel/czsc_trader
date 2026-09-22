@@ -310,11 +310,11 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 策略治理区迁移、研究注册回填、PTE前瞻图职责调整、TDR/SRT/PTE审查修复以及历史PTE发布
 快照切换修复完成后，标准入口`.\scripts\test-all.ps1`再次通过。该轮是`v0.5.15`的发布基线：
 
-- TDR：60项通过；
+- TDR：61项通过；
 - DFLS：31项通过；FSC：2项通过；STC：3项通过；SM：13项通过；SE：6项通过；
 - SRT：62项通过；TXE：2项通过；
 - PTE：95项通过；PTE控制台：3项通过；
-- Python合计274项，Node合计3项，Ruff通过；三条并行通道汇总耗时147.48秒；
-- 回归日志位于`.tmp/test-regression/run-23c2045e92bb469384a80a32c51bc368/`，该目录是本地临时
+- Python合计275项，Node合计3项，Ruff通过；三条并行通道汇总耗时145.46秒；
+- 回归日志位于`.tmp/test-regression/run-2847c136dea8404bb6130e3b6210fd36/`，该目录是本地临时
   证据，不随Git分发；
 - 未执行在线Tushare、Futu OpenD、Windows服务或PTE生产环境检查。

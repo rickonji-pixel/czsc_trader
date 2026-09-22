@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 import json
@@ -35,6 +36,30 @@ from .errors import AdviceClientError
 
 _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 _ACCOUNT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedAccountStrategy:
+    """One prepared SRT instance and the opaque evidence returned with it."""
+
+    instance: StrategyInstance
+    result: DataPreparationResult
+
+    @property
+    def strategy(self):
+        return self.result.strategy
+
+    @property
+    def tradable_window(self):
+        return self.result.tradable_window
+
+    @property
+    def available_through(self):
+        return self.result.available_through
+
+    @property
+    def data_identity(self):
+        return self.result.data_identity
 
 
 def _load_manifest(path: Path) -> dict[str, object]:
@@ -227,7 +252,7 @@ class SrtAdviceClient:
 
     def _instance(
         self, account_id: str, release: StrategyRelease, trading_date: date
-    ) -> tuple[StrategyInstance, DataPreparationResult]:
+    ) -> PreparedAccountStrategy:
         entry = self._entry(account_id, release.release_id)
         if date.fromisoformat(str(entry["trading_date"])) != trading_date:
             raise AdviceClientError("requested trading date differs from prepared data")
@@ -247,9 +272,7 @@ class SrtAdviceClient:
             )
         )
         prepared = strategy.prepare_data()
-        if prepared.data_identity != entry.get("data_identity"):
-            raise AdviceClientError("prepared-data identity differs from its index")
-        return strategy, prepared
+        return PreparedAccountStrategy(strategy, prepared)
 
     def _trading_calendar(self, start: date, end: date) -> dict[date, int]:
         result = Dataflows().fetch(
@@ -379,7 +402,7 @@ class SrtAdviceClient:
         symbol: str,
         asset: str,
         signal_date: date,
-    ) -> DataPreparationResult | None:
+    ) -> PreparedAccountStrategy | None:
         if asset != "etf":
             raise AdviceClientError("PTE currently requires one ETF strategy")
         release = self._load_release(strategy_id, strategy_version)
@@ -433,7 +456,7 @@ class SrtAdviceClient:
                 },
             },
         )
-        return prepared
+        return PreparedAccountStrategy(strategy, prepared)
 
     def verify_account_data(
         self,
@@ -448,10 +471,10 @@ class SrtAdviceClient:
             raise AdviceClientError("PTE currently requires one ETF strategy")
         release = self._load_release(strategy_id, strategy_version)
         trading_date = self.tradable_date(account_id, strategy_id, strategy_version)
-        strategy, prepared = self._instance(account_id, release, trading_date)
-        if strategy.identity.symbol != symbol.upper():
+        prepared = self._instance(account_id, release, trading_date)
+        if prepared.instance.identity.symbol != symbol.upper():
             raise AdviceClientError("SRT execution-pricing symbol differs from account")
-        return prepared
+        return prepared.result
 
     def validate_account_binding(
         self,
@@ -480,14 +503,14 @@ class SrtAdviceClient:
         if asset != "etf":
             raise AdviceClientError("PTE currently requires one ETF strategy")
         release = self._load_release(strategy_id, strategy_version)
-        strategy, _ = self._instance(
+        prepared = self._instance(
             account_id,
             release,
             self.tradable_date(account_id, strategy_id, strategy_version),
         )
-        if strategy.identity.symbol != symbol.upper():
+        if prepared.instance.identity.symbol != symbol.upper():
             raise AdviceClientError("SRT execution-pricing symbol differs from account")
-        frame = strategy.inspect_price_history()
+        frame = prepared.instance.inspect_price_history()
         return canonical_frame_sha256(frame), frame
 
     def _audit_call(self, started: float, *, error=None, **scope) -> None:
@@ -526,6 +549,7 @@ class SrtAdviceClient:
         account_id: str | None = None,
         symbol: str | None = None,
         asset: str | None = None,
+        prepared: PreparedAccountStrategy | None = None,
     ) -> AdviceDecision:
         del baseline
         started = clock.perf_counter()
@@ -543,7 +567,16 @@ class SrtAdviceClient:
             if selected_asset != "etf" or not selected_symbol:
                 raise AdviceClientError("SRT advice requires one ETF symbol")
             release = self._load_release(strategy_id, strategy_version)
-            strategy, _ = self._instance(account_id, release, trading_date)
+            if not isinstance(prepared, PreparedAccountStrategy):
+                raise AdviceClientError("SRT advice requires one prepared strategy instance")
+            strategy = prepared.instance
+            if prepared.tradable_window != TradableWindow(trading_date, trading_date):
+                raise AdviceClientError("prepared strategy window differs from decision date")
+            if (
+                prepared.strategy.reference_id != release.release_id
+                or prepared.strategy.release_hash != release.release_hash
+            ):
+                raise AdviceClientError("prepared strategy belongs to another release")
             if strategy.definition.state_mode != "STATELESS":
                 raise AdviceClientError("PTE does not support persisted SRT strategy state yet")
             if strategy.identity.symbol != selected_symbol:

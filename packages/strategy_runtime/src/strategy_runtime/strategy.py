@@ -171,17 +171,11 @@ class StrategyInstance:
                 tradable_window=self._tradable_window,
                 data_dir=self._data_dir,
             )
-            pricing = self._pricing(inputs)
-            prepared = PreparedStrategyData.from_inputs(
-                inputs=inputs,
-                pricing=pricing,
-            )
-            save_prepared_inputs(inputs, self._data_dir)
-        else:
-            prepared = PreparedStrategyData.from_inputs(
-                inputs=inputs,
-                pricing=self._pricing(inputs),
-            )
+            inputs = save_prepared_inputs(inputs, self._data_dir)
+        prepared = PreparedStrategyData.from_inputs(
+            inputs=inputs,
+            pricing=self._pricing(inputs),
+        )
         self._prepared_data = prepared
         return self._summary(prepared)
 

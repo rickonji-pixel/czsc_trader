@@ -463,11 +463,7 @@ def _preflight_strategy_account(
         )
         if prepared is None:
             raise RuntimeError("account creation requires an SSE trading day")
-        trading_date = client.tradable_date(
-            args.account_id,
-            str(identity["strategy_id"]),
-            str(identity["version"]),
-        )
+        trading_date = prepared.tradable_window.start
         decision = client.get_decision(
             0,
             float(initial_cash),
@@ -480,6 +476,7 @@ def _preflight_strategy_account(
             account_id=args.account_id,
             symbol=args.symbol,
             asset=args.asset,
+            prepared=prepared,
         )
     except Exception as exc:
         raise RuntimeError(

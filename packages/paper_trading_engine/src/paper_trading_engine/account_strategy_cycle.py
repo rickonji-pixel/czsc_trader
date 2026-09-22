@@ -101,9 +101,9 @@ class AccountStrategyCycle:
                 },
             )
         decision = (
-            self.accounts.drive_account_decision(account_id)
+            self.accounts.drive_account_decision(account_id, prepared=prepared)
             if operator_drive
-            else self.accounts.refresh_account(account_id)
+            else self.accounts.refresh_account(account_id, prepared=prepared)
         )
         self.store.set_setting(f"last_account_decision_date:{account_id}", cutoff)
         return decision

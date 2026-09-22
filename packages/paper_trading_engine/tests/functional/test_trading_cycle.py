@@ -8,7 +8,6 @@ import pytest
 from paper_trading_engine.account_engine import (
     AccountDecisionBlockedError,
     AccountEngine,
-    AccountRefreshBatchError,
     ActiveOrderPendingError,
 )
 from paper_trading_engine.account_strategy_cycle import AccountStrategyCycle
@@ -19,7 +18,7 @@ from paper_trading_engine.contracts import AdviceDecision, OrderSpec, PlanLegSpe
 from paper_trading_engine.futu_execution import FutuExecution
 from paper_trading_engine.scheduler import RuntimeScheduler
 from paper_trading_engine.store import PaperStore
-from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision
+from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision, preparation
 
 
 def _wait_until(predicate, timeout=2.0):
@@ -44,6 +43,9 @@ def _operator_coordinator(accounts, store):
             return SimpleNamespace(
                 available_through=signal_date,
                 data_identity="c" * 64,
+                tradable_window=SimpleNamespace(
+                    start=date(2026, 9, 2), end=date(2026, 9, 2)
+                ),
             )
 
     cycle = AccountStrategyCycle(accounts, Preparer(), store)
@@ -68,6 +70,9 @@ def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_p
             return SimpleNamespace(
                 available_through=signal_date,
                 data_identity="c" * 64,
+                tradable_window=SimpleNamespace(
+                    start=date(2026, 9, 2), end=date(2026, 9, 2)
+                ),
             )
 
     scheduler = RuntimeScheduler(
@@ -88,8 +93,8 @@ def test_blocked_or_draining_account_cannot_complete_a_decision_generation(tmp_p
 
     store.set_virtual_health("s001-v1", "OK")
     accounts.begin_shutdown()
-    with pytest.raises(AccountRefreshBatchError, match="PTE正在停止"):
-        accounts.refresh_all()
+    with pytest.raises(AccountDecisionBlockedError, match="PTE正在停止"):
+        accounts.refresh_account("s001-v1", prepared=preparation(advice.value))
     assert store.account_decisions("s001-v1") == []
     assert store.account_intents("s001-v1") == []
     store.close()
@@ -265,17 +270,20 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     broker = FakeBroker()
     execution = FutuExecution(store, broker, symbol="588080.SH", today=lambda: date(2026, 9, 2))
 
-    accounts.refresh_account("s001-v1")
-    accounts.refresh_account("s001-v1")
+    accounts.refresh_account("s001-v1", prepared=preparation(advice.value))
+    accounts.refresh_account("s001-v1", prepared=preparation(advice.value))
     assert len(store.account_decisions("s001-v1")) == 1
     assert len(store.pending_account_intents()) == 1
     store.set_setting("last_data_prepare_date", "2026-09-01")
-    driven = accounts.drive_account_decision("s001-v1")
+    driven = accounts.drive_account_decision(
+        "s001-v1", prepared=preparation(advice.value)
+    )
     assert driven.outcome == "DECISION_REUSED"
     assert len(advice.calls) == 2
     saved_decision = store.account_decisions("s001-v1")[0]
     assert re.fullmatch(r"DEC-20260908-1435-[0-9A-F]{12}", saved_decision["decision_id"])
     assert saved_decision["payload"]["source_decision_id"] == "DEC-ONE"
+    assert saved_decision["payload"]["prepared_data_identity"] == "c" * 64
     snapshot = store.account_snapshots("s001-v1")[0]
     assert snapshot["session"] == "2026-09-01"
     assert float(snapshot["total_assets"]) == 100_000
@@ -308,17 +316,19 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     ))
     next_accounts = AccountEngine(store, next_advice)
     store.set_setting("last_data_prepare_date", "2026-09-02")
-    with pytest.raises(AccountRefreshBatchError, match="存在未完成订单"):
-        next_accounts.refresh_all()
+    with pytest.raises(ActiveOrderPendingError, match="存在未完成订单"):
+        next_accounts.refresh_account(
+            "s001-v1", prepared=preparation(next_advice.value)
+        )
     assert next_advice.calls == []
-    assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
+    assert store.virtual_account("s001-v1")["health"] == "READY"
     assert len(store.account_intents("s001-v1")) == 1
     blocked_events = store.query_audit_events(event_type="ORDER_SUBMISSION_BLOCKED")
     assert [row["details"]["reason"] for row in blocked_events] == [
         "previous_order_active",
     ]
     execution.refresh_orders()
-    assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
+    assert store.virtual_account("s001-v1")["health"] == "READY"
 
     broker.value = broker_snapshot(
         orders=(replace(
@@ -328,8 +338,10 @@ def test_ft_pte02_account_decision_futu_order_fill_restart_and_idempotence(tmp_p
     )
     execution.refresh_orders()
     assert store.virtual_account("s001-v1")["quantity"] == 1000
-    assert store.virtual_account("s001-v1")["health"] == "OK"
-    next_accounts.refresh_all()
+    assert store.virtual_account("s001-v1")["health"] == "READY"
+    next_accounts.refresh_account(
+        "s001-v1", prepared=preparation(next_advice.value)
+    )
     assert len(next_advice.calls) == 1
     assert len(store.account_decisions("s001-v1")) == 2
     assert len(store.account_intents("s001-v1")) == 1
@@ -362,7 +374,9 @@ def test_account_snapshot_values_position_with_execution_price(tmp_path):
         cycle_target_quantity=1000, delta_quantity=0,
         signal_reference_price=2.50, execution_reference_price=7.61,
     )
-    AccountEngine(store, FakeAdvice(advice)).refresh_account("s001-v1")
+    AccountEngine(store, FakeAdvice(advice)).refresh_account(
+        "s001-v1", prepared=preparation(advice)
+    )
     snapshot = store.account_snapshots("s001-v1")[0]
     assert float(snapshot["close"]) == pytest.approx(7.61)
     assert float(snapshot["market_value"]) == pytest.approx(7_610)
@@ -386,7 +400,9 @@ def test_ft_pte10_intraday_plan_waits_for_fill_and_recovers_after_restart(tmp_pa
         "release_hash": "c" * 64, "qualification": "PAPER_READY",
     }
     setup = intraday_setup_decision(strategy)
-    AccountEngine(store, FakeAdvice(setup)).refresh_account("s003-v1")
+    AccountEngine(store, FakeAdvice(setup)).refresh_account(
+        "s003-v1", prepared=preparation(setup)
+    )
     assert store.virtual_account("s003-v1")["cycle_target"] is None
     setup_execution = FutuExecution(
         store, broker, now=lambda: datetime(2026, 9, 2, 1, 30, 5, tzinfo=timezone.utc),
@@ -440,7 +456,9 @@ def test_ft_pte10_intraday_plan_waits_for_fill_and_recovers_after_restart(tmp_pa
             ),
         ),
     )
-    AccountEngine(store, FakeAdvice(plan)).refresh_account("s003-v1")
+    AccountEngine(store, FakeAdvice(plan)).refresh_account(
+        "s003-v1", prepared=preparation(plan)
+    )
     intents = store.account_intents("s003-v1")[-2:]
     assert [row["status"] for row in intents] == ["PENDING_SUBMIT", "WAITING_DEPENDENCY"]
 
@@ -506,7 +524,9 @@ def test_ft_pte11_intraday_plan_blocks_exit_when_entry_is_not_filled(tmp_path):
         "release_hash": "c" * 64, "qualification": "PAPER_READY",
     }
     setup = intraday_setup_decision(strategy)
-    AccountEngine(store, FakeAdvice(setup)).refresh_account("s003-v1")
+    AccountEngine(store, FakeAdvice(setup)).refresh_account(
+        "s003-v1", prepared=preparation(setup)
+    )
     assert store.virtual_account("s003-v1")["cycle_target"] is None
     setup_execution = FutuExecution(
         store, broker, now=lambda: datetime(2026, 9, 2, 1, 30, 5, tzinfo=timezone.utc),
@@ -547,7 +567,9 @@ def test_ft_pte11_intraday_plan_blocks_exit_when_entry_is_not_filled(tmp_path):
             ),
         ),
     )
-    AccountEngine(store, FakeAdvice(plan)).refresh_account("s003-v1")
+    AccountEngine(store, FakeAdvice(plan)).refresh_account(
+        "s003-v1", prepared=preparation(plan)
+    )
     assert store.virtual_account("s003-v1")["cycle_target"] == 1000
     plan_intents = store.account_intents("s003-v1")[-2:]
     entry, exit_leg = plan_intents
@@ -614,7 +636,7 @@ def test_existing_decision_id_is_preserved_when_same_decision_is_recomputed(tmp_
         store, FakeAdvice(old_decision),
         now=lambda: datetime(2026, 9, 8, 6, 35, tzinfo=timezone.utc),
     )
-    accounts.refresh_account("s001-v1")
+    accounts.refresh_account("s001-v1", prepared=preparation(old_decision))
 
     saved = store.account_decisions("s001-v1")
     assert len(saved) == 1
@@ -738,7 +760,9 @@ def test_operator_supersession_projects_s003_style_reserved_cash(tmp_path):
     )
     advice = FakeAdvice(first_decision)
     accounts = AccountEngine(store, advice)
-    accounts.drive_account_decision("s001-v1")
+    accounts.drive_account_decision(
+        "s001-v1", prepared=preparation(first_decision)
+    )
 
     reserved = store.virtual_account("s001-v1")
     assert float(reserved["cash"]) == pytest.approx(4253.575)
@@ -748,7 +772,9 @@ def test_operator_supersession_projects_s003_style_reserved_cash(tmp_path):
         first_decision, decision_id="DEC-TWO", source_decision_id="DEC-TWO",
         signal_identity="8" * 64,
     )
-    result = accounts.drive_account_decision("s001-v1")
+    result = accounts.drive_account_decision(
+        "s001-v1", prepared=preparation(advice.value)
+    )
 
     assert result.outcome == "DECISION_AND_INTENTS_SUPERSEDED"
     assert advice.calls[-1][1] == pytest.approx(55_076.373)
@@ -771,7 +797,9 @@ def test_operator_supersession_calculation_failure_preserves_old_reservation(tmp
     )
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
     accounts = AccountEngine(store, advice)
-    accounts.drive_account_decision("s001-v1")
+    accounts.drive_account_decision(
+        "s001-v1", prepared=preparation(advice.value)
+    )
     old_intent = store.account_intents("s001-v1")[0]
     before = store.virtual_account("s001-v1")
 
@@ -781,7 +809,9 @@ def test_operator_supersession_calculation_failure_preserves_old_reservation(tmp
 
     accounts.advice = FailingAdvice()
     with pytest.raises(RuntimeError, match="simulated calculation failure"):
-        accounts.drive_account_decision("s001-v1")
+        accounts.drive_account_decision(
+            "s001-v1", prepared=preparation(advice.value)
+        )
 
     after = store.virtual_account("s001-v1")
     assert after["cash"] == before["cash"]
@@ -801,7 +831,9 @@ def test_operator_supersession_rejects_intent_claimed_during_calculation(tmp_pat
     )
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
     accounts = AccountEngine(store, advice)
-    accounts.drive_account_decision("s001-v1")
+    accounts.drive_account_decision(
+        "s001-v1", prepared=preparation(advice.value)
+    )
     old_intent = store.account_intents("s001-v1")[0]
 
     class ClaimingAdvice(FakeAdvice):
@@ -815,7 +847,9 @@ def test_operator_supersession_rejects_intent_claimed_during_calculation(tmp_pat
         decision_id="DEC-TWO", source_decision_id="DEC-TWO",
     ))
     with pytest.raises(ActiveOrderPendingError, match="状态已变化"):
-        accounts.drive_account_decision("s001-v1")
+        accounts.drive_account_decision(
+            "s001-v1", prepared=preparation(accounts.advice.value)
+        )
 
     assert store.account_intent(old_intent["intent_id"])["status"] == "SUBMITTING"
     assert len(store.account_decisions("s001-v1")) == 1
@@ -832,7 +866,9 @@ def test_operator_cannot_supersede_claimed_intent(tmp_path):
     )
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
     accounts = AccountEngine(store, advice)
-    accounts.drive_account_decision("s001-v1")
+    accounts.drive_account_decision(
+        "s001-v1", prepared=preparation(advice.value)
+    )
     intent = store.account_intents("s001-v1")[0]
     assert store.claim_account_intent(intent["intent_id"])
     advice.value = replace(
@@ -840,7 +876,9 @@ def test_operator_cannot_supersede_claimed_intent(tmp_path):
     )
 
     with pytest.raises(ActiveOrderPendingError, match="禁止替换"):
-        accounts.drive_account_decision("s001-v1")
+        accounts.drive_account_decision(
+            "s001-v1", prepared=preparation(advice.value)
+        )
 
     assert store.account_intent(intent["intent_id"])["status"] == "SUBMITTING"
     assert len(store.account_decisions("s001-v1")) == 1
@@ -857,7 +895,9 @@ def test_operator_supersession_rolls_back_as_one_transaction(tmp_path, monkeypat
     )
     advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
     accounts = AccountEngine(store, advice)
-    first = accounts.drive_account_decision("s001-v1")
+    first = accounts.drive_account_decision(
+        "s001-v1", prepared=preparation(advice.value)
+    )
     old_intent = store.account_intents("s001-v1")[0]
     before = store.virtual_account("s001-v1")
     original = store.create_account_immediate_intents
@@ -874,7 +914,9 @@ def test_operator_supersession_rolls_back_as_one_transaction(tmp_path, monkeypat
     )
 
     with pytest.raises(RuntimeError, match="simulated new intent"):
-        accounts.drive_account_decision("s001-v1")
+        accounts.drive_account_decision(
+            "s001-v1", prepared=preparation(advice.value)
+        )
 
     after = store.virtual_account("s001-v1")
     assert after["last_decision_id"] == before["last_decision_id"]

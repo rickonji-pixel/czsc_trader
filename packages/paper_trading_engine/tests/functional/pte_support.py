@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date
 from hashlib import sha256
+from types import SimpleNamespace
 
 from paper_trading_engine.contracts import AdviceDecision, OrderSpec
 from paper_trading_engine.broker import (
@@ -10,6 +11,23 @@ from paper_trading_engine.broker import (
     BrokerOrder,
     BrokerSnapshot,
 )
+
+
+def preparation(value: AdviceDecision, identity: str = "c" * 64):
+    return SimpleNamespace(
+        strategy=SimpleNamespace(
+            reference_id=(
+                f"{value.strategy['strategy_id']}-{value.strategy['version']}"
+            ),
+            release_hash=value.strategy["release_hash"],
+        ),
+        tradable_window=SimpleNamespace(
+            start=value.valid_session,
+            end=value.valid_session,
+        ),
+        available_through=value.signal_date,
+        data_identity=identity,
+    )
 
 
 def decision(order: OrderSpec | None = None) -> AdviceDecision:
@@ -72,15 +90,6 @@ class FakeAdvice:
     def __init__(self, value: AdviceDecision):
         self.value = value
         self.calls = []
-
-    def prepared_through(self, _account_id, _strategy_id, _strategy_version):
-        return self.value.signal_date
-
-    def tradable_date(self, _account_id, _strategy_id, _strategy_version):
-        return self.value.valid_session
-
-    def data_identity(self, _account_id, _strategy_id, _strategy_version):
-        return "a" * 64
 
     def get_decision(self, actual_quantity, available_cash, **kwargs):
         self.calls.append((actual_quantity, available_cash, kwargs))

@@ -2,6 +2,7 @@
 
 from threading import RLock
 
+from .account_engine import AccountRefreshBatchError
 from .audit import AuditRecorder
 from .futu_gateway import FutuGatewayError
 from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
@@ -154,7 +155,44 @@ class PteCoordinator:
                 details={"service": "futu", "operation": "refresh", "error": str(exc)},
             )
             raise
-        self.accounts.refresh_all()
+        observed_at = shanghai_now()
+        signal_date = self.strategy_cycle.latest_completed_signal_date(observed_at)
+        failures = []
+        for account in self.store.strategy_virtual_accounts():
+            if account.get("status") == "RETIRED":
+                continue
+            try:
+                self.strategy_cycle.run(
+                    str(account["account_id"]),
+                    signal_date=signal_date,
+                    observed_at=observed_at,
+                )
+            except Exception as exc:
+                failures.append((str(account["account_id"]), exc))
+                self.store.set_virtual_health(
+                    str(account["account_id"]), "BLOCKED", str(exc)
+                )
+                self.audit.record(
+                    "VIRTUAL_ACCOUNT_FAILED",
+                    source="coordinator",
+                    outcome="FAILURE",
+                    account_id=str(account["account_id"]),
+                    strategy_id=account.get("strategy_id"),
+                    strategy_version=account.get("strategy_version"),
+                    release_hash=account.get("release_hash"),
+                    details={
+                        "error": str(exc),
+                        "error_type": type(exc).__name__,
+                    },
+                )
+        if failures:
+            summary = "; ".join(
+                f"{account_id}: {type(exc).__name__}: {exc}"
+                for account_id, exc in failures
+            )
+            raise AccountRefreshBatchError(
+                f"{len(failures)} virtual account refresh(es) failed: {summary}"
+            )
         return self.status()
 
     def startup(self):

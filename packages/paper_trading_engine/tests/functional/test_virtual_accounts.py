@@ -487,20 +487,19 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
         pte_cli.SrtAdviceClient,
         "prepare_account_data",
         lambda _self, **_kwargs: SimpleNamespace(
-            available_through=date(2026, 9, 15)
+            available_through=date(2026, 9, 15),
+            tradable_window=SimpleNamespace(
+                start=date(2026, 9, 16), end=date(2026, 9, 16)
+            ),
         ),
     )
     def preflight_decision(_self, *_args, **kwargs):
         assert kwargs["account_id"] == args.account_id
+        assert kwargs["prepared"].available_through == date(2026, 9, 15)
         return accepted
 
     monkeypatch.setattr(
         pte_cli.SrtAdviceClient, "get_decision", preflight_decision,
-    )
-    monkeypatch.setattr(
-        pte_cli.SrtAdviceClient,
-        "tradable_date",
-        lambda _self, *_args, **_kwargs: date(2026, 9, 16),
     )
     created = pte_cli._run_account_command(args)
     assert created["account_id"] == "s007-v1"

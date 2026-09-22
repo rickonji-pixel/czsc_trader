@@ -173,16 +173,20 @@ class AccountEngine:
             source_decision_id=source_id,
         )
 
-    def refresh_account(self, account_id: str):
+    def refresh_account(self, account_id: str, *, prepared):
         with self._decision_lock:
-            return self._refresh_account(account_id)
+            return self._refresh_account(account_id, prepared=prepared)
 
-    def drive_account_decision(self, account_id: str):
+    def drive_account_decision(self, account_id: str, *, prepared):
         """Evaluate one account and supersede only local, unsubmitted prior work."""
         with self._decision_lock:
-            return self._refresh_account(account_id, operator_drive=True)
+            return self._refresh_account(
+                account_id, prepared=prepared, operator_drive=True
+            )
 
-    def _refresh_account(self, account_id: str, *, operator_drive: bool = False):
+    def _refresh_account(
+        self, account_id: str, *, prepared, operator_drive: bool = False
+    ):
         account = self.store.virtual_account(account_id)
         if self._draining:
             raise AccountDecisionBlockedError("PTE正在停止，禁止生成新的账户决策")
@@ -199,21 +203,16 @@ class AccountEngine:
             row for row in self.store.account_intents(account_id)
             if row["status"] not in TERMINAL_INTENT_STATUSES
         ]
-        prepared_through = None
-        if hasattr(self.advice, "prepared_through"):
-            prepared_through = self.advice.prepared_through(
-                account_id,
-                str(account["strategy_id"]),
-                str(account["strategy_version"]),
-            ).isoformat()
-        if not prepared_through and previous_payload:
-            prepared_through = json.loads(previous_payload).get("signal_date")
-        if not prepared_through:
+        if prepared is None:
             raise AccountDecisionBlockedError("PTE尚无已准备完成的策略数据")
+        prepared_through = prepared.available_through.isoformat()
         try:
             datetime.strptime(str(prepared_through), "%Y-%m-%d").date()
         except ValueError as exc:
             raise AccountDecisionBlockedError("PTE数据发布日期格式无效") from exc
+        window = prepared.tradable_window
+        if window.start != window.end:
+            raise AccountDecisionBlockedError("PTE单次决策要求单交易日策略窗口")
         source_revision = self._planning_revision(account, active_intents)
         state_revision = self._state_revision(account)
         decision_cash = Decimal(str(account["cash"]))
@@ -273,18 +272,7 @@ class AccountEngine:
         previous_action = (
             json.loads(previous_payload).get("action") if previous_payload else None
         )
-        if hasattr(self.advice, "tradable_date"):
-            trading_date = self.advice.tradable_date(
-                account_id,
-                str(account["strategy_id"]),
-                str(account["strategy_version"]),
-            )
-        elif previous_payload:
-            trading_date = datetime.strptime(
-                str(json.loads(previous_payload)["valid_session"]), "%Y-%m-%d"
-            ).date()
-        else:
-            raise AccountDecisionBlockedError("决策适配器未提供目标交易日")
+        trading_date = window.start
         decision = self.advice.get_decision(
             int(account["quantity"]), float(decision_cash),
             total_assets=float(account["total_assets"]),
@@ -297,6 +285,7 @@ class AccountEngine:
             account_id=account_id,
             symbol=account["symbol"],
             asset=account["asset_type"],
+            prepared=prepared,
         )
         decision = self._assign_decision_id(account_id, previous_payload, decision)
         expected = (
@@ -352,12 +341,7 @@ class AccountEngine:
         payload = asdict(decision)
         if bool(execution_account["paused"]):
             payload["execution_disposition"] = "SKIPPED_PAUSED"
-        if hasattr(self.advice, "data_identity"):
-            payload["prepared_data_identity"] = self.advice.data_identity(
-                account_id,
-                str(account["strategy_id"]),
-                str(account["strategy_version"]),
-            )
+        payload["prepared_data_identity"] = prepared.data_identity
         previous = json.loads(previous_payload) if previous_payload else None
         if (
             previous is not None
@@ -622,34 +606,6 @@ class AccountEngine:
                 details={"reason": "account_paused", "action": decision.action},
             )
         return self.status(account_id)
-
-    def refresh_all(self):
-        results = []
-        failures = []
-        for account in self.store.strategy_virtual_accounts():
-            if account.get("status") == "RETIRED":
-                continue
-            try:
-                results.append(self.refresh_account(account["account_id"]))
-            except Exception as exc:
-                failures.append((account["account_id"], exc))
-                self.store.set_virtual_health(account["account_id"], "BLOCKED", str(exc))
-                self.audit.record(
-                    "VIRTUAL_ACCOUNT_FAILED", source="account_engine", outcome="FAILURE",
-                    account_id=account["account_id"], strategy_id=account.get("strategy_id"),
-                    strategy_version=account.get("strategy_version"),
-                    release_hash=account.get("release_hash"),
-                    details={"error": str(exc), "error_type": type(exc).__name__},
-                )
-        if failures:
-            summary = "; ".join(
-                f"{account_id}: {type(exc).__name__}: {exc}"
-                for account_id, exc in failures
-            )
-            raise AccountRefreshBatchError(
-                f"{len(failures)} virtual account refresh(es) failed: {summary}"
-            )
-        return results
 
     def status(self, account_id: str):
         account = self.store.virtual_account(account_id)

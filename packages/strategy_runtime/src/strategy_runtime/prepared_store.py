@@ -207,7 +207,9 @@ def load_prepared_inputs(
     return prepared
 
 
-def save_prepared_inputs(prepared: PreparedInputs, directory: Path) -> Path:
+def save_prepared_inputs(
+    prepared: PreparedInputs, directory: Path
+) -> PreparedInputs:
     root = Path(directory).resolve()
     root.mkdir(parents=True, exist_ok=True)
     _ensure_workspace(root, prepared.strategy)
@@ -220,6 +222,7 @@ def save_prepared_inputs(prepared: PreparedInputs, directory: Path) -> Path:
     staging = temporary_root / f"prepare-{uuid4().hex}"
     staging.mkdir()
     inputs: dict[str, object] = {}
+    stored_results: dict[str, DataResult] = {}
     try:
         for name in sorted(prepared.results):
             if _SAFE.fullmatch(name) is None:
@@ -236,6 +239,12 @@ def save_prepared_inputs(prepared: PreparedInputs, directory: Path) -> Path:
                 compression={"method": "gzip", "compresslevel": 6, "mtime": 0},
             )
             stored = pd.read_csv(staged)
+            stored_results[name] = DataResult(
+                DataStatus.READY,
+                stored,
+                result.identity,
+                warnings=result.warnings,
+            )
             inputs[name] = {
                 "file": filename,
                 "file_sha256": _file_sha256(staged),
@@ -290,4 +299,14 @@ def save_prepared_inputs(prepared: PreparedInputs, directory: Path) -> Path:
             temporary_root.rmdir()
         except OSError:
             pass
-    return prepared_root / _MANIFEST
+    return PreparedInputs(
+        prepared.strategy,
+        prepared.tradable_window,
+        prepared.available_through,
+        prepared.data_identity,
+        prepared.requests,
+        stored_results,
+        prepared.calendar_dates,
+        prepared.signal_dates,
+        prepared.calculation_dates,
+    )

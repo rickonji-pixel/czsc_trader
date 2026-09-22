@@ -26,7 +26,7 @@ from paper_trading_engine.futu_gateway import FutuGateway, FutuGatewayError
 from paper_trading_engine.coordinator import PteCoordinator, ReconnectableExecution
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.contracts import OrderSpec
-from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision
+from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision, preparation
 
 
 def test_manual_refresh_propagates_channel_failure(tmp_path):
@@ -35,20 +35,25 @@ def test_manual_refresh_propagates_channel_failure(tmp_path):
     class Accounts:
         def __init__(self):
             self.store = store
-            self.called = False
 
-        def refresh_all(self):
+    class StrategyCycle:
+        called = False
+
+        def latest_completed_signal_date(self, *, at=None):
+            del at
             self.called = True
+            return date(2026, 9, 1)
 
     class Execution:
         def refresh(self):
             raise RuntimeError("Futu unavailable")
 
     accounts = Accounts()
-    coordinator = PteCoordinator(accounts, Execution(), strategy_cycle=object())
+    strategy_cycle = StrategyCycle()
+    coordinator = PteCoordinator(accounts, Execution(), strategy_cycle=strategy_cycle)
     with pytest.raises(RuntimeError, match="Futu unavailable"):
         coordinator.refresh()
-    assert accounts.called is False
+    assert strategy_cycle.called is False
     events = store.query_audit_events(event_type="DEPENDENCY_DEGRADED")
     assert len(events) == 1
     assert events[0]["details"]["operation"] == "refresh"
@@ -738,18 +743,20 @@ def test_ft_pte03_rejected_decision_remains_blocked_until_operator_review(tmp_pa
         strategy_version="v1", release_hash="b" * 64,
         qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-01",
     )
+    advice = FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY")))
     accounts = AccountEngine(
-        store, FakeAdvice(decision(OrderSpec("BUY", 1000, "LIMIT", 1.68, "DAY"))),
+        store, advice,
         now=lambda: datetime.fromisoformat("2026-09-01T20:30:00+08:00"),
     )
-    accounts.refresh_account("s001-v1")
+    prepared = preparation(advice.value)
+    accounts.refresh_account("s001-v1", prepared=prepared)
     execution = FutuExecution(
         store, RejectingBroker(), now=lambda: datetime.fromisoformat("2026-09-02T10:00:00+08:00"),
     )
     with pytest.raises(OrderSubmissionBatchError, match="BrokerOrderRejectedError"):
         execution.submit_pending()
     with pytest.raises(AccountDecisionBlockedError, match="已阻塞"):
-        accounts.refresh_account("s001-v1")
+        accounts.refresh_account("s001-v1", prepared=prepared)
     assert store.virtual_account("s001-v1")["health"] == "BLOCKED"
     assert len(store.account_intents("s001-v1")) == 1
     assert len(store.attention_account_intents("s001-v1")) == 1

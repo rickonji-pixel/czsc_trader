@@ -23,7 +23,7 @@ class Engine:
     def refresh_orders(self):
         self.calls.append("orders")
 
-    def refresh_account(self, account_id=None):
+    def refresh_account(self, account_id=None, *, prepared=None):
         if account_id is None:
             self.calls.append("account")
             return
@@ -106,9 +106,16 @@ def _account(account_id="s007-v1", **overrides):
     return value
 
 
-def _prepared(release_id="S007-v1", signal_date=date(2026, 9, 18), identity="a" * 64):
+def _prepared(
+    release_id="S007-v1",
+    signal_date=date(2026, 9, 18),
+    identity="a" * 64,
+):
     return SimpleNamespace(
         strategy=SimpleNamespace(reference_id=release_id, release_hash="b" * 64),
+        tradable_window=SimpleNamespace(
+            start=date(2026, 9, 21), end=date(2026, 9, 21)
+        ),
         available_through=signal_date,
         data_identity=identity,
     )
@@ -180,8 +187,8 @@ def test_operator_cycle_derives_date_prepares_then_drives_decision():
 
     class Accounts:
         @staticmethod
-        def drive_account_decision(account_id):
-            trace.append(("decide", account_id))
+        def drive_account_decision(account_id, *, prepared):
+            trace.append(("decide", account_id, prepared.data_identity))
             return "decision-result"
 
     observed_at = datetime(2026, 9, 19, 8, 0)
@@ -193,7 +200,7 @@ def test_operator_cycle_derives_date_prepares_then_drives_decision():
     assert trace == [
         ("date", observed_at),
         ("prepare", "s007-v1", date(2026, 9, 18)),
-        ("decide", "s007-v1"),
+        ("decide", "s007-v1", "a" * 64),
     ]
     assert store.values["last_data_prepare_date:s007-v1"] == "2026-09-18"
     assert store.values["last_account_decision_date:s007-v1"] == "2026-09-18"

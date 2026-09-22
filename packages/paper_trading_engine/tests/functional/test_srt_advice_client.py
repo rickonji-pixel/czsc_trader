@@ -83,6 +83,13 @@ def test_pte_prepares_then_uses_one_account_strategy_instance(tmp_path, monkeypa
         "strategy_runtime.preparation.Dataflows",
         lambda: (_ for _ in ()).throw(AssertionError("decision must use prepared data")),
     )
+    monkeypatch.setattr(
+        client,
+        "_instance",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("decision must not reload the prepared strategy")
+        ),
+    )
     decision = client.get_decision(
         0,
         100_000,
@@ -95,6 +102,7 @@ def test_pte_prepares_then_uses_one_account_strategy_instance(tmp_path, monkeypa
         account_id="s002-v1",
         symbol="510500.SH",
         asset="etf",
+        prepared=prepared,
     )
     assert client.prepared_through("s002-v1", "S002", "v1") == date(2026, 9, 2)
     assert client.tradable_date("s002-v1", "S002", "v1") == date(2026, 9, 3)
@@ -339,8 +347,8 @@ def test_scheduler_prepares_current_account_data_then_runs_decision(
     accounts = AccountEngine(store, client)
 
     class Engine:
-        def refresh_decision(self, account_id):
-            return accounts.refresh_account(account_id)
+        def refresh_decision(self, account_id, *, prepared):
+            return accounts.refresh_account(account_id, prepared=prepared)
 
     scheduler = RuntimeScheduler(
         Engine(),

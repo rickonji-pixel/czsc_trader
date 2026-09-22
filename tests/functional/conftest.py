@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
-import json
 import importlib
 import sys
 
@@ -12,7 +11,6 @@ from strategy_runtime import implementation_identity
 import pandas as pd
 import pytest
 from dataflows import Dataflows
-from czsc_trader.generation_integrity import file_sha256
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -61,46 +59,6 @@ def _frame(root: Path, pattern: str, date_column: str) -> pd.DataFrame:
     )
 
 
-def _publish_s001_fixture(root: Path) -> None:
-    data_root = root / "data" / "backtest"
-    frames = {
-        "adjusted_30m": _frame(data_root, "588080_30m_*.csv", "datetime"),
-        "adjusted_daily": _frame(data_root, "588080_daily_*.csv", "date"),
-        "adjusted_weekly": _frame(data_root, "588080_weekly_*.csv", "date"),
-        "execution_daily": _frame(data_root, "588080_execution_daily_*.csv", "date"),
-    }
-    cutoff = pd.Timestamp(frames["adjusted_daily"]["Date"].max()).date()
-    calendar_end = pd.Timestamp(cutoff) + pd.Timedelta(days=20)
-    dates = pd.date_range(frames["adjusted_daily"]["Date"].min(), calendar_end)
-    frames["trading_calendar"] = pd.DataFrame(
-        {"Date": dates, "IsOpen": dates.weekday < 5}
-    )
-    files = {
-        path.name: file_sha256(path)
-        for path in data_root.iterdir()
-        if path.is_file() and path.name != "588080_strategy_generation.json"
-    }
-    (data_root / "588080_strategy_generation.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "generation_id": "GEN-FUNCTIONAL-S001",
-                "dataset": "backtest",
-                "symbol": "588080.SH",
-                "asset_type": "etf",
-                "data_cutoff": cutoff.isoformat(),
-                "strategy_releases": ["S001-v1"],
-                "data_contracts": [],
-                "runtime_publications": [],
-                "files": files,
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-
 @pytest.fixture
 def functional_repo(tmp_path: Path, monkeypatch) -> Path:
     root = tmp_path / "repo"
@@ -114,22 +72,19 @@ def functional_repo(tmp_path: Path, monkeypatch) -> Path:
     raw_dir.mkdir(parents=True)
     for source in (REPO_ROOT / "data" / "raw").glob("588080*"):
         shutil.copy2(source, raw_dir / source.name)
-    shutil.copytree(raw_dir, root / "data" / "backtest")
-    for source in (REPO_ROOT / "data" / "backtest").glob("s007_v1_causal_feature_*"):
-        shutil.copy2(source, root / "data" / "backtest" / source.name)
-    _publish_s001_fixture(root)
+    (root / "data" / "backtest").mkdir()
     frames = {
         ("etf.ohlcv", "588080.SH", "30m"): _frame(
-            root / "data" / "backtest", "588080_30m_*.csv", "datetime"
+            raw_dir, "588080_30m_*.csv", "datetime"
         ),
         ("etf.ohlcv", "588080.SH", "daily"): _frame(
-            root / "data" / "backtest", "588080_daily_*.csv", "date"
+            raw_dir, "588080_daily_*.csv", "date"
         ),
         ("etf.ohlcv", "588080.SH", "weekly"): _frame(
-            root / "data" / "backtest", "588080_weekly_*.csv", "date"
+            raw_dir, "588080_weekly_*.csv", "date"
         ),
         ("etf.unadjusted_daily", "588080.SH", "daily"): _frame(
-            root / "data" / "backtest", "588080_execution_daily_*.csv", "date"
+            raw_dir, "588080_execution_daily_*.csv", "date"
         ),
     }
     calendar_end = pd.Timestamp(frames[("etf.ohlcv", "588080.SH", "daily")]["Date"].max()) + pd.Timedelta(days=20)

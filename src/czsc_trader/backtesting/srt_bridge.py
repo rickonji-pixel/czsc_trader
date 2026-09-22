@@ -6,6 +6,8 @@ from hashlib import sha256
 import json
 from pathlib import Path
 from collections.abc import Mapping
+from datetime import date
+import re
 
 import numpy as np
 import pandas as pd
@@ -175,23 +177,32 @@ def execution_intraday_frequencies(strategy) -> tuple[str, ...]:
 def srt_data_directory(
     root: Path,
     snapshot: StrategySnapshot,
-    start: pd.Timestamp,
-    end: pd.Timestamp,
     symbol: str,
+    *,
+    created_on: date | None = None,
 ) -> Path:
-    """Return the caller-owned isolation space for one SRT instance."""
+    """Find or create the reusable SRT space for one strategy and symbol."""
 
-    key = canonical_sha256(
-        {
-            "identity_kind": snapshot.identity.kind,
-            "reference": snapshot.identity.reference,
-            "source_hash": snapshot.source_hash,
-            "symbol": symbol.upper(),
-            "start": start.normalize().date().isoformat(),
-            "end": end.normalize().date().isoformat(),
-        }
+    parent = Path(root).resolve()
+    parent.mkdir(parents=True, exist_ok=True)
+    reference = re.sub(r"[^A-Za-z0-9]+", "", snapshot.identity.reference)
+    instrument = re.sub(r"[^A-Za-z0-9]+", "", symbol.split(".", 1)[0].upper())
+    if not reference or not instrument:
+        raise RuntimeContractError("SRT data-space identity is not path-safe")
+    prefix = f"{reference}_{instrument}_"
+    pattern = re.compile(rf"^{re.escape(prefix)}\d{{6}}$")
+    existing = sorted(
+        item for item in parent.iterdir() if item.is_dir() and pattern.fullmatch(item.name)
     )
-    return Path(root).resolve() / "srt-data" / key
+    if len(existing) > 1:
+        raise RuntimeContractError(
+            f"multiple reusable SRT data spaces exist for {snapshot.identity.reference} {symbol}"
+        )
+    if existing:
+        return existing[0]
+    target = parent / f"{prefix}{(created_on or date.today()):%y%m%d}"
+    target.mkdir(exist_ok=False)
+    return target
 
 
 def build_srt_signal_replay(
@@ -201,6 +212,7 @@ def build_srt_signal_replay(
     start: pd.Timestamp,
     end: pd.Timestamp,
     repository_root: Path,
+    space_created_on: date | None = None,
 ) -> tuple[object, SignalReplay]:
     """Create one SRT instance and calculate its complete historical window."""
 
@@ -210,10 +222,8 @@ def build_srt_signal_replay(
         deployment_symbol=execution_data.symbol,
     )
     runtime = StrategyRuntime()
-    if execution_data.dataset == "research" and end.normalize() > pd.Timestamp(
-        execution_data.cutoff
-    ):
-        raise RuntimeContractError("research backtest window exceeds the published cutoff")
+    if end.normalize() > pd.Timestamp(execution_data.cutoff):
+        raise RuntimeContractError("backtest window exceeds the published cutoff")
     sessions = pd.DatetimeIndex(
         pd.to_datetime(execution_data.adjusted_daily["dt"]).dt.normalize(), name="dt"
     )
@@ -228,9 +238,8 @@ def build_srt_signal_replay(
     data_dir = srt_data_directory(
         execution_data.root,
         snapshot,
-        evaluation[0],
-        evaluation[-1],
         execution_data.symbol,
+        created_on=space_created_on,
     )
     strategy = runtime.create(
         StrategyInit(

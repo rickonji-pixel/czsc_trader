@@ -20,6 +20,8 @@ from .preparation import PreparedInputs
 
 
 _MANIFEST = "prepared-data.json"
+_WORKSPACE_MANIFEST = "strategy-space.json"
+_PREPARATIONS = "preparations"
 _SAFE = re.compile(r"[A-Za-z0-9_.-]+")
 
 
@@ -65,6 +67,56 @@ def _manifest_identity(
     }
 
 
+def _workspace_identity(strategy: StrategyIdentity) -> dict[str, object]:
+    return {
+        "reference_id": strategy.reference_id,
+        "release_hash": strategy.release_hash,
+        "runtime_sha256": strategy.runtime_sha256,
+        "symbol": strategy.symbol,
+    }
+
+
+def _preparation_directory(directory: Path, tradable_window: TradableWindow) -> Path:
+    name = f"{tradable_window.start:%Y%m%d}_{tradable_window.end:%Y%m%d}"
+    return Path(directory).resolve() / _PREPARATIONS / name
+
+
+def _load_workspace(root: Path, strategy: StrategyIdentity) -> bool:
+    path = root / _WORKSPACE_MANIFEST
+    if not path.is_file():
+        if (root / _MANIFEST).exists():
+            raise RuntimeContractError("legacy prepared-data space is unsupported")
+        return False
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeContractError(f"cannot read strategy data space: {exc}") from exc
+    expected = _workspace_identity(strategy)
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != 1
+        or any(manifest.get(key) != value for key, value in expected.items())
+    ):
+        raise RuntimeContractError("data directory belongs to another strategy")
+    manifest_hash = manifest.pop("manifest_sha256", None)
+    if manifest_hash != canonical_sha256(manifest):
+        raise RuntimeContractError("strategy data-space manifest was modified")
+    return True
+
+
+def _ensure_workspace(root: Path, strategy: StrategyIdentity) -> None:
+    if _load_workspace(root, strategy):
+        return
+    manifest = {"schema_version": 1, **_workspace_identity(strategy)}
+    manifest["manifest_sha256"] = canonical_sha256(manifest)
+    path = root / _WORKSPACE_MANIFEST
+    try:
+        with path.open("x", encoding="utf-8") as stream:
+            stream.write(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+    except FileExistsError:
+        _load_workspace(root, strategy)
+
+
 def load_prepared_inputs(
     directory: Path,
     *,
@@ -72,7 +124,10 @@ def load_prepared_inputs(
     tradable_window: TradableWindow,
 ) -> PreparedInputs | None:
     root = Path(directory).resolve()
-    manifest_path = root / _MANIFEST
+    if not _load_workspace(root, strategy):
+        return None
+    prepared_root = _preparation_directory(root, tradable_window)
+    manifest_path = prepared_root / _MANIFEST
     if not manifest_path.is_file():
         return None
     try:
@@ -104,8 +159,8 @@ def load_prepared_inputs(
         filename = raw.get("file")
         if not isinstance(filename, str) or Path(filename).name != filename:
             raise RuntimeContractError(f"prepared input filename is unsafe: {name}")
-        path = (root / filename).resolve()
-        if path.parent != root or not path.is_file():
+        path = (prepared_root / filename).resolve()
+        if path.parent != prepared_root or not path.is_file():
             raise RuntimeContractError(f"prepared input file is unavailable: {name}")
         if _file_sha256(path) != raw.get("file_sha256"):
             raise RuntimeContractError(f"prepared input file was modified: {name}")
@@ -155,6 +210,11 @@ def load_prepared_inputs(
 def save_prepared_inputs(prepared: PreparedInputs, directory: Path) -> Path:
     root = Path(directory).resolve()
     root.mkdir(parents=True, exist_ok=True)
+    _ensure_workspace(root, prepared.strategy)
+    prepared_root = _preparation_directory(root, prepared.tradable_window)
+    prepared_root.parent.mkdir(exist_ok=True)
+    if prepared_root.exists():
+        raise RuntimeContractError("prepared data already exists but could not be reused")
     temporary_root = root / ".tmp"
     temporary_root.mkdir(exist_ok=True)
     staging = temporary_root / f"prepare-{uuid4().hex}"
@@ -220,17 +280,14 @@ def save_prepared_inputs(prepared: PreparedInputs, directory: Path) -> Path:
             json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-        for path in sorted(staging.iterdir(), key=lambda item: item.name):
-            if path.name == _MANIFEST:
-                continue
-            path.replace(root / path.name)
-        manifest_path.replace(root / _MANIFEST)
+        staging.replace(prepared_root)
     finally:
-        for path in staging.glob("*"):
-            path.unlink(missing_ok=True)
-        staging.rmdir()
+        if staging.exists():
+            for path in staging.glob("*"):
+                path.unlink(missing_ok=True)
+            staging.rmdir()
         try:
             temporary_root.rmdir()
         except OSError:
             pass
-    return root / _MANIFEST
+    return prepared_root / _MANIFEST

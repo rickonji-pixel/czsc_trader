@@ -328,7 +328,12 @@ def test_historical_prepare_uses_seed_without_incremental_publications(
         Dataset.ETF_UNADJUSTED_DAILY.value,
         Dataset.TRADING_CALENDAR.value,
     }
-    assert (tmp_path / "prepared-data.json").is_file()
+    assert (
+        tmp_path
+        / "preparations"
+        / f"{HISTORICAL_WINDOW.start:%Y%m%d}_{HISTORICAL_WINDOW.end:%Y%m%d}"
+        / "prepared-data.json"
+    ).is_file()
     assert len(instance.inspect_signals()) == len(
         pd.bdate_range(HISTORICAL_WINDOW.start, HISTORICAL_WINDOW.end)
     )

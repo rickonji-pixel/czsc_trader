@@ -90,11 +90,10 @@ def prepare_evaluation_workspace(
             raise ValueError("review dataset hash requires a snapshot directory")
         first_start = min(start for _, (start, _) in context.periods)
         execution_data = prepare_backtest_execution_data(
-            dataset="research",
-            data_dir=getattr(
+            srt_data_root=getattr(
                 context.repository,
-                "research_data_root",
-                Path(context.repository.root) / "data" / "raw",
+                "tdr_srt_root",
+                Path(context.repository.root) / "data" / "backtest",
             ),
             symbol=context.symbol,
             asset_type=context.asset_type,

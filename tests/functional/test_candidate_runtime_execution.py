@@ -70,8 +70,7 @@ def _install_candidate_dataflows(monkeypatch, flow, daily):
 def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser(
     candidate_payload, tmp_path, monkeypatch,
 ):
-    from czsc_trader.backtesting.datasets import ReplayData
-    from functional_support import execution_data_from_replay
+    from functional_support import ReplayFixture, execution_data_from_replay
     from czsc_trader.backtesting.srt_bridge import build_srt_signal_replay, replay_srt_account
     from czsc_trader.backtesting.strategy_source import resolve_candidate_snapshot
     from czsc_trader.backtesting.service import BacktestRequestV2, run_backtest_v2
@@ -90,8 +89,8 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
     daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0, "high": 1.0, "low": 1.0, "vol": 1000.0, "amount": 1000.0})
     daily["symbol"] = "588080.SH"
     _install_candidate_dataflows(monkeypatch, inputs, daily)
-    replay_data = ReplayData(
-        "research", tmp_path,
+    replay_data = ReplayFixture(
+        tmp_path,
         MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf"),
         daily, pd.DataFrame(columns=["dt", "high", "low"]), "d" * 64, sessions[-1].date(),
     )
@@ -122,8 +121,10 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
     assert signals.support_data["runtime_sha256"] == definition.runtime_sha256
     summary = run_backtest_v2(
         snapshot=snapshot,
-        request=BacktestRequestV2("588080.SH", "etf", "research", sessions[1].date(), sessions[-1].date(), 100_000),
-        data_dir=tmp_path,
+        request=BacktestRequestV2(
+            "588080.SH", "etf", sessions[1].date(), sessions[-1].date(), 100_000
+        ),
+        srt_data_root=tmp_path,
         outputs_root=tmp_path / "outputs", run_date=sessions[-1].date(),
         repository_root=tmp_path, execution_data=execution_data,
     )
@@ -301,7 +302,7 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
         AuditStatus, ChampionAuditRequest, ReplayEvidence, audit_provisional_champion,
         hash_execution_evidence, hash_return_matrix, hash_audit_data,
     )
-    from czsc_trader.backtesting.datasets import ReplayData
+    from functional_support import ReplayFixture
     from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
     from czsc_trader.application.evaluation_evidence import build_champion_audit_request
 
@@ -318,8 +319,8 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
         parameters["parameters"]["threshold"] = threshold
         payloads.append({"candidate_id": candidate_id, "strategy_id": "S900",
                          "strategy_payload": parameters, "is_incumbent": candidate_id == "C000"})
-    replay_data = ReplayData(
-        "research", tmp_path, SimpleNamespace(daily=daily, symbol="588080.SH", asset_type="etf"),
+    replay_data = ReplayFixture(
+        tmp_path, SimpleNamespace(daily=daily, symbol="588080.SH", asset_type="etf"),
         daily, pd.DataFrame(columns=["dt", "high", "low"]), "d" * 64, sessions[-1].date(),
     )
     from functional_support import execution_data_from_replay
@@ -392,7 +393,7 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     from czsc_trader.application.review_data import (
         publish_review_dataset, load_review_dataset, verify_review_dataset,
     )
-    from czsc_trader.backtesting.datasets import ReplayData, _fingerprint
+    from functional_support import ReplayFixture, replay_fingerprint
     from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
     from czsc_trader.data import MarketData
 
@@ -403,9 +404,9 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     market = MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf")
     pool = tmp_path / "data" / "raw"
     pool.mkdir(parents=True)
-    replay = ReplayData(
-        "research", pool, market, daily, daily.copy(),
-        _fingerprint("research", market, daily, daily), sessions[-1].date(),
+    replay = ReplayFixture(
+        pool, market, daily, daily.copy(),
+        replay_fingerprint(market.daily, daily, daily), sessions[-1].date(),
     )
     from functional_support import execution_data_from_replay
     execution_data = execution_data_from_replay(
@@ -500,7 +501,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     from czsc_trader.application.context import RepositoryContext
     from czsc_trader.application.runtime_acceptance import _runtime_report
     from czsc_trader.application.review_data import publish_review_dataset
-    from czsc_trader.backtesting.datasets import ReplayData, _fingerprint
+    from functional_support import ReplayFixture, replay_fingerprint
     from czsc_trader.data import MarketData
     from strategy_evaluator import EvaluationProtocol
 
@@ -516,8 +517,10 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     market = MarketData(daily.copy(), daily.copy(), daily.copy(), {}, "588080.SH", "etf")
     pool = tmp_path / "data" / "raw"
     pool.mkdir(parents=True)
-    replay = ReplayData("research", pool, market, daily, daily.copy(),
-                        _fingerprint("research", market, daily, daily), sessions[-1].date())
+    replay = ReplayFixture(
+        pool, market, daily, daily.copy(),
+        replay_fingerprint(market.daily, daily, daily), sessions[-1].date()
+    )
     from functional_support import execution_data_from_replay
     execution_data = execution_data_from_replay(
         replay, start=sessions[1], end=sessions[-1]
@@ -527,7 +530,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         lambda **kw: execution_data,
     )
     context = RepositoryContext(
-        root=tmp_path, raw_dir=pool, research_data_root=pool, backtest_data_root=tmp_path / "data/backtest",
+        root=tmp_path, raw_dir=pool, research_data_root=pool, tdr_srt_root=tmp_path / "data/backtest",
         strategy_root=tmp_path / "strategies", experiments_root=tmp_path / "experiments",
         outputs_root=tmp_path / "outputs",
     )

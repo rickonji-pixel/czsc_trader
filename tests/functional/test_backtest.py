@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date
 import json
 from pathlib import Path
-import shutil
 
 import pandas as pd
+import pytest
 
 from czsc_trader.application.context import RepositoryContext
-from czsc_trader.backtesting import load_replay_data, resolve_registered_strategy
+from czsc_trader.backtesting import resolve_registered_strategy
+from czsc_trader.backtesting.execution_data import prepare_backtest_execution_data
 from czsc_trader.backtesting.chart import render_backtest_chart_html
-from czsc_trader.generation_integrity import file_sha256
 from czsc_trader.backtesting.audit_adapter import build_replay_evidence
 from czsc_trader.backtesting.metrics import calculate_metrics
 from czsc_trader.backtesting.service import BacktestRequestV2, run_backtest_v2
 from czsc_trader.backtesting.srt_bridge import (
     build_srt_signal_replay,
     replay_srt_account,
+    srt_data_directory,
 )
+from strategy_runtime import RuntimeContractError
 from strategy_evaluator import AuditStatus, audit_replay
 
-from functional_support import execution_data_from_replay, invoke_main, invoke_main_failure
+from functional_support import invoke_main, invoke_main_failure
 
 
 METRIC_KEYS = {
@@ -31,6 +34,33 @@ METRIC_KEYS = {
     "return",
     "sharpe",
 }
+
+
+def test_tdr_allocates_one_human_readable_reusable_srt_space(
+    functional_repo: Path,
+) -> None:
+    context = RepositoryContext.discover(functional_repo)
+    snapshot = resolve_registered_strategy(context, "S001", "v1")
+
+    created = srt_data_directory(
+        context.tdr_srt_root,
+        snapshot,
+        "588080.SH",
+        created_on=date(2026, 9, 22),
+    )
+    reused = srt_data_directory(
+        context.tdr_srt_root,
+        snapshot,
+        "588080.SH",
+        created_on=date(2026, 9, 23),
+    )
+
+    assert created == context.tdr_srt_root / "S001v1_588080_260922"
+    assert reused == created
+
+    (context.tdr_srt_root / "S001v1_588080_260921").mkdir()
+    with pytest.raises(RuntimeContractError, match="multiple reusable"):
+        srt_data_directory(context.tdr_srt_root, snapshot, "588080.SH")
 
 
 def _plotly_payload(html: str) -> tuple[list[dict], dict]:
@@ -49,11 +79,13 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
 ) -> None:
     context = RepositoryContext.discover(functional_repo)
     snapshot = resolve_registered_strategy(context, "S001", "v1")
-    data = load_replay_data(
-        context, "backtest", "588080.SH", "etf", pd.Timestamp("2026-09-02").date()
-    )
-    execution_data = execution_data_from_replay(
-        data, start=pd.Timestamp("2026-01-01"), end=pd.Timestamp("2026-09-02")
+    execution_data = prepare_backtest_execution_data(
+        srt_data_root=context.tdr_srt_root,
+        symbol="588080.SH",
+        asset_type="etf",
+        start=pd.Timestamp("2026-01-01").date(),
+        end=pd.Timestamp("2026-09-02").date(),
+        env_file=context.root / ".env",
     )
     strategy, signals = build_srt_signal_replay(
         snapshot=snapshot,
@@ -120,12 +152,11 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
         request=BacktestRequestV2(
             symbol="588080.SH",
             asset_type="etf",
-            dataset="backtest",
             start=pd.Timestamp("2026-01-01").date(),
             end=pd.Timestamp("2026-09-02").date(),
             initial_cash=100_000,
         ),
-        data_dir=functional_repo / "data" / "backtest",
+        srt_data_root=functional_repo / "data" / "backtest",
         outputs_root=functional_repo / "outputs",
         run_date=pd.Timestamp("2026-09-04").date(),
         repository_root=functional_repo,
@@ -283,7 +314,6 @@ def test_backtest_does_not_read_legacy_srt_publication_manifests(
             "backtest", "run",
             "--strategy", "S001",
             "--strategy-version", "v1",
-            "--dataset", "backtest",
             "--symbol", "588080.SH",
             "--asset", "etf",
             "--start", "2026-01-05",
@@ -309,8 +339,6 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
             "S001",
             "--strategy-version",
             "v1",
-            "--dataset",
-            "backtest",
             "--symbol",
             "588080.SH",
             "--asset",
@@ -365,36 +393,11 @@ def test_ft_t03_backtest_publishes_audited_metrics_orders_and_reports(
     assert len(manifest["signal_support"]["runtime_sha256"]) == 64
     assert manifest["signal_support"]["execution_policy"]["policy_type"] == "FROZEN_RULE"
 
-    source_root = functional_repo / "data" / "backtest"
-    for source in source_root.glob("588080*"):
-        destination = source.with_name(source.name.replace("588080", "159352"))
-        if source.suffix == ".json":
-            destination.write_text(
-                source.read_text(encoding="utf-8")
-                .replace("588080.SH", "159352.SZ")
-                .replace("588080", "159352"),
-                encoding="utf-8",
-            )
-        else:
-            shutil.copy2(source, destination)
-    generalized_generation = source_root / "159352_strategy_generation.json"
-    generation = json.loads(generalized_generation.read_text(encoding="utf-8"))
-    generation["symbol"] = "159352.SZ"
-    generation["files"] = {
-        path.name: file_sha256(path)
-        for path in source_root.iterdir()
-        if path.is_file()
-        and path.name != generalized_generation.name
-        and path.name.startswith("159352")
-    }
-    generalized_generation.write_text(
-        json.dumps(generation, indent=2) + "\n", encoding="utf-8"
-    )
     generalized = invoke_main(
         [
             "backtest", "run",
             "--strategy", "S001", "--strategy-version", "v1",
-            "--dataset", "backtest", "--symbol", "159352.SZ", "--asset", "etf",
+            "--symbol", "159352.SZ", "--asset", "etf",
             "--start", "2026-01-01", "--end", "2026-09-02", "--init-cash", "100000",
         ],
         capsys,
@@ -424,7 +427,7 @@ def test_backtest_rejects_false_success_beyond_published_session(
         [
             "backtest", "run",
             "--strategy", "S001", "--strategy-version", "v1",
-            "--dataset", "backtest", "--symbol", "588080.SH", "--asset", "etf",
+            "--symbol", "588080.SH", "--asset", "etf",
             "--start", "2026-01-01", "--end", "2026-09-06", "--init-cash", "100000",
         ],
         capsys,
@@ -439,7 +442,6 @@ def test_backtest_rejects_false_success_beyond_published_session(
         "context": {
             "strategy": "S001-v1",
             "symbol": "588080.SH",
-            "dataset": "backtest",
             "requested_cutoff": "2026-09-06",
             "published_cutoff": "2026-09-02",
             "first_unpublished_session": "2026-09-03",
@@ -448,7 +450,7 @@ def test_backtest_rejects_false_success_beyond_published_session(
     assert list((functional_repo / "outputs").iterdir()) == []
 
 
-def test_backtest_historical_window_remains_valid_after_dataset_advances(
+def test_backtest_historical_window_remains_valid_after_source_advances(
     functional_repo: Path, capsys, monkeypatch
 ) -> None:
     monkeypatch.chdir(functional_repo)
@@ -456,7 +458,7 @@ def test_backtest_historical_window_remains_valid_after_dataset_advances(
         [
             "backtest", "run",
             "--strategy", "S001", "--strategy-version", "v1",
-            "--dataset", "backtest", "--symbol", "588080.SH", "--asset", "etf",
+            "--symbol", "588080.SH", "--asset", "etf",
             "--start", "2026-06-25", "--end", "2026-08-31", "--init-cash", "100000",
         ],
         capsys,
@@ -464,18 +466,3 @@ def test_backtest_historical_window_remains_valid_after_dataset_advances(
 
     assert payload["status"] == "PASS"
     assert payload["result"]["audit_status"] == "PASS"
-
-
-def test_replay_data_maps_non_trading_cutoff_to_last_published_session(
-    functional_repo: Path,
-) -> None:
-    data = load_replay_data(
-        RepositoryContext.discover(functional_repo),
-        "backtest",
-        "588080.SH",
-        "etf",
-        pd.Timestamp("2026-08-30").date(),
-    )
-
-    assert data.cutoff == pd.Timestamp("2026-08-28").date()
-    assert pd.Timestamp(data.execution_daily["dt"].max()).date() == data.cutoff

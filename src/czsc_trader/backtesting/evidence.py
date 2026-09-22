@@ -19,7 +19,7 @@ def build_manifest(
     run_date: date,
 ) -> dict[str, object]:
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "engine": "TDR_BACKTEST_V2",
         "run_date": run_date.isoformat(),
         "strategy": {
@@ -30,8 +30,7 @@ def build_manifest(
             "snapshot_hash": snapshot.content_hash,
         },
         "application": application,
-        "dataset": {
-            "name": data.dataset,
+        "execution_data": {
             "fingerprint": data.fingerprint,
             "cutoff": data.cutoff.isoformat(),
             "signal_adjustment": "hfq",

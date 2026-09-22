@@ -32,7 +32,7 @@ class RepositoryContext:
     root: Path
     raw_dir: Path
     research_data_root: Path
-    backtest_data_root: Path
+    tdr_srt_root: Path
     strategy_root: Path
     experiments_root: Path
     outputs_root: Path
@@ -57,7 +57,7 @@ class RepositoryContext:
             root=root,
             raw_dir=root / "data" / "raw",
             research_data_root=root / "data" / "raw",
-            backtest_data_root=root / "data" / "backtest",
+            tdr_srt_root=root / "data" / "backtest",
             strategy_root=root / "strategies",
             experiments_root=root / "experiments",
             outputs_root=root / "outputs",

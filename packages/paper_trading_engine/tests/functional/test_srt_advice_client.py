@@ -5,6 +5,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
 from dataflows import Dataflows, Dataset
 
 from paper_trading_engine.account_data_preparer import AccountDataPreparer
@@ -19,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 def _flows() -> Dataflows:
-    dates = pd.bdate_range(end="2026-09-02", periods=700)
+    dates = pd.bdate_range(end="2026-09-04", periods=700)
     bars = pd.DataFrame(
         {
             "Date": dates,
@@ -119,8 +120,127 @@ def test_prepared_data_is_isolated_by_account(tmp_path, monkeypatch):
         assert prepared is not None
     assert (tmp_path / "accounts/s002-v1/current.json").is_file()
     assert (tmp_path / "accounts/s002-v1-alt/current.json").is_file()
+    assert [path.name for path in (tmp_path / "accounts/s002-v1/spaces").iterdir()] == [
+        "s002-v1_20260902T220000000000"
+    ]
+    assert [
+        path.name for path in (tmp_path / "accounts/s002-v1-alt/spaces").iterdir()
+    ] == ["s002-v1-alt_20260902T220000000000"]
     assert client.tradable_date("s002-v1", "S002", "v1") == date(2026, 9, 3)
     assert client.tradable_date("s002-v1-alt", "S002", "v1") == date(2026, 9, 3)
+
+
+def test_account_reuses_its_strategy_space_across_trading_dates(
+    tmp_path, monkeypatch,
+):
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
+    client = _client(
+        tmp_path,
+        {
+            date(2026, 9, 2): date(2026, 9, 3),
+            date(2026, 9, 3): date(2026, 9, 4),
+        },
+    )
+
+    first = client.prepare_account_data(
+        account_id="s002-v1",
+        strategy_id="S002",
+        strategy_version="v1",
+        symbol="510500.SH",
+        asset="etf",
+        signal_date=date(2026, 9, 2),
+    )
+    second = client.prepare_account_data(
+        account_id="s002-v1",
+        strategy_id="S002",
+        strategy_version="v1",
+        symbol="510500.SH",
+        asset="etf",
+        signal_date=date(2026, 9, 3),
+    )
+
+    assert first is not None
+    assert second is not None
+    spaces = tuple((tmp_path / "accounts/s002-v1/spaces").iterdir())
+    assert [path.name for path in spaces] == ["s002-v1_20260902T220000000000"]
+    assert sorted(path.name for path in (spaces[0] / "preparations").iterdir()) == [
+        "20260903_20260903",
+        "20260904_20260904",
+    ]
+    assert client.prepared_through("s002-v1", "S002", "v1") == date(2026, 9, 3)
+    assert client.tradable_date("s002-v1", "S002", "v1") == date(2026, 9, 4)
+
+
+def test_account_binding_change_creates_a_new_strategy_space(tmp_path, monkeypatch):
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
+    moments = iter(
+        (
+            datetime(2026, 9, 2, 22, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+            datetime(2026, 9, 2, 22, 1, tzinfo=ZoneInfo("Asia/Shanghai")),
+        )
+    )
+    client = SrtAdviceClient(
+        repo_root=ROOT,
+        data_dir=tmp_path,
+        now=lambda: next(moments),
+        session_resolver=lambda _signal_date: date(2026, 9, 3),
+    )
+
+    for symbol in ("510500.SH", "588080.SH"):
+        assert client.prepare_account_data(
+            account_id="strategy-account",
+            strategy_id="S002",
+            strategy_version="v1",
+            symbol=symbol,
+            asset="etf",
+            signal_date=date(2026, 9, 2),
+        ) is not None
+
+    assert sorted(
+        path.name
+        for path in (tmp_path / "accounts/strategy-account/spaces").iterdir()
+    ) == [
+        "strategy-account_20260902T220000000000",
+        "strategy-account_20260902T220100000000",
+    ]
+
+
+def test_failed_preparation_does_not_switch_the_account_space(tmp_path, monkeypatch):
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
+    client = _client(
+        tmp_path,
+        {
+            date(2026, 9, 2): date(2026, 9, 3),
+            date(2026, 9, 3): date(2026, 9, 4),
+        },
+    )
+    assert client.prepare_account_data(
+        account_id="s002-v1",
+        strategy_id="S002",
+        strategy_version="v1",
+        symbol="510500.SH",
+        asset="etf",
+        signal_date=date(2026, 9, 2),
+    ) is not None
+    current = tmp_path / "accounts/s002-v1/current.json"
+    published = current.read_bytes()
+    monkeypatch.setattr(
+        "strategy_runtime.preparation.Dataflows",
+        lambda: (_ for _ in ()).throw(AssertionError("preparation failed")),
+    )
+
+    with pytest.raises(AssertionError, match="preparation failed"):
+        client.prepare_account_data(
+            account_id="s002-v1",
+            strategy_id="S002",
+            strategy_version="v1",
+            symbol="510500.SH",
+            asset="etf",
+            signal_date=date(2026, 9, 3),
+        )
+
+    assert current.read_bytes() == published
+    assert client.tradable_date("s002-v1", "S002", "v1") == date(2026, 9, 3)
 
 
 def test_closed_day_does_not_prepare_or_publish_account_data(tmp_path):

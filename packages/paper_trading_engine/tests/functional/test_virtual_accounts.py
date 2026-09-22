@@ -57,15 +57,16 @@ def test_pte_cli_rejects_retired_account_and_scheduler_aliases(tmp_path):
         ])
 
 
-def test_ft_pte01_strategy_account_requires_governance_identity(monkeypatch, tmp_path):
+def test_ft_pte01_strategy_account_requires_srt_deployment(monkeypatch, tmp_path):
     payload = {
         "status": "PASS",
         "result": {
             "strategy_id": "S008",
             "version": "v1",
-            "release_hash": "a" * 64,
+            "strategy_version_hash": "a" * 64,
             "qualification": "PAPER_READY",
             "selection_data_cutoff": "2026-09-02",
+            "strategy_version_id": "S008-v1",
         },
     }
     monkeypatch.setattr(
@@ -75,13 +76,13 @@ def test_ft_pte01_strategy_account_requires_governance_identity(monkeypatch, tmp
             returncode=0, stdout=json.dumps(payload), stderr=""
         ),
     )
-    with pytest.raises(RuntimeError, match="governance identity"):
-        pte_cli._strategy_show(tmp_path / "czsc-trader", tmp_path, "S008", "v1")
+    with pytest.raises(RuntimeError, match="not deployed"):
+        pte_cli._strategy_info(tmp_path / "czsc-trader", tmp_path, "S008-v1")
 
-    payload["result"]["governance_status"] = "SGC_VALIDATED"
-    assert pte_cli._strategy_show(
-        tmp_path / "czsc-trader", tmp_path, "S008", "v1"
-    )["governance_status"] == "SGC_VALIDATED"
+    payload["result"]["deployment_state"] = "SRT_DEPLOYED"
+    assert pte_cli._strategy_info(
+        tmp_path / "czsc-trader", tmp_path, "S008-v1"
+    )["deployment_state"] == "SRT_DEPLOYED"
 
 
 def test_strategy_deployments_queries_all_accounts_in_one_process(monkeypatch, tmp_path):
@@ -89,15 +90,16 @@ def test_strategy_deployments_queries_all_accounts_in_one_process(monkeypatch, t
     payload = {
         "status": "PASS",
         "result": {
-            "deployments": [
+            "strategies": [
                 {
                     "strategy_id": strategy_id,
                     "version": version,
-                    "release_id": f"{strategy_id}-{version}",
-                    "release_hash": marker * 64,
+                    "strategy_version_id": f"{strategy_id}-{version}",
+                    "strategy_version_hash": marker * 64,
                     "qualification": "PAPER_READY",
                     "governance_status": "SGC_VALIDATED",
                     "selection_data_cutoff": "2026-09-02",
+                    "deployment_state": "SRT_DEPLOYED",
                 }
                 for strategy_id, version, marker in (
                     ("S001", "v1", "a"), ("S007", "v1", "b"),
@@ -119,7 +121,10 @@ def test_strategy_deployments_queries_all_accounts_in_one_process(monkeypatch, t
 
     assert set(result) == {("S001", "v1"), ("S007", "v1")}
     assert len(calls) == 1
-    assert calls[0][0].count("--release") == 2
+    assert calls[0][0] == [
+        str(tmp_path / "czsc-trader"), "strategy", "list",
+        "--repo-root", str(tmp_path),
+    ]
     assert calls[0][1]["timeout"] == 30
 
 
@@ -443,13 +448,11 @@ def test_ft_pte02_new_account_is_created_only_after_strategy_runtime_preflight(
         "strategy_id": "S007",
         "name": "多源机会风险门控",
         "version": "v1",
-        "release_id": "S007-v1",
-        "release_hash": release_hash,
+        "strategy_version_id": "S007-v1",
+        "strategy_version_hash": release_hash,
         "qualification": "PAPER_READY",
         "selection_data_cutoff": "2026-09-02",
-        "strategy_payload": {
-            "rule": {"execution": {"capital": {"fee_rate": 0.001}}},
-        },
+        "fee_rate": 0.001,
     }
     args = Namespace(
         account_action="create",

@@ -342,15 +342,13 @@ def build_engine(args: argparse.Namespace):
     )
 
 
-def _strategy_show(
-    executable: Path, repo_root: Path, reference: str, version: str | None = None,
+def _strategy_info(
+    executable: Path, repo_root: Path, strategy_version_id: str,
 ) -> dict[str, object]:
     command = [
-        str(executable), "strategy", "show", "--repo-root", str(repo_root),
-        "--strategy", reference,
+        str(executable), "strategy", "info", strategy_version_id,
+        "--repo-root", str(repo_root),
     ]
-    if version:
-        command.extend(["--version", version])
     completed = subprocess.run(
         command,
         check=False, capture_output=True, text=True, encoding="utf-8", timeout=30,
@@ -362,17 +360,17 @@ def _strategy_show(
     if completed.returncode or payload.get("status") != "PASS":
         error = payload.get("error", {})
         raise RuntimeError(error.get("message") or "strategy validation failed")
-    qualification = payload["result"].get("qualification")
+    result = payload.get("result", {})
+    if result.get("strategy_version_id") != strategy_version_id:
+        raise RuntimeError("strategy deployment identity differs from requested release")
+    if result.get("deployment_state") != "SRT_DEPLOYED":
+        raise RuntimeError("strategy version is not deployed to SRT")
+    qualification = result.get("qualification")
     if qualification not in {"PAPER_READY", "LIVE_READY"}:
         raise RuntimeError(f"strategy qualification cannot enter paper trading: {qualification}")
-    if payload["result"].get("governance_status") not in {
-        "SGC_VALIDATED",
-        "LEGACY_GOVERNANCE_ACCEPTED",
-    }:
-        raise RuntimeError("strategy governance identity is not deployable")
-    if not payload["result"].get("selection_data_cutoff"):
+    if not result.get("selection_data_cutoff"):
         raise RuntimeError("strategy release has no selection_data_cutoff")
-    return payload["result"]
+    return result
 
 
 def _strategy_deployments(
@@ -383,11 +381,7 @@ def _strategy_deployments(
     unique_releases = list(dict.fromkeys(releases))
     if not unique_releases:
         return {}
-    command = [
-        str(executable), "strategy", "deployments", "--repo-root", str(repo_root),
-    ]
-    for strategy_id, version in unique_releases:
-        command.extend(["--release", f"{strategy_id}-{version}"])
+    command = [str(executable), "strategy", "list", "--repo-root", str(repo_root)]
     try:
         completed = subprocess.run(
             command,
@@ -408,7 +402,7 @@ def _strategy_deployments(
     if completed.returncode or payload.get("status") != "PASS":
         error = payload.get("error", {})
         raise RuntimeError(error.get("message") or "strategy deployment query failed")
-    rows = payload.get("result", {}).get("deployments")
+    rows = payload.get("result", {}).get("strategies")
     if not isinstance(rows, list):
         raise RuntimeError("strategy deployment query returned invalid deployments")
     deployments: dict[tuple[str, str], dict[str, object]] = {}
@@ -416,18 +410,17 @@ def _strategy_deployments(
         if not isinstance(row, dict):
             raise RuntimeError("strategy deployment query returned an invalid identity")
         key = (str(row.get("strategy_id")), str(row.get("version")))
-        if key not in unique_releases or key in deployments:
+        if key not in unique_releases:
+            continue
+        if key in deployments:
             raise RuntimeError("strategy deployment query returned an unexpected identity")
+        if row.get("deployment_state") != "SRT_DEPLOYED":
+            raise RuntimeError("strategy version is not deployed to SRT")
         qualification = row.get("qualification")
         if qualification not in {"PAPER_READY", "LIVE_READY"}:
             raise RuntimeError(
                 f"strategy qualification cannot enter paper trading: {qualification}"
             )
-        if row.get("governance_status") not in {
-            "SGC_VALIDATED",
-            "LEGACY_GOVERNANCE_ACCEPTED",
-        }:
-            raise RuntimeError("strategy governance identity is not deployable")
         if not row.get("selection_data_cutoff"):
             raise RuntimeError("strategy release has no selection_data_cutoff")
         deployments[key] = row
@@ -437,11 +430,10 @@ def _strategy_deployments(
 
 
 def _validate_strategy(args: argparse.Namespace) -> dict[str, object]:
-    return _strategy_show(
+    return _strategy_info(
         args.advice_executable or _default_executable(args.repo_root),
         args.repo_root,
-        args.strategy,
-        args.strategy_version,
+        f"{args.strategy}-{args.strategy_version}",
     )
 
 
@@ -486,7 +478,7 @@ def _preflight_strategy_account(
             f"{args.symbol}: valid prepared SRT data is required before account creation: {exc}"
         ) from exc
     expected_strategy = (
-        identity["strategy_id"], identity["version"], identity["release_hash"],
+        identity["strategy_id"], identity["version"], identity["strategy_version_hash"],
     )
     actual_strategy = (
         decision.strategy.get("strategy_id"),
@@ -497,13 +489,7 @@ def _preflight_strategy_account(
         raise RuntimeError("strategy advice identity differs from frozen release")
     if decision.symbol != args.symbol.upper():
         raise RuntimeError("strategy advice data identity differs from virtual account")
-    expected_fee = (
-        identity.get("strategy_payload", {})
-        .get("rule", {})
-        .get("execution", {})
-        .get("capital", {})
-        .get("fee_rate")
-    )
+    expected_fee = identity.get("fee_rate")
     if expected_fee is not None and decision.fee_rate != float(expected_fee):
         raise RuntimeError("strategy advice fee rate differs from frozen release")
 
@@ -521,7 +507,7 @@ def _backfill_selection_cutoffs(
             identity = deployments.get(key)
             if identity is None:
                 raise RuntimeError("strategy deployment identity is unavailable")
-            if identity["release_hash"] != account["release_hash"]:
+            if identity["strategy_version_hash"] != account["release_hash"]:
                 raise RuntimeError("stored release hash does not match strategy registry")
             if not store.backfill_account_selection_cutoff(
                 account["account_id"],
@@ -561,7 +547,7 @@ def _synchronize_strategy_names(
             identity = deployments.get(key)
             if identity is None:
                 raise RuntimeError("strategy deployment identity is unavailable")
-            if identity["release_hash"] != account["release_hash"]:
+            if identity["strategy_version_hash"] != account["release_hash"]:
                 raise RuntimeError("stored release hash does not match strategy registry")
             store.synchronize_account_strategy_name(
                 str(account["account_id"]),
@@ -712,9 +698,8 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
         if args.account_action == "create-reconciliation":
             return store.create_channel_reconciliation_account(account_id=args.account_id)
         identity = _validate_strategy(args)
-        legacy = identity["strategy_payload"].get("legacy_identity", {})
-        baseline_version = legacy.get("version", identity["release_id"])
-        baseline_hash = legacy.get("sha256", identity["release_hash"])
+        baseline_version = identity["strategy_version_id"]
+        baseline_hash = identity["strategy_version_hash"]
         existing = None
         try:
             existing = store.virtual_account(args.account_id)
@@ -727,7 +712,8 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
                 existing["symbol"], existing["asset_type"], existing["initial_cash"],
                 existing["selection_data_cutoff"],
             ) != (
-                identity["strategy_id"], identity["version"], identity["release_hash"],
+                identity["strategy_id"], identity["version"],
+                identity["strategy_version_hash"],
                 args.name, args.symbol.upper(), args.asset,
                 str(Decimal(args.initial_cash).quantize(Decimal("0.0001"))),
                 identity["selection_data_cutoff"],
@@ -740,7 +726,7 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             strategy_id=identity["strategy_id"],
             strategy_name_snapshot=identity["name"],
             strategy_version=identity["version"],
-            release_hash=identity["release_hash"],
+            release_hash=identity["strategy_version_hash"],
             qualification_snapshot=identity["qualification"],
             selection_data_cutoff=identity["selection_data_cutoff"],
             symbol=args.symbol,

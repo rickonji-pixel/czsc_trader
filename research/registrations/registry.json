@@ -3,6 +3,11 @@
   "strategies": [
     {
       "aliases": [],
+      "path": "S004",
+      "strategy_id": "S004"
+    },
+    {
+      "aliases": [],
       "path": "S008",
       "strategy_id": "S008"
     }

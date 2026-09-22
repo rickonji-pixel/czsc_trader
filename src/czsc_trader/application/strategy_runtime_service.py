@@ -212,6 +212,7 @@ def _installed_identity(context: RepositoryContext, reference: str) -> dict[str,
     strategy_id, version = _version_parts(reference)
     registry = StrategyRegistry(context.strategy_root)
     stored = registry.get_version(strategy_id, version)
+    family = registry.get_family(strategy_id)
     release = prospective_release(stored)
     if binding.get("release_id") != reference or binding.get("release_hash") != release.release_hash:
         raise ValueError("SRT binding differs from frozen strategy version")
@@ -221,11 +222,22 @@ def _installed_identity(context: RepositoryContext, reference: str) -> dict[str,
         candidate = str(candidate)
     if candidate is not None and not candidate.startswith(f"{strategy_id}-"):
         candidate = f"{strategy_id}-{candidate}"
+    fee_rate = (
+        stored.strategy_payload.get("rule", {})
+        .get("execution", {})
+        .get("capital", {})
+        .get("fee_rate")
+    )
     return {
+        "strategy_id": strategy_id,
+        "name": family.name,
+        "version": version,
         "strategy_version_id": reference,
         "strategy_version_hash": release.release_hash,
         "source_candidate_id": candidate,
         "qualification": registry.current_qualification(strategy_id, version).value,
+        "selection_data_cutoff": stored.selection_data_cutoff,
+        "fee_rate": fee_rate,
         "runtime_hash": definition.runtime_sha256,
         "implementation_hash": binding.get("implementation_sha256"),
         "chart_contract": "charts" in binding,

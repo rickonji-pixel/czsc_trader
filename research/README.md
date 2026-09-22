@@ -332,6 +332,17 @@ EvaluationMandate；阅读裁判报告后批准正式冻结。冻结、SRT部署
 .\.venv\Scripts\czsc-trader.exe strategy info SXXX-v1
 ```
 
+`research`命令的写入边界统一限定在研究区：
+
+| 命令 | 功能 | 产物 |
+| --- | --- | --- |
+| `research create`（首批次） | 建立可修订的研究身份和首个预注册凭据 | `research/registrations/registry.json`、`research/registrations/SXXX/{family.json,lifecycle.jsonl,credentials/}`、`research/SXXX/HANDOFF.md` |
+| `research create`（后续批次） | 在同一研究身份下建立新的研究批次 | 更新`research/registrations/SXXX/`并新增`research/SXXX/batches/*.md` |
+| `research intent update` | 更新研究意图或研究状态 | 更新`research/registrations/SXXX/family.json`和`lifecycle.jsonl` |
+
+上述产物都属于策略研究区，不进入`strategies/`。`candidate review`成功受理完整候选包时，
+平台才把该批次必要的策略身份和凭据导入策略治理区；体检失败会回滚本次导入。
+
 冻结成功后，StrategyVersion进入`PAPER_READY`，但没有自动进入模拟盘。只有再次取得独立授权，
 才在PTE创建虚拟账户。PTE记录部署后新增的信号、决策、订单、成交、账本和绩效。模拟盘用于
 生成独立数据、验证执行和继续证伪，不能自动证明Alpha，也不能自动晋升实盘。监测触发人工
@@ -445,6 +456,7 @@ $ResearchSymbol = "518880.SH"
 | 路径 | 权威内容 |
 | --- | --- |
 | `research/SXX/HANDOFF.md` | 批次目标、当前结论、风险、下一步和禁止事项 |
+| `research/registrations/` | 研究身份、可修订研究意图、预注册凭据和研究事件 |
 | `research/SXX/materials.json` | 批次绑定的标的、数据和材料身份 |
 | `experiments/SXX/` | 不可变实验、失败路径和机器证据 |
 | `strategies/` | 正式策略身份、冻结版本、资格和治理证据 |

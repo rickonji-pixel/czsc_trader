@@ -114,21 +114,43 @@ def create_research_batch(
     try:
         raw = _read_object(context, input_path)
         family = _family_from_request(raw, actor=actor)
-        destination = context.root / "research" / family.strategy_id
-        registry = StrategyRegistry(context.strategy_root)
-        family_exists = (context.strategy_root / family.strategy_id / "family.json").is_file()
+        destination = context.research_root / family.strategy_id
+        registry = StrategyRegistry(context.research_registry_root)
+        family_exists = (
+            context.research_registry_root / family.strategy_id / "family.json"
+        ).is_file()
         if not family_exists:
-            credential_id = str(raw.get("credential_id") or f"SGC-{family.strategy_id}-001")
-            if credential_id != f"SGC-{family.strategy_id}-001":
+            new_research_directory = not destination.exists()
+            raw_credential = raw.get("credential_id")
+            if new_research_directory:
+                credential_id = str(
+                    raw_credential or f"SGC-{family.strategy_id}-001"
+                )
+            elif not isinstance(raw_credential, str) or not raw_credential.strip():
+                raise ValueError(
+                    "an existing research directory requires an explicit credential_id"
+                )
+            else:
+                credential_id = raw_credential.strip()
+            if (
+                new_research_directory
+                and credential_id != f"SGC-{family.strategy_id}-001"
+            ):
                 raise ValueError("the first research batch credential must end with -001")
-            if destination.exists():
-                raise ValueError(f"research directory already exists: {family.strategy_id}")
-            destination.mkdir(parents=True)
-            handoff = destination / "HANDOFF.md"
-            temporary_handoff = destination / ".HANDOFF.md.tmp"
-            handoff_text = _handoff_text(family)
-            temporary_handoff.write_text(handoff_text, encoding="utf-8", newline="\n")
-            temporary_handoff.replace(handoff)
+            if new_research_directory:
+                document = destination / "HANDOFF.md"
+                document_text = _handoff_text(family)
+                artifact_name = "research_handoff"
+            else:
+                document = destination / "batches" / f"{credential_id}.md"
+                document_text = _batch_text(family, credential_id, reason)
+                artifact_name = "research_batch"
+            if document.exists():
+                raise ValueError(f"research batch document already exists: {credential_id}")
+            document.parent.mkdir(parents=True, exist_ok=True)
+            temporary = document.with_name(f".{document.name}.tmp")
+            temporary.write_text(document_text, encoding="utf-8", newline="\n")
+            temporary.replace(document)
             try:
                 registry.create_family(
                     family,
@@ -140,8 +162,8 @@ def create_research_batch(
                         "reason": reason,
                     },
                     credential_artifact_hashes={
-                        "research_handoff": hashlib.sha256(
-                            handoff_text.encode("utf-8")
+                        artifact_name: hashlib.sha256(
+                            document_text.encode("utf-8")
                         ).hexdigest()
                     },
                 )
@@ -149,9 +171,10 @@ def create_research_batch(
                     family.strategy_id, credential_id
                 )
             except Exception:
-                shutil.rmtree(destination, ignore_errors=True)
+                document.unlink(missing_ok=True)
+                if new_research_directory:
+                    shutil.rmtree(destination, ignore_errors=True)
                 raise
-            document = handoff
         else:
             current = registry.get_family(family.strategy_id)
             if current.name != family.name or current.scope != family.scope:
@@ -236,7 +259,7 @@ def update_research_intent(
         unknown = sorted(set(raw) - allowed)
         if unknown or not raw:
             raise ValueError(f"research intent update has invalid fields: {unknown or sorted(raw)}")
-        family = StrategyRegistry(context.strategy_root).update_family(
+        family = StrategyRegistry(context.research_registry_root).update_family(
             strategy_id,
             research_intent=raw.get("research_intent"),
             research_state=raw.get("research_state"),

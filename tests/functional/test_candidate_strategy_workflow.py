@@ -4,7 +4,6 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import shutil
-from types import SimpleNamespace
 
 import pytest
 from strategy_manager import canonical_sha256
@@ -16,6 +15,7 @@ from czsc_trader.application.candidate_service import review_candidate
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.errors import ValidationError
 from czsc_trader.application.results import CommandResult
+from czsc_trader.application.research_governance_service import create_research_batch
 from czsc_trader.application.strategy_runtime_service import (
     deploy_strategy,
     list_installed_strategies,
@@ -171,19 +171,39 @@ def test_candidate_review_imports_and_seals_researcher_package(
         repo / "research" / "S990" / "mandates" / "S990-C001.json",
         {**mandate_payload, "mandate_hash": canonical_sha256(mandate_payload)},
     )
-    monkeypatch.setattr(
-        candidate_service,
-        "_open_credential",
-        lambda _registry, _strategy_id: SimpleNamespace(credential_id="SGC-S990-001"),
+    context = RepositoryContext.discover(repo)
+    create_research_batch(
+        context,
+        _write_json(
+            repo / "research-registration.json",
+            {
+                "strategy_id": "S990",
+                "name": "候选包测试策略",
+                "scope": ["588080.SH"],
+                "research_intent": {"objective": "验证候选受理"},
+                "credential_id": "SGC-S990-001",
+            },
+        ),
+        actor="researcher",
+        reason="批准测试研究批次",
     )
     captured: dict[str, object] = {}
+
+    def reject_open_freeze_review(_context, **_kwargs):
+        raise ValidationError("forced_review_failure", "forced")
+
+    monkeypatch.setattr(
+        candidate_service, "open_freeze_review", reject_open_freeze_review
+    )
+    with pytest.raises(ValidationError, match="forced"):
+        review_candidate(context, package_path, mandate_path)
+    assert not (repo / "strategies" / "S990").exists()
 
     def fake_open_freeze_review(_context, **kwargs) -> CommandResult:
         captured.update(kwargs)
         return CommandResult("PASS", "strategy.review.open", artifacts={"review": "sealed"})
 
     monkeypatch.setattr(candidate_service, "open_freeze_review", fake_open_freeze_review)
-    context = RepositoryContext.discover(repo)
 
     result = review_candidate(context, package_path, mandate_path)
 

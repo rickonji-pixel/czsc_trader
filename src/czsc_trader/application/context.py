@@ -30,6 +30,8 @@ class RepositoryContext:
     """Repository-relative paths required by application services."""
 
     root: Path
+    research_root: Path
+    research_registry_root: Path
     raw_dir: Path
     research_data_root: Path
     tdr_srt_root: Path
@@ -55,6 +57,8 @@ class RepositoryContext:
             )
         return cls(
             root=root,
+            research_root=root / "research",
+            research_registry_root=root / "research" / "registrations",
             raw_dir=root / "data" / "raw",
             research_data_root=root / "data" / "raw",
             tdr_srt_root=root / "data" / "backtest",

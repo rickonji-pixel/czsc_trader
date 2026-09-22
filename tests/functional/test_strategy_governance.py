@@ -34,7 +34,10 @@ from czsc_trader.application.errors import ValidationError
 from czsc_trader.application.freeze_review_service import _candidate_runtime, _submitted_runtime
 from czsc_trader.application.runtime_acceptance import validate_candidate_readiness
 from czsc_trader.application.results import CommandResult
-from czsc_trader.application.research_governance_service import create_research_batch
+from czsc_trader.application.research_governance_service import (
+    create_research_batch,
+    update_research_intent,
+)
 from functional_support import invoke_main
 
 
@@ -282,10 +285,23 @@ def test_research_family_can_start_a_second_governed_batch(functional_repo: Path
     result = create_research_batch(
         context, second, actor="tester", reason="批准第二轮研究"
     )
+    updated = update_research_intent(
+        context,
+        "S910",
+        _write_json(
+            functional_repo / "intent-update.json",
+            {
+                "research_intent": {"objective": "等待新数据继续研究"},
+                "research_state": "PAUSED",
+            },
+        ),
+        actor="tester",
+        reason="暂停等待新数据",
+    )
 
-    registry = StrategyRegistry(functional_repo / "strategies")
+    registry = StrategyRegistry(functional_repo / "research" / "registrations")
     assert registry.get_family("S910").research_intent == {
-        "objective": "研究下一冻结版本"
+        "objective": "等待新数据继续研究"
     }
     assert registry.get_governance_credential(
         "S910", "SGC-S910-001"
@@ -296,6 +312,8 @@ def test_research_family_can_start_a_second_governed_batch(functional_repo: Path
     assert result.result["research_batch_document"] == (
         "research/S910/batches/SGC-S910-002.md"
     )
+    assert updated.result["family"]["research_state"] == "PAUSED"
+    assert not (functional_repo / "strategies" / "S910").exists()
 
 
 def test_ft_t05_three_human_gates_create_only_one_frozen_version(
@@ -471,8 +489,13 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
             runtime_root=package,
         )
     assert rejected.value.code == "freeze_review_open_failed"
-    registry = StrategyRegistry(functional_repo / "strategies")
-    assert registry.get_governance_credential("S900", "SGC-S900-001").stage is GovernanceStage.RESEARCH_INITIATED
+    research_registry = StrategyRegistry(
+        functional_repo / "research" / "registrations"
+    )
+    assert research_registry.get_governance_credential(
+        "S900", "SGC-S900-001"
+    ).stage is GovernanceStage.RESEARCH_INITIATED
+    assert not (functional_repo / "strategies" / "S900").exists()
     _write_json(manifest_path, manifest)
 
     opened = open_freeze_review(

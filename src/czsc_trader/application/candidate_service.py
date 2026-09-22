@@ -11,8 +11,6 @@ from uuid import uuid4
 
 from strategy_manager import (
     EvaluationMandate,
-    GovernanceResult,
-    GovernanceStage,
     StrategyRegistry,
     StrategyVersion,
     canonical_sha256,
@@ -27,6 +25,11 @@ from .freeze_review_service import (
     open_freeze_review,
 )
 from .results import CommandResult
+from .research_registration import (
+    open_research_credential,
+    promote_research_registration,
+    rollback_research_promotion,
+)
 from .runtime_acceptance import prospective_release
 
 
@@ -71,24 +74,6 @@ def _candidate_parts(reference: str) -> tuple[str, str]:
 
 def _resolve_path(context: RepositoryContext, path: Path) -> Path:
     return path.resolve() if path.is_absolute() else (context.root / path).resolve()
-
-
-def _open_credential(registry: StrategyRegistry, strategy_id: str):
-    directory = registry.root / strategy_id / "credentials"
-    credentials = []
-    if directory.is_dir():
-        for path in sorted(directory.glob("*.jsonl")):
-            credential = registry.get_governance_credential(strategy_id, path.stem)
-            if (
-                credential.stage is GovernanceStage.RESEARCH_INITIATED
-                and credential.result is GovernanceResult.OPEN
-            ):
-                credentials.append(credential)
-    if len(credentials) != 1:
-        raise ValueError(
-            f"candidate review requires exactly one open research credential: {strategy_id}"
-        )
-    return credentials[0]
 
 
 def _candidate_directory(context: RepositoryContext, reference: str) -> Path:
@@ -145,8 +130,14 @@ def review_candidate(
             or mandate.candidate_id != source.snapshot.candidate_id
         ):
             raise ValueError("candidate package and evaluation mandate identities differ")
-        registry = StrategyRegistry(context.strategy_root)
-        credential = _open_credential(registry, source.snapshot.strategy_id)
+        research_credential = open_research_credential(
+            context, source.snapshot.strategy_id
+        )
+        credential, promotion = promote_research_registration(
+            context,
+            source.snapshot.strategy_id,
+            research_credential.credential_id,
+        )
         destination = _candidate_directory(context, source.candidate_reference)
         created = False
         if destination.exists():
@@ -203,6 +194,8 @@ def review_candidate(
     except Exception as exc:
         if "created" in locals() and created and "destination" in locals() and destination.exists():
             shutil.rmtree(destination)
+        if "promotion" in locals():
+            rollback_research_promotion(context, promotion)
         if isinstance(exc, ValidationError):
             raise
         raise ValidationError(

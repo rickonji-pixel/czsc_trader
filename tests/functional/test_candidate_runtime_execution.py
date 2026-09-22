@@ -614,7 +614,9 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         lambda **kw: execution_data,
     )
     context = RepositoryContext(
-        root=tmp_path, raw_dir=pool, research_data_root=pool, tdr_srt_root=tmp_path / "data/backtest",
+        root=tmp_path, research_root=tmp_path / "research",
+        research_registry_root=tmp_path / "research" / "registrations", raw_dir=pool,
+        research_data_root=pool, tdr_srt_root=tmp_path / "data/backtest",
         strategy_root=tmp_path / "strategies", experiments_root=tmp_path / "experiments",
         outputs_root=tmp_path / "outputs",
     )

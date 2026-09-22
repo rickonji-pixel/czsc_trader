@@ -44,6 +44,10 @@ from .context import RepositoryContext
 from .errors import ValidationError
 from .evaluation_service import evaluate_experiment
 from .results import CommandResult
+from .research_registration import (
+    promote_research_registration,
+    rollback_research_promotion,
+)
 from .review_data import publish_review_dataset, verify_review_dataset
 from .runtime_acceptance import (
     require_same_runtime_content,
@@ -496,8 +500,10 @@ def open_freeze_review(
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
         runtime = _candidate_runtime(snapshot, runtime_root)
         evaluation_inputs = _evaluation_inputs(experiment, protocol, manifest)
+        credential, promotion = promote_research_registration(
+            context, snapshot.strategy_id, credential_id
+        )
         registry = StrategyRegistry(context.strategy_root)
-        credential = registry.get_governance_credential(snapshot.strategy_id, credential_id)
         audit_policy = {
             "policy_version": "tdr-freeze-v3",
             "required_audits": mandate.required_audits,
@@ -551,6 +557,8 @@ def open_freeze_review(
                 artifact_hashes=submission_artifacts,
             )
     except (StrategyManagerError, StrategyRuntimeError, OSError, ValueError, json.JSONDecodeError) as exc:
+        if "promotion" in locals():
+            rollback_research_promotion(context, promotion)
         raise ValidationError(
             "freeze_review_open_failed",
             str(exc),

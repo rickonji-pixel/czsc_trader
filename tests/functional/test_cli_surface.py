@@ -13,19 +13,12 @@ from czsc_trader.cli.main import _context, build_parser, main
 EXPECTED_ACTIONS = {
     "data": {"prepare", "validate"},
     "research": {"create", "intent"},
+    "candidate": {"review", "evaluate", "freeze"},
     "strategy": {
         "list",
-        "validate",
-        "show",
+        "info",
+        "deploy",
         "deployments",
-        "history",
-        "performance",
-        "review",
-        "freeze",
-        "promote",
-        "downgrade",
-        "retire",
-        "evidence",
     },
     "backtest": {"run"},
     "archive": {"validate"},
@@ -97,7 +90,7 @@ def test_ft_t08_installed_cli_exposes_supported_command_surface() -> None:
     assert "--repo-root" not in run_options
 
 
-def test_ft_t08_strategy_governance_documented_commands_parse() -> None:
+def test_ft_t08_candidate_and_srt_commands_parse() -> None:
     parser = build_parser()
     documented_commands = (
         [
@@ -111,42 +104,30 @@ def test_ft_t08_strategy_governance_documented_commands_parse() -> None:
             "批准研究立项",
         ],
         [
-            "strategy",
+            "candidate",
             "review",
-            "open",
-            "--credential",
-            "SGC-S008-001",
-            "--candidate",
-            "candidate-snapshot.json",
+            "--package",
+            "research/S008/candidates/S008-C001",
             "--mandate",
             "evaluation-mandate.json",
-            "--actor",
-            "tomxiao",
-            "--reason",
-            "批准候选进入冻结流程",
         ],
         [
-            "strategy",
+            "candidate",
             "freeze",
-            "--strategy",
-            "S008",
-            "--credential",
-            "SGC-S008-001",
+            "S008-C001",
             "--change-summary",
             "首个冻结版本",
-            "--actor",
-            "tomxiao",
-            "--reason",
-            "批准低成本模拟观察",
         ],
+        ["strategy", "info", "S008-v1"],
     )
 
     parsed = [parser.parse_args(command) for command in documented_commands]
 
     assert [item.command_name for item in parsed] == [
         "research.create",
-        "strategy.review.open",
-        "strategy.freeze",
+        "candidate.review",
+        "candidate.freeze",
+        "strategy.info",
     ]
 
 

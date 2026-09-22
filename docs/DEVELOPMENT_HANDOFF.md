@@ -154,10 +154,10 @@ SM冻结版本 → srt-prepare → 隔离的StrategyInstance数据目录
 
 1. `research create`创建新StrategyFamily及首条SGC；同一策略族启动后续研究批次时，输入中
    必须显式给出新的`credential_id`，原SGC保持不可变。
-2. `strategy review open/evaluate/show`锁定候选和最终EvaluationMandate。TDR禁用缓存复用，
+2. `candidate review/evaluate`锁定候选包和最终EvaluationMandate。TDR禁用缓存复用，
    按截止日完整数据、候选真实执行规则和`TXE-v1`语义独立复算，并阻断任何缺项或口径漂移。
-3. `strategy freeze`在人工批准后重新校验证据文件、SRT输入与执行契约及整条SGC，再原子创建
-   StrategyVersion。该命令不创建PTE账户；PTE部署需要单独授权。
+3. `candidate freeze`在人工批准后重新校验证据文件、SRT输入与执行契约及整条SGC，再原子创建
+   StrategyVersion。`strategy deploy`将冻结版本安装到SRT；PTE账户启用需要单独授权。
 
 送审前必须完成候选SRT，声明模块、类、源码闭包及其哈希、参数和完整输入契约；研究者宜在
 搜索前完成实现，以复用同一SRT与TXE。旧`rule`字典不能绕过候选运行身份校验。
@@ -301,10 +301,10 @@ PTE只观察准备结果、恢复实例并维护生产存储空间。准备异�
 & $Pte performance export @RuntimeArgs `
   --account-id s002-v1 --recorded-by tomxiao `
   --start 2026-09-03 --end 2026-12-03 --output .tmp\paper-forward.json
-.\.venv\Scripts\czsc-trader.exe strategy evidence add --input .tmp\paper-forward.json
 ```
 
-日常净值保留在PTE数据库；只有经过人工复核、用于晋升或降级的里程碑证据进入Git。
+日常净值保留在PTE数据库；导出的里程碑证据须先经过人工复核。`strategy`命令仅覆盖SRT，
+当前不提供通过该命令登记策略生命周期证据的入口。
 
 ### WDG、健康检查与故障处理
 

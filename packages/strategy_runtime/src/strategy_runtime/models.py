@@ -8,6 +8,7 @@ from enum import StrEnum
 import hashlib
 import json
 import math
+from pathlib import Path
 import re
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -399,12 +400,15 @@ class StrategyCandidate:
     strategy_family_id: str
     candidate_id: str
     payload: Mapping[str, Any]
+    source_root: Path | None = None
 
     def __post_init__(self) -> None:
         if not _FAMILY_ID.fullmatch(self.strategy_family_id):
             raise RuntimeContractError("strategy_family_id must look like S001")
         _candidate_id(self.candidate_id)
         object.__setattr__(self, "payload", _json_mapping(self.payload, "candidate payload"))
+        if self.source_root is not None:
+            object.__setattr__(self, "source_root", Path(self.source_root).resolve())
         if not isinstance(self.payload.get("runtime"), Mapping):
             raise RuntimeContractError("candidate payload must declare its runtime implementation")
         if not isinstance(self.payload.get("parameters"), Mapping):

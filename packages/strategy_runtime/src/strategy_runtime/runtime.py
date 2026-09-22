@@ -47,12 +47,13 @@ class StrategyRuntime:
         self,
         source: StrategyRelease | StrategyCandidate,
         symbol: str | None,
+        source_root: Path | None = None,
     ):
         if isinstance(source, StrategyRelease):
             return (
-                self._loader.load_for_symbol(source, symbol)
+                self._loader.load_for_symbol(source, symbol, source_root=source_root)
                 if symbol is not None
-                else self._loader.load(source)
+                else self._loader.load(source, source_root=source_root)
             )
         if symbol is not None:
             raise ValueError("candidate strategy does not support symbol rebinding")
@@ -63,10 +64,11 @@ class StrategyRuntime:
         source: StrategyRelease | StrategyCandidate,
         *,
         symbol: str | None = None,
+        source_root: Path | None = None,
     ):
         """Return the validated frozen definition without creating an instance."""
 
-        return self._load(source, symbol).definition
+        return self._load(source, symbol, source_root).definition
 
     def create(self, request: StrategyInit) -> StrategyInstance:
         algorithm = self._load(request.source, request.symbol)

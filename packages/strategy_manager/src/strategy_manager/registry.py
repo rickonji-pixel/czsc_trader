@@ -1213,7 +1213,11 @@ class StrategyRegistry:
                 "parent_version": versions[-1].version if versions else None,
                 "change_summary": change_summary,
                 "source_experiment": snapshot.source_experiment,
-                "source_candidate": snapshot.candidate_id,
+                "source_candidate": (
+                    snapshot.candidate_id
+                    if snapshot.candidate_id.startswith(f"{strategy_id}-")
+                    else f"{strategy_id}-{snapshot.candidate_id}"
+                ),
                 "selection_data_cutoff": mandate.development_cutoff,
                 "forward_start": mandate.forward_start,
                 "strategy_payload": snapshot.strategy_payload,

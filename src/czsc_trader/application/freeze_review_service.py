@@ -472,6 +472,8 @@ def open_freeze_review(
     mandate_path: Path,
     actor: str,
     reason: str,
+    runtime_root: Path | None = None,
+    candidate_package: dict[str, Any] | None = None,
 ) -> CommandResult:
     """Human gate 2: freeze candidate, final mandate, and audit policy."""
 
@@ -492,7 +494,7 @@ def open_freeze_review(
             raise ValueError("candidate source experiment identity is ambiguous")
         protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
-        runtime = _candidate_runtime(snapshot)
+        runtime = _candidate_runtime(snapshot, runtime_root)
         evaluation_inputs = _evaluation_inputs(experiment, protocol, manifest)
         registry = StrategyRegistry(context.strategy_root)
         credential = registry.get_governance_credential(snapshot.strategy_id, credential_id)
@@ -510,6 +512,8 @@ def open_freeze_review(
             "evaluation_inputs": evaluation_inputs,
             "reason": reason.strip(),
         }
+        if candidate_package is not None:
+            submission_content["candidate_package"] = dict(candidate_package)
         submission_artifacts = {
             "candidate_snapshot": canonical_sha256(snapshot.to_dict()),
             "evaluation_mandate": mandate.mandate_hash,
@@ -517,6 +521,11 @@ def open_freeze_review(
             "candidate_runtime": canonical_sha256(runtime),
             "evaluation_inputs": canonical_sha256(evaluation_inputs),
         }
+        if candidate_package is not None:
+            package_hash = candidate_package.get("package_hash")
+            if not isinstance(package_hash, str) or len(package_hash) != 64:
+                raise ValueError("candidate package has no valid package hash")
+            submission_artifacts["candidate_package"] = package_hash
         last = credential.seals[-1]
         same_submission = (
             last.stage is GovernanceStage.CANDIDATE_SUBMITTED
@@ -527,6 +536,7 @@ def open_freeze_review(
             and last.content.get("candidate_runtime") == runtime
             and last.content.get("evaluation_inputs") == evaluation_inputs
             and last.content.get("reason") == reason.strip()
+            and last.content.get("candidate_package") == candidate_package
             and last.artifact_hashes == submission_artifacts
         )
         if not same_submission:
@@ -850,8 +860,10 @@ def _frequency_check(
     }
 
 
-def _candidate_runtime(snapshot: CandidateSnapshot) -> dict[str, Any]:
-    report = validate_candidate_readiness(snapshot)
+def _candidate_runtime(
+    snapshot: CandidateSnapshot, runtime_root: Path | None = None,
+) -> dict[str, Any]:
+    report = validate_candidate_readiness(snapshot, source_root=runtime_root)
     audit = _runtime_audit(snapshot, report)
     if audit.get("status") != "PASS":
         raise ValueError(f"candidate runtime contract mismatch: {audit.get('reason')}")
@@ -860,8 +872,9 @@ def _candidate_runtime(snapshot: CandidateSnapshot) -> dict[str, Any]:
 
 def _submitted_runtime(
     submission: StrategyGovernanceSeal, snapshot: CandidateSnapshot,
+    runtime_root: Path | None = None,
 ) -> dict[str, Any]:
-    current = _candidate_runtime(snapshot)
+    current = _candidate_runtime(snapshot, runtime_root)
     if (
         submission.content.get("candidate_runtime") != current
         or submission.artifact_hashes.get("candidate_runtime") != canonical_sha256(current)
@@ -871,7 +884,10 @@ def _submitted_runtime(
 
 
 def _prospective_runtime(
-    registry: StrategyRegistry, snapshot: CandidateSnapshot, mandate: EvaluationMandate
+    registry: StrategyRegistry,
+    snapshot: CandidateSnapshot,
+    mandate: EvaluationMandate,
+    runtime_root: Path | None = None,
 ) -> dict[str, Any]:
     versions = registry.versions(snapshot.strategy_id)
     version = f"v{len(versions) + 1}"
@@ -902,7 +918,7 @@ def _prospective_runtime(
             "governance_hash": canonical_sha256(placeholder_governance),
         }
     )
-    report = validate_runtime_readiness(draft)
+    report = validate_runtime_readiness(draft, source_root=runtime_root)
     report["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
     return report
 
@@ -1044,7 +1060,11 @@ def _artifact_audit(
 
 
 def evaluate_freeze_review(
-    context: RepositoryContext, strategy_id: str, credential_id: str
+    context: RepositoryContext,
+    strategy_id: str,
+    credential_id: str,
+    *,
+    runtime_root: Path | None = None,
 ) -> CommandResult:
     """Independently recompute the candidate and issue one immutable report."""
 
@@ -1056,7 +1076,7 @@ def evaluate_freeze_review(
             adjudication, report = _adjudication_from_credential(credential)
             experiment = _verified_review_evidence(context, credential, submission, adjudication, snapshot)
             if credential.result is GovernanceResult.ELIGIBLE:
-                runtime = _submitted_runtime(submission, snapshot)
+                runtime = _submitted_runtime(submission, snapshot, runtime_root)
                 _verify_adjudication_evidence(experiment, report, runtime)
             return CommandResult(
                 "PASS",
@@ -1076,7 +1096,7 @@ def evaluate_freeze_review(
         _validate_candidate_contract(snapshot)
         _validate_mandate_contract(mandate)
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
-        runtime = _submitted_runtime(submission, snapshot)
+        runtime = _submitted_runtime(submission, snapshot, runtime_root)
         _assert_submitted_inputs(submission, experiment, protocol, manifest)
         source_experiment = experiment
         review_directory = _review_directory(context, credential, submission)
@@ -1099,6 +1119,12 @@ def evaluate_freeze_review(
             external_replays=_external_replays(experiment, snapshot),
             review_data_root=review_directory,
             review_data_hash=dataset["snapshot_hash"],
+            candidate_runtime_roots={
+                snapshot.candidate_id: runtime_root,
+                f"{snapshot.strategy_id}-{snapshot.candidate_id}": runtime_root,
+            }
+            if runtime_root is not None
+            else None,
         )
         machine = evaluation.result.get("machine_evaluation")
         if not isinstance(machine, dict):
@@ -1222,7 +1248,7 @@ def evaluate_freeze_review(
             "INCOMPLETE": GovernanceResult.INCOMPLETE,
             "REJECTED": GovernanceResult.REJECTED,
         }[report.machine_verdict]
-        _submitted_runtime(submission, snapshot)
+        _submitted_runtime(submission, snapshot, runtime_root)
         _assert_submitted_inputs(submission, experiment, protocol, manifest)
         verify_review_dataset(review_directory, dataset["snapshot_hash"])
         updated = registry.append_governance_seal(
@@ -1304,6 +1330,7 @@ def freeze_review_candidate(
     actor: str,
     reason: str,
     change_summary: str,
+    runtime_root: Path | None = None,
 ) -> CommandResult:
     """Human gate 3: revalidate runtime and atomically create the frozen version."""
 
@@ -1342,13 +1369,13 @@ def freeze_review_candidate(
             raise ValueError("governance credential does not contain an eligible TDR adjudication")
         submission, snapshot, mandate, _audit_policy = _submission_from_credential(credential)
         adjudication, report = _adjudication_from_credential(credential)
-        candidate_runtime = _submitted_runtime(submission, snapshot)
+        candidate_runtime = _submitted_runtime(submission, snapshot, runtime_root)
         experiment = _verified_review_evidence(context, credential, submission, adjudication, snapshot)
         protocol, manifest, _candidate = _load_protocol_and_candidate(experiment, snapshot)
         _assert_submitted_inputs(submission, experiment, protocol, manifest)
         _assert_mandate_alignment(protocol, manifest, mandate, snapshot)
         _verify_adjudication_evidence(experiment, report, candidate_runtime)
-        runtime = _prospective_runtime(registry, snapshot, mandate)
+        runtime = _prospective_runtime(registry, snapshot, mandate, runtime_root)
         runtime["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)
         runtime_audit = _runtime_audit(snapshot, runtime)
         if runtime_audit.get("status") != "PASS":

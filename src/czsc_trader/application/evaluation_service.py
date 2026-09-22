@@ -349,6 +349,7 @@ def evaluate_experiment(
     external_replays: tuple[ExternalReplayEvidence, ...] = (),
     review_data_root: Path | None = None,
     review_data_hash: str | None = None,
+    candidate_runtime_roots: dict[str, Path] | None = None,
 ) -> CommandResult:
     if (review_data_root is None) != (review_data_hash is None):
         raise ValueError("review dataset directory and sealed hash must be supplied together")
@@ -407,6 +408,7 @@ def evaluate_experiment(
         float(manifest.get("fee_rate", 0.0005)), float(manifest.get("init_cash", 1_000_000.0)),
         workers, frequency_window_days, str(manifest.get("strategy_id", experiment.parent.name)),
         review_data_root, review_data_hash,
+        candidate_runtime_roots,
     )
     reuse_ledger: list[ReuseLedgerRow] = []
     reuse_diagnostics: list[str] = []

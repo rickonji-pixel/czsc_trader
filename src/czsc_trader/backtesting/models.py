@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Literal
 
 
@@ -20,3 +21,4 @@ class StrategySnapshot:
     strategy_payload: dict[str, object]
     research_start: date | None = None
     research_end: date | None = None
+    runtime_root: Path | None = None

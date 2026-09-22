@@ -1,0 +1,323 @@
+"""SRT-only deployment and query commands for frozen strategy versions."""
+
+from __future__ import annotations
+
+from hashlib import sha256
+import json
+from pathlib import Path, PurePosixPath
+import shutil
+from typing import Any
+from uuid import uuid4
+
+from strategy_manager import StrategyRegistry, canonical_sha256
+from strategy_runtime import StrategyRuntime
+
+from .candidate_package import validate_chart_contract
+from .context import RepositoryContext
+from .errors import ValidationError
+from .results import CommandResult
+from .runtime_acceptance import prospective_release
+
+
+def _read_object(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"expected JSON object: {path}")
+    return value
+
+
+def _write_object(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    temporary.replace(path)
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _safe_relative(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{field} must be a non-empty relative path")
+    path = PurePosixPath(value)
+    if path.is_absolute() or ".." in path.parts or str(path) != value or "\\" in value or ":" in value:
+        raise ValueError(f"{field} contains an unsafe path")
+    return value
+
+
+def _version_parts(reference: str) -> tuple[str, str]:
+    strategy_id, separator, version = reference.rpartition("-")
+    if (
+        not separator
+        or not strategy_id.startswith("S")
+        or not strategy_id[1:].isdigit()
+        or not version.startswith("v")
+        or not version[1:].isdigit()
+    ):
+        raise ValueError(f"invalid strategy version id: {reference}")
+    return strategy_id, version
+
+
+def _srt_root(context: RepositoryContext) -> Path:
+    root = context.root / "packages" / "strategy_runtime" / "src" / "strategy_runtime"
+    if not root.is_dir():
+        raise ValueError("strategy_runtime source package is unavailable")
+    return root
+
+
+def _release_package(
+    context: RepositoryContext, reference: str,
+) -> tuple[dict[str, Any], dict[str, Any], Path]:
+    strategy_id, version = _version_parts(reference)
+    root = context.strategy_root / strategy_id / "releases" / version
+    manifest = _read_object(root / "release_manifest.json")
+    expected_fields = {
+        "schema_version", "strategy_version_id", "strategy_version_hash",
+        "source_candidate_id", "candidate_package_hash", "runtime_root",
+        "runtime_binding", "files", "package_hash",
+    }
+    if set(manifest) != expected_fields or manifest["schema_version"] != 1:
+        raise ValueError("strategy version package manifest is invalid")
+    identity = dict(manifest)
+    package_hash = identity.pop("package_hash")
+    if package_hash != canonical_sha256(identity) or manifest["strategy_version_id"] != reference:
+        raise ValueError("strategy version package identity is invalid")
+    files = manifest["files"]
+    if not isinstance(files, dict) or not files:
+        raise ValueError("strategy version package has no file identities")
+    normalized_files: set[str] = set()
+    for name, expected_hash in files.items():
+        safe_name = _safe_relative(name, "files")
+        relative = PurePosixPath(safe_name)
+        path = root.joinpath(*relative.parts)
+        if not isinstance(expected_hash, str) or not path.is_file() or _file_sha256(path) != expected_hash:
+            raise ValueError(f"strategy version package file differs: {name}")
+        normalized_files.add(safe_name)
+    actual_files = {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file() and path != root / "release_manifest.json"
+    }
+    if normalized_files != actual_files:
+        raise ValueError("strategy version package contains untracked or missing files")
+    runtime_root = root / _safe_relative(manifest["runtime_root"], "runtime_root")
+    binding = _read_object(
+        root / _safe_relative(manifest["runtime_binding"], "runtime_binding")
+    )
+    expected_binding = {
+        "schema_version", "release_id", "release_hash", "source_files",
+        "implementation_sha256", "install_files", "charts",
+    }
+    if set(binding) != expected_binding or binding["schema_version"] != 1:
+        raise ValueError("strategy version runtime binding fields are invalid")
+    if (
+        binding.get("release_id") != reference
+        or binding.get("release_hash") != manifest["strategy_version_hash"]
+    ):
+        raise ValueError("strategy version runtime binding identity differs")
+    install_files = binding.get("install_files")
+    if not isinstance(install_files, list) or not install_files:
+        raise ValueError("strategy version runtime binding has no install files")
+    normalized_install_files = tuple(
+        _safe_relative(name, "install_files") for name in install_files
+    )
+    if len(normalized_install_files) != len(set(normalized_install_files)):
+        raise ValueError("strategy version runtime binding repeats install files")
+    validate_chart_contract(runtime_root, binding.get("charts"), normalized_install_files)
+    registry = StrategyRegistry(context.strategy_root)
+    stored = registry.get_version(strategy_id, version)
+    if stored.release_hash != manifest["strategy_version_hash"]:
+        raise ValueError("strategy version package differs from frozen registry identity")
+    StrategyRuntime().describe(prospective_release(stored), source_root=runtime_root)
+    return manifest, binding, runtime_root
+
+
+def _receipt_path(root: Path, reference: str) -> Path:
+    return root / "deployments" / f"{reference}.json"
+
+
+def _deployment_receipt(root: Path, reference: str) -> dict[str, Any] | None:
+    path = _receipt_path(root, reference)
+    if not path.is_file():
+        return None
+    value = _read_object(path)
+    receipt_hash = value.pop("receipt_hash", None)
+    if receipt_hash != canonical_sha256(value):
+        raise ValueError("SRT deployment receipt hash mismatch")
+    value["receipt_hash"] = receipt_hash
+    return value
+
+
+def deploy_strategy(context: RepositoryContext, reference: str) -> CommandResult:
+    created: list[Path] = []
+    try:
+        manifest, binding, source_root = _release_package(context, reference)
+        target_root = _srt_root(context)
+        install_files = tuple(str(item) for item in binding["install_files"])
+        for name in install_files:
+            source = source_root / PurePosixPath(name)
+            target = target_root / PurePosixPath(name)
+            if not source.is_file():
+                raise ValueError(f"strategy version install file is missing: {name}")
+            if target.exists() and _file_sha256(target) != _file_sha256(source):
+                raise ValueError(f"SRT target conflicts with strategy version: {name}")
+        binding_target = target_root / "bindings" / f"{reference}.json"
+        canonical_binding = json.dumps(
+            binding, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ) + "\n"
+        if binding_target.exists() and binding_target.read_text(encoding="utf-8") != canonical_binding:
+            raise ValueError("SRT binding conflicts with strategy version")
+
+        temp_root = context.root / ".tmp"
+        temp_root.mkdir(parents=True, exist_ok=True)
+        stage = temp_root / f"strategy-deploy-{uuid4().hex}"
+        stage.mkdir()
+        try:
+            for name in install_files:
+                target = target_root / PurePosixPath(name)
+                if target.exists():
+                    continue
+                staged = stage / PurePosixPath(name)
+                staged.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_root / PurePosixPath(name), staged)
+            for staged in sorted((item for item in stage.rglob("*") if item.is_file())):
+                relative = staged.relative_to(stage)
+                target = target_root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                staged.replace(target)
+                created.append(target)
+        finally:
+            if stage.exists():
+                shutil.rmtree(stage)
+
+        registry = StrategyRegistry(context.strategy_root)
+        strategy_id, version = _version_parts(reference)
+        release = prospective_release(registry.get_version(strategy_id, version))
+        definition = StrategyRuntime().describe(release, source_root=target_root)
+        receipt_payload = {
+            "schema_version": 1,
+            "strategy_version_id": reference,
+            "strategy_version_hash": manifest["strategy_version_hash"],
+            "runtime_hash": definition.runtime_sha256,
+            "binding_hash": canonical_sha256(binding),
+            "installed_files": {
+                name: _file_sha256(target_root / PurePosixPath(name))
+                for name in install_files
+            },
+        }
+        receipt = {**receipt_payload, "receipt_hash": canonical_sha256(receipt_payload)}
+        receipt_path = _receipt_path(target_root, reference)
+        existing_receipt = _deployment_receipt(target_root, reference)
+        if existing_receipt is not None and existing_receipt != receipt:
+            raise ValueError("SRT deployment receipt conflicts with strategy version")
+        if existing_receipt is None:
+            _write_object(receipt_path, receipt)
+            created.append(receipt_path)
+        if not binding_target.exists():
+            _write_object(binding_target, binding)
+            created.append(binding_target)
+        StrategyRuntime().describe(release)
+    except Exception as exc:
+        for path in reversed(created):
+            path.unlink(missing_ok=True)
+        if isinstance(exc, ValidationError):
+            raise
+        raise ValidationError(
+            "strategy_deploy_failed",
+            str(exc),
+            context={"command": "strategy.deploy", "strategy_version_id": reference},
+        ) from exc
+    return CommandResult(
+        "PASS",
+        "strategy.deploy",
+        {
+            "strategy_version_id": reference,
+            "deployment_state": "SRT_DEPLOYED",
+            "runtime_hash": receipt["runtime_hash"],
+            "receipt_hash": receipt["receipt_hash"],
+        },
+    )
+
+
+def _installed_identity(context: RepositoryContext, reference: str) -> dict[str, Any]:
+    target_root = _srt_root(context)
+    binding_path = target_root / "bindings" / f"{reference}.json"
+    if not binding_path.is_file():
+        raise ValueError(f"strategy version is not installed in SRT: {reference}")
+    binding = _read_object(binding_path)
+    strategy_id, version = _version_parts(reference)
+    registry = StrategyRegistry(context.strategy_root)
+    stored = registry.get_version(strategy_id, version)
+    release = prospective_release(stored)
+    if binding.get("release_id") != reference or binding.get("release_hash") != release.release_hash:
+        raise ValueError("SRT binding differs from frozen strategy version")
+    definition = StrategyRuntime().describe(release)
+    receipt = _deployment_receipt(target_root, reference)
+    candidate = stored.source_candidate
+    if candidate is not None:
+        candidate = str(candidate)
+    if candidate is not None and not candidate.startswith(f"{strategy_id}-"):
+        candidate = f"{strategy_id}-{candidate}"
+    return {
+        "strategy_version_id": reference,
+        "strategy_version_hash": release.release_hash,
+        "source_candidate_id": candidate,
+        "qualification": registry.current_qualification(strategy_id, version).value,
+        "runtime_hash": definition.runtime_sha256,
+        "implementation_hash": binding.get("implementation_sha256"),
+        "chart_contract": "charts" in binding,
+        "deployment_state": "SRT_DEPLOYED",
+        "receipt_hash": None if receipt is None else receipt["receipt_hash"],
+    }
+
+
+def list_installed_strategies(
+    context: RepositoryContext, strategy_id: str | None = None,
+) -> CommandResult:
+    try:
+        if strategy_id is not None and (
+            not strategy_id.startswith("S") or not strategy_id[1:].isdigit()
+        ):
+            raise ValueError(f"invalid strategy id: {strategy_id}")
+        bindings = _srt_root(context) / "bindings"
+        references = sorted(
+            (path.stem for path in bindings.glob("S*-v*.json")),
+            key=lambda reference: tuple(
+                int(part[1:]) for part in _version_parts(reference)
+            ),
+        )
+        rows = []
+        for reference in references:
+            family, _version = _version_parts(reference)
+            if strategy_id is None or family == strategy_id:
+                rows.append(_installed_identity(context, reference))
+    except Exception as exc:
+        if isinstance(exc, ValidationError):
+            raise
+        raise ValidationError(
+            "strategy_list_failed", str(exc), context={"command": "strategy.list"}
+        ) from exc
+    return CommandResult("PASS", "strategy.list", {"strategies": rows})
+
+
+def strategy_info(context: RepositoryContext, reference: str) -> CommandResult:
+    try:
+        result = _installed_identity(context, reference)
+    except Exception as exc:
+        if isinstance(exc, ValidationError):
+            raise
+        raise ValidationError(
+            "strategy_info_failed",
+            str(exc),
+            context={"command": "strategy.info", "strategy_version_id": reference},
+        ) from exc
+    return CommandResult("PASS", "strategy.info", result)

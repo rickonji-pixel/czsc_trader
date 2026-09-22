@@ -108,8 +108,7 @@ TDR不理解或组装策略数据集：
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe strategy list
-.\.venv\Scripts\czsc-trader.exe strategy show --strategy S001 --version v2
-.\.venv\Scripts\czsc-trader.exe strategy validate --all
+.\.venv\Scripts\czsc-trader.exe strategy info S001-v2
 .\.venv\Scripts\czsc-trader.exe archive validate --all
 ```
 
@@ -287,8 +286,8 @@ PK只授予体检资格，不能直接形成冻结版本。
 
 ### 7. 三道人工闸门、冻结与前瞻观察
 
-TDR只在三个需要人工授权的节点介入：创建新研究批次；批准候选进入冻结评审并锁定最终
-EvaluationMandate；阅读裁判报告后批准正式冻结。冻结与PTE部署是两项独立动作。
+研究工作流只在三个需要人工授权的节点介入：创建新研究批次；批准候选进入冻结评审并锁定最终
+EvaluationMandate；阅读裁判报告后批准正式冻结。冻结、SRT部署和PTE账户启用是独立动作。
 
 正式冻结前重新核对封存数据、证据与运行时身份；重复评估也不能以缓存掩盖证据变化。
 本轮架构升级保留历史研究档案供人工查看，不承诺旧研究脚本或旧数据制品兼容；已有五个冻结
@@ -303,18 +302,19 @@ EvaluationMandate；阅读裁判报告后批准正式冻结。冻结与PTE部署
 # 同一策略族启动下一研究批次时，在输入JSON中保留相同name/scope，
 # 并显式增加新的credential_id，例如SGC-S007-002。
 
-# 节点二：锁定候选快照和最终评价合同
-.\.venv\Scripts\czsc-trader.exe strategy review open `
-  --credential SGC-SXXX-001 `
-  --candidate candidate-snapshot.json `
-  --mandate evaluation-mandate.json --actor tomxiao --reason "批准候选进入冻结流程"
-.\.venv\Scripts\czsc-trader.exe strategy review evaluate --strategy SXXX --credential SGC-SXXX-001
-.\.venv\Scripts\czsc-trader.exe strategy review show --strategy SXXX --credential SGC-SXXX-001
+# 节点二：验证并锁定完整候选包和最终评价合同
+.\.venv\Scripts\czsc-trader.exe candidate review `
+  --package research/SXXX/candidates/SXXX-Cnnn `
+  --mandate research/SXXX/mandates/SXXX-Cnnn.json
+.\.venv\Scripts\czsc-trader.exe candidate evaluate SXXX-Cnnn
 
 # 节点三：人工批准正式冻结；该命令不会创建PTE账户
-.\.venv\Scripts\czsc-trader.exe strategy freeze --strategy SXXX `
-  --credential SGC-SXXX-001 --actor tomxiao `
-  --reason "确认正式冻结" --change-summary "首个冻结版本"
+.\.venv\Scripts\czsc-trader.exe candidate freeze SXXX-Cnnn `
+  --change-summary "首个冻结版本"
+
+# 将已冻结策略版本部署到SRT
+.\.venv\Scripts\czsc-trader.exe strategy deploy SXXX-v1
+.\.venv\Scripts\czsc-trader.exe strategy info SXXX-v1
 ```
 
 冻结成功后，StrategyVersion进入`PAPER_READY`，但没有自动进入模拟盘。只有再次取得独立授权，
@@ -421,8 +421,7 @@ git status --short --branch
 $StrategyId = "S008"
 $ResearchSymbol = "518880.SH"
 .\.venv\Scripts\czsc-trader.exe data validate --symbol $ResearchSymbol
-.\.venv\Scripts\czsc-trader.exe strategy show --strategy $StrategyId
-.\.venv\Scripts\czsc-trader.exe strategy validate --all
+.\.venv\Scripts\czsc-trader.exe strategy list $StrategyId
 .\.venv\Scripts\czsc-trader.exe archive validate --all
 ```
 

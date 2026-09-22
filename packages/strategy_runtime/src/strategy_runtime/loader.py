@@ -5,7 +5,7 @@ from __future__ import annotations
 from importlib import import_module
 from importlib.resources import files
 from collections.abc import Mapping
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 import sys
 
 from .errors import RuntimeCompatibilityError
@@ -42,11 +42,13 @@ def _release_symbol(release: StrategyRelease) -> str | None:
 class StrategyLoader:
     """Load one strategy without a central release switch or registry patch."""
 
-    def _load_factory(self, release: StrategyRelease):
+    def _load_factory(
+        self, release: StrategyRelease, source_root: Path | None = None,
+    ):
         if not isinstance(release, StrategyRelease):
             raise RuntimeCompatibilityError("frozen loading requires a validated StrategyRelease")
         if "runtime" in release.payload:
-            return self._declared_factory(release.payload)
+            return self._declared_factory(release.payload, source_root=source_root)
         module_name = (
             f"strategy_runtime.strategies."
             f"{release.strategy_family_id.lower()}_{release.version.lower()}"
@@ -74,7 +76,9 @@ class StrategyLoader:
         return module_name, class_name, factory
 
     @staticmethod
-    def _declared_factory(payload: Mapping):
+    def _declared_factory(
+        payload: Mapping, *, source_root: Path | None = None,
+    ):
         """Load the declared closure, with no convention fallback on invalid metadata."""
         descriptor = payload.get("runtime")
         expected = {"module", "qualname", "contract_version", "source_sha256", "source_files"}
@@ -111,7 +115,23 @@ class StrategyLoader:
             raise RuntimeCompatibilityError(
                 "runtime source closure omits the implementation module"
             )
-        actual = implementation_sha256(tuple(source_files))
+        root = None if source_root is None else Path(source_root).resolve()
+        if root is not None:
+            if root.name != "strategy_runtime" or not (root / "strategies").is_dir():
+                raise RuntimeCompatibilityError(
+                    "candidate source root must be a strategy_runtime package directory"
+                )
+            import strategy_runtime
+            import strategy_runtime.strategies
+
+            for package, path in (
+                (strategy_runtime, root),
+                (strategy_runtime.strategies, root / "strategies"),
+            ):
+                package_path = str(path)
+                if package_path not in package.__path__:
+                    package.__path__.insert(0, package_path)
+        actual = implementation_sha256(tuple(source_files), source_root=root)
         if actual != ref.source_sha256:
             raise RuntimeCompatibilityError(
                 "declared implementation source hash differs from local code"
@@ -122,18 +142,23 @@ class StrategyLoader:
                 "declared implementation was already imported with an unverified or different "
                 "source closure; use a fresh process"
             )
+        previous_bytecode = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
         try:
-            module = import_module(ref.module)
-            factory = getattr(module, ref.qualname)
-        except (ImportError, AttributeError) as exc:
-            raise RuntimeCompatibilityError(
-                f"declared strategy is unavailable: {ref.module}.{ref.qualname}"
-            ) from exc
+            try:
+                module = import_module(ref.module)
+                factory = getattr(module, ref.qualname)
+            except (ImportError, AttributeError) as exc:
+                raise RuntimeCompatibilityError(
+                    f"declared strategy is unavailable: {ref.module}.{ref.qualname}"
+                ) from exc
+        finally:
+            sys.dont_write_bytecode = previous_bytecode
         if factory.__module__ != ref.module or factory.__qualname__ != ref.qualname:
             raise RuntimeCompatibilityError(
                 "declared factory is an alias for another implementation"
             )
-        if implementation_sha256(tuple(source_files)) != actual:
+        if implementation_sha256(tuple(source_files), source_root=root) != actual:
             raise RuntimeCompatibilityError("implementation source changed while loading")
         module.__srt_source_sha256__ = actual
         return ref.module, ref.qualname, factory
@@ -164,7 +189,9 @@ class StrategyLoader:
         """Run a parameterized candidate before submission without creating a frozen version."""
         if not isinstance(candidate, StrategyCandidate):
             raise RuntimeCompatibilityError("candidate loading requires a StrategyCandidate")
-        module_name, class_name, factory = self._declared_factory(candidate.payload)
+        module_name, class_name, factory = self._declared_factory(
+            candidate.payload, source_root=candidate.source_root,
+        )
         create = getattr(factory, "from_candidate", None)
         if not callable(create):
             raise RuntimeCompatibilityError(
@@ -237,8 +264,10 @@ class StrategyLoader:
             )
         return strategy
 
-    def load(self, release: StrategyRelease) -> StrategyImplementation:
-        module_name, class_name, factory = self._load_factory(release)
+    def load(
+        self, release: StrategyRelease, *, source_root: Path | None = None,
+    ) -> StrategyImplementation:
+        module_name, class_name, factory = self._load_factory(release, source_root)
         from_release = getattr(factory, "from_release", None)
         if not callable(from_release):
             raise RuntimeCompatibilityError(
@@ -248,7 +277,7 @@ class StrategyLoader:
         return self._validate(release, strategy, module_name, class_name)
 
     def load_for_symbol(
-        self, release: StrategyRelease, symbol: str
+        self, release: StrategyRelease, symbol: str, *, source_root: Path | None = None,
     ) -> StrategyImplementation:
         """Bind a formula-compatible release to one explicit deployment symbol.
 
@@ -257,10 +286,10 @@ class StrategyLoader:
         replaying their frozen source instrument against another price series.
         """
 
-        module_name, class_name, factory = self._load_factory(release)
+        module_name, class_name, factory = self._load_factory(release, source_root)
         binder = getattr(factory, "from_release_for_symbol", None)
         if not callable(binder):
-            strategy = self.load(release)
+            strategy = self.load(release, source_root=source_root)
             subjects = {
                 item.subject.upper()
                 for item in strategy.definition.inputs.requirements

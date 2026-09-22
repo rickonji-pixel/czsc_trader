@@ -83,5 +83,5 @@ S001-v1/v2继续按冻结版本在PTE独立观察，禁止为制造事件而修�
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe data validate --symbol 588080.SH
-.\.venv\Scripts\czsc-trader.exe strategy show --strategy S001 --version v2
+.\.venv\Scripts\czsc-trader.exe strategy info S001-v2
 ```

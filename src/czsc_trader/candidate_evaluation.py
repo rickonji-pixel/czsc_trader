@@ -39,6 +39,7 @@ class CandidateEvaluationContext:
     family_id: str = ""
     review_data_root: Path | None = None
     review_data_hash: str | None = None
+    candidate_runtime_roots: dict[str, Path] | None = None
 
 
 @dataclass(frozen=True)
@@ -143,11 +144,16 @@ def _snapshot(context: CandidateEvaluationContext, item: dict[str, object]):
     else:
         family = str(item.get("strategy_id", context.family_id))
         candidate_id = reference.removeprefix(family + "-") if family else reference
-        candidate = StrategyCandidate(family, candidate_id, payload)
+        roots = context.candidate_runtime_roots or {}
+        runtime_root = roots.get(reference) or roots.get(candidate_id)
+        candidate = StrategyCandidate(family, candidate_id, payload, runtime_root)
         strategy = StrategyRuntime().describe(candidate)
         identity = StrategyIdentity("CANDIDATE", candidate.reference_id, "evaluation")
         source_hash = candidate.runtime_identity_sha256
-    return StrategySnapshot(identity, source_hash, canonical_sha256(payload), payload), strategy
+    return StrategySnapshot(
+        identity, source_hash, canonical_sha256(payload), payload,
+        runtime_root=runtime_root if not item.get("is_incumbent") else None,
+    ), strategy
 
 
 def prepare_candidate_replays(context, protocol, payloads, candidate_ids):

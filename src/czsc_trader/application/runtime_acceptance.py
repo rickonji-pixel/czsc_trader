@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, replace
+from pathlib import Path
 
 from strategy_manager import CandidateSnapshot, StrategyVersion, canonical_sha256
 from strategy_runtime import StrategyCandidate, StrategyRelease, StrategyRuntime
@@ -69,15 +70,21 @@ def _runtime_report(definition) -> dict[str, object]:
     }
 
 
-def validate_runtime_readiness(version: StrategyVersion) -> dict[str, object]:
+def validate_runtime_readiness(
+    version: StrategyVersion, *, source_root: Path | None = None,
+) -> dict[str, object]:
     """Load the exact prospective release without changing SM state."""
-    return _runtime_report(StrategyRuntime().describe(prospective_release(version)))
+    return _runtime_report(
+        StrategyRuntime().describe(prospective_release(version), source_root=source_root)
+    )
 
 
-def validate_candidate_readiness(snapshot: CandidateSnapshot) -> dict[str, object]:
+def validate_candidate_readiness(
+    snapshot: CandidateSnapshot, *, source_root: Path | None = None,
+) -> dict[str, object]:
     """Gate 2 binds a candidate implementation, never a prospective vN wrapper."""
     candidate = StrategyCandidate(
-        snapshot.strategy_id, snapshot.candidate_id, snapshot.strategy_payload,
+        snapshot.strategy_id, snapshot.candidate_id, snapshot.strategy_payload, source_root,
     )
     report = _runtime_report(StrategyRuntime().describe(candidate))
     report["strategy_payload_hash"] = canonical_sha256(snapshot.strategy_payload)

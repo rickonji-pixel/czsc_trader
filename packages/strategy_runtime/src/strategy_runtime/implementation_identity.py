@@ -5,13 +5,15 @@ from __future__ import annotations
 from hashlib import sha256
 from importlib.resources import files
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from .errors import RuntimeCompatibilityError
 
 
-def implementation_sha256(source_files: tuple[str, ...]) -> str:
-    root = files("strategy_runtime")
+def implementation_sha256(
+    source_files: tuple[str, ...], *, source_root: Path | None = None,
+) -> str:
+    root = Path(source_root).resolve() if source_root is not None else files("strategy_runtime")
     digest = sha256()
     for name in sorted(source_files):
         relative = PurePosixPath(name)

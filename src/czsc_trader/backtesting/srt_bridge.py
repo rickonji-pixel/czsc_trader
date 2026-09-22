@@ -109,7 +109,9 @@ def describe_snapshot_strategy(
             raise RuntimeContractError(
                 "candidate replay requires a family-qualified identity"
             )
-        source = StrategyCandidate(family, candidate_id, snapshot.strategy_payload)
+        source = StrategyCandidate(
+            family, candidate_id, snapshot.strategy_payload, snapshot.runtime_root,
+        )
         if snapshot.source_hash != source.runtime_identity_sha256:
             raise RuntimeContractError("candidate release hashes differ from the snapshot")
         if snapshot.content_hash != canonical_sha256(snapshot.strategy_payload):

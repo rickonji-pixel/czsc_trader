@@ -27,12 +27,15 @@ from czsc_trader.application.freeze_review_service import (
     _runtime_audit,
     _validate_mandate_contract,
     evaluate_freeze_review,
+    freeze_review_candidate,
+    open_freeze_review,
 )
+from czsc_trader.application.errors import ValidationError
 from czsc_trader.application.freeze_review_service import _candidate_runtime, _submitted_runtime
 from czsc_trader.application.runtime_acceptance import validate_candidate_readiness
 from czsc_trader.application.results import CommandResult
 from czsc_trader.application.research_governance_service import create_research_batch
-from functional_support import invoke_main, invoke_main_failure
+from functional_support import invoke_main
 
 
 def _write_json(path: Path, value: dict) -> Path:
@@ -455,53 +458,35 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     missing_manifest = deepcopy(manifest)
     missing_manifest["candidates"][0]["strategy_payload"] = missing_runtime["strategy_payload"]
     _write_json(manifest_path, missing_manifest)
-    rejected = invoke_main_failure(
-        ["strategy", "review", "open", "--credential", "SGC-S900-001",
-         "--candidate", str(missing_path), "--mandate", str(mandate),
-         "--actor", "tester", "--reason", "missing implementation", *root], capsys,
-    )
-    assert rejected["error"]["code"] == "freeze_review_open_failed"
+    with pytest.raises(ValidationError) as rejected:
+        open_freeze_review(
+            RepositoryContext.discover(functional_repo),
+            credential_id="SGC-S900-001",
+            candidate_path=missing_path,
+            mandate_path=mandate,
+            actor="tester",
+            reason="missing implementation",
+        )
+    assert rejected.value.code == "freeze_review_open_failed"
     registry = StrategyRegistry(functional_repo / "strategies")
     assert registry.get_governance_credential("S900", "SGC-S900-001").stage is GovernanceStage.RESEARCH_INITIATED
     _write_json(manifest_path, manifest)
 
-    opened = invoke_main(
-        [
-            "strategy",
-            "review",
-            "open",
-            "--credential",
-            "SGC-S900-001",
-            "--candidate",
-            str(snapshot),
-            "--mandate",
-            str(mandate),
-            "--actor",
-            "tester",
-            "--reason",
-            "批准候选进入冻结流程",
-            *root,
-        ],
-        capsys,
+    opened = open_freeze_review(
+        RepositoryContext.discover(functional_repo),
+        credential_id="SGC-S900-001",
+        candidate_path=snapshot,
+        mandate_path=mandate,
+        actor="tester",
+        reason="批准候选进入冻结流程",
     )
-    opened_replay = invoke_main(
-        [
-            "strategy",
-            "review",
-            "open",
-            "--credential",
-            "SGC-S900-001",
-            "--candidate",
-            str(snapshot),
-            "--mandate",
-            str(mandate),
-            "--actor",
-            "tester",
-            "--reason",
-            "批准候选进入冻结流程",
-            *root,
-        ],
-        capsys,
+    opened_replay = open_freeze_review(
+        RepositoryContext.discover(functional_repo),
+        credential_id="SGC-S900-001",
+        candidate_path=snapshot,
+        mandate_path=mandate,
+        actor="tester",
+        reason="批准候选进入冻结流程",
     )
     registry = StrategyRegistry(functional_repo / "strategies")
     credential = registry.get_governance_credential("S900", "SGC-S900-001")
@@ -581,8 +566,6 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
     )
     # A release factory must preserve reviewed contracts, not only its parameters.
     from strategy_runtime.models import MonitoringPolicy
-    from czsc_trader.application.errors import ValidationError
-    from czsc_trader.application.freeze_review_service import freeze_review_candidate
     original_factory = type(loaded).from_release
     # This test isolates lifecycle/identity gates; snapshot publication is exercised
     # with real SRT + DFLS + TXE in test_candidate_runtime_execution.
@@ -607,49 +590,29 @@ def test_ft_t05_three_human_gates_create_only_one_frozen_version(
             )
     assert registry.versions("S900") == ()
     assert registry.get_governance_credential("S900", "SGC-S900-001").stage is GovernanceStage.TDR_ADJUDICATED
-    frozen = invoke_main(
-        [
-            "strategy",
-            "freeze",
-            "--strategy",
-            "S900",
-            "--credential",
-            "SGC-S900-001",
-            "--change-summary",
-            "首个冻结版本",
-            "--actor",
-            "tester",
-            "--reason",
-            "批准低成本模拟观察",
-            *root,
-        ],
-        capsys,
+    frozen = freeze_review_candidate(
+        RepositoryContext.discover(functional_repo),
+        "S900",
+        "SGC-S900-001",
+        change_summary="首个冻结版本",
+        actor="tester",
+        reason="批准低成本模拟观察",
     )
-    replay = invoke_main(
-        [
-            "strategy",
-            "freeze",
-            "--strategy",
-            "S900",
-            "--credential",
-            "SGC-S900-001",
-            "--change-summary",
-            "首个冻结版本",
-            "--actor",
-            "tester",
-            "--reason",
-            "批准低成本模拟观察",
-            *root,
-        ],
-        capsys,
+    replay = freeze_review_candidate(
+        RepositoryContext.discover(functional_repo),
+        "S900",
+        "SGC-S900-001",
+        change_summary="首个冻结版本",
+        actor="tester",
+        reason="批准低成本模拟观察",
     )
 
     assert created["result"]["family"]["strategy_id"] == "S900"
-    assert opened["result"]["governance_credential"]["stage"] == "CANDIDATE_SUBMITTED"
-    assert len(opened_replay["result"]["governance_credential"]["seals"]) == 2
-    assert frozen["result"]["version"]["release_id"] == "S900-v1"
-    assert frozen["result"]["pte_deployment"] == "NOT_REQUESTED"
-    assert replay["result"]["idempotent_replay"] is True
+    assert opened.result["governance_credential"]["stage"] == "CANDIDATE_SUBMITTED"
+    assert len(opened_replay.result["governance_credential"]["seals"]) == 2
+    assert frozen.result["version"]["release_id"] == "S900-v1"
+    assert frozen.result["pte_deployment"] == "NOT_REQUESTED"
+    assert replay.result["idempotent_replay"] is True
     assert len(registry.versions("S900")) == 1
     completed = registry.get_governance_credential("S900", "SGC-S900-001")
     assert [seal.stage.value for seal in completed.seals] == [

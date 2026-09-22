@@ -41,7 +41,7 @@ class AccountChartMarketData:
                 symbol.upper(),
                 start.isoformat(),
                 end.isoformat(),
-                end.isoformat(),
+                cutoff.isoformat(),
                 "daily",
             )
         )

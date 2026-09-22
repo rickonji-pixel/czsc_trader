@@ -26,7 +26,7 @@ def test_chart_market_data_reads_adjusted_bars_without_strategy_instance() -> No
 
     source = AccountChartMarketData(
         dataflows=SimpleNamespace(fetch=fetch),
-        today=lambda: pd.Timestamp("2026-09-22").date(),
+        today=lambda: pd.Timestamp("2026-09-20").date(),
     )
 
     identity, actual = source.history(
@@ -42,5 +42,5 @@ def test_chart_market_data_reads_adjusted_bars_without_strategy_instance() -> No
     request = requests[0]
     assert request.dataset == Dataset.ETF_OHLCV
     assert request.symbol == "588080.SH"
-    assert request.end == "2026-09-22"
-    assert request.required_cutoff == "2026-09-22"
+    assert request.end == "2026-09-20"
+    assert request.required_cutoff == "2026-09-02"

@@ -76,6 +76,8 @@ class FakeEngine:
             from paper_trading_engine.web_api import ResourceNotFound
             raise ResourceNotFound(account_id)
         return {"scope": {"account_id": account_id}}
+    chart_fingerprint = "f" * 64
+
     def virtual_account_chart(self, account_id):
         if account_id != "alpha":
             from paper_trading_engine.web_api import ResourceNotFound
@@ -84,11 +86,14 @@ class FakeEngine:
             "scope": {"account_id": "alpha", "release_id": "S001-v1"},
             "status": "READY", "selection_data_cutoff": "2026-08-28",
             "context_sessions": 60,
-            "chart_url": "/charts/alpha/observation.html?v=fingerprint-1",
-            "fingerprint": "fingerprint-1", "message": None,
+            "chart_url": f"/charts/alpha/observation.html?v={self.chart_fingerprint}",
+            "fingerprint": self.chart_fingerprint, "message": None,
         }
-    def virtual_account_chart_path(self, account_id):
-        if account_id != "alpha" or self.chart_file is None:
+    def virtual_account_chart_path(self, account_id, fingerprint=None):
+        if (
+            account_id != "alpha" or self.chart_file is None
+            or fingerprint != self.chart_fingerprint
+        ):
             from paper_trading_engine.web_api import ResourceNotFound
             raise ResourceNotFound(account_id)
         return self.chart_file
@@ -222,10 +227,11 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert chart["scope"]["account_id"] == "alpha"
         with urlopen(base + chart["chart_url"], timeout=3) as response:
             assert response.read().decode() == "<html>alpha chart</html>"
-            assert response.headers["ETag"] == '"fingerprint-1"'
+            assert response.headers["ETag"] == f'"{engine.chart_fingerprint}"'
             assert "immutable" in response.headers["Cache-Control"]
         conditional = Request(
-            base + chart["chart_url"], headers={"If-None-Match": '"fingerprint-1"'}
+            base + chart["chart_url"],
+            headers={"If-None-Match": f'"{engine.chart_fingerprint}"'},
         )
         with pytest.raises(HTTPError) as unchanged:
             urlopen(conditional, timeout=3)

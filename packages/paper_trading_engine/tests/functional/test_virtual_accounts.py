@@ -325,7 +325,7 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
 
     def renderer(request):
         calls.append(request)
-        return "<html>chart</html>"
+        return f"<html>chart-{len(calls)}</html>"
 
     class ImmediateExecutor:
         def submit(self, fn, *args):
@@ -347,7 +347,8 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     first = service.status("s001-v2")
     assert first["status"] == "READY", first["message"]
     assert first["scope"] == {"account_id": "s001-v2", "release_id": "S001-v2"}
-    assert service.chart_path("s001-v2").read_text(encoding="utf-8") == "<html>chart</html>"
+    first_path = service.chart_path("s001-v2", first["fingerprint"])
+    assert first_path.read_text(encoding="utf-8") == "<html>chart-1</html>"
     request = calls[0]
     assert request["contract_version"] == "pte_forward_chart.v1"
     assert len(request["market_data"]["bars"]) == 62
@@ -387,6 +388,10 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     refreshed = service.status("s001-v2")
     assert refreshed["fingerprint"] != first["fingerprint"]
     assert len(calls) == 2
+    refreshed_path = service.chart_path("s001-v2", refreshed["fingerprint"])
+    assert refreshed_path != first_path
+    assert refreshed_path.read_text(encoding="utf-8") == "<html>chart-2</html>"
+    assert first_path.read_text(encoding="utf-8") == "<html>chart-1</html>"
     service.close()
     store.close()
 
@@ -492,9 +497,171 @@ def test_account_chart_runs_market_fetch_and_render_on_dedicated_worker(tmp_path
     assert ready["status"] == "READY"
     assert {name for name, _thread_id in worker_ids} == {"dfls", "render"}
     assert all(thread_id != caller for _name, thread_id in worker_ids)
-    assert len({thread_id for _name, thread_id in worker_ids}) == 1
+    assert len({thread_id for _name, thread_id in worker_ids}) == 2
     service.close()
     store.close()
+
+
+def test_account_chart_uses_only_active_decisions(tmp_path):
+    from paper_trading_engine.account_chart import AccountChartService
+
+    store = PaperStore(tmp_path / "chart-active-decisions.db")
+    create_account(store, "s001-v2", "v2", "b")
+
+    def decision_payload(decision_id, signal_date, value):
+        return {
+            "account_id": "s001-v2",
+            "decision_id": decision_id,
+            "signal_date": signal_date,
+            "valid_session": "2026-09-04",
+            "action": "WAIT",
+            "target_quantity": 0,
+            "observation": {
+                "contract_version": "strategy_observation.v1",
+                "status": "READY",
+                "action": "WAIT",
+                "target_position": 0.0,
+                "series": [{
+                    "key": "factor_score", "label": "策略得分", "value": value,
+                    "guides": [],
+                }],
+            },
+        }
+
+    store.save_account_decision(
+        "s001-v2", decision_payload("DEC-OLD", "2026-09-03", 0.1),
+    )
+    store.supersede_account_decision("s001-v2", "DEC-OLD", "DEC-NEW")
+    store.save_account_decision(
+        "s001-v2", decision_payload("DEC-NEW", "2026-09-03", 0.2),
+    )
+    requests = []
+
+    class ImmediateExecutor:
+        def submit(self, fn, *args):
+            future = Future()
+            future.set_result(fn(*args))
+            return future
+
+    service = AccountChartService(
+        store,
+        market_data=SimpleNamespace(history=lambda **_kwargs: (
+            "a" * 64,
+            pd.DataFrame([{
+                "dt": "2026-09-03", "open": 1, "high": 1.1,
+                "low": 0.9, "close": 1,
+            }]),
+        )),
+        cache_dir=tmp_path / "charts",
+        renderer=lambda request: requests.append(request) or "<html>chart</html>",
+        executor=ImmediateExecutor(),
+        refresh_interval_seconds=0,
+    )
+
+    status = service.status("s001-v2")
+
+    assert status["status"] == "READY"
+    assert [row["decision_id"] for row in requests[0]["observations"]] == ["DEC-NEW"]
+    service.close()
+    store.close()
+
+
+def test_account_chart_persists_unexpected_executor_failure(tmp_path):
+    from paper_trading_engine.account_chart import AccountChartService
+
+    store = PaperStore(tmp_path / "chart-executor-failure.db")
+    create_account(store, "s001-v2", "v2", "b")
+
+    class FailingExecutor:
+        def submit(self, _fn, *_args):
+            future = Future()
+            future.set_exception(RuntimeError("worker exploded"))
+            return future
+
+    service = AccountChartService(
+        store,
+        market_data=SimpleNamespace(),
+        cache_dir=tmp_path / "charts",
+        executor=FailingExecutor(),
+        refresh_interval_seconds=3600,
+    )
+
+    status = service.status("s001-v2")
+
+    assert status["status"] == "UNAVAILABLE"
+    assert status["message"] == "worker exploded"
+    failures = store.query_audit_events(event_type="ACCOUNT_CHART_GENERATION_FAILED")
+    assert len(failures) == 1
+    service.close()
+    store.close()
+
+
+def test_account_chart_dfls_timeout_is_reported(tmp_path):
+    from paper_trading_engine.account_chart import AccountChartService
+
+    store = PaperStore(tmp_path / "chart-timeout.db")
+    create_account(store, "s001-v2", "v2", "b")
+    entered = Event()
+    release = Event()
+
+    def history(**_kwargs):
+        entered.set()
+        release.wait(2)
+        return "a" * 64, pd.DataFrame()
+
+    service = AccountChartService(
+        store,
+        market_data=SimpleNamespace(history=history),
+        cache_dir=tmp_path / "charts",
+        fetch_timeout_seconds=0.05,
+        shutdown_timeout_seconds=0.05,
+        refresh_interval_seconds=3600,
+    )
+    assert service.status("s001-v2")["status"] == "BUILDING"
+    assert entered.wait(1)
+    deadline = time.monotonic() + 1
+    unavailable = service.status("s001-v2")
+    while unavailable["status"] != "UNAVAILABLE" and time.monotonic() < deadline:
+        time.sleep(0.01)
+        unavailable = service.status("s001-v2")
+    assert unavailable["status"] == "UNAVAILABLE"
+    assert "DFLS fetch exceeded 0.05 seconds" in unavailable["message"]
+    service.close()
+    release.set()
+    store.close()
+
+
+def test_account_chart_close_does_not_wait_for_stuck_dfls(tmp_path):
+    from paper_trading_engine.account_chart import AccountChartService
+
+    store = PaperStore(tmp_path / "chart-close.db")
+    create_account(store, "s001-v2", "v2", "b")
+    entered = Event()
+    release = Event()
+
+    def history(**_kwargs):
+        entered.set()
+        release.wait(2)
+        return "a" * 64, pd.DataFrame()
+
+    service = AccountChartService(
+        store,
+        market_data=SimpleNamespace(history=history),
+        cache_dir=tmp_path / "charts",
+        fetch_timeout_seconds=10,
+        shutdown_timeout_seconds=0.05,
+        refresh_interval_seconds=3600,
+    )
+    assert service.status("s001-v2")["status"] == "BUILDING"
+    assert entered.wait(1)
+
+    started = time.perf_counter()
+    service.close()
+    elapsed = time.perf_counter() - started
+    store.close()
+    release.set()
+
+    assert elapsed < 0.2
 
 
 def test_ft_pte02_selection_cutoff_is_required_immutable_and_safely_backfilled(tmp_path):

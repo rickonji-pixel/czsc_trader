@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from concurrent.futures import Executor, Future, ThreadPoolExecutor
+from concurrent.futures import CancelledError, Executor, Future
 from datetime import date, datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
+from queue import Empty, Queue
 import re
-from threading import RLock
+from threading import Event, RLock, Thread
 import time
 from typing import Any, Callable
 from uuid import uuid4
@@ -24,8 +25,68 @@ OUTPUT_LIMIT = 20 * 1024 * 1024
 CACHE_RENDER_REVISION = "pte-forward-chart-v1"
 
 
+class _RefreshCancelled(Exception):
+    pass
+
+
+class _DaemonSingleWorker(Executor):
+    """One daemon worker so a stuck optional chart task cannot hold PTE open."""
+
+    _STOP = object()
+
+    def __init__(self) -> None:
+        self._queue: Queue[object] = Queue()
+        self._closed = False
+        self._guard = RLock()
+        self._thread = Thread(
+            target=self._run, name="pte-account-chart", daemon=True,
+        )
+        self._thread.start()
+
+    def submit(self, fn, /, *args, **kwargs) -> Future:
+        with self._guard:
+            if self._closed:
+                raise RuntimeError("account chart worker is closed")
+            future: Future = Future()
+            self._queue.put((future, fn, args, kwargs))
+            return future
+
+    def _run(self) -> None:
+        while True:
+            item = self._queue.get()
+            if item is self._STOP:
+                return
+            future, fn, args, kwargs = item
+            if not future.set_running_or_notify_cancel():
+                continue
+            try:
+                future.set_result(fn(*args, **kwargs))
+            except BaseException as exc:
+                future.set_exception(exc)
+
+    def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
+        with self._guard:
+            if self._closed:
+                return
+            self._closed = True
+            if cancel_futures:
+                while True:
+                    try:
+                        item = self._queue.get_nowait()
+                    except Empty:
+                        break
+                    if item is not self._STOP:
+                        item[0].cancel()
+            self._queue.put(self._STOP)
+        if wait:
+            self._thread.join()
+
+    def join(self, timeout: float) -> None:
+        self._thread.join(timeout)
+
+
 class AccountChartService:
-    """Serve cached charts and run DFLS plus rendering on one dedicated worker."""
+    """Serve cached charts while keeping DFLS and rendering off request threads."""
 
     def __init__(
         self,
@@ -35,24 +96,34 @@ class AccountChartService:
         cache_dir: Path,
         context_sessions: int = 60,
         refresh_interval_seconds: float = 60,
+        fetch_timeout_seconds: float = 35,
+        shutdown_timeout_seconds: float = 2,
         audit: AuditRecorder | None = None,
         executor: Executor | None = None,
         renderer: Callable[[object], str] = render_forward_chart_html,
     ) -> None:
+        if fetch_timeout_seconds <= 0 or shutdown_timeout_seconds < 0:
+            raise ValueError("account chart timeouts are invalid")
         self.store = store
         self.market_data = market_data
         self.cache_dir = Path(cache_dir)
         self.context_sessions = context_sessions
         self.refresh_interval_seconds = refresh_interval_seconds
+        self.fetch_timeout_seconds = fetch_timeout_seconds
+        self.shutdown_timeout_seconds = shutdown_timeout_seconds
         self.audit = audit or AuditRecorder(store)
         self.renderer = renderer
-        self._executor = executor or ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="pte-account-chart",
-        )
+        self._executor = executor or _DaemonSingleWorker()
         self._owns_executor = executor is None
         self._jobs: dict[str, Future[None]] = {}
         self._last_submit: dict[str, float] = {}
         self._guard = RLock()
+        self._store_guard = RLock()
+        self._fetch_guard = RLock()
+        self._market_fetches: dict[
+            str, tuple[dict[str, object], Future]
+        ] = {}
+        self._closing = Event()
 
     def _account_dir(self, account_id: str) -> Path:
         if ACCOUNT_ID_PATTERN.fullmatch(account_id) is None:
@@ -63,8 +134,16 @@ class AccountChartService:
             raise ValueError("account chart path escapes cache root")
         return target
 
-    def chart_path(self, account_id: str) -> Path:
-        return self._account_dir(account_id) / "observation.html"
+    def chart_path(self, account_id: str, fingerprint: str | None = None) -> Path:
+        account_dir = self._account_dir(account_id)
+        selected = fingerprint
+        if selected is None:
+            selected = self._load_meta(self._meta_path(account_id)).get("fingerprint")
+        if selected is None:
+            return account_dir / "observation.html"
+        if not isinstance(selected, str) or re.fullmatch(r"[0-9a-f]{64}", selected) is None:
+            raise ValueError("invalid account chart fingerprint")
+        return account_dir / f"{selected}.html"
 
     def _meta_path(self, account_id: str) -> Path:
         return self._account_dir(account_id) / "observation.meta.json"
@@ -73,9 +152,50 @@ class AccountChartService:
     def _sha256(content: bytes) -> str:
         return hashlib.sha256(content).hexdigest()
 
+    def _bounded_market_history(self, fetch_key: str, **kwargs):
+        request = dict(kwargs)
+        with self._fetch_guard:
+            current = self._market_fetches.get(fetch_key)
+            if current is not None and current[0] != request:
+                if not current[1].done():
+                    raise RuntimeError("previous account chart DFLS fetch is still running")
+                self._market_fetches.pop(fetch_key, None)
+                current = None
+            if current is None:
+                result: Future = Future()
+                self._market_fetches[fetch_key] = (request, result)
+            else:
+                result = current[1]
+
+        def fetch() -> None:
+            try:
+                result.set_result(self.market_data.history(**kwargs))
+            except BaseException as exc:
+                result.set_exception(exc)
+
+        if current is None:
+            Thread(
+                target=fetch,
+                name=f'pte-chart-dfls-{kwargs["symbol"]}',
+                daemon=True,
+            ).start()
+        try:
+            return result.result(timeout=self.fetch_timeout_seconds)
+        except TimeoutError as exc:
+            raise TimeoutError(
+                f"account chart DFLS fetch exceeded {self.fetch_timeout_seconds:g} seconds"
+            ) from exc
+        finally:
+            if result.done():
+                with self._fetch_guard:
+                    active = self._market_fetches.get(fetch_key)
+                    if active is not None and active[1] is result:
+                        self._market_fetches.pop(fetch_key, None)
+
     def _market_data(self, account: dict[str, Any]) -> tuple[str, list[dict[str, object]]]:
         cutoff = date.fromisoformat(str(account["selection_data_cutoff"])).isoformat()
-        price_identity, frame = self.market_data.history(
+        price_identity, frame = self._bounded_market_history(
+            str(account["account_id"]),
             symbol=str(account["symbol"]),
             asset=str(account["asset_type"]),
             selection_data_cutoff=cutoff,
@@ -154,25 +274,32 @@ class AccountChartService:
             if (observed := self._fact_date(row, fields)) is not None and observed > cutoff
         ]
 
-    def _request(self, account_id: str) -> tuple[dict[str, object], bool]:
-        account = self.store.virtual_account(account_id)
+    def _request(self, account: dict[str, Any]) -> tuple[dict[str, object], bool]:
+        account_id = str(account["account_id"])
         cutoff_value = account.get("selection_data_cutoff")
         if not cutoff_value:
             raise ValueError("strategy selection cutoff is unavailable")
         cutoff = date.fromisoformat(str(cutoff_value)).isoformat()
-        market_identity, bars = self._market_data(account)
+        with self._store_guard:
+            if self._closing.is_set():
+                raise _RefreshCancelled
+            decision_rows = [
+                row for row in self.store.account_decisions(account_id)
+                if row.get("status") == "ACTIVE"
+            ]
+            intent_rows = self.store.account_intents(account_id)
+            fill_rows = self.store.account_fills(account_id)
+            snapshot_rows = self.store.account_snapshots(account_id)
         decisions = [
             self._decision(row)
             for row in self._after_cutoff(
-                self.store.account_decisions(account_id), cutoff, ("signal_date",)
+                decision_rows, cutoff, ("signal_date",)
             )
         ]
         intents = [
             self._intent(row)
             for row in self._after_cutoff(
-                self.store.account_intents(account_id),
-                cutoff,
-                ("valid_session", "session"),
+                intent_rows, cutoff, ("valid_session", "session"),
             )
         ]
         fills = [
@@ -188,7 +315,7 @@ class AccountChartService:
                 "fee": row.get("fee"),
             }
             for row in self._after_cutoff(
-                self.store.account_fills(account_id), cutoff, ("occurred_at", "session"),
+                fill_rows, cutoff, ("occurred_at", "session"),
             )
         ]
         snapshots = [
@@ -198,9 +325,12 @@ class AccountChartService:
                 "quantity": row.get("quantity"),
             }
             for row in self._after_cutoff(
-                self.store.account_snapshots(account_id), cutoff, ("session",),
+                snapshot_rows, cutoff, ("session",),
             )
         ]
+        market_identity, bars = self._market_data(account)
+        if self._closing.is_set():
+            raise _RefreshCancelled
         release_id = f'{account["strategy_id"]}-{account["strategy_version"]}'
         request = {
             "contract_version": FORWARD_CHART_CONTRACT_VERSION,
@@ -257,24 +387,32 @@ class AccountChartService:
         message = str(error)[:500]
         error_fingerprint = self._sha256(message.encode("utf-8"))
         old = self._load_meta(meta_path)
-        if old.get("error_fingerprint") != error_fingerprint:
-            self.audit.record(
-                "ACCOUNT_CHART_GENERATION_FAILED", source="account_chart",
-                outcome="FAILURE", actor_type="ENGINE", account_id=account["account_id"],
-                strategy_id=account.get("strategy_id"),
-                strategy_version=account.get("strategy_version"),
-                release_hash=account.get("release_hash"), symbol=account.get("symbol"),
-                details={"operation": "render", "error": message},
-            )
+        should_audit = old.get("error_fingerprint") != error_fingerprint
         old.update({"error_fingerprint": error_fingerprint, "error": message})
         self._atomic_write(meta_path, json.dumps(old, ensure_ascii=False))
+        if should_audit:
+            with self._store_guard:
+                if self._closing.is_set():
+                    return
+                try:
+                    self.audit.record(
+                        "ACCOUNT_CHART_GENERATION_FAILED", source="account_chart",
+                        outcome="FAILURE", actor_type="ENGINE",
+                        account_id=account["account_id"],
+                        strategy_id=account.get("strategy_id"),
+                        strategy_version=account.get("strategy_version"),
+                        release_hash=account.get("release_hash"), symbol=account.get("symbol"),
+                        details={"operation": "render", "error": message},
+                    )
+                except Exception:
+                    return
 
-    def _refresh(self, account_id: str) -> None:
-        account = self.store.virtual_account(account_id)
+    def _refresh(self, account: dict[str, Any]) -> None:
+        account_id = str(account["account_id"])
         meta_path = self._meta_path(account_id)
         old_meta = self._load_meta(meta_path)
         try:
-            request, has_forward = self._request(account_id)
+            request, has_forward = self._request(account)
             encoded = json.dumps(
                 request, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
                 allow_nan=False, default=str,
@@ -282,9 +420,11 @@ class AccountChartService:
             if len(encoded.encode("utf-8")) > INPUT_LIMIT:
                 raise ValueError("account observation input exceeds 5 MiB")
             fingerprint = self._sha256(f"{CACHE_RENDER_REVISION}\n{encoded}".encode("utf-8"))
-            html_path = self.chart_path(account_id)
+            html_path = self.chart_path(account_id, fingerprint)
             if old_meta.get("fingerprint") != fingerprint or not html_path.is_file():
                 html = self.renderer(request)
+                if self._closing.is_set():
+                    raise _RefreshCancelled
                 if len(html.encode("utf-8")) > OUTPUT_LIMIT:
                     raise ValueError("account observation output exceeds 20 MiB")
                 if not html.lstrip().lower().startswith(("<html", "<!doctype html")):
@@ -301,15 +441,25 @@ class AccountChartService:
                 ),
             )
             if old_meta.get("error_fingerprint"):
-                self.audit.record(
-                    "ACCOUNT_CHART_RECOVERED", source="account_chart", actor_type="ENGINE",
-                    account_id=account_id, strategy_id=account.get("strategy_id"),
-                    strategy_version=account.get("strategy_version"),
-                    release_hash=account.get("release_hash"), symbol=account.get("symbol"),
-                    details={"operation": "render"},
-                )
+                with self._store_guard:
+                    if not self._closing.is_set():
+                        try:
+                            self.audit.record(
+                                "ACCOUNT_CHART_RECOVERED", source="account_chart",
+                                actor_type="ENGINE", account_id=account_id,
+                                strategy_id=account.get("strategy_id"),
+                                strategy_version=account.get("strategy_version"),
+                                release_hash=account.get("release_hash"),
+                                symbol=account.get("symbol"),
+                                details={"operation": "render"},
+                            )
+                        except Exception:
+                            pass
+        except _RefreshCancelled:
+            return
         except Exception as exc:
-            self._record_failure(account, exc)
+            if not self._closing.is_set():
+                self._record_failure(account, exc)
 
     @staticmethod
     def _scope(account: dict[str, Any]) -> dict[str, str]:
@@ -351,28 +501,48 @@ class AccountChartService:
             "fingerprint": None, "message": "正在生成观察图",
         }
 
+    def _consume_job(self, account: dict[str, Any], job: Future[None]) -> None:
+        try:
+            job.result()
+        except CancelledError:
+            return
+        except Exception as exc:
+            self._record_failure(account, exc)
+
     def status(self, account_id: str) -> dict[str, object]:
         """Return immediately; enqueue at most one refresh for this account."""
         self._account_dir(account_id)
         account = self.store.virtual_account(account_id)
         now = time.monotonic()
         with self._guard:
+            if self._closing.is_set():
+                return self._status_from_cache(account, refreshing=False)
             job = self._jobs.get(account_id)
             if job is not None and job.done():
+                self._consume_job(account, job)
                 self._jobs.pop(account_id, None)
                 job = None
             last_submit = self._last_submit.get(account_id)
             if job is None and (
                 last_submit is None or now - last_submit >= self.refresh_interval_seconds
             ):
-                job = self._executor.submit(self._refresh, account_id)
+                job = self._executor.submit(self._refresh, dict(account))
                 self._jobs[account_id] = job
                 self._last_submit[account_id] = now
                 if job.done():
+                    self._consume_job(account, job)
                     self._jobs.pop(account_id, None)
                     job = None
             return self._status_from_cache(account, refreshing=job is not None)
 
     def close(self) -> None:
-        if self._owns_executor:
-            self._executor.shutdown(wait=True, cancel_futures=True)
+        with self._guard:
+            self._closing.set()
+            with self._store_guard:
+                pass
+            if self._owns_executor:
+                self._executor.shutdown(wait=False, cancel_futures=True)
+                if isinstance(self._executor, _DaemonSingleWorker):
+                    self._executor.join(self.shutdown_timeout_seconds)
+        with self._fetch_guard:
+            self._market_fetches.clear()

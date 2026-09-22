@@ -289,10 +289,16 @@ class PteWebApi:
             raise ResourceNotFound(account_id)
         return self.operations.account_chart.status(account_id)
 
-    def virtual_account_chart_path(self, account_id: str):
+    def virtual_account_chart_path(
+        self, account_id: str, fingerprint: str | None = None,
+    ):
+        try:
+            self.store.virtual_account(account_id)
+        except KeyError as exc:
+            raise ResourceNotFound(account_id) from exc
         if self.operations.account_chart is None:
             raise ResourceNotFound(account_id)
-        return self.operations.account_chart.chart_path(account_id)
+        return self.operations.account_chart.chart_path(account_id, fingerprint)
 
     def channel_snapshot(self, channel: str) -> dict[str, object]:
         if channel != FUTU_SIMULATE_CN_CHANNEL_ID:

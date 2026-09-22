@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 import json
 import mimetypes
+import re
 import secrets
 from threading import Thread
 from urllib.parse import parse_qs, unquote, urlparse
@@ -97,15 +98,13 @@ def create_server(
             return value
 
         def _chart(self, account_id: str, query: dict[str, list[str]]) -> None:
-            status = api.virtual_account_chart(account_id)
             requested = query.get("v", [""])[-1]
-            fingerprint = str(status.get("fingerprint") or "")
-            if status.get("status") not in {"READY", "EMPTY", "REFRESHING"} or requested != fingerprint:
+            if re.fullmatch(r"[0-9a-f]{64}", requested) is None:
                 raise ResourceNotFound(account_id)
-            path = api.virtual_account_chart_path(account_id)
+            path = api.virtual_account_chart_path(account_id, requested)
             if not path.is_file():
                 raise ResourceNotFound(account_id)
-            etag = f'"{fingerprint}"'
+            etag = f'"{requested}"'
             cache_control = "private, max-age=31536000, immutable"
             if self.headers.get("If-None-Match") == etag:
                 self._send(

@@ -38,6 +38,7 @@ export const auditScopeLabel = (event,accounts=[]) => {
 };
 export const snapshotFingerprint = value => JSON.stringify(value,(key,item)=>key==='as_of'?undefined:item);
 export const chartShouldReload = (previous,status) => !previous||previous.account_id!==status?.scope?.account_id||previous.fingerprint!==status?.fingerprint;
+export const chartIsPending = status => ['BUILDING','REFRESHING'].includes(status?.status);
 export const systemEventLabel = value => ({
   DATA_PUBLICATION_FAILED:'发布数据失败',
   DATA_PUBLISHED:'数据发布成功',
@@ -151,6 +152,22 @@ function renderAccount(snapshot){
   if(gapActions)document.querySelector('[data-account-section="intents"]')?.insertAdjacentHTML('beforeend',gapActions);
   bindAccountEvents(scope.account_id,a.paused);
 }
+async function retryAccountChart(accountId){
+  const pending={scope:{account_id:accountId},status:'BUILDING',chart_url:null,fingerprint:null,message:'正在重新生成观察图'};
+  applyAccountChart(pending);
+  try{
+    let status=await post(`/api/virtual-accounts/${encodeURIComponent(accountId)}/chart/refresh`,{});
+    applyAccountChart(status);
+    for(let attempt=0;attempt<45&&chartIsPending(status);attempt++){
+      await new Promise(resolve=>setTimeout(resolve,1000));
+      if(parseRoute(location.pathname).accountId!==accountId)return;
+      status=await getJson(`/api/virtual-accounts/${encodeURIComponent(accountId)}/chart`);
+      applyAccountChart(status);
+    }
+  }catch(error){
+    applyAccountChart({scope:{account_id:accountId},status:'UNAVAILABLE',chart_url:null,fingerprint:null,message:error.message});
+  }
+}
 function applyAccountChart(status){
   const host=document.querySelector('#accountChartFrameHost'),message=document.querySelector('#accountChartMessage');
   if(!host||status?.scope?.account_id!==parseRoute(location.pathname).accountId)return;
@@ -161,7 +178,7 @@ function applyAccountChart(status){
   }
   if(status.status==='UNAVAILABLE'||!status.chart_url){
     host.innerHTML=`<div class="error"><strong>前瞻观察图不可用</strong><div>${esc(status.message)}</div><button id="retryAccountChart" class="button" type="button">重新加载图表</button></div>`;
-    document.querySelector('#retryAccountChart').onclick=()=>loadRoute({showLoading:false});
+    document.querySelector('#retryAccountChart').onclick=()=>retryAccountChart(status.scope.account_id);
     state.chart={account_id:status.scope.account_id,fingerprint:null};return;
   }
   const current={account_id:status.scope.account_id,fingerprint:status.fingerprint};

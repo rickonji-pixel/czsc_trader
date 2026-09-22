@@ -176,6 +176,7 @@ def create_server(
                 body = self._body()
                 path = urlparse(self.path).path
                 parts = path.strip("/").split("/")
+                response_status = 200
                 if path == "/api/system/restart":
                     supplied = self.headers.get("X-PTE-Control-Token", "")
                     if control_token is None or not secrets.compare_digest(supplied, control_token):
@@ -209,6 +210,16 @@ def create_server(
                     result = operations.confirm_cancel(
                         str(body["account_id"]), str(body["channel_order_id"]), str(body["token"])
                     )
+                elif (
+                    parts[:2] == ["api", "virtual-accounts"]
+                    and len(parts) == 5
+                    and parts[3:] == ["chart", "refresh"]
+                ):
+                    if body:
+                        raise ValueError("chart refresh request body must be empty")
+                    account_id = unquote(parts[2])
+                    result = api.refresh_virtual_account_chart(account_id)
+                    response_status = 202
                 elif parts[:2] == ["api", "virtual-accounts"] and len(parts) == 4:
                     account_id = unquote(parts[2])
                     if parts[3] == "decision":
@@ -252,7 +263,9 @@ def create_server(
                 else:
                     self._json(404, {"error": "not found"})
                     return
-                self._json(200, result)
+                self._json(response_status, result)
+            except ResourceNotFound as exc:
+                self._json(404, {"error": f"unknown resource: {exc.args[0]}"})
             except ValueError as exc:
                 self._json(400, {"error": str(exc)})
             except KeyError as exc:

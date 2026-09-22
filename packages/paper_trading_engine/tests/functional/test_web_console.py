@@ -30,6 +30,7 @@ class FakeEngine:
         self.acknowledged = []
         self.ledger_repairs = []
         self.decision_requests = []
+        self.chart_refreshes = []
         self.chart_file = None
     def status(self):
         return {"environment": "SIMULATE", "market": "CN", "symbol": "588080.SH",
@@ -88,6 +89,17 @@ class FakeEngine:
             "context_sessions": 60,
             "chart_url": f"/charts/alpha/observation.html?v={self.chart_fingerprint}",
             "fingerprint": self.chart_fingerprint, "message": None,
+        }
+    def refresh_virtual_account_chart(self, account_id):
+        if account_id != "alpha":
+            from paper_trading_engine.web_api import ResourceNotFound
+            raise ResourceNotFound(account_id)
+        self.chart_refreshes.append(account_id)
+        return {
+            "scope": {"account_id": "alpha", "release_id": "S001-v1"},
+            "status": "BUILDING", "selection_data_cutoff": "2026-08-28",
+            "context_sessions": 60, "chart_url": None,
+            "fingerprint": None, "message": "正在重新生成观察图",
         }
     def virtual_account_chart_path(self, account_id, fingerprint=None):
         if (
@@ -208,6 +220,8 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert "各账户按自身前瞻观察窗口统计" in app_js
         assert "共同观察区间" not in app_js
         assert "ACCOUNT_REFRESH_SECTIONS" in app_js
+        assert "/chart/refresh" in app_js
+        assert "正在重新生成观察图" in app_js
         assert "releaseVersionLabel(s)" in app_js
         assert ".release-version{min-width:78px" in styles_css
         assert ".chart-frame-host{height:820px;min-height:820px" in styles_css
@@ -225,6 +239,18 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert request_json(base + "/api/virtual-accounts/alpha/snapshot")[1]["scope"]["account_id"] == "alpha"
         chart = request_json(base + "/api/virtual-accounts/alpha/chart")[1]
         assert chart["scope"]["account_id"] == "alpha"
+        refresh_status, refresh = request_json(
+            base + "/api/virtual-accounts/alpha/chart/refresh", "POST", {},
+        )
+        assert refresh_status == 202
+        assert refresh["status"] == "BUILDING"
+        assert engine.chart_refreshes == ["alpha"]
+        with pytest.raises(HTTPError) as invalid_chart_refresh:
+            request_json(
+                base + "/api/virtual-accounts/alpha/chart/refresh", "POST",
+                {"force": True},
+            )
+        assert invalid_chart_refresh.value.code == 400
         with urlopen(base + chart["chart_url"], timeout=3) as response:
             assert response.read().decode() == "<html>alpha chart</html>"
             assert response.headers["ETag"] == f'"{engine.chart_fingerprint}"'

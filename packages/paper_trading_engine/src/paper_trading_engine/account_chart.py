@@ -22,7 +22,7 @@ from .forward_chart import FORWARD_CHART_CONTRACT_VERSION, render_forward_chart_
 ACCOUNT_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 INPUT_LIMIT = 5 * 1024 * 1024
 OUTPUT_LIMIT = 20 * 1024 * 1024
-CACHE_RENDER_REVISION = "pte-forward-chart-v1"
+CACHE_RENDER_REVISION = "pte-forward-chart-v2"
 
 
 def _path_comparison_key(path: Path) -> str:
@@ -273,6 +273,11 @@ class AccountChartService:
         }
 
     @staticmethod
+    def _has_ready_observation(row: dict[str, Any]) -> bool:
+        observation = dict(row.get("payload") or {}).get("observation")
+        return isinstance(observation, dict) and observation.get("status") == "READY"
+
+    @staticmethod
     def _intent(row: dict[str, Any]) -> dict[str, Any]:
         payload = dict(row.get("payload") or {})
         return {
@@ -309,12 +314,18 @@ class AccountChartService:
             intent_rows = self.store.account_intents(account_id)
             fill_rows = self.store.account_fills(account_id)
             snapshot_rows = self.store.account_snapshots(account_id)
+        forward_decision_rows = self._after_cutoff(
+            decision_rows, cutoff, ("signal_date",)
+        )
         decisions = [
             self._decision(row)
-            for row in self._after_cutoff(
-                decision_rows, cutoff, ("signal_date",)
-            )
+            for row in forward_decision_rows
+            if self._has_ready_observation(row)
         ]
+        omitted_decision_count = len(forward_decision_rows) - len(decisions)
+        observation_start = min(
+            (str(row["signal_date"]) for row in decisions), default=None,
+        )
         intents = [
             self._intent(row)
             for row in self._after_cutoff(
@@ -365,6 +376,8 @@ class AccountChartService:
             "window": {
                 "selection_data_cutoff": cutoff,
                 "context_sessions": self.context_sessions,
+                "observation_start": observation_start,
+                "omitted_decision_count": omitted_decision_count,
             },
             "market_data": {
                 "identity": market_identity,
@@ -454,6 +467,11 @@ class AccountChartService:
                 json.dumps(
                     {
                         "fingerprint": fingerprint, "has_forward": has_forward,
+                        "has_observation": bool(request["observations"]),
+                        "observation_start": request["window"]["observation_start"],
+                        "omitted_decision_count": request["window"][
+                            "omitted_decision_count"
+                        ],
                         "generated_at": datetime.now(timezone.utc).isoformat(),
                     },
                     ensure_ascii=False,
@@ -499,6 +517,11 @@ class AccountChartService:
             "selection_data_cutoff": account.get("selection_data_cutoff"),
             "context_sessions": self.context_sessions,
         }
+        if meta.get("error") and refreshing:
+            return {
+                **base, "status": "BUILDING", "chart_url": None,
+                "fingerprint": None, "message": "正在重新生成观察图",
+            }
         if meta.get("error"):
             return {
                 **base, "status": "UNAVAILABLE", "chart_url": None,
@@ -506,13 +529,33 @@ class AccountChartService:
             }
         if fingerprint and chart_exists:
             has_forward = bool(meta.get("has_forward"))
+            has_observation = bool(meta.get("has_observation"))
+            omitted_count = int(meta.get("omitted_decision_count") or 0)
+            observation_start = meta.get("observation_start")
+            observation_message = (
+                f"观察事实自 {observation_start} 开始；此前 {omitted_count} 条历史决策"
+                "未保存 observation，未绘制策略解释"
+                if observation_start and omitted_count
+                else (
+                    f"等待第一条策略观察事实；此前 {omitted_count} 条历史决策"
+                    "未保存 observation，未绘制策略解释"
+                    if omitted_count
+                    else None
+                )
+            )
             return {
                 **base,
-                "status": "REFRESHING" if refreshing else ("READY" if has_forward else "EMPTY"),
+                "status": "REFRESHING" if refreshing else (
+                    "READY" if has_forward and has_observation else "EMPTY"
+                ),
                 "chart_url": f"/charts/{account_id}/observation.html?v={fingerprint}",
                 "fingerprint": fingerprint,
                 "message": "正在刷新观察图" if refreshing else (
-                    None if has_forward else "等待新的完整收盘数据"
+                    observation_message if has_observation else (
+                        observation_message or "等待第一条策略观察事实"
+                    )
+                ) if has_forward else (
+                    observation_message or "等待新的完整收盘数据"
                 ),
             }
         return {
@@ -528,7 +571,7 @@ class AccountChartService:
         except Exception as exc:
             self._record_failure(account, exc)
 
-    def status(self, account_id: str) -> dict[str, object]:
+    def status(self, account_id: str, *, force: bool = False) -> dict[str, object]:
         """Return immediately; enqueue at most one refresh for this account."""
         self._account_dir(account_id)
         account = self.store.virtual_account(account_id)
@@ -543,7 +586,9 @@ class AccountChartService:
                 job = None
             last_submit = self._last_submit.get(account_id)
             if job is None and (
-                last_submit is None or now - last_submit >= self.refresh_interval_seconds
+                force
+                or last_submit is None
+                or now - last_submit >= self.refresh_interval_seconds
             ):
                 job = self._executor.submit(self._refresh, dict(account))
                 self._jobs[account_id] = job
@@ -553,6 +598,11 @@ class AccountChartService:
                     self._jobs.pop(account_id, None)
                     job = None
             return self._status_from_cache(account, refreshing=job is not None)
+
+    def refresh(self, account_id: str) -> dict[str, object]:
+        """Force one asynchronous rebuild without mutating trading state."""
+
+        return self.status(account_id, force=True)
 
     def close(self) -> None:
         with self._guard:

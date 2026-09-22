@@ -24,7 +24,8 @@
   const safe=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 
   document.querySelector('#forward-title').textContent=`${context.strategy.release_id} · ${context.strategy.name}`;
-  document.querySelector('#forward-subtitle').textContent=`前瞻观察 · ${context.strategy.symbol} · ${context.strategy.account_id}`;
+  const observationStart=context.window.observation_start;
+  document.querySelector('#forward-subtitle').textContent=`前瞻观察 · ${context.strategy.symbol} · ${context.strategy.account_id} · ${observationStart?`观察事实自 ${observationStart}`:'等待首条观察事实'}`;
   document.querySelector('#forward-asof').textContent=`运行正常 · 数据截至 ${context.market_data.as_of}`;
 
   function visibleBars(){if(state.range==='all')return bars;return bars.slice(Math.max(0,bars.length-Number(state.range)));}

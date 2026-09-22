@@ -359,7 +359,7 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
         cache_dir=tmp_path / "charts",
         renderer=renderer,
         executor=ImmediateExecutor(),
-        refresh_interval_seconds=0,
+        refresh_interval_seconds=3600,
     )
     first = service.status("s001-v2")
     assert first["status"] == "READY", first["message"]
@@ -370,6 +370,8 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     assert request["contract_version"] == "pte_forward_chart.v1"
     assert len(request["market_data"]["bars"]) == 62
     assert request["window"]["context_sessions"] == 60
+    assert request["window"]["observation_start"] == "2026-09-03"
+    assert request["window"]["omitted_decision_count"] == 0
     assert request["market_data"]["bars"][0]["date"] == dates[125].date().isoformat()
     assert request["market_data"]["bars"][-1]["date"] == "2026-09-04"
     decisions = request["observations"]
@@ -402,7 +404,11 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     assert len(calls) == 1
 
     monkeypatch.setattr(account_chart, "CACHE_RENDER_REVISION", "next-layout")
-    refreshed = service.status("s001-v2")
+    throttled = service.status("s001-v2")
+    assert throttled["fingerprint"] == first["fingerprint"]
+    assert len(calls) == 1
+
+    refreshed = service.refresh("s001-v2")
     assert refreshed["fingerprint"] != first["fingerprint"]
     assert len(calls) == 2
     refreshed_path = service.chart_path("s001-v2", refreshed["fingerprint"])
@@ -545,12 +551,76 @@ def test_account_chart_uses_only_active_decisions(tmp_path):
             },
         }
 
+    legacy = decision_payload("DEC-LEGACY", "2026-09-03", 0.0)
+    legacy.pop("observation")
+    store.save_account_decision("s001-v2", legacy)
     store.save_account_decision(
-        "s001-v2", decision_payload("DEC-OLD", "2026-09-03", 0.1),
+        "s001-v2", decision_payload("DEC-OLD", "2026-09-04", 0.1),
     )
     store.supersede_account_decision("s001-v2", "DEC-OLD", "DEC-NEW")
     store.save_account_decision(
-        "s001-v2", decision_payload("DEC-NEW", "2026-09-03", 0.2),
+        "s001-v2", decision_payload("DEC-NEW", "2026-09-04", 0.2),
+    )
+    requests = []
+
+    class ImmediateExecutor:
+        def submit(self, fn, *args):
+            future = Future()
+            future.set_result(fn(*args))
+            return future
+
+    service = AccountChartService(
+        store,
+        market_data=SimpleNamespace(history=lambda **_kwargs: (
+            "a" * 64,
+            pd.DataFrame([
+                {
+                    "dt": "2026-09-03", "open": 1, "high": 1.1,
+                    "low": 0.9, "close": 1,
+                },
+                {
+                    "dt": "2026-09-04", "open": 1, "high": 1.1,
+                    "low": 0.9, "close": 1,
+                },
+            ]),
+        )),
+        cache_dir=tmp_path / "charts",
+        renderer=lambda request: requests.append(request) or "<html>chart</html>",
+        executor=ImmediateExecutor(),
+        refresh_interval_seconds=0,
+    )
+
+    status = service.status("s001-v2")
+
+    assert status["status"] == "READY"
+    assert [row["decision_id"] for row in requests[0]["observations"]] == ["DEC-NEW"]
+    assert requests[0]["window"]["observation_start"] == "2026-09-04"
+    assert requests[0]["window"]["omitted_decision_count"] == 1
+    assert status["message"] == (
+        "观察事实自 2026-09-04 开始；此前 1 条历史决策"
+        "未保存 observation，未绘制策略解释"
+    )
+    service.close()
+    store.close()
+
+
+def test_account_chart_waits_for_first_observation_without_rejecting_legacy_decision(
+    tmp_path,
+):
+    from paper_trading_engine.account_chart import AccountChartService
+
+    store = PaperStore(tmp_path / "chart-legacy-decision.db")
+    create_account(store, "s001-v2", "v2", "b")
+    store.save_account_decision(
+        "s001-v2",
+        {
+            "account_id": "s001-v2",
+            "decision_id": "DEC-LEGACY",
+            "signal_date": "2026-09-03",
+            "valid_session": "2026-09-04",
+            "action": "WAIT",
+            "target_quantity": 0,
+        },
     )
     requests = []
 
@@ -572,13 +642,20 @@ def test_account_chart_uses_only_active_decisions(tmp_path):
         cache_dir=tmp_path / "charts",
         renderer=lambda request: requests.append(request) or "<html>chart</html>",
         executor=ImmediateExecutor(),
-        refresh_interval_seconds=0,
+        refresh_interval_seconds=3600,
     )
 
     status = service.status("s001-v2")
 
-    assert status["status"] == "READY"
-    assert [row["decision_id"] for row in requests[0]["observations"]] == ["DEC-NEW"]
+    assert status["status"] == "EMPTY"
+    assert status["chart_url"]
+    assert status["message"] == (
+        "等待第一条策略观察事实；此前 1 条历史决策"
+        "未保存 observation，未绘制策略解释"
+    )
+    assert requests[0]["observations"] == []
+    assert requests[0]["window"]["observation_start"] is None
+    assert requests[0]["window"]["omitted_decision_count"] == 1
     service.close()
     store.close()
 

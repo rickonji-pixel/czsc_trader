@@ -88,7 +88,6 @@ def load_review_dataset(
         pd.to_datetime(manifest["evaluation_sessions"], errors="raise"), name="dt"
     )
     return BacktestExecutionData(
-        dataset="research",
         root=directory,
         symbol=manifest["symbol"],
         asset_type=manifest["asset_type"],

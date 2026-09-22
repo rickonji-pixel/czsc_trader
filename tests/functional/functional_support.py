@@ -1,10 +1,32 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from datetime import date
+from hashlib import sha256
+from pathlib import Path
 
 import pandas as pd
 
 from czsc_trader.backtesting.execution_data import BacktestExecutionData
+
+
+@dataclass(frozen=True)
+class ReplayFixture:
+    root: Path
+    adjusted: object
+    execution_daily: pd.DataFrame
+    execution_intraday: pd.DataFrame
+    fingerprint: str
+    cutoff: date
+    execution_five_minute: pd.DataFrame | None = None
+
+
+def replay_fingerprint(*frames: pd.DataFrame) -> str:
+    digest = sha256()
+    for frame in frames:
+        digest.update(frame.to_csv(index=False).encode())
+    return digest.hexdigest()
 
 
 def execution_data_from_replay(replay, *, start, end) -> BacktestExecutionData:
@@ -15,7 +37,6 @@ def execution_data_from_replay(replay, *, start, end) -> BacktestExecutionData:
         & (sessions <= pd.Timestamp(end).normalize())
     ]
     return BacktestExecutionData(
-        replay.dataset,
         replay.root,
         replay.adjusted.symbol,
         replay.adjusted.asset_type,

@@ -13,7 +13,6 @@ from czsc_trader.ma_charting import write_ma_chart
 from czsc_trader.temp_workspace import create_temporary_directory
 
 from .benchmarks import replay_benchmarks
-from .datasets import DatasetName
 from .execution_data import BacktestExecutionData, prepare_backtest_execution_data
 from .audit_adapter import build_benchmark_evidence, build_replay_evidence
 from .chart import render_backtest_chart_html
@@ -35,7 +34,6 @@ from .srt_bridge import (
 class BacktestRequestV2:
     symbol: str
     asset_type: str
-    dataset: DatasetName
     start: date
     end: date
     initial_cash: float
@@ -59,7 +57,7 @@ def run_backtest_v2(
     *,
     snapshot: StrategySnapshot,
     request: BacktestRequestV2,
-    data_dir: Path,
+    srt_data_root: Path,
     outputs_root: Path,
     run_date: date,
     repository_root: Path | None = None,
@@ -76,8 +74,7 @@ def run_backtest_v2(
     )
     if execution_data is None:
         execution_data = prepare_backtest_execution_data(
-            dataset=request.dataset,
-            data_dir=data_dir,
+            srt_data_root=srt_data_root,
             symbol=request.symbol,
             asset_type=request.asset_type,
             start=request.start,
@@ -85,8 +82,6 @@ def run_backtest_v2(
             env_file=Path(repository_root) / ".env",
             include_five_minute="5m" in execution_intraday_frequencies(definition),
         )
-    if request.dataset != execution_data.dataset:
-        raise ValueError("request dataset differs from TDR execution data")
     if execution_data.symbol != request.symbol:
         raise ValueError("request symbol differs from TDR execution data")
     if execution_data.asset_type != request.asset_type:
@@ -97,6 +92,7 @@ def run_backtest_v2(
         start=execution_data.evaluation_start,
         end=execution_data.evaluation_end,
         repository_root=repository_root,
+        space_created_on=run_date,
     )
     reference_symbol = strategy_reference_symbol(strategy)
     if snapshot.identity.kind == "REGISTERED":

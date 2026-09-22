@@ -15,7 +15,6 @@ from strategy_runtime import canonical_sha256
 class BacktestExecutionData:
     """Execution-channel facts; never used as SRT calculation input."""
 
-    dataset: str
     root: Path
     symbol: str
     asset_type: str
@@ -120,8 +119,7 @@ def _unadjust_intraday(
 
 def prepare_backtest_execution_data(
     *,
-    dataset: str,
-    data_dir: Path,
+    srt_data_root: Path,
     symbol: str,
     asset_type: str,
     start: date,
@@ -132,8 +130,6 @@ def prepare_backtest_execution_data(
 ) -> BacktestExecutionData:
     """Prepare TDR/TXE data without inspecting any strategy input contract."""
 
-    if dataset not in {"research", "backtest"}:
-        raise ValueError(f"unknown backtest dataset: {dataset}")
     if start > end:
         raise ValueError("backtest start must not follow end")
     normalized_asset = asset_type.lower()
@@ -249,7 +245,6 @@ def prepare_backtest_execution_data(
     }
     fingerprint = canonical_sha256(
         {
-            "dataset": dataset,
             "symbol": normalized_symbol,
             "asset_type": normalized_asset,
             "evaluation_start": actual_start.isoformat(),
@@ -258,8 +253,7 @@ def prepare_backtest_execution_data(
         }
     )
     return BacktestExecutionData(
-        dataset=dataset,
-        root=Path(data_dir).resolve(),
+        root=Path(srt_data_root).resolve(),
         symbol=normalized_symbol,
         asset_type=normalized_asset,
         adjusted_daily=adjusted_daily,

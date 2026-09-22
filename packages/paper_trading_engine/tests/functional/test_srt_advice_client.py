@@ -137,13 +137,33 @@ def test_closed_day_does_not_prepare_or_publish_account_data(tmp_path):
     assert not (tmp_path / "accounts/s002-v1/current.json").exists()
 
 
-def test_default_session_resolver_uses_sse_calendar(tmp_path, monkeypatch):
+def test_default_session_resolver_drives_public_preparation_contract(
+    tmp_path, monkeypatch,
+):
     monkeypatch.setattr(
         "paper_trading_engine.srt_advice_client.Dataflows", lambda: _flows()
     )
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
     client = SrtAdviceClient(repo_root=ROOT, data_dir=tmp_path)
-    assert client._next_tradable_session(date(2026, 9, 2)) == date(2026, 9, 3)
-    assert client._next_tradable_session(date(2026, 9, 5)) is None
+    prepared = client.prepare_account_data(
+        account_id="s002-v1",
+        strategy_id="S002",
+        strategy_version="v1",
+        symbol="510500.SH",
+        asset="etf",
+        signal_date=date(2026, 9, 2),
+    )
+
+    assert prepared is not None
+    assert client.tradable_date("s002-v1", "S002", "v1") == date(2026, 9, 3)
+    assert client.prepare_account_data(
+        account_id="closed-session",
+        strategy_id="S002",
+        strategy_version="v1",
+        symbol="510500.SH",
+        asset="etf",
+        signal_date=date(2026, 9, 5),
+    ) is None
     assert client.latest_completed_signal_date(
         datetime(2026, 9, 5, 12, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     ) == date(2026, 9, 4)
@@ -166,7 +186,7 @@ def test_account_binding_validation_loads_frozen_s003_and_s007_resources(tmp_pat
     assert s007["release_id"] == "S007-v1"
 
 
-def test_legacy_data_directory_migrates_through_prepare_and_decision(
+def test_scheduler_prepares_current_account_data_then_runs_decision(
     tmp_path, monkeypatch,
 ):
     monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
@@ -175,7 +195,6 @@ def test_legacy_data_directory_migrates_through_prepare_and_decision(
     )
     data_dir = tmp_path / "data"
     data_dir.mkdir()
-    (data_dir / "srt_s002_v1_publication.json").write_text("{}", encoding="utf-8")
     store = PaperStore(tmp_path / "runtime.db")
     store.create_virtual_account(
         "s002-v1",

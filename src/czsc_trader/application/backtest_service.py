@@ -21,7 +21,6 @@ from .results import CommandResult
 class BacktestCommand:
     strategy_id: str
     strategy_version: str
-    dataset: str
     symbol: str
     asset_type: str
     start: date
@@ -44,12 +43,11 @@ def run_backtest(
             request=BacktestRequestV2(
                 symbol=request.symbol,
                 asset_type=request.asset_type,
-                dataset=request.dataset,  # type: ignore[arg-type]
                 start=request.start,
                 end=request.end,
                 initial_cash=request.init_cash,
             ),
-            data_dir=context.backtest_data_root,
+            srt_data_root=context.tdr_srt_root,
             outputs_root=context.outputs_root,
             run_date=run_date or datetime.now().astimezone().date(),
             repository_root=context.root,
@@ -61,7 +59,6 @@ def run_backtest(
             context={
                 "strategy": f"{request.strategy_id}-{request.strategy_version}",
                 "symbol": request.symbol,
-                "dataset": request.dataset,
                 "requested_cutoff": exc.requested_cutoff.isoformat(),
                 "published_cutoff": exc.published_cutoff.isoformat(),
                 "first_unpublished_session": exc.first_unpublished_session.isoformat(),
@@ -74,7 +71,6 @@ def run_backtest(
             context={
                 "strategy": f"{request.strategy_id}-{request.strategy_version}",
                 "symbol": request.symbol,
-                "dataset": request.dataset,
             },
         ) from exc
     return CommandResult(
@@ -82,7 +78,6 @@ def run_backtest(
         command="backtest.run",
         result={
             "strategy": snapshot.identity.reference,
-            "dataset": request.dataset,
             "metrics": summary.metrics,
             "audit_status": summary.manifest["audit"]["status"],
             "runtime_engine": summary.manifest["application"]["runtime_engine"],

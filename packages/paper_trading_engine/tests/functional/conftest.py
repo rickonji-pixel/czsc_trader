@@ -10,7 +10,8 @@ import pytest
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
-_PYTEST_RUN = REPOSITORY_ROOT / ".tmp" / "pytest" / f"pte-run-{uuid4().hex}"
+_RUN_ID = os.environ.get("CZSC_PYTEST_RUN_ID") or uuid4().hex
+_PYTEST_RUN = REPOSITORY_ROOT / ".tmp" / "pytest" / f"pte-run-{_RUN_ID}"
 sys.path.insert(0, str(PACKAGE_ROOT / "src"))
 
 

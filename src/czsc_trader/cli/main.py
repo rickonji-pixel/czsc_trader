@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import date
 import json
 from pathlib import Path
@@ -41,10 +41,6 @@ def _context(args: argparse.Namespace) -> RepositoryContext:
         Path.cwd(), explicit_root=getattr(args, "repo_root", None)
     )
     load_dotenv(context.root / ".env", override=False)
-    data_dir = getattr(args, "data_dir", None)
-    if data_dir is not None:
-        resolved = data_dir.resolve() if data_dir.is_absolute() else (context.root / data_dir).resolve()
-        context = replace(context, raw_dir=resolved)
     return context
 
 
@@ -68,24 +64,6 @@ def _data_prepare(args: argparse.Namespace):
     )
 
 
-def _data_update_backtest(args: argparse.Namespace):
-    from czsc_trader.application.data_service import (
-        UpdateBacktestDataCommand,
-        update_backtest_data,
-    )
-
-    return update_backtest_data(
-        _context(args),
-        UpdateBacktestDataCommand(
-            args.symbol,
-            args.asset,
-            args.through,
-            args.strategy,
-            args.strategy_version,
-        ),
-    )
-
-
 def _backtest_run(args: argparse.Namespace):
     from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
 
@@ -94,7 +72,6 @@ def _backtest_run(args: argparse.Namespace):
         BacktestCommand(
             strategy_id=args.strategy,
             strategy_version=args.strategy_version,
-            dataset=args.dataset,
             symbol=args.symbol,
             asset_type=args.asset,
             start=args.start,
@@ -221,7 +198,6 @@ def build_parser() -> argparse.ArgumentParser:
     data_prepare.add_argument("--asset", required=True, choices=("stock", "etf"))
     data_prepare.add_argument("--start", required=True, type=date.fromisoformat)
     data_prepare.add_argument("--end", required=True, type=date.fromisoformat)
-    data_prepare.add_argument("--data-dir", type=Path)
     _add_repository_root(data_prepare)
     data_prepare.set_defaults(
         command_handler=_data_prepare,
@@ -231,18 +207,6 @@ def build_parser() -> argparse.ArgumentParser:
     data_validate.add_argument("--symbol", required=True)
     _add_repository_root(data_validate)
     data_validate.set_defaults(command_handler=_data_validate, command_name="data.validate")
-    data_update = data_actions.add_parser("update-backtest")
-    data_update.add_argument("--symbol", required=True)
-    data_update.add_argument("--asset", required=True, choices=("stock", "etf"))
-    data_update.add_argument("--strategy", required=True)
-    data_update.add_argument("--strategy-version", required=True)
-    data_update.add_argument("--through", required=True, type=date.fromisoformat)
-    _add_repository_root(data_update)
-    data_update.set_defaults(
-        command_handler=_data_update_backtest,
-        command_name="data.update-backtest",
-    )
-
     from czsc_trader.cli.strategy_commands import add_strategy_parser
     from czsc_trader.cli.research_commands import add_research_parser
 
@@ -360,7 +324,6 @@ def build_parser() -> argparse.ArgumentParser:
     backtest_run = backtest_actions.add_parser("run")
     backtest_run.add_argument("--strategy", required=True)
     backtest_run.add_argument("--strategy-version", required=True)
-    backtest_run.add_argument("--dataset", required=True, choices=("research", "backtest"))
     backtest_run.add_argument("--symbol", required=True)
     backtest_run.add_argument("--asset", required=True, choices=("stock", "etf"))
     backtest_run.add_argument("--start", required=True, type=date.fromisoformat)

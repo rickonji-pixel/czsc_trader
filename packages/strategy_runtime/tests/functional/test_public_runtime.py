@@ -78,6 +78,15 @@ ROOT = Path(__file__).resolve().parents[4]
 ZONE = ZoneInfo("Asia/Shanghai")
 
 
+def _prepared_manifest(root: Path, window: TradableWindow) -> Path:
+    return (
+        root
+        / "preparations"
+        / f"{window.start:%Y%m%d}_{window.end:%Y%m%d}"
+        / "prepared-data.json"
+    )
+
+
 def test_prepare_cli_loads_repository_dotenv_without_overriding_process_environment(
     tmp_path, monkeypatch, capsys,
 ) -> None:
@@ -204,7 +213,10 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
 
     assert prepared.strategy.reference_id == "S002-v1"
     assert prepared.available_through == date(2026, 9, 2)
-    assert (tmp_path / "prepared-data.json").is_file()
+    window = TradableWindow(trading_date, trading_date)
+    manifest_path = _prepared_manifest(tmp_path, window)
+    assert (tmp_path / "strategy-space.json").is_file()
+    assert manifest_path.is_file()
     assert plan.strategy.reference_id == "S002-v1"
     assert plan.expected_portfolio_revision == 7
     assert plan.expected_state_revision == 3
@@ -231,17 +243,20 @@ def test_public_runtime_prepares_and_plans_without_an_execution_channel(
     )
     assert cached == prepared
 
-    with pytest.raises(RuntimeContractError, match="another strategy instance"):
+    second_window = TradableWindow(date(2026, 9, 2), date(2026, 9, 2))
+    monkeypatch.setattr("strategy_runtime.preparation.Dataflows", lambda: _flows())
+    StrategyRuntime().create(
+        StrategyInit(_release("S002", "v1"), second_window, tmp_path)
+    ).prepare_data()
+    assert _prepared_manifest(tmp_path, second_window).is_file()
+
+    with pytest.raises(RuntimeContractError, match="another strategy"):
         StrategyRuntime().create(
-            StrategyInit(
-                _release("S002", "v1"),
-                TradableWindow(date(2026, 9, 2), date(2026, 9, 2)),
-                tmp_path,
-            )
+            StrategyInit(_release("S001", "v1"), second_window, tmp_path)
         ).prepare_data()
 
-    manifest = json.loads((tmp_path / "prepared-data.json").read_text(encoding="utf-8"))
-    input_file = tmp_path / next(iter(manifest["inputs"].values()))["file"]
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    input_file = manifest_path.parent / next(iter(manifest["inputs"].values()))["file"]
     input_file.write_bytes(input_file.read_bytes() + b"changed")
     with pytest.raises(RuntimeContractError, match="file was modified"):
         StrategyRuntime().create(
@@ -267,6 +282,6 @@ def test_failed_preparation_is_not_exposed_as_prepared_data(tmp_path, monkeypatc
     )
     with pytest.raises(RuntimeError, match="DFLS unavailable"):
         strategy.prepare_data()
-    assert not (tmp_path / "prepared-data.json").exists()
+    assert not (tmp_path / "preparations").exists()
     with pytest.raises(RuntimeContractError, match="call prepare_data"):
         strategy.inspect_signals()

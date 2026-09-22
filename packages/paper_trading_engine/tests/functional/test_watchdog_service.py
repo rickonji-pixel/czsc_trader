@@ -1,5 +1,7 @@
 from collections import deque
 import json
+from pathlib import Path
+import shutil
 import sqlite3
 import subprocess
 
@@ -32,6 +34,10 @@ from paper_trading_engine.windows_service import (
     service_failure_command,
 )
 from paper_trading_engine.web_api import PteWebApi
+from strategy_runtime.deployment import deployment_inventory
+
+
+ROOT = Path(__file__).resolve().parents[4]
 
 
 class Process:
@@ -45,7 +51,7 @@ class Process:
 def create_release(runtime_root, release_id, marker):
     release = runtime_root / "releases" / release_id
     strategies = release / "strategies"
-    strategies.mkdir(parents=True)
+    shutil.copytree(ROOT / "strategies", strategies)
     (strategies / "registry.json").write_text(
         json.dumps({"schema_version": 1, "marker": marker}), encoding="utf-8",
     )
@@ -66,6 +72,7 @@ def create_release(runtime_root, release_id, marker):
             "compatible": list(RUNTIME_DATABASE_COMPATIBLE_VERSIONS),
         },
         "strategy_snapshot_sha256": tree_sha256(strategies),
+        "strategy_releases": deployment_inventory(strategies),
         "runtime_files": {"runtime.txt": file_sha256(runtime_file)},
     }
     (release / "release-manifest.json").write_text(

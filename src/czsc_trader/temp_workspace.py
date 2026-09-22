@@ -6,10 +6,25 @@ import os
 from pathlib import Path
 import re
 import tempfile
+import time
 from uuid import uuid4
 
 
 _NAMESPACE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def replace_directory(staging: Path, destination: Path) -> None:
+    """Atomically publish a directory despite short-lived Windows file locks."""
+
+    attempts = 6 if os.name == "nt" else 1
+    for attempt in range(attempts):
+        try:
+            staging.replace(destination)
+            return
+        except PermissionError:
+            if attempt + 1 == attempts:
+                raise
+            time.sleep(0.05 * (2**attempt))
 
 
 def _repository_root(anchor: Path) -> Path | None:

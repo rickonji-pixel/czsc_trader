@@ -14,6 +14,7 @@ import sqlite3
 import subprocess
 import sys
 import tarfile
+import time
 from typing import Any, Callable, Mapping, Sequence
 from urllib.request import urlopen
 from uuid import uuid4
@@ -65,6 +66,22 @@ PTE_SOURCE_DISTRIBUTIONS = ("futu-api",)
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 SourceDistributionFetcher = Callable[[str, str, Path], Path]
 BUILD_MANIFEST_NAME = "build-manifest.json"
+
+
+def _replace_directory(staging: Path, destination: Path) -> None:
+    """Atomically publish a directory despite short-lived Windows file locks."""
+
+    attempts = 6 if os.name == "nt" else 1
+    for attempt in range(attempts):
+        try:
+            staging.replace(destination)
+            return
+        except PermissionError:
+            if attempt + 1 == attempts:
+                raise
+            time.sleep(0.05 * (2**attempt))
+
+
 def _run(
     command: Sequence[str], *, cwd: Path, runner: Runner = subprocess.run,
     env: Mapping[str, str] | None = None,
@@ -677,7 +694,7 @@ def build_release(
             release_id=release_id,
             git_commit=git_commit,
         )
-        staging.replace(destination)
+        _replace_directory(staging, destination)
         built = load_built_release(build_root, release_id)
         return {
             "build": {
@@ -737,7 +754,7 @@ def publish_release(
             BUILD_MANIFEST_NAME: file_sha256(staging / BUILD_MANIFEST_NAME),
             **_write_runtime_root(staging),
         }
-        staging.replace(destination)
+        _replace_directory(staging, destination)
         try:
             _create_environment(
                 uv_executable=uv_executable,

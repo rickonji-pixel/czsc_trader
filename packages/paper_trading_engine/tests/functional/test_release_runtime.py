@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -11,6 +12,7 @@ import pytest
 from paper_trading_engine.release_cli import (
     PTE_LOCAL_PROJECTS,
     PTE_SOURCE_DISTRIBUTIONS,
+    _replace_directory,
     _run,
     _verify_strategy_runtime_wheel_boundary,
     build_release,
@@ -23,6 +25,31 @@ from czsc_trader.application.context import RepositoryContext
 
 
 ROOT = Path(__file__).resolve().parents[4]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows directory-lock regression")
+def test_release_directory_publish_retries_transient_windows_lock(tmp_path, monkeypatch):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "release"
+    staging.mkdir()
+    (staging / "manifest.json").write_text("{}", encoding="utf-8")
+    original = Path.replace
+    attempts = 0
+
+    def transient_lock(path, target):
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("transient Windows lock")
+        return original(path, target)
+
+    monkeypatch.setattr(Path, "replace", transient_lock)
+    monkeypatch.setattr("paper_trading_engine.release_cli.time.sleep", lambda _delay: None)
+
+    _replace_directory(staging, destination)
+
+    assert attempts == 3
+    assert (destination / "manifest.json").is_file()
 
 
 def _git(repo: Path, *arguments: str) -> None:

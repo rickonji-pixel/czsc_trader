@@ -18,7 +18,7 @@ from czsc_trader.backtesting.srt_bridge import (
     build_srt_signal_replay,
     execution_intraday_frequencies,
 )
-from czsc_trader.temp_workspace import create_temporary_directory
+from czsc_trader.temp_workspace import create_temporary_directory, replace_directory
 
 
 MANIFEST = "review_dataset.json"
@@ -182,5 +182,5 @@ def publish_review_dataset(
     content["snapshot_hash"] = canonical_sha256(content)
     (staging / MANIFEST).write_text(json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8")
     load_review_dataset(staging, content["snapshot_hash"])
-    staging.rename(directory)
+    replace_directory(staging, directory)
     return content

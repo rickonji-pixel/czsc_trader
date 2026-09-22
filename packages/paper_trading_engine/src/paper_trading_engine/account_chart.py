@@ -25,6 +25,24 @@ OUTPUT_LIMIT = 20 * 1024 * 1024
 CACHE_RENDER_REVISION = "pte-forward-chart-v1"
 
 
+def _path_comparison_key(path: Path) -> str:
+    """Normalize equivalent Windows DOS and extended-length path spellings."""
+
+    value = os.path.normcase(os.path.abspath(path))
+    if value.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + value[8:]
+    if value.startswith("\\\\?\\"):
+        return value[4:]
+    return value
+
+
+def _same_directory(left: Path, right: Path) -> bool:
+    try:
+        return os.path.samefile(left, right)
+    except (OSError, ValueError):
+        return _path_comparison_key(left) == _path_comparison_key(right)
+
+
 class _RefreshCancelled(Exception):
     pass
 
@@ -129,8 +147,9 @@ class AccountChartService:
         if ACCOUNT_ID_PATTERN.fullmatch(account_id) is None:
             raise ValueError("invalid account id")
         root = self.cache_dir.resolve()
-        target = (root / account_id).resolve()
-        if target.parent != root:
+        target = root / account_id
+        resolved_target = target.resolve()
+        if not _same_directory(resolved_target.parent, root):
             raise ValueError("account chart path escapes cache root")
         return target
 

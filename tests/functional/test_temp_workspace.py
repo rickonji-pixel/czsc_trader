@@ -7,7 +7,36 @@ import subprocess
 
 import pytest
 
-from czsc_trader.temp_workspace import create_temporary_directory, temporary_root
+from czsc_trader.temp_workspace import (
+    create_temporary_directory,
+    replace_directory,
+    temporary_root,
+)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows directory-lock regression")
+def test_directory_publish_retries_transient_windows_lock(tmp_path, monkeypatch):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "published"
+    staging.mkdir()
+    (staging / "evidence.json").write_text("{}", encoding="utf-8")
+    original = Path.replace
+    attempts = 0
+
+    def transient_lock(path, target):
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("transient Windows lock")
+        return original(path, target)
+
+    monkeypatch.setattr(Path, "replace", transient_lock)
+    monkeypatch.setattr("czsc_trader.temp_workspace.time.sleep", lambda _delay: None)
+
+    replace_directory(staging, destination)
+
+    assert attempts == 3
+    assert (destination / "evidence.json").is_file()
 
 
 def test_temporary_workspace_routes_and_rejects_unsafe_paths(

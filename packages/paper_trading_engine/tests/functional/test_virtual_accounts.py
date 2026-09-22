@@ -3,6 +3,7 @@ from concurrent.futures import Future
 from dataclasses import replace
 from datetime import date
 import json
+import os
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -27,6 +28,22 @@ def create_account(store, account_id, version, marker):
         strategy_version=version, release_hash=marker * 64,
         qualification_snapshot="PAPER_READY", selection_data_cutoff="2026-09-02",
     )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows extended-path regression")
+def test_account_chart_accepts_equivalent_windows_extended_path(tmp_path, monkeypatch):
+    from paper_trading_engine.account_chart import AccountChartService
+
+    cache = tmp_path / "charts"
+    cache.mkdir()
+    root = cache.resolve()
+    extended = Path("\\\\?\\" + str(root / "s001-v2"))
+    resolutions = iter((root, extended))
+    monkeypatch.setattr(Path, "resolve", lambda self: next(resolutions))
+    service = AccountChartService.__new__(AccountChartService)
+    service.cache_dir = cache
+
+    assert service._account_dir("s001-v2") == root / "s001-v2"
 
 
 def test_pte_cli_rejects_retired_account_and_scheduler_aliases(tmp_path):

@@ -326,6 +326,7 @@ def _build_release_package(
             "implementation_sha256": package.runtime_binding["implementation_sha256"],
             "install_files": list(package.runtime_binding["install_files"]),
             "charts": package.runtime_binding["charts"],
+            "observation": package.runtime_binding["observation"],
         }
         _write_object(stage / "runtime_binding.json", binding)
         files = {

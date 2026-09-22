@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import json
 from types import SimpleNamespace
 
 import pandas as pd
-import pytest
 from dataflows import Dataset
 
 from paper_trading_engine.chart_market_data import AccountChartMarketData
-from paper_trading_engine.chart_strategy_metadata import AccountChartStrategyMetadata
 
 
 def test_chart_market_data_reads_adjusted_bars_without_strategy_instance() -> None:
@@ -47,26 +44,3 @@ def test_chart_market_data_reads_adjusted_bars_without_strategy_instance() -> No
     assert request.symbol == "588080.SH"
     assert request.end == "2026-09-22"
     assert request.required_cutoff == "2026-09-22"
-
-
-def test_chart_strategy_metadata_is_bound_to_frozen_release(tmp_path) -> None:
-    version = tmp_path / "strategies" / "S007" / "versions" / "v1.json"
-    version.parent.mkdir(parents=True)
-    version.write_text(
-        json.dumps(
-            {
-                "release_hash": "a" * 64,
-                "strategy_payload": {"rule": {"entry": 0.2}},
-            }
-        ),
-        encoding="utf-8",
-    )
-    metadata = AccountChartStrategyMetadata(tmp_path)
-
-    assert metadata.configuration(
-        strategy_id="S007", strategy_version="v1", release_hash="a" * 64
-    ) == {"rule": {"entry": 0.2}}
-    with pytest.raises(ValueError, match="identity differs"):
-        metadata.configuration(
-            strategy_id="S007", strategy_version="v1", release_hash="b" * 64
-        )

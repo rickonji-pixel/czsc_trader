@@ -1,10 +1,13 @@
 from argparse import Namespace
+from concurrent.futures import Future
 from dataclasses import replace
 from datetime import date
 import json
 from pathlib import Path
 import sqlite3
 import subprocess
+from threading import Event, get_ident
+import time
 from types import SimpleNamespace
 
 import pandas as pd
@@ -279,6 +282,22 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
             "valid_session": "2026-09-04",
             "action": "WAIT",
             "target_quantity": 0,
+            "observation": {
+                "contract_version": "strategy_observation.v1",
+                "status": "READY",
+                "action": "WAIT",
+                "target_position": 0.0,
+                "series": [
+                    {
+                        "key": "factor_score",
+                        "label": "策略得分",
+                        "value": 0.2,
+                        "guides": [
+                            {"key": "entry", "label": "买入阈值", "value": 0.175}
+                        ],
+                    }
+                ],
+            },
         },
     )
     dates = list(pd.bdate_range(end="2026-09-02", periods=185)) + list(
@@ -302,53 +321,47 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
             pd.DataFrame(rows),
         )
     )
-    strategy_metadata = SimpleNamespace(
-        configuration=lambda **_kwargs: {
-            "rule": {"entry_threshold": 0.175, "exit_threshold": 0.025}
-        }
-    )
-
     calls = []
 
-    def renderer(command, **kwargs):
-        calls.append((command, kwargs))
-        return subprocess.CompletedProcess(command, 0, "<html>chart</html>", "")
+    def renderer(request):
+        calls.append(request)
+        return "<html>chart</html>"
+
+    class ImmediateExecutor:
+        def submit(self, fn, *args):
+            future = Future()
+            try:
+                future.set_result(fn(*args))
+            except Exception as exc:  # pragma: no cover - asserted through service state
+                future.set_exception(exc)
+            return future
 
     service = AccountChartService(
         store,
         market_data=market_data,
-        strategy_metadata=strategy_metadata,
         cache_dir=tmp_path / "charts",
-        trader_executable="czsc-trader",
-        runner=renderer,
+        renderer=renderer,
+        executor=ImmediateExecutor(),
+        refresh_interval_seconds=0,
     )
     first = service.status("s001-v2")
     assert first["status"] == "READY", first["message"]
     assert first["scope"] == {"account_id": "s001-v2", "release_id": "S001-v2"}
     assert service.chart_path("s001-v2").read_text(encoding="utf-8") == "<html>chart</html>"
-    request = json.loads(calls[0][1]["input"])
-    assert request["contract_version"] == "strategy_chart.v1"
-    assert request["mode"] == "FORWARD_OBSERVATION"
+    request = calls[0]
+    assert request["contract_version"] == "pte_forward_chart.v1"
     assert len(request["market_data"]["bars"]) == 62
     assert request["window"]["context_sessions"] == 60
     assert request["market_data"]["bars"][0]["date"] == dates[125].date().isoformat()
     assert request["market_data"]["bars"][-1]["date"] == "2026-09-04"
-    decisions = request["strategy_output"]["decisions"]
+    decisions = request["observations"]
     assert {row["account_id"] for row in decisions} == {"s001-v2"}
-    assert request["execution"]["orders"] == []
     assert set(decisions[0]) == {
         "account_id", "decision_id", "signal_date", "valid_session", "generated_at",
-        "action", "target_quantity", "factor_score", "regime", "strategy_output",
+        "action", "target_quantity", "observation",
     }
-    assert calls[0][0] == [
-        "czsc-trader",
-        "chart",
-        "observation",
-        "--format",
-        "html",
-        "--plotly-runtime",
-        "external",
-    ]
+    assert request["strategy"]["release_id"] == "S001-v2"
+    assert request["strategy"]["name"] == "综合基线策略"
 
     second = service.status("s001-v2")
     assert second["fingerprint"] == first["fingerprint"]
@@ -374,6 +387,7 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     refreshed = service.status("s001-v2")
     assert refreshed["fingerprint"] != first["fingerprint"]
     assert len(calls) == 2
+    service.close()
     store.close()
 
     legacy = tmp_path / "unsafe-legacy.db"
@@ -406,6 +420,81 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     assert migrated.get_setting("account_execution_schema") == "account_execution.v1"
     assert migrated.query_audit_events(event_type="ACCOUNT_EXECUTION_MIGRATED")
     migrated.close()
+
+
+def test_account_chart_runs_market_fetch_and_render_on_dedicated_worker(tmp_path):
+    from paper_trading_engine.account_chart import AccountChartService
+
+    store = PaperStore(tmp_path / "chart-thread.db")
+    create_account(store, "s001-v2", "v2", "b")
+    store.save_account_decision(
+        "s001-v2",
+        {
+            "account_id": "s001-v2",
+            "decision_id": "DEC-1",
+            "signal_date": "2026-09-03",
+            "valid_session": "2026-09-04",
+            "action": "WAIT",
+            "target_quantity": 0,
+            "observation": {
+                "contract_version": "strategy_observation.v1",
+                "status": "READY",
+                "action": "WAIT",
+                "target_position": 0.0,
+                "series": [{
+                    "key": "factor_score", "label": "策略得分", "value": 0.2,
+                    "guides": [],
+                }],
+            },
+        },
+    )
+    entered = Event()
+    release = Event()
+    worker_ids = []
+    frame = pd.DataFrame(
+        [
+            {"dt": "2026-09-02", "open": 1, "high": 1.1, "low": 0.9, "close": 1},
+            {"dt": "2026-09-03", "open": 1, "high": 1.1, "low": 0.9, "close": 1},
+        ]
+    )
+
+    def history(**_kwargs):
+        worker_ids.append(("dfls", get_ident()))
+        entered.set()
+        assert release.wait(2)
+        return "a" * 64, frame
+
+    def render(_request):
+        worker_ids.append(("render", get_ident()))
+        return "<html>chart</html>"
+
+    caller = get_ident()
+    service = AccountChartService(
+        store,
+        market_data=SimpleNamespace(history=history),
+        cache_dir=tmp_path / "charts",
+        renderer=render,
+        refresh_interval_seconds=3600,
+    )
+    started = time.perf_counter()
+    first = service.status("s001-v2")
+    elapsed = time.perf_counter() - started
+
+    assert first["status"] == "BUILDING"
+    assert elapsed < 0.5
+    assert entered.wait(1)
+    release.set()
+    deadline = time.monotonic() + 2
+    ready = service.status("s001-v2")
+    while ready["status"] != "READY" and time.monotonic() < deadline:
+        time.sleep(0.01)
+        ready = service.status("s001-v2")
+    assert ready["status"] == "READY"
+    assert {name for name, _thread_id in worker_ids} == {"dfls", "render"}
+    assert all(thread_id != caller for _name, thread_id in worker_ids)
+    assert len({thread_id for _name, thread_id in worker_ids}) == 1
+    service.close()
+    store.close()
 
 
 def test_ft_pte02_selection_cutoff_is_required_immutable_and_safely_backfilled(tmp_path):

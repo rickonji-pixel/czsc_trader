@@ -1,58 +1,64 @@
-"""Account-scoped observation chart builder and PTE-owned cache."""
+"""Account-scoped PTE forward charts refreshed outside request threads."""
 
 from __future__ import annotations
 
-from datetime import date
+from concurrent.futures import Executor, Future, ThreadPoolExecutor
+from datetime import date, datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import subprocess
-from threading import Lock, RLock
+from threading import RLock
+import time
 from typing import Any, Callable
 from uuid import uuid4
 
 from .audit import AuditRecorder
+from .forward_chart import FORWARD_CHART_CONTRACT_VERSION, render_forward_chart_html
 
 
 ACCOUNT_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 INPUT_LIMIT = 5 * 1024 * 1024
 OUTPUT_LIMIT = 20 * 1024 * 1024
-CACHE_RENDER_REVISION = "strategy-chart-context-v1"
+CACHE_RENDER_REVISION = "pte-forward-chart-v1"
 
 
 class AccountChartService:
+    """Serve cached charts and run DFLS plus rendering on one dedicated worker."""
+
     def __init__(
         self,
         store,
         *,
         market_data,
-        strategy_metadata,
         cache_dir: Path,
-        trader_executable: str | Path = "czsc-trader",
-        runner: Callable[..., Any] = subprocess.run,
-        timeout_seconds: int = 30,
         context_sessions: int = 60,
+        refresh_interval_seconds: float = 60,
         audit: AuditRecorder | None = None,
+        executor: Executor | None = None,
+        renderer: Callable[[object], str] = render_forward_chart_html,
     ) -> None:
         self.store = store
         self.market_data = market_data
-        self.strategy_metadata = strategy_metadata
         self.cache_dir = Path(cache_dir)
-        self.trader_executable = str(trader_executable)
-        self.runner = runner
-        self.timeout_seconds = timeout_seconds
         self.context_sessions = context_sessions
+        self.refresh_interval_seconds = refresh_interval_seconds
         self.audit = audit or AuditRecorder(store)
-        self._locks: dict[str, Lock] = {}
-        self._locks_guard = RLock()
+        self.renderer = renderer
+        self._executor = executor or ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="pte-account-chart",
+        )
+        self._owns_executor = executor is None
+        self._jobs: dict[str, Future[None]] = {}
+        self._last_submit: dict[str, float] = {}
+        self._guard = RLock()
 
     def _account_dir(self, account_id: str) -> Path:
         if ACCOUNT_ID_PATTERN.fullmatch(account_id) is None:
             raise ValueError("invalid account id")
-        target = (self.cache_dir / account_id).resolve()
         root = self.cache_dir.resolve()
+        target = (root / account_id).resolve()
         if target.parent != root:
             raise ValueError("account chart path escapes cache root")
         return target
@@ -62,10 +68,6 @@ class AccountChartService:
 
     def _meta_path(self, account_id: str) -> Path:
         return self._account_dir(account_id) / "observation.meta.json"
-
-    def _lock(self, account_id: str) -> Lock:
-        with self._locks_guard:
-            return self._locks.setdefault(account_id, Lock())
 
     @staticmethod
     def _sha256(content: bytes) -> str:
@@ -81,16 +83,12 @@ class AccountChartService:
         )
         frame = frame.rename(
             columns={
-                "dt": "date",
-                "Date": "date",
-                "Open": "open",
-                "High": "high",
-                "Low": "low",
-                "Close": "close",
+                "dt": "date", "Date": "date", "Open": "open", "High": "high",
+                "Low": "low", "Close": "close",
             }
         )
         if not {"date", "open", "high", "low", "close"} <= set(frame.columns):
-            raise ValueError("SRT adjusted daily input has incomplete OHLC data")
+            raise ValueError("DFLS adjusted daily input has incomplete OHLC data")
         bars: dict[str, dict[str, object]] = {}
         for row in frame.to_dict("records"):
             session = date.fromisoformat(str(row["date"])[:10]).isoformat()
@@ -105,11 +103,10 @@ class AccountChartService:
             }
         ordered = [bars[key] for key in sorted(bars)]
         history = [bar for bar in ordered if bar["date"] <= cutoff][-self.context_sessions :]
-        forward = [bar for bar in ordered if bar["date"] > cutoff]
-        selected = history + forward
+        selected = history + [bar for bar in ordered if bar["date"] > cutoff]
         if not selected:
             raise ValueError("no daily market data is available for the account chart")
-        return price_identity, selected
+        return str(price_identity), selected
 
     @staticmethod
     def _fact_date(row: dict[str, Any], fields: tuple[str, ...]) -> str | None:
@@ -121,6 +118,10 @@ class AccountChartService:
     @staticmethod
     def _decision(row: dict[str, Any]) -> dict[str, Any]:
         payload = dict(row.get("payload") or {})
+        observation = payload.get("observation")
+        if not isinstance(observation, dict) or observation.get("status") != "READY":
+            message = observation.get("message") if isinstance(observation, dict) else None
+            raise ValueError(message or f'decision {row["decision_id"]} has no chart observation')
         return {
             "account_id": row["account_id"],
             "decision_id": row["decision_id"],
@@ -129,9 +130,7 @@ class AccountChartService:
             "generated_at": row["generated_at"],
             "action": payload.get("action"),
             "target_quantity": payload.get("target_quantity"),
-            "factor_score": payload.get("factor_score"),
-            "regime": payload.get("regime"),
-            "strategy_output": dict(payload.get("strategy_output") or {}),
+            "observation": observation,
         }
 
     @staticmethod
@@ -157,31 +156,27 @@ class AccountChartService:
 
     def _request(self, account_id: str) -> tuple[dict[str, object], bool]:
         account = self.store.virtual_account(account_id)
-        cutoff = account.get("selection_data_cutoff")
-        if not cutoff:
+        cutoff_value = account.get("selection_data_cutoff")
+        if not cutoff_value:
             raise ValueError("strategy selection cutoff is unavailable")
-        cutoff = date.fromisoformat(str(cutoff)).isoformat()
+        cutoff = date.fromisoformat(str(cutoff_value)).isoformat()
         market_identity, bars = self._market_data(account)
-        configuration = self.strategy_metadata.configuration(
-            strategy_id=str(account["strategy_id"]),
-            strategy_version=str(account["strategy_version"]),
-            release_hash=str(account["release_hash"]),
-        )
-        decisions = self._after_cutoff(
-            [self._decision(row) for row in self.store.account_decisions(account_id)],
-            cutoff,
-            ("signal_date",),
-        )
-        intents = self._after_cutoff(
-            [self._intent(row) for row in self.store.account_intents(account_id)],
-            cutoff,
-            ("valid_session", "session"),
-        )
-        fills = []
-        for row in self._after_cutoff(
-            self.store.account_fills(account_id), cutoff, ("occurred_at", "session"),
-        ):
-            fills.append({
+        decisions = [
+            self._decision(row)
+            for row in self._after_cutoff(
+                self.store.account_decisions(account_id), cutoff, ("signal_date",)
+            )
+        ]
+        intents = [
+            self._intent(row)
+            for row in self._after_cutoff(
+                self.store.account_intents(account_id),
+                cutoff,
+                ("valid_session", "session"),
+            )
+        ]
+        fills = [
+            {
                 "account_id": row.get("account_id"),
                 "fill_id": row.get("fill_id"),
                 "decision_id": row.get("decision_id"),
@@ -191,7 +186,11 @@ class AccountChartService:
                 "quantity": row.get("quantity"),
                 "price": row.get("price"),
                 "fee": row.get("fee"),
-            })
+            }
+            for row in self._after_cutoff(
+                self.store.account_fills(account_id), cutoff, ("occurred_at", "session"),
+            )
+        ]
         snapshots = [
             {
                 "account_id": row.get("account_id"),
@@ -202,17 +201,17 @@ class AccountChartService:
                 self.store.account_snapshots(account_id), cutoff, ("session",),
             )
         ]
+        release_id = f'{account["strategy_id"]}-{account["strategy_version"]}'
         request = {
-            "contract_version": "strategy_chart.v1",
-            "mode": "FORWARD_OBSERVATION",
+            "contract_version": FORWARD_CHART_CONTRACT_VERSION,
             "strategy": {
                 "account_id": account_id,
                 "strategy_id": account["strategy_id"],
-                "strategy_version": account["strategy_version"],
-                "reference_id": f'{account["strategy_id"]}-{account["strategy_version"]}',
-                "identity_hash": account["release_hash"],
+                "version": account["strategy_version"],
+                "release_id": release_id,
+                "release_hash": account["release_hash"],
+                "name": account["strategy_name_snapshot"],
                 "symbol": account["symbol"],
-                "configuration": configuration,
             },
             "window": {
                 "selection_data_cutoff": cutoff,
@@ -221,18 +220,11 @@ class AccountChartService:
             "market_data": {
                 "identity": market_identity,
                 "adjustment": "hfq",
+                "as_of": bars[-1]["date"],
                 "bars": bars,
             },
-            "strategy_output": {"decisions": decisions},
-            "execution": {
-                "intents": intents,
-                # Excluding broker payloads keeps this bounded chart contract
-                # independent from opaque third-party text.
-                "orders": [],
-                "fills": fills,
-                "snapshots": snapshots,
-            },
-            "render": {"format": "html", "plotly_runtime": "external"},
+            "observations": decisions,
+            "execution": {"intents": intents, "fills": fills, "snapshots": snapshots},
         }
         return request, any(bar["date"] > cutoff for bar in bars)
 
@@ -245,7 +237,7 @@ class AccountChartService:
         return value if isinstance(value, dict) else {}
 
     def current_error(self, account_id: str) -> str | None:
-        """Return the persisted chart error without triggering a render."""
+        """Return the persisted chart error without triggering a refresh."""
         self._account_dir(account_id)
         value = self._load_meta(self._meta_path(account_id)).get("error")
         return str(value) if value else None
@@ -261,138 +253,126 @@ class AccountChartService:
             temporary.unlink(missing_ok=True)
 
     def _record_failure(self, account: dict[str, Any], error: Exception) -> None:
-        meta_path = self._meta_path(account["account_id"])
+        meta_path = self._meta_path(str(account["account_id"]))
         message = str(error)[:500]
-        fingerprint = self._sha256(message.encode("utf-8"))
+        error_fingerprint = self._sha256(message.encode("utf-8"))
         old = self._load_meta(meta_path)
-        if old.get("error_fingerprint") == fingerprint:
-            return
-        self.audit.record(
-            "ACCOUNT_CHART_GENERATION_FAILED",
-            source="account_chart",
-            outcome="FAILURE",
-            actor_type="ENGINE",
-            account_id=account["account_id"],
-            strategy_id=account.get("strategy_id"),
-            strategy_version=account.get("strategy_version"),
-            release_hash=account.get("identity_hash", account.get("release_hash")),
-            symbol=account.get("symbol"),
-            details={"operation": "render", "error": message},
-        )
-        self._atomic_write(
-            meta_path,
-            json.dumps({"error_fingerprint": fingerprint, "error": message}, ensure_ascii=False),
-        )
+        if old.get("error_fingerprint") != error_fingerprint:
+            self.audit.record(
+                "ACCOUNT_CHART_GENERATION_FAILED", source="account_chart",
+                outcome="FAILURE", actor_type="ENGINE", account_id=account["account_id"],
+                strategy_id=account.get("strategy_id"),
+                strategy_version=account.get("strategy_version"),
+                release_hash=account.get("release_hash"), symbol=account.get("symbol"),
+                details={"operation": "render", "error": message},
+            )
+        old.update({"error_fingerprint": error_fingerprint, "error": message})
+        self._atomic_write(meta_path, json.dumps(old, ensure_ascii=False))
 
-    def _unavailable(self, account_id: str, error: Exception) -> dict[str, object]:
-        try:
-            account = self.store.virtual_account(account_id)
-            self._record_failure(account, error)
-            release_id = f'{account.get("strategy_id")}-{account.get("strategy_version")}'
-            cutoff = account.get("selection_data_cutoff")
-        except KeyError:
-            raise
-        return {
-            "scope": {"account_id": account_id, "release_id": release_id},
-            "status": "UNAVAILABLE",
-            "selection_data_cutoff": cutoff,
-            "context_sessions": self.context_sessions,
-            "chart_url": None,
-            "fingerprint": None,
-            "message": str(error)[:500],
-        }
-
-    def status(self, account_id: str) -> dict[str, object]:
-        self._account_dir(account_id)
+    def _refresh(self, account_id: str) -> None:
+        account = self.store.virtual_account(account_id)
+        meta_path = self._meta_path(account_id)
+        old_meta = self._load_meta(meta_path)
         try:
             request, has_forward = self._request(account_id)
             encoded = json.dumps(
-                request, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str,
+                request, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                allow_nan=False, default=str,
             )
             if len(encoded.encode("utf-8")) > INPUT_LIMIT:
                 raise ValueError("account observation input exceeds 5 MiB")
-            fingerprint_input = json.dumps(
-                request,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                default=str,
-            )
-            # The current chart has no order-status layer. Futu refreshes terminal order
-            # timestamps every few seconds, so including orders here would force identical
-            # charts to be rendered repeatedly. Intents, fills and snapshots remain visual
-            # facts and continue to invalidate the cache.
-            cache_key = f"{CACHE_RENDER_REVISION}\n{fingerprint_input}".encode("utf-8")
-            fingerprint = self._sha256(cache_key)
-        except KeyError:
-            raise
-        except Exception as exc:
-            return self._unavailable(account_id, exc)
-
-        account = request["strategy"]
-        html_path = self.chart_path(account_id)
-        meta_path = self._meta_path(account_id)
-        with self._lock(account_id):
-            old_meta = self._load_meta(meta_path)
+            fingerprint = self._sha256(f"{CACHE_RENDER_REVISION}\n{encoded}".encode("utf-8"))
+            html_path = self.chart_path(account_id)
             if old_meta.get("fingerprint") != fingerprint or not html_path.is_file():
-                try:
-                    completed = self.runner(
-                        [
-                            self.trader_executable,
-                            "chart",
-                            "observation",
-                            "--format",
-                            "html",
-                            "--plotly-runtime",
-                            "external",
-                        ],
-                        input=encoded,
-                        text=True,
-                        capture_output=True,
-                        shell=False,
-                        timeout=self.timeout_seconds,
-                        encoding="utf-8",
-                    )
-                    if completed.returncode:
-                        raise RuntimeError(completed.stderr.strip() or "chart renderer failed")
-                    html = str(completed.stdout)
-                    if len(html.encode("utf-8")) > OUTPUT_LIMIT:
-                        raise ValueError("account observation output exceeds 20 MiB")
-                    if not html.lstrip().lower().startswith(("<html", "<!doctype html")):
-                        raise ValueError("chart renderer returned invalid HTML")
-                    self._atomic_write(html_path, html)
-                    self._atomic_write(
-                        meta_path,
-                        json.dumps(
-                            {"fingerprint": fingerprint, "has_forward": has_forward},
-                            ensure_ascii=False,
-                        ),
-                    )
-                    if old_meta.get("error_fingerprint"):
-                        self.audit.record(
-                            "ACCOUNT_CHART_RECOVERED",
-                            source="account_chart",
-                            actor_type="ENGINE",
-                            account_id=account_id,
-                            strategy_id=account.get("strategy_id"),
-                            strategy_version=account.get("strategy_version"),
-                            release_hash=account.get(
-                                "identity_hash", account.get("release_hash")
-                            ),
-                            symbol=account.get("symbol"),
-                            details={"operation": "render"},
-                        )
-                except Exception as exc:
-                    self._record_failure(account, exc)
-                    return self._unavailable(account_id, exc)
+                html = self.renderer(request)
+                if len(html.encode("utf-8")) > OUTPUT_LIMIT:
+                    raise ValueError("account observation output exceeds 20 MiB")
+                if not html.lstrip().lower().startswith(("<html", "<!doctype html")):
+                    raise ValueError("chart renderer returned invalid HTML")
+                self._atomic_write(html_path, html)
+            self._atomic_write(
+                meta_path,
+                json.dumps(
+                    {
+                        "fingerprint": fingerprint, "has_forward": has_forward,
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+            if old_meta.get("error_fingerprint"):
+                self.audit.record(
+                    "ACCOUNT_CHART_RECOVERED", source="account_chart", actor_type="ENGINE",
+                    account_id=account_id, strategy_id=account.get("strategy_id"),
+                    strategy_version=account.get("strategy_version"),
+                    release_hash=account.get("release_hash"), symbol=account.get("symbol"),
+                    details={"operation": "render"},
+                )
+        except Exception as exc:
+            self._record_failure(account, exc)
 
-        status = "READY" if has_forward else "EMPTY"
+    @staticmethod
+    def _scope(account: dict[str, Any]) -> dict[str, str]:
         return {
-            "scope": {"account_id": account_id, "release_id": account["reference_id"]},
-            "status": status,
-            "selection_data_cutoff": request["window"]["selection_data_cutoff"],
-            "context_sessions": self.context_sessions,
-            "chart_url": f"/charts/{account_id}/observation.html?v={fingerprint}",
-            "fingerprint": fingerprint,
-            "message": None if has_forward else "等待新的完整收盘数据",
+            "account_id": str(account["account_id"]),
+            "release_id": f'{account["strategy_id"]}-{account["strategy_version"]}',
         }
+
+    def _status_from_cache(
+        self, account: dict[str, Any], *, refreshing: bool,
+    ) -> dict[str, object]:
+        account_id = str(account["account_id"])
+        meta = self._load_meta(self._meta_path(account_id))
+        fingerprint = str(meta.get("fingerprint") or "")
+        chart_exists = self.chart_path(account_id).is_file()
+        base = {
+            "scope": self._scope(account),
+            "selection_data_cutoff": account.get("selection_data_cutoff"),
+            "context_sessions": self.context_sessions,
+        }
+        if meta.get("error"):
+            return {
+                **base, "status": "UNAVAILABLE", "chart_url": None,
+                "fingerprint": None, "message": str(meta["error"]),
+            }
+        if fingerprint and chart_exists:
+            has_forward = bool(meta.get("has_forward"))
+            return {
+                **base,
+                "status": "REFRESHING" if refreshing else ("READY" if has_forward else "EMPTY"),
+                "chart_url": f"/charts/{account_id}/observation.html?v={fingerprint}",
+                "fingerprint": fingerprint,
+                "message": "正在刷新观察图" if refreshing else (
+                    None if has_forward else "等待新的完整收盘数据"
+                ),
+            }
+        return {
+            **base, "status": "BUILDING", "chart_url": None,
+            "fingerprint": None, "message": "正在生成观察图",
+        }
+
+    def status(self, account_id: str) -> dict[str, object]:
+        """Return immediately; enqueue at most one refresh for this account."""
+        self._account_dir(account_id)
+        account = self.store.virtual_account(account_id)
+        now = time.monotonic()
+        with self._guard:
+            job = self._jobs.get(account_id)
+            if job is not None and job.done():
+                self._jobs.pop(account_id, None)
+                job = None
+            last_submit = self._last_submit.get(account_id)
+            if job is None and (
+                last_submit is None or now - last_submit >= self.refresh_interval_seconds
+            ):
+                job = self._executor.submit(self._refresh, account_id)
+                self._jobs[account_id] = job
+                self._last_submit[account_id] = now
+                if job.done():
+                    self._jobs.pop(account_id, None)
+                    job = None
+            return self._status_from_cache(account, refreshing=job is not None)
+
+    def close(self) -> None:
+        if self._owns_executor:
+            self._executor.shutdown(wait=True, cancel_futures=True)

@@ -100,7 +100,7 @@ def create_server(
             status = api.virtual_account_chart(account_id)
             requested = query.get("v", [""])[-1]
             fingerprint = str(status.get("fingerprint") or "")
-            if status.get("status") not in {"READY", "EMPTY"} or requested != fingerprint:
+            if status.get("status") not in {"READY", "EMPTY", "REFRESHING"} or requested != fingerprint:
                 raise ResourceNotFound(account_id)
             path = api.virtual_account_chart_path(account_id)
             if not path.is_file():

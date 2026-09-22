@@ -155,6 +155,10 @@ function applyAccountChart(status){
   const host=document.querySelector('#accountChartFrameHost'),message=document.querySelector('#accountChartMessage');
   if(!host||status?.scope?.account_id!==parseRoute(location.pathname).accountId)return;
   message.textContent=status.message||'';message.hidden=!status.message;
+  if(status.status==='BUILDING'){
+    host.innerHTML='<div class="loading">正在生成前瞻观察图…</div>';
+    state.chart={account_id:status.scope.account_id,fingerprint:null};return;
+  }
   if(status.status==='UNAVAILABLE'||!status.chart_url){
     host.innerHTML=`<div class="error"><strong>前瞻观察图不可用</strong><div>${esc(status.message)}</div><button id="retryAccountChart" class="button" type="button">重新加载图表</button></div>`;
     document.querySelector('#retryAccountChart').onclick=()=>loadRoute({showLoading:false});

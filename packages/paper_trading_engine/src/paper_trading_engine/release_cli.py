@@ -25,6 +25,7 @@ from strategy_runtime import (
     StrategyRuntime,
     deployment_inventory,
     load_strategy_deployment,
+    validate_observation_descriptor,
 )
 
 from .runtime_release import (
@@ -214,6 +215,7 @@ def _verify_strategy_snapshot(strategy_root: Path) -> dict[str, str]:
             source_root=deployment.source_root,
             install_files=deployment.install_files,
         )
+        validate_observation_descriptor(deployment.binding.get("observation"))
     return inventory
 
 

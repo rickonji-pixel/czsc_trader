@@ -323,4 +323,7 @@ class PteCoordinator:
         self.accounts.begin_shutdown()
         self.execution.begin_shutdown()
 
-    def close(self): self.execution.close()
+    def close(self):
+        if self.account_chart is not None:
+            self.account_chart.close()
+        self.execution.close()

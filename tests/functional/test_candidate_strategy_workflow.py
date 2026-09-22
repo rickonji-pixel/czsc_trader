@@ -53,10 +53,7 @@ def _candidate_package(root: Path) -> Path:
         "class CandidateCharts:\n"
         "    @staticmethod\n"
         "    def render_backtest(context):\n"
-        "        return '<html>backtest</html>'\n"
-        "    @staticmethod\n"
-        "    def render_forward_observation(context):\n"
-        "        return '<html>forward</html>'\n",
+        "        return '<html>backtest</html>'\n",
         encoding="utf-8",
     )
     source_files = ("strategies/candidate_fixture.py",)
@@ -106,6 +103,17 @@ def _candidate_package(root: Path) -> Path:
             "source_files": list(chart_files),
             "source_sha256": chart_hash,
         },
+        "observation": {
+            "contract_version": "strategy_observation.v1",
+            "series": [
+                {
+                    "key": "signal_score",
+                    "label": "信号得分",
+                    "value_field": "signal_score",
+                    "guides": [],
+                }
+            ],
+        },
     }
     _write_json(package / "runtime_binding.json", binding)
     files = {
@@ -127,7 +135,7 @@ def _candidate_package(root: Path) -> Path:
     return package
 
 
-def test_candidate_package_locks_runtime_and_both_chart_modes(tmp_path: Path) -> None:
+def test_candidate_package_locks_runtime_and_backtest_chart(tmp_path: Path) -> None:
     path = _candidate_package(tmp_path)
 
     package = load_candidate_package(path)

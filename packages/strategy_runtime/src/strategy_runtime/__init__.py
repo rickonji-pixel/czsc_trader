@@ -3,6 +3,13 @@
 from .algorithm import StrategyImplementation
 from .calculation import CalculationScope, CalendarWindow, InputRange
 from .charting import CHART_CONTEXT_VERSION, ChartRuntime, validate_chart_context
+from .observation import (
+    OBSERVATION_CONTRACT_VERSION,
+    materialize_observation,
+    unavailable_observation,
+    validate_observation_descriptor,
+    validate_observation_payload,
+)
 from .contracts import (
     DataPreparationResult,
     ExecutionCapabilities,
@@ -53,6 +60,7 @@ __all__ = [
     "InputRange",
     "OrderSide",
     "OrderType",
+    "OBSERVATION_CONTRACT_VERSION",
     "PlanLeg",
     "PlannedOrder",
     "PortfolioSnapshot",
@@ -76,5 +84,9 @@ __all__ = [
     "canonical_sha256",
     "deployment_inventory",
     "load_strategy_deployment",
+    "materialize_observation",
+    "unavailable_observation",
     "validate_chart_context",
+    "validate_observation_descriptor",
+    "validate_observation_payload",
 ]

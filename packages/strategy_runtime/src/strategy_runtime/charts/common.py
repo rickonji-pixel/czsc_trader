@@ -1,4 +1,4 @@
-"""Shared visual system for strategy-owned TDR and PTE charts."""
+"""Shared visual system for strategy-owned TDR backtest charts."""
 
 from __future__ import annotations
 
@@ -120,7 +120,7 @@ def _shell(
         for name, value in cards
     )
     reference = escape(str(context["strategy"]["reference_id"]))
-    mode = "TDR · 回测复盘" if context["mode"] == "BACKTEST" else "PTE · 前瞻观察"
+    mode = "TDR · 回测复盘"
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><style>
 html,body{{margin:0;background:#07111f;color:#eef5ff;font-family:Inter,"Microsoft YaHei",sans-serif}}
@@ -139,19 +139,15 @@ class UnifiedStrategyCharts:
 
     @staticmethod
     def _base_figure(
-        context: dict[str, Any], panels: tuple[Panel, ...], *, position_panel: bool,
+        context: dict[str, Any], panels: tuple[Panel, ...],
     ) -> tuple[go.Figure, pd.DataFrame, pd.DataFrame]:
         prices = _prices(context)
-        rows = (
-            _frame(context["strategy_output"].get("chart_rows", []), "date", "signal_date")
-            if context["mode"] == "BACKTEST"
-            else _frame(context["strategy_output"].get("decisions", []), "signal_date")
+        rows = _frame(
+            context["strategy_output"].get("chart_rows", []), "date", "signal_date"
         )
-        row_count = 1 + len(panels) + int(position_panel)
+        row_count = 1 + len(panels)
         heights = [0.56, *([0.22 / max(len(panels), 1)] * len(panels))]
-        if position_panel:
-            heights.append(0.22)
-        elif panels:
+        if panels:
             heights[0] = 0.68
             scale = (1 - heights[0]) / sum(heights[1:])
             heights[1:] = [height * scale for height in heights[1:]]
@@ -320,9 +316,7 @@ class UnifiedStrategyCharts:
 
     def render_backtest(self, context: dict[str, Any]) -> str:
         panels = self.panels(context)
-        figure, prices, _rows = self._base_figure(
-            context, panels, position_panel=False
-        )
+        figure, prices, _rows = self._base_figure(context, panels)
         self._events(figure, prices, context)
         self._layout(figure, context, height=700 if len(panels) == 1 else 780)
         account = _frame(context["execution"].get("account_daily", []), "date")
@@ -344,61 +338,4 @@ class UnifiedStrategyCharts:
             context,
             cards=cards,
             title=f'{context["strategy"]["symbol"]} 策略回测',
-        )
-
-    def render_forward_observation(self, context: dict[str, Any]) -> str:
-        panels = self.panels(context)
-        figure, prices, rows = self._base_figure(
-            context, panels, position_panel=True
-        )
-        self._events(figure, prices, context)
-        position_row = 2 + len(panels)
-        if not rows.empty and "target_quantity" in rows:
-            figure.add_trace(
-                go.Scatter(
-                    x=rows["date"],
-                    y=rows["target_quantity"],
-                    mode="lines+markers",
-                    line_shape="hv",
-                    name="目标持仓",
-                ),
-                row=position_row,
-                col=1,
-            )
-        snapshots = _frame(context["execution"].get("snapshots", []), "session")
-        if not snapshots.empty:
-            figure.add_trace(
-                go.Scatter(
-                    x=snapshots["date"],
-                    y=snapshots["quantity"],
-                    mode="lines+markers",
-                    line_shape="hv",
-                    name="实际持仓",
-                ),
-                row=position_row,
-                col=1,
-            )
-        cutoff = pd.Timestamp(context["window"]["selection_data_cutoff"])
-        figure.add_vline(
-            x=cutoff,
-            line_width=2,
-            line_dash="dash",
-            line_color="#ef4444",
-            annotation_text="选择截止",
-            row="all",
-            col=1,
-        )
-        self._layout(figure, context, height=620)
-        forward = prices.loc[prices.index > cutoff]
-        cards = [
-            ("选择截止", cutoff.date().isoformat()),
-            ("前瞻交易日", str(len(forward))),
-            ("策略决策", str(len(rows))),
-            ("明确成交", str(len(context["execution"].get("fills", [])))),
-        ]
-        return _shell(
-            figure,
-            context,
-            cards=cards,
-            title=f'{context["strategy"]["symbol"]} 前瞻观察',
         )

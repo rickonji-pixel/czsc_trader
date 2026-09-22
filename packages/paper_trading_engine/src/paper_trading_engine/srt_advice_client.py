@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Mapping
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 import json
@@ -26,6 +27,10 @@ from strategy_runtime import (
     TradableWindow,
     TradingPoint,
     canonical_sha256,
+    load_strategy_deployment,
+    materialize_observation,
+    unavailable_observation,
+    validate_observation_descriptor,
 )
 from dataflows import Dataflows, DataRequest, Dataset
 
@@ -44,6 +49,7 @@ class PreparedAccountStrategy:
 
     instance: StrategyInstance
     result: DataPreparationResult
+    observation_descriptor: Mapping[str, object]
 
     @property
     def strategy(self):
@@ -104,7 +110,11 @@ def _order_payload(order) -> dict[str, object]:
     }
 
 
-def _decision_from_plan(plan: ExecutionPlan, identity: dict[str, str]) -> AdviceDecision:
+def _decision_from_plan(
+    plan: ExecutionPlan,
+    identity: dict[str, str],
+    observation_descriptor: Mapping[str, object],
+) -> AdviceDecision:
     orders = [_order_payload(order) for order in plan.orders]
     legs = [
         {
@@ -120,6 +130,15 @@ def _decision_from_plan(plan: ExecutionPlan, identity: dict[str, str]) -> Advice
         for leg in plan.legs
     ]
     source_decision_id = f"SRT-{plan.signal_date:%Y%m%d}-{plan.signal_identity[:12].upper()}"
+    try:
+        observation = materialize_observation(
+            observation_descriptor,
+            plan.evidence,
+            action=plan.action,
+            target_position=plan.target_position,
+        )
+    except ValueError as exc:
+        observation = unavailable_observation(exc)
     payload = {
         "contract_version": "advice.v5" if plan.plan_mode != "NONE" or legs else "advice.v4",
         "decision_id": source_decision_id,
@@ -155,6 +174,7 @@ def _decision_from_plan(plan: ExecutionPlan, identity: dict[str, str]) -> Advice
         "plan_legs": legs,
         "runtime_sha256": plan.strategy.runtime_sha256,
         "strategy_output": dict(plan.evidence),
+        "observation": observation,
         "input_identity_hashes": dict(plan.input_identities),
     }
     try:
@@ -273,7 +293,8 @@ class SrtAdviceClient:
             )
         )
         prepared = strategy.prepare_data()
-        return PreparedAccountStrategy(strategy, prepared)
+        descriptor = validate_observation_descriptor(entry.get("observation"))
+        return PreparedAccountStrategy(strategy, prepared, descriptor)
 
     def _trading_calendar(self, start: date, end: date) -> dict[date, int]:
         result = Dataflows().fetch(
@@ -440,6 +461,12 @@ class SrtAdviceClient:
             )
         if strategy.identity.symbol != symbol.upper():
             raise AdviceClientError("SRT execution-pricing symbol differs from account")
+        deployment = load_strategy_deployment(
+            self.repo_root / "strategies", release.release_id
+        )
+        observation = validate_observation_descriptor(
+            deployment.binding.get("observation")
+        )
         self._write_index(
             root,
             {
@@ -453,11 +480,12 @@ class SrtAdviceClient:
                         "release_hash": release.release_hash,
                         "data_dir": directory.relative_to(root).as_posix(),
                         "data_identity": prepared.data_identity,
+                        "observation": observation,
                     }
                 },
             },
         )
-        return PreparedAccountStrategy(strategy, prepared)
+        return PreparedAccountStrategy(strategy, prepared, observation)
 
     def verify_account_data(
         self,
@@ -582,7 +610,9 @@ class SrtAdviceClient:
                 ),
                 state=ExecutionState(state_revision, generated_at, cycle_target_quantity),
             )
-            decision = _decision_from_plan(plan, identity)
+            decision = _decision_from_plan(
+                plan, identity, prepared.observation_descriptor
+            )
         except Exception as exc:
             self._audit_call(started, error=exc, **scope)
             if isinstance(exc, AdviceClientError):

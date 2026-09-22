@@ -8,7 +8,11 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from strategy_manager import StrategyRegistry, canonical_sha256
-from strategy_runtime import StrategyRuntime, load_strategy_deployment
+from strategy_runtime import (
+    StrategyRuntime,
+    load_strategy_deployment,
+    validate_observation_descriptor,
+)
 
 from .candidate_package import validate_chart_contract
 from .context import RepositoryContext
@@ -106,7 +110,7 @@ def _release_package(
     )
     expected_binding = {
         "schema_version", "release_id", "release_hash", "source_files",
-        "implementation_sha256", "install_files", "charts",
+        "implementation_sha256", "install_files", "charts", "observation",
     }
     if set(binding) != expected_binding or binding["schema_version"] != 1:
         raise ValueError("strategy version runtime binding fields are invalid")
@@ -124,6 +128,7 @@ def _release_package(
     if len(normalized_install_files) != len(set(normalized_install_files)):
         raise ValueError("strategy version runtime binding repeats install files")
     validate_chart_contract(runtime_root, binding.get("charts"), normalized_install_files)
+    validate_observation_descriptor(binding.get("observation"))
     registry = StrategyRegistry(context.strategy_root)
     stored = registry.get_version(strategy_id, version)
     if stored.release_hash != manifest["strategy_version_hash"]:

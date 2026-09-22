@@ -108,6 +108,10 @@ def test_pte_prepares_then_uses_one_account_strategy_instance(tmp_path, monkeypa
     assert client.tradable_date("s002-v1", "S002", "v1") == date(2026, 9, 3)
     assert decision.signal_date == date(2026, 9, 2)
     assert decision.valid_session == date(2026, 9, 3)
+    assert decision.strategy_output is not None
+    assert decision.observation is not None
+    assert decision.observation["status"] == "READY"
+    assert decision.observation["series"][0]["key"] == "event_state"
 
 
 def test_prepared_data_is_isolated_by_account(tmp_path, monkeypatch):

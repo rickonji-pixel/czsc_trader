@@ -27,7 +27,6 @@ from .account_strategy_cycle import AccountStrategyCycle
 from .account_engine import AccountEngine
 from .account_chart import AccountChartService
 from .chart_market_data import AccountChartMarketData
-from .chart_strategy_metadata import AccountChartStrategyMetadata
 from .futu_execution import FutuExecution
 from .futu_gateway import FutuGateway
 from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
@@ -316,9 +315,7 @@ def build_engine(args: argparse.Namespace):
     account_chart = AccountChartService(
         store,
         market_data=AccountChartMarketData(),
-        strategy_metadata=AccountChartStrategyMetadata(args.repo_root),
         cache_dir=args.database.parent / "charts",
-        trader_executable=args.advice_executable or _default_executable(args.repo_root),
         audit=audit,
     )
     startup_timings["chart_service_ms"] = round(

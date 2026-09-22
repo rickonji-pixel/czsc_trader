@@ -51,13 +51,13 @@ def _rows(strategy_id: str) -> list[dict]:
     ]
 
 
-def _context(reference: str, mode: str) -> dict:
+def _context(reference: str) -> dict:
     strategy_id = reference.partition("-")[0]
     binding = load_strategy_deployment(ROOT / "strategies", reference).binding
     rows = _rows(strategy_id)
     context = {
         "contract_version": CHART_CONTEXT_VERSION,
-        "mode": mode,
+        "mode": "BACKTEST",
         "strategy": {
             "strategy_id": strategy_id,
             "reference_id": reference,
@@ -65,11 +65,7 @@ def _context(reference: str, mode: str) -> dict:
             "symbol": "TEST.SH",
             "configuration": _configuration(reference),
         },
-        "window": (
-            {"evaluation_start": "2026-09-02", "evaluation_end": "2026-09-04"}
-            if mode == "BACKTEST"
-            else {"selection_data_cutoff": "2026-09-02", "context_sessions": 60}
-        ),
+        "window": {"evaluation_start": "2026-09-02", "evaluation_end": "2026-09-04"},
         "market_data": {
             "identity": "market-fixture",
             "adjustment": "hfq",
@@ -102,45 +98,25 @@ def _context(reference: str, mode: str) -> dict:
         },
         "render": {"format": "html", "plotly_runtime": "external"},
     }
-    if mode == "FORWARD_OBSERVATION":
-        context["strategy"]["account_id"] = "fixture"
     return context
 
 
 @pytest.mark.parametrize(
     "reference", ["S001-v1", "S001-v2", "S002-v1", "S003-v1", "S007-v1"]
 )
-def test_frozen_strategy_owns_both_chart_modes(reference: str) -> None:
+def test_frozen_strategy_owns_backtest_chart(reference: str) -> None:
     runtime = ChartRuntime(ROOT / "strategies")
 
-    backtest = runtime.render_backtest(reference, _context(reference, "BACKTEST"))
-    forward = runtime.render_forward_observation(
-        reference, _context(reference, "FORWARD_OBSERVATION")
-    )
+    backtest = runtime.render_backtest(reference, _context(reference))
 
     assert backtest.startswith("<!doctype html>")
-    assert forward.startswith("<!doctype html>")
-    assert reference in backtest and reference in forward
+    assert reference in backtest
     assert 'src="/static/plotly.min.js"' in backtest
-    assert 'src="/static/plotly.min.js"' in forward
 
 
 def test_chart_runtime_rejects_release_hash_drift() -> None:
-    context = _context("S007-v1", "BACKTEST")
+    context = _context("S007-v1")
     context["strategy"]["identity_hash"] = "0" * 64
 
     with pytest.raises(ValueError, match="identity hash differs"):
         ChartRuntime(ROOT / "strategies").render_backtest("S007-v1", context)
-
-
-@pytest.mark.parametrize(
-    "reference", ["S001-v1", "S001-v2", "S002-v1", "S003-v1", "S007-v1"]
-)
-def test_forward_chart_renders_before_first_strategy_decision(reference: str) -> None:
-    context = _context(reference, "FORWARD_OBSERVATION")
-    context["strategy_output"]["decisions"] = []
-
-    html = ChartRuntime(ROOT / "strategies").render_forward_observation(reference, context)
-
-    assert html.startswith("<!doctype html>")
-    assert "策略决策</span><strong>0</strong>" in html

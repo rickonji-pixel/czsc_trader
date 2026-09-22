@@ -8,6 +8,8 @@ import math
 import re
 from typing import Any
 
+from strategy_runtime import validate_observation_payload
+
 
 class AdviceContractError(ValueError):
     """The strategy CLI emitted a payload PTE cannot execute safely."""
@@ -158,6 +160,8 @@ class AdviceDecision:
     plan_legs: tuple[PlanLegSpec, ...] = ()
     runtime_sha256: str = ""
     input_identity_hashes: dict[str, str] | None = None
+    strategy_output: dict[str, Any] | None = None
+    observation: dict[str, Any] | None = None
 
     @classmethod
     def from_cli_payload(cls, payload: object) -> "AdviceDecision":
@@ -328,6 +332,11 @@ class AdviceDecision:
             for name, identity in input_identities.items()
         ):
             raise AdviceContractError("input identity hash has invalid format")
+        strategy_output = _object(value.get("strategy_output"), "strategy output")
+        try:
+            observation = validate_observation_payload(value.get("observation"))
+        except ValueError as exc:
+            raise AdviceContractError(str(exc)) from exc
         if re.fullmatch(r"[0-9]{6}\.(SH|SZ)", str(value.get("symbol", "")).upper()) is None:
             raise AdviceContractError("advice symbol has invalid format")
         return cls(
@@ -366,4 +375,6 @@ class AdviceDecision:
             input_identity_hashes={
                 str(name): str(identity) for name, identity in input_identities.items()
             },
+            strategy_output=dict(strategy_output),
+            observation=observation,
         )

@@ -87,9 +87,7 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
     (charts / "candidate_runtime_execution_fixture.py").write_text(
         "class CandidateFixtureCharts:\n"
         "    def render_backtest(self, context):\n"
-        "        return '<html>S001-C001 candidate chart</html>'\n"
-        "    def render_forward_observation(self, context):\n"
-        "        return '<html>S001-C001 candidate observation</html>'\n",
+        "        return '<html>S001-C001 candidate chart</html>'\n",
         encoding="utf-8",
     )
     chart_files = ("charts/candidate_runtime_execution_fixture.py",)

@@ -1,4 +1,4 @@
-"""SRT-owned chart context and strategy chart renderer loading."""
+"""SRT-owned TDR backtest chart context and renderer loading."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from .implementation_identity import implementation_sha256
 
 CHART_CONTEXT_VERSION = "strategy_chart.v1"
 CHART_CONTRACT_VERSION = 1
-_MODES = {"BACKTEST", "FORWARD_OBSERVATION"}
+_MODES = {"BACKTEST"}
 _PLOTLY_RUNTIMES = {"embedded", "external"}
 _TOP_LEVEL = {
     "contract_version",
@@ -82,21 +82,12 @@ def validate_chart_context(value: object, *, expected_mode: str | None = None) -
     context["strategy"] = strategy
 
     window = _mapping(context["window"], "window")
-    if mode == "BACKTEST":
-        start = _date(window.get("evaluation_start"), "window.evaluation_start")
-        end = _date(window.get("evaluation_end"), "window.evaluation_end")
-        if start > end:
-            raise RuntimeContractError("backtest chart window is reversed")
-        window["evaluation_start"] = start
-        window["evaluation_end"] = end
-    else:
-        window["selection_data_cutoff"] = _date(
-            window.get("selection_data_cutoff"), "window.selection_data_cutoff"
-        )
-        sessions = window.get("context_sessions")
-        if isinstance(sessions, bool) or not isinstance(sessions, int) or sessions <= 0:
-            raise RuntimeContractError("window.context_sessions must be a positive integer")
-        _required_text(strategy, "account_id", "strategy")
+    start = _date(window.get("evaluation_start"), "window.evaluation_start")
+    end = _date(window.get("evaluation_end"), "window.evaluation_end")
+    if start > end:
+        raise RuntimeContractError("backtest chart window is reversed")
+    window["evaluation_start"] = start
+    window["evaluation_end"] = end
     context["window"] = window
 
     market = _mapping(context["market_data"], "market_data")
@@ -252,9 +243,8 @@ class ChartRuntime:
             implementation = factory()
         except TypeError as exc:
             raise RuntimeCompatibilityError("chart implementation must have a no-argument factory") from exc
-        for method in ("render_backtest", "render_forward_observation"):
-            if not callable(getattr(implementation, method, None)):
-                raise RuntimeCompatibilityError(f"chart implementation has no {method}")
+        if not callable(getattr(implementation, "render_backtest", None)):
+            raise RuntimeCompatibilityError("chart implementation has no render_backtest")
         module.__srt_chart_source_sha256__ = actual
         return implementation
 
@@ -300,12 +290,7 @@ class ChartRuntime:
             raise RuntimeContractError("chart context belongs to another strategy reference")
         if normalized["strategy"]["identity_hash"] != expected_identity_hash:
             raise RuntimeContractError("chart context identity hash differs from its SRT source")
-        method = (
-            implementation.render_backtest
-            if mode == "BACKTEST"
-            else implementation.render_forward_observation
-        )
-        result = method(normalized)
+        result = implementation.render_backtest(normalized)
         if not isinstance(result, str) or not result.lstrip().lower().startswith(
             ("<html", "<!doctype html")
         ):
@@ -329,6 +314,3 @@ class ChartRuntime:
             source_root=source_root,
             expected_identity_hash=expected_identity_hash,
         )
-
-    def render_forward_observation(self, reference_id: str, context: object) -> str:
-        return self._render(reference_id, "FORWARD_OBSERVATION", context)

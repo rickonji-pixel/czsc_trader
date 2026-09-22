@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
-from dataclasses import dataclass
 from datetime import date
-import json
 from pathlib import Path
 import sys
 import traceback
@@ -14,11 +12,6 @@ from dotenv import load_dotenv
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.errors import CommandError, InternalError, UsageError
 from .output import write_error, write_result
-
-
-@dataclass(frozen=True)
-class RawCommandOutput:
-    content: str
 
 
 class CommandParser(argparse.ArgumentParser):
@@ -109,22 +102,6 @@ def _research_command(args: argparse.Namespace):
     from czsc_trader.cli.research_commands import run_research_command
 
     return run_research_command(args, _context(args))
-
-
-def _chart_observation(args: argparse.Namespace) -> RawCommandOutput:
-    from strategy_runtime import CHART_CONTEXT_VERSION
-    from czsc_trader.observation_chart import render_forward_chart_html
-
-    payload = json.load(sys.stdin)
-    if not isinstance(payload, dict) or payload.get("contract_version") != CHART_CONTEXT_VERSION:
-        raise ValueError(f"chart observation requires {CHART_CONTEXT_VERSION}")
-    render = payload.get("render")
-    if not isinstance(render, dict) or render.get("plotly_runtime") != args.plotly_runtime:
-        raise ValueError("chart context and CLI plotly runtime differ")
-    context = _context(args)
-    return RawCommandOutput(
-        render_forward_chart_html(payload, strategy_root=context.strategy_root)
-    )
 
 
 def _news_extract(args: argparse.Namespace):
@@ -225,23 +202,6 @@ def build_parser() -> argparse.ArgumentParser:
     add_research_parser(resources, _add_repository_root, _research_command)
     add_candidate_parser(resources, _add_repository_root, _candidate_command)
     add_strategy_parser(resources, _add_repository_root, _strategy_command)
-
-    chart = resources.add_parser("chart")
-    chart_actions = chart.add_subparsers(
-        dest="action", required=True, parser_class=CommandParser
-    )
-    chart_observation = chart_actions.add_parser("observation")
-    chart_observation.add_argument("--format", choices=("html",), default="html")
-    chart_observation.add_argument(
-        "--plotly-runtime",
-        choices=("embedded", "external"),
-        default="embedded",
-    )
-    chart_observation.add_argument("--debug", action="store_true")
-    chart_observation.set_defaults(
-        command_handler=_chart_observation,
-        command_name="chart.observation",
-    )
 
     news = resources.add_parser("news")
     news_actions = news.add_subparsers(
@@ -413,7 +373,4 @@ def main(argv: Sequence[str] | None = None) -> int:
             error,
             output_format=args.format,
         )
-    if isinstance(result, RawCommandOutput):
-        sys.stdout.write(result.content)
-        return 0
     return write_result(result, output_format=args.format)

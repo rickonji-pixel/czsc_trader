@@ -9,7 +9,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from strategy_manager import CandidateSnapshot
-from strategy_runtime import ChartRuntime, StrategyCandidate, StrategyRuntime, canonical_sha256
+from strategy_runtime import (
+    ChartRuntime,
+    StrategyCandidate,
+    StrategyRuntime,
+    canonical_sha256,
+    validate_observation_descriptor,
+)
 from strategy_runtime.implementation_identity import implementation_sha256
 
 
@@ -138,7 +144,7 @@ def load_candidate_package(path: Path) -> CandidatePackage:
     binding = _read_object(root / binding_name)
     required_binding = {
         "schema_version", "candidate_id", "source_files", "implementation_sha256",
-        "install_files", "charts",
+        "install_files", "charts", "observation",
     }
     if set(binding) != required_binding or binding["schema_version"] != 1:
         raise ValueError("candidate runtime binding fields are invalid")
@@ -173,4 +179,5 @@ def load_candidate_package(path: Path) -> CandidatePackage:
         )
     )
     validate_chart_contract(runtime_root, binding["charts"], install_files)
+    validate_observation_descriptor(binding["observation"])
     return CandidatePackage(root, snapshot, runtime_root, binding, manifest, package_hash)

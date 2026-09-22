@@ -10,6 +10,7 @@ from typing import Any, Mapping
 
 from .errors import RuntimeCompatibilityError
 from .models import canonical_sha256
+from .observation import validate_observation_descriptor
 
 
 def _read_object(path: Path) -> dict[str, Any]:
@@ -169,6 +170,7 @@ def load_strategy_deployment(strategy_root: Path, release_id: str) -> StrategyDe
         "implementation_sha256",
         "install_files",
         "charts",
+        "observation",
     }
     if set(binding) != expected_binding or binding.get("schema_version") != 1:
         raise RuntimeCompatibilityError("strategy runtime binding fields are invalid")
@@ -184,6 +186,7 @@ def load_strategy_deployment(strategy_root: Path, release_id: str) -> StrategyDe
     missing = [name for name in install_files if not source_root.joinpath(*PurePosixPath(name).parts).is_file()]
     if missing:
         raise RuntimeCompatibilityError(f"strategy install files are missing: {missing}")
+    validate_observation_descriptor(binding.get("observation"))
     return StrategyDeployment(
         root,
         release_id,

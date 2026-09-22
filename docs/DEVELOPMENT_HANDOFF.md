@@ -37,8 +37,9 @@
 - 新候选冻结必须绑定不可变候选快照、最终EvaluationMandate、TDR裁判报告、人工冻结决议和
   SRT运行时验收；任一身份或哈希不一致时拒绝冻结。历史五个版本以
   `LEGACY_GOVERNANCE_ACCEPTED`事件保留当时治理事实。
-- SRT/PTE机器契约：普通决策为`advice.v4`，原子时点计划为`advice.v5`，纯绘图为
-  `account_observation.v1`。
+- SRT/PTE机器契约：普通决策为`advice.v4`，原子时点计划为`advice.v5`，统一图表上下文为
+  `strategy_chart.v1`。TDR与PTE只提供事实，回测图和前瞻观察图均由冻结在SRT的策略图表
+  实现生成；未声明图表契约或渲染失败时直接报错。
 - PTE控制台：<http://127.0.0.1:8080>。
 - WDG Windows服务：`CZSC-PTE-Watchdog`。
 - 当前唯一交易渠道：Futu中国市场模拟交易。

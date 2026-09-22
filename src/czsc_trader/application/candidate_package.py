@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from importlib import import_module, invalidate_caches
 import json
 from pathlib import Path, PurePosixPath
-import sys
 from typing import Any
 
 from strategy_manager import CandidateSnapshot
-from strategy_runtime import StrategyCandidate, StrategyRuntime, canonical_sha256
+from strategy_runtime import ChartRuntime, StrategyCandidate, StrategyRuntime, canonical_sha256
 from strategy_runtime.implementation_identity import implementation_sha256
 
 
@@ -76,63 +74,11 @@ class CandidatePackage:
 def validate_chart_contract(
     runtime_root: Path, descriptor: object, install_files: tuple[str, ...],
 ) -> dict[str, Any]:
-    required = {
-        "module", "qualname", "contract_version", "source_files", "source_sha256",
-    }
-    if not isinstance(descriptor, dict) or set(descriptor) != required:
-        raise ValueError("candidate chart descriptor is incomplete")
-    module_name = descriptor["module"]
-    qualname = descriptor["qualname"]
-    if (
-        not isinstance(module_name, str)
-        or not module_name.startswith("strategy_runtime.charts.")
-        or not all(part.isidentifier() for part in module_name.split("."))
-        or not isinstance(qualname, str)
-        or not qualname.isidentifier()
-        or descriptor["contract_version"] != 1
-    ):
-        raise ValueError("candidate chart implementation identity is invalid")
-    source_files = _validate_paths(descriptor["source_files"], "charts.source_files")
-    implementation_file = module_name.removeprefix("strategy_runtime.").replace(".", "/") + ".py"
-    if implementation_file not in source_files or not set(source_files).issubset(install_files):
-        raise ValueError("candidate chart source closure is incomplete")
-    actual = implementation_sha256(source_files, source_root=runtime_root)
-    if descriptor["source_sha256"] != actual:
-        raise ValueError("candidate chart source hash differs from package files")
-    import strategy_runtime
-
-    package_root = str(runtime_root)
-    if package_root not in strategy_runtime.__path__:
-        strategy_runtime.__path__.insert(0, package_root)
-    charts_package = import_module("strategy_runtime.charts")
-    charts_root = str(runtime_root / "charts")
-    if charts_root not in charts_package.__path__:
-        charts_package.__path__.insert(0, charts_root)
-    invalidate_caches()
-    module = sys.modules.get(module_name)
-    already_loaded = module is not None
-    if module is not None and getattr(module, "__srt_chart_source_sha256__", None) != actual:
-        raise ValueError(
-            "candidate chart module was already imported from a different source closure"
-        )
-    previous_bytecode = sys.dont_write_bytecode
-    sys.dont_write_bytecode = True
-    try:
-        module = import_module(module_name)
-    finally:
-        sys.dont_write_bytecode = previous_bytecode
-    if not already_loaded:
-        expected_module = (runtime_root / implementation_file).resolve()
-        module_file = getattr(module, "__file__", None)
-        if module_file is None or Path(module_file).resolve() != expected_module:
-            raise ValueError("candidate chart implementation loaded from another package")
-    implementation = getattr(module, qualname, None)
-    if implementation is None:
-        raise ValueError("candidate chart implementation is unavailable")
-    for method in ("render_backtest", "render_forward_observation"):
-        if not callable(getattr(implementation, method, None)):
-            raise ValueError(f"candidate chart implementation has no {method}")
-    module.__srt_chart_source_sha256__ = actual
+    ChartRuntime().validate_descriptor(
+        descriptor,
+        source_root=runtime_root,
+        install_files=install_files,
+    )
     return dict(descriptor)
 
 

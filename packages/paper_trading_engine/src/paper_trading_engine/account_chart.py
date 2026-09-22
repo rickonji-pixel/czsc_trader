@@ -19,7 +19,7 @@ from .audit import AuditRecorder
 ACCOUNT_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 INPUT_LIMIT = 5 * 1024 * 1024
 OUTPUT_LIMIT = 20 * 1024 * 1024
-CACHE_RENDER_REVISION = "external-plotly-runtime-v1"
+CACHE_RENDER_REVISION = "strategy-chart-context-v1"
 
 
 class AccountChartService:
@@ -27,7 +27,8 @@ class AccountChartService:
         self,
         store,
         *,
-        advice,
+        market_data,
+        strategy_metadata,
         cache_dir: Path,
         trader_executable: str | Path = "czsc-trader",
         runner: Callable[..., Any] = subprocess.run,
@@ -36,7 +37,8 @@ class AccountChartService:
         audit: AuditRecorder | None = None,
     ) -> None:
         self.store = store
-        self.advice = advice
+        self.market_data = market_data
+        self.strategy_metadata = strategy_metadata
         self.cache_dir = Path(cache_dir)
         self.trader_executable = str(trader_executable)
         self.runner = runner
@@ -70,12 +72,12 @@ class AccountChartService:
         return hashlib.sha256(content).hexdigest()
 
     def _market_data(self, account: dict[str, Any]) -> tuple[str, list[dict[str, object]]]:
-        price_identity, frame = self.advice.price_history_for_account(
-            account_id=str(account["account_id"]),
-            strategy_id=str(account["strategy_id"]),
-            strategy_version=str(account["strategy_version"]),
+        cutoff = date.fromisoformat(str(account["selection_data_cutoff"])).isoformat()
+        price_identity, frame = self.market_data.history(
             symbol=str(account["symbol"]),
             asset=str(account["asset_type"]),
+            selection_data_cutoff=cutoff,
+            context_sessions=self.context_sessions,
         )
         frame = frame.rename(
             columns={
@@ -101,7 +103,6 @@ class AccountChartService:
                 "low": float(row["low"]),
                 "close": float(row["close"]),
             }
-        cutoff = date.fromisoformat(str(account["selection_data_cutoff"])).isoformat()
         ordered = [bars[key] for key in sorted(bars)]
         history = [bar for bar in ordered if bar["date"] <= cutoff][-self.context_sessions :]
         forward = [bar for bar in ordered if bar["date"] > cutoff]
@@ -130,6 +131,7 @@ class AccountChartService:
             "target_quantity": payload.get("target_quantity"),
             "factor_score": payload.get("factor_score"),
             "regime": payload.get("regime"),
+            "strategy_output": dict(payload.get("strategy_output") or {}),
         }
 
     @staticmethod
@@ -159,7 +161,12 @@ class AccountChartService:
         if not cutoff:
             raise ValueError("strategy selection cutoff is unavailable")
         cutoff = date.fromisoformat(str(cutoff)).isoformat()
-        manifest_sha256, bars = self._market_data(account)
+        market_identity, bars = self._market_data(account)
+        configuration = self.strategy_metadata.configuration(
+            strategy_id=str(account["strategy_id"]),
+            strategy_version=str(account["strategy_version"]),
+            release_hash=str(account["release_hash"]),
+        )
         decisions = self._after_cutoff(
             [self._decision(row) for row in self.store.account_decisions(account_id)],
             cutoff,
@@ -196,29 +203,36 @@ class AccountChartService:
             )
         ]
         request = {
-            "contract_version": "account_observation.v1",
-            "account": {
+            "contract_version": "strategy_chart.v1",
+            "mode": "FORWARD_OBSERVATION",
+            "strategy": {
                 "account_id": account_id,
                 "strategy_id": account["strategy_id"],
                 "strategy_version": account["strategy_version"],
-                "release_id": f'{account["strategy_id"]}-{account["strategy_version"]}',
-                "release_hash": account["release_hash"],
-                "selection_data_cutoff": cutoff,
+                "reference_id": f'{account["strategy_id"]}-{account["strategy_version"]}',
+                "identity_hash": account["release_hash"],
                 "symbol": account["symbol"],
+                "configuration": configuration,
             },
-            "context_sessions": self.context_sessions,
+            "window": {
+                "selection_data_cutoff": cutoff,
+                "context_sessions": self.context_sessions,
+            },
             "market_data": {
-                "manifest_sha256": manifest_sha256,
+                "identity": market_identity,
                 "adjustment": "hfq",
                 "bars": bars,
             },
-            "decisions": decisions,
-            "intents": intents,
-            # The renderer has no order layer. Excluding broker payloads keeps this
-            # bounded chart contract independent from opaque third-party text.
-            "orders": [],
-            "fills": fills,
-            "snapshots": snapshots,
+            "strategy_output": {"decisions": decisions},
+            "execution": {
+                "intents": intents,
+                # Excluding broker payloads keeps this bounded chart contract
+                # independent from opaque third-party text.
+                "orders": [],
+                "fills": fills,
+                "snapshots": snapshots,
+            },
+            "render": {"format": "html", "plotly_runtime": "external"},
         }
         return request, any(bar["date"] > cutoff for bar in bars)
 
@@ -261,7 +275,7 @@ class AccountChartService:
             account_id=account["account_id"],
             strategy_id=account.get("strategy_id"),
             strategy_version=account.get("strategy_version"),
-            release_hash=account.get("release_hash"),
+            release_hash=account.get("identity_hash", account.get("release_hash")),
             symbol=account.get("symbol"),
             details={"operation": "render", "error": message},
         )
@@ -315,7 +329,7 @@ class AccountChartService:
         except Exception as exc:
             return self._unavailable(account_id, exc)
 
-        account = request["account"]
+        account = request["strategy"]
         html_path = self.chart_path(account_id)
         meta_path = self._meta_path(account_id)
         with self._lock(account_id):
@@ -362,7 +376,9 @@ class AccountChartService:
                             account_id=account_id,
                             strategy_id=account.get("strategy_id"),
                             strategy_version=account.get("strategy_version"),
-                            release_hash=account.get("release_hash"),
+                            release_hash=account.get(
+                                "identity_hash", account.get("release_hash")
+                            ),
                             symbol=account.get("symbol"),
                             details={"operation": "render"},
                         )
@@ -372,9 +388,9 @@ class AccountChartService:
 
         status = "READY" if has_forward else "EMPTY"
         return {
-            "scope": {"account_id": account_id, "release_id": account["release_id"]},
+            "scope": {"account_id": account_id, "release_id": account["reference_id"]},
             "status": status,
-            "selection_data_cutoff": account["selection_data_cutoff"],
+            "selection_data_cutoff": request["window"]["selection_data_cutoff"],
             "context_sessions": self.context_sessions,
             "chart_url": f"/charts/{account_id}/observation.html?v={fingerprint}",
             "fingerprint": fingerprint,

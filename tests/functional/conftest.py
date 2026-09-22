@@ -5,6 +5,8 @@ import shutil
 import importlib
 import sys
 
+import strategy_runtime
+import strategy_runtime.charts
 import strategy_runtime.strategies
 from strategy_runtime import implementation_identity
 
@@ -18,7 +20,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.fixture
 def candidate_payload(tmp_path, monkeypatch):
-    package = tmp_path / "runtime"
+    package_path = list(strategy_runtime.__path__)
+    chart_path = list(strategy_runtime.charts.__path__)
+    strategy_path = list(strategy_runtime.strategies.__path__)
+    package = tmp_path / "runtime" / "strategy_runtime"
     strategies = package / "strategies"
     strategies.mkdir(parents=True)
     source = Path(__file__).parents[1] / "fixtures" / "candidate_runtime.py"
@@ -41,6 +46,9 @@ def candidate_payload(tmp_path, monkeypatch):
     }
     yield payload, package
     sys.modules.pop(module_name, None)
+    strategy_runtime.__path__[:] = package_path
+    strategy_runtime.charts.__path__[:] = chart_path
+    strategy_runtime.strategies.__path__[:] = strategy_path
 
 
 def _frame(root: Path, pattern: str, date_column: str) -> pd.DataFrame:

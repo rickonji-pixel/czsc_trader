@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 from strategy_manager import StrategyRegistry, canonical_sha256
 from strategy_runtime import StrategyCandidate, StrategyRuntime
@@ -61,6 +62,9 @@ def resolve_candidate_snapshot(
     strategy_payload: dict[str, object],
     content_hash: str,
     source: str,
+    *,
+    runtime_root: Path | None = None,
+    chart_descriptor: dict[str, object] | None = None,
 ) -> StrategySnapshot:
     """Resolve a family-qualified SRT candidate; old rule-only payloads are retired."""
     if content_hash != canonical_sha256(strategy_payload):
@@ -68,11 +72,13 @@ def resolve_candidate_snapshot(
     family, separator, local_id = candidate_id.partition("-")
     if not separator:
         raise ValueError("candidate replay requires a family-qualified identity")
-    candidate = StrategyCandidate(family, local_id, strategy_payload)
+    candidate = StrategyCandidate(family, local_id, strategy_payload, runtime_root)
     StrategyRuntime().describe(candidate)
     return StrategySnapshot(
         identity=StrategyIdentity("CANDIDATE", candidate.reference_id, source),
         source_hash=candidate.runtime_identity_sha256,
         content_hash=content_hash,
         strategy_payload=dict(strategy_payload),
+        runtime_root=runtime_root,
+        chart_descriptor=chart_descriptor,
     )

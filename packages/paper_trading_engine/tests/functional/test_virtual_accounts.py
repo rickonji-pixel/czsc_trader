@@ -291,11 +291,16 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
                 "close": close,
             }
         )
-    advice = SimpleNamespace(
-        price_history_for_account=lambda **_kwargs: (
+    market_data = SimpleNamespace(
+        history=lambda **_kwargs: (
             "a" * 64,
             pd.DataFrame(rows),
         )
+    )
+    strategy_metadata = SimpleNamespace(
+        configuration=lambda **_kwargs: {
+            "rule": {"entry_threshold": 0.175, "exit_threshold": 0.025}
+        }
     )
 
     calls = []
@@ -306,7 +311,8 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
 
     service = AccountChartService(
         store,
-        advice=advice,
+        market_data=market_data,
+        strategy_metadata=strategy_metadata,
         cache_dir=tmp_path / "charts",
         trader_executable="czsc-trader",
         runner=renderer,
@@ -316,15 +322,18 @@ def test_ft_pte03_account_chart_builds_bounded_scope_and_reuses_cache(tmp_path, 
     assert first["scope"] == {"account_id": "s001-v2", "release_id": "S001-v2"}
     assert service.chart_path("s001-v2").read_text(encoding="utf-8") == "<html>chart</html>"
     request = json.loads(calls[0][1]["input"])
+    assert request["contract_version"] == "strategy_chart.v1"
+    assert request["mode"] == "FORWARD_OBSERVATION"
     assert len(request["market_data"]["bars"]) == 62
-    assert request["context_sessions"] == 60
+    assert request["window"]["context_sessions"] == 60
     assert request["market_data"]["bars"][0]["date"] == dates[125].date().isoformat()
     assert request["market_data"]["bars"][-1]["date"] == "2026-09-04"
-    assert {row["account_id"] for row in request["decisions"]} == {"s001-v2"}
-    assert request["orders"] == []
-    assert set(request["decisions"][0]) == {
+    decisions = request["strategy_output"]["decisions"]
+    assert {row["account_id"] for row in decisions} == {"s001-v2"}
+    assert request["execution"]["orders"] == []
+    assert set(decisions[0]) == {
         "account_id", "decision_id", "signal_date", "valid_session", "generated_at",
-        "action", "target_quantity", "factor_score", "regime",
+        "action", "target_quantity", "factor_score", "regime", "strategy_output",
     }
     assert calls[0][0] == [
         "czsc-trader",

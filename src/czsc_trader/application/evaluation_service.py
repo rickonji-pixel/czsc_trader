@@ -350,6 +350,7 @@ def evaluate_experiment(
     review_data_root: Path | None = None,
     review_data_hash: str | None = None,
     candidate_runtime_roots: dict[str, Path] | None = None,
+    candidate_chart_descriptors: dict[str, dict[str, object]] | None = None,
 ) -> CommandResult:
     if (review_data_root is None) != (review_data_hash is None):
         raise ValueError("review dataset directory and sealed hash must be supplied together")
@@ -409,6 +410,7 @@ def evaluate_experiment(
         workers, frequency_window_days, str(manifest.get("strategy_id", experiment.parent.name)),
         review_data_root, review_data_hash,
         candidate_runtime_roots,
+        candidate_chart_descriptors,
     )
     reuse_ledger: list[ReuseLedgerRow] = []
     reuse_diagnostics: list[str] = []

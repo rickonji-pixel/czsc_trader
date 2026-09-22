@@ -2,6 +2,7 @@
 
 from .algorithm import StrategyImplementation
 from .calculation import CalculationScope, CalendarWindow, InputRange
+from .charting import CHART_CONTEXT_VERSION, ChartRuntime, validate_chart_context
 from .contracts import (
     DataPreparationResult,
     ExecutionCapabilities,
@@ -41,6 +42,8 @@ __all__ = [
     "DataPreparationResult",
     "CalculationScope",
     "CalendarWindow",
+    "CHART_CONTEXT_VERSION",
+    "ChartRuntime",
     "ExecutionCapabilities",
     "ExecutionOutcome",
     "ExecutionPlan",
@@ -69,4 +72,5 @@ __all__ = [
     "TradingPoint",
     "WindowExecutor",
     "canonical_sha256",
+    "validate_chart_context",
 ]

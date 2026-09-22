@@ -10,6 +10,8 @@ requires-python = ">=3.12"
 dependencies = [
     "czsc==1.0.1",
     "czsc-dataflows==0.1.0",
+    "pandas>=3.0.3,<4",
+    "plotly==6.9.0",
     "python-dotenv>=1.0.0",
 ]
 

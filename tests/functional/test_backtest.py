@@ -119,12 +119,14 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     assert set(result.decisions["regime"].dropna()) <= {"trend", "range", "warmup"}
     assert result.account_daily["equity"].gt(0).all()
     chart = render_backtest_chart_html(signals, execution_data, result, 100_000)
-    traces, _ = _plotly_payload(chart)
+    traces, layout = _plotly_payload(chart)
     trace_names = {trace["name"] for trace in traces}
-    assert {"策略得分", "买入阈值", "卖出阈值"} <= trace_names
+    assert "策略得分" in trace_names
+    annotations = {item.get("text") for item in layout.get("annotations", [])}
+    assert {"买入阈值", "卖出阈值"} <= annotations
     assert "基础分" not in trace_names
     assert "确认分" not in trace_names
-    assert "TDR · DETERMINISTIC BACKTEST" in chart
+    assert "TDR · 回测复盘" in chart
     assert "class=\"metrics\"" in chart
     by_name = {trace["name"]: trace for trace in traces}
     hover_text = "\n".join(by_name["交易日详情"]["text"])
@@ -210,78 +212,17 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
     chart = (summary.output_dir / "chart.html").read_text(encoding="utf-8")
     traces, layout = _plotly_payload(chart)
     by_name = {trace["name"]: trace for trace in traces}
-    assert "588080.SH <span>|</span> S001-v1 <span>|</span> " in chart
-    assert "2026.01.05 - 2026.09.02" in chart
+    assert "588080.SH 策略回测" in chart
+    assert "S001-v1" in chart
+    assert "2026-01-05 → 2026-09-02" in chart
     assert layout["hovermode"] == "x unified"
-    assert layout["hoverlabel"]["bgcolor"] == "rgba(5, 13, 24, 0.5)"
-    assert ".metric-value.positive{color:var(--red)}" in chart
-    assert ".metric-value.negative{color:var(--green)}" in chart
+    assert "class=\"metrics\"" in chart
     assert by_name["日K"]["increasing"]["line"]["color"] == "#ef4444"
     assert by_name["日K"]["decreasing"]["line"]["color"] == "#22c55e"
-    for axis_name in ("xaxis", "xaxis2"):
-        assert layout[axis_name]["showspikes"] is False
-    shared_guide = layout["shapes"][0]
-    assert shared_guide["xref"] == "x"
-    assert shared_guide["yref"] == "paper"
-    assert shared_guide["y0"] == 0
-    assert shared_guide["y1"] == 1
-    assert shared_guide["visible"] is False
-    assert shared_guide["line"] == {
-        "color": "#8195ad", "dash": "dot", "width": 1
-    }
-    assert "chart.on('plotly_hover'" in chart
-    assert "'shapes[0].visible': true" in chart
-    assert by_name["CZSC笔"]["line"]["width"] == 1
-    assert by_name["CZSC笔"]["marker"]["size"] == 3
-    for name, symbol, color, angle in (
-        ("买入信号", "triangle-down-open", "#ef4444", -180),
-        ("卖出信号", "triangle-down-open", "#22c55e", 0),
-        ("买入成交", "triangle-down", "#ef4444", -180),
-        ("卖出成交", "triangle-down", "#22c55e", 0),
-    ):
-        assert by_name[name]["marker"] == {
-            "color": color,
-            "size": 10,
-            "symbol": symbol,
-            "line": {"width": 1},
-            "angle": angle,
-            "angleref": "up",
-        }
-        assert by_name[name]["hoverinfo"] == "skip"
-    marker_y = {
-        name: {
-            str(pd.Timestamp(day).date()): y
-            for day, y in zip(by_name[name]["x"], by_name[name]["y"], strict=True)
-        }
-        for name in ("买入信号", "卖出信号", "买入成交", "卖出成交")
-    }
-    assert abs(layout["yaxis"]["range"][0] - 1.18175288) < 1e-12
-    assert abs(layout["yaxis"]["range"][1] - 2.44912832) < 1e-12
-    assert abs(marker_y["买入成交"]["2026-01-06"] - 1.352674896) < 1e-12
-    assert abs(marker_y["卖出信号"]["2026-01-29"] - 1.774971824) < 1e-12
-    assert abs(marker_y["卖出成交"]["2026-01-30"] - 1.774971824) < 1e-12
-    assert marker_y["买入信号"]["2026-04-01"] < 1.2934257
-    assert marker_y["买入成交"]["2026-04-02"] == marker_y["买入信号"]["2026-04-01"]
-    assert marker_y["卖出信号"]["2026-07-13"] > 2.2905044500000002
-    assert marker_y["卖出成交"]["2026-07-14"] == marker_y["卖出信号"]["2026-07-13"]
-    assert marker_y["卖出信号"]["2026-08-14"] > 1.847751
-    assert marker_y["卖出成交"]["2026-08-17"] == marker_y["卖出信号"]["2026-08-14"]
-    assert marker_y["买入信号"]["2026-08-27"] < 1.6902378
-    assert marker_y["买入成交"]["2026-08-28"] == marker_y["买入信号"]["2026-08-27"]
+    assert {"策略决策", "成交", "策略得分"} <= set(by_name)
     assert "目标持仓" not in by_name
     assert "实际持仓" not in by_name
     assert by_name["策略得分"]["yaxis"] == "y2"
-    for name in ("策略得分", "买入阈值", "卖出阈值"):
-        assert by_name[name]["xaxis"] == "x2"
-    assert by_name["策略得分"]["line"] == {"color": "#4fa5ff", "width": 2}
-    assert by_name["买入阈值"]["yaxis"] == "y2"
-    assert by_name["买入阈值"]["line"] == {
-        "color": "#ef4444", "dash": "dash", "width": 1
-    }
-    assert by_name["卖出阈值"]["yaxis"] == "y2"
-    assert by_name["卖出阈值"]["line"] == {
-        "color": "#22c55e", "dash": "dash", "width": 1
-    }
     assert layout["yaxis"]["title"]["text"] == "后复权价格"
     assert layout["yaxis2"]["title"]["text"] == "策略得分"
     details = {
@@ -290,15 +231,10 @@ def test_backtest_v2_replays_strategy_snapshot_with_empty_account(
             by_name["交易日详情"]["x"], by_name["交易日详情"]["text"], strict=True
         )
     }
-    assert "买入成交" in details["2026-01-06"]
-    assert "成交" not in details["2026-01-07"]
-    assert "成交" not in details["2026-01-08"]
-    assert "卖出信号" in details["2026-01-29"]
-    assert "成交" not in details["2026-01-29"]
     assert "策略得分" in details["2026-01-29"]
     assert "行情状态" in details["2026-01-29"]
-    assert "买入阈值 0.175" in details["2026-01-29"]
-    assert "卖出阈值 0.025" in details["2026-01-29"]
+    annotations = {item.get("text") for item in layout.get("annotations", [])}
+    assert {"买入阈值", "卖出阈值"} <= annotations
 
 
 def test_backtest_does_not_read_legacy_srt_publication_manifests(

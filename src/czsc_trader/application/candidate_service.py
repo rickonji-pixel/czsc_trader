@@ -229,6 +229,7 @@ def evaluate_candidate(context: RepositoryContext, reference: str) -> CommandRes
             package.snapshot.strategy_id,
             str(record["credential_id"]),
             runtime_root=package.runtime_root,
+            chart_descriptor=dict(package.runtime_binding["charts"]),
         )
         report = evaluated.result["adjudication_report"]
         verdict = {

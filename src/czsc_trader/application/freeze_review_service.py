@@ -1065,6 +1065,7 @@ def evaluate_freeze_review(
     credential_id: str,
     *,
     runtime_root: Path | None = None,
+    chart_descriptor: dict[str, object] | None = None,
 ) -> CommandResult:
     """Independently recompute the candidate and issue one immutable report."""
 
@@ -1124,6 +1125,12 @@ def evaluate_freeze_review(
                 f"{snapshot.strategy_id}-{snapshot.candidate_id}": runtime_root,
             }
             if runtime_root is not None
+            else None,
+            candidate_chart_descriptors={
+                snapshot.candidate_id: chart_descriptor,
+                f"{snapshot.strategy_id}-{snapshot.candidate_id}": chart_descriptor,
+            }
+            if chart_descriptor is not None
             else None,
         )
         machine = evaluation.result.get("machine_evaluation")

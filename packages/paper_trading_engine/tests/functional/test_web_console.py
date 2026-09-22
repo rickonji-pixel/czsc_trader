@@ -205,7 +205,7 @@ def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
         assert "ACCOUNT_REFRESH_SECTIONS" in app_js
         assert "releaseVersionLabel(s)" in app_js
         assert ".release-version{min-width:78px" in styles_css
-        assert ".chart-frame-host{height:540px;min-height:540px" in styles_css
+        assert ".chart-frame-host{height:620px;min-height:620px" in styles_css
         assert ".chart-frame-host iframe{display:block;width:100%;height:100%" in styles_css
         assert html.index("Futu模拟盘CN") < html.index("审计事件") < html.index("账户比较")
         with urlopen(base + "/audit-events", timeout=3) as response:

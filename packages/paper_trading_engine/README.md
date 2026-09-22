@@ -57,9 +57,9 @@ FutuSimulateCnChannel 1 ─── 1 Futu SIMULATE/CN account
   可选成交依赖；PTE持久化全部环节后才接受该决策，并可在重启后恢复。当前日内轮换只在
   开盘买入`FILLED_ALL`后放行11:30卖出；买单未完整成交或错过时点时撤单、阻断后续环节
   并保留执行缺口。订单价格由SRT冻结执行策略给出，Futu自动调价始终关闭；
-- `account_observation.v1`：PTE通过stdin传入有限行情、决策和账户事实，TDR在内存中
-  返回HTML，不读取或保存PTE前瞻行情；PTE使用外置Plotly运行库并长期缓存，账户数据
-  刷新时保留图表DOM，只有图表事实变化才加载新的轻量HTML；
+- `strategy_chart.v1`：PTE独立读取复权日线，并通过stdin传入策略身份、有限行情、策略输出
+  和账户执行事实；SRT内的冻结策略图表实现返回HTML。图表行情不依赖策略数据准备或
+  `StrategyInstance`；PTE使用外置Plotly运行库并长期缓存，图表事实变化时才加载新HTML；
 - PTE只接受冻结且资格为`PAPER_READY`的策略发布。
 - PTE在每个交易日20:30后按账户创建隔离的`StrategyInstance`并显式调用
   `prepare_data()`；实例自行推导并准备策略依赖。准备成功后原子更新

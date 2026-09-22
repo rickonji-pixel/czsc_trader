@@ -387,7 +387,7 @@ def _verify_installed_environment(
         "import importlib.metadata as m,json\n"
         "import paper_trading_engine.cli\n"
         "from czsc_trader.application.strategy_service import show_strategy_deployments\n"
-        "from czsc_trader.observation_chart import render_observation_html\n"
+        "from czsc_trader.observation_chart import render_forward_chart_html\n"
         "expected=('paper-trading-engine','czsc-trader-research','czsc-strategy-runtime',"
         "'czsc-strategy-manager','czsc-dataflows')\n"
         "forbidden=('vectorbt','optuna','tsfresh','czsc-strategy-evaluator',"

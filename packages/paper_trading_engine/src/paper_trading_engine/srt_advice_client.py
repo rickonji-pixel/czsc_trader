@@ -27,7 +27,7 @@ from strategy_runtime import (
     TradingPoint,
     canonical_sha256,
 )
-from dataflows import Dataflows, DataRequest, Dataset, canonical_frame_sha256
+from dataflows import Dataflows, DataRequest, Dataset
 
 from .audit import AuditRecorder
 from .contracts import AdviceContractError, AdviceDecision
@@ -154,6 +154,7 @@ def _decision_from_plan(plan: ExecutionPlan, identity: dict[str, str]) -> Advice
         "plan_mode": plan.plan_mode,
         "plan_legs": legs,
         "runtime_sha256": plan.strategy.runtime_sha256,
+        "strategy_output": dict(plan.evidence),
         "input_identity_hashes": dict(plan.input_identities),
     }
     try:
@@ -490,28 +491,6 @@ class SrtAdviceClient:
         release = self._load_release(strategy_id, strategy_version)
         StrategyRuntime().describe(release, symbol=symbol.upper())
         return _strategy_identity(self.repo_root, release)
-
-    def price_history_for_account(
-        self,
-        *,
-        account_id: str,
-        strategy_id: str,
-        strategy_version: str,
-        symbol: str,
-        asset: str,
-    ) -> tuple[str, object]:
-        if asset != "etf":
-            raise AdviceClientError("PTE currently requires one ETF strategy")
-        release = self._load_release(strategy_id, strategy_version)
-        prepared = self._instance(
-            account_id,
-            release,
-            self.tradable_date(account_id, strategy_id, strategy_version),
-        )
-        if prepared.instance.identity.symbol != symbol.upper():
-            raise AdviceClientError("SRT execution-pricing symbol differs from account")
-        frame = prepared.instance.inspect_price_history()
-        return canonical_frame_sha256(frame), frame
 
     def _audit_call(self, started: float, *, error=None, **scope) -> None:
         if self.audit is None or error is None:

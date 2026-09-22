@@ -112,14 +112,16 @@ def _research_command(args: argparse.Namespace):
 
 
 def _chart_observation(args: argparse.Namespace) -> RawCommandOutput:
-    from czsc_trader.observation_chart import render_observation_html
+    from strategy_runtime import CHART_CONTEXT_VERSION
+    from czsc_trader.observation_chart import render_forward_chart_html
 
-    return RawCommandOutput(
-        render_observation_html(
-            json.load(sys.stdin),
-            plotly_runtime=args.plotly_runtime,
-        )
-    )
+    payload = json.load(sys.stdin)
+    if not isinstance(payload, dict) or payload.get("contract_version") != CHART_CONTEXT_VERSION:
+        raise ValueError(f"chart observation requires {CHART_CONTEXT_VERSION}")
+    render = payload.get("render")
+    if not isinstance(render, dict) or render.get("plotly_runtime") != args.plotly_runtime:
+        raise ValueError("chart context and CLI plotly runtime differ")
+    return RawCommandOutput(render_forward_chart_html(payload))
 
 
 def _news_extract(args: argparse.Namespace):

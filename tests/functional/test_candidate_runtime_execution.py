@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import replace
+import sys
 from types import SimpleNamespace
 
 import pandas as pd
@@ -78,7 +79,30 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
     from czsc_trader.data import MarketData
     import json
 
-    payload, _ = candidate_payload
+    payload, package = candidate_payload
+    charts = package / "charts"
+    charts.mkdir()
+    (charts / "__init__.py").write_text("", encoding="utf-8")
+    chart_module = "strategy_runtime.charts.candidate_runtime_execution_fixture"
+    (charts / "candidate_runtime_execution_fixture.py").write_text(
+        "class CandidateFixtureCharts:\n"
+        "    def render_backtest(self, context):\n"
+        "        return '<html>S001-C001 candidate chart</html>'\n"
+        "    def render_forward_observation(self, context):\n"
+        "        return '<html>S001-C001 candidate observation</html>'\n",
+        encoding="utf-8",
+    )
+    chart_files = ("charts/candidate_runtime_execution_fixture.py",)
+    chart_descriptor = {
+        "module": chart_module,
+        "qualname": "CandidateFixtureCharts",
+        "contract_version": 1,
+        "source_files": list(chart_files),
+        "source_sha256": implementation_identity.implementation_sha256(
+            chart_files, source_root=package
+        ),
+    }
+    monkeypatch.delitem(sys.modules, chart_module, raising=False)
     # Use an existing family presenter; strategy calculation remains the test SRT.
     payload["rule"] = {"entry_threshold": .5, "exit_threshold": .5}
     candidate = StrategyCandidate("S001", "C001", payload)
@@ -98,7 +122,15 @@ def test_tdr_candidate_replay_uses_srt_prepared_data_and_txe_without_rule_parser
         replay_data, start=sessions[1], end=sessions[-1]
     )
     context = RepositoryContext.discover(tmp_path)
-    snapshot = resolve_candidate_snapshot(context, candidate.reference_id, payload, canonical_sha256(payload), "fixture")
+    snapshot = resolve_candidate_snapshot(
+        context,
+        candidate.reference_id,
+        payload,
+        canonical_sha256(payload),
+        "fixture",
+        runtime_root=package,
+        chart_descriptor=chart_descriptor,
+    )
     assert snapshot.source_hash == candidate.runtime_identity_sha256
     with pytest.raises(ValueError, match="content hash differs"):
         resolve_candidate_snapshot(context, candidate.reference_id, payload, "0" * 64, "fixture")

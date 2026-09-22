@@ -305,16 +305,16 @@ Measure-Command { .\.venv\Scripts\python.exe -m pytest -c pyproject.toml package
 - 增加父进程精确清理后再次通过，耗时145.83秒；本轮Pytest工作区和Python字节码缓存均已清除；
 - 未执行在线Tushare、Futu OpenD、Windows服务或PTE生产环境检查，这些仍属于独立授权的交付验收。
 
-### 2026-09-22重构后全量回归
+### 2026-09-23 v0.5.15发布回归
 
-策略治理区迁移、研究注册回填、PTE前瞻图职责调整以及TDR/SRT/PTE审查修复完成后，标准入口
-`.\scripts\test-all.ps1`于23:57再次通过。该轮是当前开发分支的最新仓库级基线：
+策略治理区迁移、研究注册回填、PTE前瞻图职责调整、TDR/SRT/PTE审查修复以及历史PTE发布
+快照切换修复完成后，标准入口`.\scripts\test-all.ps1`再次通过。该轮是`v0.5.15`的发布基线：
 
 - TDR：60项通过；
 - DFLS：31项通过；FSC：2项通过；STC：3项通过；SM：13项通过；SE：6项通过；
 - SRT：62项通过；TXE：2项通过；
-- PTE：93项通过；PTE控制台：3项通过；
-- Python合计272项，Node合计3项，Ruff通过；三条并行通道汇总耗时141.07秒；
-- 回归日志位于`.tmp/test-regression/run-5c5dc461fb26494dba3cf2725b334332/`，该目录是本地临时
-  证据，不随Git分发；回归后的同一工作树提交为`07b182e`；
+- PTE：95项通过；PTE控制台：3项通过；
+- Python合计274项，Node合计3项，Ruff通过；三条并行通道汇总耗时147.48秒；
+- 回归日志位于`.tmp/test-regression/run-23c2045e92bb469384a80a32c51bc368/`，该目录是本地临时
+  证据，不随Git分发；
 - 未执行在线Tushare、Futu OpenD、Windows服务或PTE生产环境检查。

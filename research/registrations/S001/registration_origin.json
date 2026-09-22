@@ -1,0 +1,32 @@
+{
+  "backfilled_at": "2026-09-22T20:35:58+08:00",
+  "credential_policy": "NO_RETROACTIVE_OPEN_CREDENTIAL",
+  "mode": "LEGACY_BACKFILL",
+  "schema_version": 1,
+  "sources": {
+    "governance_family": {
+      "path": "strategies/S001/family.json",
+      "sha256": "474f44cf484c3243c08e3a63bf321c7250818d30f2161914b891883e0f35d85f"
+    },
+    "governance_lifecycle": {
+      "path": "strategies/S001/lifecycle.jsonl",
+      "sha256": "55412bca622467381390ec93058e9c16b40aa9956e2e6d1983ca64acb0b46012"
+    },
+    "research_handoff": {
+      "path": "research/S001/HANDOFF.md",
+      "sha256": "cc4e68d9546761664f9bb1d49735087682bac35867aa25b5666f974421e4164b"
+    }
+  },
+  "state": "PROMOTED_CLOSED",
+  "strategy_id": "S001",
+  "versions_at_backfill": [
+    {
+      "strategy_version_hash": "ae422915ff736431d70e0381dd6514ee800d861060cc5568712b55c895ddfb62",
+      "strategy_version_id": "S001-v1"
+    },
+    {
+      "strategy_version_hash": "146490c8a4ee75f307d3d59453efaebc8fea671c726c023c96449706c40b944e",
+      "strategy_version_id": "S001-v2"
+    }
+  ]
+}

@@ -13,6 +13,12 @@
       "cutoff": "2024-12-31",
       "start": "2013-07-29"
     },
+    "external_replication": {
+      "authorized_at": "2026-09-23",
+      "purpose": "独立检验518880.SH上发现的低自由度Donchian趋势机制是否具有同类ETF可复制性",
+      "symbol": "518800.SH",
+      "use_policy": "先执行独立数据门；通过前不读取收益；通过后冻结原型族与参数，不在复制标的上重新调参"
+    },
     "first_experiment": "只验证518880研究数据与执行数据的完整性、身份和可用边界，不计算策略收益，不选择信号或参数",
     "forward_observation": "候选冻结后新增且未反向参与选择的数据",
     "governance_boundary": "研究遵守research/README.md；未经用户许可不修改平台已有模块；每轮实验完成后进行人工评审",
@@ -33,5 +39,5 @@
     "518880.SH"
   ],
   "strategy_id": "S008",
-  "updated_at": "2026-09-23T11:37:33+08:00"
+  "updated_at": "2026-09-23T12:25:00+08:00"
 }

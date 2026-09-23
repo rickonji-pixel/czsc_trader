@@ -235,6 +235,7 @@ def test_default_registry_covers_all_active_frozen_strategy_inputs() -> None:
         Dataset.SHIBOR_DAILY.value,
         Dataset.US_REAL_YIELD_DAILY.value,
         Dataset.USDCNH_DAILY.value,
+        Dataset.FXCM_DAILY.value,
         Dataset.SGE_GOLD_DAILY.value,
         Dataset.DOMESTIC_INDEX_DAILY.value,
         Dataset.CN_CPI_MONTHLY.value,
@@ -243,6 +244,7 @@ def test_default_registry_covers_all_active_frozen_strategy_inputs() -> None:
         Dataset.INDEX_DAILY_BASIC.value,
         Dataset.ETF_SHARE_SIZE.value,
         Dataset.GLOBAL_INDEX_DAILY.value,
+        Dataset.VIX_DAILY.value,
         Dataset.INDEX_CONSTITUENT_WEIGHT.value,
         Dataset.STOCK_MONEYFLOW.value,
         Dataset.TRADING_CALENDAR.value,
@@ -330,3 +332,31 @@ def test_declared_start_coverage_prevents_truncated_history_from_becoming_ready(
     assert result.error is not None
     assert result.error.code == "INCOMPLETE_DATA"
     assert result.error.context["actual_start"].startswith("2016-11-29")
+
+
+def test_vix_dataset_rejects_invalid_price_bars() -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2026-09-15"],
+            "Open": [20.0],
+            "High": [19.0],
+            "Low": [18.0],
+            "Close": [21.0],
+            "PercentChange": [0.05],
+        }
+    )
+    result = Dataflows(
+        {Dataset.VIX_DAILY.value: lambda ignored: (frame, {"vendor": "test"})}
+    ).fetch(
+        DataRequest(
+            Dataset.VIX_DAILY,
+            "VIX",
+            "2026-09-15",
+            "2026-09-15",
+            "2026-09-15",
+        )
+    )
+
+    assert result.status is DataStatus.FAILED
+    assert result.error is not None
+    assert result.error.code == "DATA_CONTRACT_MISMATCH"

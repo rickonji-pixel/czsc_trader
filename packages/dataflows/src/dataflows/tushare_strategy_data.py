@@ -165,7 +165,8 @@ def fetch_us_real_yield_daily(
     }
 
 
-def fetch_usdcnh_daily(
+def fetch_fxcm_daily(
+    symbol: str,
     start_date: str,
     end_date: str,
     *,
@@ -173,11 +174,10 @@ def fetch_usdcnh_daily(
     pro: object | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     client = _client(pro, env_file)
-    vendor_symbol = "USDCNH.FXCM"
     dataframe = _canonicalize(
         _fetch_yearly(
             lambda start, end: client.fx_daily(
-                ts_code=vendor_symbol,
+                ts_code=symbol,
                 start_date=start,
                 end_date=end,
                 fields=(
@@ -188,7 +188,7 @@ def fetch_usdcnh_daily(
             start_date,
             end_date,
         ),
-        dataset="USDCNH daily",
+        dataset=f"FXCM daily {symbol}",
         date_column="trade_date",
         columns={
             "bid_open": "BidOpen",
@@ -215,12 +215,35 @@ def fetch_usdcnh_daily(
     )
     return dataframe, {
         "vendor": "tushare",
-        "vendor_symbol": vendor_symbol,
+        "vendor_symbol": symbol,
         "frequency": "daily",
         "primary_key": ["Date"],
         "vendor_timezone": "GMT",
-        "availability_rule": "use at least one completed China trading day lag",
+        "availability_rule": "GMT source date must be strictly earlier than China decision session",
+        "maximum_start_lag_days": 10,
     }
+
+
+def fetch_usdcnh_daily(
+    start_date: str,
+    end_date: str,
+    *,
+    env_file: str | Path | None = None,
+    pro: object | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Retain the stable USDCNH dataset over the generic FXCM adapter."""
+
+    dataframe, metadata = fetch_fxcm_daily(
+        "USDCNH.FXCM",
+        start_date,
+        end_date,
+        env_file=env_file,
+        pro=pro,
+    )
+    metadata = dict(metadata)
+    metadata["availability_rule"] = "use at least one completed China trading day lag"
+    metadata.pop("maximum_start_lag_days", None)
+    return dataframe, metadata
 
 
 def fetch_sge_gold_daily(
@@ -507,10 +530,14 @@ def fetch_global_index_daily(
     pro: object | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     dataframe = _canonicalize(
-        _client(pro, env_file).index_global(
-            ts_code=symbol,
-            start_date=start_date.replace("-", ""),
-            end_date=end_date.replace("-", ""),
+        _fetch_yearly(
+            lambda start, end: _client(pro, env_file).index_global(
+                ts_code=symbol,
+                start_date=start,
+                end_date=end,
+            ),
+            start_date,
+            end_date,
         ),
         dataset=f"global index daily {symbol}",
         date_column="trade_date",
@@ -524,6 +551,58 @@ def fetch_global_index_daily(
         "frequency": "daily",
         "primary_key": ["Date"],
         "unit": "decimal_return",
+        "availability_rule": "US close date must be strictly earlier than China decision session",
+        "maximum_start_lag_days": 10,
+    }
+
+
+def fetch_vix_daily(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    *,
+    env_file: str | Path | None = None,
+    pro: object | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    if symbol.upper() != "VIX":
+        raise DataContractError("VIX daily dataset only supports symbol VIX", symbol=symbol)
+    client = _client(pro, env_file)
+    dataframe = _canonicalize(
+        _fetch_yearly(
+            lambda start, end: client.vix_index(
+                start_date=start,
+                end_date=end,
+                fields="trade_date,open,high,low,close,pct_change",
+            ),
+            start_date,
+            end_date,
+        ),
+        dataset="VIX daily",
+        date_column="trade_date",
+        columns={
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "pct_change": "PercentChange",
+        },
+        numeric_columns=(
+            "Open",
+            "High",
+            "Low",
+            "Close",
+            "PercentChange",
+        ),
+    )
+    dataframe["PercentChange"] /= 100.0
+    return dataframe, {
+        "vendor": "tushare",
+        "vendor_symbol": "VIX",
+        "frequency": "daily",
+        "primary_key": ["Date"],
+        "percent_change_unit": "decimal_return",
+        "availability_rule": "US close date must be strictly earlier than China decision session",
+        "maximum_start_lag_days": 10,
     }
 
 

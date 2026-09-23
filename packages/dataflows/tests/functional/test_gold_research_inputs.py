@@ -9,6 +9,7 @@ from dataflows.tushare_strategy_data import (
     fetch_cn_money_monthly,
     fetch_cn_ppi_monthly,
     fetch_domestic_index_daily,
+    fetch_fxcm_daily,
     fetch_sge_gold_daily,
     fetch_us_real_yield_daily,
     fetch_usdcnh_daily,
@@ -139,6 +140,19 @@ def test_gold_research_inputs_are_canonical_and_causal() -> None:
     assert "prior trading day" in gold_meta["availability_rule"]
     assert index.loc[0, "PercentChange"] == pytest.approx(0.006667)
     assert index_meta["availability_rule"] == "current session after market close"
+
+
+def test_generic_fxcm_daily_preserves_symbol_and_strict_causality() -> None:
+    frame, metadata = fetch_fxcm_daily(
+        "XAUUSD.FXCM", "2026-09-15", "2026-09-15", pro=FakeGoldPro()
+    )
+
+    assert frame.loc[0, "BidClose"] == pytest.approx(7.11)
+    assert metadata["vendor_symbol"] == "XAUUSD.FXCM"
+    assert metadata["maximum_start_lag_days"] == 10
+    assert metadata["availability_rule"] == (
+        "GMT source date must be strictly earlier than China decision session"
+    )
 
 
 def test_monthly_inputs_use_reference_month_end_and_conservative_availability() -> None:

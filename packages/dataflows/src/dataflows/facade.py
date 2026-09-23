@@ -62,6 +62,31 @@ _DATASET_FIELDS: dict[str, tuple[set[str], set[str]]] = {
             "TickQuantity",
         },
     ),
+    Dataset.FXCM_DAILY.value: (
+        {
+            "Date",
+            "BidOpen",
+            "BidHigh",
+            "BidLow",
+            "BidClose",
+            "AskOpen",
+            "AskHigh",
+            "AskLow",
+            "AskClose",
+            "TickQuantity",
+        },
+        {
+            "BidOpen",
+            "BidHigh",
+            "BidLow",
+            "BidClose",
+            "AskOpen",
+            "AskHigh",
+            "AskLow",
+            "AskClose",
+            "TickQuantity",
+        },
+    ),
     Dataset.SGE_GOLD_DAILY.value: (
         {"Date", "Open", "High", "Low", "Close", "Volume", "Amount"},
         {"Open", "High", "Low", "Close", "Volume", "Amount"},
@@ -88,6 +113,10 @@ _DATASET_FIELDS: dict[str, tuple[set[str], set[str]]] = {
     ),
     Dataset.ETF_SHARE_SIZE.value: ({"Date", "TotalShare"}, {"TotalShare"}),
     Dataset.GLOBAL_INDEX_DAILY.value: ({"Date", "PercentChange"}, {"PercentChange"}),
+    Dataset.VIX_DAILY.value: (
+        {"Date", "Open", "High", "Low", "Close", "PercentChange"},
+        {"Open", "High", "Low", "Close", "PercentChange"},
+    ),
     Dataset.INDEX_CONSTITUENT_WEIGHT.value: (
         {"Date", "ConstituentSymbol", "Weight"},
         {"Weight"},
@@ -206,11 +235,29 @@ def _validate_provider_output(
                 dataset=dataset,
                 invalid_rows=int(invalid.sum()),
             )
-    if dataset == Dataset.USDCNH_DAILY.value:
+    if dataset == Dataset.VIX_DAILY.value:
+        open_values = pd.to_numeric(dataframe["Open"])
+        high_values = pd.to_numeric(dataframe["High"])
+        low_values = pd.to_numeric(dataframe["Low"])
+        close_values = pd.to_numeric(dataframe["Close"])
+        # The official VIX close is a separate calculation and can fall just outside
+        # the intraday high-low range; only the traded open must remain inside it.
+        invalid = (
+            (low_values <= 0)
+            | (close_values <= 0)
+            | (high_values < open_values)
+            | (low_values > open_values)
+        )
+        if invalid.any():
+            raise DataContractError(
+                "provider output contains invalid VIX price bars",
+                invalid_rows=int(invalid.sum()),
+            )
+    if dataset in {Dataset.USDCNH_DAILY.value, Dataset.FXCM_DAILY.value}:
         bid_close = pd.to_numeric(dataframe["BidClose"])
         ask_close = pd.to_numeric(dataframe["AskClose"])
         if (bid_close <= 0).any() or (ask_close <= 0).any() or (bid_close > ask_close).any():
-            raise DataContractError("provider output contains invalid USDCNH quotes")
+            raise DataContractError("provider output contains invalid FXCM quotes")
     if dataset == Dataset.TRADING_CALENDAR.value:
         flags = pd.to_numeric(dataframe["IsOpen"], errors="coerce")
         if not flags.isin([0, 1]).all():
@@ -418,6 +465,7 @@ def _default_providers() -> dict[str, Provider]:
         fetch_cn_ppi_monthly,
         fetch_domestic_index_daily,
         fetch_etf_share_size,
+        fetch_fxcm_daily,
         fetch_global_index_daily,
         fetch_index_constituent_weight,
         fetch_index_daily_basic,
@@ -428,6 +476,7 @@ def _default_providers() -> dict[str, Provider]:
         fetch_trading_calendar,
         fetch_us_real_yield_daily,
         fetch_usdcnh_daily,
+        fetch_vix_daily,
     )
     from .tushare_stock import fetch_stock_ohlcv, fetch_stock_unadjusted_daily
 
@@ -475,6 +524,14 @@ def _default_providers() -> dict[str, Provider]:
 
     def usdcnh(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
         return fetch_usdcnh_daily(request.start, request.end, env_file=_env_file(request))
+
+    def fxcm(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_fxcm_daily(
+            _required_symbol(request),
+            request.start,
+            request.end,
+            env_file=_env_file(request),
+        )
 
     def sge_gold(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
         return fetch_sge_gold_daily(
@@ -531,6 +588,14 @@ def _default_providers() -> dict[str, Provider]:
             env_file=_env_file(request),
         )
 
+    def vix(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_vix_daily(
+            _required_symbol(request),
+            request.start,
+            request.end,
+            env_file=_env_file(request),
+        )
+
     def index_weights(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
         return fetch_index_constituent_weight(
             _required_symbol(request),
@@ -575,6 +640,7 @@ def _default_providers() -> dict[str, Provider]:
         Dataset.SHIBOR_DAILY.value: shibor,
         Dataset.US_REAL_YIELD_DAILY.value: us_real_yield,
         Dataset.USDCNH_DAILY.value: usdcnh,
+        Dataset.FXCM_DAILY.value: fxcm,
         Dataset.SGE_GOLD_DAILY.value: sge_gold,
         Dataset.DOMESTIC_INDEX_DAILY.value: domestic_index,
         Dataset.CN_CPI_MONTHLY.value: cn_cpi,
@@ -583,6 +649,7 @@ def _default_providers() -> dict[str, Provider]:
         Dataset.INDEX_DAILY_BASIC.value: index_basic,
         Dataset.ETF_SHARE_SIZE.value: etf_shares,
         Dataset.GLOBAL_INDEX_DAILY.value: global_index,
+        Dataset.VIX_DAILY.value: vix,
         Dataset.INDEX_CONSTITUENT_WEIGHT.value: index_weights,
         Dataset.STOCK_MONEYFLOW.value: stock_moneyflow,
         Dataset.TRADING_CALENDAR.value: trading_calendar,

@@ -7,6 +7,7 @@ from dataflows.errors import DataContractError
 from dataflows.tushare_strategy_data import (
     fetch_etf_share_size,
     fetch_global_index_daily,
+    fetch_vix_daily,
     fetch_index_constituent_weight,
     fetch_index_daily_basic,
     fetch_shibor_daily,
@@ -67,6 +68,29 @@ class ChunkedShiborPro:
         return pd.DataFrame({"date": [kwargs["start_date"]], "on": [1.25]})
 
 
+class ChunkedGlobalPro:
+    def __init__(self) -> None:
+        self.index_calls: list[dict[str, str]] = []
+        self.vix_calls: list[dict[str, str]] = []
+
+    def index_global(self, **kwargs):
+        self.index_calls.append(kwargs)
+        return pd.DataFrame({"trade_date": [kwargs["start_date"]], "pct_chg": [1.5]})
+
+    def vix_index(self, **kwargs):
+        self.vix_calls.append(kwargs)
+        return pd.DataFrame(
+            {
+                "trade_date": [kwargs["start_date"]],
+                "open": [20.0],
+                "high": [22.0],
+                "low": [19.0],
+                "close": [21.0],
+                "pct_change": [5.0],
+            }
+        )
+
+
 def test_s007_non_ohlcv_inputs_are_canonical() -> None:
     pro = FakePro()
     shibor, _ = fetch_shibor_daily("2026-09-15", "2026-09-15", pro=pro)
@@ -97,6 +121,34 @@ def test_shibor_long_history_is_split_by_calendar_year() -> None:
         "20260101",
     ]
     assert metadata["maximum_start_lag_days"] == 10
+
+
+def test_global_inputs_are_yearly_paged_and_causally_declared() -> None:
+    pro = ChunkedGlobalPro()
+
+    index, index_meta = fetch_global_index_daily("SPX", "2024-12-31", "2026-01-01", pro=pro)
+    vix, vix_meta = fetch_vix_daily("VIX", "2024-12-31", "2026-01-01", pro=pro)
+
+    assert len(index) == len(vix) == 3
+    assert [call["start_date"] for call in pro.index_calls] == [
+        "20241231",
+        "20250101",
+        "20260101",
+    ]
+    assert [call["start_date"] for call in pro.vix_calls] == [
+        "20241231",
+        "20250101",
+        "20260101",
+    ]
+    assert index_meta["maximum_start_lag_days"] == 10
+    assert vix_meta["maximum_start_lag_days"] == 10
+    assert index_meta["availability_rule"].startswith("US close date")
+    assert vix_meta["availability_rule"].startswith("US close date")
+
+
+def test_vix_dataset_rejects_other_symbols() -> None:
+    with pytest.raises(DataContractError, match="only supports symbol VIX"):
+        fetch_vix_daily("VXN", "2026-09-15", "2026-09-15", pro=ChunkedGlobalPro())
 
 
 def test_s003_constituent_inputs_preserve_multi_entity_keys() -> None:

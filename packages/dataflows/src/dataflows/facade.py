@@ -33,6 +33,55 @@ _OHLCV_DATASETS = {
 
 _DATASET_FIELDS: dict[str, tuple[set[str], set[str]]] = {
     Dataset.SHIBOR_DAILY.value: ({"Date", "OvernightRate"}, {"OvernightRate"}),
+    Dataset.US_REAL_YIELD_DAILY.value: (
+        {"Date", "RealYield5YPercent", "RealYield10YPercent"},
+        {"RealYield5YPercent", "RealYield10YPercent"},
+    ),
+    Dataset.USDCNH_DAILY.value: (
+        {
+            "Date",
+            "BidOpen",
+            "BidHigh",
+            "BidLow",
+            "BidClose",
+            "AskOpen",
+            "AskHigh",
+            "AskLow",
+            "AskClose",
+            "TickQuantity",
+        },
+        {
+            "BidOpen",
+            "BidHigh",
+            "BidLow",
+            "BidClose",
+            "AskOpen",
+            "AskHigh",
+            "AskLow",
+            "AskClose",
+            "TickQuantity",
+        },
+    ),
+    Dataset.SGE_GOLD_DAILY.value: (
+        {"Date", "Open", "High", "Low", "Close", "Volume", "Amount"},
+        {"Open", "High", "Low", "Close", "Volume", "Amount"},
+    ),
+    Dataset.DOMESTIC_INDEX_DAILY.value: (
+        {"Date", "Open", "High", "Low", "Close", "Volume", "Amount"},
+        {"Open", "High", "Low", "Close", "Volume", "Amount"},
+    ),
+    Dataset.CN_CPI_MONTHLY.value: (
+        {"Date", "NationalYoYPercent", "NationalMoMPercent"},
+        {"NationalYoYPercent", "NationalMoMPercent"},
+    ),
+    Dataset.CN_PPI_MONTHLY.value: (
+        {"Date", "ProducerYoYPercent", "ProducerMoMPercent"},
+        {"ProducerYoYPercent", "ProducerMoMPercent"},
+    ),
+    Dataset.CN_MONEY_MONTHLY.value: (
+        {"Date", "M1YoYPercent", "M2YoYPercent"},
+        {"M1YoYPercent", "M2YoYPercent"},
+    ),
     Dataset.INDEX_DAILY_BASIC.value: (
         {"Date", "TurnoverRateFreeFloat"},
         {"TurnoverRateFreeFloat"},
@@ -134,6 +183,34 @@ def _validate_provider_output(
                 dataset=dataset,
                 field=column,
             )
+    if dataset in {Dataset.SGE_GOLD_DAILY.value, Dataset.DOMESTIC_INDEX_DAILY.value}:
+        open_values = pd.to_numeric(dataframe["Open"])
+        high_values = pd.to_numeric(dataframe["High"])
+        low_values = pd.to_numeric(dataframe["Low"])
+        close_values = pd.to_numeric(dataframe["Close"])
+        volume_values = pd.to_numeric(dataframe["Volume"])
+        amount_values = pd.to_numeric(dataframe["Amount"])
+        price_tolerance = 0.011 if dataset == Dataset.SGE_GOLD_DAILY.value else 0.0
+        invalid = (
+            (low_values <= 0)
+            | (high_values + price_tolerance < open_values)
+            | (high_values + price_tolerance < close_values)
+            | (low_values - price_tolerance > open_values)
+            | (low_values - price_tolerance > close_values)
+            | (volume_values < 0)
+            | (amount_values < 0)
+        )
+        if invalid.any():
+            raise DataContractError(
+                "provider output contains invalid daily price bars",
+                dataset=dataset,
+                invalid_rows=int(invalid.sum()),
+            )
+    if dataset == Dataset.USDCNH_DAILY.value:
+        bid_close = pd.to_numeric(dataframe["BidClose"])
+        ask_close = pd.to_numeric(dataframe["AskClose"])
+        if (bid_close <= 0).any() or (ask_close <= 0).any() or (bid_close > ask_close).any():
+            raise DataContractError("provider output contains invalid USDCNH quotes")
     if dataset == Dataset.TRADING_CALENDAR.value:
         flags = pd.to_numeric(dataframe["IsOpen"], errors="coerce")
         if not flags.isin([0, 1]).all():
@@ -312,14 +389,21 @@ def _default_providers() -> dict[str, Provider]:
     from .local_strategy_data import fetch_strategy_feature_evidence
     from .tushare_etf import fetch_etf_ohlcv, fetch_etf_unadjusted_daily
     from .tushare_strategy_data import (
+        fetch_cn_cpi_monthly,
+        fetch_cn_money_monthly,
+        fetch_cn_ppi_monthly,
+        fetch_domestic_index_daily,
         fetch_etf_share_size,
         fetch_global_index_daily,
         fetch_index_constituent_weight,
         fetch_index_daily_basic,
+        fetch_sge_gold_daily,
         fetch_shibor_daily,
         fetch_stock_moneyflow,
         fetch_stock_moneyflow_sessions,
         fetch_trading_calendar,
+        fetch_us_real_yield_daily,
+        fetch_usdcnh_daily,
     )
     from .tushare_stock import fetch_stock_ohlcv, fetch_stock_unadjusted_daily
 
@@ -359,6 +443,45 @@ def _default_providers() -> dict[str, Provider]:
 
     def shibor(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
         return fetch_shibor_daily(request.start, request.end, env_file=_env_file(request))
+
+    def us_real_yield(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_us_real_yield_daily(
+            request.start, request.end, env_file=_env_file(request)
+        )
+
+    def usdcnh(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_usdcnh_daily(request.start, request.end, env_file=_env_file(request))
+
+    def sge_gold(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_sge_gold_daily(
+            _required_symbol(request),
+            request.start,
+            request.end,
+            env_file=_env_file(request),
+        )
+
+    def domestic_index(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_domestic_index_daily(
+            _required_symbol(request),
+            request.start,
+            request.end,
+            env_file=_env_file(request),
+        )
+
+    def cn_cpi(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_cn_cpi_monthly(
+            request.start, request.end, env_file=_env_file(request)
+        )
+
+    def cn_ppi(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_cn_ppi_monthly(
+            request.start, request.end, env_file=_env_file(request)
+        )
+
+    def cn_money(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        return fetch_cn_money_monthly(
+            request.start, request.end, env_file=_env_file(request)
+        )
 
     def index_basic(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
         return fetch_index_daily_basic(
@@ -426,6 +549,13 @@ def _default_providers() -> dict[str, Provider]:
         Dataset.STOCK_OHLCV.value: stock_ohlcv,
         Dataset.STOCK_UNADJUSTED_DAILY.value: stock_unadjusted,
         Dataset.SHIBOR_DAILY.value: shibor,
+        Dataset.US_REAL_YIELD_DAILY.value: us_real_yield,
+        Dataset.USDCNH_DAILY.value: usdcnh,
+        Dataset.SGE_GOLD_DAILY.value: sge_gold,
+        Dataset.DOMESTIC_INDEX_DAILY.value: domestic_index,
+        Dataset.CN_CPI_MONTHLY.value: cn_cpi,
+        Dataset.CN_PPI_MONTHLY.value: cn_ppi,
+        Dataset.CN_MONEY_MONTHLY.value: cn_money,
         Dataset.INDEX_DAILY_BASIC.value: index_basic,
         Dataset.ETF_SHARE_SIZE.value: etf_shares,
         Dataset.GLOBAL_INDEX_DAILY.value: global_index,

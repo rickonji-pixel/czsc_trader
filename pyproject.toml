@@ -27,6 +27,10 @@ dependencies = [
 czsc-trader = "czsc_trader.cli.main:main"
 
 [project.optional-dependencies]
+research = [
+    "optuna==4.9.0",
+    "tsfresh==0.21.1",
+]
 test = ["pytest>=8.0", "ruff>=0.12"]
 
 [tool.setuptools.packages.find]

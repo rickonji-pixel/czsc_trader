@@ -206,15 +206,17 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_evaluator[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\strategy_runtime[test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\trading_execution_engine[test]"
-.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".[research,test]"
 .\.venv\Scripts\python.exe -m pip install -e ".\packages\paper_trading_engine[test]"
 .\.venv\Scripts\czsc-trader.exe --help
 .\.venv\Scripts\pte.exe --help
 ```
 
-Tushare与新闻MaaS凭据写入由Git忽略的`.env`；使用Futu模拟交易前启动Futu OpenD。开发环境
-恢复后按[测试用例治理](TEST_GOVERNANCE.md)运行相应回归。WDG只绑定独立PTE生产根目录，
-不引用开发仓库；迁移开发仓库无需重装WDG。
+根目录`.venv`是平台开发和策略研究共用的唯一开发环境；`research` extra提供Optuna、tsfresh
+等仅在研究阶段使用的依赖，不创建第二套本地虚拟环境。PTE构建不安装该extra，研究依赖不得
+进入PTE生产发布闭包。Tushare与新闻MaaS凭据写入由Git忽略的`.env`；使用Futu模拟交易前
+启动Futu OpenD。开发环境恢复后按[测试用例治理](TEST_GOVERNANCE.md)运行相应回归。WDG只
+绑定独立PTE生产根目录，不引用开发仓库；迁移开发仓库无需重装WDG。
 
 ## 本地状态与跨机边界
 

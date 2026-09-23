@@ -7,6 +7,7 @@ from .model import RepairPatch, SeriesKey
 from .tushare_510500 import PATCH as TUSHARE_510500
 from .tushare_512100 import PATCH as TUSHARE_512100
 from .tushare_515050 import PATCH as TUSHARE_515050
+from .tushare_518800 import PATCH as TUSHARE_518800
 from .tushare_518880 import PATCH as TUSHARE_518880
 from .tushare_588080 import PATCH as TUSHARE_588080
 
@@ -15,6 +16,7 @@ REPAIR_PATCHES: tuple[RepairPatch, ...] = (
     TUSHARE_510500,
     TUSHARE_512100,
     TUSHARE_515050,
+    TUSHARE_518800,
     TUSHARE_518880,
     TUSHARE_588080,
 )

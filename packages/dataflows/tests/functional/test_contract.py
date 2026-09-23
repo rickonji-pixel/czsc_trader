@@ -296,3 +296,37 @@ def test_required_cutoff_prevents_stale_data_from_becoming_ready() -> None:
     assert result.status is DataStatus.INCOMPLETE
     assert result.error is not None
     assert result.error.code == "INCOMPLETE_DATA"
+
+
+def test_declared_start_coverage_prevents_truncated_history_from_becoming_ready() -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2016-11-29", "2024-12-31"],
+            "OvernightRate": [2.30, 1.50],
+        }
+    )
+    request = DataRequest(
+        Dataset.SHIBOR_DAILY,
+        None,
+        "2013-07-29",
+        "2024-12-31",
+        "2024-12-31",
+    )
+
+    result = Dataflows(
+        {
+            Dataset.SHIBOR_DAILY.value: lambda ignored: (
+                frame,
+                {
+                    "vendor": "test",
+                    "primary_key": ["Date"],
+                    "maximum_start_lag_days": 10,
+                },
+            )
+        }
+    ).fetch(request)
+
+    assert result.status is DataStatus.INCOMPLETE
+    assert result.error is not None
+    assert result.error.code == "INCOMPLETE_DATA"
+    assert result.error.context["actual_start"].startswith("2016-11-29")

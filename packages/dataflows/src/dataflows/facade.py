@@ -276,6 +276,30 @@ def _date_bounds(
             actual_start=str(actual_start),
             actual_end=str(actual_end),
         )
+    maximum_start_lag_days = metadata.get("maximum_start_lag_days")
+    if maximum_start_lag_days is not None:
+        try:
+            maximum_start_lag_days = int(maximum_start_lag_days)
+        except (TypeError, ValueError) as exc:
+            raise DataContractError(
+                "provider maximum start lag must be an integer",
+                maximum_start_lag_days=maximum_start_lag_days,
+            ) from exc
+        if maximum_start_lag_days < 0:
+            raise DataContractError(
+                "provider maximum start lag must not be negative",
+                maximum_start_lag_days=maximum_start_lag_days,
+            )
+        latest_acceptable_start = requested_start.normalize() + pd.Timedelta(
+            days=maximum_start_lag_days
+        )
+        if actual_start.normalize() > latest_acceptable_start:
+            raise IncompleteDataError(
+                "published dataframe does not cover the requested history start",
+                requested_start=str(requested_start),
+                actual_start=str(actual_start),
+                maximum_start_lag_days=maximum_start_lag_days,
+            )
     if request.required_cutoff is not None:
         required_cutoff = pd.Timestamp(request.required_cutoff)
         if " " not in request.required_cutoff and "T" not in request.required_cutoff:

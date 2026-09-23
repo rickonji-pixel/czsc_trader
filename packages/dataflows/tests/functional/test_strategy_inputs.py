@@ -58,6 +58,15 @@ class FakePro:
         )
 
 
+class ChunkedShiborPro:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, str]] = []
+
+    def shibor(self, **kwargs):
+        self.calls.append(kwargs)
+        return pd.DataFrame({"date": [kwargs["start_date"]], "on": [1.25]})
+
+
 def test_s007_non_ohlcv_inputs_are_canonical() -> None:
     pro = FakePro()
     shibor, _ = fetch_shibor_daily("2026-09-15", "2026-09-15", pro=pro)
@@ -70,6 +79,24 @@ def test_s007_non_ohlcv_inputs_are_canonical() -> None:
     assert shares.loc[0, "TotalShare"] == pytest.approx(123.0)
     assert share_meta["availability_rule"] == "T+1 08:30 Asia/Shanghai"
     assert spx.loc[0, "PercentChange"] == pytest.approx(0.015)
+
+
+def test_shibor_long_history_is_split_by_calendar_year() -> None:
+    pro = ChunkedShiborPro()
+
+    frame, metadata = fetch_shibor_daily("2024-12-31", "2026-01-01", pro=pro)
+
+    assert frame["Date"].dt.strftime("%Y-%m-%d").tolist() == [
+        "2024-12-31",
+        "2025-01-01",
+        "2026-01-01",
+    ]
+    assert [call["start_date"] for call in pro.calls] == [
+        "20241231",
+        "20250101",
+        "20260101",
+    ]
+    assert metadata["maximum_start_lag_days"] == 10
 
 
 def test_s003_constituent_inputs_preserve_multi_entity_keys() -> None:

@@ -98,10 +98,15 @@ def fetch_shibor_daily(
     env_file: str | Path | None = None,
     pro: object | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
+    client = _client(pro, env_file)
     dataframe = _canonicalize(
-        _client(pro, env_file).shibor(
-            start_date=start_date.replace("-", ""),
-            end_date=end_date.replace("-", ""),
+        _fetch_yearly(
+            lambda start, end: client.shibor(
+                start_date=start,
+                end_date=end,
+            ),
+            start_date,
+            end_date,
         ),
         dataset="SHIBOR daily",
         date_column="date",
@@ -112,6 +117,7 @@ def fetch_shibor_daily(
         "vendor": "tushare",
         "frequency": "daily",
         "primary_key": ["Date"],
+        "maximum_start_lag_days": 10,
     }
 
 

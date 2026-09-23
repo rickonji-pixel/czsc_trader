@@ -17,7 +17,7 @@ CZSC Trader 是面向个人量化团队的可审计策略研发与模拟交易�
 
 | 模块 | 简称 | 位置 | 职责 |
 | --- | --- | --- | --- |
-| CZSC Trader | TDR | `src/czsc_trader/` | 投资总监执行候选审查、体检和冻结的受控平台入口 |
+| CZSC Trader | TDR | `src/czsc_trader/` | 首席投资官（CIO）执行候选审查、体检和冻结的受控平台入口 |
 | Dataflows | DFLS | `packages/dataflows/` | 数据获取、规范化、自校验、按供应商与标的修复和失败阻断 |
 | Factor & Signal Catalog | FSC | `packages/factor_signal_catalog/` | 项目级信息族、因子和信号定义目录 |
 | Strategy Template Catalog | STC | `packages/strategy_template_catalog/` | 策略函数模板、输入角色和参数边界目录 |
@@ -36,21 +36,21 @@ SRT以`StrategyInstance`为运行边界，根据交易窗口自主推导和准�
 ### 核心工作流
 
 ```text
-策略研究员：研究立项与实验 → 实现策略、binding和回测图 → 组装候选提交包
-投资总监：candidate review → candidate evaluate → 审阅体检结果 → candidate freeze
+用户授权RSCH：研究立项与实验 → 实现策略、binding和回测图 → 组装候选提交包
+用户授权CIO：candidate review → candidate evaluate → 审阅体检结果 → candidate freeze
 平台工具：封存候选与数据 → 独立复算和完整性阻断 → 生成不可变冻结版本
-投资总监：strategy deploy → SRT从策略治理区加载冻结发布包
+CIO按当前任务授权：strategy deploy → SRT从策略治理区加载冻结发布包
 独立授权：创建PTE虚拟账户 → PTE异步生成前瞻观察图 → 前瞻监测
 ```
 
 研究诊断、正式裁决和模拟盘表现分别保存，不能用单次成交或未冻结实验替代策略有效性证据。
 历史失败、执行异常和修复记录继续保留，避免事后改写研究或交易结果。
 
-策略研究员维护研究区和候选提交包；投资总监使用平台工具完成候选审查、体检、冻结与SRT
-部署。当前平台尚不识别或鉴权投资总监身份，治理印章中的操作者身份保证级别明确记录为
-`UNVERIFIED`。研究可以自由选择算法库，最终评价目标在送审时锁定；TDR根据候选实现、封存
-数据和TXE账本独立复核，冻结后原样保存同一实现。历史实验保留供人工审阅，当前架构不承诺
-旧实验脚本重放兼容。
+策略研究员（RSCH）和首席投资官（CIO）均由用户授权的独立LLM Agent会话承担。RSCH维护
+研究区和候选提交包；CIO使用平台工具完成候选审查、体检、冻结与SRT部署。当前平台尚不识别
+或鉴权用户及Agent身份，治理印章中的操作者身份保证级别明确记录为`UNVERIFIED`。研究可以
+自由选择算法库，最终评价目标在送审时锁定；TDR根据候选实现、封存数据和TXE账本独立复核，
+冻结后原样保存同一实现。历史实验保留供人工审阅，当前架构不承诺旧实验脚本重放兼容。
 
 ## 项目目录
 
@@ -61,7 +61,7 @@ SRT以`StrategyInstance`为运行边界，根据交易窗口自主推导和准�
 | `catalog/` | FSC信息族、因子和信号定义 | 项目级定义来源，不保存标的值或Alpha证据 |
 | `strategy_templates/` | STC策略函数模板定义 | 项目级结构来源，不保存搜索结果或绩效证据 |
 | `strategies/` | 正式策略身份、SGC凭据链、冻结发布包、部署凭据、生命周期和证据 | 独立策略治理区，只由平台工具写入；SRT从此处加载已部署版本 |
-| `research/` | 研究总交接、各SXX批次目标、候选和监测方案 | 研究领域唯一入口；目标与批次绑定 |
+| `research/` | 共享研究入口、RSCH/CIO Agent描述、各SXX批次目标、候选和监测方案 | 研究领域入口；目标与批次绑定 |
 | `experiments/` | 按策略和实验编号归档的输入、结果及审计证据 | 不可变研究档案，失败实验同样保留 |
 | `data/` | 研究池、普通回测执行数据和冻结评审快照 | `raw/`、`backtest/`、`review/`隔离管理；本地数据不随Git分发 |
 | `docs/` | 用户、开发、测试治理、事故和历史设计文档 | 非研究领域说明与历史资料入口 |
@@ -78,22 +78,25 @@ SRT以`StrategyInstance`为运行边界，根据交易窗口自主推导和准�
 
 ### 策略研究员必看
 
-- [策略研究交接](research/README.md)：策略研究领域的唯一总入口，包含S001—S008批次状态、
-  研究工作流、研究命令、数据与证据边界以及冻结规则。
+- [RSCH Agent描述](research/RSCH_AGENT.md)：策略研究员Agent的身份、授权边界、研究工作流和
+  候选交付要求。
+- [策略研究总入口](research/README.md)：共享角色关系、S001—S008批次状态、证据规则和恢复入口。
 - [策略候选包](docs/CANDIDATE_PACKAGE.md)：候选实现、binding、回测图代码、前瞻观察语义和
   提交清单的完整契约。
 
 查阅或归档正式实验时，继续阅读[实验档案说明](experiments/README.md)。
 
-### 投资总监必看
+### 首席投资官必看
 
+- [CIO Agent描述](research/CIO_AGENT.md)：首席投资官Agent的身份、任务授权范围、候选体检、冻结和
+  SRT部署规则。
 - [策略候选包](docs/CANDIDATE_PACKAGE.md)：通过`candidate review/evaluate/freeze`完成体检与
   冻结，再通过`strategy deploy/list/info`管理SRT已部署策略。
-- [策略研究交接](research/README.md)：了解候选来源、评价目标、研究证据和冻结后的监测边界。
+- [策略研究总入口](research/README.md)：了解候选来源、评价目标、研究证据和冻结后的监测边界。
 
 ### 平台开发者必看
 
-- [策略研究交接](research/README.md)：理解平台所服务的研究流程、策略状态和证据边界。
+- [策略研究总入口](research/README.md)：理解平台所服务的角色关系、策略状态和证据边界。
 - [开发运维交接](docs/DEVELOPMENT_HANDOFF.md)：掌握架构契约、环境恢复、开发规则和PTE发布运维。
 - [测试用例治理](docs/TEST_GOVERNANCE.md)：遵循测试分层、边界覆盖和周期性治理规则。
 - [DFLS技术说明](packages/dataflows/README.md)：数据包接口和使用方式。

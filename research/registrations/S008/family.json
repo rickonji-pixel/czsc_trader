@@ -27,11 +27,11 @@
     },
     "unconfirmed_evaluation_terms": "收益目标、最大回撤、主成本、现实压力、交易频率和正式对手尚未由用户确认，不作为当前硬门；候选送审前由EvaluationMandate锁定"
   },
-  "research_state": "PAUSED",
+  "research_state": "RESEARCHING",
   "schema_version": 2,
   "scope": [
     "518880.SH"
   ],
   "strategy_id": "S008",
-  "updated_at": "2026-09-20T13:34:45+08:00"
+  "updated_at": "2026-09-23T11:37:33+08:00"
 }

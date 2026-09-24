@@ -9,10 +9,10 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from czsc_trader.candidate_evaluation import (
+from czsc_trader.research_tools import (
     CandidateEvaluationContext,
-    prepare_evaluation_workspace,
 )
+from czsc_trader.research_tools.evaluation import prepare_evaluation_workspace
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.evaluation_service import evaluate_experiment
 from strategy_evaluator import (
@@ -78,7 +78,7 @@ def test_formal_evaluation_rejects_data_that_stops_before_development_cutoff(
         )
 
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data",
         load_stale,
     )
     context = CandidateEvaluationContext(
@@ -227,6 +227,48 @@ def _fixed_runner(
                 )
             )
     return tuple(rows)
+
+
+def test_research_evaluate_is_a_non_governance_facade(
+    functional_repo: Path, monkeypatch
+) -> None:
+    from czsc_trader.application.research_evaluation_service import (
+        evaluate_research_experiment,
+    )
+    from czsc_trader.application.results import CommandResult
+
+    context = RepositoryContext.discover(functional_repo, explicit_root=functional_repo)
+    expected = CommandResult(
+        "PASS",
+        "strategy.evaluate",
+        {"decision": "KEEP_RESEARCHING"},
+        {"directory": "artifacts"},
+        ("diagnostic",),
+    )
+    observed = {}
+
+    def evaluate(received_context, experiment_id):
+        observed.update(context=received_context, experiment_id=experiment_id)
+        return expected
+
+    monkeypatch.setattr(
+        "czsc_trader.application.research_evaluation_service.evaluate_experiment",
+        evaluate,
+    )
+
+    result = evaluate_research_experiment(context, "20260923_S008_EX66")
+
+    assert observed == {
+        "context": context,
+        "experiment_id": "20260923_S008_EX66",
+    }
+    assert result == CommandResult(
+        "PASS",
+        "research.evaluate",
+        expected.result,
+        expected.artifacts,
+        expected.warnings,
+    )
 
 
 def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(

@@ -359,7 +359,12 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
         hash_execution_evidence, hash_return_matrix, hash_audit_data,
     )
     from functional_support import ReplayFixture
-    from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
+    from czsc_trader.research_tools import (
+        CandidateEvaluationContext,
+        EvaluationRequest,
+        evaluate_strategy,
+    )
+    from czsc_trader.candidate_evaluation import evaluate_candidate_payloads
     from czsc_trader.application.evaluation_evidence import build_champion_audit_request
 
     payload, package = candidate_payload
@@ -384,7 +389,7 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
         replay_data, start=sessions[1], end=sessions[-1]
     )
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data",
         lambda **kw: execution_data,
     )
     def forbidden(*args, **kwargs):
@@ -402,6 +407,17 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
     payloads = tuple(payloads)
     screening = evaluate_candidate_payloads(context, protocol, payloads, ("C001", "C000"), "SCREENING")
     formal = evaluate_candidate_payloads(context, protocol, payloads, ("C001", "C000"), "FORMAL")
+    harness = evaluate_strategy(EvaluationRequest(context, protocol, payloads[1]))
+    assert harness.observations == (formal[0],)
+    assert len(harness.runs) == 1
+    assert harness.runs[0].signals.data_identity
+    assert not harness.runs[0].execution.account_daily.empty
+    assert harness.runs[0].observation is harness.observations[0]
+    assert harness.runs[0].buyhold is not None
+    assert not harness.runs[0].buyhold.account_daily.empty
+    assert set(harness.runs[0].buyhold.metrics) >= {
+        "calmar", "max_drawdown", "return",
+    }
     assert tuple(replace(row, measurement_tier="FORMAL") for row in screening) == formal
     assert formal[0].closed_trades == 1
     assert evaluate_candidate_payloads(replace(context, workers=2), protocol, payloads, ("C001", "C000"), "FORMAL") == formal
@@ -451,7 +467,8 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         publish_review_dataset, load_review_dataset, verify_review_dataset,
     )
     from functional_support import ReplayFixture, replay_fingerprint
-    from czsc_trader.candidate_evaluation import CandidateEvaluationContext, evaluate_candidate_payloads
+    from czsc_trader.research_tools import CandidateEvaluationContext
+    from czsc_trader.candidate_evaluation import evaluate_candidate_payloads
     from czsc_trader.data import MarketData
 
     payload, package = candidate_payload
@@ -470,7 +487,7 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
         replay, start=sessions[1], end=sessions[-1]
     )
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data",
         lambda **kw: execution_data,
     )
     def forbidden(*args, **kwargs):
@@ -526,7 +543,7 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
     original = (pool / "flow.csv").read_bytes()
     (pool / "flow.csv").write_bytes(original + b"\n")
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data", forbidden
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data", forbidden
     )
     with pytest.raises(ValueError, match="unsealed review dataset already exists"):
         publish_review_dataset(
@@ -552,7 +569,7 @@ def test_review_data_republication_is_offline_isolated_and_fails_closed(candidat
 
     # A new preparation fails atomically when SRT cannot prepare its own inputs.
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data",
         lambda **kw: execution_data,
     )
     failed_directory = directory.parent / ("b" * 64)
@@ -609,7 +626,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         replay, start=sessions[1], end=sessions[-1]
     )
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data",
         lambda **kw: execution_data,
     )
     context = RepositoryContext(
@@ -695,7 +712,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
     def forbidden(*args, **kwargs):
         raise AssertionError("review computation must not read the mutable research pool")
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data", forbidden
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data", forbidden
     )
     result = evaluate_experiment(
         context, "REVIEW", allow_artifact_reuse=False, use_cached_result=False,
@@ -756,7 +773,7 @@ def test_real_evaluation_consumes_review_snapshot_and_emits_se_report(candidate_
         runtime_root=package,
     )
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data",
         lambda **kw: execution_data,
     )
     reviewed = evaluate_freeze_review(

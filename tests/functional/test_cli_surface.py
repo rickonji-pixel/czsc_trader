@@ -12,7 +12,7 @@ from czsc_trader.cli.main import _context, build_parser, main
 
 EXPECTED_ACTIONS = {
     "data": {"prepare", "validate"},
-    "research": {"create", "intent"},
+    "research": {"create", "evaluate", "intent"},
     "candidate": {"review", "evaluate", "freeze"},
     "strategy": {
         "list",
@@ -136,6 +136,7 @@ def test_ft_t08_candidate_and_srt_commands_parse() -> None:
             "--mandate",
             "evaluation-mandate.json",
         ],
+        ["research", "evaluate", "20260923_S008_EX66"],
         [
             "candidate",
             "freeze",
@@ -151,6 +152,7 @@ def test_ft_t08_candidate_and_srt_commands_parse() -> None:
     assert [item.command_name for item in parsed] == [
         "research.create",
         "candidate.review",
+        "research.evaluate",
         "candidate.freeze",
         "strategy.info",
     ]

@@ -3,13 +3,9 @@ from __future__ import annotations
 import pytest
 
 from strategy_runtime import (
-    ExecutionPolicy,
-    RuntimeContractError,
-    StrategyImplementation,
-)
-from strategy_runtime.models import (
     CutoffRule,
     DecisionContract,
+    ExecutionPolicy,
     ImplementationRef,
     InputContract,
     InputRequirement,
@@ -17,6 +13,8 @@ from strategy_runtime.models import (
     ParameterSet,
     RequiredCapabilities,
     RuntimeDefinition,
+    RuntimeContractError,
+    StrategyImplementation,
 )
 
 

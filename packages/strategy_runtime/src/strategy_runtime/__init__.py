@@ -1,7 +1,13 @@
 """Strategy Runtime (SRT) public contracts."""
 
 from .algorithm import StrategyImplementation
-from .calculation import CalculationScope, CalendarWindow, InputRange
+from .calculation import (
+    CalculationScope,
+    CalendarWindow,
+    InputRange,
+    next_session_calculation_scope,
+    next_session_calendar_window,
+)
 from .charting import CHART_CONTEXT_VERSION, ChartRuntime, validate_chart_context
 from .observation import (
     OBSERVATION_CONTRACT_VERSION,
@@ -35,12 +41,22 @@ from .errors import (
 )
 from .deployment import StrategyDeployment, deployment_inventory, load_strategy_deployment
 from .models import (
+    CutoffRule,
+    DecisionContract,
     ExecutionPolicy,
+    HistoryPolicy,
+    ImplementationRef,
+    InputContract,
+    InputRequirement,
+    MonitoringPolicy,
+    ParameterSet,
+    RequiredCapabilities,
     RuntimeDefinition,
     StrategyCandidate,
     StrategyRelease,
     canonical_sha256,
 )
+from .implementation_identity import implementation_sha256
 from .runtime import StrategyInit, StrategyRuntime
 from .strategy import StrategyInstance
 
@@ -52,12 +68,19 @@ __all__ = [
     "CalendarWindow",
     "CHART_CONTEXT_VERSION",
     "ChartRuntime",
+    "CutoffRule",
     "ExecutionCapabilities",
+    "DecisionContract",
     "ExecutionOutcome",
     "ExecutionPlan",
     "ExecutionPolicy",
     "ExecutionState",
+    "HistoryPolicy",
+    "ImplementationRef",
+    "InputContract",
+    "InputRequirement",
     "InputRange",
+    "MonitoringPolicy",
     "OrderSide",
     "OrderType",
     "OBSERVATION_CONTRACT_VERSION",
@@ -65,6 +88,8 @@ __all__ = [
     "PlannedOrder",
     "PortfolioSnapshot",
     "PriceReference",
+    "ParameterSet",
+    "RequiredCapabilities",
     "RuntimeCompatibilityError",
     "RuntimeContractError",
     "RuntimeDefinition",
@@ -85,6 +110,9 @@ __all__ = [
     "deployment_inventory",
     "load_strategy_deployment",
     "materialize_observation",
+    "implementation_sha256",
+    "next_session_calculation_scope",
+    "next_session_calendar_window",
     "unavailable_observation",
     "validate_chart_context",
     "validate_observation_descriptor",

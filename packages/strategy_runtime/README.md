@@ -65,6 +65,20 @@ prepared = instance.prepare_data()
 3. `derive_calculation_scope(...)`：推导信号日、初始计算日及每项输入的准确范围；
 4. `calculate_history(...)`：使用已准备输入计算渠道无关的目标仓位和诊断信息。
 
+候选实现只从 `strategy_runtime` 顶层导入策略编写合同。稳定的编写接口包括：
+
+- 定义合同：`CutoffRule`、`InputRequirement`、`InputContract`、`ImplementationRef`、
+  `ParameterSet`、`HistoryPolicy`、`DecisionContract`、`ExecutionPolicy`、`MonitoringPolicy`、
+  `RequiredCapabilities`和`RuntimeDefinition`；
+- 计算范围：`CalendarWindow`、`CalculationScope`、`InputRange`、
+  `next_session_calendar_window`和`next_session_calculation_scope`；
+- 实现与身份：`StrategyImplementation`、`StrategyCandidate`和`implementation_sha256`；
+- 运行错误：`RuntimeContractError`和`RuntimeCompatibilityError`。
+
+`StrategyLoader`及`strategy_runtime.models`、`strategy_runtime.calculation`、
+`strategy_runtime.implementation_identity`等子模块属于实现细节，候选代码不得直接依赖。候选由
+`StrategyRuntime.create(StrategyInit(...))`加载和运行。
+
 策略实现负责自身的因果滞后、特征构造、预热、状态推导和目标仓位。平台层不维护按策略 ID
 分支的历史规则解码器，也不为旧制品提供兼容路径。
 

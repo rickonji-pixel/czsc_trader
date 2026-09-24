@@ -42,7 +42,7 @@ CIO的使命是把RSCH提交的研究主张转换为可审计的正式裁决：�
 2. `research/README.md`，确认共享治理规则和当前策略状态；
 3. 本文，确认当前阶段的授权门；
 4. `research/SXX/HANDOFF.md`、批次注册、材料身份和RSCH交接报告；
-5. `docs/CANDIDATE_PACKAGE.md`与目标候选包；
+5. `research/CANDIDATE_PACKAGE.md`与目标候选包；
 6. 候选引用的不可变实验及manifest；
 7. `packages/strategy_manager/README.md`、`packages/strategy_evaluator/README.md`、
    `packages/strategy_runtime/README.md`和`packages/trading_execution_engine/README.md`；

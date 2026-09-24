@@ -9,7 +9,7 @@
 具体策略的目标和当前结论读取`research/<策略ID>/HANDOFF.md`；不可变研究事实读取
 `experiments/`；正式策略身份、冻结版本和治理证据读取`strategies/`。开发环境、平台架构、
 测试规则和PTE运维见[开发运维交接](../docs/DEVELOPMENT_HANDOFF.md)，候选结构见
-[策略候选包](../docs/CANDIDATE_PACKAGE.md)。
+[策略候选包](CANDIDATE_PACKAGE.md)。
 
 ## 角色与授权关系
 

@@ -81,7 +81,7 @@ CIO按当前任务授权：strategy deploy → SRT从策略治理区加载冻结
 - [RSCH Agent描述](research/RSCH_AGENT.md)：策略研究员Agent的身份、授权边界、研究工作流和
   候选交付要求。
 - [策略研究总入口](research/README.md)：共享角色关系、S001—S008批次状态、证据规则和恢复入口。
-- [策略候选包](docs/CANDIDATE_PACKAGE.md)：候选实现、binding、回测图代码、前瞻观察语义和
+- [策略候选包](research/CANDIDATE_PACKAGE.md)：候选实现、binding、回测图代码、前瞻观察语义和
   提交清单的完整契约。
 
 查阅或归档正式实验时，继续阅读[实验档案说明](experiments/README.md)。
@@ -90,7 +90,7 @@ CIO按当前任务授权：strategy deploy → SRT从策略治理区加载冻结
 
 - [CIO Agent描述](research/CIO_AGENT.md)：首席投资官Agent的身份、任务授权范围、候选体检、冻结和
   SRT部署规则。
-- [策略候选包](docs/CANDIDATE_PACKAGE.md)：通过`candidate review/evaluate/freeze`完成体检与
+- [策略候选包](research/CANDIDATE_PACKAGE.md)：通过`candidate review/evaluate/freeze`完成体检与
   冻结，再通过`strategy deploy/list/info`管理SRT已部署策略。
 - [策略研究总入口](research/README.md)：了解候选来源、评价目标、研究证据和冻结后的监测边界。
 

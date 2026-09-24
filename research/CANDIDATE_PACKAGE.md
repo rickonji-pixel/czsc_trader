@@ -1,7 +1,7 @@
 # 策略候选包
 
-[策略研究员Agent](../research/RSCH_AGENT.md)负责实现并交付完整候选包；
-[首席投资官Agent](../research/CIO_AGENT.md)通过平台工具完成候选审查、体检，并在当前任务授权范围内
+[策略研究员Agent](RSCH_AGENT.md)负责实现并交付完整候选包；
+[首席投资官Agent](CIO_AGENT.md)通过平台工具完成候选审查、体检，并在当前任务授权范围内
 冻结和部署到SRT。
 
 ## 存放位置
@@ -159,7 +159,7 @@ class SXXXCharts:
 ## 首席投资官操作
 
 最终EvaluationMandate由CIO维护在候选包目录之外，避免与RSCH提交的不可变候选包混合。受理、
-体检、冻结和部署的授权边界见[CIO Agent描述](../research/CIO_AGENT.md)。
+体检、冻结和部署的授权边界见[CIO Agent描述](CIO_AGENT.md)。
 
 ```powershell
 .\.venv\Scripts\czsc-trader.exe candidate review `

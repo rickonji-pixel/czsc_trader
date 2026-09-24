@@ -415,7 +415,7 @@ EX66使用Optuna `InMemoryStorage`、固定种子、8个`spawn`工作进程及�
 4. `research/registrations/SXX/`与`research/SXX/materials.json`；
 5. 相关`experiments/SXX/`档案；
 6. 根据当前任务检查相关Python包的公开导出、签名、docstring和功能测试；
-7. 准备候选时读取`docs/CANDIDATE_PACKAGE.md`。
+7. 准备候选时读取`research/CANDIDATE_PACKAGE.md`。
 
 开始前最小检查：
 
@@ -463,7 +463,7 @@ git status --short --branch
 候选实现、参数、数据合同和执行规则送审后不得原地修改。修改后形成新候选或重新送审。
 
 候选包是治理交付合同，当前没有RSCH可用的公开构建API，因此目录、字段和哈希暂以
-`docs/CANDIDATE_PACKAGE.md`为权威规范。RSCH不得虚构`candidate build`或`candidate validate`
+`research/CANDIDATE_PACKAGE.md`为权威规范。RSCH不得虚构`candidate build`或`candidate validate`
 入口，也不得依赖平台私有函数组装正式包；提交前通过公开SRT/TXE接口完成隔离加载、合成预检和
 正式实验复放，包级完整性由CIO执行`candidate review`时独立校验和封存。
 

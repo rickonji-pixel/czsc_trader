@@ -7,7 +7,7 @@ import json
 
 from dataflows import DataRequest
 
-from czsc_trader.research_tools import (
+from research_experiment import (
     ExperimentCapabilities,
     ExperimentCapability,
     ExperimentDefinition,

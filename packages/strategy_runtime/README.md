@@ -70,6 +70,8 @@ prepared = instance.prepare_data()
 - 定义合同：`CutoffRule`、`InputRequirement`、`InputContract`、`ImplementationRef`、
   `ParameterSet`、`HistoryPolicy`、`DecisionContract`、`ExecutionPolicy`、`MonitoringPolicy`、
   `RequiredCapabilities`和`RuntimeDefinition`；
+- 跨市场对齐：`AlignmentRule`、`InputAlignment`、`AlignedInput`和
+  `align_input_history`；
 - 计算范围：`CalendarWindow`、`CalculationScope`、`InputRange`、
   `next_session_calendar_window`和`next_session_calculation_scope`；
 - 实现与身份：`StrategyImplementation`、`StrategyCandidate`和`implementation_sha256`；
@@ -81,6 +83,12 @@ prepared = instance.prepare_data()
 
 策略实现负责自身的因果滞后、特征构造、预热、状态推导和目标仓位。平台层不维护按策略 ID
 分支的历史规则解码器，也不为旧制品提供兼容路径。
+
+跨市场或跨频率输入应在`InputRequirement.alignment`声明源时间列、源日历、决策日历、最大
+陈旧天数和同日值规则，再调用`align_input_history(...)`。`STRICT_PRIOR`对每个决策时点选择
+严格更早的最新源观测；`LATEST_AVAILABLE`由合同明确是否允许同日值；`EXACT`只接受同时点值。
+返回的`AlignedInput.dataframe`始终携带`decision_time`、`source_time`和`staleness_days`，策略
+必须保留这些审计列，禁止通过重索引后`shift(1)`替代跨市场对齐。
 
 ## 数据准备
 

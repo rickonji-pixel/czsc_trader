@@ -9,10 +9,10 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from czsc_trader.candidate_evaluation import (
+from czsc_trader.research_tools import (
     CandidateEvaluationContext,
-    prepare_evaluation_workspace,
 )
+from czsc_trader.research_tools.evaluation import prepare_evaluation_workspace
 from czsc_trader.application.context import RepositoryContext
 from czsc_trader.application.evaluation_service import evaluate_experiment
 from strategy_evaluator import (
@@ -78,7 +78,7 @@ def test_formal_evaluation_rejects_data_that_stops_before_development_cutoff(
         )
 
     monkeypatch.setattr(
-        "czsc_trader.candidate_evaluation.prepare_backtest_execution_data",
+        "czsc_trader.research_tools.evaluation.prepare_backtest_execution_data",
         load_stale,
     )
     context = CandidateEvaluationContext(
@@ -227,6 +227,67 @@ def _fixed_runner(
                 )
             )
     return tuple(rows)
+
+
+def test_research_evaluate_is_a_non_governance_facade(
+    functional_repo: Path, monkeypatch
+) -> None:
+    from czsc_trader.application.research_evaluation_service import (
+        evaluate_research_request,
+    )
+
+    context = RepositoryContext.discover(functional_repo, explicit_root=functional_repo)
+    experiment = functional_repo / "experiments" / "S008" / "EX67"
+    output = experiment / "artifacts" / "evaluation"
+    request_path = experiment / "evaluation_request.json"
+    expected_request = object()
+    expected_result = object()
+    observed = {}
+
+    monkeypatch.setattr(
+        "czsc_trader.application.research_evaluation_service._request_path",
+        lambda received_context, received_path: (
+            observed.update(context=received_context, path=received_path)
+            or (request_path, experiment)
+        ),
+    )
+    monkeypatch.setattr(
+        "czsc_trader.application.research_evaluation_service._evaluation_request",
+        lambda *args: expected_request,
+    )
+    monkeypatch.setattr(
+        "czsc_trader.application.research_evaluation_service.evaluate_strategy",
+        lambda request: expected_result if request is expected_request else None,
+    )
+    monkeypatch.setattr(
+        "czsc_trader.application.research_evaluation_service._publish_result",
+        lambda received_context, received_experiment, result: (
+            output,
+            {
+                "request_hash": "a" * 64,
+                "result_hash": "b" * 64,
+                "strategy_identity": "c" * 64,
+                "runtime_binding_hash": "d" * 64,
+                "data_identity": "e" * 64,
+                "execution_mode": "FULL",
+                "runs": [{"window_id": "full", "scenario_id": "standard"}],
+            },
+        ),
+    )
+
+    result = evaluate_research_request(context, Path("request.json"))
+
+    assert observed == {
+        "context": context,
+        "path": Path("request.json"),
+    }
+    assert result.status == "PASS"
+    assert result.command == "research.evaluate"
+    assert result.result["run_count"] == 1
+    assert result.result["execution_mode"] == "FULL"
+    assert result.artifacts == {
+        "directory": "experiments/S008/EX67/artifacts/evaluation"
+    }
 
 
 def test_ft_t06_evaluation_audits_every_candidate_and_freezes_once(

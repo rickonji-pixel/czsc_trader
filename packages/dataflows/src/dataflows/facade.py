@@ -24,6 +24,54 @@ from .history_validation import inspect_ohlcv_frame
 Provider = Callable[[DataRequest], tuple[pd.DataFrame, Mapping[str, Any]]]
 
 
+_SOURCE_CALENDAR_BY_DATASET = {
+    Dataset.FXCM_DAILY.value: "FXCM_24X5",
+    Dataset.USDCNH_DAILY.value: "FXCM_24X5",
+    Dataset.US_REAL_YIELD_DAILY.value: "US_GOVERNMENT",
+    Dataset.GLOBAL_INDEX_DAILY.value: "US_MARKET",
+    Dataset.VIX_DAILY.value: "US_MARKET",
+    Dataset.CN_CPI_MONTHLY.value: "CHINA_CALENDAR_MONTH",
+    Dataset.CN_PPI_MONTHLY.value: "CHINA_CALENDAR_MONTH",
+    Dataset.CN_MONEY_MONTHLY.value: "CHINA_CALENDAR_MONTH",
+    Dataset.SGE_GOLD_DAILY.value: "SGE",
+    Dataset.STRATEGY_FEATURE_EVIDENCE.value: "REPOSITORY",
+}
+
+
+def _lineage_metadata(
+    request: DataRequest,
+    dataframe: pd.DataFrame,
+    metadata: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Add and validate stable source-time semantics to every READY publication."""
+
+    result = dict(metadata)
+    source_time_field = str(result.get("source_time_field", "Date")).strip()
+    if not source_time_field or source_time_field not in dataframe.columns:
+        raise DataContractError(
+            "provider source time field is unavailable",
+            source_time_field=source_time_field,
+        )
+    source_calendar = str(result.get("source_calendar", "")).strip()
+    if not source_calendar:
+        source_calendar = _SOURCE_CALENDAR_BY_DATASET.get(str(request.dataset), "")
+    if not source_calendar:
+        source_calendar = str(result.get("exchange") or "SOURCE_NATIVE").strip()
+    available_at = str(result.get("available_at", "")).strip()
+    if not available_at:
+        available_at = str(
+            result.get("availability_rule") or "SOURCE_PERIOD_CLOSE"
+        ).strip()
+    if not source_calendar or not available_at:
+        raise DataContractError("provider source-time metadata is incomplete")
+    result.update(
+        source_time_field=source_time_field,
+        source_calendar=source_calendar,
+        available_at=available_at,
+    )
+    return result
+
+
 _OHLCV_DATASETS = {
     Dataset.ETF_OHLCV.value,
     Dataset.ETF_UNADJUSTED_DAILY.value,
@@ -390,6 +438,7 @@ class Dataflows:
             if dataframe is None or dataframe.empty:
                 raise EmptyDataError("provider returned no rows")
             frame = dataframe.copy()
+            metadata = _lineage_metadata(request, frame, metadata)
             _validate_provider_output(frame, request, metadata)
             data_start, data_cutoff = _date_bounds(frame, request, metadata)
             source = str(metadata.get("vendor", "unknown"))

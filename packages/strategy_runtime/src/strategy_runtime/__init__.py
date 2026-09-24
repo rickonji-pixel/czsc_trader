@@ -1,6 +1,7 @@
 """Strategy Runtime (SRT) public contracts."""
 
 from .algorithm import StrategyImplementation
+from .alignment import AlignmentRule, AlignedInput, InputAlignment, align_input_history
 from .calculation import (
     CalculationScope,
     CalendarWindow,
@@ -63,6 +64,8 @@ from .strategy import StrategyInstance
 __version__ = "0.1.0"
 
 __all__ = [
+    "AlignedInput",
+    "AlignmentRule",
     "DataPreparationResult",
     "CalculationScope",
     "CalendarWindow",
@@ -78,6 +81,7 @@ __all__ = [
     "HistoryPolicy",
     "ImplementationRef",
     "InputContract",
+    "InputAlignment",
     "InputRequirement",
     "InputRange",
     "MonitoringPolicy",
@@ -107,6 +111,7 @@ __all__ = [
     "TradingPoint",
     "WindowExecutor",
     "canonical_sha256",
+    "align_input_history",
     "deployment_inventory",
     "load_strategy_deployment",
     "materialize_observation",

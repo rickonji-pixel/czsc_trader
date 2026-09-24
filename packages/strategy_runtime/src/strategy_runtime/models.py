@@ -16,6 +16,7 @@ from typing import Any, Mapping
 import pandas as pd
 
 from .errors import RuntimeContractError
+from .alignment import InputAlignment
 
 
 _FAMILY_ID = re.compile(r"S\d{3,}")
@@ -129,6 +130,7 @@ class InputRequirement:
     lookback_sessions: int
     cutoff_rule: CutoffRule
     maximum_staleness_days: int = 0
+    alignment: InputAlignment | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _text(self.name, "input name"))
@@ -143,6 +145,16 @@ class InputRequirement:
         if self.cutoff_rule is not CutoffRule.LATEST_AVAILABLE and self.maximum_staleness_days:
             raise RuntimeContractError(
                 "maximum_staleness_days is only valid for LATEST_AVAILABLE inputs"
+            )
+        if self.alignment is not None and not isinstance(self.alignment, InputAlignment):
+            raise RuntimeContractError("input alignment must be an InputAlignment")
+        if (
+            self.alignment is not None
+            and self.alignment.maximum_staleness_days is not None
+            and self.alignment.maximum_staleness_days != self.maximum_staleness_days
+        ):
+            raise RuntimeContractError(
+                "input and alignment maximum staleness days must match"
             )
 
 
@@ -348,6 +360,11 @@ class RuntimeDefinition:
                         "lookback_sessions": item.lookback_sessions,
                         "cutoff_rule": item.cutoff_rule.value,
                         "maximum_staleness_days": item.maximum_staleness_days,
+                        **(
+                            {"alignment": item.alignment.identity_payload()}
+                            if item.alignment is not None
+                            else {}
+                        ),
                     }
                     for item in self.inputs.requirements
                 ],

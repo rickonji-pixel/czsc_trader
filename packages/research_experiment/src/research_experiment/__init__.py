@@ -1,0 +1,63 @@
+"""Research Experiment (REX) public contracts."""
+
+from .contracts import (
+    ExperimentArtifact,
+    ExperimentCapabilities,
+    ExperimentCapability,
+    ExperimentContext,
+    ExperimentDataPort,
+    ExperimentDefinition,
+    ExperimentDependency,
+    ExperimentEvaluationPort,
+    ExperimentInput,
+    ExperimentMode,
+    ExperimentOutcome,
+    ExperimentProtocol,
+    ExperimentReceipt,
+    ExperimentResources,
+    ExperimentResult,
+    ExperimentRuntimePort,
+    ExperimentStage,
+    ExperimentTrace,
+    ExperimentWorkspace,
+    ResearchExperiment,
+    experiment_result_sha256,
+)
+from .loader import (
+    ExperimentBinding,
+    LoadedExperiment,
+    experiment_source_sha256,
+    load_experiment,
+)
+from .evidence import load_experiment_input
+
+__version__ = "0.1.0"
+
+__all__ = [
+    "ExperimentArtifact",
+    "ExperimentBinding",
+    "ExperimentCapabilities",
+    "ExperimentCapability",
+    "ExperimentContext",
+    "ExperimentDataPort",
+    "ExperimentDefinition",
+    "ExperimentDependency",
+    "ExperimentEvaluationPort",
+    "ExperimentInput",
+    "ExperimentMode",
+    "ExperimentOutcome",
+    "ExperimentProtocol",
+    "ExperimentReceipt",
+    "ExperimentResources",
+    "ExperimentResult",
+    "ExperimentRuntimePort",
+    "ExperimentStage",
+    "ExperimentTrace",
+    "ExperimentWorkspace",
+    "LoadedExperiment",
+    "ResearchExperiment",
+    "experiment_result_sha256",
+    "experiment_source_sha256",
+    "load_experiment",
+    "load_experiment_input",
+]

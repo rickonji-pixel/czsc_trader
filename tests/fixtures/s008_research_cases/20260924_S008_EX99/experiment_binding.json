@@ -1,9 +1,15 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module": "experiment",
   "qualname": "Experiment",
   "source_files": [
     "experiment.py"
   ],
-  "source_sha256": "0ec62ff0da911c076cb04d1b829a2c2bb2d346a8af58be1f848b209ab7afece0"
+  "source_sha256": "b9b5b71101bad39ffdea99bac812b515403d17ea2d887709ba2829cd6bd9c27a",
+  "dependencies": [
+    {
+      "name": "czsc-dataflows",
+      "version": "0.1.0"
+    }
+  ]
 }

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import replace
+import json
 import math
 from pathlib import Path
 from types import MappingProxyType
@@ -14,14 +16,19 @@ from research_experiment import (
     ExperimentCapability,
     ExperimentContext,
     ExperimentDefinition,
+    ExperimentInput,
+    ExperimentMode,
+    ExperimentReceipt,
     ExperimentResources,
     ExperimentResult,
     ExperimentTrace,
     ExperimentWorkspace,
     LoadedExperiment,
+    experiment_result_sha256,
     experiment_source_sha256,
 )
 from strategy_runtime import StrategyInit, StrategyRuntime
+from threadpoolctl import threadpool_limits
 
 from ..temp_workspace import create_temporary_directory
 from .evaluation import EvaluationRequest, EvaluationResult, evaluate_strategy
@@ -55,6 +62,7 @@ class _TraceRecorder:
         self.capabilities: list[ExperimentCapability] = []
         self.operations: list[str] = []
         self.data_requests: list[Mapping[str, Any]] = []
+        self.evaluations: list[Mapping[str, Any]] = []
 
     def record_capability(self, capability: ExperimentCapability) -> None:
         if capability not in self.capabilities:
@@ -66,11 +74,15 @@ class _TraceRecorder:
     def record_data_request(self, request: Mapping[str, Any]) -> None:
         self.data_requests.append(_freeze_trace_json(request, "data request trace"))
 
+    def record_evaluation(self, evidence: Mapping[str, Any]) -> None:
+        self.evaluations.append(_freeze_trace_json(evidence, "evaluation trace"))
+
     def snapshot(self) -> ExperimentTrace:
         return ExperimentTrace(
             capabilities=tuple(self.capabilities),
             operations=tuple(self.operations),
             data_requests=tuple(self.data_requests),
+            evaluations=tuple(self.evaluations),
         )
 
 
@@ -97,7 +109,12 @@ class _ExperimentDataAccess:
             raise TypeError("data fetch requires a DataRequest")
         if request.dataset not in self._definition.allowed_datasets:
             raise PermissionError(f"dataset was not declared: {request.dataset}")
-        cutoff = pd.Timestamp(self._definition.development_cutoff)
+        governed_cutoff = (
+            self._definition.validation_cutoff
+            if self._sealed_validation
+            else self._definition.development_cutoff
+        )
+        cutoff = pd.Timestamp(governed_cutoff)
         if pd.Timestamp(request.end).normalize() > cutoff:
             raise PermissionError("data request exceeds the development cutoff")
         if request.required_cutoff is not None and (
@@ -181,6 +198,8 @@ class _ExperimentEvaluationAccess:
         definition: ExperimentDefinition,
         evaluator: Callable[[EvaluationRequest], EvaluationResult],
         recorder: _TraceRecorder,
+        resources: ExperimentResources,
+        budget: _EvaluationBudget,
         *,
         real_returns: bool,
         sealed_validation: bool,
@@ -188,6 +207,8 @@ class _ExperimentEvaluationAccess:
         self._definition = definition
         self._evaluator = evaluator
         self._recorder = recorder
+        self._resources = resources
+        self._budget = budget
         self._real_returns = real_returns
         self._sealed_validation = sealed_validation
 
@@ -196,8 +217,16 @@ class _ExperimentEvaluationAccess:
             raise TypeError("evaluation requires an EvaluationRequest")
         if request.experiment_id != self._definition.experiment_id:
             raise ValueError("evaluation request belongs to another experiment")
-        if request.development_cutoff != self._definition.development_cutoff:
+        governed_cutoff = (
+            self._definition.validation_cutoff
+            if self._sealed_validation
+            else self._definition.development_cutoff
+        )
+        if request.development_cutoff != governed_cutoff:
             raise ValueError("evaluation request development cutoff differs")
+        if request.workers > self._resources.max_workers:
+            raise PermissionError("evaluation workers exceed the experiment resource budget")
+        self._budget.claim(len(request.windows) * len(request.costs))
         if self._real_returns:
             _require_capability(
                 self._definition, self._recorder, ExperimentCapability.READ_REAL_RETURNS
@@ -212,7 +241,31 @@ class _ExperimentEvaluationAccess:
         if not isinstance(result, EvaluationResult):
             raise TypeError("evaluation Harness returned an invalid result")
         self._recorder.record_operation("evaluation.evaluate")
+        self._recorder.record_evaluation(
+            {
+                "experiment_id": request.experiment_id,
+                "request_hash": result.request_hash,
+                "strategy_identity": result.strategy_identity,
+                "runtime_binding_hash": result.runtime_binding_hash,
+                "data_identity": result.data_identity,
+                "result_hash": result.result_hash,
+                "execution_mode": result.execution_mode,
+            }
+        )
         return result
+
+
+class _EvaluationBudget:
+    def __init__(self, maximum: int | None) -> None:
+        self._maximum = maximum
+        self._used = 0
+
+    def claim(self, count: int) -> None:
+        if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+            raise ValueError("evaluation claim must be a positive integer")
+        if self._maximum is not None and self._used + count > self._maximum:
+            raise PermissionError("evaluation count exceeds the experiment resource budget")
+        self._used += count
 
 
 class _PlatformExperimentContext:
@@ -228,6 +281,8 @@ class _PlatformExperimentContext:
         workspace: ExperimentWorkspace,
         resources: ExperimentResources,
         recorder: _TraceRecorder,
+        predecessors: Mapping[str, ExperimentInput],
+        formal: bool,
     ) -> None:
         if resources.random_seed != definition.random_seed:
             raise ValueError("resource random_seed must match the experiment definition")
@@ -237,7 +292,9 @@ class _PlatformExperimentContext:
         self.evaluation = evaluation
         self.workspace = workspace
         self.resources = resources
+        self.predecessors = MappingProxyType(dict(predecessors))
         self._recorder = recorder
+        self._formal = formal
 
     @property
     def trace(self) -> ExperimentTrace:
@@ -271,10 +328,86 @@ def create_experiment_context(
     workspace: ExperimentWorkspace | None = None,
     real_returns: bool = False,
     sealed_validation: bool = False,
+    predecessors: tuple[ExperimentInput, ...] = (),
 ) -> ExperimentContext:
-    """Wire public platform adapters into one capability-tracked REX context."""
+    """Wire discovery adapters into one capability- and resource-tracked context."""
+
+    if definition.mode is ExperimentMode.FORMAL:
+        raise ValueError("FORMAL experiments require create_formal_experiment_context")
+    return _create_experiment_context(
+        definition,
+        repository_root=repository_root,
+        dataflows=dataflows,
+        resources=resources,
+        runtime=runtime or StrategyRuntime(),
+        evaluator=evaluator,
+        workspace=workspace,
+        real_returns=real_returns,
+        sealed_validation=sealed_validation,
+        predecessors=predecessors,
+        formal=False,
+    )
+
+
+def create_formal_experiment_context(
+    definition: ExperimentDefinition,
+    *,
+    repository_root: Path,
+    resources: ExperimentResources,
+    workspace: ExperimentWorkspace | None = None,
+    predecessors: tuple[ExperimentInput, ...] = (),
+) -> ExperimentContext:
+    """Create a formal context using only platform-owned production adapters."""
+
+    if definition.mode is not ExperimentMode.FORMAL:
+        raise ValueError("formal context requires a FORMAL experiment definition")
+    return _create_experiment_context(
+        definition,
+        repository_root=repository_root,
+        dataflows=Dataflows(),
+        resources=resources,
+        runtime=StrategyRuntime(),
+        evaluator=evaluate_strategy,
+        workspace=workspace,
+        real_returns=True,
+        sealed_validation=True,
+        predecessors=predecessors,
+        formal=True,
+    )
+
+
+def _create_experiment_context(
+    definition: ExperimentDefinition,
+    *,
+    repository_root: Path,
+    dataflows: Dataflows,
+    resources: ExperimentResources,
+    runtime: StrategyRuntime,
+    evaluator: Callable[[EvaluationRequest], EvaluationResult],
+    workspace: ExperimentWorkspace | None,
+    real_returns: bool,
+    sealed_validation: bool,
+    predecessors: tuple[ExperimentInput, ...],
+    formal: bool,
+) -> ExperimentContext:
+    if not isinstance(definition, ExperimentDefinition):
+        raise TypeError("experiment definition must be ExperimentDefinition")
+    if not isinstance(resources, ExperimentResources):
+        raise TypeError("experiment resources must be ExperimentResources")
+    if definition.capabilities.searches_parameters and resources.max_evaluations is None:
+        raise ValueError("parameter-search experiments require max_evaluations")
+    inputs = tuple(predecessors)
+    if not all(isinstance(item, ExperimentInput) for item in inputs):
+        raise TypeError("predecessors must contain ExperimentInput values")
+    by_id = {item.experiment_id: item for item in inputs}
+    if len(by_id) != len(inputs):
+        raise ValueError("predecessor experiment inputs must be unique")
+    expected = set(definition.protocol.predecessor_experiment_ids)
+    if set(by_id) != expected:
+        raise ValueError("predecessor inputs differ from the experiment protocol")
 
     recorder = _TraceRecorder()
+    budget = _EvaluationBudget(resources.max_evaluations)
     if workspace is None:
         root = create_temporary_directory(
             repository_root,
@@ -297,12 +430,16 @@ def create_experiment_context(
             definition,
             evaluator,
             recorder,
+            resources,
+            budget,
             real_returns=real_returns,
             sealed_validation=sealed_validation,
         ),
         workspace=workspace,
         resources=resources,
         recorder=recorder,
+        predecessors=by_id,
+        formal=formal,
     )
 
 
@@ -313,6 +450,8 @@ def execute_experiment(
 
     if not isinstance(experiment, LoadedExperiment):
         raise TypeError("experiment must be loaded by load_experiment")
+    if not isinstance(context, _PlatformExperimentContext):
+        raise TypeError("context must be created by a platform experiment context factory")
     actual_hash = experiment_source_sha256(
         experiment.root, experiment.binding.source_files
     )
@@ -322,14 +461,48 @@ def execute_experiment(
         raise ValueError("experiment definition changed after loading")
     if experiment.definition.sha256 != context.definition.sha256:
         raise ValueError("experiment and context definitions differ")
-    result = experiment.implementation.execute(context)
+    if context._formal != (experiment.definition.mode is ExperimentMode.FORMAL):
+        raise ValueError("experiment mode and context assurance differ")
+    with threadpool_limits(limits=context.resources.native_threads_per_worker):
+        result = experiment.implementation.execute(context)
     if not isinstance(result, ExperimentResult):
         raise TypeError("experiment returned an invalid result")
     if result.candidate is not None:
         context.require_capability(ExperimentCapability.CREATE_CANDIDATE)
     for artifact in result.artifacts:
         context.workspace.validate_artifact(artifact)
-    return result
+    if result.receipt is not None:
+        raise ValueError("experiment implementation cannot supply a platform receipt")
+    receipt = ExperimentReceipt._from_execution(
+        schema_version=1,
+        experiment_id=experiment.definition.experiment_id,
+        definition_sha256=experiment.definition.sha256,
+        source_sha256=experiment.binding.source_sha256,
+        resources_sha256=context.resources.sha256,
+        predecessor_receipts={
+            key: item.receipt_sha256 for key, item in context.predecessors.items()
+        },
+        result_sha256=experiment_result_sha256(result),
+        artifact_sha256={item.path: item.sha256 for item in result.artifacts},
+        trace=context.trace,
+    )
+    receipt_path = context.workspace.path("execution_receipt.json")
+    if receipt_path.exists():
+        raise FileExistsError("platform execution receipt already exists")
+    receipt_path.write_text(
+        json.dumps(
+            {**receipt.to_dict(), "receipt_sha256": receipt.sha256},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
+    return replace(result, receipt=receipt)
 
 
-__all__ = ["create_experiment_context", "execute_experiment"]
+__all__ = [
+    "create_experiment_context",
+    "create_formal_experiment_context",
+    "execute_experiment",
+]

@@ -16,7 +16,12 @@ from threading import RLock
 from types import ModuleType
 from typing import Any
 
-from .contracts import ExperimentDefinition, ResearchExperiment, _safe_relative_path
+from .contracts import (
+    ExperimentDefinition,
+    ExperimentDependency,
+    ResearchExperiment,
+    _safe_relative_path,
+)
 
 
 _STRATEGY_ID = re.compile(r"S\d{3}")
@@ -33,10 +38,11 @@ class ExperimentBinding:
     qualname: str
     source_files: tuple[str, ...]
     source_sha256: str
+    dependencies: tuple[ExperimentDependency, ...]
 
     def __post_init__(self) -> None:
-        if self.schema_version != 1:
-            raise ValueError("experiment binding schema_version must be 1")
+        if self.schema_version != 2:
+            raise ValueError("experiment binding schema_version must be 2")
         module = _nonempty_text(self.module, "binding module")
         qualname = _nonempty_text(self.qualname, "binding qualname")
         if not all(part.isidentifier() for part in module.split(".")):
@@ -54,9 +60,16 @@ class ExperimentBinding:
             raise ValueError("binding source_files do not contain the implementation module")
         if not _SHA256.fullmatch(self.source_sha256):
             raise ValueError("binding source_sha256 must be lowercase SHA-256")
+        dependencies = tuple(self.dependencies)
+        if not all(isinstance(item, ExperimentDependency) for item in dependencies):
+            raise ValueError("binding dependencies must contain ExperimentDependency values")
+        names = tuple(item.name for item in dependencies)
+        if len(names) != len(set(names)):
+            raise ValueError("binding dependency names must be unique")
         object.__setattr__(self, "module", module)
         object.__setattr__(self, "qualname", qualname)
         object.__setattr__(self, "source_files", source_files)
+        object.__setattr__(self, "dependencies", dependencies)
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> ExperimentBinding:
@@ -66,18 +79,29 @@ class ExperimentBinding:
             "qualname",
             "source_files",
             "source_sha256",
+            "dependencies",
         }
         if set(payload) != expected:
             raise ValueError("experiment binding fields differ from schema")
         source_files = payload["source_files"]
         if not isinstance(source_files, list):
             raise ValueError("binding source_files must be a list")
+        dependencies = payload["dependencies"]
+        if not isinstance(dependencies, list) or any(
+            not isinstance(item, Mapping) or set(item) != {"name", "version"}
+            for item in dependencies
+        ):
+            raise ValueError("binding dependencies must be a list of exact versions")
         return cls(
             schema_version=payload["schema_version"],
             module=payload["module"],
             qualname=payload["qualname"],
             source_files=tuple(source_files),
             source_sha256=payload["source_sha256"],
+            dependencies=tuple(
+                ExperimentDependency(name=item["name"], version=item["version"])
+                for item in dependencies
+            ),
         )
 
 
@@ -139,6 +163,21 @@ def experiment_source_sha256(root: Path, source_files: tuple[str, ...]) -> str:
     return digest.hexdigest()
 
 
+def _validate_dependencies(dependencies: tuple[ExperimentDependency, ...]) -> None:
+    for dependency in dependencies:
+        try:
+            installed = distribution_version(dependency.name)
+        except PackageNotFoundError as exc:
+            raise ValueError(
+                f"experiment dependency is not installed: {dependency.name}"
+            ) from exc
+        if installed != dependency.version:
+            raise ValueError(
+                "experiment dependency version differs: "
+                f"{dependency.name} requires {dependency.version}, installed {installed}"
+            )
+
+
 def load_experiment(root: Path) -> LoadedExperiment:
     """Return a source-bound experiment without adding its path to ``sys.path``."""
 
@@ -154,21 +193,22 @@ def load_experiment(root: Path) -> LoadedExperiment:
     actual_hash = experiment_source_sha256(root, binding.source_files)
     if actual_hash != binding.source_sha256:
         raise ValueError("experiment source SHA-256 differs from binding")
+    _validate_dependencies(binding.dependencies)
 
     root_identity = sha256(str(root).encode("utf-8")).hexdigest()[:12]
     namespace = f"_czsc_research_experiment_{root_identity}_{actual_hash[:12]}"
     full_module = f"{namespace}.{binding.module}"
-    created_namespace = False
     with _LOAD_LOCK:
-        if namespace not in sys.modules:
-            package = ModuleType(namespace)
-            package.__path__ = [str(root)]
-            package.__package__ = namespace
-            package.__spec__ = importlib.machinery.ModuleSpec(
-                namespace, loader=None, is_package=True
-            )
-            sys.modules[namespace] = package
-            created_namespace = True
+        for name in tuple(sys.modules):
+            if name == namespace or name.startswith(f"{namespace}."):
+                sys.modules.pop(name, None)
+        package = ModuleType(namespace)
+        package.__path__ = [str(root)]
+        package.__package__ = namespace
+        package.__spec__ = importlib.machinery.ModuleSpec(
+            namespace, loader=None, is_package=True
+        )
+        sys.modules[namespace] = package
         try:
             module = importlib.import_module(full_module)
             declared = set(binding.source_files)
@@ -195,12 +235,10 @@ def load_experiment(root: Path) -> LoadedExperiment:
             for part in binding.qualname.split("."):
                 implementation = getattr(implementation, part)
             experiment = implementation()
-        except Exception:
-            if created_namespace:
-                for name in tuple(sys.modules):
-                    if name == namespace or name.startswith(f"{namespace}."):
-                        sys.modules.pop(name, None)
-            raise
+        finally:
+            for name in tuple(sys.modules):
+                if name == namespace or name.startswith(f"{namespace}."):
+                    sys.modules.pop(name, None)
     if not isinstance(experiment, ResearchExperiment):
         raise TypeError("bound implementation must instantiate ResearchExperiment")
     definition = experiment.definition
@@ -212,18 +250,8 @@ def load_experiment(root: Path) -> LoadedExperiment:
         definition.strategy_id != root.parent.name
     ):
         raise ValueError("experiment definition strategy differs from its directory")
-    for dependency in definition.dependencies:
-        try:
-            installed = distribution_version(dependency.name)
-        except PackageNotFoundError as exc:
-            raise ValueError(
-                f"experiment dependency is not installed: {dependency.name}"
-            ) from exc
-        if installed != dependency.version:
-            raise ValueError(
-                "experiment dependency version differs: "
-                f"{dependency.name} requires {dependency.version}, installed {installed}"
-            )
+    if definition.dependencies != binding.dependencies:
+        raise ValueError("experiment definition dependencies differ from binding")
     return LoadedExperiment._from_verified(
         root=root,
         binding=binding,

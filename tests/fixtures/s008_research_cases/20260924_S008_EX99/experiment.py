@@ -14,7 +14,9 @@ from research_experiment import (
     ExperimentDependency,
     ExperimentMode,
     ExperimentOutcome,
+    ExperimentProtocol,
     ExperimentResult,
+    ExperimentStage,
     ResearchExperiment,
 )
 
@@ -35,6 +37,22 @@ class Experiment(ResearchExperiment):
             development_cutoff=date(2026, 9, 2),
             random_seed=8008,
             allowed_datasets=("etf.ohlcv",),
+            protocol=ExperimentProtocol(
+                stage=ExperimentStage.PROTOTYPE,
+                first_principles=(
+                    "A deterministic price sample can validate the REX execution boundary",
+                ),
+                information_paths=(
+                    "DFLS price publication -> deterministic summary facts",
+                ),
+                stage_objectives=(
+                    "Validate the S008 prototype experiment contract end to end",
+                ),
+                observation_metrics=("row count", "mean close", "worker budget"),
+                methodology=(
+                    "Fetch the declared sample and write one hash-registered summary",
+                ),
+            ),
             dependencies=(ExperimentDependency("czsc-dataflows", "0.1.0"),),
             capabilities=ExperimentCapabilities(searches_parameters=True),
         )

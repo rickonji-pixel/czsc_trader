@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 import json
 from pathlib import Path
@@ -15,10 +16,13 @@ from research_experiment import (
     ExperimentCapability,
     ExperimentDefinition,
     ExperimentDependency,
+    ExperimentInput,
     ExperimentMode,
     ExperimentOutcome,
+    ExperimentProtocol,
     ExperimentResources,
     ExperimentResult,
+    ExperimentStage,
     ExperimentWorkspace,
     ResearchExperiment,
     experiment_source_sha256,
@@ -30,6 +34,7 @@ from czsc_trader.research_tools import (
     EvaluationResult,
     EvaluationWindow,
     create_experiment_context,
+    create_formal_experiment_context,
     execute_experiment,
 )
 
@@ -43,19 +48,33 @@ FIXTURE_ROOT = (
 
 
 def _definition(
-    *, capabilities: ExperimentCapabilities = ExperimentCapabilities()
+    *,
+    capabilities: ExperimentCapabilities = ExperimentCapabilities(),
+    mode: ExperimentMode = ExperimentMode.DISCOVERY,
+    protocol: ExperimentProtocol | None = None,
+    validation_cutoff: date | None = None,
 ) -> ExperimentDefinition:
     return ExperimentDefinition(
         schema_version=1,
         experiment_id="20260924_S008_EX98",
         strategy_id="S008",
-        mode=ExperimentMode.DISCOVERY,
+        mode=mode,
         research_question="Does the public experiment boundary reject undeclared behavior?",
         hypothesis="Every sensitive operation is checked before execution.",
         falsification_conditions=("An undeclared operation reaches its provider",),
         development_cutoff=date(2026, 9, 2),
         random_seed=98,
         allowed_datasets=("etf.ohlcv",),
+        protocol=protocol
+        or ExperimentProtocol(
+            stage=ExperimentStage.PROTOTYPE,
+            first_principles=("Sensitive research actions require platform boundaries",),
+            information_paths=("Declared input -> platform adapter -> immutable result",),
+            stage_objectives=("Exercise the experiment execution boundary",),
+            observation_metrics=("execution outcome",),
+            methodology=("Run one synthetic deterministic experiment",),
+        ),
+        validation_cutoff=validation_cutoff,
         capabilities=capabilities,
     )
 
@@ -130,6 +149,14 @@ def test_s008_fixture_loads_and_executes_through_public_context(
     assert context.trace.capabilities == (ExperimentCapability.SEARCH_PARAMETERS,)
     assert context.trace.operations == ("data.fetch",)
     assert context.trace.data_requests[0]["identity"]["dataset"] == "etf.ohlcv"
+    assert result.receipt is not None
+    assert result.receipt.experiment_id == experiment.definition.experiment_id
+    receipt_payload = json.loads(
+        context.workspace.path("execution_receipt.json").read_text(encoding="utf-8")
+    )
+    assert receipt_payload["receipt_sha256"] == result.receipt.sha256
+    with pytest.raises(TypeError):
+        result.receipt.artifact_sha256["changed"] = "0" * 64
 
 
 def test_loader_rejects_source_tampering(functional_repo: Path) -> None:
@@ -156,6 +183,7 @@ def test_executor_rechecks_source_after_loading(functional_repo: Path) -> None:
         resources=ExperimentResources(
             max_workers=1,
             random_seed=experiment.definition.random_seed,
+            max_evaluations=1,
         ),
     )
     source = target / "experiment.py"
@@ -163,6 +191,106 @@ def test_executor_rechecks_source_after_loading(functional_repo: Path) -> None:
 
     with pytest.raises(ValueError, match="source SHA-256 differs"):
         execute_experiment(experiment, context)
+
+
+def test_executor_rejects_non_platform_context() -> None:
+    experiment = load_experiment(FIXTURE_ROOT)
+
+    with pytest.raises(TypeError, match="platform experiment context factory"):
+        execute_experiment(experiment, object())
+
+
+def test_formal_mode_requires_platform_owned_context(functional_repo: Path) -> None:
+    definition = _definition(
+        mode=ExperimentMode.FORMAL,
+        validation_cutoff=date(2026, 9, 18),
+        capabilities=ExperimentCapabilities(
+            reads_real_returns=True,
+            reads_sealed_validation=True,
+        ),
+    )
+    resources = ExperimentResources(max_workers=1, random_seed=98)
+
+    with pytest.raises(ValueError, match="create_formal_experiment_context"):
+        create_experiment_context(
+            definition,
+            repository_root=functional_repo,
+            dataflows=_flows(),
+            workspace=_workspace(functional_repo, "fake-formal"),
+            resources=resources,
+            evaluator=lambda request: EvaluationResult(runs=()),
+        )
+
+    context = create_formal_experiment_context(
+        definition,
+        repository_root=functional_repo,
+        workspace=_workspace(functional_repo, "formal"),
+        resources=resources,
+    )
+    assert context.definition.mode is ExperimentMode.FORMAL
+
+
+def test_formal_definition_rejects_parameter_search() -> None:
+    with pytest.raises(ValueError, match="cannot search or select parameters"):
+        _definition(
+            mode=ExperimentMode.FORMAL,
+            validation_cutoff=date(2026, 9, 18),
+            capabilities=ExperimentCapabilities(
+                reads_real_returns=True,
+                reads_sealed_validation=True,
+                searches_parameters=True,
+            ),
+        )
+
+
+def test_context_requires_exact_receipted_predecessors(functional_repo: Path) -> None:
+    predecessor = load_experiment(FIXTURE_ROOT)
+    predecessor_context = create_experiment_context(
+        predecessor.definition,
+        repository_root=functional_repo,
+        dataflows=_flows(),
+        workspace=_workspace(functional_repo, "predecessor"),
+        resources=ExperimentResources(
+            max_workers=1,
+            max_evaluations=1,
+            random_seed=predecessor.definition.random_seed,
+        ),
+    )
+    predecessor_result = execute_experiment(predecessor, predecessor_context)
+    predecessor_input = ExperimentInput.from_result(predecessor_result)
+    successor_protocol = ExperimentProtocol(
+        stage=ExperimentStage.ROBUSTNESS,
+        first_principles=("Successor evidence must reference immutable prior evidence",),
+        information_paths=("Predecessor receipt -> successor robustness test",),
+        stage_objectives=("Consume one verified predecessor",),
+        observation_metrics=("predecessor receipt identity",),
+        methodology=("Bind the exact predecessor receipt before execution",),
+        predecessor_experiment_ids=(predecessor.definition.experiment_id,),
+    )
+    successor = _definition(protocol=successor_protocol)
+
+    with pytest.raises(ValueError, match="predecessor inputs differ"):
+        create_experiment_context(
+            successor,
+            repository_root=functional_repo,
+            dataflows=_flows(),
+            workspace=_workspace(functional_repo, "missing-predecessor"),
+            resources=ExperimentResources(max_workers=1, random_seed=98),
+        )
+
+    context = create_experiment_context(
+        successor,
+        repository_root=functional_repo,
+        dataflows=_flows(),
+        workspace=_workspace(functional_repo, "with-predecessor"),
+        resources=ExperimentResources(max_workers=1, random_seed=98),
+        predecessors=(predecessor_input,),
+    )
+    assert context.predecessors[predecessor.definition.experiment_id].receipt_sha256 == (
+        predecessor_result.receipt.sha256
+    )
+    with pytest.raises(TypeError, match="receipted result"):
+        ExperimentInput()
 
 
 def test_data_adapter_blocks_undeclared_dataset_before_provider(
@@ -308,6 +436,50 @@ def test_context_tracks_runtime_and_evaluation_public_adapters(
     assert context.trace.operations == ("runtime.describe", "evaluation.evaluate")
 
 
+def test_evaluation_adapter_enforces_worker_and_evaluation_budgets(
+    functional_repo: Path,
+) -> None:
+    calls: list[str] = []
+
+    def evaluator(request: EvaluationRequest) -> EvaluationResult:
+        calls.append(request.experiment_id)
+        return EvaluationResult(runs=())
+
+    definition = _definition()
+    context = create_experiment_context(
+        definition,
+        repository_root=functional_repo,
+        dataflows=_flows(),
+        workspace=_workspace(functional_repo, "resource-budget"),
+        resources=ExperimentResources(
+            max_workers=1,
+            max_evaluations=1,
+            random_seed=98,
+        ),
+        evaluator=evaluator,
+    )
+    request = EvaluationRequest(
+        repository_root=functional_repo,
+        experiment_id=definition.experiment_id,
+        strategy=_candidate(),
+        runtime_binding={},
+        symbol="518880.SH",
+        asset_type="etf",
+        windows=(EvaluationWindow("full", date(2026, 9, 1), date(2026, 9, 2)),),
+        development_cutoff=definition.development_cutoff,
+        initial_cash=1_000_000.0,
+        costs=(EvaluationCost("standard", 0.001),),
+        execution_data=object(),
+    )
+
+    with pytest.raises(PermissionError, match="workers exceed"):
+        context.evaluation.evaluate(replace(request, workers=2))
+    assert context.evaluation.evaluate(request).runs == ()
+    with pytest.raises(PermissionError, match="evaluation count exceeds"):
+        context.evaluation.evaluate(request)
+    assert calls == [definition.experiment_id]
+
+
 class _CandidateExperiment(ResearchExperiment):
     def __init__(self, definition: ExperimentDefinition) -> None:
         self._definition = definition
@@ -356,7 +528,8 @@ def test_bound_candidate_result_requires_declared_capability(
         """from datetime import date
 from research_experiment import (
     ExperimentCapabilities, ExperimentDefinition, ExperimentMode,
-    ExperimentOutcome, ExperimentResult, ResearchExperiment,
+    ExperimentOutcome, ExperimentProtocol, ExperimentResult,
+    ExperimentStage, ResearchExperiment,
 )
 from strategy_runtime import StrategyCandidate
 
@@ -374,6 +547,14 @@ class Experiment(ResearchExperiment):
             development_cutoff=date(2026, 9, 2),
             random_seed=98,
             allowed_datasets=('etf.ohlcv',),
+            protocol=ExperimentProtocol(
+                stage=ExperimentStage.CANDIDATE,
+                first_principles=('Candidate creation is a governed action',),
+                information_paths=('Experiment result -> candidate boundary',),
+                stage_objectives=('Verify candidate capability enforcement',),
+                observation_metrics=('permission outcome',),
+                methodology=('Return one synthetic candidate',),
+            ),
             capabilities=ExperimentCapabilities(),
         )
 
@@ -394,11 +575,12 @@ class Experiment(ResearchExperiment):
         encoding="utf-8",
     )
     binding = {
-        "schema_version": 1,
+        "schema_version": 2,
         "module": "experiment",
         "qualname": "Experiment",
         "source_files": ["experiment.py"],
         "source_sha256": experiment_source_sha256(root, ("experiment.py",)),
+        "dependencies": [],
     }
     (root / "experiment_binding.json").write_text(
         json.dumps(binding), encoding="utf-8"

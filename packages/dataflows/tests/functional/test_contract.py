@@ -50,9 +50,53 @@ def test_ready_result_has_stable_identity_and_detached_data() -> None:
     assert first.identity is not None
     assert first.identity.source == "test"
     assert first.identity.data_cutoff == "2026-09-15T00:00:00"
+    assert first.identity.metadata["source_time_field"] == "Date"
+    assert first.identity.metadata["source_calendar"] == "SOURCE_NATIVE"
+    assert first.identity.metadata["available_at"] == "SOURCE_PERIOD_CLOSE"
     assert first.identity.content_sha256 == second.identity.content_sha256
     first.dataframe.loc[0, "Close"] = 99
     assert source.loc[0, "Close"] == 1.1
+
+
+def test_ready_result_validates_declared_source_time_metadata() -> None:
+    result = Dataflows(
+        {
+            Dataset.FXCM_DAILY.value: lambda request: (
+                pd.DataFrame(
+                    {
+                        "Date": ["2026-09-15"],
+                        "BidOpen": [1.0],
+                        "BidHigh": [1.1],
+                        "BidLow": [0.9],
+                        "BidClose": [1.0],
+                        "AskOpen": [1.1],
+                        "AskHigh": [1.2],
+                        "AskLow": [1.0],
+                        "AskClose": [1.1],
+                        "TickQuantity": [10.0],
+                    }
+                ),
+                {
+                    "vendor": "test",
+                    "source_time_field": "Missing",
+                    "source_calendar": "FXCM_24X5",
+                    "available_at": "GMT daily close",
+                },
+            )
+        }
+    ).fetch(
+        DataRequest(
+            Dataset.FXCM_DAILY,
+            "XAUUSD.FXCM",
+            "2026-09-15",
+            "2026-09-15",
+            "2026-09-15",
+        )
+    )
+
+    assert result.status is DataStatus.FAILED
+    assert result.error is not None
+    assert result.error.code == "DATA_CONTRACT_MISMATCH"
 
 
 def test_tushare_pro_client_does_not_persist_global_token(monkeypatch) -> None:

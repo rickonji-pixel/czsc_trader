@@ -106,7 +106,13 @@ class DataIdentity:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+        metadata = dict(self.metadata)
+        for field_name in ("source_time_field", "source_calendar", "available_at"):
+            value = metadata.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"data identity metadata requires non-empty {field_name}")
+            metadata[field_name] = value.strip()
+        object.__setattr__(self, "metadata", MappingProxyType(metadata))
 
 
 @dataclass(frozen=True, slots=True)

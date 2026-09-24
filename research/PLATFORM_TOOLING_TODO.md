@@ -97,11 +97,7 @@ Pareto和裁决摘要。实验只声明原型、参数空间、预算、目标�
 - 准备窗口与评价窗口分离；
 - 完整SRT、加速搜索与TXE账户等价。
 
-### 3.4 恢复并验证`factor-expr` extra
-
-当前项目研究extra只有Optuna和tsfresh，`factor-expr`尚未出现在项目依赖中。评审其准确包名、版本、
-Python/NumPy/Pandas兼容性、表达式身份和代码生成可复现性；通过后只进入研究环境，不进入冻结SRT
-和PTE生产依赖闭包。
+### 3.4 复杂状态机依赖按需评估
 
 `python-statemachine`保持按需评估。只有复杂状态迁移明显超过简单确定性实现时才考虑引入。
 

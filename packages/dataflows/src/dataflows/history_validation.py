@@ -95,6 +95,7 @@ def inspect_ohlcv_frame(
     frequency: str,
     *,
     require_complete_days: bool = False,
+    session_market: str = "a_share",
 ) -> ValidationReport:
     """Inspect one normalized OHLCV series without repairing it."""
 
@@ -152,37 +153,51 @@ def inspect_ohlcv_frame(
             )
 
     metrics: dict[str, Any] = {"row_count": int(len(frame))}
-    if frequency in INTRADAY_PERIOD_MINUTES and not timestamps.isna().any():
-        expected_times = set(a_share_intraday_close_times(frequency))
+    if session_market not in {"a_share", "us_regular", "unrestricted"}:
+        raise ValueError(f"unsupported session market: {session_market}")
+    if frequency in INTRADAY_PERIOD_MINUTES and not timestamps.isna().any() and session_market != "unrestricted":
+        if session_market == "us_regular":
+            minutes = INTRADAY_PERIOD_MINUTES[frequency]
+            full_times = tuple(item.strftime("%H:%M:%S") for item in pd.date_range(
+                pd.Timestamp("2000-01-01 09:30") + pd.Timedelta(minutes=minutes),
+                pd.Timestamp("2000-01-01 16:00"), freq=f"{minutes}min",
+            ))
+            half_times = tuple(item for item in full_times if item <= "13:00:00")
+            expected_times = set(full_times)
+        else:
+            full_times = a_share_intraday_close_times(frequency)
+            half_times = ()
+            expected_times = set(full_times)
         observed_times = set(timestamps.dt.strftime("%H:%M:%S"))
         unexpected = sorted(observed_times.difference(expected_times))
         if unexpected:
             findings.append(
                 _finding(
                     "UNEXPECTED_SESSION_TIME",
-                    f"{frequency}: unexpected A-share close times",
+                    f"{frequency}: unexpected {session_market} close times",
                     times=unexpected,
                 )
             )
-        counts = timestamps.groupby(timestamps.dt.normalize()).size()
-        expected_count = len(expected_times)
+        grouped = timestamps.groupby(timestamps.dt.normalize())
+        counts = grouped.size()
+        expected_count = len(full_times)
         incomplete = {
-            day.date().isoformat(): int(count)
-            for day, count in counts.items()
-            if count != expected_count
+            day.date().isoformat(): int(len(values))
+            for day, values in grouped
+            if tuple(values.dt.strftime("%H:%M:%S")) not in (full_times, half_times)
         }
         if require_complete_days and incomplete:
             findings.append(
                 _finding(
                     "INCOMPLETE_TRADING_SESSION",
-                    f"{frequency}: incomplete A-share sessions",
+                    f"{frequency}: incomplete {session_market} sessions",
                     sessions=incomplete,
                     expected_bars=expected_count,
                 )
             )
         metrics.update(
             {
-                "complete_day_count": int((counts == expected_count).sum()),
+                "complete_day_count": int(len(counts) - len(incomplete)),
                 "expected_bars_per_day": expected_count,
                 "session_times": sorted(observed_times),
             }

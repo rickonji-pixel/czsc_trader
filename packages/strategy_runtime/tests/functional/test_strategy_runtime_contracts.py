@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from decimal import Decimal
+
 import pytest
 
 from strategy_runtime import (
@@ -10,7 +13,12 @@ from strategy_runtime import (
     InputContract,
     InputRequirement,
     MonitoringPolicy,
+    OrderSide,
+    OrderType,
     ParameterSet,
+    PlannedOrder,
+    PortfolioSnapshot,
+    ExecutionState,
     RequiredCapabilities,
     RuntimeDefinition,
     RuntimeContractError,
@@ -19,6 +27,20 @@ from strategy_runtime import (
 
 
 RELEASE_HASH = "a" * 64
+
+
+def test_us_stock_uses_whole_shares_without_changing_a_share_lots() -> None:
+    now = datetime(2026, 9, 22, tzinfo=timezone.utc)
+    portfolio = PortfolioSnapshot(
+        "us-account", "MU.US", Decimal("1000"), Decimal("2000"), 37, 0, now,
+    )
+    order = PlannedOrder(OrderSide.BUY, 37, OrderType.MARKET, Decimal("100"), lot_size=1)
+    state = ExecutionState(0, now, cycle_target_quantity=37, lot_size=1)
+    assert portfolio.position_quantity == order.quantity == state.cycle_target_quantity
+    with pytest.raises(RuntimeContractError, match="100-share lots"):
+        PortfolioSnapshot(
+            "cn-account", "588080.SH", Decimal("1000"), Decimal("2000"), 37, 0, now,
+        )
 
 
 def test_strategy_implementation_requires_every_strategy_owned_method() -> None:

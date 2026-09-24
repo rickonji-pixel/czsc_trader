@@ -14,6 +14,7 @@ from threading import Lock
 import time as clock
 from typing import Callable
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from strategy_runtime import (
     DataPreparationResult,
@@ -40,6 +41,7 @@ from .errors import AdviceClientError
 
 
 _BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
+_NEW_YORK = ZoneInfo("America/New_York")
 _ACCOUNT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 _PREPARED_STORAGE_REVISION = 1
 
@@ -197,11 +199,14 @@ class SrtAdviceClient:
         audit: AuditRecorder | None = None,
         now: Callable[[], datetime] | None = None,
         session_resolver: Callable[[date], date | None] | None = None,
+        env_file: Path | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.data_dir = Path(data_dir).resolve()
         self.symbol = symbol.upper() if symbol else None
         self.asset = asset
+        self.market = "US" if self.asset == "stock" and (self.symbol or "").endswith(".US") else "CN"
+        self.env_file = Path(env_file) if env_file is not None else None
         self.audit = audit
         self.now = now or (lambda: datetime.now(_BEIJING))
         self.session_resolver = session_resolver or self._next_tradable_session
@@ -298,18 +303,23 @@ class SrtAdviceClient:
         return PreparedAccountStrategy(strategy, prepared, descriptor)
 
     def _trading_calendar(self, start: date, end: date) -> dict[date, int]:
+        us_stock = self.market == "US"
         result = Dataflows().fetch(
             DataRequest(
                 Dataset.TRADING_CALENDAR,
-                "SSE",
+                "US" if us_stock else "SSE",
                 start.isoformat(),
                 end.isoformat(),
                 end.isoformat(),
+                options={
+                    "vendor": "longbridge",
+                    **({"env_file": str(self.env_file)} if self.env_file else {}),
+                } if us_stock else {},
             )
         )
         if not result.ready:
             message = result.error.message if result.error is not None else result.status
-            raise AdviceClientError(f"SSE trading calendar is unavailable: {message}")
+            raise AdviceClientError(f"{'US' if us_stock else 'SSE'} trading calendar is unavailable: {message}")
         return {
             value.date(): int(flag)
             for value, flag in zip(
@@ -325,20 +335,22 @@ class SrtAdviceClient:
             return None
         future = sorted(day for day, is_open in sessions.items() if day > signal_date and is_open)
         if not future:
-            raise AdviceClientError(f"SSE calendar has no session after {signal_date}")
+            raise AdviceClientError(f"trading calendar has no session after {signal_date}")
         return future[0]
 
     def latest_completed_signal_date(
         self,
         at: datetime | None = None,
         *,
-        completion_time: time = time(20, 30),
+        completion_time: time | None = None,
     ) -> date:
         moment = at or self.now()
+        market_timezone = _NEW_YORK if self.market == "US" else _BEIJING
+        completion_time = completion_time or (time(16, 10) if self.market == "US" else time(20, 30))
         moment = (
-            moment.replace(tzinfo=_BEIJING)
+            moment.replace(tzinfo=market_timezone)
             if moment.tzinfo is None
-            else moment.astimezone(_BEIJING)
+            else moment.astimezone(market_timezone)
         )
         end = moment.date()
         sessions = self._trading_calendar(end - timedelta(days=40), end)
@@ -349,7 +361,7 @@ class SrtAdviceClient:
             and (day < end or (day == end and moment.time() >= completion_time))
         ]
         if not candidates:
-            raise AdviceClientError("SSE calendar has no completed trading session")
+            raise AdviceClientError("trading calendar has no completed trading session")
         return max(candidates)
 
     def _active_space(
@@ -428,8 +440,10 @@ class SrtAdviceClient:
         asset: str,
         signal_date: date,
     ) -> PreparedAccountStrategy | None:
-        if asset != "etf":
-            raise AdviceClientError("PTE currently requires one ETF strategy")
+        if asset != self.asset or asset not in {"etf", "stock"}:
+            raise AdviceClientError("account asset differs from advice client")
+        if symbol.upper().endswith(".US") and self.market != "US":
+            raise AdviceClientError("US account requires a US-bound advice client")
         release = self._load_release(strategy_id, strategy_version)
         with self._session_cache_lock:
             cached = self._session_cache.get(signal_date, ...)
@@ -500,8 +514,8 @@ class SrtAdviceClient:
         symbol: str,
         asset: str,
     ) -> DataPreparationResult:
-        if asset != "etf":
-            raise AdviceClientError("PTE currently requires one ETF strategy")
+        if asset != self.asset or asset not in {"etf", "stock"}:
+            raise AdviceClientError("account asset differs from advice client")
         release = self._load_release(strategy_id, strategy_version)
         trading_date = self.tradable_date(account_id, strategy_id, strategy_version)
         prepared = self._instance(account_id, release, trading_date)
@@ -518,8 +532,8 @@ class SrtAdviceClient:
         asset: str,
     ) -> dict[str, str]:
         """Validate one account's frozen strategy binding without preparing data."""
-        if asset != "etf":
-            raise AdviceClientError("PTE currently requires one ETF strategy")
+        if asset != self.asset or asset not in {"etf", "stock"}:
+            raise AdviceClientError("account asset differs from advice client")
         release = self._load_release(strategy_id, strategy_version)
         StrategyRuntime(self.repo_root / "strategies").describe(
             release, symbol=symbol.upper(),
@@ -577,8 +591,10 @@ class SrtAdviceClient:
         try:
             if not strategy_id or not strategy_version or not account_id:
                 raise AdviceClientError("SRT advice requires strategy, version, and account")
-            if selected_asset != "etf" or not selected_symbol:
-                raise AdviceClientError("SRT advice requires one ETF symbol")
+            if selected_asset != self.asset or selected_asset not in {"etf", "stock"} or not selected_symbol:
+                raise AdviceClientError("SRT advice asset or symbol differs from client")
+            if selected_symbol.endswith(".US") and self.market != "US":
+                raise AdviceClientError("US account requires a US-bound advice client")
             release = self._load_release(strategy_id, strategy_version)
             if not isinstance(prepared, PreparedAccountStrategy):
                 raise AdviceClientError("SRT advice requires one prepared strategy instance")
@@ -612,7 +628,10 @@ class SrtAdviceClient:
                     portfolio_revision,
                     generated_at,
                 ),
-                state=ExecutionState(state_revision, generated_at, cycle_target_quantity),
+                state=ExecutionState(
+                    state_revision, generated_at, cycle_target_quantity,
+                    1 if selected_asset == "stock" and selected_symbol.endswith(".US") else 100,
+                ),
             )
             decision = _decision_from_plan(
                 plan, identity, prepared.observation_descriptor

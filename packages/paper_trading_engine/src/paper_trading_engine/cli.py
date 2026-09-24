@@ -29,13 +29,13 @@ from .account_chart import AccountChartService
 from .chart_market_data import AccountChartMarketData
 from .futu_execution import FutuExecution
 from .futu_gateway import FutuGateway
-from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
+from .channel import futu_simulate_channel_id
 from .store import PaperStore, backup_runtime_database
 from .scheduler import RuntimeScheduler
 from .web import create_server
 from .coordinator import PteCoordinator, ReconnectableExecution
 from .runtime_lock import RuntimeDatabaseLock
-from .trading_window import shanghai_now
+from .trading_window import market_now
 from .runtime_release import load_manifest_identity
 
 
@@ -74,6 +74,12 @@ def probe_port(host: str, port: int) -> None:
 class PteParser(argparse.ArgumentParser):
     def parse_args(self, args=None, namespace=None):
         result = super().parse_args(args, namespace)
+        if result.market == "US" and (
+            result.asset != "stock" or not result.symbol.upper().endswith(".US")
+        ):
+            self.error("US simulation requires --asset stock and a .US symbol")
+        if result.market == "CN" and result.symbol.upper().endswith(".US"):
+            self.error("CN simulation cannot use a .US symbol")
         result.repo_root = result.repo_root.resolve()
         result.config_root = (
             result.config_root.resolve() if result.config_root else result.repo_root
@@ -87,9 +93,11 @@ class PteParser(argparse.ArgumentParser):
             else {"mode": "DEV", "repo_root": str(result.repo_root)}
         )
         if result.database is None:
-            result.database = result.repo_root / "state" / "paper_trading" / "runtime.db"
+            state_name = "paper_trading_us" if result.market == "US" else "paper_trading"
+            result.database = result.repo_root / "state" / state_name / "runtime.db"
         if result.data_dir is None:
-            result.data_dir = result.repo_root / "state" / "paper_trading" / "data"
+            state_name = "paper_trading_us" if result.market == "US" else "paper_trading"
+            result.data_dir = result.repo_root / "state" / state_name / "data"
         return result
 
 
@@ -104,6 +112,8 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--advice-executable", type=Path)
     parser.add_argument("--opend-host", default="127.0.0.1")
     parser.add_argument("--opend-port", default=11111, type=int)
+    parser.add_argument("--market", choices=("CN", "US"), default="CN")
+    parser.add_argument("--futu-account-id", type=int)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -118,9 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--order-interval", default=5.0, type=float)
     serve.add_argument("--account-interval", default=60.0, type=float)
     serve.add_argument("--data-prepare-interval", default=5.0, type=float)
-    serve.add_argument(
-        "--data-prepare-time", default="20:30",
-    )
+    serve.add_argument("--data-prepare-time")
     account = actions.add_parser("account")
     account_actions = account.add_subparsers(dest="account_action", required=True)
     for name in ("list", "pause", "resume"):
@@ -137,7 +145,7 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--initial-cash", default="100000")
     reconciliation = account_actions.add_parser("create-reconciliation")
     _common(reconciliation)
-    reconciliation.add_argument("--account-id", default="futu-simulate-cn-reconciliation")
+    reconciliation.add_argument("--account-id")
     performance = actions.add_parser("performance")
     performance_actions = performance.add_subparsers(dest="performance_action", required=True)
     export = performance_actions.add_parser("export")
@@ -174,6 +182,7 @@ def _default_executable(repo_root: Path) -> Path:
 
 
 def build_engine(args: argparse.Namespace):
+    channel_id = futu_simulate_channel_id(args.market)
     startup_timings: dict[str, float] = {}
     stage_started = time.perf_counter()
     if getattr(args, "action", None) == "serve":
@@ -183,10 +192,15 @@ def build_engine(args: argparse.Namespace):
     )
     stage_started = time.perf_counter()
     store = PaperStore(args.database)
+    existing_channels = {row["channel_id"] for row in store.virtual_accounts()}
+    if existing_channels and existing_channels != {channel_id}:
+        store.close()
+        raise ValueError("PTE database belongs to a different Futu simulation channel")
     audit = AuditRecorder(store)
     advice = SrtAdviceClient(
         repo_root=args.repo_root,
         data_dir=args.data_dir,
+        symbol=args.symbol if args.market == "US" else None,
         asset=args.asset,
         audit=audit,
     )
@@ -195,7 +209,10 @@ def build_engine(args: argparse.Namespace):
     )
 
     def connect_execution():
-        gateway = FutuGateway(host=args.opend_host, port=args.opend_port, audit=audit)
+        gateway = FutuGateway(
+            host=args.opend_host, port=args.opend_port, audit=audit,
+            market=args.market, account_id=args.futu_account_id,
+        )
         return FutuExecution(store, gateway, audit=audit)
 
     stage_started = time.perf_counter()
@@ -204,19 +221,37 @@ def build_engine(args: argparse.Namespace):
     except Exception as exc:
         audit.record(
             "DEPENDENCY_DEGRADED", source="cli", outcome="FAILURE",
-            actor_type="EXTERNAL", actor_id="futu", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+            actor_type="EXTERNAL", actor_id="futu", channel=channel_id,
             details={"service": "futu", "operation": "initialize", "error": str(exc)},
         )
         execution = ReconnectableExecution(
             store, args.symbol, connect_execution, error=exc,
+            market=args.market, channel_id=channel_id,
         )
     else:
         execution = ReconnectableExecution(
             store, args.symbol, connect_execution, initial=initial_execution,
+            market=args.market, channel_id=channel_id,
         )
     startup_timings["execution_initialize_ms"] = round(
         (time.perf_counter() - stage_started) * 1000, 1,
     )
+    if args.market == "US":
+        account_chart = AccountChartService(
+            store,
+            market_data=AccountChartMarketData(),
+            cache_dir=args.database.parent / "charts",
+            audit=audit,
+        )
+        account_engine = AccountEngine(store, advice, audit=audit, channel_id=channel_id)
+        strategy_cycle = AccountStrategyCycle(
+            account_engine, AccountDataPreparer(advice=advice), store, audit=audit,
+        )
+        return PteCoordinator(
+            account_engine, execution, audit=audit, account_chart=account_chart,
+            strategy_cycle=strategy_cycle, startup_timings=startup_timings,
+            runtime_identity=args.runtime_identity, channel_id=channel_id,
+        )
     stage_started = time.perf_counter()
     try:
         store.virtual_account("baseline-143")
@@ -336,6 +371,7 @@ def build_engine(args: argparse.Namespace):
         strategy_cycle=strategy_cycle,
         startup_timings=startup_timings,
         runtime_identity=args.runtime_identity,
+        channel_id=channel_id,
     )
 
 
@@ -444,6 +480,9 @@ def _preflight_strategy_account(
         client = SrtAdviceClient(
             repo_root=args.repo_root,
             data_dir=args.data_dir,
+            symbol=args.symbol if getattr(args, "market", "CN") == "US" else None,
+            asset=args.asset,
+            env_file=getattr(args, "config_root", args.repo_root) / ".env",
         )
         prepared = client.prepare_account_data(
             account_id=args.account_id,
@@ -451,10 +490,12 @@ def _preflight_strategy_account(
             strategy_version=str(identity["version"]),
             symbol=args.symbol,
             asset=args.asset,
-            signal_date=client.latest_completed_signal_date(shanghai_now()),
+            signal_date=client.latest_completed_signal_date(
+                market_now(getattr(args, "market", "CN"))
+            ),
         )
         if prepared is None:
-            raise RuntimeError("account creation requires an SSE trading day")
+            raise RuntimeError("account creation requires a completed trading session")
         trading_date = prepared.tradable_window.start
         decision = client.get_decision(
             0,
@@ -672,7 +713,8 @@ def _create_running_reconciliation_account(args: argparse.Namespace) -> dict[str
         store.close()
     if not token:
         raise RuntimeError("PTE control token is unavailable")
-    url = f"http://{args.host}:{args.port}/api/channels/futu-simulate-cn/reconciliation-account"
+    channel_slug = futu_simulate_channel_id(args.market).replace("_", "-")
+    url = f"http://{args.host}:{args.port}/api/channels/{channel_slug}/reconciliation-account"
     request = Request(
         url, data=b"{}", method="POST",
         headers={"Content-Type": "application/json", "X-PTE-Control-Token": token},
@@ -693,7 +735,11 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
         if args.account_action == "resume":
             return store.set_virtual_paused(args.account_id, False)
         if args.account_action == "create-reconciliation":
-            return store.create_channel_reconciliation_account(account_id=args.account_id)
+            channel_id = futu_simulate_channel_id(getattr(args, "market", "CN"))
+            return store.create_channel_reconciliation_account(
+                account_id=args.account_id or f"{channel_id}-reconciliation",
+                channel_id=channel_id,
+            )
         identity = _validate_strategy(args)
         baseline_version = identity["strategy_version_id"]
         baseline_hash = identity["strategy_version_hash"]
@@ -728,6 +774,7 @@ def _run_account_command(args: argparse.Namespace) -> dict[str, object] | list[d
             selection_data_cutoff=identity["selection_data_cutoff"],
             symbol=args.symbol,
             asset_type=args.asset,
+            channel_id=futu_simulate_channel_id(getattr(args, "market", "CN")),
         )
         return created
     finally:
@@ -815,7 +862,7 @@ def main(
         )
         web_server_ms = round((time.perf_counter() - stage_started) * 1000, 1)
         server_holder["server"] = server
-        initial_observation_at = shanghai_now()
+        initial_observation_at = market_now(args.market)
         scheduler = RuntimeScheduler(
             engine,
             engine.strategy_cycle,
@@ -823,9 +870,12 @@ def main(
             order_interval=args.order_interval,
             account_interval=args.account_interval,
             data_prepare_interval=args.data_prepare_interval,
-            preparation_time=args.data_prepare_time,
+            preparation_time=args.data_prepare_time or (
+                "16:15" if args.market == "US" else "20:30"
+            ),
             audit=audit,
             initial_observation_at=initial_observation_at,
+            market=args.market,
         )
         worker = Thread(target=scheduler.run, args=(stopped,), name="pte-scheduler", daemon=True)
         worker.start()

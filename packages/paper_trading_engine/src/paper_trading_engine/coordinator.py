@@ -5,13 +5,18 @@ from threading import RLock
 from .account_engine import AccountRefreshBatchError
 from .audit import AuditRecorder
 from .futu_gateway import FutuGatewayError
-from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
+from .channel import FUTU_SIMULATE_CN_CHANNEL_ID, require_futu_simulate_channel
 from .trading_window import shanghai_now
 
 
 class UnavailableExecution:
-    def __init__(self, store, symbol: str, error: Exception) -> None:
+    def __init__(
+        self, store, symbol: str, error: Exception, *, market: str = "CN",
+        channel_id: str = FUTU_SIMULATE_CN_CHANNEL_ID,
+    ) -> None:
         self.store, self.symbol, self.initial_error = store, symbol, str(error)
+        self.market = market
+        self.channel_id = require_futu_simulate_channel(channel_id)
 
     def _raise(self, *args, **kwargs):
         raise RuntimeError(self.initial_error)
@@ -20,7 +25,7 @@ class UnavailableExecution:
 
     def status(self):
         return {
-            "environment": "SIMULATE", "market": "CN", "symbol": self.symbol,
+            "environment": "SIMULATE", "market": self.market, "symbol": self.symbol,
             "account": None, "positions": [], "orders": self.store.account_orders(),
             "paused": self.store.is_paused(),
             "reconciliation_status": "UNAVAILABLE", "alerts": ["CHANNEL_UNAVAILABLE"],
@@ -45,12 +50,17 @@ class UnavailableExecution:
 class ReconnectableExecution:
     """Keep channel recovery inside PTE when OpenD appears after PTE startup."""
 
-    def __init__(self, store, symbol: str, factory, *, initial=None, error=None) -> None:
+    def __init__(
+        self, store, symbol: str, factory, *, initial=None, error=None,
+        market: str = "CN", channel_id: str = FUTU_SIMULATE_CN_CHANNEL_ID,
+    ) -> None:
         self.store = store
         self.symbol = symbol
         self.factory = factory
         self._delegate = initial
         self._last_error = None if error is None else str(error)
+        self.market = market
+        self.channel_id = require_futu_simulate_channel(channel_id)
         self._lock = RLock()
 
     def _execution(self):
@@ -88,7 +98,7 @@ class ReconnectableExecution:
         if self._delegate is not None:
             return self._delegate.status()
         return {
-            "environment": "SIMULATE", "market": "CN", "symbol": self.symbol,
+            "environment": "SIMULATE", "market": self.market, "symbol": self.symbol,
             "account": None, "positions": [], "orders": self.store.account_orders(),
             "paused": self.store.is_paused(),
             "reconciliation_status": "UNAVAILABLE", "alerts": ["CHANNEL_UNAVAILABLE"],
@@ -130,6 +140,7 @@ class PteCoordinator:
         account_chart=None,
         startup_timings: dict[str, float] | None = None,
         runtime_identity: dict[str, object] | None = None,
+        channel_id: str = FUTU_SIMULATE_CN_CHANNEL_ID,
     ) -> None:
         self.accounts, self.execution = accounts, execution
         self.store = accounts.store
@@ -138,6 +149,7 @@ class PteCoordinator:
         self.strategy_cycle = strategy_cycle
         self.startup_timings = dict(startup_timings or {})
         self.runtime_identity = dict(runtime_identity or {"mode": "DEV"})
+        self.channel_id = require_futu_simulate_channel(channel_id)
 
     @property
     def virtual(self): return self.accounts
@@ -151,7 +163,7 @@ class PteCoordinator:
         except Exception as exc:
             self.audit.record(
                 "DEPENDENCY_DEGRADED", source="coordinator", outcome="FAILURE",
-                actor_type="EXTERNAL", actor_id="futu", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                actor_type="EXTERNAL", actor_id="futu", channel=self.channel_id,
                 details={"service": "futu", "operation": "refresh", "error": str(exc)},
             )
             raise
@@ -208,7 +220,7 @@ class PteCoordinator:
                 raise
             self.audit.record(
                 "DEPENDENCY_DEGRADED", source="coordinator", outcome="FAILURE",
-                actor_type="EXTERNAL", actor_id="futu", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                actor_type="EXTERNAL", actor_id="futu", channel=self.channel_id,
                 details={"service": "futu", "operation": "startup", "error": str(exc)},
             )
         return self.status()
@@ -311,7 +323,7 @@ class PteCoordinator:
             "ACCOUNT_PAUSED" if paused else "ACCOUNT_RESUMED", source="web.control",
             actor_type="OPERATOR", account_id=account_id,
             strategy_id=account.get("strategy_id"), strategy_version=account.get("strategy_version"),
-            release_hash=account.get("release_hash"), channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+            release_hash=account.get("release_hash"), channel=self.channel_id,
         )
         return account
 

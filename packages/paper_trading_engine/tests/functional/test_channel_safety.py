@@ -26,7 +26,97 @@ from paper_trading_engine.futu_gateway import FutuGateway, FutuGatewayError
 from paper_trading_engine.coordinator import PteCoordinator, ReconnectableExecution
 from paper_trading_engine.store import PaperStore
 from paper_trading_engine.contracts import OrderSpec
+from paper_trading_engine.trading_window import is_submission_window
 from pte_support import FakeAdvice, FakeBroker, broker_snapshot, decision, preparation
+
+
+def test_us_simulation_isolated_whole_share_market_order(tmp_path):
+    class TradeContext:
+        def __init__(self):
+            self.place_calls = []
+
+        def get_acc_list(self):
+            return 0, [{
+                "acc_id": 88, "trd_env": "SIMULATE", "trd_market": "US",
+                "sim_acc_type": "STOCK_AND_OPTION", "trdmarket_auth": ["US"],
+            }]
+
+        def accinfo_query(self, **kwargs):
+            return 0, [{"cash": 1_000_000, "market_val": 0,
+                        "total_assets": 1_000_000, "frozen_cash": 0}]
+
+        def position_list_query(self, **kwargs):
+            return 0, []
+
+        def place_order(self, **kwargs):
+            self.place_calls.append(kwargs)
+            return 0, [{
+                "order_id": "US-1", "code": kwargs["code"],
+                "trd_side": kwargs["trd_side"], "qty": kwargs["qty"],
+                "price": kwargs["price"], "order_type": kwargs["order_type"],
+                "order_status": "SUBMITTING", "dealt_qty": 0,
+                "dealt_avg_price": 0, "remark": kwargs["remark"],
+            }]
+
+        def close(self):
+            pass
+
+    sdk = SimpleNamespace(
+        RET_OK=0, TrdEnv=SimpleNamespace(SIMULATE="SIMULATE"),
+        TrdMarket=SimpleNamespace(CN="CN", US="US"),
+        TrdSide=SimpleNamespace(BUY="BUY", SELL="SELL"),
+        OrderType=SimpleNamespace(NORMAL="NORMAL", MARKET="MARKET"),
+        TimeInForce=SimpleNamespace(DAY="DAY"),
+        SysConfig=SimpleNamespace(enable_console_log=lambda enabled: None),
+    )
+    trade = TradeContext()
+    gateway = FutuGateway(market="US", sdk=sdk, trade_context=trade)
+    snapshot = gateway.account_snapshot()
+    assert gateway.channel_id == "futu_simulate_us"
+    assert snapshot.account.market == "US"
+    gateway.place_order(OrderIntent(
+        "PTE-us-X", "DEC-X", "MU.US", "BUY", 37, 140.0,
+        order_type="MARKET",
+    ))
+    assert trade.place_calls[0]["code"] == "US.MU"
+    assert trade.place_calls[0]["qty"] == 37
+    assert trade.place_calls[0]["order_type"] == "MARKET"
+    with pytest.raises(PaperTradingSafetyError):
+        gateway.place_order(OrderIntent(
+            "PTE-cn-X", "DEC-X", "588080.SH", "BUY", 100, 1.0,
+            order_type="LIMIT",
+        ))
+    assert not is_submission_window(datetime.fromisoformat("2026-09-22T09:29:59-04:00"), "US")
+    assert is_submission_window(datetime.fromisoformat("2026-09-22T09:30:00-04:00"), "US")
+    assert not is_submission_window(datetime.fromisoformat("2026-09-22T16:00:00-04:00"), "US")
+
+    store = PaperStore(tmp_path / "us-channel.db")
+    with pytest.raises(ValueError, match="US stock accounts"):
+        store.create_virtual_account(
+            "wrong-channel", "Wrong channel", "S103-v1", "b" * 64, 100_000,
+            symbol="MU.US", asset_type="stock",
+        )
+    store.create_virtual_account(
+        "s103-v1-us", "S103 US", "S103-v1", "b" * 64, 100_000,
+        symbol="MU.US", asset_type="stock", strategy_id="S103",
+        strategy_name_snapshot="MU strategy", strategy_version="v1",
+        release_hash="b" * 64, qualification_snapshot="PAPER_READY",
+        selection_data_cutoff="2026-09-01", channel_id="futu_simulate_us",
+    )
+    intent = store.create_account_intent(
+        account_id="s103-v1-us", decision_id="DEC-S103-US", order_sequence=0,
+        symbol="MU.US", side="BUY", quantity=37, limit_price="140.00",
+        valid_session="2026-09-22", fee_rate="0.001", order_type="MARKET",
+    )
+    assert intent["quantity"] == 37
+    assert intent["payload"]["order_type"] == "MARKET"
+    with pytest.raises(ValueError, match="US intent symbol"):
+        store.create_account_intent(
+            account_id="s103-v1-us", decision_id="DEC-BAD", order_sequence=0,
+            symbol="588080.SH", side="BUY", quantity=100,
+            limit_price="1.00", valid_session="2026-09-22",
+        )
+    store.close()
 
 
 def test_manual_refresh_propagates_channel_failure(tmp_path):

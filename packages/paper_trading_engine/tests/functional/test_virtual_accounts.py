@@ -77,6 +77,20 @@ def test_pte_cli_rejects_retired_account_and_scheduler_aliases(tmp_path):
         ])
 
 
+def test_us_runtime_rejects_a_cn_simulation_database(tmp_path):
+    database = tmp_path / "shared.db"
+    store = PaperStore(database)
+    create_account(store, "cn-account", "v1", "a")
+    store.close()
+    args = pte_cli.build_parser().parse_args([
+        "once", "--repo-root", str(tmp_path), "--market", "US",
+        "--asset", "stock", "--symbol", "MU.US",
+        "--database", str(database),
+    ])
+    with pytest.raises(ValueError, match="different Futu simulation channel"):
+        pte_cli.build_engine(args)
+
+
 def test_ft_pte01_strategy_account_requires_srt_deployment(monkeypatch, tmp_path):
     payload = {
         "status": "PASS",

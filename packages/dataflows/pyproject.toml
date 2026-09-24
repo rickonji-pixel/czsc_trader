@@ -9,6 +9,7 @@ description = "Reusable financial market-data adapters"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "longbridge==5.1.0",
     "pandas>=2.0.0",
     "python-dotenv>=1.0.0",
     "stockstats>=0.6.5",

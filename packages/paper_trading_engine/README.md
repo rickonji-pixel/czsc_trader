@@ -4,6 +4,10 @@ PTE是仓库内独立的模拟交易包，与SRT通过进程内接口和版本�
 对象模型、技术契约和开发验证。环境安装、账户操作、版本发布以及PTE/WDG启停见
 [开发运维交接](../../docs/DEVELOPMENT_HANDOFF.md)。
 
+美股集成分支补充：`--market US --asset stock --symbol MU.US`选择独立的
+`futu_simulate_us`数据库、整股订单及纽约常规时段。该通道已通过离线测试，尚未完成本分支
+OpenD端到端验收；旧 S103 冻结版不能直接装入新版 `StrategyInstance`，不得据此启动旧脚本。
+
 ## 职责与边界
 
 PTE负责：
@@ -37,11 +41,13 @@ StrategyRelease 1 ─── N VirtualAccount
 FutuSimulateCnChannel 1 ─── N StrategyVirtualAccount
 FutuSimulateCnChannel 1 ─── 1 ChannelReconciliationAccount
 FutuSimulateCnChannel 1 ─── 1 Futu SIMULATE/CN account
+FutuSimulateUsChannel 1 ─── 1 Futu SIMULATE/US account
 ```
 
 - 一个策略虚拟账户绑定一个不可变策略发布、一个交易标的和一个渠道；
-- `futu_simulate_cn`是唯一已实现的Futu渠道身份，固定对应`TrdEnv.SIMULATE`与
-  `TrdMarket.CN`；未明确定义和实现的渠道、盘类型、市场组合在启动和运行时拒绝；
+- `futu_simulate_cn`固定对应`TrdEnv.SIMULATE`与`TrdMarket.CN`；美股集成分支另外实现
+  隔离的`futu_simulate_us`，固定对应`TrdEnv.SIMULATE`与`TrdMarket.US`。两者使用独立
+  运行数据库；其他盘类型和市场组合仍拒绝；
 - 该渠道可承载多个策略虚拟账户及多个中国市场标的，渠道本身不绑定策略；
 - 渠道平账账户是零初始资金的系统账户，不参与策略决策、账户比较或策略绩效；它仅记录
   经验证的Futu实际费用与策略模型费用之间的渠道差额，余额可为正或负；

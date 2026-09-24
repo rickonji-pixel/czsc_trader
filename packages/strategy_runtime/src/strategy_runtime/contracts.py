@@ -34,6 +34,12 @@ def _money(value: Decimal | str | int | float, name: str) -> Decimal:
     return result
 
 
+def _lot_size(symbol: str) -> int:
+    """Keep existing A-share lots while admitting whole-share US stock orders."""
+
+    return 1 if re.fullmatch(r"[A-Z][A-Z0-9.-]*\.US", symbol.upper()) else 100
+
+
 def _identities(values: Mapping[str, str], name: str) -> Mapping[str, str]:
     normalized = dict(sorted(values.items()))
     if not normalized or any(
@@ -102,17 +108,20 @@ class ExecutionState:
     revision: int
     as_of: datetime
     cycle_target_quantity: int | None = None
+    lot_size: int = 100
 
     def __post_init__(self) -> None:
         if self.revision < 0:
             raise RuntimeContractError("execution state revision must be non-negative")
         if self.as_of.tzinfo is None:
             raise RuntimeContractError("execution state as_of must be timezone-aware")
+        if self.lot_size not in {1, 100}:
+            raise RuntimeContractError("execution state lot size is unsupported")
         if self.cycle_target_quantity is not None and (
-            self.cycle_target_quantity < 0 or self.cycle_target_quantity % 100
+            self.cycle_target_quantity < 0 or self.cycle_target_quantity % self.lot_size
         ):
             raise RuntimeContractError(
-                "cycle target quantity must use non-negative 100-share lots"
+                f"cycle target quantity must use non-negative {self.lot_size}-share lots"
             )
 
 
@@ -135,9 +144,10 @@ class PortfolioSnapshot:
             self, "available_cash", _money(self.available_cash, "available_cash")
         )
         object.__setattr__(self, "total_assets", _money(self.total_assets, "total_assets"))
-        if self.position_quantity < 0 or self.position_quantity % 100:
+        lot_size = _lot_size(self.symbol)
+        if self.position_quantity < 0 or self.position_quantity % lot_size:
             raise RuntimeContractError(
-                "position quantity must use non-negative 100-share lots"
+                f"position quantity must use non-negative {lot_size}-share lots"
             )
         if self.revision < 0:
             raise RuntimeContractError("portfolio revision must be non-negative")
@@ -171,10 +181,11 @@ class PlannedOrder:
     quantity: int
     order_type: OrderType
     limit_price: Decimal | None
+    lot_size: int = 100
 
     def __post_init__(self) -> None:
-        if self.quantity <= 0 or self.quantity % 100:
-            raise RuntimeContractError("planned order quantity must use positive 100-share lots")
+        if self.lot_size not in {1, 100} or self.quantity <= 0 or self.quantity % self.lot_size:
+            raise RuntimeContractError("planned order quantity violates instrument lot size")
         if self.order_type is OrderType.LIMIT:
             if self.limit_price is None or _money(self.limit_price, "limit_price") <= 0:
                 raise RuntimeContractError("LIMIT order requires a positive limit_price")
@@ -370,8 +381,13 @@ class ExecutionPlan:
             self.target_quantity,
             self.cycle_target_quantity,
         )
-        if any(value < 0 or value % 100 for value in quantities):
-            raise RuntimeContractError("plan quantities must use non-negative 100-share lots")
+        lot_size = _lot_size(self.symbol)
+        if any(value < 0 or value % lot_size for value in quantities):
+            raise RuntimeContractError("plan quantities violate instrument lot size")
+        if any(order.lot_size != lot_size for order in self.orders) or any(
+            leg.order.lot_size != lot_size for leg in self.legs
+        ):
+            raise RuntimeContractError("plan orders use a different instrument lot size")
         if not math.isfinite(self.target_position):
             raise RuntimeContractError("plan target_position must be finite")
         object.__setattr__(self, "action", _text(self.action, "plan action"))

@@ -15,6 +15,9 @@ from .algorithm import StrategyImplementation
 
 def _release_symbol(release: StrategyRelease) -> str | None:
     payload = release.payload
+    parameters = payload.get("parameters")
+    if isinstance(parameters, Mapping) and isinstance(parameters.get("symbol"), str):
+        return str(parameters["symbol"]).upper()
     rule = payload.get("rule")
     if isinstance(rule, Mapping):
         execution = rule.get("execution")
@@ -340,7 +343,7 @@ class StrategyLoader:
             subjects = {
                 item.subject.upper()
                 for item in strategy.definition.inputs.requirements
-                if item.subject and item.dataset.startswith("etf.")
+                if item.subject and item.dataset.startswith(("etf.", "stock."))
             }
             if subjects == {symbol.upper()} or _release_symbol(release) == symbol.upper():
                 return strategy

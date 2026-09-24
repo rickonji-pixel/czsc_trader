@@ -7,7 +7,7 @@ from threading import Event, RLock, Thread
 from time import monotonic
 
 from .audit import AuditRecorder
-from .trading_window import SHANGHAI, shanghai_now
+from .trading_window import market_now, market_timezone
 
 
 class RuntimeScheduler:
@@ -23,6 +23,7 @@ class RuntimeScheduler:
         preparation_time: str = "20:30",
         audit: AuditRecorder | None = None,
         initial_observation_at: datetime | None = None,
+        market: str = "CN",
     ) -> None:
         self.engine = engine
         self.strategy_cycle = strategy_cycle
@@ -31,6 +32,8 @@ class RuntimeScheduler:
         self.account_interval = float(account_interval)
         self.data_prepare_interval = float(data_prepare_interval)
         self.preparation_time = time.fromisoformat(preparation_time)
+        self.market = str(market).upper()
+        self.market_timezone = market_timezone(self.market)
         self.audit = audit or (
             AuditRecorder(store) if hasattr(store, "append_audit_event") else None
         )
@@ -178,7 +181,7 @@ class RuntimeScheduler:
         )
 
     def tick_daily(self, now: datetime) -> None:
-        local_now = now if now.tzinfo is None else now.astimezone(SHANGHAI)
+        local_now = now if now.tzinfo is None else now.astimezone(self.market_timezone)
         if (
             local_now.time().replace(tzinfo=None) < self.preparation_time
             or not self._due(self._last_data_check, now, self.data_prepare_interval)
@@ -217,7 +220,7 @@ class RuntimeScheduler:
         def run_daily() -> None:
             while not stopped.is_set():
                 try:
-                    self.tick_daily(shanghai_now())
+                    self.tick_daily(market_now(self.market))
                 except Exception as exc:
                     self._record_cycle_failure(exc, "daily")
                 stopped.wait(0.5)
@@ -228,7 +231,7 @@ class RuntimeScheduler:
         self._daily_thread.start()
         while not stopped.is_set():
             try:
-                self.tick_fast(shanghai_now())
+                self.tick_fast(market_now(self.market))
             except Exception as exc:
                 self._record_cycle_failure(exc, "fast")
             stopped.wait(0.5)

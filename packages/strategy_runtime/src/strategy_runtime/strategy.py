@@ -38,9 +38,10 @@ from .signals import StrategySignal
 
 
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
+_NEW_YORK = ZoneInfo("America/New_York")
 
 
-def _planned_order(value: dict[str, object]) -> PlannedOrder:
+def _planned_order(value: dict[str, object], *, lot_size: int = 100) -> PlannedOrder:
     order_type = OrderType(str(value["order_type"]).upper())
     raw_price = value.get("limit_price")
     return PlannedOrder(
@@ -48,6 +49,7 @@ def _planned_order(value: dict[str, object]) -> PlannedOrder:
         quantity=int(value["quantity"]),
         order_type=order_type,
         limit_price=None if raw_price is None else Decimal(str(raw_price)),
+        lot_size=lot_size,
     )
 
 
@@ -125,14 +127,19 @@ class StrategyInstance:
         adjusted = [
             result.dataframe
             for name, result in inputs.results.items()
-            if str(inputs.requests[name].dataset) == Dataset.ETF_OHLCV.value
+            if str(inputs.requests[name].dataset) in {
+                Dataset.ETF_OHLCV.value, Dataset.STOCK_OHLCV.value,
+            }
             and inputs.requests[name].frequency == "daily"
             and inputs.requests[name].symbol == self._identity.symbol
         ]
         execution = [
             result.dataframe
             for name, result in inputs.results.items()
-            if str(inputs.requests[name].dataset) == Dataset.ETF_UNADJUSTED_DAILY.value
+            if str(inputs.requests[name].dataset) in {
+                Dataset.ETF_UNADJUSTED_DAILY.value,
+                Dataset.STOCK_UNADJUSTED_DAILY.value,
+            }
             and inputs.requests[name].frequency == "daily"
             and inputs.requests[name].symbol == self._identity.symbol
         ]
@@ -334,10 +341,12 @@ class StrategyInstance:
             raise RuntimeContractError("planning state is newer than calculation time")
 
         signal_date = data.signal_date_for(point.trading_date)
+        market_timezone = _NEW_YORK if self._identity.symbol.endswith(".US") else _SHANGHAI
+        market_close = time(16, 0) if self._identity.symbol.endswith(".US") else time(15, 0)
         signal_available_at = datetime.combine(
-            signal_date, time(15, 0), tzinfo=_SHANGHAI,
+            signal_date, market_close, tzinfo=market_timezone,
         )
-        if point.calculation_time.astimezone(_SHANGHAI) < signal_available_at:
+        if point.calculation_time.astimezone(market_timezone) < signal_available_at:
             raise RuntimeContractError(
                 "calculation time precedes the signal-session close"
             )
@@ -356,7 +365,8 @@ class StrategyInstance:
                 execution_reference_price=float(references.execution_price),
             )
         )
-        orders = tuple(_planned_order(value) for value in raw.get("orders", ()))
+        lot_size = 1 if self._identity.symbol.endswith(".US") else 100
+        orders = tuple(_planned_order(value, lot_size=lot_size) for value in raw.get("orders", ()))
         legs = tuple(
             PlanLeg(
                 sequence=int(value["sequence"]),
@@ -374,7 +384,7 @@ class StrategyInstance:
                     if value.get("dependency_required_status") is None
                     else str(value["dependency_required_status"])
                 ),
-                order=_planned_order(dict(value["order"])),
+                order=_planned_order(dict(value["order"]), lot_size=lot_size),
             )
             for value in raw.get("plan_legs", ())
         )

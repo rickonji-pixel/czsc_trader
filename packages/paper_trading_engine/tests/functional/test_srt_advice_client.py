@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -19,6 +20,34 @@ from paper_trading_engine.store import PaperStore
 
 
 ROOT = Path(__file__).resolve().parents[4]
+
+
+def test_stock_calendar_uses_us_vendor_only_for_us_symbol(tmp_path, monkeypatch):
+    requests = []
+
+    def fetch(request):
+        requests.append(request)
+        return SimpleNamespace(
+            ready=True,
+            dataframe=pd.DataFrame({
+                "Date": pd.to_datetime(["2026-09-22"]), "IsOpen": [1],
+            }),
+            error=None, status="READY",
+        )
+
+    monkeypatch.setattr(
+        "paper_trading_engine.srt_advice_client.Dataflows",
+        lambda: SimpleNamespace(fetch=fetch),
+    )
+    for symbol in ("MU.US", "600000.SH"):
+        client = SrtAdviceClient(
+            repo_root=ROOT, data_dir=tmp_path, asset="stock", symbol=symbol,
+        )
+        client._trading_calendar(date(2026, 9, 22), date(2026, 9, 22))
+    assert requests[0].symbol == "US"
+    assert requests[0].options["vendor"] == "longbridge"
+    assert requests[1].symbol == "SSE"
+    assert requests[1].options == {}
 
 
 def _flows() -> Dataflows:

@@ -30,9 +30,10 @@ from .broker import (
 from .channel import (
     CHANNEL_RECONCILIATION_ACCOUNT_TYPE,
     FUTU_SIMULATE_CN_CHANNEL_ID,
+    FUTU_SIMULATE_US_CHANNEL_ID,
     LEGACY_FUTU_CHANNEL_ID,
     STRATEGY_ACCOUNT_TYPE,
-    require_futu_simulate_cn,
+    require_futu_simulate_channel,
 )
 
 
@@ -43,6 +44,24 @@ RUNTIME_DATABASE_COMPATIBLE_VERSIONS = (1, 2)
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _instrument_rules(symbol: object) -> tuple[int, bool]:
+    normalized = str(symbol).strip().upper()
+    if re.fullmatch(r"[0-9]{6}\.(SH|SZ)", normalized):
+        return 100, False
+    if re.fullmatch(r"[A-Z][A-Z0-9.-]*\.US", normalized):
+        return 1, True
+    raise ValueError("intent symbol has invalid format")
+
+
+def _require_account_instrument(account: sqlite3.Row, symbol: str) -> None:
+    """Keep US account orders on their bound instrument and execution channel."""
+    if account["channel_id"] == FUTU_SIMULATE_US_CHANNEL_ID:
+        if symbol.upper() != str(account["symbol"]).upper() or not symbol.upper().endswith(".US"):
+            raise ValueError("US intent symbol differs from the account instrument")
+    elif symbol.upper().endswith(".US"):
+        raise ValueError("US intent requires the US simulation channel")
 
 
 def _validate_database_schema(connection: sqlite3.Connection) -> None:
@@ -605,7 +624,11 @@ class PaperStore:
                     f"SELECT DISTINCT channel_id FROM {table} WHERE channel_id IS NOT NULL"
                 )
             )
-        unsupported = values - {LEGACY_FUTU_CHANNEL_ID, FUTU_SIMULATE_CN_CHANNEL_ID}
+        unsupported = values - {
+            LEGACY_FUTU_CHANNEL_ID,
+            FUTU_SIMULATE_CN_CHANNEL_ID,
+            FUTU_SIMULATE_US_CHANNEL_ID,
+        }
         if unsupported:
             raise RuntimeError(
                 "unsupported persisted execution channel(s): " + ", ".join(sorted(unsupported))
@@ -833,7 +856,7 @@ class PaperStore:
     ):
         from decimal import Decimal
         cash = Decimal(initial_cash).quantize(Decimal("0.0001"))
-        require_futu_simulate_cn(channel_id)
+        channel_id = require_futu_simulate_channel(channel_id)
         if not cash.is_finite() or cash <= 0:
             raise ValueError("initial cash must be positive")
         if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", str(account_id)) is None:
@@ -842,6 +865,11 @@ class PaperStore:
             raise ValueError("account name and baseline version are required")
         if asset_type not in {"etf", "stock"}:
             raise ValueError("asset type must be etf or stock")
+        if channel_id == FUTU_SIMULATE_US_CHANNEL_ID:
+            if asset_type != "stock" or re.fullmatch(r"[A-Z][A-Z0-9.-]*\.US", str(symbol).upper()) is None:
+                raise ValueError("US simulation accounts require a .US stock")
+        elif str(symbol).upper().endswith(".US"):
+            raise ValueError("US stock accounts require the US simulation channel")
         if re.fullmatch(r"[0-9a-f]{64}", str(baseline_sha256).lower()) is None:
             raise ValueError("baseline sha256 must contain 64 hexadecimal characters")
         strategy_values = (
@@ -880,7 +908,7 @@ class PaperStore:
                     strategy_name_snapshot, strategy_version, release_hash,
                     selection_data_cutoff, qualification_snapshot, symbol.upper(), asset_type,
                     str(cash), str(cash), str(cash),
-                    FUTU_SIMULATE_CN_CHANNEL_ID, STRATEGY_ACCOUNT_TYPE, "RUNNING", now, now,
+                    channel_id, STRATEGY_ACCOUNT_TYPE, "RUNNING", now, now,
                 ),
             )
             scope = {
@@ -898,21 +926,27 @@ class PaperStore:
             ))
             self._insert_audit_event(self._new_audit_event(
                 "ACCOUNT_CHANNEL_BOUND", source="account_registry",
-                correlation_id=f"account:{account_id}", channel=FUTU_SIMULATE_CN_CHANNEL_ID, **scope,
-                details={"channel_id": FUTU_SIMULATE_CN_CHANNEL_ID},
+                correlation_id=f"account:{account_id}", channel=channel_id, **scope,
+                details={"channel_id": channel_id},
             ))
         return self.virtual_account(account_id)
 
-    def create_channel_reconciliation_account(self, *, account_id: str = "futu-simulate-cn-reconciliation"):
+    def create_channel_reconciliation_account(
+        self, *, account_id: str = "futu-simulate-cn-reconciliation",
+        channel_id: str = FUTU_SIMULATE_CN_CHANNEL_ID,
+    ):
         """Create the zero-balance system ledger for verified channel fee variance."""
         from decimal import Decimal
 
-        require_futu_simulate_cn(FUTU_SIMULATE_CN_CHANNEL_ID)
-        baseline = hashlib.sha256(b"futu_simulate_cn:channel_reconciliation.v1").hexdigest()
+        channel_id = require_futu_simulate_channel(channel_id)
+        market = "US" if channel_id == FUTU_SIMULATE_US_CHANNEL_ID else "CN"
+        baseline = hashlib.sha256(
+            f"{channel_id}:channel_reconciliation.v1".encode("ascii")
+        ).hexdigest()
         with self._lock, self._connection:
             existing = self._connection.execute(
                 "SELECT * FROM virtual_accounts WHERE channel_id=? AND account_type=?",
-                (FUTU_SIMULATE_CN_CHANNEL_ID, CHANNEL_RECONCILIATION_ACCOUNT_TYPE),
+                (channel_id, CHANNEL_RECONCILIATION_ACCOUNT_TYPE),
             ).fetchone()
             if existing is not None:
                 if Decimal(existing["initial_cash"]) != 0:
@@ -923,14 +957,14 @@ class PaperStore:
                 "INSERT INTO virtual_accounts(account_id,name,baseline_version,baseline_sha256,"
                 "symbol,asset_type,initial_cash,cash,total_assets,channel_id,account_type,status,"
                 "created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (account_id, "Futu模拟盘CN渠道平账账户", "channel_reconciliation.v1", baseline,
-                 "CASH.CN", "cash", "0.0000", "0.0000", "0.0000",
-                 FUTU_SIMULATE_CN_CHANNEL_ID, CHANNEL_RECONCILIATION_ACCOUNT_TYPE, "SYSTEM", now, now),
+                (account_id, f"Futu模拟盘{market}渠道平账账户", "channel_reconciliation.v1", baseline,
+                 f"CASH.{market}", "cash", "0.0000", "0.0000", "0.0000",
+                 channel_id, CHANNEL_RECONCILIATION_ACCOUNT_TYPE, "SYSTEM", now, now),
             )
             self._insert_audit_event(self._new_audit_event(
                 "CHANNEL_RECONCILIATION_ACCOUNT_CREATED", source="account_registry",
                 actor_type="OPERATOR", correlation_id=f"channel-reconciliation:{account_id}",
-                account_id=account_id, channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                account_id=account_id, channel=channel_id,
                 details={"initial_balance": "0.0000", "account_type": CHANNEL_RECONCILIATION_ACCOUNT_TYPE},
             ))
         return self.virtual_account(account_id)
@@ -1126,7 +1160,7 @@ class PaperStore:
         ]
 
     def channel_reconciliation_account(self, channel_id: str = FUTU_SIMULATE_CN_CHANNEL_ID):
-        require_futu_simulate_cn(channel_id)
+        require_futu_simulate_channel(channel_id)
         with self._lock:
             row = self._connection.execute(
                 "SELECT * FROM virtual_accounts WHERE channel_id=? AND account_type=?",
@@ -1377,18 +1411,24 @@ class PaperStore:
 
         side = str(side).upper()
         order_type = str(order_type or ("LIMIT" if side == "BUY" else "MARKET")).upper()
+        lot_size, allow_market_buy = _instrument_rules(symbol)
         price = Decimal(str(limit_price)).quantize(Decimal("0.0001"))
         fee = Decimal(str(fee_rate))
         if side not in {"BUY", "SELL"}:
             raise ValueError("intent side must be BUY or SELL")
-        if (side, order_type) not in {
+        supported_orders = {
             ("BUY", "LIMIT"),
             ("SELL", "LIMIT"),
             ("SELL", "MARKET"),
-        }:
+        }
+        if allow_market_buy:
+            supported_orders.add(("BUY", "MARKET"))
+        if (side, order_type) not in supported_orders:
             raise ValueError("buy intents must be LIMIT; sell intents must be LIMIT or MARKET")
-        if quantity <= 0 or quantity % 100:
-            raise ValueError("intent quantity must use positive 100-share lots")
+        if quantity <= 0 or quantity % lot_size:
+            raise ValueError(
+                f"intent quantity must use positive {lot_size}-share lots"
+            )
         identity = f"{account_id}\0{decision_id}\0{order_sequence}".encode("utf-8")
         intent_id = "PTE-" + hashlib.sha256(identity).hexdigest()[:20].upper()
         now = _utc_now()
@@ -1419,7 +1459,8 @@ class PaperStore:
             ).fetchone()
             if account is None:
                 raise KeyError(account_id)
-            require_futu_simulate_cn(account["channel_id"])
+            require_futu_simulate_channel(account["channel_id"])
+            _require_account_instrument(account, symbol)
             if account["account_type"] != STRATEGY_ACCOUNT_TYPE:
                 raise ValueError("channel reconciliation account cannot create order intents")
             if account["status"] != "RUNNING":
@@ -1511,6 +1552,7 @@ class PaperStore:
         if audit_events is not None and len(audit_events) != len(legs):
             raise ValueError("plan audit event count differs from plan legs")
         fee = Decimal(str(fee_rate))
+        lot_size, allow_market_buy = _instrument_rules(symbol)
         now = _utc_now()
         intent_ids = {
             sequence: "PTE-" + hashlib.sha256(
@@ -1569,7 +1611,8 @@ class PaperStore:
             ).fetchone()
             if account is None:
                 raise KeyError(account_id)
-            require_futu_simulate_cn(account["channel_id"])
+            require_futu_simulate_channel(account["channel_id"])
+            _require_account_instrument(account, symbol)
             if account["account_type"] != STRATEGY_ACCOUNT_TYPE:
                 raise ValueError("channel reconciliation account cannot create order intents")
             if account["status"] != "RUNNING":
@@ -1590,16 +1633,21 @@ class PaperStore:
                 dependency_sequence = leg.get("dependency_sequence")
                 if side not in {"BUY", "SELL"}:
                     raise ValueError("plan intent side must be BUY or SELL")
-                if (side, order_type) not in {
+                supported_orders = {
                     ("BUY", "LIMIT"),
                     ("SELL", "LIMIT"),
                     ("SELL", "MARKET"),
-                }:
+                }
+                if allow_market_buy:
+                    supported_orders.add(("BUY", "MARKET"))
+                if (side, order_type) not in supported_orders:
                     raise ValueError(
                         "plan buys must be LIMIT; plan sells must be LIMIT or MARKET"
                     )
-                if quantity <= 0 or quantity % 100:
-                    raise ValueError("plan intent quantity must use positive 100-share lots")
+                if quantity <= 0 or quantity % lot_size:
+                    raise ValueError(
+                        f"plan intent quantity must use positive {lot_size}-share lots"
+                    )
                 if price <= 0:
                     raise ValueError("plan intent price must be positive")
                 if dependency_sequence is not None:
@@ -1732,6 +1780,7 @@ class PaperStore:
         if audit_events is not None and len(audit_events) != len(orders):
             raise ValueError("immediate order audit event count differs from orders")
         fee = Decimal(str(fee_rate))
+        lot_size, allow_market_buy = _instrument_rules(symbol)
         now = _utc_now()
         normalized: list[dict[str, object]] = []
         intent_ids: dict[int, str] = {}
@@ -1743,12 +1792,17 @@ class PaperStore:
             price = Decimal(str(order["limit_price"])).quantize(Decimal("0.0001"))
             if side not in {"BUY", "SELL"}:
                 raise ValueError("intent side must be BUY or SELL")
-            if (side, order_type) not in {
+            supported_orders = {
                 ("BUY", "LIMIT"), ("SELL", "LIMIT"), ("SELL", "MARKET"),
-            }:
+            }
+            if allow_market_buy:
+                supported_orders.add(("BUY", "MARKET"))
+            if (side, order_type) not in supported_orders:
                 raise ValueError("buy intents must be LIMIT; sell intents must be LIMIT or MARKET")
-            if quantity <= 0 or quantity % 100:
-                raise ValueError("intent quantity must use positive 100-share lots")
+            if quantity <= 0 or quantity % lot_size:
+                raise ValueError(
+                    f"intent quantity must use positive {lot_size}-share lots"
+                )
             if price <= 0:
                 raise ValueError("intent price must be positive")
             normalized.append({
@@ -1793,7 +1847,8 @@ class PaperStore:
             ).fetchone()
             if account is None:
                 raise KeyError(account_id)
-            require_futu_simulate_cn(account["channel_id"])
+            require_futu_simulate_channel(account["channel_id"])
+            _require_account_instrument(account, symbol)
             if account["account_type"] != STRATEGY_ACCOUNT_TYPE:
                 raise ValueError("channel reconciliation account cannot create order intents")
             if account["status"] != "RUNNING":
@@ -2673,7 +2728,7 @@ class PaperStore:
             raise ValueError("channel fee variance must be finite and non-zero")
         if event.event_type != "CHANNEL_FEE_VARIANCE_RECONCILED":
             raise ValueError("channel fee variance audit event is invalid")
-        account = self.channel_reconciliation_account(FUTU_SIMULATE_CN_CHANNEL_ID)
+        account = self.channel_reconciliation_account(event.channel)
         if account is None:
             raise ValueError("channel reconciliation account has not been initialized")
         if event.account_id != account["account_id"]:

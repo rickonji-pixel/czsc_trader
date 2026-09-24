@@ -135,6 +135,24 @@ def request_json(url, method="GET", payload=None, token=None):
         return response.status, json.loads(response.read())
 
 
+def test_us_console_rejects_cn_channel_routes():
+    engine = FakeEngine()
+    engine.channel_id = "futu_simulate_us"
+    server = create_server(engine, host="127.0.0.1", port=0)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        assert request_json(base + "/api/channels/futu-simulate-us/snapshot")[1]["scope"]["channel"] == "futu_simulate_us"
+        with pytest.raises(HTTPError) as wrong_channel:
+            request_json(base + "/api/channels/futu-simulate-cn/snapshot")
+        assert wrong_channel.value.code == 404
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
 def test_ft_pte05_console_resources_interventions_events_and_restart(tmp_path):
     store = PaperStore(tmp_path / "audit.db")
     recorder = AuditRecorder(store)

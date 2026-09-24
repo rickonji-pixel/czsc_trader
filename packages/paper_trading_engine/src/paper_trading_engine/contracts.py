@@ -15,6 +15,15 @@ class AdviceContractError(ValueError):
     """The strategy CLI emitted a payload PTE cannot execute safely."""
 
 
+def _instrument_rules(symbol: object) -> tuple[str, int, bool]:
+    normalized = str(symbol).strip().upper()
+    if re.fullmatch(r"[0-9]{6}\.(SH|SZ)", normalized):
+        return normalized, 100, False
+    if re.fullmatch(r"[A-Z][A-Z0-9.-]*\.US", normalized):
+        return normalized, 1, True
+    raise AdviceContractError("advice symbol has invalid format")
+
+
 def _object(value: object, name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise AdviceContractError(f"{name} must be an object")
@@ -46,7 +55,10 @@ class OrderSpec:
     time_in_force: str
 
     @classmethod
-    def from_payload(cls, payload: object) -> "OrderSpec":
+    def from_payload(
+        cls, payload: object, *, lot_size: int = 100,
+        allow_market_buy: bool = False,
+    ) -> "OrderSpec":
         value = _object(payload, "order")
         price = value.get("limit_price")
         if isinstance(price, bool) or not isinstance(price, (int, float)):
@@ -55,15 +67,15 @@ class OrderSpec:
         if not math.isfinite(price) or price <= 0:
             raise AdviceContractError("order limit price must be positive and finite")
         quantity = _integer(value.get("quantity"), "order quantity")
-        if quantity <= 0 or quantity % 100:
-            raise AdviceContractError("order quantity must use positive 100-share lots")
+        if quantity <= 0 or quantity % lot_size:
+            raise AdviceContractError(f"order quantity must use positive {lot_size}-share lots")
         side = str(value.get("side", ""))
         if side not in {"BUY", "SELL"}:
             raise AdviceContractError("order side must be BUY or SELL")
         order_type = str(value.get("order_type", ""))
         if order_type not in {"LIMIT", "MARKET"}:
             raise AdviceContractError("order type must be LIMIT or MARKET")
-        if side == "BUY" and order_type != "LIMIT":
+        if side == "BUY" and order_type != "LIMIT" and not allow_market_buy:
             raise AdviceContractError("buy orders must use LIMIT")
         if side == "SELL" and order_type not in {"LIMIT", "MARKET"}:
             raise AdviceContractError("sell orders must use LIMIT or MARKET")
@@ -84,7 +96,10 @@ class PlanLegSpec:
     order: OrderSpec
 
     @classmethod
-    def from_payload(cls, payload: object) -> "PlanLegSpec":
+    def from_payload(
+        cls, payload: object, *, lot_size: int = 100,
+        allow_market_buy: bool = False,
+    ) -> "PlanLegSpec":
         value = _object(payload, "execution plan leg")
         sequence = _integer(value.get("sequence"), "execution plan leg sequence")
         if sequence < 0:
@@ -116,7 +131,10 @@ class PlanLegSpec:
             raise AdviceContractError("execution plan dependency status is incomplete")
         if required_status not in {None, "FILLED_ALL"}:
             raise AdviceContractError("execution plan dependency must require FILLED_ALL")
-        order = OrderSpec.from_payload(value.get("order"))
+        order = OrderSpec.from_payload(
+            value.get("order"), lot_size=lot_size,
+            allow_market_buy=allow_market_buy,
+        )
         if role in {"CORE_SETUP", "ROTATION_ENTRY"} and order.side != "BUY":
             raise AdviceContractError("entry execution plan legs must buy")
         if role == "ROTATION_EXIT" and order.side != "SELL":
@@ -178,26 +196,33 @@ class AdviceDecision:
             data_cutoff = date.fromisoformat(str(value["data_cutoff"]))
         except (KeyError, ValueError) as exc:
             raise AdviceContractError("advice dates must use ISO format") from exc
+        symbol, lot_size, allow_market_buy = _instrument_rules(value.get("symbol"))
         actual = _integer(value.get("actual_quantity"), "actual quantity")
         target = _integer(value.get("target_quantity"), "target quantity")
         cycle_target = _integer(value.get("cycle_target_quantity"), "cycle target quantity")
         delta = _integer(value.get("delta_quantity"), "delta quantity")
-        if actual < 0 or target < 0 or cycle_target < 0 or any(q % 100 for q in (actual, target, cycle_target)):
-            raise AdviceContractError("advice quantities must use non-negative 100-share lots")
+        if actual < 0 or target < 0 or cycle_target < 0 or any(q % lot_size for q in (actual, target, cycle_target)):
+            raise AdviceContractError(f"advice quantities must use non-negative {lot_size}-share lots")
         if target - actual != delta:
             raise AdviceContractError("delta quantity does not match target minus actual")
         order_payload = value.get("order")
-        order = None if order_payload is None else OrderSpec.from_payload(order_payload)
+        order = None if order_payload is None else OrderSpec.from_payload(
+            order_payload, lot_size=lot_size, allow_market_buy=allow_market_buy,
+        )
         orders_value = value.get("orders")
         if not isinstance(orders_value, list):
             raise AdviceContractError("orders must be a list")
-        orders = tuple(OrderSpec.from_payload(item) for item in orders_value)
+        orders = tuple(OrderSpec.from_payload(
+            item, lot_size=lot_size, allow_market_buy=allow_market_buy,
+        ) for item in orders_value)
         action = str(value.get("action", ""))
         plan_mode = str(value.get("plan_mode", "NONE"))
         plan_value = value.get("plan_legs", [])
         if not isinstance(plan_value, list):
             raise AdviceContractError("plan_legs must be a list")
-        plan_legs = tuple(PlanLegSpec.from_payload(item) for item in plan_value)
+        plan_legs = tuple(PlanLegSpec.from_payload(
+            item, lot_size=lot_size, allow_market_buy=allow_market_buy,
+        ) for item in plan_value)
         if tuple(item.sequence for item in plan_legs) != tuple(range(len(plan_legs))):
             raise AdviceContractError("execution plan leg sequences must be contiguous")
         if version == "advice.v4":
@@ -337,12 +362,10 @@ class AdviceDecision:
             observation = validate_observation_payload(value.get("observation"))
         except ValueError as exc:
             raise AdviceContractError(str(exc)) from exc
-        if re.fullmatch(r"[0-9]{6}\.(SH|SZ)", str(value.get("symbol", "")).upper()) is None:
-            raise AdviceContractError("advice symbol has invalid format")
         return cls(
             contract_version=version,
             decision_id=str(value.get("decision_id", "")),
-            symbol=str(value.get("symbol", "")).upper(),
+            symbol=symbol,
             signal_date=signal_date,
             valid_session=valid_session,
             actual_quantity=actual,

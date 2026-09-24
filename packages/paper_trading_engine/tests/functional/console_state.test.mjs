@@ -5,6 +5,7 @@ import {ACCOUNT_REFRESH_SECTIONS, ScopedLoader, accountMarkup, accountOperatingS
 test('FT-PTEJS01 console state preserves scope, stable polling and Chinese presentation', () => {
   assert.deepEqual(parseRoute('/accounts/s001-v2'), {page: 'account', accountId: 's001-v2'});
   assert.deepEqual(parseRoute('/channels/futu-simulate-cn'), {page: 'channel', channel: 'futu_simulate_cn'});
+  assert.deepEqual(parseRoute('/channels/futu-simulate-us'), {page: 'channel', channel: 'futu_simulate_us'});
   assert.deepEqual(parseRoute('/comparison'), {page: 'comparison'});
   assert.deepEqual(parseRoute('/audit-events'), {page: 'audit'});
   const loader = new ScopedLoader();

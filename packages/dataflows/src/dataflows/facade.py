@@ -238,6 +238,10 @@ def _validate_provider_output(
             dataframe,
             frequency,
             require_complete_days=frequency in {"1m", "5m", "15m", "30m"},
+            session_market=(
+                "unrestricted" if metadata.get("market") == "us" and metadata.get("trade_sessions") == "all"
+                else "us_regular" if metadata.get("market") == "us" else "a_share"
+            ),
         ).require_pass()
         return
 
@@ -507,6 +511,11 @@ class Dataflows:
 
 def _default_providers() -> dict[str, Provider]:
     from .local_strategy_data import fetch_strategy_feature_evidence
+    from .longbridge_stock import (
+        fetch_stock_ohlcv as fetch_longbridge_stock_ohlcv,
+        fetch_stock_unadjusted_daily as fetch_longbridge_stock_unadjusted_daily,
+        fetch_us_trading_calendar,
+    )
     from .tushare_etf import fetch_etf_ohlcv, fetch_etf_unadjusted_daily
     from .tushare_strategy_data import (
         fetch_cn_cpi_monthly,
@@ -547,6 +556,16 @@ def _default_providers() -> dict[str, Provider]:
         )
 
     def stock_ohlcv(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        vendor = _vendor(request)
+        if vendor == "longbridge":
+            return fetch_longbridge_stock_ohlcv(
+                _required_symbol(request), request.start, request.end, request.frequency,
+                adjustment=str(request.options.get("adjustment", "forward")),
+                trade_sessions=str(request.options.get("trade_sessions", "intraday")),
+                env_file=_env_file(request),
+            )
+        if vendor != "tushare":
+            raise DataContractError(f"unsupported stock OHLCV vendor: {vendor}")
         return fetch_stock_ohlcv(
             _required_symbol(request),
             request.start,
@@ -556,6 +575,16 @@ def _default_providers() -> dict[str, Provider]:
         )
 
     def stock_unadjusted(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        vendor = _vendor(request)
+        if vendor == "longbridge":
+            if request.frequency != "daily":
+                raise DataContractError("unadjusted stock execution data must be daily")
+            return fetch_longbridge_stock_unadjusted_daily(
+                _required_symbol(request), request.start, request.end,
+                env_file=_env_file(request),
+            )
+        if vendor != "tushare":
+            raise DataContractError(f"unsupported stock execution-data vendor: {vendor}")
         return fetch_stock_unadjusted_daily(
             _required_symbol(request),
             request.start,
@@ -674,6 +703,13 @@ def _default_providers() -> dict[str, Provider]:
         )
 
     def trading_calendar(request: DataRequest) -> tuple[pd.DataFrame, Mapping[str, Any]]:
+        vendor = _vendor(request)
+        if vendor == "longbridge":
+            if _required_symbol(request).upper() not in {"US", "NYSE", "NASDAQ"}:
+                raise DataContractError("Longbridge trading calendar requires US, NYSE or NASDAQ")
+            return fetch_us_trading_calendar(request.start, request.end, env_file=_env_file(request))
+        if vendor != "tushare":
+            raise DataContractError(f"unsupported trading-calendar vendor: {vendor}")
         return fetch_trading_calendar(
             _required_symbol(request),
             request.start,
@@ -709,6 +745,10 @@ def _default_providers() -> dict[str, Provider]:
 def _env_file(request: DataRequest) -> str | Path | None:
     value = request.options.get("env_file")
     return None if value is None else Path(value)
+
+
+def _vendor(request: DataRequest) -> str:
+    return str(request.options.get("vendor", "tushare")).strip().lower()
 
 
 def _required_symbol(request: DataRequest) -> str:

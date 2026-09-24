@@ -57,6 +57,26 @@ def _data_prepare(args: argparse.Namespace):
     )
 
 
+def _data_prepare_us_history(args: argparse.Namespace):
+    from czsc_trader.application.us_data_service import (
+        PrepareUSHistoryCommand,
+        prepare_us_history,
+    )
+
+    return prepare_us_history(
+        _context(args),
+        PrepareUSHistoryCommand(
+            symbols=tuple(args.symbol),
+            start=args.start,
+            end=args.end,
+            daily_start=args.daily_start,
+            frequencies=tuple(args.frequency or ("30m", "daily", "weekly")),
+            adjustment=args.adjustment,
+            trade_sessions=args.trade_sessions,
+        ),
+    )
+
+
 def _backtest_run(args: argparse.Namespace):
     from czsc_trader.application.backtest_service import BacktestCommand, run_backtest
 
@@ -190,6 +210,22 @@ def build_parser() -> argparse.ArgumentParser:
     data_prepare.set_defaults(
         command_handler=_data_prepare,
         command_name="data.prepare",
+    )
+    data_us = data_actions.add_parser("prepare-us-history")
+    data_us.add_argument("--symbol", action="append", required=True)
+    data_us.add_argument("--start", required=True, type=date.fromisoformat)
+    data_us.add_argument("--daily-start", type=date.fromisoformat)
+    data_us.add_argument("--end", required=True, type=date.fromisoformat)
+    data_us.add_argument(
+        "--frequency", action="append",
+        choices=("1m", "5m", "15m", "30m", "daily", "weekly"),
+    )
+    data_us.add_argument("--adjustment", choices=("forward", "none"), default="forward")
+    data_us.add_argument("--trade-sessions", choices=("intraday", "all"), default="intraday")
+    _add_repository_root(data_us)
+    data_us.set_defaults(
+        command_handler=_data_prepare_us_history,
+        command_name="data.prepare-us-history",
     )
     data_validate = data_actions.add_parser("validate")
     data_validate.add_argument("--symbol", required=True)

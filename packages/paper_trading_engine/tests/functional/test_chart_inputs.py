@@ -44,3 +44,27 @@ def test_chart_market_data_reads_adjusted_bars_without_strategy_instance() -> No
     assert request.symbol == "588080.SH"
     assert request.end == "2026-09-20"
     assert request.required_cutoff == "2026-09-02"
+
+
+def test_us_chart_data_explicitly_uses_longbridge() -> None:
+    requests = []
+    frame = pd.DataFrame({
+        "Date": pd.to_datetime(["2026-09-01"]),
+        "Open": [100.0], "High": [102.0], "Low": [99.0], "Close": [101.0],
+    })
+
+    def fetch(request):
+        requests.append(request)
+        return SimpleNamespace(ready=True, dataframe=frame, error=None, status="READY")
+
+    source = AccountChartMarketData(
+        dataflows=SimpleNamespace(fetch=fetch),
+        today=lambda: pd.Timestamp("2026-09-20").date(),
+    )
+    source.history(
+        symbol="MU.US", asset="stock", selection_data_cutoff="2026-09-01",
+        context_sessions=60,
+    )
+
+    assert requests[0].dataset == Dataset.STOCK_OHLCV
+    assert requests[0].options["vendor"] == "longbridge"

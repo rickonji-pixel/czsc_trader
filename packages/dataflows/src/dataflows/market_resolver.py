@@ -113,6 +113,8 @@ def normalize_symbol_for_vendor(ticker: str, vendor: str, market: str | None = N
     code = extract_us_code(ticker)
     if vendor == "futu":
         return code if code.startswith("US.") else f"US.{code}"
+    if vendor == "longbridge":
+        return f"{code}.US"
     if vendor in {"tushare", "finnhub", "akshare"}:
         return code
     return code

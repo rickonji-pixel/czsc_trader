@@ -51,11 +51,16 @@ def _declared_symbol(definition: RuntimeDefinition) -> str:
     subjects = {
         item.subject.upper()
         for item in definition.inputs.requirements
-        if item.subject and item.dataset.startswith("etf.")
+        if item.subject and item.dataset.startswith(("etf.", "stock."))
     }
+    if len(subjects) == 1:
+        return next(iter(subjects))
+    selected = str(definition.parameters.values.get("symbol", "")).upper()
+    if selected and selected in subjects:
+        return selected
     if len(subjects) != 1:
         raise RuntimeContractError(
-            "strategy data preparation requires exactly one ETF instrument"
+            "strategy data preparation requires exactly one priced instrument"
         )
     return next(iter(subjects))
 
@@ -66,6 +71,16 @@ def _request_options(
     base: Mapping[str, object],
 ) -> dict[str, object]:
     options = dict(base)
+    us_stock_input = requirement.dataset in {
+        Dataset.STOCK_OHLCV.value,
+        Dataset.STOCK_UNADJUSTED_DAILY.value,
+    } and (requirement.subject or "").upper().endswith(".US")
+    us_calendar = (
+        requirement.dataset == Dataset.TRADING_CALENDAR.value
+        and (requirement.subject or "").upper() in {"US", "NYSE", "NASDAQ"}
+    )
+    if us_stock_input or us_calendar:
+        options["vendor"] = "longbridge"
     if requirement.dataset != Dataset.STRATEGY_FEATURE_EVIDENCE.value:
         return options
     rule = definition.parameters.values.get("rule")

@@ -11,7 +11,7 @@ from threading import RLock
 
 from .audit import AuditRecorder
 from .broker import TERMINAL_INTENT_STATUSES
-from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
+from .channel import FUTU_SIMULATE_CN_CHANNEL_ID, require_futu_simulate_channel
 from .store import PaperStore
 
 
@@ -120,11 +120,12 @@ class AccountEngine:
 
     def __init__(
         self, store: PaperStore, advice, audit: AuditRecorder | None = None,
-        now=None,
+        now=None, channel_id: str = FUTU_SIMULATE_CN_CHANNEL_ID,
     ) -> None:
         self.store = store
         self.advice = advice
         self.audit = audit or AuditRecorder(store)
+        self.channel_id = require_futu_simulate_channel(channel_id)
         self.now = now or (lambda: datetime.now(self._BEIJING))
         self._draining = False
         self._decision_lock = RLock()
@@ -396,7 +397,7 @@ class AccountEngine:
                             account_id=account_id, strategy_id=account["strategy_id"],
                             strategy_version=account["strategy_version"],
                             release_hash=account["release_hash"], symbol=account["symbol"],
-                            channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                            channel=self.channel_id,
                             decision_id=str(previous_decision_id),
                             correlation_id=decision.decision_id,
                             details={
@@ -525,7 +526,7 @@ class AccountEngine:
                 for leg in decision.plan_legs:
                     order = leg.order
                     plan_events.append(self.audit.build(
-                        "ORDER_INTENT_CREATED", source="account_engine", channel=FUTU_SIMULATE_CN_CHANNEL_ID,
+                        "ORDER_INTENT_CREATED", source="account_engine", channel=self.channel_id,
                         **scope,
                         details={
                             "side": order.side,
@@ -578,7 +579,7 @@ class AccountEngine:
                     })
                     immediate_events.append(self.audit.build(
                         "ORDER_INTENT_CREATED", source="account_engine",
-                        channel=FUTU_SIMULATE_CN_CHANNEL_ID, **scope,
+                        channel=self.channel_id, **scope,
                         details={
                             "side": order.side, "quantity": order.quantity,
                             "order_type": order.order_type,

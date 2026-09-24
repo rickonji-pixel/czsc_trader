@@ -43,6 +43,7 @@ class AccountChartMarketData:
                 end.isoformat(),
                 cutoff.isoformat(),
                 "daily",
+                options={"vendor": "longbridge"} if symbol.upper().endswith(".US") else {},
             )
         )
         if not result.ready:

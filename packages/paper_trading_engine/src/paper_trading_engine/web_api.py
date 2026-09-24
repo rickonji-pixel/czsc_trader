@@ -7,7 +7,7 @@ import json
 
 from .audit import AuditCategory, AuditOutcome, AuditSeverity, EVENT_CATALOG
 from .store import DEFAULT_FUTU_CAPITAL_POOL
-from .channel import FUTU_SIMULATE_CN_CHANNEL_ID, STRATEGY_ACCOUNT_TYPE
+from .channel import STRATEGY_ACCOUNT_TYPE
 from .trading_window import SHANGHAI
 
 
@@ -55,6 +55,7 @@ class PteWebApi:
         self.store = operations.store
         self.virtual = operations.virtual
         self.channel = operations.channel
+        self.channel_id = getattr(operations, "channel_id", "futu_simulate_cn")
 
     def _account_chart_error(self, account_id: str) -> str | None:
         chart = getattr(self.operations, "account_chart", None)
@@ -69,10 +70,11 @@ class PteWebApi:
             "watchdog_healthy": not _is_stale(heartbeat, seconds=45),
             "scheduler_heartbeat_at": heartbeat,
             "release": dict(getattr(self.operations, "runtime_identity", {})),
+            "channel_id": self.channel_id,
         }
 
     def system_status(self) -> dict[str, object]:
-        channel = self.channel_snapshot(FUTU_SIMULATE_CN_CHANNEL_ID)
+        channel = self.channel_snapshot(self.channel_id)
         failures = channel.get("scheduler_failures", self.store.operation_failures())
         alerts = list(channel.get("alerts", []))
         accounts = [
@@ -135,6 +137,7 @@ class PteWebApi:
             "scope": {"system": "pte"},
             "as_of": _now(),
             "runtime": "RUNNING",
+            "channel_id": self.channel_id,
             "watchdog_healthy": not scheduler_stalled,
             "scheduler_heartbeat_at": heartbeat,
             "release": dict(getattr(self.operations, "runtime_identity", {})),
@@ -310,10 +313,10 @@ class PteWebApi:
         return self.operations.account_chart.chart_path(account_id, fingerprint)
 
     def channel_snapshot(self, channel: str) -> dict[str, object]:
-        if channel != FUTU_SIMULATE_CN_CHANNEL_ID:
+        if channel != self.channel_id:
             raise ResourceNotFound(channel)
         status = self.channel.status()
-        events = self.store.query_audit_events(channel=FUTU_SIMULATE_CN_CHANNEL_ID, limit=200)
+        events = self.store.query_audit_events(channel=self.channel_id, limit=200)
         accounts = [
             {
                 "account_id": row["account_id"], "name": row["name"],
@@ -326,12 +329,12 @@ class PteWebApi:
                 "health": row["health"], "last_error": row["last_error"],
             }
             for row in self.store.virtual_accounts()
-            if row.get("channel_id") == FUTU_SIMULATE_CN_CHANNEL_ID
+            if row.get("channel_id") == self.channel_id
             and row.get("account_type", STRATEGY_ACCOUNT_TYPE) == STRATEGY_ACCOUNT_TYPE
         ]
         channel_accounts = [
             row for row in self.store.virtual_accounts()
-            if row.get("channel_id") == FUTU_SIMULATE_CN_CHANNEL_ID
+            if row.get("channel_id") == self.channel_id
             and row.get("status") != "RETIRED"
         ]
         capital_pool = float(
@@ -364,7 +367,7 @@ class PteWebApi:
         if cash_difference is not None and abs(cash_difference) > 0.01:
             alerts.append("CHANNEL_CASH_MISMATCH")
         return {
-            "scope": {"channel": FUTU_SIMULATE_CN_CHANNEL_ID, "account_type": "broker_simulation"},
+            "scope": {"channel": self.channel_id, "account_type": "broker_simulation"},
             "as_of": _now(),
             "account": status.get("account"), "actual_quantity": status.get("actual_quantity"),
             "accounts": accounts,
@@ -381,7 +384,7 @@ class PteWebApi:
             "paused": status.get("paused"),
             "reconciliation_status": status.get("reconciliation_status"),
             "reconciliation_account": self.store.channel_reconciliation_account(
-                FUTU_SIMULATE_CN_CHANNEL_ID
+                self.channel_id
             ),
             "connection_error": status.get("channel_error"), "alerts": list(dict.fromkeys(alerts)),
             "scheduler_failures": status.get("scheduler_failures", []), "events": events,

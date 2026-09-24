@@ -1,4 +1,4 @@
-"""Futu OpenAPI adapter hard-locked to China simulated trading."""
+"""Futu OpenAPI adapter locked to an explicit CN or US simulated-stock account."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import time
 import re
 
 from .audit import AuditRecorder
-from .channel import FUTU_SIMULATE_CN_CHANNEL_ID
+from .channel import futu_simulate_channel_id
 
 from .broker import (
     BrokerAccount,
@@ -68,12 +68,12 @@ def _project_symbol(code: str) -> str:
 
 
 class FutuGateway:
-    channel_id = FUTU_SIMULATE_CN_CHANNEL_ID
-
     def __init__(
         self,
         *,
         symbol: str | None = None,
+        market: str = "CN",
+        account_id: int | None = None,
         host: str = "127.0.0.1",
         port: int = 11111,
         sdk: object | None = None,
@@ -86,10 +86,14 @@ class FutuGateway:
             sdk = sdk_module
         self.sdk = sdk
         self.sdk.SysConfig.enable_console_log(False)
+        self.market = str(market).strip().upper()
+        self.channel_id = futu_simulate_channel_id(self.market)
+        self._sdk_market = getattr(sdk.TrdMarket, self.market)
         self.symbol = symbol.upper() if symbol else None
         self.trade_context = trade_context or sdk.OpenSecTradeContext(
-            filter_trdmarket=sdk.TrdMarket.CN, host=host, port=port
+            filter_trdmarket=self._sdk_market, host=host, port=port
         )
+        self._configured_account_id = None if account_id is None else int(account_id)
         self._account_id: int | None = None
         self.audit = audit
 
@@ -123,17 +127,26 @@ class FutuGateway:
         if self._account_id is not None:
             return self._account_id
         rows = _records(self._ok("get_acc_list", self.trade_context.get_acc_list()))
-        # OpenD account-list rows on the live simulator omit ``trd_market``.
-        # The adapter itself creates the context with filter_trdmarket=CN, so
-        # that fixed constructor contract is the explicit market authority;
-        # a returned market, when present, must still agree with it.
+        # OpenD account-list rows may omit ``trd_market``.  The trade context
+        # is constructed with a fixed market; any returned market must agree.
         matches = [
             row for row in rows
             if row.get("trd_env") == self.sdk.TrdEnv.SIMULATE
-            and row.get("trd_market", self.sdk.TrdMarket.CN) == self.sdk.TrdMarket.CN
+            and row.get("trd_market", self._sdk_market) == self._sdk_market
+            and (
+                not row.get("trdmarket_auth")
+                or self._sdk_market in row.get("trdmarket_auth", [])
+            )
+            and str(row.get("sim_acc_type", "")).upper() not in {"OPTION", "FUTURES"}
+            and (
+                self._configured_account_id is None
+                or int(row.get("acc_id", -1)) == self._configured_account_id
+            )
         ]
         if len(matches) != 1:
-            raise FutuGatewayError(f"expected one CN SIMULATE account, found {len(matches)}")
+            raise FutuGatewayError(
+                f"expected one {self.market} SIMULATE stock account, found {len(matches)}"
+            )
         self._account_id = int(matches[0]["acc_id"])
         return self._account_id
 
@@ -167,7 +180,7 @@ class FutuGateway:
         return BrokerSnapshot(
             account=BrokerAccount(
                 environment="SIMULATE",
-                market="CN",
+                market=self.market,
                 cash=float(account_row.get("cash", 0.0)),
                 total_assets=float(account_row.get("total_assets", 0.0)),
                 frozen_cash=float(account_row.get("frozen_cash", 0.0)),
@@ -227,19 +240,25 @@ class FutuGateway:
         )
 
     def place_order(self, intent: OrderIntent) -> BrokerOrder:
-        if re.fullmatch(r"[0-9]{6}\.(SH|SZ)", intent.symbol) is None:
-            raise PaperTradingSafetyError("order symbol is not a supported China-market code")
-        if intent.quantity <= 0 or intent.quantity % 100:
-            raise PaperTradingSafetyError("order quantity must use positive 100-share lots")
+        symbol_pattern = r"[0-9]{6}\.(SH|SZ)" if self.market == "CN" else r"[A-Z][A-Z0-9.-]*\.US"
+        if re.fullmatch(symbol_pattern, intent.symbol.upper()) is None:
+            label = "China-market" if self.market == "CN" else "US-market"
+            raise PaperTradingSafetyError(f"order symbol is not a supported {label} code")
+        lot_size = 100 if self.market == "CN" else 1
+        if intent.quantity <= 0 or intent.quantity % lot_size:
+            raise PaperTradingSafetyError(f"order quantity must use positive {lot_size}-share lots")
         if intent.side not in {"BUY", "SELL"}:
             raise PaperTradingSafetyError("order side must be BUY or SELL")
         if intent.time_in_force != "DAY":
             raise PaperTradingSafetyError("gateway accepts DAY orders only")
-        if (intent.side, intent.order_type) not in {
+        supported = {
             ("BUY", "LIMIT"), ("SELL", "LIMIT"), ("SELL", "MARKET"),
-        }:
+        }
+        if self.market == "US":
+            supported.add(("BUY", "MARKET"))
+        if (intent.side, intent.order_type) not in supported:
             raise PaperTradingSafetyError(
-                "gateway requires LIMIT buys and LIMIT or MARKET sells"
+                f"gateway does not support {intent.side} {intent.order_type} in {self.market}"
             )
         side = self.sdk.TrdSide.BUY if intent.side == "BUY" else self.sdk.TrdSide.SELL
         order_type = (

@@ -19,10 +19,16 @@ def _definition_symbol(definition) -> str:
         for requirement in definition.inputs.requirements
         if requirement.subject
         and requirement.dataset.startswith(("etf.", "stock."))
-        and re.fullmatch(r"\d{6}\.(?:SH|SZ)", str(requirement.subject).upper())
+        and re.fullmatch(
+            r"(?:\d{6}\.(?:SH|SZ)|[A-Z][A-Z0-9.-]*\.US)",
+            str(requirement.subject).upper(),
+        )
     }
+    selected = str(definition.parameters.values.get("symbol", "")).upper()
+    if selected and selected in subjects:
+        return selected
     if len(subjects) != 1:
-        raise ValueError("strategy must declare exactly one A-share instrument")
+        raise ValueError("strategy must identify exactly one priced instrument")
     return next(iter(subjects))
 
 

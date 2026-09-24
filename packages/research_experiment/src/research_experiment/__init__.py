@@ -15,7 +15,12 @@ from .contracts import (
     ExperimentWorkspace,
     ResearchExperiment,
 )
-from .loader import ExperimentBinding, experiment_source_sha256, load_experiment
+from .loader import (
+    ExperimentBinding,
+    LoadedExperiment,
+    experiment_source_sha256,
+    load_experiment,
+)
 
 __version__ = "0.1.0"
 
@@ -33,6 +38,7 @@ __all__ = [
     "ExperimentResult",
     "ExperimentTrace",
     "ExperimentWorkspace",
+    "LoadedExperiment",
     "ResearchExperiment",
     "experiment_source_sha256",
     "load_experiment",

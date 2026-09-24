@@ -18,7 +18,8 @@ from research_experiment import (
     ExperimentResult,
     ExperimentTrace,
     ExperimentWorkspace,
-    ResearchExperiment,
+    LoadedExperiment,
+    experiment_source_sha256,
 )
 from strategy_runtime import StrategyInit, StrategyRuntime
 
@@ -306,15 +307,22 @@ def create_experiment_context(
 
 
 def execute_experiment(
-    experiment: ResearchExperiment, context: ExperimentContext
+    experiment: LoadedExperiment, context: ExperimentContext
 ) -> ExperimentResult:
-    """Execute one REX experiment and validate its declared result boundary."""
+    """Execute one source-bound REX experiment and validate its result boundary."""
 
-    if not isinstance(experiment, ResearchExperiment):
-        raise TypeError("experiment must implement ResearchExperiment")
+    if not isinstance(experiment, LoadedExperiment):
+        raise TypeError("experiment must be loaded by load_experiment")
+    actual_hash = experiment_source_sha256(
+        experiment.root, experiment.binding.source_files
+    )
+    if actual_hash != experiment.binding.source_sha256:
+        raise ValueError("experiment source SHA-256 differs from binding")
+    if experiment.implementation.definition.sha256 != experiment.definition.sha256:
+        raise ValueError("experiment definition changed after loading")
     if experiment.definition.sha256 != context.definition.sha256:
         raise ValueError("experiment and context definitions differ")
-    result = experiment.execute(context)
+    result = experiment.implementation.execute(context)
     if not isinstance(result, ExperimentResult):
         raise TypeError("experiment returned an invalid result")
     if result.candidate is not None:

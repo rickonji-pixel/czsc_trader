@@ -16,7 +16,7 @@ from threading import RLock
 from types import ModuleType
 from typing import Any
 
-from .contracts import ResearchExperiment, _safe_relative_path
+from .contracts import ExperimentDefinition, ResearchExperiment, _safe_relative_path
 
 
 _STRATEGY_ID = re.compile(r"S\d{3}")
@@ -81,6 +81,35 @@ class ExperimentBinding:
         )
 
 
+@dataclass(frozen=True, slots=True, init=False)
+class LoadedExperiment:
+    """A source-bound experiment handle created only by :func:`load_experiment`."""
+
+    root: Path
+    binding: ExperimentBinding
+    implementation: ResearchExperiment
+    definition: ExperimentDefinition
+
+    def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+        raise TypeError("LoadedExperiment can only be created by load_experiment")
+
+    @classmethod
+    def _from_verified(
+        cls,
+        *,
+        root: Path,
+        binding: ExperimentBinding,
+        implementation: ResearchExperiment,
+        definition: ExperimentDefinition,
+    ) -> LoadedExperiment:
+        loaded = object.__new__(cls)
+        object.__setattr__(loaded, "root", root)
+        object.__setattr__(loaded, "binding", binding)
+        object.__setattr__(loaded, "implementation", implementation)
+        object.__setattr__(loaded, "definition", definition)
+        return loaded
+
+
 def _nonempty_text(value: str, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
@@ -110,8 +139,8 @@ def experiment_source_sha256(root: Path, source_files: tuple[str, ...]) -> str:
     return digest.hexdigest()
 
 
-def load_experiment(root: Path) -> ResearchExperiment:
-    """Load one hash-verified experiment without adding its path to ``sys.path``."""
+def load_experiment(root: Path) -> LoadedExperiment:
+    """Return a source-bound experiment without adding its path to ``sys.path``."""
 
     root = Path(root).resolve()
     binding_path = root / "experiment_binding.json"
@@ -174,13 +203,16 @@ def load_experiment(root: Path) -> ResearchExperiment:
             raise
     if not isinstance(experiment, ResearchExperiment):
         raise TypeError("bound implementation must instantiate ResearchExperiment")
-    if experiment.definition.experiment_id != root.name:
+    definition = experiment.definition
+    if not isinstance(definition, ExperimentDefinition):
+        raise TypeError("bound experiment definition must be ExperimentDefinition")
+    if definition.experiment_id != root.name:
         raise ValueError("experiment definition id differs from its directory")
     if _STRATEGY_ID.fullmatch(root.parent.name) and (
-        experiment.definition.strategy_id != root.parent.name
+        definition.strategy_id != root.parent.name
     ):
         raise ValueError("experiment definition strategy differs from its directory")
-    for dependency in experiment.definition.dependencies:
+    for dependency in definition.dependencies:
         try:
             installed = distribution_version(dependency.name)
         except PackageNotFoundError as exc:
@@ -192,7 +224,17 @@ def load_experiment(root: Path) -> ResearchExperiment:
                 "experiment dependency version differs: "
                 f"{dependency.name} requires {dependency.version}, installed {installed}"
             )
-    return experiment
+    return LoadedExperiment._from_verified(
+        root=root,
+        binding=binding,
+        implementation=experiment,
+        definition=definition,
+    )
 
 
-__all__ = ["ExperimentBinding", "experiment_source_sha256", "load_experiment"]
+__all__ = [
+    "ExperimentBinding",
+    "LoadedExperiment",
+    "experiment_source_sha256",
+    "load_experiment",
+]

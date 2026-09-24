@@ -21,6 +21,7 @@ from research_experiment import (
     ExperimentResult,
     ExperimentWorkspace,
     ResearchExperiment,
+    experiment_source_sha256,
     load_experiment,
 )
 from czsc_trader.research_tools import (
@@ -140,6 +141,28 @@ def test_loader_rejects_source_tampering(functional_repo: Path) -> None:
 
     with pytest.raises(ValueError, match="source SHA-256 differs"):
         load_experiment(target)
+
+
+def test_executor_rechecks_source_after_loading(functional_repo: Path) -> None:
+    target = functional_repo / ".tmp" / "post-load-tampered" / FIXTURE_ROOT.name
+    target.parent.mkdir(parents=True)
+    shutil.copytree(FIXTURE_ROOT, target)
+    experiment = load_experiment(target)
+    context = create_experiment_context(
+        experiment.definition,
+        repository_root=functional_repo,
+        dataflows=_flows(),
+        workspace=_workspace(functional_repo, "post-load-tampered"),
+        resources=ExperimentResources(
+            max_workers=1,
+            random_seed=experiment.definition.random_seed,
+        ),
+    )
+    source = target / "experiment.py"
+    source.write_text(source.read_text(encoding="utf-8") + "\n# tampered\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="source SHA-256 differs"):
+        execute_experiment(experiment, context)
 
 
 def test_data_adapter_blocks_undeclared_dataset_before_provider(
@@ -303,10 +326,86 @@ class _CandidateExperiment(ResearchExperiment):
         )
 
 
-def test_candidate_result_requires_declared_capability(functional_repo: Path) -> None:
+def test_execute_rejects_unbound_experiment(functional_repo: Path) -> None:
     definition = _definition()
     context = create_experiment_context(
         definition,
+        repository_root=functional_repo,
+        dataflows=_flows(),
+        workspace=_workspace(functional_repo, "unbound-experiment"),
+        resources=ExperimentResources(max_workers=1, random_seed=98),
+    )
+
+    with pytest.raises(TypeError, match="loaded by load_experiment"):
+        execute_experiment(_CandidateExperiment(definition), context)
+
+
+def test_bound_candidate_result_requires_declared_capability(
+    functional_repo: Path,
+) -> None:
+    root = (
+        functional_repo
+        / ".tmp"
+        / "bound-candidate"
+        / "S008"
+        / "20260924_S008_EX98"
+    )
+    root.mkdir(parents=True)
+    source = root / "experiment.py"
+    source.write_text(
+        """from datetime import date
+from research_experiment import (
+    ExperimentCapabilities, ExperimentDefinition, ExperimentMode,
+    ExperimentOutcome, ExperimentResult, ResearchExperiment,
+)
+from strategy_runtime import StrategyCandidate
+
+class Experiment(ResearchExperiment):
+    @property
+    def definition(self):
+        return ExperimentDefinition(
+            schema_version=1,
+            experiment_id='20260924_S008_EX98',
+            strategy_id='S008',
+            mode=ExperimentMode.DISCOVERY,
+            research_question='Does candidate creation require a declared capability?',
+            hypothesis='The platform rejects undeclared candidate creation.',
+            falsification_conditions=('An undeclared candidate is accepted',),
+            development_cutoff=date(2026, 9, 2),
+            random_seed=98,
+            allowed_datasets=('etf.ohlcv',),
+            capabilities=ExperimentCapabilities(),
+        )
+
+    def execute(self, context):
+        del context
+        candidate = StrategyCandidate(
+            strategy_family_id='S008',
+            candidate_id='synthetic',
+            payload={'runtime': {}, 'parameters': {}},
+        )
+        return ExperimentResult(
+            outcome=ExperimentOutcome.PASS,
+            facts={'candidate': True},
+            diagnostics={},
+            candidate=candidate,
+        )
+""",
+        encoding="utf-8",
+    )
+    binding = {
+        "schema_version": 1,
+        "module": "experiment",
+        "qualname": "Experiment",
+        "source_files": ["experiment.py"],
+        "source_sha256": experiment_source_sha256(root, ("experiment.py",)),
+    }
+    (root / "experiment_binding.json").write_text(
+        json.dumps(binding), encoding="utf-8"
+    )
+    experiment = load_experiment(root)
+    context = create_experiment_context(
+        experiment.definition,
         repository_root=functional_repo,
         dataflows=_flows(),
         workspace=_workspace(functional_repo, "candidate-capability"),
@@ -314,7 +413,7 @@ def test_candidate_result_requires_declared_capability(functional_repo: Path) ->
     )
 
     with pytest.raises(PermissionError, match="creates_candidate"):
-        execute_experiment(_CandidateExperiment(definition), context)
+        execute_experiment(experiment, context)
 
 
 def test_workspace_rejects_escape_and_detects_artifact_change(

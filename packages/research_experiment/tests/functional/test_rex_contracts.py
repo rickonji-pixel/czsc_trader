@@ -18,6 +18,7 @@ from research_experiment import (
     ExperimentResources,
     ExperimentResult,
     ExperimentWorkspace,
+    LoadedExperiment,
     ResearchExperiment,
     experiment_source_sha256,
     load_experiment,
@@ -46,6 +47,11 @@ def test_rex_has_no_tdr_imports() -> None:
     assert ResearchExperiment.__module__.startswith("research_experiment.")
     for source in package_root.glob("*.py"):
         assert "czsc_trader" not in source.read_text(encoding="utf-8")
+
+
+def test_loaded_experiment_cannot_be_constructed_directly() -> None:
+    with pytest.raises(TypeError, match="only be created by load_experiment"):
+        LoadedExperiment()
 
 
 def test_contracts_freeze_payloads_and_validate_resources(tmp_path: Path) -> None:

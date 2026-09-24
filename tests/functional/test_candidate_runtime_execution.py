@@ -361,7 +361,9 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
     from functional_support import ReplayFixture
     from czsc_trader.research_tools import (
         CandidateEvaluationContext,
+        EvaluationCost,
         EvaluationRequest,
+        EvaluationWindow,
         evaluate_strategy,
     )
     from czsc_trader.candidate_evaluation import evaluate_candidate_payloads
@@ -407,7 +409,28 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
     payloads = tuple(payloads)
     screening = evaluate_candidate_payloads(context, protocol, payloads, ("C001", "C000"), "SCREENING")
     formal = evaluate_candidate_payloads(context, protocol, payloads, ("C001", "C000"), "FORMAL")
-    harness = evaluate_strategy(EvaluationRequest(context, protocol, payloads[1]))
+    candidate = StrategyCandidate("S900", "C001", payloads[1]["strategy_payload"], package)
+    harness_request = EvaluationRequest(
+        repository_root=tmp_path,
+        experiment_id="TEST",
+        strategy=candidate,
+        runtime_binding={
+            "candidate_id": candidate.reference_id,
+            "source_files": list(payload["runtime"]["source_files"]),
+            "implementation_sha256": payload["runtime"]["source_sha256"],
+        },
+        symbol="588080.SH",
+        asset_type="etf",
+        windows=(
+            EvaluationWindow("full", sessions[1].date(), sessions[-1].date()),
+        ),
+        development_cutoff=sessions[-1].date(),
+        initial_cash=100_000,
+        costs=(EvaluationCost("standard", .001),),
+        execution_data=execution_data,
+        frequency_window_days=3,
+    )
+    harness = evaluate_strategy(harness_request)
     assert harness.observations == (formal[0],)
     assert len(harness.runs) == 1
     assert harness.runs[0].signals.data_identity
@@ -418,6 +441,21 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
     assert set(harness.runs[0].buyhold.metrics) >= {
         "calmar", "max_drawdown", "return",
     }
+    assert len(harness.request_hash) == len(harness.result_hash) == 64
+    assert harness.strategy_identity == candidate.runtime_identity_sha256
+    assert harness.data_identity == execution_data.fingerprint
+    with pytest.raises(ValueError, match="only FULL execution"):
+        evaluate_strategy(replace(harness_request, execution_mode="ACCELERATED"))
+    with pytest.raises(ValueError, match="binding belongs to another"):
+        evaluate_strategy(
+            replace(
+                harness_request,
+                runtime_binding={
+                    **harness_request.runtime_binding,
+                    "candidate_id": "S900-C999",
+                },
+            )
+        )
     assert tuple(replace(row, measurement_tier="FORMAL") for row in screening) == formal
     assert formal[0].closed_trades == 1
     assert evaluate_candidate_payloads(replace(context, workers=2), protocol, payloads, ("C001", "C000"), "FORMAL") == formal
@@ -459,6 +497,116 @@ def test_candidate_evaluation_and_se_use_identical_txe_ledgers(candidate_payload
         evaluate_candidate_payloads(context, protocol, payloads, ("C001",), "STRESS", ("slippage_15bp",))
     with pytest.raises(ValueError, match="invalid cost"):
         evaluate_candidate_payloads(context, protocol, payloads, ("C001",), "STRESS", ("fee_xnan",))
+
+
+def test_research_evaluate_cli_publishes_complete_hashed_evidence(
+    candidate_payload, functional_repo, monkeypatch, capsys
+):
+    import json
+    import shutil
+
+    from czsc_trader.cli.main import main
+    from functional_support import ReplayFixture, execution_data_from_replay
+
+    payload, source_root = candidate_payload
+    sessions = pd.bdate_range("2026-09-14", periods=6)
+    daily = pd.DataFrame({"dt": sessions, "open": 1.0, "close": 1.0})
+    inputs = pd.DataFrame({"Date": sessions, "Flow": [.1, .8, .8, .1, .0, .0]})
+    _install_candidate_dataflows(monkeypatch, inputs, daily)
+    replay = ReplayFixture(
+        functional_repo / "data" / "backtest",
+        SimpleNamespace(daily=daily, symbol="588080.SH", asset_type="etf"),
+        daily,
+        pd.DataFrame(columns=["dt", "high", "low"]),
+        "f" * 64,
+        sessions[-1].date(),
+    )
+    execution_data = execution_data_from_replay(
+        replay, start=sessions[1], end=sessions[-1]
+    )
+    monkeypatch.setattr(
+        "czsc_trader.application.research_evaluation_service.prepare_backtest_execution_data",
+        lambda **kwargs: execution_data,
+    )
+
+    experiment = functional_repo / "experiments" / "S900" / "EXPLICIT01"
+    runtime_root = experiment / "runtime" / "strategy_runtime"
+    shutil.copytree(source_root, runtime_root)
+    binding = {
+        "candidate_id": "S900-C001",
+        "source_files": list(payload["runtime"]["source_files"]),
+        "implementation_sha256": payload["runtime"]["source_sha256"],
+    }
+    (experiment / "runtime_binding.json").write_text(
+        json.dumps(binding, indent=2) + "\n", encoding="utf-8"
+    )
+    request = {
+        "schema_version": 1,
+        "experiment_id": experiment.name,
+        "strategy": {
+            "strategy_id": "S900",
+            "candidate_id": "C001",
+            "strategy_payload": payload,
+            "runtime_root": "runtime/strategy_runtime",
+            "runtime_binding": "runtime_binding.json",
+        },
+        "market": {
+            "symbol": "588080.SH",
+            "asset_type": "etf",
+            "development_cutoff": sessions[-1].date().isoformat(),
+        },
+        "windows": [
+            {
+                "window_id": "full",
+                "start": sessions[1].date().isoformat(),
+                "end": sessions[-1].date().isoformat(),
+            }
+        ],
+        "capital": {"initial_cash": 100_000},
+        "costs": [
+            {
+                "scenario_id": "standard",
+                "one_way_cost": .001,
+                "measurement_tier": "FORMAL",
+            },
+            {
+                "scenario_id": "pressure_20bp",
+                "one_way_cost": .002,
+                "measurement_tier": "STRESS",
+            },
+        ],
+        "benchmark": {"benchmark_id": "BuyHold", "kind": "BUYHOLD"},
+        "execution": {
+            "mode": "FULL",
+            "workers": 2,
+            "frequency_window_days": 3,
+        },
+    }
+    request_path = experiment / "evaluation_request.json"
+    request_path.write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
+    arguments = [
+        "research", "evaluate", "--input",
+        request_path.relative_to(functional_repo).as_posix(),
+        "--repo-root", str(functional_repo),
+    ]
+
+    assert main(arguments) == 0
+    first = json.loads(capsys.readouterr().out)
+    assert first["status"] == "PASS"
+    assert first["command"] == "research.evaluate"
+    assert first["result"]["run_count"] == 2
+    assert first["result"]["execution_mode"] == "FULL"
+    assert main(arguments) == 0
+    second = json.loads(capsys.readouterr().out)
+    assert second["result"] == first["result"]
+
+    output = experiment / "artifacts" / "evaluation"
+    document = json.loads((output / "evaluation_result.json").read_text(encoding="utf-8"))
+    assert document["request_hash"] == first["result"]["request_hash"]
+    assert document["result_hash"] == first["result"]["result_hash"]
+    assert len(document["files"]) == 20
+    assert (output / "full" / "standard" / "account_daily.csv").is_file()
+    assert (output / "full" / "pressure_20bp" / "buyhold_metrics.json").is_file()
 
 
 def test_review_data_republication_is_offline_isolated_and_fails_closed(candidate_payload, tmp_path, monkeypatch):

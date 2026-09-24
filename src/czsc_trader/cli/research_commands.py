@@ -26,10 +26,10 @@ def run_research_command(args: argparse.Namespace, context: RepositoryContext):
         )
     if args.research_action == "evaluate":
         from czsc_trader.application.research_evaluation_service import (
-            evaluate_research_experiment,
+            evaluate_research_request,
         )
 
-        return evaluate_research_experiment(context, args.experiment_id)
+        return evaluate_research_request(context, args.input)
     raise ValueError(f"unknown research action: {args.research_action}")
 
 
@@ -54,7 +54,7 @@ def add_research_parser(
     create.set_defaults(command_handler=handler, command_name="research.create")
 
     evaluate = actions.add_parser("evaluate")
-    evaluate.add_argument("experiment_id")
+    evaluate.add_argument("--input", type=Path, required=True)
     add_common(evaluate)
     evaluate.set_defaults(command_handler=handler, command_name="research.evaluate")
 

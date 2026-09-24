@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, replace
+from datetime import date
+from hashlib import sha256
 from math import isfinite
 from pathlib import Path
-from typing import Any
+import re
+from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
 from strategy_evaluator import EvaluationProtocol, MetricObservation, MetricStatus
 from strategy_runtime import StrategyCandidate, StrategyRuntime, canonical_sha256
+from strategy_runtime.implementation_identity import implementation_sha256
 from trading_execution_engine import ExecutionResult
 
 from ..backtesting.execution_data import (
@@ -53,14 +57,44 @@ class EvaluationWorkspace:
 
 
 @dataclass(frozen=True)
-class EvaluationRequest:
-    """One researcher-owned strategy evaluation using the shared platform path."""
+class EvaluationWindow:
+    window_id: str
+    start: date
+    end: date
 
-    context: CandidateEvaluationContext
-    protocol: EvaluationProtocol
-    candidate: dict[str, object]
-    tier: str = "FORMAL"
-    scenarios: tuple[str, ...] = ("standard",)
+
+@dataclass(frozen=True)
+class EvaluationCost:
+    scenario_id: str
+    one_way_cost: float
+    measurement_tier: str = "FORMAL"
+
+
+@dataclass(frozen=True)
+class EvaluationBenchmark:
+    benchmark_id: str = "BuyHold"
+    kind: str = "BUYHOLD"
+
+
+@dataclass(frozen=True)
+class EvaluationRequest:
+    """Complete researcher-owned input contract for one executable strategy."""
+
+    repository_root: Path
+    experiment_id: str
+    strategy: StrategyCandidate
+    runtime_binding: Mapping[str, object]
+    symbol: str
+    asset_type: str
+    windows: tuple[EvaluationWindow, ...]
+    development_cutoff: date
+    initial_cash: float
+    costs: tuple[EvaluationCost, ...]
+    execution_data: BacktestExecutionData
+    benchmark: EvaluationBenchmark = EvaluationBenchmark()
+    workers: int = 1
+    frequency_window_days: int = 60
+    execution_mode: str = "FULL"
 
 
 @dataclass(frozen=True)
@@ -81,6 +115,12 @@ class EvaluationResult:
     """Complete, non-governance result returned by the research Harness."""
 
     runs: tuple[EvaluationRun, ...]
+    request_hash: str = ""
+    strategy_identity: str = ""
+    runtime_binding_hash: str = ""
+    data_identity: str = ""
+    result_hash: str = ""
+    execution_mode: str = "FULL"
 
     @property
     def observations(self) -> tuple[MetricObservation, ...]:
@@ -301,6 +341,153 @@ def _observation(context, candidate_id, window, tier, scenario, result, executio
     )
 
 
+def _frame_hash(frame: pd.DataFrame) -> str:
+    payload = frame.to_json(
+        orient="table",
+        date_format="iso",
+        date_unit="ns",
+        double_precision=15,
+        index=False,
+    )
+    return sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _validate_execution_result(
+    result: ExecutionResult,
+    execution_data: BacktestExecutionData,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> None:
+    account = result.account_daily
+    required = {
+        "date", "cash_before", "quantity_before", "cash", "quantity", "close", "equity",
+    }
+    if not required.issubset(account.columns) or account.empty:
+        raise ValueError("TXE account ledger is incomplete")
+    dates = pd.DatetimeIndex(pd.to_datetime(account["date"])).normalize()
+    expected = pd.DatetimeIndex(
+        pd.to_datetime(
+            execution_data.execution_daily.loc[
+                execution_data.execution_daily["dt"].between(start, end), "dt"
+            ]
+        )
+    ).normalize()
+    if dates.has_duplicates or not dates.is_monotonic_increasing or not dates.equals(expected):
+        raise ValueError("TXE account ledger does not cover the evaluation sessions exactly")
+    numeric = account[["cash_before", "quantity_before", "cash", "quantity", "close", "equity"]].astype(float)
+    if not np.isfinite(numeric.to_numpy()).all():
+        raise ValueError("TXE account ledger contains non-finite values")
+    recomputed = numeric["cash"] + numeric["quantity"] * numeric["close"]
+    if not np.allclose(recomputed, numeric["equity"], rtol=0.0, atol=1e-8):
+        raise ValueError("TXE account equity does not reconcile to cash and holdings")
+    if len(account) > 1:
+        if not np.allclose(
+            numeric["cash_before"].iloc[1:], numeric["cash"].iloc[:-1],
+            rtol=0.0, atol=1e-8,
+        ):
+            raise ValueError("TXE cash ledger is not continuous")
+        if not np.array_equal(
+            numeric["quantity_before"].iloc[1:].to_numpy(),
+            numeric["quantity"].iloc[:-1].to_numpy(),
+        ):
+            raise ValueError("TXE holdings ledger is not continuous")
+    orders = result.orders
+    if not orders.empty:
+        if orders["order_id"].duplicated().any():
+            raise ValueError("TXE order ledger contains duplicate identities")
+        signal_dates = pd.to_datetime(orders["signal_date"]).dt.normalize()
+        execution_dates = pd.to_datetime(orders["execution_date"]).dt.normalize()
+        if execution_dates.lt(signal_dates).any():
+            raise ValueError("TXE order precedes its strategy signal")
+    fills = result.fills
+    if not fills.empty:
+        if fills["fill_id"].duplicated().any():
+            raise ValueError("TXE fill ledger contains duplicate identities")
+        if (fills["fees"].astype(float) < 0).any():
+            raise ValueError("TXE fill ledger contains negative fees")
+        if not set(fills["order_id"]).issubset(set(orders["order_id"])):
+            raise ValueError("TXE fills reference unknown orders")
+
+
+def _validate_buyhold(
+    benchmark: BuyHoldReplay,
+    execution_data: BacktestExecutionData,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> None:
+    account = benchmark.account_daily
+    if account.empty or not {"date", "equity"}.issubset(account.columns):
+        raise ValueError("BuyHold account ledger is incomplete")
+    dates = pd.DatetimeIndex(pd.to_datetime(account["date"])).normalize()
+    expected = pd.DatetimeIndex(
+        pd.to_datetime(
+            execution_data.execution_daily.loc[
+                execution_data.execution_daily["dt"].between(start, end), "dt"
+            ]
+        )
+    ).normalize()
+    if not dates.equals(expected):
+        raise ValueError("BuyHold ledger does not use the strategy evaluation sessions")
+    if not np.isfinite(account["equity"].astype(float).to_numpy()).all():
+        raise ValueError("BuyHold ledger contains non-finite equity")
+
+
+def _evaluate_prepared(
+    context,
+    workspace,
+    replays,
+    candidate_ids,
+    costs,
+    *,
+    include_buyhold,
+):
+    tasks = tuple(
+        (key, window, scenario, prepared, fee, measurement_tier)
+        for key in candidate_ids
+        for scenario, (fee, measurement_tier) in costs.items()
+        for window, prepared in replays[key].items()
+    )
+
+    def compute(task):
+        key, window, scenario, prepared, fee, measurement_tier = task
+        signals, execution = execute_candidate_replay(context, workspace, prepared, fee)
+        _validate_execution_result(
+            execution,
+            workspace.execution_data,
+            signals.evaluation_start,
+            signals.evaluation_end,
+        )
+        observation = _observation(
+            context,
+            key,
+            window,
+            measurement_tier,
+            scenario,
+            execution,
+            workspace.execution_data,
+        )
+        buyhold = (
+            replay_buyhold(signals, workspace.execution_data, context.init_cash)
+            if include_buyhold
+            else None
+        )
+        if buyhold is not None:
+            _validate_buyhold(
+                buyhold,
+                workspace.execution_data,
+                signals.evaluation_start,
+                signals.evaluation_end,
+            )
+        return EvaluationRun(
+            key, window, scenario, signals, execution, observation, buyhold
+        )
+
+    if context.workers == 1 or len(tasks) < 2:
+        return tuple(map(compute, tasks))
+    with ThreadPoolExecutor(max_workers=min(context.workers, len(tasks))) as executor:
+        return tuple(executor.map(compute, tasks))
+
+
 def _evaluate_runs(
     context,
     protocol,
@@ -324,52 +511,293 @@ def _evaluate_runs(
         fee, slippage = _scenario_settings(scenario, context.fee_rate)
         if slippage or scenario.startswith("slippage_"):
             raise ValueError("TXE evaluation does not support price-slippage scenarios; declare an explicit total-cost scenario")
-        costs[scenario] = fee
+        costs[scenario] = (fee, tier)
     workspace, replays = prepare_candidate_replays(context, protocol, candidates, candidate_ids)
-    tasks = tuple(
-        (key, window, scenario, prepared, fee)
-        for key in candidate_ids
-        for scenario, fee in costs.items()
-        for window, prepared in replays[key].items()
+    runs = _evaluate_prepared(
+        context,
+        workspace,
+        replays,
+        candidate_ids,
+        costs,
+        include_buyhold=include_buyhold,
     )
-    def compute(task):
-        key, window, scenario, prepared, fee = task
-        signals, execution = execute_candidate_replay(context, workspace, prepared, fee)
-        observation = _observation(
-            context, key, window, tier, scenario, execution, workspace.execution_data
-        )
-        buyhold = (
-            replay_buyhold(signals, workspace.execution_data, context.init_cash)
-            if include_buyhold
-            else None
-        )
-        return EvaluationRun(
-            key, window, scenario, signals, execution, observation, buyhold
-        )
-    if context.workers == 1 or len(tasks) < 2:
-        runs = tuple(map(compute, tasks))
-    else:
-        with ThreadPoolExecutor(max_workers=min(context.workers, len(tasks))) as executor:
-            runs = tuple(executor.map(compute, tasks))
     return EvaluationResult(runs)
+
+
+def _request_contract(request: EvaluationRequest) -> tuple[dict[str, object], str]:
+    if not isinstance(request, EvaluationRequest):
+        raise TypeError("research evaluation requires an EvaluationRequest")
+    root = Path(request.repository_root).resolve()
+    if not root.is_dir():
+        raise ValueError("evaluation repository root is unavailable")
+    if not request.experiment_id or Path(request.experiment_id).name != request.experiment_id:
+        raise ValueError("evaluation experiment_id must be one path component")
+    candidate = request.strategy
+    if not isinstance(candidate, StrategyCandidate) or candidate.source_root is None:
+        raise ValueError("evaluation requires a sourced StrategyCandidate")
+    try:
+        candidate.source_root.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("strategy runtime root must stay inside the repository") from exc
+    binding = request.runtime_binding
+    required_binding = {"candidate_id", "source_files", "implementation_sha256"}
+    if not isinstance(binding, Mapping) or not required_binding.issubset(binding):
+        raise ValueError("runtime binding is incomplete")
+    if binding["candidate_id"] != candidate.reference_id:
+        raise ValueError("runtime binding belongs to another strategy candidate")
+    source_files = binding["source_files"]
+    if (
+        not isinstance(source_files, list | tuple)
+        or not source_files
+        or any(not isinstance(item, str) or not item for item in source_files)
+        or len(source_files) != len(set(source_files))
+    ):
+        raise ValueError("runtime binding source_files are invalid")
+    descriptor = candidate.payload.get("runtime")
+    if not isinstance(descriptor, Mapping):
+        raise ValueError("strategy payload has no runtime descriptor")
+    if tuple(descriptor.get("source_files", ())) != tuple(source_files):
+        raise ValueError("strategy payload and runtime binding source files differ")
+    actual_source_hash = implementation_sha256(
+        tuple(source_files), source_root=candidate.source_root
+    )
+    if (
+        binding["implementation_sha256"] != actual_source_hash
+        or descriptor.get("source_sha256") != actual_source_hash
+    ):
+        raise ValueError("strategy source closure differs from the runtime binding")
+    binding_hash = canonical_sha256(binding)
+    StrategyRuntime().describe(candidate)
+
+    symbol = request.symbol.upper()
+    asset_type = request.asset_type.lower()
+    if request.symbol != symbol or asset_type not in {"stock", "etf"}:
+        raise ValueError("evaluation symbol or asset_type is not normalized")
+    data = request.execution_data
+    if not isinstance(data, BacktestExecutionData):
+        raise ValueError("evaluation requires prepared BacktestExecutionData")
+    if (data.symbol, data.asset_type, data.cutoff) != (
+        symbol,
+        asset_type,
+        request.development_cutoff,
+    ):
+        raise ValueError("execution data identity differs from the evaluation contract")
+    if re.fullmatch(r"[0-9a-f]{64}", data.fingerprint) is None:
+        raise ValueError("execution data fingerprint must be lowercase SHA-256")
+    adjusted_sessions = pd.DatetimeIndex(
+        pd.to_datetime(data.adjusted_daily["dt"])
+    ).normalize()
+    execution_sessions = pd.DatetimeIndex(
+        pd.to_datetime(data.execution_daily["dt"])
+    ).normalize()
+    if (
+        adjusted_sessions.empty
+        or adjusted_sessions.has_duplicates
+        or not adjusted_sessions.is_monotonic_increasing
+        or not adjusted_sessions.equals(execution_sessions)
+    ):
+        raise ValueError("adjusted and execution market calendars differ")
+    requested_sessions = pd.DatetimeIndex(data.evaluation_sessions).normalize()
+    if (
+        requested_sessions.empty
+        or requested_sessions.has_duplicates
+        or not requested_sessions.is_monotonic_increasing
+        or requested_sessions[-1].date() != request.development_cutoff
+        or not requested_sessions.isin(execution_sessions).all()
+    ):
+        raise ValueError("execution evaluation sessions are incomplete")
+    if not np.isfinite(float(request.initial_cash)) or request.initial_cash <= 0:
+        raise ValueError("evaluation initial_cash must be positive and finite")
+    if request.execution_mode != "FULL":
+        raise ValueError("only FULL execution is allowed until equivalence is validated")
+    if type(request.workers) is not int or request.workers < 1:
+        raise ValueError("evaluation workers must be a positive integer")
+    if type(request.frequency_window_days) is not int or request.frequency_window_days < 1:
+        raise ValueError("frequency_window_days must be a positive integer")
+    if request.benchmark != EvaluationBenchmark():
+        raise ValueError("the initial Harness supports only the BuyHold benchmark")
+
+    if not request.windows:
+        raise ValueError("evaluation windows must not be empty")
+    window_ids = [item.window_id for item in request.windows]
+    if (
+        any(not name or Path(name).name != name or "/" in name or "\\" in name for name in window_ids)
+        or len(window_ids) != len(set(window_ids))
+    ):
+        raise ValueError("evaluation window identities must be nonblank and unique")
+    sessions = pd.DatetimeIndex(pd.to_datetime(data.execution_daily["dt"])).normalize()
+    windows: list[dict[str, str]] = []
+    for item in request.windows:
+        start, end = pd.Timestamp(item.start), pd.Timestamp(item.end)
+        if start > end or start not in sessions or end not in sessions:
+            raise ValueError(f"evaluation window is not bounded by trading sessions: {item.window_id}")
+        if end.date() > request.development_cutoff or not (sessions < start).any():
+            raise ValueError(f"evaluation window violates cutoff or warmup: {item.window_id}")
+        windows.append(
+            {
+                "window_id": item.window_id,
+                "start": item.start.isoformat(),
+                "end": item.end.isoformat(),
+            }
+        )
+
+    if not request.costs:
+        raise ValueError("evaluation costs must not be empty")
+    scenario_ids = [item.scenario_id for item in request.costs]
+    if (
+        "standard" not in scenario_ids
+        or any(
+            not name or Path(name).name != name or "/" in name or "\\" in name
+            for name in scenario_ids
+        )
+        or len(scenario_ids) != len(set(scenario_ids))
+    ):
+        raise ValueError("evaluation costs require one unique standard scenario")
+    costs: list[dict[str, object]] = []
+    standard_cost = next(
+        item.one_way_cost for item in request.costs if item.scenario_id == "standard"
+    )
+    for item in request.costs:
+        if not item.scenario_id or not isfinite(item.one_way_cost) or not 0 <= item.one_way_cost < 1:
+            raise ValueError(f"invalid evaluation cost: {item.scenario_id}")
+        if item.measurement_tier not in {"SCREENING", "FORMAL", "STRESS"}:
+            raise ValueError(f"invalid measurement tier: {item.scenario_id}")
+        if item.scenario_id == "standard" and item.measurement_tier == "STRESS":
+            raise ValueError("standard cost cannot use the STRESS measurement tier")
+        if item.scenario_id != "standard" and (
+            item.measurement_tier != "STRESS" or item.one_way_cost <= standard_cost
+        ):
+            raise ValueError("pressure costs must exceed standard cost and use STRESS tier")
+        costs.append(
+            {
+                "scenario_id": item.scenario_id,
+                "one_way_cost": item.one_way_cost,
+                "measurement_tier": item.measurement_tier,
+            }
+        )
+
+    contract = {
+        "schema_version": 1,
+        "experiment_id": request.experiment_id,
+        "strategy_reference": candidate.reference_id,
+        "strategy_identity": candidate.runtime_identity_sha256,
+        "runtime_binding_hash": binding_hash,
+        "symbol": symbol,
+        "asset_type": asset_type,
+        "windows": windows,
+        "development_cutoff": request.development_cutoff.isoformat(),
+        "initial_cash": request.initial_cash,
+        "costs": costs,
+        "data_identity": data.fingerprint,
+        "benchmark": {
+            "benchmark_id": request.benchmark.benchmark_id,
+            "kind": request.benchmark.kind,
+        },
+        "frequency_window_days": request.frequency_window_days,
+        "execution_mode": request.execution_mode,
+        "metric_semantics_version": METRIC_SEMANTICS_VERSION,
+    }
+    return contract, binding_hash
+
+
+def _evaluation_result_hash(request_hash: str, runs: tuple[EvaluationRun, ...]) -> str:
+    evidence = []
+    for run in runs:
+        benchmark = run.buyhold
+        evidence.append(
+            {
+                "candidate_id": run.candidate_id,
+                "window_id": run.window_id,
+                "scenario_id": run.scenario_id,
+                "signal_data_identity": run.signals.data_identity,
+                "signals": _frame_hash(run.signals.decisions),
+                "decisions": _frame_hash(run.execution.decisions),
+                "orders": _frame_hash(run.execution.orders),
+                "fills": _frame_hash(run.execution.fills),
+                "account_daily": _frame_hash(run.execution.account_daily),
+                "trades": _frame_hash(run.execution.trades),
+                "observation": run.observation.to_dict(),
+                "buyhold_account_daily": None
+                if benchmark is None
+                else _frame_hash(benchmark.account_daily),
+                "buyhold_orders": None
+                if benchmark is None
+                else _frame_hash(benchmark.orders),
+                "buyhold_metrics": None if benchmark is None else benchmark.metrics,
+            }
+        )
+    return canonical_sha256({"request_hash": request_hash, "runs": evidence})
 
 
 def evaluate_strategy(request: EvaluationRequest) -> EvaluationResult:
     """Evaluate one strategy without candidate admission, ranking or governance writes."""
 
-    if not isinstance(request, EvaluationRequest):
-        raise TypeError("research evaluation requires an EvaluationRequest")
-    candidate_id = str(request.candidate.get("candidate_id", "")).strip()
-    if not candidate_id:
-        raise ValueError("research evaluation candidate_id must be nonblank")
-    return _evaluate_runs(
-        request.context,
-        request.protocol,
-        (request.candidate,),
-        (candidate_id,),
-        request.tier,
-        request.scenarios,
+    contract, binding_hash = _request_contract(request)
+    request_hash = canonical_sha256(contract)
+    periods = tuple(
+        (
+            item.window_id,
+            (pd.Timestamp(item.start), pd.Timestamp(item.end)),
+        )
+        for item in request.windows
+    )
+    context = CandidateEvaluationContext(
+        repository=type(
+            "EvaluationRepository",
+            (),
+            {"root": Path(request.repository_root).resolve()},
+        )(),
+        symbol=request.symbol,
+        asset_type=request.asset_type,
+        periods=periods,
+        fee_rate=next(
+            item.one_way_cost for item in request.costs if item.scenario_id == "standard"
+        ),
+        init_cash=request.initial_cash,
+        workers=request.workers,
+        frequency_window_days=request.frequency_window_days,
+        family_id=request.strategy.strategy_family_id,
+    )
+    snapshot = StrategySnapshot(
+        StrategyIdentity("CANDIDATE", request.strategy.reference_id, "research_evaluation"),
+        request.strategy.runtime_identity_sha256,
+        canonical_sha256(request.strategy.payload),
+        dict(request.strategy.payload),
+        runtime_root=request.strategy.source_root,
+    )
+    workspace = EvaluationWorkspace(request.execution_data, dict(periods))
+    replays = {
+        request.strategy.candidate_id: {
+            name: build_srt_signal_replay(
+                snapshot=snapshot,
+                execution_data=request.execution_data,
+                start=start,
+                end=end,
+                repository_root=Path(request.repository_root).resolve(),
+            )
+            for name, (start, end) in periods
+        }
+    }
+    runs = _evaluate_prepared(
+        context,
+        workspace,
+        replays,
+        (request.strategy.candidate_id,),
+        {
+            item.scenario_id: (item.one_way_cost, item.measurement_tier)
+            for item in request.costs
+        },
         include_buyhold=True,
+    )
+    result_hash = _evaluation_result_hash(request_hash, runs)
+    return EvaluationResult(
+        runs=runs,
+        request_hash=request_hash,
+        strategy_identity=request.strategy.runtime_identity_sha256,
+        runtime_binding_hash=binding_hash,
+        data_identity=request.execution_data.fingerprint,
+        result_hash=result_hash,
+        execution_mode=request.execution_mode,
     )
 
 

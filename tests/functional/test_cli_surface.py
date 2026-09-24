@@ -136,7 +136,12 @@ def test_ft_t08_candidate_and_srt_commands_parse() -> None:
             "--mandate",
             "evaluation-mandate.json",
         ],
-        ["research", "evaluate", "20260923_S008_EX66"],
+        [
+            "research",
+            "evaluate",
+            "--input",
+            "experiments/S008/20260924_S008_EX67/evaluation_request.json",
+        ],
         [
             "candidate",
             "freeze",
@@ -156,6 +161,27 @@ def test_ft_t08_candidate_and_srt_commands_parse() -> None:
         "candidate.freeze",
         "strategy.info",
     ]
+
+
+def test_research_evaluate_reports_contract_errors_as_validation_failures(
+    functional_repo: Path, capsys
+) -> None:
+    exit_code = main(
+        [
+            "research",
+            "evaluate",
+            "--input",
+            "experiments/S008/EX67/evaluation_request.json",
+            "--repo-root",
+            str(functional_repo),
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 3
+    assert payload["status"] == "FAIL"
+    assert payload["command"] == "research.evaluate"
+    assert payload["error"]["code"] == "research_evaluation_failed"
 
 
 def test_ft_t08_catalog_cli_validates_lists_and_shows(capsys) -> None:

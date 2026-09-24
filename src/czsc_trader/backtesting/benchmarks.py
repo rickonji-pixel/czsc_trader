@@ -7,6 +7,7 @@ import pandas as pd
 from czsc_trader.moving_average import moving_average_signals
 from czsc_trader.research_backtest import run_backtest as run_next_open_backtest
 from czsc_trader.strategy_metrics import closed_trade_ledger, strategy_comparison_metrics
+from trading_execution_engine import execute_target_positions
 
 from .execution_data import BacktestExecutionData
 from .signal_replay import SignalReplay
@@ -105,15 +106,31 @@ def replay_buyhold(
     prior_date = pd.Timestamp(prior_dates[-1])
 
     target = pd.Series(1.0, index=evaluation_index, name="target_position")
-    result = run_next_open_backtest(
+    result = execute_target_positions(
         evaluation,
         target,
         fee_rate=fee_rate,
-        init_cash=initial_cash,
-        initial_target=1.0,
-        initial_signal_date=prior_date,
+        initial_cash=initial_cash,
     )
-    metrics = strategy_comparison_metrics(result.equity, result.orders, initial_cash)
+    orders = result.orders.copy()
+    if not orders.empty:
+        orders = orders.rename(columns={"quantity": "size"})
+        previous_sessions = pd.Series(
+            [prior_date, *evaluation_index[:-1]], index=evaluation_index
+        )
+        orders.insert(
+            0,
+            "signal_date",
+            pd.to_datetime(orders["execution_date"]).map(previous_sessions),
+        )
+        orders = orders[
+            ["signal_date", "execution_date", "side", "size", "price", "fees"]
+        ].reset_index(drop=True)
+    else:
+        orders = pd.DataFrame(
+            columns=["signal_date", "execution_date", "side", "size", "price", "fees"]
+        )
+    metrics = strategy_comparison_metrics(result.equity, orders, initial_cash)
     metrics["closed_trades"] = 0
     return BuyHoldReplay(
         metrics=metrics,
@@ -124,7 +141,7 @@ def replay_buyhold(
             prior_date,
             result.equity,
         ),
-        orders=result.orders,
+        orders=orders,
     )
 
 

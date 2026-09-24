@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "module": "experiment",
+  "qualname": "Experiment",
+  "source_files": [
+    "experiment.py"
+  ],
+  "source_sha256": "45eb55d43a473cb40004783a95f831c57e96c20643751a0e61a31ccd2dd94789"
+}

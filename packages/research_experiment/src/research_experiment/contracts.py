@@ -548,22 +548,18 @@ class ExperimentResult:
         object.__setattr__(self, "diagnostics", diagnostics)
         object.__setattr__(self, "artifacts", artifacts)
 
+    def to_dict(self) -> dict[str, object]:
+        """Return the complete JSON-safe payload bound by the execution receipt."""
 
-def experiment_result_sha256(result: ExperimentResult) -> str:
-    """Return the stable identity of experiment output before platform receipt."""
-
-    if not isinstance(result, ExperimentResult):
-        raise TypeError("result must be an ExperimentResult")
-    candidate = result.candidate
-    return _canonical_sha256(
-        {
-            "outcome": result.outcome.value,
-            "facts": result.facts,
-            "diagnostics": result.diagnostics,
-            "artifacts": tuple(
+        candidate = self.candidate
+        return {
+            "outcome": self.outcome.value,
+            "facts": _thaw_json(self.facts),
+            "diagnostics": _thaw_json(self.diagnostics),
+            "artifacts": [
                 {"path": item.path, "kind": item.kind, "sha256": item.sha256}
-                for item in result.artifacts
-            ),
+                for item in self.artifacts
+            ],
             "candidate": None
             if candidate is None
             else {
@@ -571,7 +567,14 @@ def experiment_result_sha256(result: ExperimentResult) -> str:
                 "runtime_identity_sha256": candidate.runtime_identity_sha256,
             },
         }
-    )
+
+
+def experiment_result_sha256(result: ExperimentResult) -> str:
+    """Return the stable identity of experiment output before platform receipt."""
+
+    if not isinstance(result, ExperimentResult):
+        raise TypeError("result must be an ExperimentResult")
+    return _canonical_sha256(result.to_dict())
 
 
 @dataclass(frozen=True, slots=True, init=False)

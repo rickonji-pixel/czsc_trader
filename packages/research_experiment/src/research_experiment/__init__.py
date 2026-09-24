@@ -29,6 +29,7 @@ from .loader import (
     experiment_source_sha256,
     load_experiment,
 )
+from .evidence import load_experiment_input
 
 __version__ = "0.1.0"
 
@@ -58,4 +59,5 @@ __all__ = [
     "experiment_result_sha256",
     "experiment_source_sha256",
     "load_experiment",
+    "load_experiment_input",
 ]

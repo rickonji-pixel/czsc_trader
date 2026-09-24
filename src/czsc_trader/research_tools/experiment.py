@@ -487,8 +487,23 @@ def execute_experiment(
         trace=context.trace,
     )
     receipt_path = context.workspace.path("execution_receipt.json")
-    if receipt_path.exists():
-        raise FileExistsError("platform execution receipt already exists")
+    envelope_path = context.workspace.path("execution_envelope.json")
+    if receipt_path.exists() or envelope_path.exists():
+        raise FileExistsError("platform execution evidence already exists")
+    envelope_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "receipt": receipt.to_dict(),
+                "receipt_sha256": receipt.sha256,
+                "result": result.to_dict(),
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
     receipt_path.write_text(
         json.dumps(
             {**receipt.to_dict(), "receipt_sha256": receipt.sha256},

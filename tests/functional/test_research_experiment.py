@@ -27,6 +27,7 @@ from research_experiment import (
     ResearchExperiment,
     experiment_source_sha256,
     load_experiment,
+    load_experiment_input,
 )
 from czsc_trader.research_tools import (
     EvaluationCost,
@@ -120,23 +121,28 @@ def _candidate() -> StrategyCandidate:
     )
 
 
-def test_s008_fixture_loads_and_executes_through_public_context(
-    functional_repo: Path,
-) -> None:
+def _execute_fixture(functional_repo: Path, workspace_name: str):
     experiment = load_experiment(FIXTURE_ROOT)
     context = create_experiment_context(
         experiment.definition,
         repository_root=functional_repo,
         dataflows=_flows(),
-        workspace=_workspace(functional_repo, "experiment-fixture"),
+        workspace=_workspace(functional_repo, workspace_name),
         resources=ExperimentResources(
             max_workers=4,
             max_evaluations=8,
             random_seed=experiment.definition.random_seed,
         ),
     )
+    return experiment, context, execute_experiment(experiment, context)
 
-    result = execute_experiment(experiment, context)
+
+def test_s008_fixture_loads_and_executes_through_public_context(
+    functional_repo: Path,
+) -> None:
+    experiment, context, result = _execute_fixture(
+        functional_repo, "experiment-fixture"
+    )
 
     assert result.outcome is ExperimentOutcome.PASS
     assert result.facts == {"rows": 2, "mean_close": 10.25, "max_workers": 4}
@@ -155,8 +161,56 @@ def test_s008_fixture_loads_and_executes_through_public_context(
         context.workspace.path("execution_receipt.json").read_text(encoding="utf-8")
     )
     assert receipt_payload["receipt_sha256"] == result.receipt.sha256
+    restored = load_experiment_input(
+        context.workspace.root,
+        expected_receipt_sha256=result.receipt.sha256,
+    )
+    assert restored.experiment_id == experiment.definition.experiment_id
+    assert restored.receipt_sha256 == result.receipt.sha256
+    assert restored.outcome is result.outcome
+    assert restored.facts == result.facts
+    assert restored.artifacts == result.artifacts
     with pytest.raises(TypeError):
         result.receipt.artifact_sha256["changed"] = "0" * 64
+
+
+def test_execution_envelope_rejects_result_and_artifact_tampering(
+    functional_repo: Path,
+) -> None:
+    _, context, result = _execute_fixture(functional_repo, "tampered-envelope")
+    envelope_path = context.workspace.path("execution_envelope.json")
+    original = envelope_path.read_text(encoding="utf-8")
+    envelope = json.loads(original)
+    envelope["result"]["facts"]["rows"] = 99
+    envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="result hash differs"):
+        load_experiment_input(
+            context.workspace.root,
+            expected_receipt_sha256=result.receipt.sha256,
+        )
+
+    envelope_path.write_text(original, encoding="utf-8")
+    context.workspace.path(result.artifacts[0].path).write_text(
+        '{"tampered":true}', encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="artifact hash differs"):
+        load_experiment_input(
+            context.workspace.root,
+            expected_receipt_sha256=result.receipt.sha256,
+        )
+
+
+def test_execution_envelope_requires_expected_receipt_identity(
+    functional_repo: Path,
+) -> None:
+    _, context, _ = _execute_fixture(functional_repo, "unexpected-receipt")
+
+    with pytest.raises(ValueError, match="differs from expected identity"):
+        load_experiment_input(
+            context.workspace.root,
+            expected_receipt_sha256="0" * 64,
+        )
 
 
 def test_loader_rejects_source_tampering(functional_repo: Path) -> None:
